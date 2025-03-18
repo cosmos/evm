@@ -55,6 +55,9 @@ type Keeper struct {
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
 
+	// EVM Hooks for tx post-processing
+	hooks EvmHooks
+
 	// Legacy subspace
 	ss paramstypes.Subspace
 
@@ -165,6 +168,30 @@ func (k Keeper) SetTxIndexTransient(ctx sdk.Context, index uint64) {
 func (k Keeper) GetTxIndexTransient(ctx sdk.Context) uint64 {
 	store := ctx.TransientStore(k.transientKey)
 	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientTxIndex))
+}
+
+// ----------------------------------------------------------------------------
+// Hooks
+// ----------------------------------------------------------------------------
+
+// SetHooks sets the hooks for the EVM module
+// Called only once during initialization, panics if called more than once.
+func (k *Keeper) SetHooks(eh EvmHooks) *Keeper {
+	if k.hooks != nil {
+		panic("cannot set evm hooks twice")
+	}
+
+	k.hooks = eh
+	return k
+}
+
+// PostTxProcessing delegates the call to the hooks.
+// If no hook has been registered, this function returns with a `nil` error
+func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+	if k.hooks == nil {
+		return nil
+	}
+	return k.hooks.PostTxProcessing(ctx, sender, msg, receipt)
 }
 
 // ----------------------------------------------------------------------------
