@@ -68,12 +68,12 @@ echo "$USER4_MNEMONIC" | evmd keys add "$USER4_KEY" --recover --keyring-backend 
 # Set moniker and chain-id for Cosmos EVM (Moniker can be anything, chain-id must be an integer)
 evmd init "$MONIKER" --chain-id "$CHAINID" --home "$CHAINDIR"
 
-# Change parameter token denominations to aatom
-jq '.app_state["staking"]["params"]["bond_denom"]="aatom"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="aatom"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="aatom"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["evm"]["params"]["evm_denom"]="aatom"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["mint"]["params"]["mint_denom"]="aatom"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+# Change parameter token denominations to utest
+jq '.app_state["staking"]["params"]["bond_denom"]="utest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="utest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="utest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq '.app_state["evm"]["params"]["evm_denom"]="utest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq '.app_state["mint"]["params"]["mint_denom"]="utest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
 # Enable precompiles in EVM params
 jq '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
@@ -93,11 +93,11 @@ jq '.app_state["feemarket"]["params"]["base_fee"]="'${BASEFEE}'"' "$GENESIS" >"$
 sed -i.bak 's/create_empty_blocks = true/create_empty_blocks = false/g' "$CONFIG_TOML"
 
 # Allocate genesis accounts (cosmos formatted addresses)
-evmd genesis add-genesis-account "$(evmd keys show "$VAL_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 100000000000000000000000000aatom --keyring-backend "$KEYRING" --home "$CHAINDIR"
-evmd genesis add-genesis-account "$(evmd keys show "$USER1_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000aatom --keyring-backend "$KEYRING" --home "$CHAINDIR"
-evmd genesis add-genesis-account "$(evmd keys show "$USER2_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000aatom --keyring-backend "$KEYRING" --home "$CHAINDIR"
-evmd genesis add-genesis-account "$(evmd keys show "$USER3_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000aatom --keyring-backend "$KEYRING" --home "$CHAINDIR"
-evmd genesis add-genesis-account "$(evmd keys show "$USER4_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000aatom --keyring-backend "$KEYRING" --home "$CHAINDIR"
+evmd genesis add-genesis-account "$(evmd keys show "$VAL_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 100000000000000000000000000utest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+evmd genesis add-genesis-account "$(evmd keys show "$USER1_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+evmd genesis add-genesis-account "$(evmd keys show "$USER2_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+evmd genesis add-genesis-account "$(evmd keys show "$USER3_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+evmd genesis add-genesis-account "$(evmd keys show "$USER4_KEY" -a --keyring-backend "$KEYRING" --home "$CHAINDIR")" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
 # set custom pruning settings
 if [ "$PRUNING" = "custom" ]; then
@@ -114,7 +114,7 @@ sed -i.bak 's/127.0.0.1/0.0.0.0/g' "$APP_TOML"
 sed -i.bak 's/timeout_commit = "3s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
 
 # Sign genesis transaction
-evmd genesis gentx "$VAL_KEY" 1000000000000000000000aatom --gas-prices ${BASEFEE}aatom --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
+evmd genesis gentx "$VAL_KEY" 1000000000000000000000utest --gas-prices ${BASEFEE}utest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
 ## In case you want to create multiple validators at genesis
 ## 1. Back to `evmd keys add` step, init more keys
 ## 2. Back to `evmd add-genesis-account` step, add balance for those
@@ -137,7 +137,7 @@ evmd genesis validate-genesis --home "$CHAINDIR"
 # Start the node
 evmd start "$TRACE" \
 	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0.0001aatom \
+	--minimum-gas-prices=0.0001utest \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID" \
 	--home "$CHAINDIR"
