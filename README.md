@@ -3,6 +3,11 @@ src="repo_header.png"
 alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and customizability to your chain"
 />
 
+**Please note**: this repo is undergoing changes in preparation for a new audit. After this audit we will cut the first
+v1 release, targeting late Q2. Some breaking changes might occur. While the Cosmos EVM is currently being used in
+production on various chains without fault, Interchain Labs will only mark this repository as production ready after
+the audit is completed.
+
 ## What is Cosmos EVM?
 
 Cosmos EVM is a plug-and-play solution that adds EVM compatibility
@@ -20,8 +25,6 @@ Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Inte
 - Smooth onboarding experience for an existing or new Cosmos chain
 - Full access to product partnerships (block explorers, RPCs, indexers etc.)
 - Continuous upgrades, access to product and engineering support
-
-Cosmos EVM is production ready, and suitable for usage in mission-critical environments such as application-specific EVMs.
 
 **Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Interchain Labs team](https://share-eu1.hsforms.com/2g6yO-PVaRoKj50rUgG4Pjg2e2sca).**
 
