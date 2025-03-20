@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
-// EVMConfigurator allows to extend x/evm module configurations. The configurator modifies
+// EVMConfigurator allows to extend x/vm module configurations. The configurator modifies
 // the EVM before starting the node. This means that all init genesis validations will be
 // applied to each change.
 type EVMConfigurator struct {
@@ -34,7 +34,7 @@ func (ec *EVMConfigurator) WithExtendedEips(extendedEIPs map[string]func(*vm.Jum
 	return ec
 }
 
-// WithExtendedDefaultExtraEIPs update the x/evm DefaultExtraEIPs params
+// WithExtendedDefaultExtraEIPs update the x/vm DefaultExtraEIPs params
 // by adding provided EIP numbers.
 func (ec *EVMConfigurator) WithExtendedDefaultExtraEIPs(eips ...string) *EVMConfigurator {
 	ec.extendedDefaultExtraEIPs = eips

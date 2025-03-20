@@ -3,8 +3,6 @@ package types_test
 import (
 	"testing"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
-
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/stretchr/testify/suite"
@@ -22,7 +20,7 @@ func TestGenesisTestSuite(t *testing.T) {
 }
 
 func (suite *GenesisTestSuite) TestValidateGenesis() {
-	newGen := types.NewGenesisState(types.DefaultParams(), exampleapp.ExampleTokenPairs)
+	newGen := types.NewGenesisState(types.DefaultParams(), testconstants.ExampleTokenPairs)
 
 	testCases := []struct {
 		name     string
@@ -43,7 +41,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 			name: "valid genesis",
 			genState: &types.GenesisState{
 				Params:     types.DefaultParams(),
-				TokenPairs: exampleapp.ExampleTokenPairs,
+				TokenPairs: testconstants.ExampleTokenPairs,
 			},
 			expPass: true,
 		},

@@ -3,6 +3,7 @@ package constants
 import (
 	"fmt"
 
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -56,6 +57,17 @@ var (
 			Denom:        ExampleMicroDenom,
 			DisplayDenom: ExampleDisplayDenom,
 			Decimals:     evmtypes.SixDecimals,
+		},
+	}
+
+	// ExampleTokenPairs creates a slice of token pairs, that contains a pair for the native denom of the example chain
+	// implementation.
+	ExampleTokenPairs = []erc20types.TokenPair{
+		{
+			Erc20Address:  WEVMOSContractMainnet,
+			Denom:         ExampleAttoDenom,
+			Enabled:       true,
+			ContractOwner: erc20types.OWNER_MODULE,
 		},
 	}
 )

@@ -1,5 +1,5 @@
 //
-// The config package provides a convenient way to modify x/evm params and values.
+// The config package provides a convenient way to modify x/vm params and values.
 // Its primary purpose is to be used during application initialization.
 
 //go:build test

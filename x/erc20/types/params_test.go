@@ -161,7 +161,12 @@ func (suite *ParamsTestSuite) TestIsNativePrecompile() {
 	}{
 		{
 			"default",
-			func() types.Params { return exampleapp.NewErc20GenesisState().Params },
+			func() types.Params {
+				params := types.DefaultParams()
+				params.NativePrecompiles = append(types.DefaultNativePrecompiles,
+					testconstants.WEVMOSContractMainnet)
+				return exampleapp.NewErc20GenesisState().Params
+			},
 			common.HexToAddress(testconstants.WEVMOSContractMainnet),
 			true,
 		},

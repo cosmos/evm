@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
 	"github.com/cosmos/evm/testutil/constants"
 
 	"cosmossdk.io/math"
@@ -72,7 +71,7 @@ func (suite *EIP712TestSuite) SetupTest() {
 	suite.clientCtx = client.Context{}.WithTxConfig(suite.config.TxConfig)
 	suite.denom = evmtypes.GetEVMCoinDenom()
 
-	sdk.GetConfig().SetBech32PrefixForAccount(chainconfig.Bech32Prefix, "")
+	sdk.GetConfig().SetBech32PrefixForAccount(constants.ExampleBech32Prefix, "")
 }
 
 // createTestAddress creates random test addresses for messages

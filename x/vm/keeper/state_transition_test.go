@@ -14,16 +14,15 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	"github.com/cosmos/evm/testutil/integration/os/utils"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -534,7 +533,8 @@ func (suite *KeeperTestSuite) TestResetGasMeterAndConsumeGas() {
 func (suite *KeeperTestSuite) TestEVMConfig() {
 	suite.SetupTest()
 
-	defaultChainEVMParams := exampleapp.NewEVMGenesisState().Params
+	defaultChainEVMParams := types.DefaultParams()
+	defaultChainEVMParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
 
 	proposerAddress := suite.network.GetContext().BlockHeader().ProposerAddress
 	cfg, err := suite.network.App.EVMKeeper.EVMConfig(

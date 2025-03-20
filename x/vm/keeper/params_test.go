@@ -1,12 +1,11 @@
 package keeper_test
 
 import (
-	exampleapp "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/x/vm/types"
 )
 
 func (suite *KeeperTestSuite) TestParams() {
-	defaultChainEVMParams := exampleapp.NewEVMGenesisState().Params
+	defaultChainEVMParams := types.DefaultParams()
 	defaultChainEVMParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
 
 	testCases := []struct {

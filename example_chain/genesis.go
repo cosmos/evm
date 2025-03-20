@@ -2,6 +2,7 @@ package example_chain
 
 import (
 	"encoding/json"
+	"github.com/cosmos/evm/testutil/constants"
 
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -34,8 +35,9 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, WEVMOSContractMainnet)
+	erc20GenState.TokenPairs = constants.ExampleTokenPairs
+	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles,
+		constants.WEVMOSContractMainnet)
 
 	return erc20GenState
 }
