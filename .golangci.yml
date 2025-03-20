@@ -2,7 +2,7 @@ run:
   tests: true
   timeout: 5m
   concurrency: 4
-  go: '1.22'
+  go: '1.23'
 
 issues:
   exclude-dirs:
