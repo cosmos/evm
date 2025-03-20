@@ -1,5 +1,10 @@
 name: "Dependency Review"
-on: pull_request
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    # run every day at 3:00 UTC
+    - cron: "0 3 * * *"
 
 permissions: read-all
 
