@@ -18,12 +18,12 @@ require (
 	github.com/cometbft/cometbft v0.38.15
 	github.com/cosmos/cosmos-db v1.1.1
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
-	github.com/cosmos/cosmos-sdk v0.50.11
-	github.com/cosmos/evm/example_chain v0.0.0-20240924163020-b2a4187dad50
+	github.com/cosmos/cosmos-sdk v0.50.13
+	github.com/cosmos/evm/example_chain v0.0.0-20250318095025-e69e57ff2698
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/modules/capability v1.0.1
-	github.com/cosmos/ibc-go/v8 v8.5.2
+	github.com/cosmos/ibc-go/v8 v8.7.0
 	github.com/creachadair/tomledit v0.0.24
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/dop251/goja v0.0.0-20220405120441-9037c2b61cbf
