@@ -1,8 +1,8 @@
 # Example Cosmos EVM Chain
 
-This directory contains an example chain that uses the Cosmos EVM 
+This directory contains an example chain that uses the Cosmos EVM
 modules. It is based on the simapp implementation on the Cosmos SDK
-repository, which itself is a simplified version of a Cosmos SDK-based 
+repository, which itself is a simplified version of a Cosmos SDK-based
 blockchain.
 
 This chain implementation is used to demonstrate the integration of Cosmos EVM
@@ -41,9 +41,9 @@ Available flags are:
 
 For the sake of this example, we'll be using Metamask:
 
-1. Use the following seed phrase when adding a new wallet: 
+1. Use the following seed phrase when adding a new wallet:
 `gesture inject test cycle original hollow east ridge hen combine
-junk child baconzero hope comfort vacuum milk pitch cage oppose 
+junk child baconzero hope comfort vacuum milk pitch cage oppose
 unhappy lunar seat`
 2. On the top left of the Metamask extension, click the Network button.
 3. Click Add custom network from the bottom of the modal.

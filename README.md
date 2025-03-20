@@ -28,7 +28,7 @@ after the latter funded Tharsis to open-source the original codebase.
 
 **Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Interchain Labs team](https://share-eu1.hsforms.com/2g6yO-PVaRoKj50rUgG4Pjg2e2sca).**
 
-For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack. 
+For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack.
 [Get a Slack invite here](https://forms.gle/A8jawLgB8zuL1FN36) or join the [Telegram Group](https://t.me/cosmostechstack)
 
 ## Plug-in Cosmos EVM into your chain
@@ -141,4 +141,5 @@ thus moving the standard forward.
 ## Open-source License & Credits
 
 Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS)
-created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and interoperability in Cosmos.
+created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and
+interoperability in Cosmos.

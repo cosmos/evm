@@ -1,7 +1,7 @@
 # Cosmos EVM Custom EIPs
 
-This document explain how **Cosmos EVM** allows chain built on top of it to define custom EIPs to modify the behavior of EVM
-opcodes.
+This document explain how **Cosmos EVM** allows chain built on top of it to define custom EIPs to modify
+the behavior of EVM opcodes.
 
 ## Custom EIPs
 
