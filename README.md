@@ -16,7 +16,8 @@ and customizability to your Cosmos SDK chain.
 - With native support for EVM as VM and seamless EVM<>Cosmos wallet / token / user experience.
 - Leverage IBC with EVM, native support of ERC20 on Cosmos, and more with extensions and precompiles.
 
-Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Interchain Labs and the Interchain Foundation after the latter funded Tharsis to open-source the original codebase.
+Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Interchain Labs and the Interchain Foundation
+after the latter funded Tharsis to open-source the original codebase.
 
 **Cosmos EVM is fully open-source under the Apache 2.0 license.** With this open-sourced version, you can get:
 
@@ -27,7 +28,8 @@ Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Inte
 
 **Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Interchain Labs team](https://share-eu1.hsforms.com/2g6yO-PVaRoKj50rUgG4Pjg2e2sca).**
 
-For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack. [Get a Slack invite here](https://forms.gle/A8jawLgB8zuL1FN36) or join the [Telegram Group](https://t.me/cosmostechstack)
+For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack. 
+[Get a Slack invite here](https://forms.gle/A8jawLgB8zuL1FN36) or join the [Telegram Group](https://t.me/cosmostechstack)
 
 ## Plug-in Cosmos EVM into your chain
 
@@ -138,4 +140,5 @@ thus moving the standard forward.
 
 ## Open-source License & Credits
 
-Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS) created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and interoperability in Cosmos.
+Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS)
+created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and interoperability in Cosmos.
