@@ -187,14 +187,14 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 	sed -i.bak 's/pruning-interval = "0"/pruning-interval = "10"/g' "$APP_TOML"
 
 	# Allocate genesis accounts (cosmos formatted addresses)
-	evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000utest --keyring-backend "$KEYRING" --home "$HOMEDIR"
-	evmd genesis add-genesis-account "$USER1_KEY" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$HOMEDIR"
-	evmd genesis add-genesis-account "$USER2_KEY" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$HOMEDIR"
-	evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$HOMEDIR"
-	evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000utest --keyring-backend "$KEYRING" --home "$HOMEDIR"
+	evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$HOMEDIR"
+	evmd genesis add-genesis-account "$USER1_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$HOMEDIR"
+	evmd genesis add-genesis-account "$USER2_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$HOMEDIR"
+	evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$HOMEDIR"
+	evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$HOMEDIR"
 
 	# Sign genesis transaction
-	evmd genesis gentx "$VAL_KEY" 1000000000000000000000utest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$HOMEDIR"
+	evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$HOMEDIR"
 	## In case you want to create multiple validators at genesis
 	## 1. Back to `evmd keys add` step, init more keys
 	## 2. Back to `evmd add-genesis-account` step, add balance for those
@@ -216,7 +216,7 @@ fi
 # Start the node
 evmd start "$TRACE" \
 	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0.0001utest \
+	--minimum-gas-prices=0.0001atest \
 	--home "$HOMEDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID"
