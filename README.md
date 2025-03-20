@@ -3,10 +3,9 @@ src="repo_header.png"
 alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and customizability to your chain"
 />
 
-**Please note**: this repo is undergoing changes in preparation for a new audit. After this audit we will cut the first
+**Please note**: This repo is undergoing changes in preparation for a new audit. After this audit we will cut the first
 v1 release, targeting late Q2. Some breaking changes might occur. While the Cosmos EVM is currently being used in
-production on various chains without fault, Interchain Labs will only mark this repository as production ready after
-the audit is completed.
+production on various chains without fault, Interchain Labs will only mark this repository as stable after the audit is completed.
 
 ## What is Cosmos EVM?
 
