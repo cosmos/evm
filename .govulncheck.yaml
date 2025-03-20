@@ -1,0 +1,3 @@
+ignore:
+    -id: GO-2025-3443
+    reason: "Fixed in 0.38.16"

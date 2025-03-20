@@ -22,8 +22,11 @@ go.sum: go.mod
 	go mod verify
 	go mod tidy
 
-vulncheck: $(BUILDDIR)/
-	GOBIN=$(BUILDDIR) go install golang.org/x/vuln/cmd/govulncheck@latest
+$(BUILDDIR):
+	mkdir -p $@
+
+vulncheck: | $(BUILDDIR)
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	$(BUILDDIR)/govulncheck ./...
 
 ###############################################################################
