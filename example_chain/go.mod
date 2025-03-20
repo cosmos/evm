@@ -245,7 +245,7 @@ require (
 )
 
 // LOCAL REPLACEMENTS FOR Cosmos EVM
-//replace github.com/cosmos/evm => ..
+replace github.com/cosmos/evm => ..
 
 replace (
 	// need this replace when importing cosmos/rosetta pkg
