@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/cosmos/evm/api/cosmos/evm/vm/v1"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	protov2 "google.golang.org/protobuf/proto"
+
+	evmapi "github.com/cosmos/evm/api/cosmos/evm/vm/v1"
+	"github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 	txsigning "cosmossdk.io/x/tx/signing"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -19,12 +26,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	evmapi "github.com/cosmos/evm/api/cosmos/evm/vm/v1"
-	"github.com/cosmos/evm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	protov2 "google.golang.org/protobuf/proto"
 )
 
 var (
@@ -44,7 +45,7 @@ const (
 
 var MsgEthereumTxCustomGetSigner = txsigning.CustomGetSigner{
 	MsgType: protov2.MessageName(&evmapi.MsgEthereumTx{}),
-	Fn:      vmv1.GetSigners,
+	Fn:      evmapi.GetSigners,
 }
 
 // NewTx returns a reference to a new Ethereum transaction message.

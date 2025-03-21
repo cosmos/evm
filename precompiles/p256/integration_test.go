@@ -5,9 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
-
-	"github.com/cometbft/cometbft/crypto"
 	"github.com/ethereum/go-ethereum/common"
 
 	//nolint:revive // dot imports are fine for Ginkgo
@@ -15,6 +12,9 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cometbft/cometbft/crypto"
+
+	exampleapp "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/precompiles/p256"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"

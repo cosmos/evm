@@ -3,12 +3,13 @@ package erc20_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/suite"
+
 	erc20precompile "github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
-	"github.com/stretchr/testify/suite"
 )
 
 var s *PrecompileTestSuite

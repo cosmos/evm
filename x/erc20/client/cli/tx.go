@@ -3,15 +3,18 @@ package cli
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/cobra"
+
+	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/x/erc20/types"
+
 	"cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/cobra"
 )
 
 // NewTxCmd returns a root CLI command handler for erc20 transaction commands

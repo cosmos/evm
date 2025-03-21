@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"reflect"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/x/vm/core/vm"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -57,7 +59,7 @@ func (p Precompile) EmitClaimRewardsEvent(ctx sdk.Context, stateDB vm.StateDB, d
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil
@@ -89,7 +91,7 @@ func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.Stat
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil
@@ -127,7 +129,7 @@ func (p Precompile) EmitWithdrawDelegatorRewardsEvent(ctx sdk.Context, stateDB v
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        b.Bytes(),
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil
@@ -156,7 +158,7 @@ func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateD
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        b.Bytes(),
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil
@@ -185,7 +187,7 @@ func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.State
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        b.Bytes(),
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil

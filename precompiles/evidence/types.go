@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	evidencetypes "cosmossdk.io/x/evidence/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -50,7 +53,7 @@ type EquivocationData struct {
 func (e EquivocationData) ToEquivocation() *evidencetypes.Equivocation {
 	return &evidencetypes.Equivocation{
 		Height:           e.Height,
-		Time:             time.Unix(int64(e.Time), 0).UTC(), 
+		Time:             time.Unix(int64(e.Time), 0).UTC(),
 		Power:            e.Power,
 		ConsensusAddress: e.ConsensusAddress,
 	}

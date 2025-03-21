@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/x/vm/core/vm"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -76,7 +78,7 @@ func EmitRevocationEvent(args cmn.EmitEventArgs) error {
 		Address:     args.ContractAddr,
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(args.Ctx.BlockHeight()), 
+		BlockNumber: uint64(args.Ctx.BlockHeight()),
 	})
 
 	return nil
@@ -117,7 +119,7 @@ func EmitIBCTransferAuthorizationEvent(
 		Address:     precompileAddr,
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil

@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/go-metrics"
+
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	"github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
-	cmttypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/evm/x/vm/types"
-	"github.com/hashicorp/go-metrics"
 )
 
 var _ types.MsgServer = &Keeper{}

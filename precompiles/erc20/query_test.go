@@ -4,18 +4,20 @@ import (
 	"math"
 	"math/big"
 
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	"github.com/ethereum/go-ethereum/common"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	app "github.com/cosmos/evm/example_chain"
+	chainutil "github.com/cosmos/evm/example_chain/testutil"
 	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 // Define useful variables for tests here.

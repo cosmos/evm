@@ -3,9 +3,11 @@ package keeper
 import (
 	"slices"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/x/erc20/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var isTrue = []byte("0x01")

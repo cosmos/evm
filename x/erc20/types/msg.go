@@ -1,16 +1,17 @@
 package types
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+	protov2 "google.golang.org/protobuf/proto"
+
+	erc20api "github.com/cosmos/evm/api/cosmos/evm/erc20/v1"
+
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	txsigning "cosmossdk.io/x/tx/signing"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/evm/api/cosmos/evm/erc20/v1"
-	erc20api "github.com/cosmos/evm/api/cosmos/evm/erc20/v1"
-	protov2 "google.golang.org/protobuf/proto"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -29,7 +30,7 @@ const (
 )
 
 var MsgConvertERC20CustomGetSigner = txsigning.CustomGetSigner{
-	MsgType: protov2.MessageName(&erc20v1.MsgConvertERC20{}),
+	MsgType: protov2.MessageName(&erc20api.MsgConvertERC20{}),
 	Fn:      erc20api.GetSigners,
 }
 

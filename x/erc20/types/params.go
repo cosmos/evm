@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/cosmos/evm/types"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/types"
 )
 
 // Parameter store key

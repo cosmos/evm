@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cosmos/evm/x/feemarket/types"
+
 	"cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/feemarket/types"
 )
 
 // BeginBlock updates base fee

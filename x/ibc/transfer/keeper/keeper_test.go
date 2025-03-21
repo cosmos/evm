@@ -4,13 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"cosmossdk.io/math"
-	abcitypes "github.com/cometbft/cometbft/abci/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/contracts"
 	cmnfactory "github.com/cosmos/evm/testutil/integration/common/factory"
@@ -20,13 +18,16 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evm "github.com/cosmos/evm/x/vm/types"
-
 	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
 	"github.com/cosmos/ibc-go/v8/modules/core/exported"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type KeeperTestSuite struct {
@@ -96,19 +97,15 @@ type MockChannelKeeper struct {
 	mock.Mock
 }
 
-//nolint:revive // allow unused parameters to indicate expected signature
 func (b *MockChannelKeeper) GetChannel(ctx sdk.Context, srcPort, srcChan string) (channel channeltypes.Channel, found bool) {
 	args := b.Called(mock.Anything, mock.Anything, mock.Anything)
 	return args.Get(0).(channeltypes.Channel), true
 }
 
-//nolint:revive // allow unused parameters to indicate expected signature
 func (b *MockChannelKeeper) GetNextSequenceSend(ctx sdk.Context, portID, channelID string) (uint64, bool) {
 	_ = b.Called(mock.Anything, mock.Anything, mock.Anything)
 	return 1, true
 }
-
-//nolint:revive // allow unused parameters to indicate expected signature
 func (b *MockChannelKeeper) GetAllChannelsWithPortPrefix(ctx sdk.Context, portPrefix string) []channeltypes.IdentifiedChannel {
 	return []channeltypes.IdentifiedChannel{}
 }
@@ -123,12 +120,9 @@ func (b *MockICS4Wrapper) WriteAcknowledgement(_ sdk.Context, _ *capabilitytypes
 	return nil
 }
 
-//nolint:revive // allow unused parameters to indicate expected signature
 func (b *MockICS4Wrapper) GetAppVersion(ctx sdk.Context, portID string, channelID string) (string, bool) {
 	return "", false
 }
-
-//nolint:revive // allow unused parameters to indicate expected signature
 func (b *MockICS4Wrapper) SendPacket(
 	ctx sdk.Context,
 	channelCap *capabilitytypes.Capability,

@@ -7,6 +7,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 

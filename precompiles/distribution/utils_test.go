@@ -1,14 +1,15 @@
 package distribution_test
 
 import (
+	"github.com/cosmos/evm/precompiles/staking"
+	"github.com/cosmos/evm/testutil/integration/os/keyring"
+
 	"cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	"github.com/cosmos/evm/precompiles/staking"
-	"github.com/cosmos/evm/testutil/integration/os/keyring"
 )
 
 type stakingRewards struct {

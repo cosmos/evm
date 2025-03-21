@@ -3,9 +3,11 @@ package types
 import (
 	"bytes"
 
-	errorsmod "cosmossdk.io/errors"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
+
+	errorsmod "cosmossdk.io/errors"
+
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // IsEmptyHash returns true if the hash corresponds to an empty ethereum hex hash.

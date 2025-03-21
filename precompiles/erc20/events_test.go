@@ -3,12 +3,13 @@ package erc20_test
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20precompile "github.com/cosmos/evm/precompiles/erc20"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 //nolint:dupl // this is not a duplicate of the approval events test
@@ -43,7 +44,7 @@ func (s *PrecompileTestSuite) TestEmitTransferEvent() {
 			// Check event signature matches the one emitted
 			event := s.precompile.ABI.Events[erc20precompile.EventTypeTransfer]
 			s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) 
+			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight()))
 
 			// Check the fully unpacked event matches the one emitted
 			var transferEvent erc20precompile.EventTransfer
@@ -90,7 +91,7 @@ func (s *PrecompileTestSuite) TestEmitApprovalEvent() {
 			// Check event signature matches the one emitted
 			event := s.precompile.ABI.Events[authorization.EventTypeApproval]
 			s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) 
+			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight()))
 
 			// Check the fully unpacked event matches the one emitted
 			var approvalEvent erc20precompile.EventApproval

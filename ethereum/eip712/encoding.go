@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 
+	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
+
+	cosmosevmtypes "github.com/cosmos/evm/types"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txTypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 var (

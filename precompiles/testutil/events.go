@@ -6,13 +6,15 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
 	//nolint:stylecheck,revive // it's common practice to use the global imports for Ginkgo and Gomega
 	. "github.com/onsi/gomega"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // CheckAuthorizationEvents is a helper function used in the integration tests and checks if the approval event is emitted.
@@ -32,7 +34,7 @@ func CheckAuthorizationEvents(event abi.Event, precompileAddr, granter, grantee 
 
 	// Check if the log has the expected indexed fields and data
 	Expect(log.Address).To(Equal(precompileAddr.String()), "expected different address in event")
-	Expect(log.BlockNumber).To(Equal(uint64(height)), "expected different block number in event") 
+	Expect(log.BlockNumber).To(Equal(uint64(height)), "expected different block number in event")
 	Expect(log.Topics[0]).To(Equal(event.ID.String()), "expected different event ID")
 	Expect(common.HexToAddress(log.Topics[1])).To(Equal(grantee), "expected different grantee in event")
 	Expect(common.HexToAddress(log.Topics[2])).To(Equal(granter), "expected different granter in event")

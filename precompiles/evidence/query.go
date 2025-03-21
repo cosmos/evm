@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
 	evidencetypes "cosmossdk.io/x/evidence/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 // Evidence implements the query logic for getting evidence by hash.
@@ -46,7 +49,7 @@ func (p *Precompile) Evidence(
 	// Convert to our Equivocation struct
 	evidence := EquivocationData{
 		Height:           equivocation.Height,
-		Time:             uint64(equivocation.Time.Unix()), 
+		Time:             uint64(equivocation.Time.Unix()),
 		Power:            equivocation.Power,
 		ConsensusAddress: equivocation.ConsensusAddress,
 	}
@@ -86,7 +89,7 @@ func (p *Precompile) GetAllEvidence(
 
 		evidenceList[i] = EquivocationData{
 			Height:           equivocation.Height,
-			Time:             uint64(equivocation.Time.Unix()), 
+			Time:             uint64(equivocation.Time.Unix()),
 			Power:            equivocation.Power,
 			ConsensusAddress: equivocation.ConsensusAddress,
 		}
