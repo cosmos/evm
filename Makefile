@@ -22,9 +22,9 @@ go.sum: go.mod
 	go mod verify
 	go mod tidy
 
-vulncheck: $(BUILDDIR)/
-	GOBIN=$(BUILDDIR) go install golang.org/x/vuln/cmd/govulncheck@latest
-	$(BUILDDIR)/govulncheck ./...
+vulncheck:
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@govulncheck ./...
 
 ###############################################################################
 ###                           Tests & Simulation                            ###
@@ -214,20 +214,3 @@ contracts-compile:
 contracts-add:
 	@echo "Adding a new smart contract to be compiled..."
 	@python3 ./scripts/compile_smart_contracts/compile_smart_contracts.py --add $(CONTRACT)
-
-###############################################################################
-###                           Miscellaneous Checks                          ###
-###############################################################################
-
-# Use changelog linter and auto-fix from https://github.com/MalteHerrmann/changelog-utils
-cluVersion=v1.1.2
-cluImage=ghcr.io/malteherrmann/changelog-utils
-clu=$(DOCKER) run --rm -v "$(CURDIR):/workspace" --workdir /workspace --user 0 $(cluImage):$(cluVersion)
-
-changelog-check:
-	@echo "Checking changelog..."
-	@$(clu) lint
-
-changelog-fix:
-	@echo "Fixing changelog..."
-	@$(clu) fix

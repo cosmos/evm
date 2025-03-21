@@ -1,8 +1,9 @@
 # Example Cosmos EVM Chain
 
-This directory contains an example chain that uses the Cosmos EVM modules.
-It is based on the simapp implementation on the Cosmos SDK repository,
-which itself is a simplified version of a Cosmos SDK-based blockchain.
+This directory contains an example chain that uses the Cosmos EVM
+modules. It is based on the simapp implementation on the Cosmos SDK
+repository, which itself is a simplified version of a Cosmos SDK-based
+blockchain.
 
 This chain implementation is used to demonstrate the integration of Cosmos EVM
 as well as to provide a chain object for testing purposes within the repository.
@@ -13,14 +14,13 @@ By default, this chain has the following configuration:
 
 | Option              | Value                  |
 |---------------------|------------------------|
-| Binary              | `evmd`                  |
+| Binary              | `evmd`                 |
 | Chain ID            | `cosmos_262144-1`      |
 | Custom Opcodes      | -                      |
 | Default Token Pairs | 1 for the native token |
 | Denomination        | `atest`                |
 | EVM permissioning   | permissionless         |
 | Enabled Precompiles | all                    |
-
 
 ## Running The Chain
 
@@ -41,7 +41,10 @@ Available flags are:
 
 For the sake of this example, we'll be using Metamask:
 
-1. Use the following seed phrase when adding a new wallet: ```gesture inject test cycle original hollow east ridge hen combine junk child bacon zero hope comfort vacuum milk pitch cage oppose unhappy lunar seat```
+1. Use the following seed phrase when adding a new wallet:
+`gesture inject test cycle original hollow east ridge hen combine
+junk child baconzero hope comfort vacuum milk pitch cage oppose
+unhappy lunar seat`
 2. On the top left of the Metamask extension, click the Network button.
 3. Click Add custom network from the bottom of the modal.
 4. Under Default RPC URL, add the RPC URL as http://localhost:8545. Ensure your chain is running.

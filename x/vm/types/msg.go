@@ -3,8 +3,9 @@ package types
 import (
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/api/cosmos/evm/vm/v1"
 	"math/big"
+
+	"github.com/cosmos/evm/api/cosmos/evm/vm/v1"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"

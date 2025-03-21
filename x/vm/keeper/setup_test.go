@@ -12,8 +12,8 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 )

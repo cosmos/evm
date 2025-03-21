@@ -31,3 +31,5 @@ contracts/@openzeppelin/*
 
 # Build files
 example_chain/build/
+
+build/
