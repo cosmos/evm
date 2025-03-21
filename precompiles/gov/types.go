@@ -214,7 +214,7 @@ func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) *VotesOutput 
 		options := make([]WeightedVoteOption, len(v.Options))
 		for j, opt := range v.Options {
 			options[j] = WeightedVoteOption{
-				Option: uint8(opt.Option), //nolint:gosec // G115
+				Option: uint8(opt.Option), 
 				Weight: opt.Weight,
 			}
 		}
@@ -269,7 +269,7 @@ func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) *VoteOutput {
 	options := make([]WeightedVoteOption, len(res.Vote.Options))
 	for j, opt := range res.Vote.Options {
 		options[j] = WeightedVoteOption{
-			Option: uint8(opt.Option), //nolint:gosec // G115
+			Option: uint8(opt.Option), 
 			Weight: opt.Weight,
 		}
 	}
@@ -466,7 +466,7 @@ func ParseProposalsArgs(method *abi.Method, args []interface{}) (*govv1.QueryPro
 	}
 
 	return &govv1.QueryProposalsRequest{
-		ProposalStatus: govv1.ProposalStatus(input.ProposalStatus), //nolint:gosec // G115
+		ProposalStatus: govv1.ProposalStatus(input.ProposalStatus), 
 		Voter:          voter,
 		Depositor:      depositor,
 		Pagination:     &input.Pagination,
@@ -495,18 +495,18 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) *Propos
 	po.Proposal = ProposalData{
 		Id:       res.Proposal.Id,
 		Messages: msgs,
-		Status:   uint32(res.Proposal.Status), //nolint:gosec // G115
+		Status:   uint32(res.Proposal.Status), 
 		FinalTallyResult: TallyResultData{
 			Yes:        res.Proposal.FinalTallyResult.YesCount,
 			Abstain:    res.Proposal.FinalTallyResult.AbstainCount,
 			No:         res.Proposal.FinalTallyResult.NoCount,
 			NoWithVeto: res.Proposal.FinalTallyResult.NoWithVetoCount,
 		},
-		SubmitTime:      uint64(res.Proposal.SubmitTime.Unix()),     //nolint:gosec // G115
-		DepositEndTime:  uint64(res.Proposal.DepositEndTime.Unix()), //nolint:gosec // G115
+		SubmitTime:      uint64(res.Proposal.SubmitTime.Unix()),     
+		DepositEndTime:  uint64(res.Proposal.DepositEndTime.Unix()), 
 		TotalDeposit:    coins,
-		VotingStartTime: uint64(res.Proposal.VotingStartTime.Unix()), //nolint:gosec // G115
-		VotingEndTime:   uint64(res.Proposal.VotingEndTime.Unix()),   //nolint:gosec // G115
+		VotingStartTime: uint64(res.Proposal.VotingStartTime.Unix()), 
+		VotingEndTime:   uint64(res.Proposal.VotingEndTime.Unix()),   
 		Metadata:        res.Proposal.Metadata,
 		Title:           res.Proposal.Title,
 		Summary:         res.Proposal.Summary,
@@ -539,18 +539,18 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 		po.Proposals[i] = ProposalData{
 			Id:       p.Id,
 			Messages: msgs,
-			Status:   uint32(p.Status), //nolint:gosec // G115
+			Status:   uint32(p.Status), 
 			FinalTallyResult: TallyResultData{
 				Yes:        p.FinalTallyResult.YesCount,
 				Abstain:    p.FinalTallyResult.AbstainCount,
 				No:         p.FinalTallyResult.NoCount,
 				NoWithVeto: p.FinalTallyResult.NoWithVetoCount,
 			},
-			SubmitTime:      uint64(p.SubmitTime.Unix()),     //nolint:gosec // G115
-			DepositEndTime:  uint64(p.DepositEndTime.Unix()), //nolint:gosec // G115
+			SubmitTime:      uint64(p.SubmitTime.Unix()),     
+			DepositEndTime:  uint64(p.DepositEndTime.Unix()), 
 			TotalDeposit:    coins,
-			VotingStartTime: uint64(p.VotingStartTime.Unix()), //nolint:gosec // G115
-			VotingEndTime:   uint64(p.VotingEndTime.Unix()),   //nolint:gosec // G115
+			VotingStartTime: uint64(p.VotingStartTime.Unix()), 
+			VotingEndTime:   uint64(p.VotingEndTime.Unix()),   
 			Metadata:        p.Metadata,
 			Title:           p.Title,
 			Summary:         p.Summary,

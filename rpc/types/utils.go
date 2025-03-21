@@ -57,7 +57,7 @@ func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseF
 		txHash = common.BytesToHash(header.DataHash)
 	}
 
-	time := uint64(header.Time.UTC().Unix()) //nolint:gosec // G115 // won't exceed uint64
+	time := uint64(header.Time.UTC().Unix()) 
 	return &ethtypes.Header{
 		ParentHash:  common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		UncleHash:   ethtypes.EmptyUncleHash,
@@ -116,7 +116,7 @@ func FormatBlock(
 	}
 
 	result := map[string]interface{}{
-		"number":           hexutil.Uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
+		"number":           hexutil.Uint64(header.Height), 
 		"hash":             hexutil.Bytes(header.Hash()),
 		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		"nonce":            ethtypes.BlockNonce{},   // PoW specific
@@ -127,10 +127,10 @@ func FormatBlock(
 		"mixHash":          common.Hash{},
 		"difficulty":       (*hexutil.Big)(big.NewInt(0)),
 		"extraData":        "0x",
-		"size":             hexutil.Uint64(size),     //nolint:gosec // G115 // size won't exceed uint64
-		"gasLimit":         hexutil.Uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
+		"size":             hexutil.Uint64(size),     
+		"gasLimit":         hexutil.Uint64(gasLimit), 
 		"gasUsed":          (*hexutil.Big)(gasUsed),
-		"timestamp":        hexutil.Uint64(header.Time.Unix()), //nolint:gosec // G115 // won't exceed uint64
+		"timestamp":        hexutil.Uint64(header.Time.Unix()), 
 		"transactionsRoot": transactionsRoot,
 		"receiptsRoot":     ethtypes.EmptyRootHash,
 

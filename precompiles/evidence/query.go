@@ -46,7 +46,7 @@ func (p *Precompile) Evidence(
 	// Convert to our Equivocation struct
 	evidence := EquivocationData{
 		Height:           equivocation.Height,
-		Time:             uint64(equivocation.Time.Unix()), //nolint:gosec // G115
+		Time:             uint64(equivocation.Time.Unix()), 
 		Power:            equivocation.Power,
 		ConsensusAddress: equivocation.ConsensusAddress,
 	}
@@ -86,7 +86,7 @@ func (p *Precompile) GetAllEvidence(
 
 		evidenceList[i] = EquivocationData{
 			Height:           equivocation.Height,
-			Time:             uint64(equivocation.Time.Unix()), //nolint:gosec // G115
+			Time:             uint64(equivocation.Time.Unix()), 
 			Power:            equivocation.Power,
 			ConsensusAddress: equivocation.ConsensusAddress,
 		}

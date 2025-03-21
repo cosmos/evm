@@ -41,7 +41,7 @@ func (p Precompile) EmitSubmitEvidenceEvent(ctx sdk.Context, stateDB vm.StateDB,
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
+		BlockNumber: uint64(ctx.BlockHeight()), 
 	})
 
 	return nil
