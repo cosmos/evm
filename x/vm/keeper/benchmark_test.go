@@ -20,6 +20,7 @@ import (
 )
 
 func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {
+	b.Helper()
 	suite := KeeperTestSuite{}
 	suite.SetupTest()
 
@@ -37,6 +38,7 @@ func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {
 }
 
 func SetupTestMessageCall(b *testing.B) (*KeeperTestSuite, common.Address) {
+	b.Helper()
 	suite := KeeperTestSuite{}
 	suite.SetupTest()
 
@@ -56,6 +58,7 @@ func SetupTestMessageCall(b *testing.B) (*KeeperTestSuite, common.Address) {
 type TxBuilder func(suite *KeeperTestSuite, contract common.Address) *types.MsgEthereumTx
 
 func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
+	b.Helper()
 	suite, contractAddr := SetupContract(b)
 
 	krSigner := utiltx.NewSigner(suite.keyring.GetPrivKey(0))

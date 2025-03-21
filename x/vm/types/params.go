@@ -136,23 +136,14 @@ func (ac AccessControl) Validate() error {
 	if err := ac.Create.Validate(); err != nil {
 		return err
 	}
-
-	if err := ac.Call.Validate(); err != nil {
-		return err
-	}
-
-	return nil
+	return ac.Call.Validate()
 }
 
 func (act AccessControlType) Validate() error {
 	if err := validateAccessType(act.AccessType); err != nil {
 		return err
 	}
-
-	if err := validateAllowlistAddresses(act.AccessControlList); err != nil {
-		return err
-	}
-	return nil
+	return validateAllowlistAddresses(act.AccessControlList)
 }
 
 func validateAccessType(i interface{}) error {
