@@ -115,6 +115,7 @@ func TestConcurrentSubscribeAndPublish(t *testing.T) {
 }
 
 func subscribeAndPublish(t *testing.T, eb EventBus, topic string, topicChan chan coretypes.ResultEvent) {
+	t.Helper()
 	var (
 		wg               sync.WaitGroup
 		subscribersCount = 50
