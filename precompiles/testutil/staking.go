@@ -16,7 +16,8 @@ import (
 
 // CreateValidator creates a validator with the given amount of staked tokens in the bond denomination set
 // in the staking keeper.
-func CreateValidator(ctx sdk.Context, t *testing.T, pubKey cryptotypes.PubKey, sk stakingkeeper.Keeper, stakeAmt math.Int) {
+func CreateValidator(t *testing.T, ctx sdk.Context, pubKey cryptotypes.PubKey, sk stakingkeeper.Keeper, stakeAmt math.Int) {
+	t.Helper()
 	zeroDec := math.LegacyZeroDec()
 	stakingParams, err := sk.GetParams(ctx)
 	require.NoError(t, err)
