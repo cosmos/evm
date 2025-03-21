@@ -36,6 +36,7 @@ var DefaultTestingAppInit func(chainID string) func() (ibcgotesting.TestingApp, 
 // of one consensus engine unit (10^6) in the default token of the simapp from first genesis
 // account. A Nop logger is set in SimApp.
 func SetupWithGenesisValSet(t *testing.T, valSet *cmttypes.ValidatorSet, genAccs []authtypes.GenesisAccount, chainID string, balances ...banktypes.Balance) ibcgotesting.TestingApp {
+	t.Helper()
 	app, genesisState := DefaultTestingAppInit(chainID)()
 	// set genesis accounts
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)

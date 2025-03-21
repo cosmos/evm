@@ -23,6 +23,7 @@ var globalStartTime = time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
 // NewCoordinator initializes Coordinator with N EVM TestChain's (Cosmos EVM apps) and M Cosmos chains (Simulation Apps)
 func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coordinator {
+	t.Helper()
 	chains := make(map[string]*ibctesting.TestChain)
 	coord := &ibctesting.Coordinator{
 		T:           t,
@@ -179,6 +180,7 @@ func SignAndDeliver(
 	fee sdk.Coins,
 	chainID string, accNums, accSeqs []uint64, expPass bool, priv ...cryptotypes.PrivKey,
 ) (sdk.GasInfo, *sdk.Result, error) {
+	t.Helper()
 	tx, err := simtestutil.GenSignedMockTx(
 		rand.New(rand.NewSource(time.Now().UnixNano())),
 		txCfg,
