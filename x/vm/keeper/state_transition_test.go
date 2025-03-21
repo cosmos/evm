@@ -44,7 +44,7 @@ func (suite *KeeperTestSuite) TestGetHashFn() {
 	}{
 		{
 			"case 1.1: context hash cached",
-			uint64(suite.network.GetContext().BlockHeight()), //nolint:gosec // G115
+			uint64(suite.network.GetContext().BlockHeight()), 
 			func() sdk.Context {
 				return suite.network.GetContext().WithHeaderHash(
 					tmhash.Sum([]byte("header")),
@@ -54,7 +54,7 @@ func (suite *KeeperTestSuite) TestGetHashFn() {
 		},
 		{
 			"case 1.2: failed to cast Tendermint header",
-			uint64(suite.network.GetContext().BlockHeight()), //nolint:gosec // G115
+			uint64(suite.network.GetContext().BlockHeight()), 
 			func() sdk.Context {
 				header := tmproto.Header{}
 				header.Height = suite.network.GetContext().BlockHeight()
@@ -64,7 +64,7 @@ func (suite *KeeperTestSuite) TestGetHashFn() {
 		},
 		{
 			"case 1.3: hash calculated from Tendermint header",
-			uint64(suite.network.GetContext().BlockHeight()), //nolint:gosec // G115
+			uint64(suite.network.GetContext().BlockHeight()), 
 			func() sdk.Context {
 				return suite.network.GetContext().WithBlockHeader(header)
 			},

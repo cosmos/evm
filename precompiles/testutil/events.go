@@ -32,7 +32,7 @@ func CheckAuthorizationEvents(event abi.Event, precompileAddr, granter, grantee 
 
 	// Check if the log has the expected indexed fields and data
 	Expect(log.Address).To(Equal(precompileAddr.String()), "expected different address in event")
-	Expect(log.BlockNumber).To(Equal(uint64(height)), "expected different block number in event") //nolint:gosec // G115 // block height won't exceed uint64
+	Expect(log.BlockNumber).To(Equal(uint64(height)), "expected different block number in event") 
 	Expect(log.Topics[0]).To(Equal(event.ID.String()), "expected different event ID")
 	Expect(common.HexToAddress(log.Topics[1])).To(Equal(grantee), "expected different grantee in event")
 	Expect(common.HexToAddress(log.Topics[2])).To(Equal(granter), "expected different granter in event")

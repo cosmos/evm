@@ -36,7 +36,7 @@ func (p Precompile) EmitValidatorUnjailedEvent(ctx sdk.Context, stateDB vm.State
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
+		BlockNumber: uint64(ctx.BlockHeight()), 
 	})
 
 	return nil

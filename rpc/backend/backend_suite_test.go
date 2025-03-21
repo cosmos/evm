@@ -129,7 +129,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 ) map[string]interface{} {
 	header := resBlock.Block.Header
 	gasLimit := int64(^uint32(0))                                             // for `MaxGas = -1` (DefaultConsensusParams)
-	gasUsed := new(big.Int).SetUint64(uint64(blockRes.TxsResults[0].GasUsed)) //nolint:gosec // G115 // won't exceed uint64
+	gasUsed := new(big.Int).SetUint64(uint64(blockRes.TxsResults[0].GasUsed)) 
 
 	root := common.Hash{}.Bytes()
 	receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
@@ -141,7 +141,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 			rpcTx, err := rpctypes.NewRPCTransaction(
 				tx.AsTransaction(),
 				common.BytesToHash(header.Hash()),
-				uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
+				uint64(header.Height), 
 				uint64(0),
 				baseFee,
 				suite.backend.chainID,
