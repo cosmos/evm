@@ -3,11 +3,12 @@ package keeper_test
 import (
 	"math/big"
 
+	"github.com/cosmos/evm/testutil/integration/os/utils"
+	"github.com/cosmos/evm/x/vm/types"
+
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/evm/testutil/integration/os/utils"
-	"github.com/cosmos/evm/x/vm/types"
 )
 
 func (suite *KeeperTestSuite) TestEthereumTx() {

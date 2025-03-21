@@ -4,13 +4,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
-
 	"google.golang.org/grpc/metadata"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -19,6 +15,10 @@ import (
 	rpc "github.com/cosmos/evm/rpc/types"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (suite *BackendTestSuite) TestBaseFee() {

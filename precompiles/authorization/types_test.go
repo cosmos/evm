@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/evm/testutil/constants"
-
-	"cosmossdk.io/math"
-	"github.com/cosmos/evm/precompiles/authorization"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	testutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/precompiles/authorization"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/testutil/constants"
+	testutiltx "github.com/cosmos/evm/testutil/tx"
+
+	"cosmossdk.io/math"
 )
 
 const validTypeURL = "/cosmos.bank.v1beta1.MsgSend"

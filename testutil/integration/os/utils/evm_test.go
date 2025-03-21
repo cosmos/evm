@@ -4,6 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cosmos/evm/contracts"
 	testfactory "github.com/cosmos/evm/testutil/integration/os/factory"
 	testhandler "github.com/cosmos/evm/testutil/integration/os/grpc"
@@ -11,8 +14,6 @@ import (
 	testnetwork "github.com/cosmos/evm/testutil/integration/os/network"
 	"github.com/cosmos/evm/testutil/integration/os/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetERC20Balance(t *testing.T) {

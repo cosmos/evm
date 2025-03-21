@@ -3,14 +3,16 @@ package ibc
 import (
 	"strings"
 
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/evm/utils"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // GetTransferSenderRecipient returns the sender and recipient sdk.AccAddresses

@@ -3,11 +3,11 @@ package constants_test
 import (
 	"testing"
 
-	"github.com/cosmos/evm/testutil/constants"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/example_chain"
 	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
-	"github.com/stretchr/testify/require"
+	"github.com/cosmos/evm/testutil/constants"
 )
 
 func TestRequireSameTestDenom(t *testing.T) {

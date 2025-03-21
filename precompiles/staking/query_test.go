@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/staking"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/ethereum/go-ethereum/common"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 func (s *PrecompileTestSuite) TestDelegation() {
@@ -356,7 +359,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 
 				s.Require().Len(valOut.Validators, expLen)
 				// passed CountTotal = true
-				s.Require().Equal(len(s.network.GetValidators()), int(valOut.PageResponse.Total)) 
+				s.Require().Equal(len(s.network.GetValidators()), int(valOut.PageResponse.Total))
 				s.Require().NotEmpty(valOut.PageResponse.NextKey)
 				s.assertValidatorsResponse(valOut.Validators, expLen)
 			},
@@ -384,7 +387,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 
 				s.Require().Len(valOut.Validators, expLen)
 				// passed CountTotal = true
-				s.Require().Equal(len(s.network.GetValidators()), int(valOut.PageResponse.Total)) 
+				s.Require().Equal(len(s.network.GetValidators()), int(valOut.PageResponse.Total))
 				s.Require().NotEmpty(valOut.PageResponse.NextKey)
 				s.assertValidatorsResponse(valOut.Validators, expLen)
 			},

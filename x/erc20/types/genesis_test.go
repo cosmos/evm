@@ -3,11 +3,11 @@ package types_test
 import (
 	"testing"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	"github.com/stretchr/testify/suite"
 
+	exampleapp "github.com/cosmos/evm/example_chain"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/stretchr/testify/suite"
 )
 
 type GenesisTestSuite struct {

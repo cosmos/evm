@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/suite"
+
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/server"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
@@ -22,9 +23,11 @@ import (
 	testnetwork "github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/suite"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/server"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type BackendTestSuite struct {
@@ -128,8 +131,8 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 	baseFee *big.Int,
 ) map[string]interface{} {
 	header := resBlock.Block.Header
-	gasLimit := int64(^uint32(0))                                             // for `MaxGas = -1` (DefaultConsensusParams)
-	gasUsed := new(big.Int).SetUint64(uint64(blockRes.TxsResults[0].GasUsed)) 
+	gasLimit := int64(^uint32(0)) // for `MaxGas = -1` (DefaultConsensusParams)
+	gasUsed := new(big.Int).SetUint64(uint64(blockRes.TxsResults[0].GasUsed))
 
 	root := common.Hash{}.Bytes()
 	receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
@@ -141,7 +144,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 			rpcTx, err := rpctypes.NewRPCTransaction(
 				tx.AsTransaction(),
 				common.BytesToHash(header.Hash()),
-				uint64(header.Height), 
+				uint64(header.Height),
 				uint64(0),
 				baseFee,
 				suite.backend.chainID,

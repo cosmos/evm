@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	app "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/testutil/constants"
+	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	teststaking "github.com/cosmos/cosmos-sdk/x/staking/testutil"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	app "github.com/cosmos/evm/example_chain"
-	testutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/stretchr/testify/require"
 )
 
 // PrepareAccountsForDelegationRewards prepares the test suite for testing to withdraw delegation rewards.

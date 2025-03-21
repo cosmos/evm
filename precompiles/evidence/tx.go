@@ -1,11 +1,14 @@
 package evidence
 
 import (
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/x/vm/core/vm"
+
+	evidencekeeper "cosmossdk.io/x/evidence/keeper"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // SubmitEvidence implements the evidence submission logic for the evidence precompile.

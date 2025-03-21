@@ -5,9 +5,21 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/config"
+	"github.com/cosmos/evm/testutil/constants"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
-	cmttypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdkcrypto "github.com/cosmos/cosmos-sdk/crypto"
@@ -16,14 +28,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/testutil/constants"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Accounts returns the list of accounts available to this node.
@@ -70,8 +74,8 @@ func (b *Backend) Syncing() (interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"startingBlock": hexutil.Uint64(status.SyncInfo.EarliestBlockHeight), 
-		"currentBlock":  hexutil.Uint64(status.SyncInfo.LatestBlockHeight),   
+		"startingBlock": hexutil.Uint64(status.SyncInfo.EarliestBlockHeight),
+		"currentBlock":  hexutil.Uint64(status.SyncInfo.LatestBlockHeight),
 		// "highestBlock":  nil, // NA
 		// "pulledStates":  nil, // NA
 		// "knownStates":   nil, // NA

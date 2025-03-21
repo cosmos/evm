@@ -6,19 +6,23 @@ import (
 	"math/big"
 	"strings"
 
-	errorsmod "cosmossdk.io/errors"
-	sdkmath "cosmossdk.io/math"
-	abci "github.com/cometbft/cometbft/abci/types"
-	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
-	cmttypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/client"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // ExceedBlockGasLimitError defines the error message when tx execution exceeds the block gas limit.
@@ -57,7 +61,7 @@ func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseF
 		txHash = common.BytesToHash(header.DataHash)
 	}
 
-	time := uint64(header.Time.UTC().Unix()) 
+	time := uint64(header.Time.UTC().Unix())
 	return &ethtypes.Header{
 		ParentHash:  common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		UncleHash:   ethtypes.EmptyUncleHash,
@@ -116,7 +120,7 @@ func FormatBlock(
 	}
 
 	result := map[string]interface{}{
-		"number":           hexutil.Uint64(header.Height), 
+		"number":           hexutil.Uint64(header.Height),
 		"hash":             hexutil.Bytes(header.Hash()),
 		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		"nonce":            ethtypes.BlockNonce{},   // PoW specific
@@ -127,10 +131,10 @@ func FormatBlock(
 		"mixHash":          common.Hash{},
 		"difficulty":       (*hexutil.Big)(big.NewInt(0)),
 		"extraData":        "0x",
-		"size":             hexutil.Uint64(size),     
-		"gasLimit":         hexutil.Uint64(gasLimit), 
+		"size":             hexutil.Uint64(size),
+		"gasLimit":         hexutil.Uint64(gasLimit),
 		"gasUsed":          (*hexutil.Big)(gasUsed),
-		"timestamp":        hexutil.Uint64(header.Time.Unix()), 
+		"timestamp":        hexutil.Uint64(header.Time.Unix()),
 		"transactionsRoot": transactionsRoot,
 		"receiptsRoot":     ethtypes.EmptyRootHash,
 

@@ -5,19 +5,21 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/testutil/integration/common/factory"
+	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
+	"github.com/cosmos/evm/x/erc20/types"
+
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/evm/testutil/integration/common/factory"
-	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
-	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestPrecompileIntegrationTestSuite(t *testing.T) {

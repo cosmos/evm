@@ -4,21 +4,24 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/cosmos/evm/testutil/constants"
-
-	"cosmossdk.io/log"
-	abci "github.com/cometbft/cometbft/abci/types"
-	cmttypes "github.com/cometbft/cometbft/types"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/indexer"
-	"github.com/cosmos/evm/testutil/integration/os/network"
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/indexer"
+	"github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/testutil/integration/os/network"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/log"
+
+	"github.com/cosmos/cosmos-sdk/client"
 )
 
 func TestKVIndexer(t *testing.T) {

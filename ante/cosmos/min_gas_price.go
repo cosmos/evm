@@ -5,13 +5,14 @@ import (
 	"math/big"
 	"slices"
 
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // MinGasPriceDecorator will check if the transaction's fee is at least as large

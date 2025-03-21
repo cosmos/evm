@@ -3,13 +3,15 @@ package slashing_test
 import (
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
 func (s *PrecompileTestSuite) TestGetSigningInfo() {
@@ -223,7 +225,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				// Get the default params from the network
 				defaultParams, err := s.network.App.SlashingKeeper.GetParams(s.network.GetContext())
 				s.Require().NoError(err)
-				s.Require().Equal(uint64(defaultParams.SignedBlocksWindow), params.SignedBlocksWindow) 
+				s.Require().Equal(uint64(defaultParams.SignedBlocksWindow), params.SignedBlocksWindow)
 				s.Require().Equal(defaultParams.MinSignedPerWindow.String(), params.MinSignedPerWindow)
 				s.Require().Equal(uint64(defaultParams.DowntimeJailDuration.Seconds()), params.DowntimeJailDuration)
 				s.Require().Equal(defaultParams.SlashFractionDoubleSign.String(), params.SlashFractionDoubleSign)

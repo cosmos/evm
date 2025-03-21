@@ -9,12 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/evm/wallets/accounts"
 	gethaccounts "github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	usb "github.com/zondax/hid"
+
+	"github.com/cosmos/evm/wallets/accounts"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.

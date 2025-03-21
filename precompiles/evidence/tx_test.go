@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/types"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/evidence"
 	"github.com/cosmos/evm/precompiles/testutil"
+
+	"github.com/cosmos/cosmos-sdk/types"
 )
 
 func (s *PrecompileTestSuite) TestSubmitEvidence() {
@@ -44,7 +44,7 @@ func (s *PrecompileTestSuite) TestSubmitEvidence() {
 
 				evidenceData := evidence.EquivocationData{
 					Height:           1,
-					Time:             uint64(time.Now().UTC().Unix()), 
+					Time:             uint64(time.Now().UTC().Unix()),
 					Power:            1000,
 					ConsensusAddress: types.ConsAddress(valConsAddr).String(),
 				}

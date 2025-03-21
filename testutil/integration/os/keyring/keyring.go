@@ -3,10 +3,12 @@ package keyring
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	utiltx "github.com/cosmos/evm/testutil/tx"
+
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type Key struct {

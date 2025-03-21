@@ -3,12 +3,14 @@ package keeper_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/testutil/integration/os/network"
+	"github.com/cosmos/evm/x/feemarket/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/evm/testutil/integration/os/network"
-	"github.com/cosmos/evm/x/feemarket/types"
-	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateParams(t *testing.T) {

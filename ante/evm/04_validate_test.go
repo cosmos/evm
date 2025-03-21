@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/ante/evm"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	"cosmossdk.io/math"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 type validateMsgParams struct {

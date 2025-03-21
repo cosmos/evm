@@ -5,10 +5,13 @@ import (
 	"math/big"
 	"sort"
 
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Account is the Ethereum consensus representation of accounts.

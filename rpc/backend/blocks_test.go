@@ -4,20 +4,24 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
-	"github.com/cometbft/cometbft/abci/types"
-	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
-	cmttypes "github.com/cometbft/cometbft/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/rpc/backend/mocks"
-	ethrpc "github.com/cosmos/evm/rpc/types"
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/cometbft/cometbft/abci/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	"github.com/cosmos/evm/rpc/backend/mocks"
+	ethrpc "github.com/cosmos/evm/rpc/types"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (suite *BackendTestSuite) TestBlockNumber() {
@@ -1083,8 +1087,8 @@ func (suite *BackendTestSuite) TestGetEthBlockFromTendermint() {
 
 			var expBlock map[string]interface{}
 			header := tc.resBlock.Block.Header
-			gasLimit := int64(^uint32(0))                                                // for `MaxGas = -1` (DefaultConsensusParams)
-			gasUsed := new(big.Int).SetUint64(uint64(tc.blockRes.TxsResults[0].GasUsed)) 
+			gasLimit := int64(^uint32(0)) // for `MaxGas = -1` (DefaultConsensusParams)
+			gasUsed := new(big.Int).SetUint64(uint64(tc.blockRes.TxsResults[0].GasUsed))
 
 			root := common.Hash{}.Bytes()
 			receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
@@ -1097,7 +1101,7 @@ func (suite *BackendTestSuite) TestGetEthBlockFromTendermint() {
 					rpcTx, err := ethrpc.NewRPCTransaction(
 						msgEthereumTx.AsTransaction(),
 						common.BytesToHash(header.Hash()),
-						uint64(header.Height), 
+						uint64(header.Height),
 						uint64(0),
 						tc.baseFee,
 						suite.backend.chainID,

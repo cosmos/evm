@@ -1,13 +1,14 @@
 package gov
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/core/vm"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -34,7 +35,7 @@ func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddr
 
 	// Prepare the event data
 	arguments := abi.Arguments{event.Inputs[1], event.Inputs[2]}
-	packed, err := arguments.Pack(proposalID, uint8(option)) 
+	packed, err := arguments.Pack(proposalID, uint8(option))
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddr
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil
@@ -75,7 +76,7 @@ func (p Precompile) EmitVoteWeightedEvent(ctx sdk.Context, stateDB vm.StateDB, v
 		Address:     p.Address(),
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), 
+		BlockNumber: uint64(ctx.BlockHeight()),
 	})
 
 	return nil

@@ -4,9 +4,9 @@ import (
 	"embed"
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -14,8 +14,11 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+
+	storetypes "cosmossdk.io/store/types"
+
+	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 // PrecompileAddress of the ICS-20 EVM extension in hex format.
