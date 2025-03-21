@@ -106,6 +106,7 @@ func (b *MockChannelKeeper) GetNextSequenceSend(ctx sdk.Context, portID, channel
 	_ = b.Called(mock.Anything, mock.Anything, mock.Anything)
 	return 1, true
 }
+
 func (b *MockChannelKeeper) GetAllChannelsWithPortPrefix(ctx sdk.Context, portPrefix string) []channeltypes.IdentifiedChannel {
 	return []channeltypes.IdentifiedChannel{}
 }
@@ -123,6 +124,7 @@ func (b *MockICS4Wrapper) WriteAcknowledgement(_ sdk.Context, _ *capabilitytypes
 func (b *MockICS4Wrapper) GetAppVersion(ctx sdk.Context, portID string, channelID string) (string, bool) {
 	return "", false
 }
+
 func (b *MockICS4Wrapper) SendPacket(
 	ctx sdk.Context,
 	channelCap *capabilitytypes.Capability,
