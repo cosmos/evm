@@ -59,6 +59,7 @@ type IntegrationCoordinator struct {
 
 // NewIntegrationCoordinator returns a new IntegrationCoordinator with N TestChain's.
 func NewIntegrationCoordinator(t *testing.T, preConfiguredChains []network.Network) *IntegrationCoordinator {
+	t.Helper()
 	coord := &ibctesting.Coordinator{
 		T:           t,
 		CurrentTime: time.Now(),
