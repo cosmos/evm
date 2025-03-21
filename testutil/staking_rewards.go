@@ -34,6 +34,7 @@ import (
 //
 // The function returns the updated context along with a potential error.
 func PrepareAccountsForDelegationRewards(t *testing.T, ctx sdk.Context, app *app.ExampleChain, addr sdk.AccAddress, balance math.Int, rewards ...math.Int) (sdk.Context, error) {
+	t.Helper()
 	// Calculate the necessary amount of tokens to fund the account in order for the desired residual balance to
 	// be left after creating validators and delegating to them.
 	totalRewards := math.ZeroInt()
