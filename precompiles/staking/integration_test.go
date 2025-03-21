@@ -3867,7 +3867,7 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 			expTxPass bool
 		}{
 			{"call", true},
-			// {"callcode", false}, //todo: fix this - stops working after bech32 prefix changes off of evmos - the validator being sent in as arg contains a wrong checksum
+			//{"callcode", false}, //todo: fix this - stops working after bech32 prefix changes off of evmos - the validator being sent in as arg contains a wrong checksum
 			{"staticcall", false},
 			{"delegatecall", false},
 		}

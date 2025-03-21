@@ -74,11 +74,11 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) *SigningInfoOutput {
 	sio.SigningInfo = SigningInfo{
 		ValidatorAddress:    common.BytesToAddress([]byte(res.ValSigningInfo.Address)),
-		StartHeight:         uint64(res.ValSigningInfo.StartHeight),
-		IndexOffset:         uint64(res.ValSigningInfo.IndexOffset),
-		JailedUntil:         uint64(res.ValSigningInfo.JailedUntil.Unix()),
+		StartHeight:         uint64(res.ValSigningInfo.StartHeight),        //nolint:gosec // G115
+		IndexOffset:         uint64(res.ValSigningInfo.IndexOffset),        //nolint:gosec // G115
+		JailedUntil:         uint64(res.ValSigningInfo.JailedUntil.Unix()), //nolint:gosec // G115
 		Tombstoned:          res.ValSigningInfo.Tombstoned,
-		MissedBlocksCounter: uint64(res.ValSigningInfo.MissedBlocksCounter),
+		MissedBlocksCounter: uint64(res.ValSigningInfo.MissedBlocksCounter), //nolint:gosec // G115
 	}
 	return sio
 }
@@ -88,11 +88,11 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 	for i, info := range res.Info {
 		sio.SigningInfos[i] = SigningInfo{
 			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
-			StartHeight:         uint64(info.StartHeight),
-			IndexOffset:         uint64(info.IndexOffset),
-			JailedUntil:         uint64(info.JailedUntil.Unix()),
+			StartHeight:         uint64(info.StartHeight),        //nolint:gosec // G115
+			IndexOffset:         uint64(info.IndexOffset),        //nolint:gosec // G115
+			JailedUntil:         uint64(info.JailedUntil.Unix()), //nolint:gosec // G115
 			Tombstoned:          info.Tombstoned,
-			MissedBlocksCounter: uint64(info.MissedBlocksCounter),
+			MissedBlocksCounter: uint64(info.MissedBlocksCounter), //nolint:gosec // G115
 		}
 	}
 	if res.Pagination != nil {
@@ -125,7 +125,7 @@ type ParamsOutput struct {
 
 func (po *ParamsOutput) FromResponse(res *slashingtypes.QueryParamsResponse) *ParamsOutput {
 	po.Params = Params{
-		SignedBlocksWindow:      uint64(res.Params.SignedBlocksWindow),
+		SignedBlocksWindow:      uint64(res.Params.SignedBlocksWindow), //nolint:gosec // G115
 		MinSignedPerWindow:      res.Params.MinSignedPerWindow.String(),
 		DowntimeJailDuration:    uint64(res.Params.DowntimeJailDuration.Seconds()),
 		SlashFractionDoubleSign: res.Params.SlashFractionDoubleSign.String(),

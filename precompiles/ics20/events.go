@@ -55,7 +55,7 @@ func EmitIBCTransferEvent(
 		Address:     precompileAddr,
 		Topics:      topics,
 		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()),
+		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
 	return nil

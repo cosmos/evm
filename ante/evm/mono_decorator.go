@@ -239,7 +239,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		}
 
 		// 11. emit events
-		txIdx := uint64(i)
+		txIdx := uint64(i) //nolint:gosec // G115
 		EmitTxHashEvent(ctx, ethMsg, decUtils.BlockTxIndex, txIdx)
 	}
 
