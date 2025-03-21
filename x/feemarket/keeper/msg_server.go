@@ -3,10 +3,12 @@ package keeper
 import (
 	"context"
 
+	"github.com/cosmos/evm/x/feemarket/types"
+
 	errorsmod "cosmossdk.io/errors"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/evm/x/feemarket/types"
 )
 
 // UpdateParams implements the gRPC MsgServer interface. When an UpdateParams

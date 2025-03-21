@@ -5,8 +5,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/stretchr/testify/suite"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/ethereum/eip712"
 	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
 	"github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/testutil/integration/os/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
@@ -22,15 +32,6 @@ import (
 	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/ethereum/eip712"
-	"github.com/cosmos/evm/testutil/integration/os/network"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/stretchr/testify/suite"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 // Unit tests for single-signer EIP-712 signature verification. Multi-signature key verification tests are out-of-scope

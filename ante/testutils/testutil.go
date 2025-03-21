@@ -5,11 +5,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/client"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-
 	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
 	chainante "github.com/cosmos/evm/example_chain/ante"
@@ -21,6 +16,12 @@ import (
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
 type AnteTestSuite struct {

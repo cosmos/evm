@@ -4,13 +4,15 @@ import (
 	"strconv"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/testutil/integration/common/network"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // getIBCChains returns a map of TestChain's for the given network interface.
 func getIBCChains(t *testing.T, coord *ibctesting.Coordinator, chains []network.Network) map[string]*ibctesting.TestChain {
+	t.Helper()
 	ibcChains := make(map[string]*ibctesting.TestChain)
 	for _, chain := range chains {
 		ibcChains[chain.GetChainID()] = chain.GetIBCChain(t, coord)
@@ -20,6 +22,7 @@ func getIBCChains(t *testing.T, coord *ibctesting.Coordinator, chains []network.
 
 // generateDummyChains returns a map of dummy chains to complement IBC connections for integration tests.
 func generateDummyChains(t *testing.T, coord *ibctesting.Coordinator, numberOfChains int) (map[string]*ibctesting.TestChain, []string) {
+	t.Helper()
 	ibcChains := make(map[string]*ibctesting.TestChain)
 	ids := make([]string, numberOfChains)
 	// dummy chains use the ibc testing chain setup

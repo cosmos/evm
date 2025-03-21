@@ -1,11 +1,14 @@
 package types
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cometbft/cometbft/crypto/tmhash"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // NewTokenPairSTRv2 creates a new TokenPair instance in the context of the

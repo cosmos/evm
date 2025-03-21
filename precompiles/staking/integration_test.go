@@ -6,19 +6,14 @@ import (
 	"testing"
 	"time"
 
-	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	compiledcontracts "github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/precompiles/authorization"
@@ -28,13 +23,20 @@ import (
 	"github.com/cosmos/evm/precompiles/staking/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 func TestPrecompileIntegrationTestSuite(t *testing.T) {
@@ -3865,7 +3867,7 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 			expTxPass bool
 		}{
 			{"call", true},
-			//{"callcode", false}, //todo: fix this - stops working after bech32 prefix changes off of evmos - the validator being sent in as arg contains a wrong checksum
+			// {"callcode", false}, //todo: fix this - stops working after bech32 prefix changes off of evmos - the validator being sent in as arg contains a wrong checksum
 			{"staticcall", false},
 			{"delegatecall", false},
 		}

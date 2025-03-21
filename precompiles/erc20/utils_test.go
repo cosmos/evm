@@ -6,12 +6,12 @@ import (
 	"slices"
 	"time"
 
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
+	//nolint:revive // dot imports are fine for Gomega
+	. "github.com/onsi/gomega"
+
 	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -23,11 +23,14 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 
-	//nolint:revive // dot imports are fine for Gomega
-	. "github.com/onsi/gomega"
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // setupSendAuthz is a helper function to set up a SendAuthorization for

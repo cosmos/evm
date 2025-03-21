@@ -4,14 +4,17 @@ import (
 	"math/big"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
 	"github.com/cosmos/evm/x/vm/wrappers/testutil"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func TestGetBaseFee(t *testing.T) {

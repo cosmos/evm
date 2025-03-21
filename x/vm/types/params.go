@@ -5,14 +5,15 @@ import (
 	"math/big"
 	"slices"
 
-	errorsmod "cosmossdk.io/errors"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
+	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+
+	errorsmod "cosmossdk.io/errors"
 )
 
 var (
@@ -135,23 +136,14 @@ func (ac AccessControl) Validate() error {
 	if err := ac.Create.Validate(); err != nil {
 		return err
 	}
-
-	if err := ac.Call.Validate(); err != nil {
-		return err
-	}
-
-	return nil
+	return ac.Call.Validate()
 }
 
 func (act AccessControlType) Validate() error {
 	if err := validateAccessType(act.AccessType); err != nil {
 		return err
 	}
-
-	if err := validateAllowlistAddresses(act.AccessControlList); err != nil {
-		return err
-	}
-	return nil
+	return validateAllowlistAddresses(act.AccessControlList)
 }
 
 func validateAccessType(i interface{}) error {

@@ -10,6 +10,7 @@ import (
 // Note: the sender accounts are not populated. Do not use this accounts to send transactions during tests.
 // The keyring should be used instead.
 func (n *IntegrationNetwork) GetIBCChain(t *testing.T, coord *ibctesting.Coordinator) *ibctesting.TestChain {
+	t.Helper()
 	return &ibctesting.TestChain{
 		TB:            t,
 		Coordinator:   coord,

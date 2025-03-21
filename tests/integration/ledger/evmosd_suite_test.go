@@ -8,11 +8,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/suite"
+
+	//nolint:revive // dot imports are fine for Ginkgo
+	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
+	. "github.com/onsi/gomega"
+
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	rpcclientmock "github.com/cometbft/cometbft/rpc/client/mock"
 	"github.com/cometbft/cometbft/version"
+
+	clientkeys "github.com/cosmos/evm/client/keys"
+	"github.com/cosmos/evm/crypto/hd"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	exampleapp "github.com/cosmos/evm/example_chain"
+	"github.com/cosmos/evm/tests/integration/ledger/mocks"
+	"github.com/cosmos/evm/testutil/constants"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/keys"
@@ -22,21 +40,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	clientkeys "github.com/cosmos/evm/client/keys"
-	"github.com/cosmos/evm/crypto/hd"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	"github.com/cosmos/evm/tests/integration/ledger/mocks"
-	"github.com/cosmos/evm/testutil/constants"
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/suite"
-
-	//nolint:revive // dot imports are fine for Ginkgo
-	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive // dot imports are fine for Ginkgo
-	. "github.com/onsi/gomega"
 )
 
 var s *LedgerTestSuite

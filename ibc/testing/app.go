@@ -5,21 +5,25 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/math"
+	"github.com/stretchr/testify/require"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
+
+	exampleapp "github.com/cosmos/evm/example_chain"
+	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	"github.com/cosmos/evm/testutil/constants"
+	cosmosevmtypes "github.com/cosmos/evm/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"
+
+	"cosmossdk.io/math"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
-	"github.com/cosmos/evm/testutil/constants"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"
-	"github.com/stretchr/testify/require"
 )
 
 // DefaultTestingAppInit is a test helper function used to initialize an App
@@ -32,6 +36,7 @@ var DefaultTestingAppInit func(chainID string) func() (ibcgotesting.TestingApp, 
 // of one consensus engine unit (10^6) in the default token of the simapp from first genesis
 // account. A Nop logger is set in SimApp.
 func SetupWithGenesisValSet(t *testing.T, valSet *cmttypes.ValidatorSet, genAccs []authtypes.GenesisAccount, chainID string, balances ...banktypes.Balance) ibcgotesting.TestingApp {
+	t.Helper()
 	app, genesisState := DefaultTestingAppInit(chainID)()
 	// set genesis accounts
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)

@@ -6,13 +6,15 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+
 	//nolint:stylecheck,revive // it's common practice to use the global imports for Ginkgo and Gomega
 	. "github.com/onsi/gomega"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // CheckAuthorizationEvents is a helper function used in the integration tests and checks if the approval event is emitted.

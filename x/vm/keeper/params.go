@@ -5,10 +5,12 @@ import (
 	"slices"
 	"sort"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // GetParams returns the total set of evm parameters.

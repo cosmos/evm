@@ -5,19 +5,20 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/staking"
+	"github.com/cosmos/evm/precompiles/testutil"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
+	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/precompiles/staking"
-	"github.com/cosmos/evm/precompiles/testutil"
-	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func (s *PrecompileTestSuite) TestCreateValidator() {

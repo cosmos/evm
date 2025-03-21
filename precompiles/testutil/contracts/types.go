@@ -3,10 +3,11 @@ package contracts
 import (
 	"math/big"
 
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
 // CallArgs is a struct to define all relevant data to call a smart contract.

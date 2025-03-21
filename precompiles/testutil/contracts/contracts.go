@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	abci "github.com/cometbft/cometbft/abci/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	exampleapp "github.com/cosmos/evm/example_chain"
 	chainutil "github.com/cosmos/evm/example_chain/testutil"
 	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/crypto"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Call is a helper function to call any arbitrary smart contract.

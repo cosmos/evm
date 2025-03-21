@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 

@@ -5,16 +5,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/exp/constraints"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+
 	errorsmod "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/constraints"
 )
 
 // EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address

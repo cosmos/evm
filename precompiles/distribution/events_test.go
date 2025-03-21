@@ -3,20 +3,22 @@ package distribution_test
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/precompiles/distribution"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {

@@ -17,15 +17,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+
+	cmtrand "github.com/cometbft/cometbft/libs/rand"
+	"github.com/cometbft/cometbft/node"
+	cmtclient "github.com/cometbft/cometbft/rpc/client"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/crypto/hd"
+	exampleapp "github.com/cosmos/evm/example_chain"
+	chaincmd "github.com/cosmos/evm/example_chain/evmd/cmd"
+	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 	pruningtypes "cosmossdk.io/store/pruning/types"
-	cmtrand "github.com/cometbft/cometbft/libs/rand"
-	"github.com/cometbft/cometbft/node"
-	cmtclient "github.com/cometbft/cometbft/rpc/client"
-	dbm "github.com/cosmos/cosmos-db"
+
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -44,15 +56,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/cosmos/evm/crypto/hd"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	chaincmd "github.com/cosmos/evm/example_chain/evmd/cmd"
-	"github.com/cosmos/evm/server/config"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 )
 
 // package-wide network lock to only allow one test network at a time

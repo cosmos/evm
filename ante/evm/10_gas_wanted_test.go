@@ -3,10 +3,6 @@ package evm_test
 import (
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
@@ -14,6 +10,11 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	integrationutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (suite *EvmAnteTestSuite) TestCheckGasWanted() {

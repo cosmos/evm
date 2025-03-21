@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	// For now we'll keep this. Pending to review if we can remove it
@@ -16,6 +15,8 @@ import (
 	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibclightclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Endpoint is a which represents a channel endpoint and its associated

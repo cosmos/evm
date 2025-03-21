@@ -1,9 +1,10 @@
 package types
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // EVMTxIndexer defines the interface of custom eth tx indexer.

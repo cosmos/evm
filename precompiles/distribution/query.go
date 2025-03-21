@@ -1,11 +1,13 @@
 package distribution
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 )
 
 const (

@@ -3,13 +3,14 @@ package slashing
 import (
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/cosmos/cosmos-sdk/types/query"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
+	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
 // SigningInfo represents the signing info for a validator

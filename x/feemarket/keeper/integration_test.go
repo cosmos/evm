@@ -4,21 +4,23 @@ import (
 	"math/big"
 	"testing"
 
-	"cosmossdk.io/math"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/evm/testutil/integration/common/factory"
-	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
-	fmkttypes "github.com/cosmos/evm/x/feemarket/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
+
+	"github.com/cosmos/evm/testutil/integration/common/factory"
+	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
+	fmkttypes "github.com/cosmos/evm/x/feemarket/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 type txParams struct {
