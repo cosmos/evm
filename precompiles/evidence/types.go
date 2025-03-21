@@ -53,7 +53,7 @@ type EquivocationData struct {
 func (e EquivocationData) ToEquivocation() *evidencetypes.Equivocation {
 	return &evidencetypes.Equivocation{
 		Height:           e.Height,
-		Time:             time.Unix(int64(e.Time), 0).UTC(),
+		Time:             time.Unix(int64(e.Time), 0).UTC(), //nolint:gosec // G115
 		Power:            e.Power,
 		ConsensusAddress: e.ConsensusAddress,
 	}

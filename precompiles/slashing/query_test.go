@@ -225,7 +225,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				// Get the default params from the network
 				defaultParams, err := s.network.App.SlashingKeeper.GetParams(s.network.GetContext())
 				s.Require().NoError(err)
-				s.Require().Equal(uint64(defaultParams.SignedBlocksWindow), params.SignedBlocksWindow)
+				s.Require().Equal(uint64(defaultParams.SignedBlocksWindow), params.SignedBlocksWindow) //nolint:gosec // G115
 				s.Require().Equal(defaultParams.MinSignedPerWindow.String(), params.MinSignedPerWindow)
 				s.Require().Equal(uint64(defaultParams.DowntimeJailDuration.Seconds()), params.DowntimeJailDuration)
 				s.Require().Equal(defaultParams.SlashFractionDoubleSign.String(), params.SlashFractionDoubleSign)

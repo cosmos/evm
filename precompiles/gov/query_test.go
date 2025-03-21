@@ -69,7 +69,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					Voter:      s.keyring.GetAddr(0),
 					Options: []gov.WeightedVoteOption{
 						{
-							Option: uint8(voteOption.Option),
+							Option: uint8(voteOption.Option), //nolint:gosec // G115 -- integer overflow is not happening here
 							Weight: voteOption.Weight,
 						},
 					},
