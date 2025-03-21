@@ -191,10 +191,7 @@ func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) erro
 		}
 	}
 
-	if err := stateDB.AddPrecompileFn(p.Address(), s.MultiStore, s.Events); err != nil {
-		return err
-	}
-	return nil
+	return stateDB.AddPrecompileFn(p.Address(), s.MultiStore, s.Events)
 }
 
 // SetBalanceChangeEntries sets the balanceChange entries
