@@ -6,7 +6,7 @@ run:
 
 issues:
   exclude-dirs:
-    - x/evm/core
+    - x/vm/core
 
 linters:
   enable:
