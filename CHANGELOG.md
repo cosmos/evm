@@ -10,6 +10,7 @@
 ### BUG FIXES
 
 - Fixed example chain's cmd by adding NoOpEVMOptions to tmpApp in root.go
+- Added RPC support for `--legacy` transactions (Non EIP-1559)
 
 ### IMPROVEMENTS
 
