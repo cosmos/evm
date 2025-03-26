@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 )
 
 // GetEvmAccount returns the EVM account for the given address.

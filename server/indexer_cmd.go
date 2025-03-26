@@ -3,13 +3,16 @@ package server
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	cmtconfig "github.com/cometbft/cometbft/config"
 	sm "github.com/cometbft/cometbft/state"
 	cmtstore "github.com/cometbft/cometbft/store"
+
+	"github.com/cosmos/evm/indexer"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/cosmos/evm/indexer"
-	"github.com/spf13/cobra"
 )
 
 // NewIndexTxCmd creates a new Cobra command to index historical Ethereum transactions.

@@ -3,10 +3,10 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/cosmos/evm/x/feemarket/types"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-
-	"github.com/cosmos/evm/x/feemarket/types"
 )
 
 // GetQueryCmd returns the parent command for all x/feemarket CLI query commands.

@@ -4,7 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/cosmos/evm/ante/testutils"
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+
 	sdkmath "cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -12,8 +16,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/authz"
-	"github.com/cosmos/evm/ante/testutils"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
 )
 
 func (suite *AnteTestSuite) CreateTestCosmosTxBuilder(gasPrice sdkmath.Int, denom string, msgs ...sdk.Msg) client.TxBuilder {

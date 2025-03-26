@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	cosmosevmibc "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/testutil/integration/common/network"
 	ibcchain "github.com/cosmos/evm/testutil/integration/ibc/chain"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Coordinator is the interface that defines the methods that are used to
@@ -58,6 +59,7 @@ type IntegrationCoordinator struct {
 
 // NewIntegrationCoordinator returns a new IntegrationCoordinator with N TestChain's.
 func NewIntegrationCoordinator(t *testing.T, preConfiguredChains []network.Network) *IntegrationCoordinator {
+	t.Helper()
 	coord := &ibctesting.Coordinator{
 		T:           t,
 		CurrentTime: time.Now(),

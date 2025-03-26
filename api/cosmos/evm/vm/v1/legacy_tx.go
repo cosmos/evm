@@ -3,8 +3,9 @@ package vmv1
 import (
 	"math/big"
 
-	ethutils "github.com/cosmos/evm/utils/eth"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	ethutils "github.com/cosmos/evm/utils/eth"
 )
 
 // GetChainID returns the chain id field from the derived signature values

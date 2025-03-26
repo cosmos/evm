@@ -1,11 +1,13 @@
 package network
 
 import (
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	exampleapp "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 // UnitTestNetwork is the implementation of the Network interface for unit tests.

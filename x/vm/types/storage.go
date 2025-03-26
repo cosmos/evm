@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	errorsmod "cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/common"
+
+	errorsmod "cosmossdk.io/errors"
 )
 
 // Storage represents the account Storage map as a slice of single key value

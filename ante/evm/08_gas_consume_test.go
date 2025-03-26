@@ -3,9 +3,6 @@ package evm_test
 import (
 	"fmt"
 
-	sdkmath "cosmossdk.io/math"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	evmante "github.com/cosmos/evm/ante/evm"
 	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	testfactory "github.com/cosmos/evm/testutil/integration/os/factory"
@@ -13,6 +10,11 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func (suite *EvmAnteTestSuite) TestUpdateCumulativeGasWanted() {

@@ -3,7 +3,7 @@ package slashing_test
 import (
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
@@ -11,7 +11,7 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 
-	"github.com/stretchr/testify/suite"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type PrecompileTestSuite struct {

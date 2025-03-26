@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/stretchr/testify/require"
+
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 func TestAddTopic(t *testing.T) {
@@ -114,6 +115,7 @@ func TestConcurrentSubscribeAndPublish(t *testing.T) {
 }
 
 func subscribeAndPublish(t *testing.T, eb EventBus, topic string, topicChan chan coretypes.ResultEvent) {
+	t.Helper()
 	var (
 		wg               sync.WaitGroup
 		subscribersCount = 50

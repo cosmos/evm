@@ -3,15 +3,15 @@ package cosmos_test
 import (
 	"fmt"
 
+	cosmosante "github.com/cosmos/evm/ante/cosmos"
+	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/testutil/constants"
+	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	cosmosante "github.com/cosmos/evm/ante/cosmos"
-	"github.com/cosmos/evm/testutil"
-	testutiltx "github.com/cosmos/evm/testutil/tx"
 )
 
 var execTypes = []struct {
