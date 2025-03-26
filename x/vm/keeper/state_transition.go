@@ -4,23 +4,24 @@ import (
 	"fmt"
 	"math/big"
 
-	cmttypes "github.com/cometbft/cometbft/types"
-
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/cosmos/evm/x/vm/types"
-
-	evmcore "github.com/cosmos/evm/x/vm/core/core"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	cosmosevmtypes "github.com/cosmos/evm/types"
+	evmcore "github.com/cosmos/evm/x/vm/core/core"
+	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters

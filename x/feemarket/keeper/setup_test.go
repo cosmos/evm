@@ -1,12 +1,14 @@
 package keeper_test
 
 import (
-	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
-	"github.com/stretchr/testify/suite"
+
+	"github.com/cosmos/cosmos-sdk/baseapp"
 )
 
 type KeeperTestSuite struct {

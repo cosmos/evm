@@ -1,9 +1,10 @@
 package ante_test
 
 import (
-	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+
+	storetypes "cosmossdk.io/store/types"
 )
 
 func (suite *EvmAnteTestSuite) TestBuildEvmExecutionCtx() {

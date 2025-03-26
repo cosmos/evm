@@ -5,12 +5,11 @@ import (
 	"math/big"
 	"strings"
 
-	errorsmod "cosmossdk.io/errors"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	testutiltypes "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/cosmos/cosmos-sdk/x/auth/signing"
+
 	"github.com/cosmos/evm/precompiles/testutil"
 	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
@@ -18,8 +17,13 @@ import (
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+
+	errorsmod "cosmossdk.io/errors"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	testutiltypes "github.com/cosmos/cosmos-sdk/types/module/testutil"
+	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 // TxFactory defines a struct that can build and broadcast transactions for the Cosmos EVM

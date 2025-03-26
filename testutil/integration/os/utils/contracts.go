@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )

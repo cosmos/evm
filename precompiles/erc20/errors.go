@@ -4,13 +4,15 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/x/authz"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/cosmos/cosmos-sdk/x/authz"
 )
 
 // Errors that have formatted information are defined here as a string.

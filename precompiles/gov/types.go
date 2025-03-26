@@ -3,34 +3,34 @@ package gov
 import (
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/types/query"
-	"github.com/cosmos/evm/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
 // EventVote defines the event data for the Vote transaction.
 type EventVote struct {
 	Voter      common.Address
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Option     uint8
 }
 
 // EventVoteWeighted defines the event data for the VoteWeighted transaction.
 type EventVoteWeighted struct {
 	Voter      common.Address
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Options    WeightedVoteOptions
 }
 
 // VotesInput defines the input for the Votes query.
 type VotesInput struct {
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Pagination query.PageRequest
 }
 
@@ -47,7 +47,7 @@ type VoteOutput struct {
 
 // WeightedVote defines a struct of vote for vote split.
 type WeightedVote struct {
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Voter      common.Address
 	Options    []WeightedVoteOption
 	Metadata   string
@@ -64,7 +64,7 @@ type WeightedVoteOptions []WeightedVoteOption
 
 // DepositInput defines the input for the Deposit query.
 type DepositInput struct {
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Depositor  common.Address
 }
 
@@ -75,7 +75,7 @@ type DepositOutput struct {
 
 // DepositsInput defines the input for the Deposits query.
 type DepositsInput struct {
-	ProposalId uint64 //nolint:revive,stylecheck
+	ProposalId uint64 //nolint:revive
 	Pagination query.PageRequest
 }
 
@@ -92,7 +92,7 @@ type TallyResultOutput struct {
 
 // DepositData represents information about a deposit on a proposal
 type DepositData struct {
-	ProposalId uint64         `abi:"proposalId"` //nolint:revive,stylecheck
+	ProposalId uint64         `abi:"proposalId"` //nolint:revive
 	Depositor  common.Address `abi:"depositor"`
 	Amount     []cmn.Coin     `abi:"amount"`
 }

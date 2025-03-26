@@ -4,12 +4,13 @@ import (
 	"slices"
 	"testing"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
-	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	exampleapp "github.com/cosmos/evm/example_chain"
+	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/x/erc20/types"
 )
 
 type ParamsTestSuite struct {

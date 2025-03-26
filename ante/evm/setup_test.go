@@ -3,8 +3,9 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/cosmos/evm/ante/testutils"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/cosmos/evm/ante/testutils"
 )
 
 type AnteTestSuite struct {

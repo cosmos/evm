@@ -5,11 +5,13 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cometbft/cometbft/crypto"
+
 	"github.com/cosmos/evm/precompiles/p256"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var trueValue = common.LeftPadBytes(common.Big1.Bytes(), 32)

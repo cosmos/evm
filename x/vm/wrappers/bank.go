@@ -4,12 +4,12 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/cosmos/evm/x/vm/types"
+
 	"cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/cosmos/evm/x/vm/types"
 )
 
 var _ types.BankWrapper = BankWrapper{}

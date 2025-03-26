@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	app "github.com/cosmos/evm/example_chain"
 	"github.com/cosmos/evm/testutil/constants"
+	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	teststaking "github.com/cosmos/cosmos-sdk/x/staking/testutil"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	app "github.com/cosmos/evm/example_chain"
-	testutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/stretchr/testify/require"
 )
 
 // PrepareAccountsForDelegationRewards prepares the test suite for testing to withdraw delegation rewards.
@@ -32,6 +34,7 @@ import (
 //
 // The function returns the updated context along with a potential error.
 func PrepareAccountsForDelegationRewards(t *testing.T, ctx sdk.Context, app *app.ExampleChain, addr sdk.AccAddress, balance math.Int, rewards ...math.Int) (sdk.Context, error) {
+	t.Helper()
 	// Calculate the necessary amount of tokens to fund the account in order for the desired residual balance to
 	// be left after creating validators and delegating to them.
 	totalRewards := math.ZeroInt()
