@@ -3,7 +3,7 @@ package network
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -15,7 +15,7 @@ import (
 // makes the App public for easier testing.
 type UnitTestNetwork struct {
 	IntegrationNetwork
-	App *exampleapp.ExampleChain
+	App *exampleapp.EVMD
 }
 
 var _ Network = (*UnitTestNetwork)(nil)

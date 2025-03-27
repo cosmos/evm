@@ -3,7 +3,7 @@ package tx
 import (
 	protov2 "google.golang.org/protobuf/proto"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/constants"
 
 	sdkmath "cosmossdk.io/math"
@@ -42,7 +42,7 @@ type CosmosTxArgs struct {
 // It returns the signed transaction and an error
 func PrepareCosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	args CosmosTxArgs,
 ) (authsigning.Tx, error) {
 	txBuilder := args.TxCfg.NewTxBuilder()
@@ -75,7 +75,7 @@ func PrepareCosmosTx(
 // the provided private key
 func signCosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	args CosmosTxArgs,
 	txBuilder client.TxBuilder,
 ) (authsigning.Tx, error) {
