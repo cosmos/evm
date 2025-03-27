@@ -4,6 +4,7 @@
 
 ### DEPENDENCIES
 
+- [\#31](https://github.com/cosmos/evm/pull/31) Migrated example_chain to evmd
 - Migrated evmos/go-ethereum to cosmos/go-ethereum
 - Migrated evmos/cosmos-sdk to cosmos/cosmos-sdk
 
