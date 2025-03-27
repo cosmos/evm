@@ -51,7 +51,6 @@ func EvmAppOptions(chainID string) error {
 	}
 
 	id := strings.Split(chainID, "-")[0]
-	fmt.Printf("ChainID: %v\n", chainID)
 	coinInfo, found := ChainsCoinInfo[id]
 	if !found {
 		return fmt.Errorf("unknown chain id: %s", id)
