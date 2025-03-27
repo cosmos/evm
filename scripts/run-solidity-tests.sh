@@ -9,9 +9,9 @@ rm -rf "$HOME"/.tmp-evmd-solidity-tests
 set -e
 
 # build evmd binary
-cd evmd && make install
+make install
 
-cd ../tests/solidity || exit
+cd tests/solidity || exit
 
 if command -v yarn &>/dev/null; then
 	yarn install
