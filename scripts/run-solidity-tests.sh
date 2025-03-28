@@ -8,10 +8,10 @@ rm -rf "$HOME"/.tmp-evmd-solidity-tests
 # used to exit on first error (any non-zero exit code)
 set -e
 
-# build example chain binary
-cd example_chain && make install
+# build evmd binary
+make install
 
-cd ../tests/solidity || exit
+cd tests/solidity || exit
 
 if command -v yarn &>/dev/null; then
 	yarn install

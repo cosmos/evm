@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/core/vm"

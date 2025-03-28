@@ -27,9 +27,9 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
+	chaincmd "github.com/cosmos/evm/cmd/evmd/cmd"
 	"github.com/cosmos/evm/crypto/hd"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	chaincmd "github.com/cosmos/evm/example_chain/evmd/cmd"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"

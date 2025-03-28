@@ -10,8 +10,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	exampleapp "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -19,7 +19,7 @@ import (
 )
 
 // Call is a helper function to call any arbitrary smart contract.
-func Call(ctx sdk.Context, app *exampleapp.ExampleChain, args CallArgs) (res abci.ExecTxResult, ethRes *evmtypes.MsgEthereumTxResponse, err error) {
+func Call(ctx sdk.Context, app *exampleapp.EVMD, args CallArgs) (res abci.ExecTxResult, ethRes *evmtypes.MsgEthereumTxResponse, err error) {
 	var (
 		nonce    uint64
 		gasLimit = args.GasLimit
@@ -103,7 +103,7 @@ func Call(ctx sdk.Context, app *exampleapp.ExampleChain, args CallArgs) (res abc
 
 // CallContractAndCheckLogs is a helper function to call any arbitrary smart contract and check that the logs
 // contain the expected events.
-func CallContractAndCheckLogs(ctx sdk.Context, app *exampleapp.ExampleChain, cArgs CallArgs, logCheckArgs precompiletestutil.LogCheckArgs) (abci.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
+func CallContractAndCheckLogs(ctx sdk.Context, app *exampleapp.EVMD, cArgs CallArgs, logCheckArgs precompiletestutil.LogCheckArgs) (abci.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
 	res, ethRes, err := Call(ctx, app, cArgs)
 	if err != nil {
 		return res, nil, err

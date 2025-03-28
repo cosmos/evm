@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
+	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/testutil/constants"

@@ -10,8 +10,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	exampleapp "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"

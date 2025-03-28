@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	app "github.com/cosmos/evm/example_chain"
+	app "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/constants"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 
@@ -33,7 +33,7 @@ import (
 //   - Allocate rewards to the validator.
 //
 // The function returns the updated context along with a potential error.
-func PrepareAccountsForDelegationRewards(t *testing.T, ctx sdk.Context, app *app.ExampleChain, addr sdk.AccAddress, balance math.Int, rewards ...math.Int) (sdk.Context, error) {
+func PrepareAccountsForDelegationRewards(t *testing.T, ctx sdk.Context, app *app.EVMD, addr sdk.AccAddress, balance math.Int, rewards ...math.Int) (sdk.Context, error) {
 	t.Helper()
 	// Calculate the necessary amount of tokens to fund the account in order for the desired residual balance to
 	// be left after creating validators and delegating to them.
