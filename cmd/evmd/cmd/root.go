@@ -325,7 +325,7 @@ func newApp(
 	}
 
 	// get the chain id
-	chainID, err := getChainIdFromOpts(appOpts)
+	chainID, err := getChainIDFromOpts(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -403,7 +403,7 @@ func appExport(
 	appOpts = viperAppOpts
 
 	// get the chain id
-	chainID, err := getChainIdFromOpts(appOpts)
+	chainID, err := getChainIDFromOpts(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
@@ -421,10 +421,10 @@ func appExport(
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
 }
 
-// getChainIdFromOpts returns the chain Id from app Opts
+// getChainIDFromOpts returns the chain Id from app Opts
 // It first tries to get from the chainId flag, if not available
 // it will load from home
-func getChainIdFromOpts(appOpts servertypes.AppOptions) (chainID string, err error) {
+func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err error) {
 	// Get the chain Id from appOpts
 	chainID = cast.ToString(appOpts.Get(flags.FlagChainID))
 	if chainID == "" {
