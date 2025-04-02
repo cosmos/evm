@@ -3,10 +3,10 @@ package types_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/types"
 )
 
@@ -31,8 +31,8 @@ func TestExtendedEips(t *testing.T) {
 		{
 			"fail - eip already present in activators return an error",
 			func() *types.EVMConfigurator {
-				extendedEIPs := map[string]func(*vm.JumpTable){
-					"ethereum_3855": func(_ *vm.JumpTable) {},
+				extendedEIPs := map[int]func(*vm.JumpTable){
+					3855: func(_ *vm.JumpTable) {},
 				}
 				ec := types.NewEVMConfigurator().
 					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
@@ -45,8 +45,8 @@ func TestExtendedEips(t *testing.T) {
 		{
 			"success - new default extra eips without duplication added",
 			func() *types.EVMConfigurator {
-				extendedEIPs := map[string]func(*vm.JumpTable){
-					"evmos_0": func(_ *vm.JumpTable) {},
+				extendedEIPs := map[int]func(*vm.JumpTable){
+					0o000: func(_ *vm.JumpTable) {},
 				}
 				ec := types.NewEVMConfigurator().
 					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
@@ -82,42 +82,26 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 		errContains string
 	}{
 		{
-			"fail - invalid eip name",
-			func() *types.EVMConfigurator {
-				extendedDefaultExtraEIPs := []string{"cosmos_1_000"}
-				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
-					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
-				return ec
-			},
-			func() {
-				require.ElementsMatch(t, defaultExtraEIPsSnapshot, types.DefaultExtraEIPs)
-				types.DefaultExtraEIPs = defaultExtraEIPsSnapshot
-			},
-			false,
-			"eip name does not conform to structure",
-		},
-		{
 			"fail - duplicate default EIP entiries",
 			func() *types.EVMConfigurator {
-				extendedDefaultExtraEIPs := []string{"cosmos_1000"}
-				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, "cosmos_1000")
+				extendedDefaultExtraEIPs := []int64{1000}
+				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, 1000)
 				ec := types.NewEVMConfigurator().
 					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
 			func() {
-				require.ElementsMatch(t, append(defaultExtraEIPsSnapshot, "cosmos_1000"), types.DefaultExtraEIPs)
+				require.ElementsMatch(t, append(defaultExtraEIPsSnapshot, 1000), types.DefaultExtraEIPs)
 				types.DefaultExtraEIPs = defaultExtraEIPsSnapshot
 			},
 			false,
-			"EIP cosmos_1000 is already present",
+			"EIP 1000 is already present",
 		},
 		{
 			"success - empty default extra eip",
 			func() *types.EVMConfigurator {
-				var extendedDefaultExtraEIPs []string
+				var extendedDefaultExtraEIPs []int64
 				ec := types.NewEVMConfigurator().
 					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
@@ -132,14 +116,14 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 		{
 			"success - extra default eip added",
 			func() *types.EVMConfigurator {
-				extendedDefaultExtraEIPs := []string{"os_1001"}
+				extendedDefaultExtraEIPs := []int64{1001}
 				ec := types.NewEVMConfigurator().
 					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
 			func() {
-				require.ElementsMatch(t, append(defaultExtraEIPsSnapshot, "os_1001"), types.DefaultExtraEIPs)
+				require.ElementsMatch(t, append(defaultExtraEIPsSnapshot, 1001), types.DefaultExtraEIPs)
 				types.DefaultExtraEIPs = defaultExtraEIPsSnapshot
 			},
 			true,

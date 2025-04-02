@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // EVMConfigurator allows to extend x/evm module configurations. The configurator modifies
@@ -16,8 +16,8 @@ import (
 // applied to each change.
 type EVMConfigurator struct {
 	sealed                   bool
-	extendedEIPs             map[string]func(*vm.JumpTable)
-	extendedDefaultExtraEIPs []string
+	extendedEIPs             map[int]func(*vm.JumpTable)
+	extendedDefaultExtraEIPs []int64
 	chainConfig              *ChainConfig
 	evmCoinInfo              EvmCoinInfo
 }
@@ -29,14 +29,14 @@ func NewEVMConfigurator() *EVMConfigurator {
 
 // WithExtendedEips allows to add to the go-ethereum activators map the provided
 // EIP activators.
-func (ec *EVMConfigurator) WithExtendedEips(extendedEIPs map[string]func(*vm.JumpTable)) *EVMConfigurator {
+func (ec *EVMConfigurator) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTable)) *EVMConfigurator {
 	ec.extendedEIPs = extendedEIPs
 	return ec
 }
 
 // WithExtendedDefaultExtraEIPs update the x/evm DefaultExtraEIPs params
 // by adding provided EIP numbers.
-func (ec *EVMConfigurator) WithExtendedDefaultExtraEIPs(eips ...string) *EVMConfigurator {
+func (ec *EVMConfigurator) WithExtendedDefaultExtraEIPs(eips ...int64) *EVMConfigurator {
 	ec.extendedDefaultExtraEIPs = eips
 	return ec
 }
@@ -55,14 +55,10 @@ func (ec *EVMConfigurator) WithEVMCoinInfo(denom string, decimals uint8) *EVMCon
 	return ec
 }
 
-func extendDefaultExtraEIPs(extraEIPs []string) error {
+func extendDefaultExtraEIPs(extraEIPs []int64) error {
 	for _, eip := range extraEIPs {
 		if slices.Contains(DefaultExtraEIPs, eip) {
-			return fmt.Errorf("error configuring EVMConfigurator: EIP %s is already present in the default list: %v", eip, DefaultExtraEIPs)
-		}
-
-		if err := vm.ValidateEIPName(eip); err != nil {
-			return fmt.Errorf("error configuring EVMConfigurator: %s", err)
+			return fmt.Errorf("error configuring EVMConfigurator: EIP %d is already present in the default list: %v", eip, DefaultExtraEIPs)
 		}
 
 		DefaultExtraEIPs = append(DefaultExtraEIPs, eip)
