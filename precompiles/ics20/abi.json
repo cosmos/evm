@@ -285,30 +285,11 @@
       "inputs": [
         {
           "internalType": "string",
-          "name": "trace",
-          "type": "string"
-        }
-      ],
-      "name": "denomHash",
-      "outputs": [
-        {
-          "internalType": "string",
           "name": "hash",
           "type": "string"
         }
       ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "hash",
-          "type": "string"
-        }
-      ],
-      "name": "denomTrace",
+      "name": "denom",
       "outputs": [
         {
           "components": [
@@ -323,9 +304,28 @@
               "type": "string"
             }
           ],
-          "internalType": "struct DenomTrace",
-          "name": "denomTrace",
+          "internalType": "struct Denom",
+          "name": "denom",
           "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "trace",
+          "type": "string"
+        }
+      ],
+      "name": "denomHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "hash",
+          "type": "string"
         }
       ],
       "stateMutability": "view",
@@ -366,7 +366,7 @@
           "type": "tuple"
         }
       ],
-      "name": "denomTraces",
+      "name": "denoms",
       "outputs": [
         {
           "components": [
@@ -381,8 +381,8 @@
               "type": "string"
             }
           ],
-          "internalType": "struct DenomTrace[]",
-          "name": "denomTraces",
+          "internalType": "struct Denom[]",
+          "name": "denoms",
           "type": "tuple[]"
         },
         {

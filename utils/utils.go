@@ -9,7 +9,7 @@ import (
 	"golang.org/x/exp/constraints"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -119,7 +119,7 @@ func CreateAccAddressFromBech32(address string, bech32prefix string) (addr sdk.A
 	return sdk.AccAddress(bz), nil
 }
 
-// GetIBCDenomAddress returns the address from the hash of the ICS20's DenomTrace Path.
+// GetIBCDenomAddress returns the address from the hash of the ICS20's Denom Path.
 func GetIBCDenomAddress(denom string) (common.Address, error) {
 	if !strings.HasPrefix(denom, "ibc/") {
 		return common.Address{}, ibctransfertypes.ErrInvalidDenomForTransfer.Wrapf("coin %s does not have 'ibc/' prefix", denom)
@@ -129,36 +129,13 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 		return common.Address{}, ibctransfertypes.ErrInvalidDenomForTransfer.Wrapf("coin %s is not a valid IBC voucher hash", denom)
 	}
 
-	// Get the address from the hash of the ICS20's DenomTrace Path
+	// Get the address from the hash of the ICS20's Denom Path
 	bz, err := ibctransfertypes.ParseHexHash(denom[4:])
 	if err != nil {
 		return common.Address{}, ibctransfertypes.ErrInvalidDenomForTransfer.Wrap(err.Error())
 	}
 
 	return common.BytesToAddress(bz), nil
-}
-
-// ComputeIBCDenomTrace compute the ibc voucher denom trace associated with
-// the portID, channelID, and the given a token denomination.
-func ComputeIBCDenomTrace(
-	portID, channelID,
-	denom string,
-) ibctransfertypes.DenomTrace {
-	denomTrace := ibctransfertypes.DenomTrace{
-		Path:      fmt.Sprintf("%s/%s", portID, channelID),
-		BaseDenom: denom,
-	}
-
-	return denomTrace
-}
-
-// ComputeIBCDenom compute the ibc voucher denom associated to
-// the portID, channelID, and the given a token denomination.
-func ComputeIBCDenom(
-	portID, channelID,
-	denom string,
-) string {
-	return ComputeIBCDenomTrace(portID, channelID, denom).IBCDenom()
 }
 
 // SortSlice sorts a slice of any ordered type.

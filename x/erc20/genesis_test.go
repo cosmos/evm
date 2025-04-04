@@ -11,13 +11,14 @@ import (
 	tmversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	"github.com/cometbft/cometbft/version"
 
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+
 	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20"
 	"github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -31,10 +32,7 @@ type GenesisTestSuite struct {
 
 const osmoERC20ContractAddr = "0x5dCA2483280D9727c80b5518faC4556617fb19ZZ"
 
-var osmoDenomTrace = transfertypes.DenomTrace{
-	BaseDenom: "uosmo",
-	Path:      "transfer/channel-0",
-}
+var osmoDenom = transfertypes.NewDenom("uosmo", transfertypes.NewHop(transfertypes.PortID, "channel-0"))
 
 func TestGenesisTestSuite(t *testing.T) {
 	suite.Run(t, new(GenesisTestSuite))
@@ -94,7 +92,7 @@ func (suite *GenesisTestSuite) TestERC20InitGenesis() {
 				[]types.TokenPair{
 					{
 						Erc20Address:  osmoERC20ContractAddr,
-						Denom:         osmoDenomTrace.IBCDenom(),
+						Denom:         osmoDenom.IBCDenom(),
 						Enabled:       true,
 						ContractOwner: types.OWNER_MODULE,
 					},
@@ -143,7 +141,7 @@ func (suite *GenesisTestSuite) TestErc20ExportGenesis() {
 				[]types.TokenPair{
 					{
 						Erc20Address:  osmoERC20ContractAddr,
-						Denom:         osmoDenomTrace.IBCDenom(),
+						Denom:         osmoDenom.IBCDenom(),
 						Enabled:       true,
 						ContractOwner: types.OWNER_MODULE,
 					},

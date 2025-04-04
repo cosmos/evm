@@ -13,11 +13,11 @@ import (
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"
-	ibcmock "github.com/cosmos/ibc-go/v8/testing/mock"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v10/testing"
+	ibcmock "github.com/cosmos/ibc-go/v10/testing/mock"
 
 	"cosmossdk.io/math"
 
@@ -46,7 +46,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	// Setup Cosmos <=> Cosmos EVM IBC relayer
 	sourceChannel := "channel-292"
 	cosmosEVMChannel := "channel-3"
-	path := fmt.Sprintf("%s/%s", transfertypes.PortID, cosmosEVMChannel)
+	hop := transfertypes.NewHop(transfertypes.PortID, cosmosEVMChannel)
 
 	timeoutHeight := clienttypes.NewHeight(0, 100)
 	disabledTimeoutTimestamp := uint64(0)
@@ -233,12 +233,9 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 			// get updated context after registering ERC20 pair
 			ctx = suite.network.GetContext()
 
-			// Set Denom Trace
-			denomTrace := transfertypes.DenomTrace{
-				Path:      path,
-				BaseDenom: registeredDenom,
-			}
-			suite.network.App.TransferKeeper.SetDenomTrace(ctx, denomTrace)
+			// Set Denom
+			denom := transfertypes.NewDenom(registeredDenom, hop)
+			suite.network.App.TransferKeeper.SetDenom(ctx, denom)
 
 			// Set Cosmos Channel
 			channel := channeltypes.Channel{

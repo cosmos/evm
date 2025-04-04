@@ -164,7 +164,7 @@ func (k Keeper) IsDenomRegistered(ctx sdk.Context, denom string) bool {
 // GetCoinAddress returns the corresponding ERC-20 contract address for the
 // given denom.
 // If the denom is not registered and its an IBC voucher, it returns the address
-// from the hash of the ICS20's DenomTrace Path.
+// from the hash of the ICS20's Denom Path.
 func (k Keeper) GetCoinAddress(ctx sdk.Context, denom string) (common.Address, error) {
 	id := k.GetDenomMap(ctx, denom)
 	if len(id) == 0 {

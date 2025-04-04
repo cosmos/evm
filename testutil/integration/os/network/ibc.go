@@ -3,7 +3,7 @@ package network
 import (
 	"testing"
 
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
 // GetIBCChain returns a TestChain instance for the given network.
@@ -12,16 +12,14 @@ import (
 func (n *IntegrationNetwork) GetIBCChain(t *testing.T, coord *ibctesting.Coordinator) *ibctesting.TestChain {
 	t.Helper()
 	return &ibctesting.TestChain{
-		TB:            t,
-		Coordinator:   coord,
-		ChainID:       n.GetChainID(),
-		App:           n.app,
-		CurrentHeader: n.ctx.BlockHeader(),
-		QueryServer:   n.app.GetIBCKeeper(),
-		TxConfig:      n.app.GetTxConfig(),
-		Codec:         n.app.AppCodec(),
-		Vals:          n.valSet,
-		NextVals:      n.valSet,
-		Signers:       n.valSigners,
+		TB:          t,
+		Coordinator: coord,
+		ChainID:     n.GetChainID(),
+		App:         n.app,
+		TxConfig:    n.app.GetTxConfig(),
+		Codec:       n.app.AppCodec(),
+		Vals:        n.valSet,
+		NextVals:    n.valSet,
+		Signers:     n.valSigners,
 	}
 }

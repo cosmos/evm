@@ -8,9 +8,9 @@ import (
 	cosmosevmibc "github.com/cosmos/evm/ibc"
 	precompilestestutil "github.com/cosmos/evm/precompiles/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"cosmossdk.io/math"
 
@@ -199,7 +199,7 @@ func TestGetReceivedCoin(t *testing.T) {
 			"channel-0",
 			"uosmo",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UosmoIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UosmoIbcDenom, Amount: math.NewInt(10)},
 		},
 		{
 			"transfer ibc wrapped coin to destination which is its source",
@@ -219,7 +219,7 @@ func TestGetReceivedCoin(t *testing.T) {
 			"channel-2",
 			"transfer/channel-0/transfer/channel-1/uatom",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UatomIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UatomIbcDenom, Amount: math.NewInt(10)},
 		},
 		{
 			"transfer ibc wrapped coin to destination which is not its source",
@@ -229,7 +229,7 @@ func TestGetReceivedCoin(t *testing.T) {
 			"channel-0",
 			"transfer/channel-1/uatom",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UatomOsmoIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UatomOsmoIbcDenom, Amount: math.NewInt(10)},
 		},
 	}
 
@@ -258,25 +258,25 @@ func TestGetSentCoin(t *testing.T) {
 			"get ibc wrapped aatom coin",
 			"transfer/channel-0/aatom",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.AAtomIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.AatomIbcDenom, Amount: math.NewInt(10)},
 		},
 		{
 			"get ibc wrapped uosmo coin",
 			"transfer/channel-0/uosmo",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UosmoIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UosmoIbcDenom, Amount: math.NewInt(10)},
 		},
 		{
 			"get ibc wrapped uatom coin",
 			"transfer/channel-1/uatom",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UatomIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UatomIbcDenom, Amount: math.NewInt(10)},
 		},
 		{
 			"get 2x ibc wrapped uatom coin",
 			"transfer/channel-0/transfer/channel-1/uatom",
 			"10",
-			sdk.Coin{Denom: precompilestestutil.UatomOsmoIbcdenom, Amount: math.NewInt(10)},
+			sdk.Coin{Denom: precompilestestutil.UatomOsmoIbcDenom, Amount: math.NewInt(10)},
 		},
 	}
 

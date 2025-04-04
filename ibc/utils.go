@@ -5,8 +5,8 @@ import (
 
 	"github.com/cosmos/evm/utils"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
@@ -122,39 +122,39 @@ func GetSentCoin(rawDenom, rawAmt string) sdk.Coin {
 // If the coin denom starts with `factory/` then it is a token factory coin, and we should not convert it
 // NOTE: Check https://docs.osmosis.zone/osmosis-core/modules/tokenfactory/ for more information
 func IsBaseDenomFromSourceChain(rawDenom string) bool {
-	// Parse the raw denomination to get its DenomTrace
-	denomTrace := transfertypes.ParseDenomTrace(rawDenom)
+	// Parse the raw denomination to get its Denom
+	denom := transfertypes.ExtractDenomFromPath(rawDenom)
 
-	// Split the denom of the DenomTrace into its components
-	denomComponents := strings.Split(denomTrace.BaseDenom, "/")
+	// Split the denom of the Denom into its components
+	denomComponents := strings.Split(denom.Base, "/")
 
 	// Each hop in the path is represented by a pair of port and channel ids
 	// If the number of components in the path is equal to or more than 2, it has hopped multiple chains
-	return len(denomTrace.Path) == 0 && len(denomComponents) == 1
+	return len(denom.GetTrace()) == 0 && len(denomComponents) == 1
 }
 
-// GetDenomTrace returns the denomination trace from the corresponding IBC denomination. If the
+// GetDenom returns the denomination trace from the corresponding IBC denomination. If the
 // denomination is not an IBC voucher or the trace is not found, it returns an error.
-func GetDenomTrace(
+func GetDenom(
 	transferKeeper transferkeeper.Keeper,
 	ctx sdk.Context,
-	denom string,
-) (transfertypes.DenomTrace, error) {
-	if !strings.HasPrefix(denom, "ibc/") {
-		return transfertypes.DenomTrace{}, errorsmod.Wrapf(ErrNoIBCVoucherDenom, "denom: %s", denom)
+	voucherDenom string,
+) (transfertypes.Denom, error) {
+	if !strings.HasPrefix(voucherDenom, "ibc/") {
+		return transfertypes.Denom{}, errorsmod.Wrapf(ErrNoIBCVoucherDenom, "denom: %s", voucherDenom)
 	}
 
-	hash, err := transfertypes.ParseHexHash(denom[4:])
+	hash, err := transfertypes.ParseHexHash(voucherDenom[4:])
 	if err != nil {
-		return transfertypes.DenomTrace{}, err
+		return transfertypes.Denom{}, err
 	}
 
-	denomTrace, found := transferKeeper.GetDenomTrace(ctx, hash)
+	denom, found := transferKeeper.GetDenom(ctx, hash)
 	if !found {
-		return transfertypes.DenomTrace{}, ErrDenomTraceNotFound
+		return transfertypes.Denom{}, ErrDenomNotFound
 	}
 
-	return denomTrace, nil
+	return denom, nil
 }
 
 // DeriveDecimalsFromDenom returns the number of decimals of an IBC coin

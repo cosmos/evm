@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -49,4 +50,14 @@ func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState.Params.MintDenom = ExampleChainDenom
 
 	return mintGenState
+}
+
+// NewFeeMarketGenesisState returns the default genesis state for the feemarket module.
+//
+// NOTE: for the example chain implementation we are disabling the base fee.
+func NewFeeMarketGenesisState() *feemarkettypes.GenesisState {
+	feeMarketGenState := feemarkettypes.DefaultGenesisState()
+	feeMarketGenState.Params.NoBaseFee = true
+
+	return feeMarketGenState
 }

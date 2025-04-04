@@ -83,7 +83,7 @@ func ConvertErrToERC20Error(err error) error {
 	case strings.Contains(err.Error(), cmn.ErrIntegerOverflow):
 		return vm.ErrExecutionReverted
 	case errors.Is(err, ibc.ErrNoIBCVoucherDenom) ||
-		errors.Is(err, ibc.ErrDenomTraceNotFound) ||
+		errors.Is(err, ibc.ErrDenomNotFound) ||
 		strings.Contains(err.Error(), "invalid base denomination") ||
 		strings.Contains(err.Error(), "display denomination not found") ||
 		strings.Contains(err.Error(), "invalid decimals"):
