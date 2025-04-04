@@ -3,19 +3,24 @@
 // This test suite was imported to validate that ExampleChain (an EVM-based chain)
 // correctly supports IBC v1 token transfers using ibc-go’s Transfer module logic.
 // The test ensures that multi-hop transfers (A → B → C → B) behave as expected across channels.
+//
+//nolint:gosec // Reason: G115 warnings are safe in test context
 package ibc
 
 import (
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type TransferTestSuite struct {

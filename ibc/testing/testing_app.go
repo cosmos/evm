@@ -3,13 +3,14 @@ package ibctesting
 import (
 	"encoding/json"
 
-	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/testutil"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	"cosmossdk.io/log"
+
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 )
 
 func SetupExampleApp() (ibctesting.TestingApp, map[string]json.RawMessage) {

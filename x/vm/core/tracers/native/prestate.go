@@ -22,11 +22,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cosmos/evm/x/vm/core/tracers"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/cosmos/evm/x/vm/core/tracers"
+	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
 func init() {

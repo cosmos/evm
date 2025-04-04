@@ -7,10 +7,9 @@ package utils
 import (
 	"fmt"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	"cosmossdk.io/math"
 

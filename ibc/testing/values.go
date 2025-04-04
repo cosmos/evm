@@ -7,10 +7,6 @@ package ibctesting
 import (
 	"time"
 
-	sdkmath "cosmossdk.io/math"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -18,6 +14,10 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	"github.com/cosmos/ibc-go/v10/testing/mock"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -72,7 +72,7 @@ var (
 	MockPacketData      = mock.MockPacketData
 	MockFailPacketData  = mock.MockFailPacketData
 
-	prefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	_ = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	// unusedHash is a placeholder hash used for testing.
 	unusedHash = tmhash.Sum([]byte{0x00})
 	MerklePath = commitmenttypes.NewMerklePath([]byte("ibc"), []byte(""))

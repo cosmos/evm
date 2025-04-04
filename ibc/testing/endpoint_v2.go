@@ -2,12 +2,11 @@ package ibctesting
 
 import (
 	"github.com/cosmos/gogoproto/proto"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	clientv2types "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	hostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // RegisterCounterparty will construct and execute a MsgRegisterCounterparty on the associated endpoint.

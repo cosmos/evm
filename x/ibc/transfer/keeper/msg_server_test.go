@@ -3,23 +3,22 @@ package keeper_test
 import (
 	"fmt"
 
-	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/runtime"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	"github.com/stretchr/testify/mock"
-
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	"github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/runtime"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 func (suite *KeeperTestSuite) TestTransfer() {
@@ -33,7 +32,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 	mockChannelKeeper.On("GetChannel", mock.Anything, mock.Anything, mock.Anything).Return(channeltypes.Channel{Counterparty: channeltypes.NewCounterparty("transfer", "channel-1")}, true)
 	mockICS4Wrapper.On("SendPacket", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	authAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-	receiver := sdk.AccAddress([]byte("reciever"))
+	receiver := sdk.AccAddress([]byte("receiver"))
 	chan0 := "channel-0"
 
 	testCases := []struct {
@@ -44,7 +43,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 		{
 			"pass - no token pair",
 			func() *types.MsgTransfer {
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, sdk.NewCoin(evmtypes.GetEVMCoinDenom(), math.NewInt(10)), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(evmtypes.GetEVMCoinDenom(), math.NewInt(10)), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 				return transferMsg
 			},
 			true,
@@ -56,7 +55,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				contractAddr, err := suite.DeployContract("coin", "token", uint8(6))
 				suite.Require().NoError(err)
 
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, sdk.NewCoin("erc20/"+contractAddr.String(), math.NewInt(10)), addr, receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin("erc20/"+contractAddr.String(), math.NewInt(10)), addr, receiver.String(), timeoutHeight, 0, "")
 				return transferMsg
 			},
 			false,
@@ -94,7 +93,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().NoError(err)
 
 				coin := sdk.NewCoin(pair[0].Denom, amt)
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},
@@ -130,7 +129,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().NoError(err)
 
 				coin := sdk.NewCoin(pair[0].Denom, amt)
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},
@@ -140,7 +139,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 			"no-op - pair not registered",
 			func() *types.MsgTransfer {
 				coin := sdk.NewCoin(suite.otherDenom, math.NewInt(10))
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 				return transferMsg
 			},
 			true,
@@ -171,7 +170,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().NoError(err)
 
 				coin := sdk.NewCoin(pair[0].Denom, math.NewInt(10))
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},
@@ -196,7 +195,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				_, err = suite.MintERC20Token(contractAddr, sender.Addr, amt.BigInt())
 				suite.Require().NoError(err)
 
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, sdk.NewCoin(pair.Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(pair.Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},
@@ -224,7 +223,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				err = suite.ConvertERC20(sender, contractAddr, amt)
 				suite.Require().NoError(err)
 
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, sdk.NewCoin(pair[0].Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(pair[0].Denom, amt), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},
@@ -243,7 +242,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().NoError(err)
 				suite.Require().True(len(pair) == 1)
 
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, sdk.NewCoin(pair[0].Denom, math.NewInt(10)), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, sdk.NewCoin(pair[0].Denom, math.NewInt(10)), sender.AccAddr.String(), receiver.String(), timeoutHeight, 0, "")
 				return transferMsg
 			},
 			false,
@@ -282,7 +281,7 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().Equal(pair.Denom, denom)
 				suite.Require().NoError(err)
 
-				transferMsg := types.NewMsgTransfer(transfertypes.PortID, chan0, coin, senderAcc.String(), receiver.String(), timeoutHeight, 0, "")
+				transferMsg := types.NewMsgTransfer(types.PortID, chan0, coin, senderAcc.String(), receiver.String(), timeoutHeight, 0, "")
 
 				return transferMsg
 			},

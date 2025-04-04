@@ -1,14 +1,20 @@
 # IBC Testing Package
 
-This package is adapted from [ibc-go's testing package](https://github.com/cosmos/ibc-go/blob/121f1fb5eb5c9db84e233c7cc25a2ebde8de8caf/testing), with several files copied and modified to suit specific testing needs.
+This package is adapted from [ibc-go's testing package](https://github.com/cosmos/ibc-go/tree/v10.1.0/testing),
+with several files copied and modified to suit specific testing needs.
 
 ### Why Copied?
-To test certain key scenarios involving EVM messages (e.g., deploying an ERC20 contract), we needed a block header context with a proposer address. This required:
+
+To test certain key scenarios involving EVM messages (e.g., deploying an ERC20 contract),
+we needed a block header context with a proposer address. This required:
+
 - A custom `TestChain` to handle these messages.
 - A custom `SignAndDeliver` function to support the transaction signing and delivery process.
 - A custom `Coordinator` to integrate this tailored `TestChain`.
 
-Since `TestChain` and `SignAndDeliver` are directly or indirectly tied to most components in the testing package, and ibc-go cannot use a `TestChain` struct defined in our separate package, we had to copy and adapt nearly all related files to ensure compatibility and functionality.
+Since `TestChain` and `SignAndDeliver` are directly or indirectly tied to most components in the testing package,
+and ibc-go cannot use a `TestChain` struct defined in our separate package,
+we had to copy and adapt nearly all related files to ensure compatibility and functionality.
 
 ## Components
 
@@ -114,11 +120,13 @@ func (app *SimApp) AppCodec() codec.Codec {
 }
 ```
 
-It is assumed your application contains an embedded BaseApp and thus implements the abci.Application interface, `LastCommitID()` and `LastBlockHeight()`
+It is assumed your application contains an embedded BaseApp and thus implements the abci.Application interface, 
+`LastCommitID()` and `LastBlockHeight()`
 
 ### Initialize TestingApp
 
-The testing package requires that you provide a function to initialize your TestingApp. This is how ibc-go implements the initialize function with its `SimApp`:
+The testing package requires that you provide a function to initialize your TestingApp. 
+This is how ibc-go implements the initialize function with its `SimApp`:
 
 ```go
 func SetupTestingApp() (TestingApp, map[string]json.RawMessage) {
@@ -310,13 +318,15 @@ func GetTransferSimApp(chain *ibctesting.TestChain) *simapp.SimApp {
 
 When writing IBC applications acting as middleware, it might be desirable to test integration points.
 This can be done by wiring a middleware stack in the app.go file using existing applications as middleware and IBC base applications.
-The mock module may also be leveraged to act as a base application in the instance that such an application is not available for testing or causes dependency concerns.
+The mock module may also be leveraged to act as a base application in the instance 
+that such an application is not available for testing or causes dependency concerns.
 
 The mock IBC module contains a `MockIBCApp`. This struct contains a function field for every IBC App Module callback.
 Each of these functions can be individually set to mock expected behaviour of a base application.
 The portID and scoped keeper for the `MockIBCApp` should be set within `MockIBCApp` before calling `NewIBCModule`.
 
-For example, if one wanted to test that the base application cannot affect the outcome of the `OnChanOpenTry` callback, the mock module base application callback could be updated as such:
+For example, if one wanted to test that the base application cannot affect the outcome of the `OnChanOpenTry` callback, 
+the mock module base application callback could be updated as such:
 
 ```go
 mockModule.IBCApp.OnChanOpenTry = func(ctx sdk.Context, portID, channelID, version string) error {
