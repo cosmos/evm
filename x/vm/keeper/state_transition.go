@@ -1,11 +1,13 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
 	cmttypes "github.com/cometbft/cometbft/types"
@@ -145,7 +147,10 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
 func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
-	var bloom *big.Int
+	var (
+		bloom        *big.Int
+		bloomReceipt ethtypes.Bloom
+	)
 
 	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
 	if err != nil {
@@ -180,10 +185,56 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	if len(logs) > 0 {
 		bloom = k.GetBlockBloomTransient(ctx)
 		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
+		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
 	}
 
 	if !res.Failed() {
-		commit()
+		var contractAddr common.Address
+		if msg.To() == nil {
+			contractAddr = crypto.CreateAddress(msg.From(), msg.Nonce())
+		}
+
+		cumulativeGasUsed := res.GasUsed
+		if ctx.BlockGasMeter() != nil {
+			limit := ctx.BlockGasMeter().Limit()
+			cumulativeGasUsed += ctx.BlockGasMeter().GasConsumed()
+			if cumulativeGasUsed > limit {
+				cumulativeGasUsed = limit
+			}
+		}
+
+		receipt := &ethtypes.Receipt{
+			Type:              tx.Type(),
+			PostState:         nil,
+			CumulativeGasUsed: cumulativeGasUsed,
+			Bloom:             bloomReceipt,
+			Logs:              logs,
+			TxHash:            txConfig.TxHash,
+			ContractAddress:   contractAddr,
+			GasUsed:           res.GasUsed,
+			BlockHash:         txConfig.BlockHash,
+			BlockNumber:       big.NewInt(ctx.BlockHeight()),
+			TransactionIndex:  txConfig.TxIndex,
+		}
+
+		signerAddr, err := signer.Sender(tx)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
+		}
+
+		if err = k.PostTxProcessing(tmpCtx, signerAddr, msg, receipt); err != nil {
+			// If hooks returns an error, revert the whole tx.
+			res.VmError = fmt.Sprintf("failed to execute post transaction processing: %s", err)
+			k.Logger(ctx).Error("tx post processing failed", "error", err)
+			// If the tx failed in post processing hooks, we should clear the logs
+			res.Logs = nil
+		} else if commit != nil {
+			commit()
+
+			// Since the post-processing can alter the log, we need to update the result
+			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			ctx.EventManager().EmitEvents(tmpCtx.EventManager().Events())
+		}
 	}
 
 	evmDenom := types.GetEVMCoinDenom()
