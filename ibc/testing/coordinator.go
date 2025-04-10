@@ -1,48 +1,56 @@
 package ibctesting
 
 import (
-	"math/rand"
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	exampleapp "github.com/cosmos/evm/evmd"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
-
-	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/client"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/evmd"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
-const DefaultFeeAmt = int64(150_000_000_000_000_000) // 0.15 ATOM
+var (
+	ChainIDPrefix = "testchain"
+	// to disable revision format, set ChainIDSuffix to ""
+	ChainIDSuffix   = "-1"
+	globalStartTime = time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+	TimeIncrement   = time.Second * 5
+)
 
-var globalStartTime = time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
+// Coordinator is a testing struct which contains N TestChain's. It handles keeping all chains
+// in sync with regards to time.
+type Coordinator struct {
+	*testing.T
+
+	CurrentTime time.Time
+	Chains      map[string]*TestChain
+}
 
 // NewCoordinator initializes Coordinator with N EVM TestChain's (Cosmos EVM apps) and M Cosmos chains (Simulation Apps)
-func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coordinator {
+func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 	t.Helper()
-	chains := make(map[string]*ibctesting.TestChain)
-	coord := &ibctesting.Coordinator{
+	chains := make(map[string]*TestChain)
+	coord := &Coordinator{
 		T:           t,
 		CurrentTime: globalStartTime,
 	}
 
+	require.NoError(t, evmd.EvmAppOptions("cosmos_9001-1"))
+	ibctesting.DefaultTestingAppInit = SetupExampleApp
 	for i := 1; i <= nEVMChains; i++ {
-		chainID := ibctesting.GetChainID(i)
+		chainID := GetChainID(i)
 		// setup EVM chains
-		ibctesting.DefaultTestingAppInit = DefaultTestingAppInit(chainID)
-		chains[chainID] = NewTestChain(t, coord, chainID)
+		chains[chainID] = NewTestChain(t, true, coord, chainID)
 	}
 
 	// setup Cosmos chains
 	ibctesting.DefaultTestingAppInit = ibctesting.SetupTestingApp
-
 	for j := 1 + nEVMChains; j <= nEVMChains+mCosmosChains; j++ {
-		chainID := ibctesting.GetChainID(j)
-		chains[chainID] = ibctesting.NewTestChain(t, coord, chainID)
+		chainID := GetChainID(j)
+		chains[chainID] = NewTestChain(t, false, coord, chainID)
 	}
 
 	coord.Chains = chains
@@ -50,160 +58,120 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coo
 	return coord
 }
 
-// SetupPath constructs a TM client, connection, and channel on both chains provided. It will
-// fail if any error occurs. The clientID's, TestConnections, and TestChannels are returned
-// for both chains. The channels created are connected to the ibc-transfer application.
-func SetupPath(coord *ibctesting.Coordinator, path *Path) {
-	SetupConnections(coord, path)
+// IncrementTime iterates through all the TestChain's and increments their current header time
+// by 5 seconds.
+//
+// CONTRACT: this function must be called after every Commit on any TestChain.
+func (coord *Coordinator) IncrementTime() {
+	coord.IncrementTimeBy(TimeIncrement)
+}
 
-	// channels can also be referenced through the returned connections
-	CreateChannels(coord, path)
+// IncrementTimeBy iterates through all the TestChain's and increments their current header time
+// by specified time.
+func (coord *Coordinator) IncrementTimeBy(increment time.Duration) {
+	coord.CurrentTime = coord.CurrentTime.Add(increment).UTC()
+	coord.UpdateTime()
+}
+
+// UpdateTime updates all clocks for the TestChains to the current global time.
+func (coord *Coordinator) UpdateTime() {
+	for _, chain := range coord.Chains {
+		coord.UpdateTimeForChain(chain)
+	}
+}
+
+// UpdateTimeForChain updates the clock for a specific chain.
+func (coord *Coordinator) UpdateTimeForChain(chain *TestChain) {
+	chain.ProposedHeader.Time = coord.CurrentTime.UTC()
+}
+
+// Setup constructs a TM client, connection, and channel on both chains provided. It will
+// fail if any error occurs.
+// Deprecated: please use path.Setup(), this function will be removed in v10
+func (*Coordinator) Setup(path *Path) {
+	path.Setup()
+}
+
+// SetupClients is a helper function to create clients on both chains. It assumes the
+// caller does not anticipate any errors.
+// Deprecated: please use path.SetupClients(), this function will be removed in v10
+func (*Coordinator) SetupClients(path *Path) {
+	path.SetupClients()
 }
 
 // SetupConnections is a helper function to create clients and the appropriate
 // connections on both the source and counterparty chain. It assumes the caller does not
 // anticipate any errors.
-func SetupConnections(coord *ibctesting.Coordinator, path *Path) {
-	SetupClients(coord, path)
-
-	CreateConnections(coord, path)
+// Deprecated: please use path.SetupConnections(), this function will be removed in v10
+func (*Coordinator) SetupConnections(path *Path) {
+	path.SetupConnections()
 }
 
-// CreateChannel constructs and executes channel handshake messages in order to create
-// OPEN channels on chainA and chainB. The function expects the channels to be successfully
-// opened otherwise testing will fail.
-func CreateChannels(coord *ibctesting.Coordinator, path *Path) {
-	err := path.EndpointA.ChanOpenInit()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointB.ChanOpenTry()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointA.ChanOpenAck()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointB.ChanOpenConfirm()
-	require.NoError(coord.T, err)
-
-	// ensure counterparty is up to date
-	err = path.EndpointA.UpdateClient()
-	require.NoError(coord.T, err)
-}
-
-// CreateConnection constructs and executes connection handshake messages in order to create
+// CreateConnections constructs and executes connection handshake messages in order to create
 // OPEN channels on chainA and chainB. The connection information of for chainA and chainB
 // are returned within a TestConnection struct. The function expects the connections to be
 // successfully opened otherwise testing will fail.
-func CreateConnections(coord *ibctesting.Coordinator, path *Path) {
-	err := path.EndpointA.ConnOpenInit()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointB.ConnOpenTry()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointA.ConnOpenAck()
-	require.NoError(coord.T, err)
-
-	err = path.EndpointB.ConnOpenConfirm()
-	require.NoError(coord.T, err)
-
-	// ensure counterparty is up to date
-	err = path.EndpointA.UpdateClient()
-	require.NoError(coord.T, err)
+// Deprecated: please use path.CreateConnections(), this function will be removed in v10
+func (*Coordinator) CreateConnections(path *Path) {
+	path.CreateConnections()
 }
 
-// SetupClients is a helper function to create clients on both chains. It assumes the
-// caller does not anticipate any errors.
-func SetupClients(coord *ibctesting.Coordinator, path *Path) {
-	err := path.EndpointA.CreateClient()
-	require.NoError(coord.T, err)
+// CreateMockChannels constructs and executes channel handshake messages to create OPEN
+// channels that use a mock application module that returns nil on all callbacks. This
+// function is expects the channels to be successfully opened otherwise testing will
+// fail.
+func (*Coordinator) CreateMockChannels(path *Path) {
+	path.EndpointA.ChannelConfig.PortID = MockPort
+	path.EndpointB.ChannelConfig.PortID = MockPort
 
-	err = path.EndpointB.CreateClient()
-	require.NoError(coord.T, err)
+	path.CreateChannels()
 }
 
-func SendMsgs(chain *ibctesting.TestChain, feeAmt int64, msgs ...sdk.Msg) (*sdk.Result, error) {
-	var (
-		bondDenom string
-		err       error
-	)
-	// ensure the chain has the latest time
-	chain.Coordinator.UpdateTimeForChain(chain)
+// CreateTransferChannels constructs and executes channel handshake messages to create OPEN
+// ibc-transfer channels on chainA and chainB. The function expects the channels to be
+// successfully opened otherwise testing will fail.
+func (*Coordinator) CreateTransferChannels(path *Path) {
+	path.EndpointA.ChannelConfig.PortID = TransferPort
+	path.EndpointB.ChannelConfig.PortID = TransferPort
 
-	if cosmosEVMChain, ok := chain.App.(*exampleapp.EVMD); ok {
-		bondDenom, err = cosmosEVMChain.StakingKeeper.BondDenom(chain.GetContext())
-	} else {
-		bondDenom, err = chain.GetSimApp().StakingKeeper.BondDenom(chain.GetContext())
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	fee := sdk.Coins{sdk.NewInt64Coin(bondDenom, feeAmt)}
-	_, r, err := SignAndDeliver(
-		chain.TB,
-		chain.TxConfig,
-		chain.App.GetBaseApp(),
-		msgs,
-		fee,
-		chain.ChainID,
-		[]uint64{chain.SenderAccount.GetAccountNumber()},
-		[]uint64{chain.SenderAccount.GetSequence()},
-		true, chain.SenderPrivKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// NextBlock calls app.Commit()
-	chain.NextBlock()
-
-	// increment sequence for successful transaction execution
-	err = chain.SenderAccount.SetSequence(chain.SenderAccount.GetSequence() + 1)
-	if err != nil {
-		return nil, err
-	}
-
-	chain.Coordinator.IncrementTime()
-
-	return r, nil
+	path.CreateChannels()
 }
 
-// SignAndDeliver signs and delivers a transaction. No simulation occurs as the
-// ibc testing package causes checkState and deliverState to diverge in block time.
+// CreateChannels constructs and executes channel handshake messages in order to create
+// OPEN channels on chainA and chainB. The function expects the channels to be successfully
+// opened otherwise testing will fail.
+// Deprecated: please use path.CreateChannels(), this function will be removed in v10
+func (*Coordinator) CreateChannels(path *Path) {
+	path.CreateChannels()
+}
+
+// GetChain returns the TestChain using the given chainID and returns an error if it does
+// not exist.
+func (coord *Coordinator) GetChain(chainID string) *TestChain {
+	chain, found := coord.Chains[chainID]
+	require.True(coord.T, found, fmt.Sprintf("%s chain does not exist", chainID))
+	return chain
+}
+
+// GetChainID returns the chainID used for the provided index.
+func GetChainID(index int) string {
+	return ChainIDPrefix + strconv.Itoa(index) + ChainIDSuffix
+}
+
+// CommitBlock commits a block on the provided indexes and then increments the global time.
 //
-// CONTRACT: BeginBlock must be called before this function.
-// Is a customization of IBC-go function that allows to modify the fee denom and amount
-// IBC-go implementation: https://github.com/cosmos/ibc-go/blob/d34cef7e075dda1a24a0a3e9b6d3eff406cc606c/testing/simapp/test_helpers.go#L332-L364
-func SignAndDeliver(
-	tb testing.TB, txCfg client.TxConfig, app *baseapp.BaseApp, msgs []sdk.Msg,
-	fee sdk.Coins,
-	chainID string, accNums, accSeqs []uint64, expPass bool, priv ...cryptotypes.PrivKey,
-) (sdk.GasInfo, *sdk.Result, error) {
-	tb.Helper()
-	tx, err := simtestutil.GenSignedMockTx(
-		rand.New(rand.NewSource(time.Now().UnixNano())),
-		txCfg,
-		msgs,
-		fee,
-		simtestutil.DefaultGenTxGas,
-		chainID,
-		accNums,
-		accSeqs,
-		priv...,
-	)
-	require.NoError(tb, err)
-
-	// Simulate a sending a transaction
-	gInfo, res, err := app.SimDeliver(txCfg.TxEncoder(), tx)
-
-	if expPass {
-		require.NoError(tb, err)
-		require.NotNil(tb, res)
-	} else {
-		require.Error(tb, err)
-		require.Nil(tb, res)
+// CONTRACT: the passed in list of indexes must not contain duplicates
+func (coord *Coordinator) CommitBlock(chains ...*TestChain) {
+	for _, chain := range chains {
+		chain.NextBlock()
 	}
+	coord.IncrementTime()
+}
 
-	return gInfo, res, err
+// CommitNBlocks commits n blocks to state and updates the block height by 1 for each commit.
+func (coord *Coordinator) CommitNBlocks(chain *TestChain, n uint64) {
+	for i := uint64(0); i < n; i++ {
+		chain.NextBlock()
+		coord.IncrementTime()
+	}
 }
