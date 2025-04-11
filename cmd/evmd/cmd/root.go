@@ -324,13 +324,10 @@ func newApp(
 		panic(err)
 	}
 
-	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-	chainID := cast.ToString(appOpts.Get(flags.FlagChainID))
-	if chainID == "" {
-		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
-		if err != nil {
-			panic(err)
-		}
+	// get the chain id
+	chainID, err := getChainIDFromOpts(appOpts)
+	if err != nil {
+		panic(err)
 	}
 
 	snapshotStore, err := sdkserver.GetSnapshotStore(appOpts)
@@ -405,15 +402,39 @@ func appExport(
 	viperAppOpts.Set(sdkserver.FlagInvCheckPeriod, 1)
 	appOpts = viperAppOpts
 
+	// get the chain id
+	chainID, err := getChainIDFromOpts(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
+
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmd.EvmAppOptions)
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmd.EvmAppOptions)
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
+}
+
+// getChainIDFromOpts returns the chain Id from app Opts
+// It first tries to get from the chainId flag, if not available
+// it will load from home
+func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err error) {
+	// Get the chain Id from appOpts
+	chainID = cast.ToString(appOpts.Get(flags.FlagChainID))
+	if chainID == "" {
+		// If not available load from home
+		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return
 }
