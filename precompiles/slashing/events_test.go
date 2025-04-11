@@ -4,11 +4,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	storetypes "cosmossdk.io/store/types"

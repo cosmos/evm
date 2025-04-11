@@ -6,11 +6,11 @@ import (
 	"crypto/rand"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cometbft/cometbft/crypto"
 
 	"github.com/cosmos/evm/precompiles/p256"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 

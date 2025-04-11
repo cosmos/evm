@@ -102,9 +102,9 @@ In **Cosmos EVM**, custom activators should be defined in a structure with the s
 ```go
 // Activate custom EIPs: 0000, 0001, 0002, etc
 cosmosEVMActivators = map[int]func(*vm.JumpTable){
-	"evmos_0": eips.Enable0000,
-	"evmos_1": eips.Enable0001,
-	"evmos_2": eips.Enable0002,
+	0o000: eips.Enable0000,
+	0o001: eips.Enable0001,
+	0o002: eips.Enable0002,
 }
 ```
 
@@ -123,11 +123,11 @@ should be defined. An example is reported below:
 
 ```go
 cosmosEVMEnabledEIPs = []int64{
-    "evmos_0",
+    0o000,
 }
 ```
 
-In this way, even though the custom activators defined $3$ new EIPs, we are going to activate only the number `evmos_0`
+In this way, even though the custom activators defined $3$ new EIPs, we are going to activate only the number `0o000`
 
 ### EVM Configurator
 
@@ -256,3 +256,11 @@ chain. To enable them there are two possibilities:
 - Write a migration to add the new enabled EIPsm during the upgrade.
 
 - After the upgrade, create a governance proposal to modify the `x/evm` params.
+
+## Migrations
+
+Previous versions of evmOS and ethermint had converted custom EIPs to use string identifiers such as `"chain_0"`.
+The `cosmos/evm` repo has converted these back to integer identifiers in order to reduce the maintenance burden of
+integrating with upstream go-ethereum.
+
+In order to migrate custom EIPs, you'll simply need to convert your string identifiers to integers.

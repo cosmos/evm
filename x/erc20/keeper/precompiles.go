@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	errorsmod "cosmossdk.io/errors"
 

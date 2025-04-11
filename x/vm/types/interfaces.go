@@ -5,9 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"

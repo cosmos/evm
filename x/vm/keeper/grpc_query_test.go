@@ -8,7 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	ethparams "github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/evm/server/config"
@@ -17,8 +19,6 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ethlogger "github.com/cosmos/evm/x/vm/core/logger"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
