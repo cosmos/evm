@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
 

@@ -26,7 +26,7 @@ import (
 	clientkeys "github.com/cosmos/evm/client/keys"
 	"github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/tests/integration/ledger/mocks"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -47,7 +47,7 @@ var s *LedgerTestSuite
 type LedgerTestSuite struct {
 	suite.Suite
 
-	app *exampleapp.ExampleChain
+	app *exampleapp.EVMD
 	ctx sdk.Context
 
 	ledger       *mocks.SECP256K1

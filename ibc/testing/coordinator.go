@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -130,7 +130,7 @@ func SendMsgs(chain *ibctesting.TestChain, feeAmt int64, msgs ...sdk.Msg) (*sdk.
 	// ensure the chain has the latest time
 	chain.Coordinator.UpdateTimeForChain(chain)
 
-	if cosmosEVMChain, ok := chain.App.(*exampleapp.ExampleChain); ok {
+	if cosmosEVMChain, ok := chain.App.(*exampleapp.EVMD); ok {
 		bondDenom, err = cosmosEVMChain.StakingKeeper.BondDenom(chain.GetContext())
 	} else {
 		bondDenom, err = chain.GetSimApp().StakingKeeper.BondDenom(chain.GetContext())

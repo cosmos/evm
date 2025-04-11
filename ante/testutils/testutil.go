@@ -7,8 +7,8 @@ import (
 
 	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
-	chainante "github.com/cosmos/evm/example_chain/ante"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	chainante "github.com/cosmos/evm/evmd/ante"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	"github.com/cosmos/evm/testutil/integration/os/keyring"

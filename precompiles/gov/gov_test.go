@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/statedb"

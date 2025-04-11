@@ -14,7 +14,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/server/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -92,7 +92,7 @@ func PrepareEthTx(
 // Should this not be the case, just pass in zero.
 func CreateEthTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	privKey cryptotypes.PrivKey,
 	from sdk.AccAddress,
 	dest sdk.AccAddress,

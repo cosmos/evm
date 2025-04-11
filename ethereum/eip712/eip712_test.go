@@ -11,9 +11,9 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
+	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
-	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"

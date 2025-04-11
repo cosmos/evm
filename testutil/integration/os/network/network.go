@@ -15,8 +15,8 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
 
-	app "github.com/cosmos/evm/example_chain"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	app "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	commonnetwork "github.com/cosmos/evm/testutil/integration/common/network"
 	"github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -58,7 +58,7 @@ type IntegrationNetwork struct {
 	cfg        Config
 	ctx        sdktypes.Context
 	validators []stakingtypes.Validator
-	app        *app.ExampleChain
+	app        *app.EVMD
 
 	// This is only needed for IBC chain testing setup
 	valSet     *cmttypes.ValidatorSet

@@ -10,7 +10,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -39,7 +39,7 @@ import (
 )
 
 // genSetupFn is the type for the module genesis setup functions
-type genSetupFn func(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error)
+type genSetupFn func(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error)
 
 // defaultGenesisParams contains the params that are needed to
 // setup the default genesis for the testing setup
@@ -64,7 +64,7 @@ var genesisSetupFunctions = map[string]genSetupFn{
 	minttypes.ModuleName:      genStateSetter[*minttypes.GenesisState](minttypes.ModuleName),
 	banktypes.ModuleName:      setBankGenesisState,
 	authtypes.ModuleName:      setAuthGenesisState,
-	consensustypes.ModuleName: func(_ *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, _ interface{}) (cosmosevmtypes.GenesisState, error) {
+	consensustypes.ModuleName: func(_ *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, _ interface{}) (cosmosevmtypes.GenesisState, error) {
 		// no-op. Consensus does not have a genesis state on the application
 		// but the params are used on it
 		// (e.g. block max gas, max bytes).
@@ -76,7 +76,7 @@ var genesisSetupFunctions = map[string]genSetupFn{
 
 // genStateSetter is a generic function to set module-specific genesis state
 func genStateSetter[T proto.Message](moduleName string) genSetupFn {
-	return func(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
+	return func(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
 		moduleGenesis, ok := customGenesis.(T)
 		if !ok {
 			return nil, fmt.Errorf("invalid type %T for %s module genesis state", customGenesis, moduleName)
@@ -159,7 +159,7 @@ func createBalances(
 }
 
 // createTestingApp creates an evmos app
-func createTestingApp(chainID string, customBaseAppOptions ...func(*baseapp.BaseApp)) *exampleapp.ExampleChain {
+func createTestingApp(chainID string, customBaseAppOptions ...func(*baseapp.BaseApp)) *exampleapp.EVMD {
 	// Create evmos app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
@@ -305,7 +305,7 @@ type StakingCustomGenesisState struct {
 }
 
 // setDefaultStakingGenesisState sets the default staking genesis state
-func setDefaultStakingGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams StakingCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultStakingGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams StakingCustomGenesisState) cosmosevmtypes.GenesisState {
 	// Set staking params
 	stakingParams := stakingtypes.DefaultParams()
 	stakingParams.BondDenom = overwriteParams.denom
@@ -325,7 +325,7 @@ type BankCustomGenesisState struct {
 }
 
 // setDefaultBankGenesisState sets the default bank genesis state
-func setDefaultBankGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams BankCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultBankGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams BankCustomGenesisState) cosmosevmtypes.GenesisState {
 	bankGenesis := banktypes.NewGenesisState(
 		banktypes.DefaultGenesisState().Params,
 		overwriteParams.balances,
@@ -346,7 +346,7 @@ type SlashingCustomGenesisState struct {
 }
 
 // setDefaultSlashingGenesisState sets the default slashing genesis state
-func setDefaultSlashingGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams SlashingCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultSlashingGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams SlashingCustomGenesisState) cosmosevmtypes.GenesisState {
 	slashingGen := slashingtypes.DefaultGenesisState()
 	slashingGen.SigningInfos = overwriteParams.signingInfo
 	slashingGen.MissedBlocks = overwriteParams.missedBlocks
@@ -356,7 +356,7 @@ func setDefaultSlashingGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genes
 }
 
 // setBankGenesisState updates the bank genesis state with custom genesis state
-func setBankGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
+func setBankGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
 	customGen, ok := customGenesis.(*banktypes.GenesisState)
 	if !ok {
 		return nil, fmt.Errorf("invalid type %T for bank module genesis state", customGenesis)
@@ -408,14 +408,14 @@ func addBondedModuleAccountToFundedBalances(
 }
 
 // setDefaultAuthGenesisState sets the default auth genesis state
-func setDefaultAuthGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, genAccs []authtypes.GenesisAccount) cosmosevmtypes.GenesisState {
+func setDefaultAuthGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, genAccs []authtypes.GenesisAccount) cosmosevmtypes.GenesisState {
 	defaultAuthGen := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)
 	genesisState[authtypes.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(defaultAuthGen)
 	return genesisState
 }
 
 // setAuthGenesisState updates the bank genesis state with custom genesis state
-func setAuthGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
+func setAuthGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, customGenesis interface{}) (cosmosevmtypes.GenesisState, error) {
 	customGen, ok := customGenesis.(*authtypes.GenesisState)
 	if !ok {
 		return nil, fmt.Errorf("invalid type %T for auth module genesis state", customGenesis)
@@ -440,7 +440,7 @@ type GovCustomGenesisState struct {
 }
 
 // setDefaultGovGenesisState sets the default gov genesis state
-func setDefaultGovGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultGovGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState) cosmosevmtypes.GenesisState {
 	govGen := govtypesv1.DefaultGenesisState()
 	updatedParams := govGen.Params
 	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.GetEVMCoinDecimals().ConversionFactor())
@@ -457,7 +457,7 @@ type FeeMarketCustomGenesisState struct {
 }
 
 // setDefaultFeeMarketGenesisState sets the default fee market genesis state
-func setDefaultFeeMarketGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams FeeMarketCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultFeeMarketGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams FeeMarketCustomGenesisState) cosmosevmtypes.GenesisState {
 	fmGen := feemarkettypes.DefaultGenesisState()
 	fmGen.Params.BaseFee = overwriteParams.baseFee
 	genesisState[feemarkettypes.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(fmGen)
@@ -474,7 +474,7 @@ type MintCustomGenesisState struct {
 // setDefaultGovGenesisState sets the default gov genesis state
 //
 // NOTE: for the testing network we don't want to have any minting
-func setDefaultMintGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState, overwriteParams MintCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultMintGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState, overwriteParams MintCustomGenesisState) cosmosevmtypes.GenesisState {
 	mintGen := minttypes.DefaultGenesisState()
 	updatedParams := mintGen.Params
 	updatedParams.MintDenom = overwriteParams.denom
@@ -486,7 +486,7 @@ func setDefaultMintGenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisSt
 	return genesisState
 }
 
-func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
+func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
 	// NOTE: here we are using the setup from the example chain
 	erc20Gen := exampleapp.NewErc20GenesisState()
 	updatedErc20Gen := updateErc20GenesisStateForChainID(cosmosEVMApp.ChainID(), *erc20Gen)
@@ -497,7 +497,7 @@ func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.ExampleChain, genesisS
 
 // defaultAuthGenesisState sets the default genesis state
 // for the testing setup
-func newDefaultGenesisState(cosmosEVMApp *exampleapp.ExampleChain, params defaultGenesisParams) cosmosevmtypes.GenesisState {
+func newDefaultGenesisState(cosmosEVMApp *exampleapp.EVMD, params defaultGenesisParams) cosmosevmtypes.GenesisState {
 	genesisState := cosmosEVMApp.DefaultGenesis()
 
 	genesisState = setDefaultAuthGenesisState(cosmosEVMApp, genesisState, params.genAccounts)
@@ -514,7 +514,7 @@ func newDefaultGenesisState(cosmosEVMApp *exampleapp.ExampleChain, params defaul
 
 // customizeGenesis modifies genesis state if there are any custom genesis state
 // for specific modules
-func customizeGenesis(cosmosEVMApp *exampleapp.ExampleChain, customGen CustomGenesisState, genesisState cosmosevmtypes.GenesisState) (cosmosevmtypes.GenesisState, error) {
+func customizeGenesis(cosmosEVMApp *exampleapp.EVMD, customGen CustomGenesisState, genesisState cosmosevmtypes.GenesisState) (cosmosevmtypes.GenesisState, error) {
 	var err error
 	for mod, modGenState := range customGen {
 		if fn, found := genesisSetupFunctions[mod]; found {
