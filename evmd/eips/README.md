@@ -257,11 +257,10 @@ chain. To enable them there are two possibilities:
 
 - After the upgrade, create a governance proposal to modify the `x/evm` params.
 
-
 ## Migrations
 
-Previous versions of evmOS and ethermint had converted custom EIPs to use string identifiers such as `"chain_0"`. 
-The `cosmos/evm` repo has converted these back to integer identifiers in order to reduce the maintenance burden of 
-integrating with upstream go-ethereum. 
+Previous versions of evmOS and ethermint had converted custom EIPs to use string identifiers such as `"chain_0"`.
+The `cosmos/evm` repo has converted these back to integer identifiers in order to reduce the maintenance burden of
+integrating with upstream go-ethereum.
 
 In order to migrate custom EIPs, you'll simply need to convert your string identifiers to integers.
