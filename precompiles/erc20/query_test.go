@@ -8,7 +8,6 @@ import (
 
 	app "github.com/cosmos/evm/evmd"
 	chainutil "github.com/cosmos/evm/evmd/testutil"
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
@@ -485,7 +484,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 }
 
 func (s *PrecompileTestSuite) TestAllowance() {
-	method := s.precompile.Methods[auth.AllowanceMethod]
+	method := s.precompile.Methods[erc20.AllowanceMethod]
 
 	testcases := []struct {
 		name        string

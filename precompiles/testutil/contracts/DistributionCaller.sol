@@ -231,13 +231,6 @@ contract DistributionCaller {
         string memory _validatorAddr,
         uint256 _amount
     ) public {
-        // Create approval
-        bool success = staking.STAKING_CONTRACT.approve(
-            address(this),
-            _amount,
-            delegateMethod
-        );
-        require(success, "Failed to approve staking methods");
         staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,

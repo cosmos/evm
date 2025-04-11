@@ -14,7 +14,6 @@ import (
 
 	storetypes "cosmossdk.io/store/types"
 
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
@@ -39,7 +38,6 @@ type Precompile struct {
 func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
 	stakingKeeper stakingkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
@@ -50,10 +48,8 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  newAbi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,

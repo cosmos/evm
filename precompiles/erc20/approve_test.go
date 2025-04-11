@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -21,7 +20,7 @@ import (
 
 //nolint:dupl // tests are not duplicate between the functions
 func (s *PrecompileTestSuite) TestApprove() {
-	method := s.precompile.Methods[authorization.ApproveMethod]
+	method := s.precompile.Methods[erc20.ApproveMethod]
 	amount := int64(100)
 
 	testcases := []struct {
@@ -271,7 +270,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 
 //nolint:dupl // tests are not duplicate between the functions
 func (s *PrecompileTestSuite) TestIncreaseAllowance() {
-	method := s.precompile.Methods[authorization.IncreaseAllowanceMethod]
+	method := s.precompile.Methods[erc20.IncreaseAllowanceMethod]
 	amount := int64(100)
 	increaseAmount := int64(200)
 
@@ -468,7 +467,7 @@ func (s *PrecompileTestSuite) TestIncreaseAllowance() {
 
 //nolint:dupl // tests are not duplicate between the functions
 func (s *PrecompileTestSuite) TestDecreaseAllowance() {
-	method := s.precompile.Methods[authorization.DecreaseAllowanceMethod]
+	method := s.precompile.Methods[erc20.DecreaseAllowanceMethod]
 	amount := int64(100)
 	decreaseAmount := int64(50)
 

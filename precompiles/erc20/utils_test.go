@@ -12,7 +12,6 @@ import (
 	//nolint:revive // dot imports are fine for Gomega
 	. "github.com/onsi/gomega"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
@@ -141,11 +140,11 @@ func (is *IntegrationTestSuite) setupSendAuthzForERC20(
 
 	abiEvents := contractData.GetContractData(callType).ABI.Events
 
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, auth.ApproveMethod, grantee, amount.AmountOf(is.tokenDenom).BigInt())
+	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.ApproveMethod, grantee, amount.AmountOf(is.tokenDenom).BigInt())
 
 	approveCheck := testutil.LogCheckArgs{
 		ABIEvents: abiEvents,
-		ExpEvents: []string{auth.EventTypeApproval},
+		ExpEvents: []string{erc20.EventTypeApproval},
 		ExpPass:   true,
 	}
 
@@ -246,7 +245,7 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.BankKeeper,
-		is.network.App.AuthzKeeper,
+		is.network.App.Erc20Keeper,
 		is.network.App.TransferKeeper,
 	)
 	Expect(err).ToNot(HaveOccurred(), "failed to set up %q erc20 precompile", tokenPair.Denom)
@@ -263,7 +262,7 @@ func setupERC20PrecompileForTokenPair(
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.BankKeeper,
-		unitNetwork.App.AuthzKeeper,
+		unitNetwork.App.Erc20Keeper,
 		unitNetwork.App.TransferKeeper,
 	)
 	if err != nil {
@@ -292,7 +291,7 @@ func setupNewERC20PrecompileForTokenPair(
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.BankKeeper,
-		unitNetwork.App.AuthzKeeper,
+		unitNetwork.App.Erc20Keeper,
 		unitNetwork.App.TransferKeeper,
 	)
 	if err != nil {
@@ -442,7 +441,7 @@ func (is *IntegrationTestSuite) expectSendAuthz(grantee, granter sdk.AccAddress,
 func (is *IntegrationTestSuite) expectSendAuthzForERC20(callType CallType, contractData ContractsData, grantee, granter common.Address, expAmount sdk.Coins) {
 	contractABI := contractData.GetContractData(callType).ABI
 
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, auth.AllowanceMethod, granter, grantee)
+	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.AllowanceMethod, granter, grantee)
 
 	passCheck := testutil.LogCheckArgs{ExpPass: true}
 

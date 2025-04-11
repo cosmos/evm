@@ -7,13 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 const (
@@ -199,32 +197,3 @@ func (p Precompile) Redelegations(
 	return out.Pack(method.Outputs)
 }
 
-// Allowance returns the remaining allowance of a grantee to the contract.
-func (p Precompile) Allowance(
-	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	grantee, granter, msg, err := authorization.CheckAllowanceArgs(args)
-	if err != nil {
-		return nil, err
-	}
-
-	msgAuthz, _ := p.AuthzKeeper.GetAuthorization(ctx, grantee.Bytes(), granter.Bytes(), msg)
-
-	if msgAuthz == nil {
-		return method.Outputs.Pack(big.NewInt(0))
-	}
-
-	stakeAuthz, ok := msgAuthz.(*stakingtypes.StakeAuthorization)
-	if !ok {
-		return nil, fmt.Errorf(cmn.ErrInvalidType, "staking authorization", &stakingtypes.StakeAuthorization{}, stakeAuthz)
-	}
-
-	if stakeAuthz.MaxTokens == nil {
-		return method.Outputs.Pack(abi.MaxUint256)
-	}
-
-	return method.Outputs.Pack(stakeAuthz.MaxTokens.Amount.BigInt())
-}

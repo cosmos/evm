@@ -50,19 +50,8 @@ func (p *Precompile) Transfer(
 		return nil, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
 	}
 
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	// and the sender is the origin
-	resp, expiration, err := CheckAndAcceptAuthorizationIfNeeded(ctx, contract, origin, p.AuthzKeeper, msg)
-	if err != nil {
-		return nil, err
-	}
-
 	res, err := p.transferKeeper.Transfer(ctx, msg)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := UpdateGrantIfNeeded(ctx, contract, p.AuthzKeeper, origin, expiration, resp); err != nil {
 		return nil, err
 	}
 

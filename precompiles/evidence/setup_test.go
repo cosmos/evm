@@ -53,7 +53,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = evidence.NewPrecompile(
 		s.network.App.EvidenceKeeper,
-		s.network.App.AuthzKeeper,
 	); err != nil {
 		panic(err)
 	}

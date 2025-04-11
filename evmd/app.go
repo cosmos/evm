@@ -30,6 +30,7 @@ import (
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -568,7 +569,6 @@ func NewExampleApp(
 			app.DistrKeeper,
 			app.BankKeeper,
 			app.Erc20Keeper,
-			app.AuthzKeeper,
 			app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
 			app.EVMKeeper,

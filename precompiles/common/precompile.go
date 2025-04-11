@@ -3,7 +3,6 @@ package common
 import (
 	"errors"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,15 +13,12 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 )
 
 // Precompile is a common struct for all precompiles that holds the common data each
-// precompile needs to run which includes the ABI, Gas config, approval expiration and the authz keeper.
+// precompile needs to run which includes the ABI, Gas config.
 type Precompile struct {
 	abi.ABI
-	AuthzKeeper          authzkeeper.Keeper
-	ApprovalExpiration   time.Duration
 	KvGasConfig          storetypes.GasConfig
 	TransientKVGasConfig storetypes.GasConfig
 	address              common.Address

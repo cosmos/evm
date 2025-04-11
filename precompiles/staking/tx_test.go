@@ -722,7 +722,6 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
 			malleate: func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
@@ -770,9 +769,6 @@ func (s *PrecompileTestSuite) TestDelegate() {
 		{
 			"fail - delegation failed because of insufficient funds",
 			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				//  TODO: why is this necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
 				amt, ok := math.NewIntFromString("1000000000000000000000000000")
 				s.Require().True(ok)
 				return []interface{}{
@@ -787,35 +783,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			true,
 			"insufficient funds",
 		},
-		// TODO: adjust tests to work with authorizations (currently does not work because origin == precompile caller which needs no authorization)
-		// {
-		//	"fail - delegation should not be possible to validators outside of the allow list",
-		//	func(string) []interface{} {
-		//		err := s.CreateAuthorization(validatorADdress, staking.DelegateAuthz, nil)
-		//		s.Require().NoError(err)
-		//
-		//		// Create new validator --> this is not included in the authorized allow list
-		//		testutil.CreateValidator(s.network.GetContext(), s.T(), s.privKey.PubKey(), s.network.App.StakingKeeper, math.NewInt(100))
-		//		newValAddr := sdk.ValAddress(s.keyring.GetAccAddr(0))
-		//
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			newValAddr.String(),
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	200000,
-		//	big.NewInt(15),
-		//	func( []byte) {},
-		//	true,
-		//	"cannot delegate/undelegate",
-		// },
 		{
 			"success",
 			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				// TODO: necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -839,49 +809,6 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			false,
 			"",
 		},
-		// TODO: adjust tests to work with authorizations (currently does not work because origin == precompile caller which needs no authorization)
-		// {
-		//	"success - delegate and update the authorization for the delegator",
-		//	func(operatorAddress string) []interface{} {
-		//		err := s.CreateAuthorization(s.keyring.GetAddr(0), staking.DelegateAuthz, &sdk.Coin{Denom: testconstants.ExampleAttoDenom, Amount: math.NewInt(2e18)})
-		//		s.Require().NoError(err)
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			operatorAddress,
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	20000,
-		//	big.NewInt(2),
-		//	func(data []byte) {
-		//		authorization, _ := s.network.App.AuthzKeeper.GetAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), s.keyring.GetAccAddr(0), staking.DelegateMsg)
-		//		s.Require().NotNil(authorization)
-		//		stakeAuthorization := authorization.(*stakingtypes.StakeAuthorization)
-		//		s.Require().Equal(math.NewInt(1e18), stakeAuthorization.MaxTokens.Amount)
-		//	},
-		//	false,
-		//	"",
-		// },
-		// {
-		//	"success - delegate and delete the authorization for the delegator",
-		//	func(operatorAddress string) []interface{} {
-		//		err := s.CreateAuthorization(s.keyring.GetAddr(0), staking.DelegateAuthz, &sdk.Coin{Denom: testconstants.ExampleAttoDenom, Amount: math.NewInt(1e18)})
-		//		s.Require().NoError(err)
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			operatorAddress,
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	20000,
-		//	big.NewInt(2),
-		//	func(data []byte) {
-		//		authorization, _ := s.network.App.AuthzKeeper.GetAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), s.keyring.GetAccAddr(0), staking.DelegateMsg)
-		//		s.Require().Nil(authorization)
-		//	},
-		//	false,
-		//	"",
-		// },
 	}
 
 	for _, tc := range testCases {
@@ -952,7 +879,6 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
 			malleate: func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
@@ -1000,8 +926,6 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 		{
 			"success",
 			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1087,7 +1011,6 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
 			malleate: func(_, _ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
@@ -1154,9 +1077,6 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		{
 			"success",
 			func(delegator, grantee testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
-				// TODO: necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.RedelegateAuthz, nil)
-				s.Require().NoError(err)
 				return []interface{}{
 					delegator.Addr,
 					srcOperatorAddr,
@@ -1328,10 +1248,6 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		{
 			"success",
 			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				// TODO: why is this necessary
-				// TODO: remove also grantee from malleate
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1374,11 +1290,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 					big.NewInt(1000000000000000000),
 				}
 
-				// TODO: is this even necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
-
-				_, err = s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &undelegateMethod, undelegateArgs)
+				_, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &undelegateMethod, undelegateArgs)
 				s.Require().NoError(err)
 
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
@@ -1387,9 +1299,6 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 				_, err = s.network.App.StakingKeeper.GetDelegation(ctx, delegator.AccAddr, valAddr)
 				s.Require().Error(err)
 				s.Require().Contains("no delegation for (address, validator) tuple", err.Error())
-
-				err = s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.CancelUnbondingDelegationAuthz, nil)
-				s.Require().NoError(err)
 
 				bz, err := s.precompile.CancelUnbondingDelegation(ctx, delegator.Addr, contract, stDB, &method, cancelArgs)
 				s.Require().NoError(err)

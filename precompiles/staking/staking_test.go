@@ -9,7 +9,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
-	"github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/staking"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
@@ -29,21 +28,6 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 		method abi.Method
 		isTx   bool
 	}{
-		{
-			authorization.ApproveMethod,
-			s.precompile.Methods[authorization.ApproveMethod],
-			true,
-		},
-		{
-			authorization.IncreaseAllowanceMethod,
-			s.precompile.Methods[authorization.IncreaseAllowanceMethod],
-			true,
-		},
-		{
-			authorization.DecreaseAllowanceMethod,
-			s.precompile.Methods[authorization.DecreaseAllowanceMethod],
-			true,
-		},
 		{
 			staking.CreateValidatorMethod,
 			s.precompile.Methods[staking.CreateValidatorMethod],
@@ -151,10 +135,6 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"fail - contract gas limit is < gas cost to run a query / tx",
 			func(delegator, grantee testkeyring.Key) []byte {
-				// TODO: why is this required?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
-
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -172,9 +152,6 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - delegate transaction",
 			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
-
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -192,9 +169,6 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - undelegate transaction",
 			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
-
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					delegator.Addr,
@@ -212,9 +186,6 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - redelegate transaction",
 			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.RedelegateAuthz, nil)
-				s.Require().NoError(err)
-
 				input, err := s.precompile.Pack(
 					staking.RedelegateMethod,
 					delegator.Addr,
@@ -248,9 +219,6 @@ func (s *PrecompileTestSuite) TestRun() {
 				)
 				err = s.network.App.StakingKeeper.SetUnbondingDelegation(ctx, ubd)
 				s.Require().NoError(err, "failed to set unbonding delegation")
-
-				err = s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.CancelUnbondingDelegationAuthz, nil)
-				s.Require().NoError(err)
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool

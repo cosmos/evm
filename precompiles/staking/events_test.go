@@ -3,11 +3,9 @@ package staking_test
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/staking"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
@@ -18,246 +16,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-func (s *PrecompileTestSuite) TestApprovalEvent() {
-	var (
-		stDB *statedb.StateDB
-		ctx  sdk.Context
-	)
-	method := s.precompile.Methods[authorization.ApproveMethod]
-	testCases := []struct {
-		name        string
-		malleate    func(grantee common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(granter, grantee common.Address)
-	}{
-		{
-			"success - all four methods are present in the emitted event",
-			func(grantee common.Address) []interface{} {
-				return []interface{}{
-					grantee,
-					abi.MaxUint256,
-					[]string{
-						staking.DelegateMsg,
-						staking.UndelegateMsg,
-						staking.RedelegateMsg,
-						staking.CancelUnbondingDelegationMsg,
-					},
-				}
-			},
-			false,
-			"",
-			func(granter, grantee common.Address) {
-				log := stDB.Logs()[0]
-				s.Require().Equal(log.Address, s.precompile.Address())
-				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[authorization.EventTypeApproval]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
-				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
-
-				var approvalEvent authorization.EventApproval
-				err := cmn.UnpackLog(s.precompile.ABI, &approvalEvent, authorization.EventTypeApproval, *log)
-				s.Require().NoError(err)
-				s.Require().Equal(grantee, approvalEvent.Grantee)
-				s.Require().Equal(granter, approvalEvent.Granter)
-				s.Require().Equal(abi.MaxUint256, approvalEvent.Value)
-				s.Require().Equal(4, len(approvalEvent.Methods))
-				s.Require().Equal(staking.DelegateMsg, approvalEvent.Methods[0])
-				s.Require().Equal(staking.UndelegateMsg, approvalEvent.Methods[1])
-				s.Require().Equal(staking.RedelegateMsg, approvalEvent.Methods[2])
-				s.Require().Equal(staking.CancelUnbondingDelegationMsg, approvalEvent.Methods[3])
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.SetupTest() // reset
-			ctx = s.network.GetContext()
-			stDB = s.network.GetStateDB()
-
-			granter := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, granter.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-			s.Require().NoError(err)
-
-			approveArgs := tc.malleate(grantee.Addr)
-			_, err = s.precompile.Approve(ctx, granter.Addr, stDB, &method, approveArgs)
-
-			if tc.expErr {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
-			} else {
-				s.Require().NoError(err)
-				tc.postCheck(granter.Addr, grantee.Addr)
-			}
-		})
-	}
-}
-
-func (s *PrecompileTestSuite) TestIncreaseAllowanceEvent() {
-	var (
-		stDB *statedb.StateDB
-		ctx  sdk.Context
-	)
-	approvalMethod := s.precompile.Methods[authorization.ApproveMethod]
-	method := s.precompile.Methods[authorization.IncreaseAllowanceMethod]
-	testCases := []struct {
-		name        string
-		malleate    func(grantee common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(granter, grantee common.Address)
-	}{
-		{
-			"success - increased allowance for all 3 methods by 1 evmos",
-			func(grantee common.Address) []interface{} {
-				return []interface{}{
-					grantee,
-					big.NewInt(1000000000000000000),
-					[]string{
-						staking.DelegateMsg,
-						staking.UndelegateMsg,
-						staking.RedelegateMsg,
-					},
-				}
-			},
-			false,
-			"",
-			func(granter, grantee common.Address) {
-				log := stDB.Logs()[1]
-				methods := []string{
-					staking.DelegateMsg,
-					staking.UndelegateMsg,
-					staking.RedelegateMsg,
-				}
-				amounts := []*big.Int{
-					big.NewInt(2000000000000000000),
-					big.NewInt(2000000000000000000),
-					big.NewInt(2000000000000000000),
-				}
-				s.CheckAllowanceChangeEvent(log, methods, amounts, granter, grantee)
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.SetupTest() // reset
-			ctx = s.network.GetContext()
-			stDB = s.network.GetStateDB()
-
-			granter := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, granter.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-			s.Require().NoError(err)
-
-			// Approve first with 1 evmos
-			approveArgs := tc.malleate(grantee.Addr)
-			_, err = s.precompile.Approve(ctx, granter.Addr, stDB, &approvalMethod, approveArgs)
-			s.Require().NoError(err)
-
-			// Increase allowance after approval
-			_, err = s.precompile.IncreaseAllowance(ctx, granter.Addr, stDB, &method, approveArgs)
-
-			if tc.expErr {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
-			} else {
-				s.Require().NoError(err)
-				tc.postCheck(granter.Addr, grantee.Addr)
-			}
-		})
-	}
-}
-
-func (s *PrecompileTestSuite) TestDecreaseAllowanceEvent() {
-	var (
-		stDB *statedb.StateDB
-		ctx  sdk.Context
-	)
-	approvalMethod := s.precompile.Methods[authorization.ApproveMethod]
-	method := s.precompile.Methods[authorization.DecreaseAllowanceMethod]
-	testCases := []struct {
-		name        string
-		malleate    func(grantee common.Address) []interface{}
-		expErr      bool
-		errContains string
-		postCheck   func(granter, grantee common.Address)
-	}{
-		{
-			"success - decreased allowance for all 3 methods by 1 evmos",
-			func(grantee common.Address) []interface{} {
-				return []interface{}{
-					grantee,
-					big.NewInt(1000000000000000000),
-					[]string{
-						staking.DelegateMsg,
-						staking.UndelegateMsg,
-						staking.RedelegateMsg,
-					},
-				}
-			},
-			false,
-			"",
-			func(granter, grantee common.Address) {
-				log := stDB.Logs()[1]
-				methods := []string{
-					staking.DelegateMsg,
-					staking.UndelegateMsg,
-					staking.RedelegateMsg,
-				}
-				amounts := []*big.Int{
-					big.NewInt(1000000000000000000),
-					big.NewInt(1000000000000000000),
-					big.NewInt(1000000000000000000),
-				}
-				s.CheckAllowanceChangeEvent(log, methods, amounts, granter, grantee)
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.SetupTest() // reset
-			ctx = s.network.GetContext()
-			stDB = s.network.GetStateDB()
-
-			granter := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, granter.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-			s.Require().NoError(err)
-
-			// Approve first with 2 evmos
-			args := []interface{}{
-				grantee.Addr,
-				big.NewInt(2000000000000000000),
-				[]string{
-					staking.DelegateMsg,
-					staking.UndelegateMsg,
-					staking.RedelegateMsg,
-				},
-			}
-			_, err = s.precompile.Approve(ctx, granter.Addr, stDB, &approvalMethod, args)
-			s.Require().NoError(err)
-
-			// Decrease allowance after approval
-			_, err = s.precompile.DecreaseAllowance(ctx, granter.Addr, stDB, &method, tc.malleate(grantee.Addr))
-
-			if tc.expErr {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
-			} else {
-				s.Require().NoError(err)
-				tc.postCheck(granter.Addr, grantee.Addr)
-			}
-		})
-	}
-}
 
 func (s *PrecompileTestSuite) TestCreateValidatorEvent() {
 	var (
@@ -473,13 +231,9 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-			s.Require().NoError(err)
 
 			contract := vm.NewContract(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), 20000)
-			_, err = s.precompile.Delegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
+			_, err := s.precompile.Delegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -546,13 +300,9 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-			s.Require().NoError(err)
 
 			contract := vm.NewContract(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), 20000)
-			_, err = s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
+			_, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -624,13 +374,9 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.RedelegateAuthz, nil)
-			s.Require().NoError(err)
 
 			contract := vm.NewContract(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), 20000)
-			_, err = s.precompile.Redelegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
+			_, err := s.precompile.Redelegate(ctx, delegator.Addr, contract, stDB, &method, tc.malleate(delegator.Addr))
 			s.Require().NoError(err)
 
 			if tc.expErr {
@@ -653,22 +399,20 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 
 	testCases := []struct {
 		name        string
-		malleate    func(contract *vm.Contract, delegator, grantee testkeyring.Key) []interface{}
+		malleate    func(contract *vm.Contract, delegator testkeyring.Key) []interface{}
 		expErr      bool
 		errContains string
 		postCheck   func(delegator common.Address)
 	}{
 		{
 			"success - the correct event is emitted",
-			func(contract *vm.Contract, delegator, grantee testkeyring.Key) []interface{} {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(contract *vm.Contract, delegator testkeyring.Key) []interface{} {
 				undelegateArgs := []interface{}{
 					delegator.Addr,
 					s.network.GetValidators()[0].OperatorAddress,
 					big.NewInt(1000000000000000000),
 				}
-				_, err = s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &methodUndelegate, undelegateArgs)
+				_, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &methodUndelegate, undelegateArgs)
 				s.Require().NoError(err)
 
 				return []interface{}{
@@ -711,14 +455,10 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
-
-			err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.CancelUnbondingDelegationAuthz, nil)
-			s.Require().NoError(err)
 
 			contract := vm.NewContract(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), 20000)
-			callArgs := tc.malleate(contract, delegator, grantee)
-			_, err = s.precompile.CancelUnbondingDelegation(ctx, delegator.Addr, contract, stDB, &methodCancelUnbonding, callArgs)
+			callArgs := tc.malleate(contract, delegator)
+			_, err := s.precompile.CancelUnbondingDelegation(ctx, delegator.Addr, contract, stDB, &methodCancelUnbonding, callArgs)
 			s.Require().NoError(err)
 
 			if tc.expErr {

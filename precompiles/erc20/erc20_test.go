@@ -3,7 +3,6 @@ package erc20_test
 import (
 	"math/big"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 )
 
@@ -23,11 +22,11 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 	s.Require().False(s.precompile.IsTransaction(&method))
 
 	// Transactions
-	method = s.precompile.Methods[auth.ApproveMethod]
+	method = s.precompile.Methods[erc20.ApproveMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[auth.IncreaseAllowanceMethod]
+	method = s.precompile.Methods[erc20.IncreaseAllowanceMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[auth.DecreaseAllowanceMethod]
+	method = s.precompile.Methods[erc20.DecreaseAllowanceMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
 	method = s.precompile.Methods[erc20.TransferMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
@@ -89,27 +88,27 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 			expGas: erc20.GasTotalSupply,
 		},
 		{
-			name: auth.ApproveMethod,
+			name: erc20.ApproveMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(auth.ApproveMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.ABI.Pack(erc20.ApproveMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
 			expGas: erc20.GasApprove,
 		},
 		{
-			name: auth.IncreaseAllowanceMethod,
+			name: erc20.IncreaseAllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(auth.IncreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.ABI.Pack(erc20.IncreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
 			expGas: erc20.GasIncreaseAllowance,
 		},
 		{
-			name: auth.DecreaseAllowanceMethod,
+			name: erc20.DecreaseAllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(auth.DecreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.ABI.Pack(erc20.DecreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -134,9 +133,9 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 			expGas: erc20.GasTransfer,
 		},
 		{
-			name: auth.AllowanceMethod,
+			name: erc20.AllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(auth.AllowanceMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0))
+				bz, err := s.precompile.ABI.Pack(erc20.AllowanceMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
