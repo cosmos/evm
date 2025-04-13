@@ -126,9 +126,9 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 				crypto.Keccak256Hash([]byte(event.Sig)),
 				common.HexToHash(log.Topics[0].Hex()),
 			)
-			var adddressTopic common.Hash
-			copy(adddressTopic[common.HashLength-common.AddressLength:], caller[:])
-			s.Require().Equal(adddressTopic, log.Topics[1])
+			var addressTopic common.Hash
+			copy(addressTopic[common.HashLength-common.AddressLength:], caller[:])
+			s.Require().Equal(addressTopic, log.Topics[1])
 
 			s.Require().EqualValues(log.BlockNumber, s.network.GetContext().BlockHeight())
 
@@ -185,9 +185,9 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 				crypto.Keccak256Hash([]byte(event.Sig)),
 				common.HexToHash(log.Topics[0].Hex()),
 			)
-			var adddressTopic common.Hash
-			copy(adddressTopic[common.HashLength-common.AddressLength:], caller[:])
-			s.Require().Equal(adddressTopic, log.Topics[1])
+			var addressTopic common.Hash
+			copy(addressTopic[common.HashLength-common.AddressLength:], caller[:])
+			s.Require().Equal(addressTopic, log.Topics[1])
 
 			s.Require().EqualValues(log.BlockNumber, s.network.GetContext().BlockHeight())
 
