@@ -4,10 +4,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/precompiles/bech32"
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

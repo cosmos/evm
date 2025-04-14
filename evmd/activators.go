@@ -1,16 +1,15 @@
 package evmd
 
 import (
+	"github.com/ethereum/go-ethereum/core/vm"
+
 	"github.com/cosmos/evm/evmd/eips"
-	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
 // cosmosEVMActivators defines a map of opcode modifiers associated
 // with a key defining the corresponding EIP.
-//
-//nolint:unused
-var cosmosEVMActivators = map[string]func(*vm.JumpTable){
-	"evmos_0": eips.Enable0000,
-	"evmos_1": eips.Enable0001,
-	"evmos_2": eips.Enable0002,
+var cosmosEVMActivators = map[int]func(*vm.JumpTable){
+	0o000: eips.Enable0000,
+	0o001: eips.Enable0001,
+	0o002: eips.Enable0002,
 }

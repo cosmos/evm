@@ -6,11 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
