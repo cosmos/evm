@@ -55,6 +55,10 @@ endif
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
 
+ifeq (staticlink,$(findstring staticlink,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -linkmode external -extldflags '-static'
+endif
+
 BUILD_FLAGS := -tags "$(build_tags)" -ldflags '$(ldflags)'
 # check for nostrip option
 ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
