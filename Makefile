@@ -15,7 +15,7 @@ export GO111MODULE = on
 # Default target executed when no arguments are given to make.
 default_target: all
 
-.PHONY: build, default_target
+.PHONY: build default_target
 
 ###############################################################################
 ###                          evmd Build & Install                           ###
