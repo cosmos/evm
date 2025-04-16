@@ -16,6 +16,7 @@
 ### IMPROVEMENTS
 
 ### FEATURES
+
 - permissionless erc20 registration to cosmos coin conversion
 
 ### STATE BREAKING
