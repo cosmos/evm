@@ -22,6 +22,7 @@
 - Refactored evmos/os into cosmos/evm
 - Renamed x/evm to x/vm
 - Renamed protobuf files from evmos to cosmos org
+- [\#83](https://github.com/cosmos/evm/pull/83) Remove base fee v1 from x/feemarket
 
 ### API-Breaking
 

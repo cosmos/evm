@@ -5,12 +5,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	app "github.com/cosmos/evm/evmd"
 	chainutil "github.com/cosmos/evm/evmd/testutil"
 	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	sdkmath "cosmossdk.io/math"

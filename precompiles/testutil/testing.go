@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cosmos/evm/x/vm/core/vm"
 
 	storetypes "cosmossdk.io/store/types"
 

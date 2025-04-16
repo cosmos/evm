@@ -10,9 +10,8 @@ package types
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
-
-	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
 // Configure applies the changes to the virtual machine configuration.

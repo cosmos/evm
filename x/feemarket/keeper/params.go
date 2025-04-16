@@ -60,17 +60,7 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) math.LegacyDec {
 	if params.NoBaseFee {
 		return math.LegacyDec{}
 	}
-
-	baseFee := params.BaseFee
-	if baseFee.IsNil() || baseFee.IsZero() {
-		bfV1 := k.GetBaseFeeV1(ctx)
-		if bfV1 == nil {
-			return math.LegacyDec{}
-		}
-		// try v1 format
-		return math.LegacyNewDecFromBigInt(bfV1)
-	}
-	return baseFee
+	return params.BaseFee
 }
 
 // SetBaseFee set's the base fee in the store
