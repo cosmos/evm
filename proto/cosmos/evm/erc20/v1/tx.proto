@@ -23,7 +23,7 @@ service Msg {
   // ConvertCoin mints a ERC20 token representation of the native Cosmos coin
   // that is registered on the token mapping.
   rpc ConvertCoin(MsgConvertCoin) returns (MsgConvertCoinResponse) {
-    option (google.api.http).get = "/os/erc20/v1/tx/convert_coin";
+    option (google.api.http).get = "/cosmos/evm/erc20/v1/tx/convert_coin";
   }
   // UpdateParams defines a governance operation for updating the x/erc20 module
   // parameters. The authority is hard-coded to the Cosmos SDK x/gov module
