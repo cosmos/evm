@@ -7,6 +7,8 @@ alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and custo
 v1 release, targeting late Q2. Some breaking changes might occur. While the Cosmos EVM is currently being used in
 production on various chains without fault, Interchain Labs will only mark this repository as stable after the audit is completed.
 
+**Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
+
 ## What is Cosmos EVM?
 
 Cosmos EVM is a plug-and-play solution that adds EVM compatibility

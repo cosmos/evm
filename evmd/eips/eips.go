@@ -1,7 +1,7 @@
 package eips
 
 import (
-	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 var (

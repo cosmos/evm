@@ -4,11 +4,12 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
+
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	"cosmossdk.io/math"

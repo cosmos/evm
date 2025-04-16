@@ -7,10 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/params"
-
-	"github.com/cosmos/evm/x/vm/core/logger"
-	"github.com/cosmos/evm/x/vm/core/vm"
 )
 
 const (

@@ -37,7 +37,7 @@ var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 		Decimals:     evmtypes.EighteenDecimals,
 	},
 	CosmosChainID: {
-		Denom:        "utest",
+		Denom:        "atest",
 		DisplayDenom: "test",
 		Decimals:     evmtypes.EighteenDecimals,
 	},
@@ -51,7 +51,6 @@ func EvmAppOptions(chainID string) error {
 	}
 
 	id := strings.Split(chainID, "-")[0]
-	fmt.Printf("ChainID: %v\n", chainID)
 	coinInfo, found := ChainsCoinInfo[id]
 	if !found {
 		return fmt.Errorf("unknown chain id: %s", id)
@@ -70,6 +69,7 @@ func EvmAppOptions(chainID string) error {
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
 
 	err = evmtypes.NewEVMConfigurator().
+		WithExtendedEips(cosmosEVMActivators).
 		WithChainConfig(ethCfg).
 		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(baseDenom, uint8(coinInfo.Decimals)).
