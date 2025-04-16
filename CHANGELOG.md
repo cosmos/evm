@@ -17,6 +17,8 @@
 
 ### FEATURES
 
+- permissionless erc20 registration to cosmos coin conversion
+
 ### STATE BREAKING
 
 - Refactored evmos/os into cosmos/evm

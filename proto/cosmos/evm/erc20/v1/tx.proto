@@ -4,11 +4,11 @@ package cosmos.evm.erc20.v1;
 
 import "amino/amino.proto";
 import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/evm/erc20/v1/genesis.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
-import "cosmos/evm/erc20/v1/genesis.proto";
 
 option go_package = "github.com/cosmos/evm/x/erc20/types";
 
@@ -50,7 +50,7 @@ message MsgConvertERC20 {
     (amino.dont_omitempty) = true
   ];
   // receiver is the bech32 address to receive native Cosmos coins
-  string receiver = 3;
+  string receiver = 3 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
   // sender is the hex address from the owner of the given ERC20 tokens
   string sender = 4;
 }
@@ -67,7 +67,7 @@ message MsgConvertCoin {
   string receiver = 2;
   // sender is the cosmos bech32 address from the owner of the given Cosmos
   // coins
-  string sender = 3;
+  string sender = 3 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
 }
 
 // MsgConvertCoinResponse returns no fields
@@ -97,10 +97,10 @@ message MsgUpdateParamsResponse {}
 // an Erc20 contract token pair.
 message MsgRegisterERC20 {
   option (amino.name) = "cosmos/evm/x/erc20/MsgRegisterERC20";
-  option (cosmos.msg.v1.signer) = "authority";
+  option (cosmos.msg.v1.signer) = "signer";
 
-  // authority is the address of the governance account.
-  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // signer is the address registering the erc20 pairs
+  string signer = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
 
   // erc20addresses is a slice of ERC20 token contract hex addresses
   repeated string erc20addresses = 2;

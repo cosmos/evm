@@ -89,6 +89,11 @@ func (m MsgUpdateParams) GetSignBytes() []byte {
 
 // ValidateBasic does a sanity check of the provided data
 func (m *MsgRegisterERC20) ValidateBasic() error {
+	_, err := sdk.AccAddressFromBech32(m.Signer)
+	if err != nil {
+		return errorsmod.Wrap(err, "invalid signer address")
+	}
+
 	for _, addr := range m.Erc20Addresses {
 		if !common.IsHexAddress(addr) {
 			return errortypes.ErrInvalidAddress.Wrapf("invalid ERC20 contract address: %s", addr)
