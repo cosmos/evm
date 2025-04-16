@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Msg_ConvertERC20_FullMethodName     = "/cosmos.evm.erc20.v1.Msg/ConvertERC20"
+	Msg_ConvertCoin_FullMethodName      = "/cosmos.evm.erc20.v1.Msg/ConvertCoin"
 	Msg_UpdateParams_FullMethodName     = "/cosmos.evm.erc20.v1.Msg/UpdateParams"
 	Msg_RegisterERC20_FullMethodName    = "/cosmos.evm.erc20.v1.Msg/RegisterERC20"
 	Msg_ToggleConversion_FullMethodName = "/cosmos.evm.erc20.v1.Msg/ToggleConversion"
@@ -32,6 +33,9 @@ type MsgClient interface {
 	// ConvertERC20 mints a native Cosmos coin representation of the ERC20 token
 	// contract that is registered on the token mapping.
 	ConvertERC20(ctx context.Context, in *MsgConvertERC20, opts ...grpc.CallOption) (*MsgConvertERC20Response, error)
+	// ConvertCoin mints a ERC20 token representation of the native Cosmos coin
+	// that is registered on the token mapping.
+	ConvertCoin(ctx context.Context, in *MsgConvertCoin, opts ...grpc.CallOption) (*MsgConvertCoinResponse, error)
 	// UpdateParams defines a governance operation for updating the x/erc20 module
 	// parameters. The authority is hard-coded to the Cosmos SDK x/gov module
 	// account
@@ -57,6 +61,15 @@ func NewMsgClient(cc grpc.ClientConnInterface) MsgClient {
 func (c *msgClient) ConvertERC20(ctx context.Context, in *MsgConvertERC20, opts ...grpc.CallOption) (*MsgConvertERC20Response, error) {
 	out := new(MsgConvertERC20Response)
 	err := c.cc.Invoke(ctx, Msg_ConvertERC20_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) ConvertCoin(ctx context.Context, in *MsgConvertCoin, opts ...grpc.CallOption) (*MsgConvertCoinResponse, error) {
+	out := new(MsgConvertCoinResponse)
+	err := c.cc.Invoke(ctx, Msg_ConvertCoin_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +110,9 @@ type MsgServer interface {
 	// ConvertERC20 mints a native Cosmos coin representation of the ERC20 token
 	// contract that is registered on the token mapping.
 	ConvertERC20(context.Context, *MsgConvertERC20) (*MsgConvertERC20Response, error)
+	// ConvertCoin mints a ERC20 token representation of the native Cosmos coin
+	// that is registered on the token mapping.
+	ConvertCoin(context.Context, *MsgConvertCoin) (*MsgConvertCoinResponse, error)
 	// UpdateParams defines a governance operation for updating the x/erc20 module
 	// parameters. The authority is hard-coded to the Cosmos SDK x/gov module
 	// account
@@ -118,6 +134,9 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) ConvertERC20(context.Context, *MsgConvertERC20) (*MsgConvertERC20Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConvertERC20 not implemented")
+}
+func (UnimplementedMsgServer) ConvertCoin(context.Context, *MsgConvertCoin) (*MsgConvertCoinResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConvertCoin not implemented")
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
@@ -155,6 +174,24 @@ func _Msg_ConvertERC20_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).ConvertERC20(ctx, req.(*MsgConvertERC20))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_ConvertCoin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgConvertCoin)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ConvertCoin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ConvertCoin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ConvertCoin(ctx, req.(*MsgConvertCoin))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -223,6 +260,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConvertERC20",
 			Handler:    _Msg_ConvertERC20_Handler,
+		},
+		{
+			MethodName: "ConvertCoin",
+			Handler:    _Msg_ConvertCoin_Handler,
 		},
 		{
 			MethodName: "UpdateParams",
