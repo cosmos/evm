@@ -111,7 +111,7 @@ func (s *StateDB) MultiStoreSnapshot() storetypes.CacheMultiStore {
 	// the cacheCtx multi store is already a CacheMultiStore
 	// so we need to pass a copy of the current state of it
 	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
-	snapshot := cms.Copy()
+	snapshot := cms.CacheMultiStore()
 
 	return snapshot
 }
