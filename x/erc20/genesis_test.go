@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -29,7 +30,7 @@ type GenesisTestSuite struct {
 	genesis types.GenesisState
 }
 
-const osmoERC20ContractAddr = "0x5dCA2483280D9727c80b5518faC4556617fb19ZZ"
+const osmoERC20ContractAddr = "0x5D87876250185593977a6F94aF98877a5E7eD60E"
 
 var osmoDenomTrace = transfertypes.DenomTrace{
 	BaseDenom: "uosmo",
@@ -99,6 +100,29 @@ func (suite *GenesisTestSuite) TestERC20InitGenesis() {
 						ContractOwner: types.OWNER_MODULE,
 					},
 				},
+				[]types.Allowance{},
+			),
+		},
+		{
+			name: "custom genesis",
+			genesisState: types.NewGenesisState(
+				types.DefaultParams(),
+				[]types.TokenPair{
+					{
+						Erc20Address:  osmoERC20ContractAddr,
+						Denom:         osmoDenomTrace.IBCDenom(),
+						Enabled:       true,
+						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{
+					{
+						Erc20Address: osmoERC20ContractAddr,
+						Owner:        utiltx.GenerateAddress().String(),
+						Spender:      utiltx.GenerateAddress().String(),
+						Value:        math.NewInt(100),
+					},
+				},
 			),
 		},
 	}
@@ -119,6 +143,13 @@ func (suite *GenesisTestSuite) TestERC20InitGenesis() {
 			suite.Require().Equal(tc.genesisState.TokenPairs, tokenPairs, tc.name)
 		} else {
 			suite.Require().Len(tc.genesisState.TokenPairs, 0, tc.name)
+		}
+
+		allowances := nw.App.Erc20Keeper.GetAllowances(nw.GetContext())
+		if len(allowances) > 0 {
+			suite.Require().Equal(tc.genesisState.Allowances, allowances, tc.name)
+		} else {
+			suite.Require().Len(tc.genesisState.Allowances, 0, tc.name)
 		}
 	}
 }
@@ -148,6 +179,7 @@ func (suite *GenesisTestSuite) TestErc20ExportGenesis() {
 						ContractOwner: types.OWNER_MODULE,
 					},
 				},
+				[]types.Allowance{},
 			),
 		},
 	}

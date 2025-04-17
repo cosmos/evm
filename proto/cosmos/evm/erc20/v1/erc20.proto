@@ -32,6 +32,27 @@ message TokenPair {
   Owner contract_owner = 4;
 }
 
+//Allowance is a token allowance only for erc20 precompile
+message Allowance {
+  option (gogoproto.equal) = false;
+
+  // erc20_address is the hex address of ERC20 contract
+  string erc20_address = 1;
+
+  // owner is the address of the owner account
+  string owner = 2;
+
+  // spender is the address that is allowed to spend the allowance
+  string spender = 3;
+
+  // value specifies the maximum amount of tokens that can be spent
+  // by this token allowance and will be updated as tokens are spent.
+  string value = 4 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
 // protolint:disable MESSAGES_HAVE_COMMENT
 
 // Deprecated: RegisterCoinProposal is a gov Content type to register a token

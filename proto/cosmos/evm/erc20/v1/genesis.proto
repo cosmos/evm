@@ -16,6 +16,9 @@ message GenesisState {
   // token_pairs is a slice of the registered token pairs at genesis
   repeated TokenPair token_pairs = 2
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // allowances is a slice of the registered allowances at genesis
+  repeated Allowance allowances = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
 // Params defines the erc20 module params
