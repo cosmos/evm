@@ -2,7 +2,7 @@
 // Why was this copied?
 // This test suite was imported to validate that ExampleChain (an EVM-based chain)
 // correctly supports IBC v1 token transfers using ibc-go’s Transfer module logic.
-// The test ensures that multi-hop transfers (A → B → C → B) behave as expected across channels.
+// The test ensures that ics20 precompile transfer (A → B) behave as expected across channels.
 package ibc
 
 import (
@@ -35,17 +35,14 @@ type ICS20TransferTestSuite struct {
 	chainA           *evmibctesting.TestChain
 	chainAPrecompile *ics20.Precompile
 	chainB           *evmibctesting.TestChain
-	//chainBPrecompile *ics20.Precompile
 }
 
 func (suite *ICS20TransferTestSuite) SetupTest() {
-	// TODO: cosmos chain case
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
-	//evmAppB := suite.chainA.App.(*evmd.EVMD)
 	suite.chainAPrecompile, _ = ics20.NewPrecompile(
 		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
@@ -53,24 +50,17 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 		evmAppA.AuthzKeeper, // TODO: To be deprecated,
 		evmAppA.EVMKeeper,
 	)
-	//suite.chainBPrecompile, _ = ics20.NewPrecompile(
-	//	*evmAppB.StakingKeeper,
-	//	evmAppB.TransferKeeper,
-	//	evmAppB.IBCKeeper.ChannelKeeper,
-	//	evmAppB.AuthzKeeper, // TODO: To be deprecated,
-	//	evmAppB.EVMKeeper,
-	//)
 }
 
 // Constructs the following sends based on the established channels/connections
 // 1 - from evmChainA to chainB
-// 2 - from chainB to chainC
-// 3 - from chainC to chainB
 func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 	var (
 		sourceDenomToTransfer string
 		msgAmount             sdkmath.Int
 		err                   error
+		nativeErc20           *NativeErc20Info
+		erc20                 bool
 	)
 
 	testCases := []struct {
@@ -80,6 +70,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 		{
 			"transfer single denom",
 			func() {
+				evmApp := suite.chainA.App.(*evmd.EVMD)
+				sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				msgAmount = evmibctesting.DefaultCoinAmount
 			},
 		},
@@ -87,6 +79,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			"transfer amount larger than int64",
 			func() {
 				var ok bool
+				evmApp := suite.chainA.App.(*evmd.EVMD)
+				sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				msgAmount, ok = sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 				suite.Require().True(ok)
 			},
@@ -94,10 +88,21 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 		{
 			"transfer entire balance",
 			func() {
+				evmApp := suite.chainA.App.(*evmd.EVMD)
+				sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				msgAmount = types.UnboundedSpendLimit()
 			},
 		},
-		// TODO: add erc20 token case, registered token pair case, after authz dependency deprecated case
+		{
+			"native erc20 case",
+			func() {
+				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
+				sourceDenomToTransfer = nativeErc20.Denom
+				msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
+				erc20 = true
+			},
+		},
+		// TODO: add v2 cases, erc20 token case, registered token pair case, after authz dependency deprecated case
 	}
 
 	for _, tc := range testCases {
@@ -116,13 +121,24 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 
 			evmApp := suite.chainA.App.(*evmd.EVMD)
 
-			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
+			GetBalance := func() sdk.Coin {
+				ctx := suite.chainA.GetContext()
+				if erc20 {
+					balanceAmt := evmApp.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, nativeErc20.Account)
+					return sdk.Coin{
+						Denom:  nativeErc20.Denom,
+						Amount: sdkmath.NewIntFromBigInt(balanceAmt),
+					}
+				}
+				return evmApp.BankKeeper.GetBalance(
+					ctx,
+					suite.chainA.SenderAccount.GetAddress(),
+					sourceDenomToTransfer,
+				)
+			}
+
+			originalBalance := GetBalance()
 			suite.Require().NoError(err)
-			originalBalance := evmApp.BankKeeper.GetBalance(
-				suite.chainA.GetContext(),
-				suite.chainA.SenderAccount.GetAddress(),
-				sourceDenomToTransfer,
-			)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
@@ -158,11 +174,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
 			suite.Require().True(ok)
 
-			chainABalanceBeforeRelay := evmApp.BankKeeper.GetBalance(
-				suite.chainA.GetContext(),
-				suite.chainA.SenderAccount.GetAddress(),
-				originalCoin.Denom,
-			)
+			chainABalanceBeforeRelay := GetBalance()
 
 			// relay send
 			err = pathAToB.RelayPacket(packet)
