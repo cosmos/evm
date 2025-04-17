@@ -125,11 +125,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
-
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
-			receiverAddr := common.BytesToAddress(suite.chainB.SenderAccount.GetAddress().Bytes())
 
 			ctx := suite.chainA.GetContext()
 			ctx = evmante.BuildEvmExecutionCtx(ctx).
@@ -140,8 +137,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,
 				originalCoin.Amount.BigInt(),
-				sourceAddr,
-				receiverAddr.String(),
+				sourceAddr,                                       // source addr should be evm hex addr
+				suite.chainB.SenderAccount.GetAddress().String(), // receiver should be cosmos bech32 addr
 				timeoutHeight,
 				uint64(0),
 				"",
@@ -179,7 +176,6 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				originalCoin.Denom,
 			)
 
-			// TODO: Need to fix bug that state reverted after replay
 			suite.Require().True(chainABalanceBeforeRelay.Amount.Equal(chainABalance.Amount))
 			suite.Require().True(originalBalance.Amount.Sub(transferAmount).Equal(chainABalance.Amount))
 
