@@ -8,8 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/evmd"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	"github.com/cosmos/evm/evmd"
 )
 
 var (
@@ -41,7 +42,7 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 	require.NoError(t, evmd.EvmAppOptions("cosmos_9001-1"))
 	ibctesting.DefaultTestingAppInit = SetupExampleApp
 	for i := 1; i <= nEVMChains; i++ {
-		chainID := GetChainID(i)
+		chainID := GetEvmChainID(i)
 		// setup EVM chains
 		chains[chainID] = NewTestChain(t, true, coord, chainID)
 	}
@@ -156,6 +157,12 @@ func (coord *Coordinator) GetChain(chainID string) *TestChain {
 // GetChainID returns the chainID used for the provided index.
 func GetChainID(index int) string {
 	return ChainIDPrefix + strconv.Itoa(index) + ChainIDSuffix
+}
+
+// GetEvmChainID returns the EIP-155 chainID used for the provided index.
+func GetEvmChainID(index int) string {
+	// TODO: temporary value, fix to testchain id
+	return fmt.Sprintf("cosmos_900%d-1", index)
 }
 
 // CommitBlock commits a block on the provided indexes and then increments the global time.

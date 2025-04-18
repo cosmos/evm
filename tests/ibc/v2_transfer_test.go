@@ -19,12 +19,13 @@ import (
 
 	testifysuite "github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
-	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+
+	"github.com/cosmos/evm/evmd"
+	evmibctesting "github.com/cosmos/evm/ibc/testing"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -54,7 +55,7 @@ const invalidPortID = "invalidportid"
 
 func (suite *TransferTestSuiteV2) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
-	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
+	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	suite.chainC = suite.coordinator.GetChain(evmibctesting.GetChainID(3))
 

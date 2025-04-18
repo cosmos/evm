@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 
 	dbm "github.com/cosmos/cosmos-db"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/testutil"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
 	"cosmossdk.io/log"
 
@@ -22,5 +24,11 @@ func SetupExampleApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		simtestutil.EmptyAppOptions{},
 		testutil.NoOpEvmAppOptions,
 	)
-	return app, app.DefaultGenesis()
+	// disable base fee for testing
+	genesisState := app.DefaultGenesis()
+	fmGen := feemarkettypes.DefaultGenesisState()
+	fmGen.Params.NoBaseFee = true
+	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
+
+	return app, genesisState
 }

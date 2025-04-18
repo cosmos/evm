@@ -3,9 +3,11 @@ package ibctesting
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -15,8 +17,6 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 	cmtversion "github.com/cometbft/cometbft/version"
 
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/evmd"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
@@ -28,6 +28,10 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/testutil/tx"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -354,6 +358,62 @@ func (chain *TestChain) commitBlock(res *abci.ResponseFinalizeBlock) {
 func (chain *TestChain) sendMsgs(msgs ...sdk.Msg) error {
 	_, err := chain.SendMsgs(msgs...)
 	return err
+}
+
+// Helper function to create and broadcast a ethereum transaction
+func (chain *TestChain) SendEvmTx(
+	priv cryptotypes.PrivKey,
+	to common.Address,
+	amount *big.Int,
+	data []byte,
+) (*abci.ExecTxResult, error) {
+	app := chain.App.(*evmd.EVMD)
+	ctx := chain.GetContext()
+
+	// ensure the chain has the latest time
+	chain.Coordinator.UpdateTimeForChain(chain)
+
+	defer func() {
+		err := chain.SenderAccount.SetSequence(chain.SenderAccount.GetSequence() + 1)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
+
+	txConfig := app.GetTxConfig()
+	tx, err := tx.PrepareEthTx(txConfig, priv, msgEthereumTx)
+	require.NoError(chain.TB, err)
+
+	// bz are bytes to be broadcasted over the network
+	txEncoder := txConfig.TxEncoder()
+	bz, err := txEncoder(tx)
+	require.NoError(chain.TB, err)
+
+	req := abci.RequestFinalizeBlock{
+		Height:             app.LastBlockHeight() + 1,
+		Time:               chain.ProposedHeader.GetTime(),
+		NextValidatorsHash: chain.NextVals.Hash(),
+		Txs:                [][]byte{bz},
+		ProposerAddress:    ctx.BlockHeader().ProposerAddress,
+	}
+
+	res, err := app.FinalizeBlock(&req)
+	require.NoError(chain.TB, err)
+
+	chain.commitBlock(res)
+
+	require.Len(chain.TB, res.TxResults, 1)
+	txResult := res.TxResults[0]
+
+	if txResult.Code != 0 {
+		return txResult, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
+	}
+
+	chain.Coordinator.IncrementTime()
+
+	return txResult, nil
 }
 
 // SendMsgs delivers a transaction through the application using a predefined sender.
