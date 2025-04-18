@@ -2,9 +2,11 @@ package erc20
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
+	"github.com/ethereum/go-ethereum/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -31,6 +33,24 @@ func InitGenesis(
 	for _, pair := range data.TokenPairs {
 		k.SetToken(ctx, pair)
 	}
+
+	var erc20, owner, spender common.Address
+	var value *big.Int
+	for _, allowance := range data.Allowances {
+		erc20 = common.HexToAddress(allowance.Erc20Address)
+		owner = common.HexToAddress(allowance.Owner)
+		spender = common.HexToAddress(allowance.Spender)
+		value = allowance.Value.BigInt()
+		err := k.SetAllowance(ctx, erc20, owner, spender, value)
+		if err != nil {
+			if types.ErrERC20TokenPairDisabled.Is(err) {
+				// NOTES: When SetAllowance is called from the ERC20 precompile, this case is treated as an error,
+				// but during GenesisState initialization, it’s a valid case, so it is allowed to pass.
+				continue
+			}
+			panic(fmt.Errorf("error setting allowance %s", err))
+		}
+	}
 }
 
 // ExportGenesis export module status
@@ -38,5 +58,6 @@ func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *types.GenesisState {
 	return &types.GenesisState{
 		Params:     k.GetParams(ctx),
 		TokenPairs: k.GetTokenPairs(ctx),
+		Allowances: k.GetAllowances(ctx),
 	}
 }

@@ -29,6 +29,10 @@ const (
 	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
 	// WEVMOSContractTestnet is the WEVMOS contract address for testnet
 	WEVMOSContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
+	// ExampleEvmAddress1 is the example EVM address
+	ExampleEvmAddressAlice = "0x1e0DE5DB1a39F99cBc67B00fA3415181b3509e42"
+	// ExampleEvmAddress2 is the example EVM address
+	ExampleEvmAddressBob = "0x0AFc8e15F0A74E98d0AEC6C67389D2231384D4B2"
 )
 
 var (

@@ -31,6 +31,7 @@ const (
 	prefixTokenPairByERC20
 	prefixTokenPairByDenom
 	prefixSTRv2Addresses
+	prefixAllowance
 )
 
 // KVStore key prefixes
@@ -39,4 +40,13 @@ var (
 	KeyPrefixTokenPairByERC20 = []byte{prefixTokenPairByERC20}
 	KeyPrefixTokenPairByDenom = []byte{prefixTokenPairByDenom}
 	KeyPrefixSTRv2Addresses   = []byte{prefixSTRv2Addresses}
+	KeyPrefixAllowance        = []byte{prefixAllowance}
 )
+
+func AllowanceKey(
+	erc20 common.Address,
+	owner common.Address,
+	spender common.Address,
+) []byte {
+	return append(append(erc20.Bytes(), owner.Bytes()...), spender.Bytes()...)
+}

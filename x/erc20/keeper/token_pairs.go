@@ -99,6 +99,7 @@ func (k Keeper) DeleteTokenPair(ctx sdk.Context, tokenPair types.TokenPair) {
 	k.deleteTokenPair(ctx, id)
 	k.deleteERC20Map(ctx, tokenPair.GetERC20Contract())
 	k.deleteDenomMap(ctx, tokenPair.Denom)
+	k.deleteAllowances(ctx, tokenPair.GetERC20Contract())
 }
 
 // deleteTokenPair deletes the token pair for the given id.
