@@ -23,13 +23,17 @@ func (k Keeper) GetAllowance(
 	owner common.Address,
 	spender common.Address,
 ) (*big.Int, error) {
+	if err := k.checkTokenPair(ctx, erc20); err != nil {
+		return common.Big0, err
+	}
+
 	allowanceKey := types.AllowanceKey(erc20, owner, spender)
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixAllowance)
 
 	var allowance types.Allowance
 	bz := store.Get(allowanceKey)
 	if bz == nil {
-		return big.NewInt(0), nil
+		return common.Big0, nil
 	}
 
 	k.cdc.MustUnmarshal(bz, &allowance)
