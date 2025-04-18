@@ -3624,9 +3624,9 @@ type Allowance struct {
 
 	// erc20_address is the hex address of ERC20 contract
 	Erc20Address string `protobuf:"bytes,1,opt,name=erc20_address,json=erc20Address,proto3" json:"erc20_address,omitempty"`
-	// owner is the address of the owner account
+	// owner is the hex address of the owner account
 	Owner string `protobuf:"bytes,2,opt,name=owner,proto3" json:"owner,omitempty"`
-	// spender is the address that is allowed to spend the allowance
+	// spender is the hex address that is allowed to spend the allowance
 	Spender string `protobuf:"bytes,3,opt,name=spender,proto3" json:"spender,omitempty"`
 	// value specifies the maximum amount of tokens that can be spent
 	// by this token allowance and will be updated as tokens are spent.

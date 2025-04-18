@@ -71,12 +71,14 @@ func (k Keeper) setAllowance(
 	spender common.Address,
 	value *big.Int,
 ) error {
-	if err := k.checkAddressesNonZero(erc20, owner, spender); err != nil {
-		return err
-	}
-
 	if err := k.checkTokenPair(ctx, erc20); err != nil {
 		return err
+	}
+	if (owner == common.Address{}) {
+		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "erc20 address is empty")
+	}
+	if (spender == common.Address{}) {
+		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "spender address is empty")
 	}
 
 	allowanceKey := types.AllowanceKey(erc20, owner, spender)
@@ -128,26 +130,6 @@ func (k Keeper) IterateAllowances(
 	}
 }
 
-func (k Keeper) checkAddressesNonZero(
-	erc20 common.Address,
-	owner common.Address,
-	spender common.Address,
-) error {
-	if erc20 == (common.Address{}) {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "invalid erc20 address: '%s'", erc20)
-	}
-
-	if owner == (common.Address{}) {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "invalid owner address: '%s'", owner)
-	}
-
-	if spender == (common.Address{}) {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "invalid spender address: '%s'", spender)
-	}
-
-	return nil
-}
-
 func (k Keeper) checkTokenPair(ctx sdk.Context, erc20 common.Address) error {
 	tokenPairID := k.GetERC20Map(ctx, erc20)
 	tokenPair, found := k.GetTokenPair(ctx, tokenPairID)
@@ -164,4 +146,14 @@ func (k Keeper) checkTokenPair(ctx sdk.Context, erc20 common.Address) error {
 	}
 
 	return nil
+}
+
+func (k Keeper) deleteAllowances(ctx sdk.Context, erc20 common.Address) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixAllowance)
+	iterator := storetypes.KVStorePrefixIterator(store, erc20.Bytes())
+	defer iterator.Close()
+
+	for ; iterator.Valid(); iterator.Next() {
+		store.Delete(iterator.Key())
+	}
 }

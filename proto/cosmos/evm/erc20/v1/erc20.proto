@@ -39,10 +39,10 @@ message Allowance {
   // erc20_address is the hex address of ERC20 contract
   string erc20_address = 1;
 
-  // owner is the address of the owner account
+  // owner is the hex address of the owner account
   string owner = 2;
 
-  // spender is the address that is allowed to spend the allowance
+  // spender is the hex address that is allowed to spend the allowance
   string spender = 3;
 
   // value specifies the maximum amount of tokens that can be spent

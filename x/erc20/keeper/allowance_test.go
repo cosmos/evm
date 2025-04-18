@@ -135,16 +135,6 @@ func (suite *KeeperTestSuite) TestSetAllowance() {
 			types.ErrERC20TokenPairDisabled.Error(),
 		},
 		{
-			"fail - zero erc20 address",
-			func() {
-				erc20Addr = common.HexToAddress("0x0")
-				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
-			},
-			false,
-			errortypes.ErrInvalidAddress.Error(),
-		},
-		{
 			"fail - zero owner address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
@@ -252,16 +242,6 @@ func (suite *KeeperTestSuite) TestDeleteAllowance() {
 			types.ErrERC20TokenPairDisabled.Error(),
 		},
 		{
-			"fail - zero erc20 address",
-			func() {
-				erc20Addr = common.HexToAddress("0x0")
-				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
-				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
-			},
-			false,
-			errortypes.ErrInvalidAddress.Error(),
-		},
-		{
 			"fail - zero owner address",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
@@ -349,14 +329,7 @@ func (suite *KeeperTestSuite) TestGetAllowances() {
 				// Delete TokenPair
 				suite.network.App.Erc20Keeper.DeleteTokenPair(ctx, pair)
 
-				expRes = []types.Allowance{
-					{
-						Erc20Address: erc20Addr.Hex(),
-						Owner:        owner.Hex(),
-						Spender:      spender.Hex(),
-						Value:        math.NewIntFromBigInt(value),
-					},
-				}
+				expRes = []types.Allowance{}
 			},
 		},
 		{
