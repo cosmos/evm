@@ -10,6 +10,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	exampleapp "github.com/cosmos/evm/evmd"
+	appcfg "github.com/cosmos/evm/evmd/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
@@ -80,7 +81,7 @@ func EthSetupWithDB(isCheckTx bool, chainID string, patchGenesis func(*exampleap
 		nil,
 		true,
 		simtestutil.NewAppOptionsWithFlagHome(exampleapp.DefaultNodeHome),
-		exampleapp.EvmAppOptions,
+		appcfg.EvmAppOptions,
 		baseapp.SetChainID(chainID),
 	)
 	if !isCheckTx {

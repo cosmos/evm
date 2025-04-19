@@ -7,13 +7,14 @@ import (
 
 	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/evmd"
+	appcfg "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/testutil/constants"
 )
 
 func TestRequireSameTestDenom(t *testing.T) {
 	require.Equal(t,
 		constants.ExampleAttoDenom,
-		evmd.ExampleChainDenom,
+		appcfg.ExampleChainDenom,
 		"test denoms should be the same across the repo",
 	)
 }

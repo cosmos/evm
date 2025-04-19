@@ -15,7 +15,7 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	exampleapp "github.com/cosmos/evm/evmd"
+	appcfg "github.com/cosmos/evm/evmd/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
@@ -57,7 +57,7 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig()
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	err := exampleapp.EvmAppOptions("cosmos_9001-1")
+	err := appcfg.EvmAppOptions("cosmos_9001-1")
 	suite.Require().NoError(err)
 }
 
@@ -139,11 +139,8 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 				suite.Require().Equal(uint64(100000), tx.GetGas())
 
 				expFeeAmt := sdkmath.NewIntFromBigInt(evmTx.GasPrice).MulRaw(int64(evmTx.GasLimit)) //#nosec
-				expFee := sdk.NewCoins(sdk.NewCoin(baseDenom, expFeeAmt))
-				if cfg.Decimals == types.SixDecimals {
-					scaledAmt := expFeeAmt.QuoRaw(1e12)
-					expFee = sdk.NewCoins(sdk.NewCoin(baseDenom, scaledAmt))
-				}
+				scaledAmt := expFeeAmt.Quo(cfg.Decimals.ConversionFactor())
+				expFee := sdk.NewCoins(sdk.NewCoin(baseDenom, scaledAmt))
 				suite.Require().Equal(expFee, tx.GetFee())
 			}
 		}

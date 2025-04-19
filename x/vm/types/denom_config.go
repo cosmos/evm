@@ -62,3 +62,7 @@ func setEVMCoinInfo(eci EvmCoinInfo) error {
 	}
 	return setEVMCoinDecimals(eci.Decimals)
 }
+
+func IsSetEVMCoinInfo() bool {
+	return evmCoinInfo != nil
+}

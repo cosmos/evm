@@ -12,6 +12,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/cmd/evmd/config"
+	appcfg "github.com/cosmos/evm/evmd/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
@@ -54,7 +55,7 @@ func setup(withGenesis bool, invCheckPeriod uint, chainID string) (*EVMD, Genesi
 	appOptions[flags.FlagHome] = DefaultNodeHome
 	appOptions[server.FlagInvCheckPeriod] = invCheckPeriod
 
-	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, EvmAppOptions, baseapp.SetChainID(chainID))
+	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, appcfg.EvmAppOptions, baseapp.SetChainID(chainID))
 	if withGenesis {
 		return app, app.DefaultGenesis()
 	}
@@ -130,7 +131,7 @@ func SetupTestingApp(chainID string) func() (ibctesting.TestingApp, map[string]j
 			log.NewNopLogger(),
 			db, nil, true,
 			simtestutil.NewAppOptionsWithFlagHome(DefaultNodeHome),
-			EvmAppOptions,
+			appcfg.EvmAppOptions,
 			baseapp.SetChainID(chainID),
 		)
 		return app, app.DefaultGenesis()

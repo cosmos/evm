@@ -30,6 +30,7 @@ import (
 	chaincmd "github.com/cosmos/evm/cmd/evmd/cmd"
 	"github.com/cosmos/evm/crypto/hd"
 	exampleapp "github.com/cosmos/evm/evmd"
+	appcfg "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -107,7 +108,7 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := exampleapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), exampleapp.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := exampleapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), appcfg.EvmAppOptions, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -140,7 +141,7 @@ func NewAppConstructor(chainID string) AppConstructor {
 		return exampleapp.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			exampleapp.EvmAppOptions,
+			appcfg.EvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),

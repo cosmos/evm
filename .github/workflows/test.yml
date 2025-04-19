@@ -70,3 +70,25 @@ jobs:
         run: |
           make test-scripts
         if: env.GIT_DIFF
+
+  test-fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          check-latest: true
+      - uses: actions/checkout@v4
+      - uses: technote-space/get-diff-action@v6.1.2
+        with:
+          PATTERNS: |
+            .github/workflows/test.yml
+            **/**.sol
+            **/**.go
+            go.mod
+            go.sum
+            *.toml
+      - name: run fuzz tests
+        run: |
+          make test-fuzz
+        if: env.GIT_DIFF

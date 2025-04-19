@@ -1,4 +1,4 @@
-package evmd
+package config
 
 import (
 	"github.com/cosmos/evm/evmd/eips"

@@ -1,7 +1,7 @@
 //go:build !test
 // +build !test
 
-package evmd
+package config
 
 import (
 	"fmt"
@@ -39,7 +39,7 @@ var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 	CosmosChainID: {
 		Denom:        "utest",
 		DisplayDenom: "test",
-		Decimals:     evmtypes.EighteenDecimals,
+		Decimals:     evmtypes.SixDecimals,
 	},
 }
 
@@ -54,6 +54,9 @@ func EvmAppOptions(chainID string) error {
 	coinInfo, found := ChainsCoinInfo[id]
 	if !found {
 		return fmt.Errorf("unknown chain id: %s", id)
+	}
+	if err := coinInfo.Decimals.Validate(); err != nil {
+		return err
 	}
 
 	// set the denom info for the chain
