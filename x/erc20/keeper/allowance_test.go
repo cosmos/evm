@@ -35,19 +35,19 @@ func (suite *KeeperTestSuite) TestGetAllowance() {
 			func() {
 				expRes = common.Big0
 			},
-			false,
-			types.ErrTokenPairNotFound.Error(),
+			true,
+			"",
 		},
 		{
-			"fail - token pair is disabled",
+			"pass - token pair is disabled",
 			func() {
 				pair := types.NewTokenPair(erc20Addr, "coin", types.OWNER_MODULE)
 				pair.Enabled = false
 				suite.network.App.Erc20Keeper.SetToken(ctx, pair)
 				expRes = common.Big0
 			},
-			false,
-			types.ErrERC20TokenPairDisabled.Error(),
+			true,
+			"",
 		},
 		{
 			"pass - allowance does not exist",
@@ -57,7 +57,7 @@ func (suite *KeeperTestSuite) TestGetAllowance() {
 				expRes = common.Big0
 			},
 			true,
-			types.ErrAllowanceNotFound.Error(),
+			"",
 		},
 		{
 			"pass",

@@ -41,13 +41,8 @@ func InitGenesis(
 		owner = common.HexToAddress(allowance.Owner)
 		spender = common.HexToAddress(allowance.Spender)
 		value = allowance.Value.BigInt()
-		err := k.SetAllowance(ctx, erc20, owner, spender, value)
+		err := k.UnsafeSetAllowance(ctx, erc20, owner, spender, value, true)
 		if err != nil {
-			if types.ErrERC20TokenPairDisabled.Is(err) {
-				// NOTES: When SetAllowance is called from the ERC20 precompile, this case is treated as an error,
-				// but during GenesisState initialization, it’s a valid case, so it is allowed to pass.
-				continue
-			}
 			panic(fmt.Errorf("error setting allowance %s", err))
 		}
 	}

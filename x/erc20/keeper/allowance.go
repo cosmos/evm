@@ -23,10 +23,6 @@ func (k Keeper) GetAllowance(
 	owner common.Address,
 	spender common.Address,
 ) (*big.Int, error) {
-	if err := k.checkTokenPair(ctx, erc20); err != nil {
-		return common.Big0, err
-	}
-
 	allowanceKey := types.AllowanceKey(erc20, owner, spender)
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixAllowance)
 
@@ -50,7 +46,7 @@ func (k Keeper) SetAllowance(
 	spender common.Address,
 	value *big.Int,
 ) error {
-	return k.setAllowance(ctx, erc20, owner, spender, value)
+	return k.UnsafeSetAllowance(ctx, erc20, owner, spender, value, false)
 }
 
 // DeleteAllowance deletes the allowance of the given owner and spender
@@ -61,19 +57,33 @@ func (k Keeper) DeleteAllowance(
 	owner common.Address,
 	spender common.Address,
 ) error {
-	return k.setAllowance(ctx, erc20, owner, spender, common.Big0)
+	return k.UnsafeSetAllowance(ctx, erc20, owner, spender, common.Big0, false)
 }
 
-func (k Keeper) setAllowance(
+// UnsafeSetAllowance sets the allowance of the given owner and spender
+// ignoring the token pair enabled status.
+// This is used for InitGenesis only.
+func (k Keeper) UnsafeSetAllowance(
 	ctx sdk.Context,
 	erc20 common.Address,
 	owner common.Address,
 	spender common.Address,
 	value *big.Int,
+	ignoreTokenPairEnabled bool,
 ) error {
-	if err := k.checkTokenPair(ctx, erc20); err != nil {
-		return err
+	tokenPairID := k.GetERC20Map(ctx, erc20)
+	tokenPair, found := k.GetTokenPair(ctx, tokenPairID)
+	if !found {
+		return errorsmod.Wrapf(
+			types.ErrTokenPairNotFound, "token pair for address '%s' not registered", erc20,
+		)
 	}
+	if !ignoreTokenPairEnabled && !tokenPair.Enabled {
+		return errorsmod.Wrapf(
+			types.ErrERC20TokenPairDisabled, "token pair for address '%s' is disabled", erc20,
+		)
+	}
+
 	if (owner == common.Address{}) {
 		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "erc20 address is empty")
 	}
@@ -128,24 +138,6 @@ func (k Keeper) IterateAllowances(
 			break
 		}
 	}
-}
-
-func (k Keeper) checkTokenPair(ctx sdk.Context, erc20 common.Address) error {
-	tokenPairID := k.GetERC20Map(ctx, erc20)
-	tokenPair, found := k.GetTokenPair(ctx, tokenPairID)
-	if !found {
-		return errorsmod.Wrapf(
-			types.ErrTokenPairNotFound, "token pair for address '%s' not registered", erc20,
-		)
-	}
-
-	if !tokenPair.Enabled {
-		return errorsmod.Wrapf(
-			types.ErrERC20TokenPairDisabled, "token pair for address '%s' is disabled", erc20,
-		)
-	}
-
-	return nil
 }
 
 func (k Keeper) deleteAllowances(ctx sdk.Context, erc20 common.Address) {
