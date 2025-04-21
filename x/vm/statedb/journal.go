@@ -18,10 +18,10 @@ package statedb
 
 import (
 	"bytes"
-	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -106,17 +106,21 @@ type (
 	suicideChange struct {
 		account     *common.Address
 		prev        bool // whether account had already suicided
-		prevbalance *big.Int
+		prevbalance *uint256.Int
 	}
 
 	// Changes to individual accounts.
 	balanceChange struct {
 		account *common.Address
-		prev    *big.Int
+		prev    *uint256.Int
 	}
 	nonceChange struct {
 		account *common.Address
 		prev    uint64
+	}
+	transientStorageChange struct {
+		account       *common.Address
+		key, prevalue common.Hash
 	}
 	storageChange struct {
 		account       *common.Address
@@ -236,6 +240,14 @@ func (ch storageChange) Revert(s *StateDB) {
 
 func (ch storageChange) Dirtied() *common.Address {
 	return ch.account
+}
+
+func (ch transientStorageChange) Revert(s *StateDB) {
+	s.setTransientState(*ch.account, ch.key, ch.prevalue)
+}
+
+func (ch transientStorageChange) Dirtied() *common.Address {
+	return nil
 }
 
 func (ch refundChange) Revert(s *StateDB) {

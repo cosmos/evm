@@ -1,11 +1,12 @@
 package vm_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/contracts"
@@ -72,7 +73,7 @@ func TestInitGenesis(t *testing.T) {
 		{
 			name: "valid account",
 			malleate: func(_ *testnetwork.UnitTestNetwork) {
-				vmdb.AddBalance(address, big.NewInt(1))
+				vmdb.AddBalance(address, uint256.NewInt(1))
 			},
 			genState: &types.GenesisState{
 				Params: types.DefaultParams(),

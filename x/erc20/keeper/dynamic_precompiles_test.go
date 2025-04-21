@@ -1,10 +1,9 @@
 package keeper_test
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -21,7 +20,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20CodeHash() {
 		bytecode             = common.FromHex(types.Erc20Bytecode)
 		codeHash             = crypto.Keccak256(bytecode)
 		nonce         uint64 = 10
-		balance              = big.NewInt(100)
+		balance              = uint256.NewInt(100)
 		emptyCodeHash        = crypto.Keccak256(nil)
 	)
 
@@ -65,7 +64,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20CodeHash() {
 			suite.Require().Equal(balance, acc.Balance)
 			suite.Require().Equal(nonce, acc.Nonce)
 		} else {
-			suite.Require().Equal(common.Big0, acc.Balance)
+			suite.Require().Equal(common.U2560, acc.Balance)
 			suite.Require().Equal(uint64(0), acc.Nonce)
 		}
 
@@ -78,7 +77,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20CodeHash() {
 			suite.Require().Equal(balance, acc.Balance)
 			suite.Require().Equal(nonce, acc.Nonce)
 		} else {
-			suite.Require().Equal(common.Big0, acc.Balance)
+			suite.Require().Equal(common.U2560, acc.Balance)
 			suite.Require().Equal(uint64(0), acc.Nonce)
 		}
 

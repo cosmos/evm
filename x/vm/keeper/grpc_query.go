@@ -327,7 +327,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	}
 
 	// Recap the highest gas limit with account's available balance.
-	if msg.GasFeeCap().BitLen() != 0 {
+	if msg.GasFeeCap.BitLen() != 0 {
 		baseDenom := types.GetEVMCoinDenom()
 
 		balance := k.bankWrapper.GetBalance(ctx, sdk.AccAddress(args.From.Bytes()), baseDenom)
@@ -340,12 +340,12 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			available = available.Sub(sdkmath.NewIntFromBigInt(args.Value.ToInt()))
 			transfer = args.Value.String()
 		}
-		allowance := available.Quo(sdkmath.NewIntFromBigInt(msg.GasFeeCap()))
+		allowance := available.Quo(sdkmath.NewIntFromBigInt(msg.GasFeeCap))
 
 		// If the allowance is larger than maximum uint64, skip checking
 		if allowance.IsUint64() && hi > allowance.Uint64() {
 			k.Logger(ctx).Debug("Gas estimation capped by limited funds", "original", hi, "balance", balance,
-				"sent", transfer, "maxFeePerGas", msg.GasFeeCap().String(), "fundable", allowance)
+				"sent", transfer, "maxFeePerGas", msg.GasFeeCap.String(), "fundable", allowance)
 
 			hi = allowance.Uint64()
 			if hi < ethparams.TxGas {
@@ -360,27 +360,29 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	// Create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (vmError bool, rsp *types.MsgEthereumTxResponse, err error) {
 		// update the message with the new gas value
-		msg = ethtypes.NewMessage(
-			msg.From(),
-			msg.To(),
-			msg.Nonce(),
-			msg.Value(),
-			gas,
-			msg.GasPrice(),
-			msg.GasFeeCap(),
-			msg.GasTipCap(),
-			msg.Data(),
-			msg.AccessList(),
-			msg.IsFake(),
-		)
+		msg = core.Message{
+			From:              msg.From,
+			To:                msg.To,
+			Nonce:             msg.Nonce,
+			Value:             msg.Value,
+			GasLimit:          gas,
+			GasPrice:          msg.GasPrice,
+			GasFeeCap:         msg.GasFeeCap,
+			GasTipCap:         msg.GasTipCap,
+			Data:              msg.Data,
+			AccessList:        msg.AccessList,
+			BlobGasFeeCap:     msg.BlobGasFeeCap,
+			BlobHashes:        msg.BlobHashes,
+			SkipAccountChecks: msg.SkipAccountChecks,
+		}
 
 		tmpCtx := ctx
 		if fromType == types.RPC {
 			tmpCtx, _ = ctx.CacheContext()
 
-			acct := k.GetAccount(tmpCtx, msg.From())
+			acct := k.GetAccount(tmpCtx, msg.From)
 
-			from := msg.From()
+			from := msg.From
 			if acct == nil {
 				acc := k.accountKeeper.NewAccountWithAddress(tmpCtx, from[:])
 				k.accountKeeper.SetAccount(tmpCtx, acc)
@@ -393,7 +395,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 				return true, nil, err
 			}
 			// resetting the gasMeter after increasing the sequence to have an accurate gas estimation on EVM extensions transactions
-			gasMeter := cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.Gas())
+			gasMeter := cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit)
 			tmpCtx = evmante.BuildEvmExecutionCtx(tmpCtx).WithGasMeter(gasMeter)
 		}
 		// pass false to not commit StateDB
@@ -477,7 +479,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()))
+	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
@@ -487,7 +489,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 
 	for i, tx := range req.Predecessors {
 		ethTx := tx.AsTransaction()
-		msg, err := ethTx.AsMessage(signer, cfg.BaseFee)
+		msg, err := core.TransactionToMessage(ethTx, signer, cfg.BaseFee)
 		if err != nil {
 			continue
 		}
@@ -495,8 +497,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
 		// reset gas meter for each transaction
 		ctx = evmante.BuildEvmExecutionCtx(ctx).
-			WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.Gas()))
-		rsp, err := k.ApplyMessageWithConfig(ctx, msg, types.NewNoOpTracer(), true, cfg, txConfig)
+			WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
+		rsp, err := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig)
 		if err != nil {
 			continue
 		}
@@ -571,7 +573,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()))
+	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
 	txsLength := len(req.Txs)
 	results := make([]*types.TxTraceResult, 0, txsLength)
 
@@ -620,7 +622,7 @@ func (k *Keeper) traceTx(
 		err       error
 		timeout   = defaultTraceTimeout
 	)
-	msg, err := tx.AsMessage(signer, cfg.BaseFee)
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())
 	}
@@ -652,7 +654,7 @@ func (k *Keeper) traceTx(
 	}
 
 	if traceConfig.Tracer != "" {
-		if tracer, err = tracers.New(traceConfig.Tracer, tCtx, tracerJSONConfig); err != nil {
+		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, tracerJSONConfig); err != nil {
 			return nil, 0, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -677,8 +679,8 @@ func (k *Keeper) traceTx(
 
 	// Build EVM execution context
 	ctx = evmante.BuildEvmExecutionCtx(ctx).
-		WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.Gas()))
-	res, err := k.ApplyMessageWithConfig(ctx, msg, tracer, commitMessage, cfg, txConfig)
+		WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
+	res, err := k.ApplyMessageWithConfig(ctx, *msg, tracer, commitMessage, cfg, txConfig)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())
 	}

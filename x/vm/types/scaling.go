@@ -7,6 +7,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/holiman/uint256"
 )
 
 // MustConvertEvmCoinTo18Decimals converts the coin's Amount from its original
@@ -90,8 +91,8 @@ func ConvertCoinsFrom18Decimals(coins sdk.Coins) sdk.Coins {
 	return convertedCoins
 }
 
-// AdjustExtraDecimalsBigInt replaces all extra decimals by zero of an amount with 18 decimals in big.Int when having a decimal configuration different than 18 decimals
-func AdjustExtraDecimalsBigInt(amt *big.Int) *big.Int {
+// AdjustExtraDecimalsUint256 replaces all extra decimals by zero of an amount with 18 decimals in big.Int when having a decimal configuration different than 18 decimals
+func AdjustExtraDecimalsUint256(amt *uint256.Int) *uint256.Int {
 	if amt.Sign() == 0 {
 		return amt
 	}
@@ -100,6 +101,6 @@ func AdjustExtraDecimalsBigInt(amt *big.Int) *big.Int {
 		return amt
 	}
 	scaleFactor := dec.ConversionFactor()
-	scaledDown := new(big.Int).Quo(amt, scaleFactor.BigInt())
-	return new(big.Int).Mul(scaledDown, scaleFactor.BigInt())
+	scaledDown := new(uint256.Int).Div(amt, uint256.MustFromBig(scaleFactor.BigInt()))
+	return new(uint256.Int).Mul(scaledDown, uint256.MustFromBig(scaleFactor.BigInt()))
 }

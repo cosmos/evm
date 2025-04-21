@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -93,7 +94,7 @@ func (p *Precompile) ClaimRewards(
 		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
 		// check if converted amount is greater than zero
 		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
 		}
 	}
 
@@ -177,7 +178,7 @@ func (p *Precompile) WithdrawDelegatorRewards(
 		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
 		// check if converted amount is greater than zero
 		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
 		}
 	}
 
@@ -229,7 +230,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
 		// check if converted amount is greater than zero
 		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
 		}
 	}
 
@@ -281,7 +282,7 @@ func (p *Precompile) FundCommunityPool(
 		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.AmountOf(baseDenom).BigInt())
 		// check if converted amount is greater than zero
 		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, uint256.MustFromBig(convertedAmount), cmn.Sub))
 		}
 	}
 

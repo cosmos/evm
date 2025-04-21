@@ -81,7 +81,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			// malleate testcase
 			caller, input := tc.malleate()
 
-			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, big.NewInt(0), uint64(1e6))
+			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, common.U2560, uint64(1e6))
 			contract.Input = input
 
 			contractAddr := contract.Address()
@@ -113,7 +113,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				statedb.NewEmptyTxConfig(common.BytesToHash(headerHash)),
 			)
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, stDB,
+				ctx, *msg, cfg, nil, stDB,
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)

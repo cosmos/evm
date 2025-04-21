@@ -2,12 +2,12 @@ package common
 
 import (
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -40,11 +40,11 @@ const (
 
 type balanceChangeEntry struct {
 	Account common.Address
-	Amount  *big.Int
+	Amount  *uint256.Int
 	Op      Operation
 }
 
-func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) balanceChangeEntry { //nolint:revive
+func NewBalanceChangeEntry(acc common.Address, amt *uint256.Int, op Operation) balanceChangeEntry { //nolint:revive
 	return balanceChangeEntry{acc, amt, op}
 }
 

@@ -73,7 +73,7 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 			evmParams, err := grpcHandler.GetEvmParams()
 			suite.Require().NoError(err)
 			ctx := unitNetwork.GetContext()
-			signer := gethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()))
+			signer := gethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
 			txArgs, err := txFactory.GenerateDefaultTxTypeArgs(senderKey.Addr, suite.ethTxType)
 			suite.Require().NoError(err)
 			txArgs.Amount = big.NewInt(100)
@@ -91,7 +91,7 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 			err = evm.CanTransfer(
 				unitNetwork.GetContext(),
 				unitNetwork.App.EVMKeeper,
-				coreMsg,
+				*coreMsg,
 				baseFeeResp.BaseFee.BigInt(),
 				ethCfg,
 				evmParams.Params,

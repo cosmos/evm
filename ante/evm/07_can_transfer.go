@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -27,11 +28,11 @@ func CanTransfer(
 	params evmtypes.Params,
 	isLondon bool,
 ) error {
-	if isLondon && msg.GasFeeCap().Cmp(baseFee) < 0 {
+	if isLondon && msg.GasFeeCap.Cmp(baseFee) < 0 {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFee,
 			"max fee per gas less than block base fee (%s < %s)",
-			msg.GasFeeCap(), baseFee,
+			msg.GasFeeCap, baseFee,
 		)
 	}
 
@@ -44,16 +45,16 @@ func CanTransfer(
 	}
 
 	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
-	evm := evmKeeper.NewEVM(ctx, msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
+	evm := evmKeeper.NewEVM(ctx, msg, cfg, nil, stateDB)
 
 	// check that caller has enough balance to cover asset transfer for **topmost** call
 	// NOTE: here the gas consumed is from the context with the infinite gas meter
-	if msg.Value().Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From(), msg.Value()) {
+	if msg.Value.Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From, uint256.MustFromBig(msg.Value)) {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFunds,
 			"failed to transfer %s from address %s using the EVM block context transfer function",
-			msg.Value(),
-			msg.From(),
+			msg.Value,
+			msg.From,
 		)
 	}
 

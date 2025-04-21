@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/precompiles/distribution"
@@ -220,7 +221,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			// malleate testcase
 			caller, input := tc.malleate()
 
-			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, big.NewInt(0), uint64(1e6))
+			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, uint256.NewInt(0), uint64(1e6))
 			contract.Input = input
 
 			contractAddr := contract.Address()
@@ -254,7 +255,7 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			// Instantiate EVM
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, s.network.GetStateDB(),
+				ctx, *msg, cfg, nil, s.network.GetStateDB(),
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)

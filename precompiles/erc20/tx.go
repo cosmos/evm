@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -112,7 +113,7 @@ func (p *Precompile) transfer(
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	if p.tokenPair.Denom == evmDenom {
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(amount)
+		convertedAmount := uint256.MustFromBig(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
 			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}

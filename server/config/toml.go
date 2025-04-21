@@ -16,6 +16,9 @@ tracer = "{{ .EVM.Tracer }}"
 # MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 
+# EnablePreimageRecording enables tracking of SHA3 preimages in the VM
+cache-preimage = {{ .EVM.EnablePreimageRecording }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################

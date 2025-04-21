@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -1067,7 +1068,7 @@ func (suite *AnteTestSuite) TestAnteHandlerWithDynamicTxFee() {
 			suite.GetNetwork().App.AccountKeeper.SetAccount(ctx, acc)
 
 			ctx = ctx.WithIsCheckTx(tc.checkTx).WithIsReCheckTx(tc.reCheckTx)
-			err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, addr, big.NewInt((ethparams.InitialBaseFee+10)*100000))
+			err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, addr, uint256.NewInt((ethparams.InitialBaseFee+10)*100000))
 			suite.Require().NoError(err)
 
 			anteHandler := suite.GetAnteHandler()
@@ -1194,7 +1195,7 @@ func (suite *AnteTestSuite) TestAnteHandlerWithParams() {
 			suite.GetNetwork().App.AccountKeeper.SetAccount(ctx, acc)
 
 			ctx = ctx.WithIsCheckTx(true)
-			err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, addr, big.NewInt((ethparams.InitialBaseFee+10)*100000))
+			err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, addr, uint256.NewInt((ethparams.InitialBaseFee+10)*100000))
 			suite.Require().NoError(err)
 
 			anteHandler := suite.GetAnteHandler()
