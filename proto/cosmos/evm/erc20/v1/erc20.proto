@@ -32,7 +32,7 @@ message TokenPair {
   Owner contract_owner = 4;
 }
 
-//Allowance is a token allowance only for erc20 precompile
+// Allowance is a token allowance only for erc20 precompile
 message Allowance {
   option (gogoproto.equal) = false;
 
