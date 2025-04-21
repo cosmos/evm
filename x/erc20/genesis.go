@@ -41,7 +41,7 @@ func InitGenesis(
 		owner = common.HexToAddress(allowance.Owner)
 		spender = common.HexToAddress(allowance.Spender)
 		value = allowance.Value.BigInt()
-		err := k.UnsafeSetAllowance(ctx, erc20, owner, spender, value, true)
+		err := k.UnsafeSetAllowance(ctx, erc20, owner, spender, value)
 		if err != nil {
 			panic(fmt.Errorf("error setting allowance %s", err))
 		}

@@ -46,7 +46,20 @@ func (k Keeper) SetAllowance(
 	spender common.Address,
 	value *big.Int,
 ) error {
-	return k.UnsafeSetAllowance(ctx, erc20, owner, spender, value, false)
+	return k.setAllowance(ctx, erc20, owner, spender, value, false)
+}
+
+// UnsafeSetAllowance sets the allowance of the given owner and spender
+// ignoring the token pair enabled status.
+// This is used for InitGenesis only.
+func (k Keeper) UnsafeSetAllowance(
+	ctx sdk.Context,
+	erc20 common.Address,
+	owner common.Address,
+	spender common.Address,
+	value *big.Int,
+) error {
+	return k.setAllowance(ctx, erc20, owner, spender, value, true)
 }
 
 // DeleteAllowance deletes the allowance of the given owner and spender
@@ -57,13 +70,10 @@ func (k Keeper) DeleteAllowance(
 	owner common.Address,
 	spender common.Address,
 ) error {
-	return k.UnsafeSetAllowance(ctx, erc20, owner, spender, common.Big0, false)
+	return k.setAllowance(ctx, erc20, owner, spender, common.Big0, false)
 }
 
-// UnsafeSetAllowance sets the allowance of the given owner and spender
-// ignoring the token pair enabled status.
-// This is used for InitGenesis only.
-func (k Keeper) UnsafeSetAllowance(
+func (k Keeper) setAllowance(
 	ctx sdk.Context,
 	erc20 common.Address,
 	owner common.Address,
