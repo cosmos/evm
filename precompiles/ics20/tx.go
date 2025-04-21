@@ -3,18 +3,18 @@ package ics20
 import (
 	"fmt"
 
+	errorsmod "cosmossdk.io/errors"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-
-	errorsmod "cosmossdk.io/errors"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -37,10 +37,29 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
-	// check if channel exists and is open
-	if !p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel) {
-		return nil, errorsmod.Wrapf(channeltypes.ErrChannelNotFound, "port ID (%s) channel ID (%s)", msg.SourcePort, msg.SourceChannel)
+	// If the channel is in v1 format, check if channel exists and is open
+	if channeltypes.IsChannelIDFormat(msg.SourceChannel) {
+		// check if channel exists and is open
+		hasV1Channel := p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel)
+		if !hasV1Channel {
+			return nil, errorsmod.Wrapf(
+				channeltypes.ErrChannelNotFound,
+				"port ID (%s) channel ID (%s)",
+				msg.SourcePort,
+				msg.SourceChannel,
+			)
+		}
+		// otherwise, it’s a v2 packet, so perform client ID validation
+	} else if v2ClientIdErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIdErr != nil {
+		return nil, errorsmod.Wrapf(
+			channeltypes.ErrInvalidChannel,
+			"invalid channel ID (%s) on v2 packet",
+			msg.SourceChannel,
+		)
 	}
+
+	// success v1 : hasV1Channel == true
+	// success v2 : !hasV1Channel, v2ClientIdErr == nil
 
 	// isCallerSender is true when the contract caller is the same as the sender
 	isCallerSender := contract.CallerAddress == sender

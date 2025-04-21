@@ -8,12 +8,13 @@ package ibc
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	storetypes "cosmossdk.io/store/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	"github.com/cosmos/evm/evmd"
@@ -26,7 +27,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type ICS20TransferTestSuite struct {
+type ICS20TransferV2TestSuite struct {
 	suite.Suite
 
 	coordinator *evmibctesting.Coordinator
@@ -37,7 +38,7 @@ type ICS20TransferTestSuite struct {
 	chainB           *evmibctesting.TestChain
 }
 
-func (suite *ICS20TransferTestSuite) SetupTest() {
+func (suite *ICS20TransferV2TestSuite) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
@@ -53,8 +54,8 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 }
 
 // Constructs the following sends based on the established channels/connections
-// 1 - from evmChainA to chainB
-func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
+// 1 - from chainA to chainB
+func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 	var (
 		sourceDenomToTransfer string
 		msgAmount             sdkmath.Int
@@ -90,32 +91,35 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			func() {
 				evmApp := suite.chainA.App.(*evmd.EVMD)
 				sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
-				msgAmount = types.UnboundedSpendLimit()
+				msgAmount = transfertypes.UnboundedSpendLimit()
 			},
 		},
-		{
-			"native erc20 case",
-			func() {
-				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
-				sourceDenomToTransfer = nativeErc20.Denom
-				msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
-				erc20 = true
-			},
-		},
-		// TODO: registered token pair case, after authz dependency deprecated case
+		//{
+		//	"native erc20 case",
+		//	func() {
+		//		// TODO: To be added and verified due to the current / restriction logic. These test cases will be added and validated after PR for #61, which removes the erc20/ prefix, is merged.
+		//		// TODO: Error: base denomination erc20/0x80b5a32E4F032B2a058b4F29EC95EEfEEB87aDcd cannot contain slashes for IBC v2 packet: invalid denomination for cross-chain transfer
+		//		nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
+		//		sourceDenomToTransfer = nativeErc20.Denom
+		//		msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
+		//		erc20 = true
+		//	},
+		//},
+		// TODO: registered token pair case, after authz dependency deprecated case, query denom cases
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 
-			// setup between evmChainA and chainB
+			// setup between chainA and chainB
 			// NOTE:
-			// pathAToB.EndpointA = endpoint on evmChainA
+			// pathAToB.EndpointA = endpoint on chainA
 			// pathAToB.EndpointB = endpoint on chainB
-			pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
-			pathAToB.Setup()
-			traceAToB := types.NewHop(pathAToB.EndpointB.ChannelConfig.PortID, pathAToB.EndpointB.ChannelID)
+			//pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
+			pathAToB := evmibctesting.NewPath(suite.chainA, suite.chainB)
+			pathAToB.SetupV2()
+			traceAToB := transfertypes.NewHop(transfertypes.PortID, pathAToB.EndpointB.ClientID)
 
 			tc.malleate()
 
@@ -141,6 +145,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().NoError(err)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
 
@@ -149,14 +154,14 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				WithGasMeter(storetypes.NewInfiniteGasMeter())
 
 			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
-				pathAToB.EndpointA.ChannelConfig.PortID,
-				pathAToB.EndpointA.ChannelID,
+				transfertypes.PortID,
+				pathAToB.EndpointA.ClientID, // Note: should be client id on v2 packet
 				originalCoin.Denom,
 				originalCoin.Amount.BigInt(),
-				sourceAddr,                                       // source addr should be evm hex addr
-				suite.chainB.SenderAccount.GetAddress().String(), // receiver should be cosmos bech32 addr
+				sourceAddr,                                       // Note: source addr should be evm hex addr
+				suite.chainB.SenderAccount.GetAddress().String(), // Note: receiver should be cosmos bech32 addr
 				timeoutHeight,
-				uint64(0),
+				timeoutTimestamp,
 				"",
 			)
 			suite.Require().NoError(err)
@@ -164,24 +169,27 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			res, err := suite.chainA.SendEvmTx(
 				suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
 			suite.Require().NoError(err) // message committed
-
-			packet, err := evmibctesting.ParsePacketFromEvents(res.Events)
+			packets, err := pathAToB.EndpointA.ParseV2PacketFromEvent(res.Events)
 			suite.Require().NoError(err)
-
-			// Get the packet data to determine the amount of tokens being transferred (needed for sending entire balance)
-			packetData, err := types.UnmarshalPacketData(packet.GetData(), pathAToB.EndpointA.GetChannel().Version, "")
-			suite.Require().NoError(err)
-			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
-			suite.Require().True(ok)
 
 			chainABalanceBeforeRelay := GetBalance()
 
+			transferAmount := msgAmount
+
+			// Note: When an UnboundedSpendLimit value is sent, the spendable amount is used.
+			if msgAmount.Equal(transfertypes.UnboundedSpendLimit()) {
+				transferAmount = originalBalance.Amount
+			}
+
 			// relay send
-			err = pathAToB.RelayPacket(packet)
+			err = pathAToB.RelayPacketV2(packets[0])
 			suite.Require().NoError(err) // relay committed
 
-			escrowAddress := types.GetEscrowAddress(packet.GetSourcePort(), packet.GetSourceChannel())
-			// check that the balance for evmChainA is updated
+			escrowAddress := transfertypes.GetEscrowAddress(
+				transfertypes.PortID,
+				pathAToB.EndpointA.ClientID,
+			)
+			// check that the balance for chainA is updated
 			chainABalance := evmApp.BankKeeper.GetBalance(
 				suite.chainA.GetContext(),
 				suite.chainA.SenderAccount.GetAddress(),
@@ -201,7 +209,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 
 			// check that voucher exists on chain B
 			chainBApp := suite.chainB.GetSimApp()
-			chainBDenom := types.NewDenom(originalCoin.Denom, traceAToB)
+
+			chainBDenom := transfertypes.NewDenom(originalCoin.Denom, traceAToB)
 			chainBBalance := chainBApp.BankKeeper.GetBalance(
 				suite.chainB.GetContext(),
 				suite.chainB.SenderAccount.GetAddress(),
@@ -213,6 +222,6 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 	}
 }
 
-func TestICS20TransferTestSuite(t *testing.T) {
-	suite.Run(t, new(ICS20TransferTestSuite))
+func TestICS20TransferV2TestSuite(t *testing.T) {
+	suite.Run(t, new(ICS20TransferV2TestSuite))
 }

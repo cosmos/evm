@@ -1,12 +1,17 @@
 package ibctesting
 
 import (
+	"encoding/hex"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/gogoproto/proto"
 	clientv2types "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	hostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/pkg/errors"
 )
 
 // RegisterCounterparty will construct and execute a MsgRegisterCounterparty on the associated endpoint.
@@ -60,19 +65,54 @@ func (endpoint *Endpoint) MsgSendPacketWithSender(timeoutTimestamp uint64, paylo
 	return packet, nil
 }
 
+// ParseV2PacketFromEvent parses result from a send packet and returns
+func (endpoint *Endpoint) ParseV2PacketFromEvent(events []abci.Event) ([]channeltypesv2.Packet, error) {
+	var packets []channeltypesv2.Packet
+	for _, event := range events {
+		if event.Type == "send_packet" {
+			for _, attribute := range event.Attributes {
+				if attribute.Key == "encoded_packet_hex" {
+					data, err := hex.DecodeString(attribute.Value)
+					if err != nil {
+						return nil, errors.Wrap(err, "failed to decode encoded_packet_hex string")
+					}
+
+					var ibcPacket channeltypesv2.Packet
+					if err := proto.Unmarshal(data, &ibcPacket); err != nil {
+						return nil, errors.Wrap(err, "failed to unmarshal IBC packet")
+					}
+
+					packets = append(packets, ibcPacket)
+				}
+			}
+		}
+	}
+
+	if len(packets) == 0 {
+		return nil, errors.New("no IBC v2 packets found in events")
+	}
+
+	return packets, nil
+}
+
 // MsgRecvPacket sends a MsgRecvPacket on the associated endpoint with the provided packet.
-func (endpoint *Endpoint) MsgRecvPacket(packet channeltypesv2.Packet) error {
+func (endpoint *Endpoint) MsgRecvPacketWithResult(packet channeltypesv2.Packet) (*abci.ExecTxResult, error) {
 	// get proof of packet commitment from chainA
 	packetKey := hostv2.PacketCommitmentKey(packet.SourceClient, packet.Sequence)
 	proof, proofHeight := endpoint.Counterparty.QueryProof(packetKey)
 
 	msg := channeltypesv2.NewMsgRecvPacket(packet, proof, proofHeight, endpoint.Chain.SenderAccount.GetAddress().String())
 
-	if err := endpoint.Chain.sendMsgs(msg); err != nil {
-		return err
+	res, err := endpoint.Chain.SendMsgs(msg)
+	if err != nil {
+		return nil, err
 	}
 
-	return endpoint.Counterparty.UpdateClient()
+	if err := endpoint.Counterparty.UpdateClient(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // MsgAcknowledgePacket sends a MsgAcknowledgement on the associated endpoint with the provided packet and ack.
