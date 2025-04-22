@@ -58,9 +58,6 @@ func (p *Precompile) Transfer(
 		)
 	}
 
-	// success v1 : hasV1Channel == true
-	// success v2 : !hasV1Channel, v2ClientIdErr == nil
-
 	// isCallerSender is true when the contract caller is the same as the sender
 	isCallerSender := contract.CallerAddress == sender
 

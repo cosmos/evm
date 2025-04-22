@@ -10,14 +10,29 @@ address constant ICS20_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000
 /// @dev The ICS20 contract's instance.
 ICS20I constant ICS20_CONTRACT = ICS20I(ICS20_PRECOMPILE_ADDRESS);
 
+///// @dev Denom contains the base denomination for ICS20 fungible tokens and the
+///// source tracing information path.
+//struct Denom {
+//    // path defines the chain of port/channel identifiers used for tracing the
+//    // source of the fungible token.
+//    string path;
+//    // base denomination of the relayed fungible token.
+//    string baseDenom;
+//}
+
 /// @dev Denom contains the base denomination for ICS20 fungible tokens and the
 /// source tracing information path.
 struct Denom {
+    // base denomination of the relayed fungible token.
+    string base;
     // path defines the chain of port/channel identifiers used for tracing the
     // source of the fungible token.
-    string path;
-    // base denomination of the relayed fungible token.
-    string baseDenom;
+    Hop[] trace;
+}
+
+struct Hop {
+    string portId;
+    string channelId;
 }
 
 /// @author Evmos Team

@@ -10,10 +10,11 @@ import (
 	"testing"
 
 	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	"github.com/cosmos/evm/evmd"
@@ -35,20 +36,29 @@ type ICS20TransferTestSuite struct {
 	chainA           *evmibctesting.TestChain
 	chainAPrecompile *ics20.Precompile
 	chainB           *evmibctesting.TestChain
+	chainBPrecompile *ics20.Precompile
 }
 
 func (suite *ICS20TransferTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
-	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
+	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
 	suite.chainAPrecompile, _ = ics20.NewPrecompile(
 		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
-		evmAppA.AuthzKeeper, // TODO: To be deprecated,
+		evmAppA.AuthzKeeper,
 		evmAppA.EVMKeeper,
+	)
+	evmAppB := suite.chainB.App.(*evmd.EVMD)
+	suite.chainBPrecompile, _ = ics20.NewPrecompile(
+		*evmAppB.StakingKeeper,
+		evmAppB.TransferKeeper,
+		evmAppB.IBCKeeper.ChannelKeeper,
+		evmAppB.AuthzKeeper,
+		evmAppB.EVMKeeper,
 	)
 }
 
@@ -90,7 +100,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			func() {
 				evmApp := suite.chainA.App.(*evmd.EVMD)
 				sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
-				msgAmount = types.UnboundedSpendLimit()
+				msgAmount = transfertypes.UnboundedSpendLimit()
 			},
 		},
 		{
@@ -115,7 +125,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			// pathAToB.EndpointB = endpoint on chainB
 			pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
 			pathAToB.Setup()
-			traceAToB := types.NewHop(pathAToB.EndpointB.ChannelConfig.PortID, pathAToB.EndpointB.ChannelID)
+			traceAToB := transfertypes.NewHop(pathAToB.EndpointB.ChannelConfig.PortID, pathAToB.EndpointB.ChannelID)
 
 			tc.malleate()
 
@@ -169,7 +179,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().NoError(err)
 
 			// Get the packet data to determine the amount of tokens being transferred (needed for sending entire balance)
-			packetData, err := types.UnmarshalPacketData(packet.GetData(), pathAToB.EndpointA.GetChannel().Version, "")
+			packetData, err := transfertypes.UnmarshalPacketData(packet.GetData(), pathAToB.EndpointA.GetChannel().Version, "")
 			suite.Require().NoError(err)
 			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
 			suite.Require().True(ok)
@@ -180,7 +190,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
 
-			escrowAddress := types.GetEscrowAddress(packet.GetSourcePort(), packet.GetSourceChannel())
+			escrowAddress := transfertypes.GetEscrowAddress(packet.GetSourcePort(), packet.GetSourceChannel())
 			// check that the balance for evmChainA is updated
 			chainABalance := evmApp.BankKeeper.GetBalance(
 				suite.chainA.GetContext(),
@@ -200,8 +210,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().True(transferAmount.Equal(chainAEscrowBalance.Amount))
 
 			// check that voucher exists on chain B
-			chainBApp := suite.chainB.GetSimApp()
-			chainBDenom := types.NewDenom(originalCoin.Denom, traceAToB)
+			chainBApp := suite.chainB.App.(*evmd.EVMD)
+			chainBDenom := transfertypes.NewDenom(originalCoin.Denom, traceAToB)
 			chainBBalance := chainBApp.BankKeeper.GetBalance(
 				suite.chainB.GetContext(),
 				suite.chainB.SenderAccount.GetAddress(),
@@ -209,6 +219,62 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			)
 			coinSentFromAToB := sdk.NewCoin(chainBDenom.IBCDenom(), transferAmount)
 			suite.Require().Equal(coinSentFromAToB, chainBBalance)
+
+			// ---------------------------------------------
+			// Tests for Query endpoints of ICS20 precompile
+			// denoms query method
+			chainBAddr := common.BytesToAddress(suite.chainB.SenderAccount.GetAddress().Bytes())
+			ctxB := evmante.BuildEvmExecutionCtx(suite.chainB.GetContext())
+			evmRes, err := chainBApp.EVMKeeper.CallEVM(
+				ctxB,
+				suite.chainBPrecompile.ABI,
+				chainBAddr,
+				suite.chainBPrecompile.Address(),
+				false,
+				ics20.DenomsMethod,
+				query.PageRequest{
+					[]byte{},
+					0,
+					0,
+					false,
+					false,
+				},
+			)
+			suite.Require().NoError(err)
+			var denomsResponse ics20.DenomsResponse
+			err = suite.chainBPrecompile.UnpackIntoInterface(&denomsResponse, ics20.DenomsMethod, evmRes.Ret)
+			suite.Require().NoError(err)
+			suite.Require().Equal(chainBDenom, denomsResponse.Denoms[0])
+
+			// denom query method
+			evmRes, err = chainBApp.EVMKeeper.CallEVM(
+				ctxB,
+				suite.chainBPrecompile.ABI,
+				chainBAddr,
+				suite.chainBPrecompile.Address(),
+				false,
+				ics20.DenomMethod,
+				chainBDenom.Hash().String(),
+			)
+			var denomResponse ics20.DenomResponse
+			err = suite.chainBPrecompile.UnpackIntoInterface(&denomResponse, ics20.DenomMethod, evmRes.Ret)
+			suite.Require().NoError(err)
+			suite.Require().Equal(chainBDenom, denomResponse.Denom)
+
+			// denomHash query method
+			evmRes, err = chainBApp.EVMKeeper.CallEVM(
+				ctxB,
+				suite.chainBPrecompile.ABI,
+				chainBAddr,
+				suite.chainBPrecompile.Address(),
+				false,
+				ics20.DenomHashMethod,
+				chainBDenom.Path(),
+			)
+			var denomHashResponse transfertypes.QueryDenomHashResponse
+			err = suite.chainBPrecompile.UnpackIntoInterface(&denomHashResponse, ics20.DenomHashMethod, evmRes.Ret)
+			suite.Require().NoError(err)
+			suite.Require().Equal(chainBDenom.Hash().String(), denomHashResponse.Hash)
 		})
 	}
 }

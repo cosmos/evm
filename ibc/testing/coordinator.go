@@ -161,7 +161,6 @@ func GetChainID(index int) string {
 
 // GetEvmChainID returns the EIP-155 chainID used for the provided index.
 func GetEvmChainID(index int) string {
-	// TODO: temporary value, fix to testchain id
 	return fmt.Sprintf("cosmos_900%d-1", index)
 }
 
