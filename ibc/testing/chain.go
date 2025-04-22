@@ -381,6 +381,7 @@ func (chain *TestChain) SendEvmTx(
 	}()
 
 	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
+	require.NoError(chain.TB, err)
 
 	txConfig := app.GetTxConfig()
 	tx, err := tx.PrepareEthTx(txConfig, priv, msgEthereumTx)
