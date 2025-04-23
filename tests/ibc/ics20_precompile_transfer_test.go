@@ -9,22 +9,20 @@ import (
 	"math/big"
 	"testing"
 
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
-
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 type ICS20TransferTestSuite struct {
@@ -162,10 +160,6 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
 
-			ctx := suite.chainA.GetContext()
-			ctx = evmante.BuildEvmExecutionCtx(ctx).
-				WithGasMeter(storetypes.NewInfiniteGasMeter())
-
 			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
@@ -241,11 +235,11 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				false,
 				ics20.DenomsMethod,
 				query.PageRequest{
-					[]byte{},
-					0,
-					0,
-					false,
-					false,
+					Key:        []byte{},
+					Offset:     0,
+					Limit:      0,
+					CountTotal: false,
+					Reverse:    false,
 				},
 			)
 			suite.Require().NoError(err)
@@ -264,6 +258,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomMethod,
 				chainBDenom.Hash().String(),
 			)
+			suite.Require().NoError(err)
 			var denomResponse ics20.DenomResponse
 			err = suite.chainBPrecompile.UnpackIntoInterface(&denomResponse, ics20.DenomMethod, evmRes.Ret)
 			suite.Require().NoError(err)
@@ -279,6 +274,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomHashMethod,
 				chainBDenom.Path(),
 			)
+			suite.Require().NoError(err)
 			var denomHashResponse transfertypes.QueryDenomHashResponse
 			err = suite.chainBPrecompile.UnpackIntoInterface(&denomHashResponse, ics20.DenomHashMethod, evmRes.Ret)
 			suite.Require().NoError(err)

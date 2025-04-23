@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/network"

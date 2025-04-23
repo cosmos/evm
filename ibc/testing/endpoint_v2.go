@@ -3,15 +3,16 @@ package ibctesting
 import (
 	"encoding/hex"
 
+	"github.com/pkg/errors"
+
 	abci "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/gogoproto/proto"
 	clientv2types "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	hostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/pkg/errors"
 )
 
 // RegisterCounterparty will construct and execute a MsgRegisterCounterparty on the associated endpoint.

@@ -99,7 +99,6 @@ func CreateEthTx(
 	data []byte,
 	nonceIncrement int,
 ) (*evmtypes.MsgEthereumTx, error) {
-
 	toAddr := common.BytesToAddress(dest)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID

@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cosmos/gogoproto/proto"
 
+	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
@@ -67,8 +67,6 @@ func (path *Path) RelayPacket(packet channeltypes.Packet) error {
 	_, _, err := path.RelayPacketWithResults(packet)
 	return err
 }
-
-// TODO: add relayPacket for v2 packet
 
 // RelayPacketWithResults attempts to relay the packet first on EndpointA and then on EndpointB
 // if EndpointA does not contain a packet commitment for that packet. The function returns:

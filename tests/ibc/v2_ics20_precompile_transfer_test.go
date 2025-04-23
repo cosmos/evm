@@ -10,22 +10,20 @@ import (
 	"testing"
 	"time"
 
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
-
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 type ICS20TransferV2TestSuite struct {
@@ -123,7 +121,7 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 			// NOTE:
 			// pathAToB.EndpointA = endpoint on chainA
 			// pathAToB.EndpointB = endpoint on chainB
-			//pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
+			// pathAToB := evmibctesting.NewTransferPath(suite.chainA, suite.chainB)
 			pathAToB := evmibctesting.NewPath(suite.chainA, suite.chainB)
 			pathAToB.SetupV2()
 			traceAToB := transfertypes.NewHop(transfertypes.PortID, pathAToB.EndpointB.ClientID)
@@ -152,13 +150,9 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 			suite.Require().NoError(err)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
-
-			ctx := suite.chainA.GetContext()
-			ctx = evmante.BuildEvmExecutionCtx(ctx).
-				WithGasMeter(storetypes.NewInfiniteGasMeter())
 
 			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
 				transfertypes.PortID,
@@ -238,11 +232,11 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				false,
 				ics20.DenomsMethod,
 				query.PageRequest{
-					[]byte{},
-					0,
-					0,
-					false,
-					false,
+					Key:        []byte{},
+					Offset:     0,
+					Limit:      0,
+					CountTotal: false,
+					Reverse:    false,
 				},
 			)
 			suite.Require().NoError(err)
@@ -261,6 +255,7 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				ics20.DenomMethod,
 				chainBDenom.Hash().String(),
 			)
+			suite.Require().NoError(err)
 			var denomResponse ics20.DenomResponse
 			err = suite.chainBPrecompile.UnpackIntoInterface(&denomResponse, ics20.DenomMethod, evmRes.Ret)
 			suite.Require().NoError(err)
@@ -276,6 +271,7 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				ics20.DenomHashMethod,
 				chainBDenom.Path(),
 			)
+			suite.Require().NoError(err)
 			var denomHashResponse transfertypes.QueryDenomHashResponse
 			err = suite.chainBPrecompile.UnpackIntoInterface(&denomHashResponse, ics20.DenomHashMethod, evmRes.Ret)
 			suite.Require().NoError(err)

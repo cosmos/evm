@@ -7,11 +7,6 @@ import (
 
 	testifysuite "github.com/stretchr/testify/suite"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
@@ -19,6 +14,10 @@ import (
 	"github.com/cosmos/evm/x/erc20"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"cosmossdk.io/math"
 

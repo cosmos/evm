@@ -3,18 +3,19 @@ package ics20
 import (
 	"fmt"
 
-	errorsmod "cosmossdk.io/errors"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
+
+	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -50,7 +51,7 @@ func (p *Precompile) Transfer(
 			)
 		}
 		// otherwise, it’s a v2 packet, so perform client ID validation
-	} else if v2ClientIdErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIdErr != nil {
+	} else if v2ClientIDErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIDErr != nil {
 		return nil, errorsmod.Wrapf(
 			channeltypes.ErrInvalidChannel,
 			"invalid channel ID (%s) on v2 packet",

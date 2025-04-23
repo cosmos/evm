@@ -8,9 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
 	"github.com/cosmos/evm/evmd"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
 var (

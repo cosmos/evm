@@ -8,7 +8,7 @@
 // as a receiving chain (see TestOnRecvPacket), ensuring that the EVM-based chain
 // correctly mints/burns/escrows tokens according to ICS-20 standards.
 //
-//nolint:gosec // Reason: G115 warnings are safe in test context
+
 package ibc
 
 import (
@@ -19,13 +19,12 @@ import (
 
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/evmd"
+	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
-
-	"github.com/cosmos/evm/evmd"
-	evmibctesting "github.com/cosmos/evm/ibc/testing"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -280,7 +279,7 @@ func (suite *TransferTestSuiteV2) TestOnRecvPacket() {
 				tc.sourceDenomToTransfer,
 			)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
@@ -382,7 +381,7 @@ func (suite *TransferTestSuiteV2) TestOnAckPacket() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
@@ -489,7 +488,7 @@ func (suite *TransferTestSuiteV2) TestOnTimeoutPacket() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
