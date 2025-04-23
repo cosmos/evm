@@ -59,12 +59,12 @@ func (suite *ProposalTestSuite) TestCreateDenom() {
 		{
 			"with valid address",
 			"0xdac17f958d2ee523a2206206994597c13d831ec7",
-			"erc20/0xdac17f958d2ee523a2206206994597c13d831ec7",
+			"erc200xdac17f958d2ee523a2206206994597c13d831ec7",
 		},
 		{
 			"with empty string",
 			"",
-			"erc20/",
+			"erc20",
 		},
 	}
 	for _, tc := range testCases {
@@ -79,6 +79,11 @@ func (suite *ProposalTestSuite) TestValidateErc20Denom() {
 		denom   string
 		expPass bool
 	}{
+		{
+			"fail: invalid address",
+			"0xdac17f958d2ee523a22",
+			false,
+		},
 		{
 			"- instead of /",
 			"erc20-0xdac17f958d2ee523a2206206994597c13d831ec7",
@@ -102,6 +107,11 @@ func (suite *ProposalTestSuite) TestValidateErc20Denom() {
 		{
 			"pass",
 			"erc20/0xdac17f958d2ee523a2206206994597c13d831ec7",
+			true,
+		},
+		{
+			"pass",
+			"erc200xdac17f958d2ee523a2206206994597c13d831ec7",
 			true,
 		},
 	}

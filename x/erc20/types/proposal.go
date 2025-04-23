@@ -41,19 +41,22 @@ func CreateDenomDescription(address string) string {
 
 // CreateDenom generates a string the module name plus the address to avoid conflicts with names staring with a number
 func CreateDenom(address string) string {
-	return fmt.Sprintf("%s/%s", ModuleName, address)
+	return fmt.Sprintf("%s%s", ModuleName, address)
 }
 
-// ValidateErc20Denom checks if a denom is a valid erc20/
-// denomination
+// ValidateErc20Denom checks if a denom is a valid erc20 denomination.
+// Example: "erc200xabc..."
 func ValidateErc20Denom(denom string) error {
-	denomSplit := strings.SplitN(denom, "/", 2)
-
-	if len(denomSplit) != 2 || denomSplit[0] != ModuleName {
-		return fmt.Errorf("invalid denom. %s denomination should be prefixed with the format 'erc20/", denom)
+	if strings.HasPrefix(denom, ModuleName) {
+		trimmed := strings.TrimPrefix(denom, ModuleName)
+		if len(trimmed) > 0 && trimmed[0] == '/' {
+			// backward compatibility with old denom format ("erc20/0xabc...")
+			return cosmosevmtypes.ValidateAddress(trimmed[1:])
+		}
+		return cosmosevmtypes.ValidateAddress(trimmed)
 	}
 
-	return cosmosevmtypes.ValidateAddress(denomSplit[1])
+	return fmt.Errorf("invalid denom. %s denomination should be prefixed with the format 'erc20", denom)
 }
 
 // NewRegisterERC20Proposal returns new instance of RegisterERC20Proposal
