@@ -14,7 +14,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -58,15 +57,6 @@ type FeeMarketKeeper interface {
 type Erc20Keeper interface {
 	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
 }
-
-type (
-	LegacyParams = paramtypes.ParamSet
-	// Subspace defines an interface that implements the legacy Cosmos SDK x/params Subspace type.
-	// NOTE: This is used solely for migration of the Cosmos SDK x/params managed parameters.
-	Subspace interface {
-		GetParamSetIfExists(ctx sdk.Context, ps LegacyParams)
-	}
-)
 
 // BankWrapper defines the methods required by the wrapper around
 // the Cosmos SDK x/bank keeper that is used to manage an EVM coin
