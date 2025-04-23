@@ -112,7 +112,15 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				erc20 = true
 			},
 		},
-		// TODO: registered token pair case, after authz dependency deprecated case
+		{
+			"native erc20 case",
+			func() {
+				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
+				sourceDenomToTransfer = nativeErc20.Denom
+				msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
+				erc20 = true
+			},
+		},
 	}
 
 	for _, tc := range testCases {

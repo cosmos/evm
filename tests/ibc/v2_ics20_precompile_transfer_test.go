@@ -104,17 +104,15 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				msgAmount = transfertypes.UnboundedSpendLimit()
 			},
 		},
-		//{
-		//	"native erc20 case",
-		//	func() {
-		//		// TODO: To be added and verified due to the current / restriction logic. These test cases will be added and validated after PR for #61, which removes the erc20/ prefix, is merged.
-		//		// TODO: Error: base denomination erc20/0x80b5a32E4F032B2a058b4F29EC95EEfEEB87aDcd cannot contain slashes for IBC v2 packet: invalid denomination for cross-chain transfer
-		//		nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
-		//		sourceDenomToTransfer = nativeErc20.Denom
-		//		msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
-		//		erc20 = true
-		//	},
-		//},
+		{
+			"native erc20 case",
+			func() {
+				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
+				sourceDenomToTransfer = nativeErc20.Denom
+				msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
+				erc20 = true
+			},
+		},
 	}
 
 	for _, tc := range testCases {
