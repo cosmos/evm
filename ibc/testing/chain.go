@@ -366,7 +366,8 @@ func (chain *TestChain) SendEvmTx(
 	amount *big.Int,
 	data []byte,
 ) (*abci.ExecTxResult, error) {
-	app := chain.App.(*evmd.EVMD)
+	app, ok := chain.App.(*evmd.EVMD)
+	require.True(chain.TB, ok)
 	ctx := chain.GetContext()
 
 	// ensure the chain has the latest time
