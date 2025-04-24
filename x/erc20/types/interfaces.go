@@ -14,7 +14,6 @@ import (
 	"cosmossdk.io/core/address"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // AccountKeeper defines the expected interface needed to retrieve account info.
@@ -46,13 +45,3 @@ type EVMKeeper interface {
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
 }
-
-type (
-	LegacyParams = paramtypes.ParamSet
-	// Subspace defines an interface that implements the legacy Cosmos SDK x/params Subspace type.
-	// NOTE: This is used solely for migration of the Cosmos SDK x/params managed parameters.
-	Subspace interface {
-		GetParamSet(ctx sdk.Context, ps LegacyParams)
-		WithKeyTable(table paramtypes.KeyTable) paramtypes.Subspace
-	}
-)
