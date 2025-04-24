@@ -6,8 +6,10 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 )
 
 // Path contains two endpoints representing two chains connected over IBC
@@ -114,6 +116,79 @@ func (path *Path) RelayPacketWithResults(packet channeltypes.Packet) (*abci.Exec
 		}
 
 		if err := path.EndpointB.AcknowledgePacket(packet, ack); err != nil {
+			return nil, nil, err
+		}
+
+		return res, ack, nil
+	}
+
+	return nil, nil, errors.New("packet commitment does not exist on either endpoint for provided packet")
+}
+
+// RelayPacket attempts to relay the packet first on EndpointA and then on EndpointB
+// if EndpointA does not contain a packet commitment for that packet. An error is returned
+// if a relay step fails or the packet commitment does not exist on either endpoint.
+func (path *Path) RelayPacketV2(packet channeltypesv2.Packet) error {
+	_, _, err := path.RelayPacketWithResultsV2(packet)
+	return err
+}
+
+// RelayPacketWithResultsV2 attempts to relay the ibc v2 packet first on EndpointA and then on EndpointB
+// if EndpointA does not contain a packet commitment for that packet. The function returns:
+// - The result of the packet receive transaction.
+// - The acknowledgement written on the receiving chain.
+// - An error if a relay step fails or the packet commitment does not exist on either endpoint.
+func (path *Path) RelayPacketWithResultsV2(packet channeltypesv2.Packet) (*abci.ExecTxResult, []byte, error) {
+	pc := path.EndpointA.Chain.App.GetIBCKeeper().ChannelKeeperV2.GetPacketCommitment(path.EndpointA.Chain.GetContext(), packet.GetSourceClient(), packet.GetSequence())
+	if bytes.Equal(pc, channeltypesv2.CommitPacket(packet)) {
+		// packet found, relay from A to B
+		if err := path.EndpointB.UpdateClient(); err != nil {
+			return nil, nil, err
+		}
+
+		res, err := path.EndpointB.MsgRecvPacketWithResult(packet)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ack, err := ParseAckV2FromEvents(res.Events)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ackRes channeltypesv2.Acknowledgement
+		err = proto.Unmarshal(ack, &ackRes)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := path.EndpointA.MsgAcknowledgePacket(packet, ackRes); err != nil {
+			return nil, nil, err
+		}
+
+		return res, ack, nil
+	}
+
+	pc = path.EndpointB.Chain.App.GetIBCKeeper().ChannelKeeperV2.GetPacketCommitment(path.EndpointB.Chain.GetContext(), packet.GetSourceClient(), packet.GetSequence())
+	if bytes.Equal(pc, channeltypesv2.CommitPacket(packet)) {
+		// packet found, relay B to A
+		if err := path.EndpointA.UpdateClient(); err != nil {
+			return nil, nil, err
+		}
+
+		res, err := path.EndpointA.MsgRecvPacketWithResult(packet)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ack, err := ParseAckV2FromEvents(res.Events)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ackRes channeltypesv2.Acknowledgement
+		err = proto.Unmarshal(ack, &ackRes)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := path.EndpointB.MsgAcknowledgePacket(packet, ackRes); err != nil {
 			return nil, nil, err
 		}
 

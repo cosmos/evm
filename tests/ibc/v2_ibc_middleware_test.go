@@ -39,7 +39,7 @@ type MiddlewareV2TestSuite struct {
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
-	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
+	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
 	// setup between evmChainA and chainB

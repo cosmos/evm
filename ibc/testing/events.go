@@ -14,6 +14,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	connectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 )
 
 // ParseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
@@ -153,6 +154,23 @@ func ParseAckFromEvents(events []abci.Event) ([]byte, error) {
 	for _, ev := range events {
 		if ev.Type == channeltypes.EventTypeWriteAck {
 			if attribute, found := attributeByKey(ev.Attributes, channeltypes.AttributeKeyAckHex); found {
+				value, err := hex.DecodeString(attribute.Value)
+				if err != nil {
+					return nil, err
+				}
+				return value, nil
+			}
+		}
+	}
+	return nil, errors.New("acknowledgement event attribute not found")
+}
+
+// ParseAckV2FromEvents parses events emitted from a MsgRecvPacket and returns the
+// acknowledgement.
+func ParseAckV2FromEvents(events []abci.Event) ([]byte, error) {
+	for _, ev := range events {
+		if ev.Type == channeltypesv2.EventTypeWriteAck {
+			if attribute, found := attributeByKey(ev.Attributes, channeltypesv2.AttributeKeyEncodedAckHex); found {
 				value, err := hex.DecodeString(attribute.Value)
 				if err != nil {
 					return nil, err

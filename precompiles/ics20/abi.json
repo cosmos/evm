@@ -295,13 +295,25 @@
           "components": [
             {
               "internalType": "string",
-              "name": "path",
+              "name": "base",
               "type": "string"
             },
             {
-              "internalType": "string",
-              "name": "baseDenom",
-              "type": "string"
+              "components": [
+                {
+                  "internalType": "string",
+                  "name": "portId",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "channelId",
+                  "type": "string"
+                }
+              ],
+              "internalType": "struct Hop[]",
+              "name": "trace",
+              "type": "tuple[]"
             }
           ],
           "internalType": "struct Denom",
@@ -372,13 +384,25 @@
           "components": [
             {
               "internalType": "string",
-              "name": "path",
+              "name": "base",
               "type": "string"
             },
             {
-              "internalType": "string",
-              "name": "baseDenom",
-              "type": "string"
+              "components": [
+                {
+                  "internalType": "string",
+                  "name": "portId",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "channelId",
+                  "type": "string"
+                }
+              ],
+              "internalType": "struct Hop[]",
+              "name": "trace",
+              "type": "tuple[]"
             }
           ],
           "internalType": "struct Denom[]",

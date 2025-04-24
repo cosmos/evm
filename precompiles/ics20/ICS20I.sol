@@ -13,11 +13,17 @@ ICS20I constant ICS20_CONTRACT = ICS20I(ICS20_PRECOMPILE_ADDRESS);
 /// @dev Denom contains the base denomination for ICS20 fungible tokens and the
 /// source tracing information path.
 struct Denom {
-    // path defines the chain of port/channel identifiers used for tracing the
-    // source of the fungible token.
-    string path;
-    // base denomination of the relayed fungible token.
-    string baseDenom;
+    /// base denomination of the relayed fungible token.
+    string base;
+    /// trace contains a list of hops for multi-hop transfers.
+    Hop[] trace;
+}
+
+/// @dev Hop defines a port ID, channel ID pair specifying where
+/// tokens must be forwarded next in a multi-hop transfer.
+struct Hop {
+    string portId;
+    string channelId;
 }
 
 /// @author Evmos Team
@@ -28,8 +34,8 @@ interface ICS20I is IICS20Authorization {
     /// @dev Emitted when an ICS-20 transfer is executed.
     /// @param sender The address of the sender.
     /// @param receiver The address of the receiver.
-    /// @param sourcePort The source port of the IBC transaction.
-    /// @param sourceChannel The source channel of the IBC transaction.
+    /// @param sourcePort The source port of the IBC transaction, For v2 packets, leave it empty.
+    /// @param sourceChannel The source channel of the IBC transaction, For v2 packets, set the client ID.
     /// @param denom The denomination of the tokens transferred.
     /// @param amount The amount of tokens transferred.
     /// @param memo The IBC transaction memo.

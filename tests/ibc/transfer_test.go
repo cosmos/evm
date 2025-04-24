@@ -33,7 +33,7 @@ type TransferTestSuite struct {
 
 func (suite *TransferTestSuite) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
-	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
+	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	suite.chainC = suite.coordinator.GetChain(evmibctesting.GetChainID(3))
 }
@@ -55,7 +55,9 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 	}{
 		{
 			"transfer single denom",
-			func() {},
+			func() {
+				msgAmount = evmibctesting.DefaultCoinAmount
+			},
 		},
 		{
 			"transfer amount larger than int64",
@@ -90,7 +92,6 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.evmChainA.GetContext())
 			suite.Require().NoError(err)
-			msgAmount = evmibctesting.DefaultCoinAmount
 			originalBalance := evmApp.BankKeeper.GetBalance(
 				suite.evmChainA.GetContext(),
 				suite.evmChainA.SenderAccount.GetAddress(),

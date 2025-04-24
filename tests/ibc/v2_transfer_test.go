@@ -8,7 +8,7 @@
 // as a receiving chain (see TestOnRecvPacket), ensuring that the EVM-based chain
 // correctly mints/burns/escrows tokens according to ICS-20 standards.
 //
-//nolint:gosec // Reason: G115 warnings are safe in test context
+
 package ibc
 
 import (
@@ -54,7 +54,7 @@ const invalidPortID = "invalidportid"
 
 func (suite *TransferTestSuiteV2) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
-	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
+	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	suite.chainC = suite.coordinator.GetChain(evmibctesting.GetChainID(3))
 
@@ -279,7 +279,7 @@ func (suite *TransferTestSuiteV2) TestOnRecvPacket() {
 				tc.sourceDenomToTransfer,
 			)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
@@ -381,7 +381,7 @@ func (suite *TransferTestSuiteV2) TestOnAckPacket() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
@@ -488,7 +488,7 @@ func (suite *TransferTestSuiteV2) TestOnTimeoutPacket() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
-			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix())
+			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 
 			amount, ok := sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 			suite.Require().True(ok)
