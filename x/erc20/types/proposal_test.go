@@ -59,12 +59,12 @@ func (suite *ProposalTestSuite) TestCreateDenom() {
 		{
 			"with valid address",
 			"0xdac17f958d2ee523a2206206994597c13d831ec7",
-			"erc20/0xdac17f958d2ee523a2206206994597c13d831ec7",
+			"erc20:0xdac17f958d2ee523a2206206994597c13d831ec7",
 		},
 		{
 			"with empty string",
 			"",
-			"erc20/",
+			"erc20:",
 		},
 	}
 	for _, tc := range testCases {
@@ -80,28 +80,38 @@ func (suite *ProposalTestSuite) TestValidateErc20Denom() {
 		expPass bool
 	}{
 		{
-			"- instead of /",
+			"fail: invalid address",
+			"0xdac17f958d2ee523a22",
+			false,
+		},
+		{
+			"fail: doesn't start with erc20:",
+			"0xdac17f958d2ee523a2206206994597c13d831ec7",
+			false,
+		},
+		{
+			"- instead of :",
 			"erc20-0xdac17f958d2ee523a2206206994597c13d831ec7",
 			false,
 		},
 		{
-			"without /",
+			"without :",
 			"conversionCoin",
 			false,
 		},
 		{
-			"// instead of /",
-			"erc20//0xdac17f958d2ee523a2206206994597c13d831ec7",
+			"fail: :: instead of :",
+			"erc20::0xdac17f958d2ee523a2206206994597c13d831ec7",
 			false,
 		},
 		{
-			"multiple /",
-			"erc20/0xdac17f958d2ee523a2206206994597c13d831ec7/test",
+			"multiple :",
+			"erc20:0xdac17f958d2ee523a2206206994597c13d831ec7:test",
 			false,
 		},
 		{
 			"pass",
-			"erc20/0xdac17f958d2ee523a2206206994597c13d831ec7",
+			"erc20:0xdac17f958d2ee523a2206206994597c13d831ec7",
 			true,
 		},
 	}
