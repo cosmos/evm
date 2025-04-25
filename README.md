@@ -5,7 +5,8 @@ alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and custo
 
 **Please note**: This repo is undergoing changes in preparation for a new audit. After this audit we will cut the first
 v1 release, targeting late Q2. Some breaking changes might occur. While the original evmOS repo is currently being used in
-production on a few chains without fault, Interchain Labs will only mark the Cosmos EVM repository as stable after the audit is completed.
+production on a few chains without fault, Interchain Labs will only mark the Cosmos EVM repository as stable after the audit
+is completed.
 
 **Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
 
