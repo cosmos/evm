@@ -1,6 +1,7 @@
 package ibc
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 	"testing"
@@ -412,6 +413,8 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 				suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
 				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
+				bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
+				suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
 			}
 		})
 	}
@@ -479,9 +482,14 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
+			sendAmt := ibctesting.DefaultCoinAmount
+			escrowAddress := transfertypes.GetEscrowAddress(
+				transfertypes.PortID,
+				suite.pathAToB.EndpointA.ClientID,
+			)
 			packetData = transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
-				ibctesting.DefaultCoinAmount.String(),
+				sendAmt.String(),
 				suite.evmChainA.SenderAccount.GetAddress().String(),
 				suite.chainB.SenderAccount.GetAddress().String(),
 				"",
@@ -510,6 +518,9 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 					payload,
 					suite.evmChainA.SenderAccount.GetAddress(),
 				))
+				// check that the escrowed coin is escrowed
+				escrowedCoin := evmApp.BankKeeper.GetBalance(ctx, escrowAddress, bondDenom)
+				suite.Require().Equal(escrowedCoin.Amount, sendAmt)
 			}
 			onAckPacket := func() error {
 				return transferStack.OnAcknowledgementPacket(
@@ -529,6 +540,11 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 				suite.Require().ErrorContains(err, tc.expError)
 			} else {
 				suite.Require().NoError(err)
+			}
+			// check that the escrowed coins are un-escrowed
+			if tc.onSendRequired && bytes.Equal(ack, channeltypesv2.ErrorAcknowledgement[:]) {
+				escrowedCoins := evmApp.BankKeeper.GetAllBalances(ctx, escrowAddress)
+				suite.Require().Equal(0, len(escrowedCoins))
 			}
 		})
 	}

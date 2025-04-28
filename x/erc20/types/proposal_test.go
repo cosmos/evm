@@ -114,6 +114,16 @@ func (suite *ProposalTestSuite) TestValidateErc20Denom() {
 			"erc20:0xdac17f958d2ee523a2206206994597c13d831ec7",
 			true,
 		},
+		{
+			"fail: start with erc20: but invalid because of short addr length",
+			"erc20:0xdac17f958d2ee523a2206206",
+			false,
+		},
+		{
+			"fail: start with erc20: but invalid because of long addr length",
+			"erc20:0xdac17f958d2ee523a2206206994597c13d831ec7dac17f958d2ee523a2206206994597c13d831ec7",
+			false,
+		},
 	}
 	for _, tc := range testCases {
 		err := types.ValidateErc20Denom(tc.denom)

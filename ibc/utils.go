@@ -123,7 +123,7 @@ func IsBaseDenomFromSourceChain(rawDenom string) bool {
 	return len(denom.GetTrace()) == 0 && len(denomComponents) == 1
 }
 
-// GetDenom returns the denomination trace from the corresponding IBC denomination. If the
+// GetDenom returns the denomination from the corresponding IBC denomination. If the
 // denomination is not an IBC voucher or the trace is not found, it returns an error.
 func GetDenom(
 	transferKeeper transferkeeper.Keeper,

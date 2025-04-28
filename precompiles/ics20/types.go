@@ -235,7 +235,7 @@ func NewDenomHashRequest(args []interface{}) (*transfertypes.QueryDenomHashReque
 
 	trace, ok := args[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("invalid denom trace")
+		return nil, fmt.Errorf("invalid trace")
 	}
 
 	req := &transfertypes.QueryDenomHashRequest{

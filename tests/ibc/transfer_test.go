@@ -49,6 +49,8 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 		err                   error
 	)
 
+	// originally a basic test case from the IBC testing package, and it has been added as-is to ensure that
+	// it still works properly when invoked by evmd app.
 	testCases := []struct {
 		name     string
 		malleate func()

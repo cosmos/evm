@@ -26,7 +26,7 @@ const (
 	DenomHashMethod = "denomHash"
 )
 
-// Denom returns the requested denomination trace information.
+// Denom returns the requested denomination information.
 func (p Precompile) Denom(
 	ctx sdk.Context,
 	_ *vm.Contract,
@@ -41,7 +41,7 @@ func (p Precompile) Denom(
 	res, err := p.transferKeeper.Denom(ctx, req)
 	if err != nil {
 		// if the trace does not exist, return empty array
-		if strings.Contains(err.Error(), ErrTraceNotFound) {
+		if strings.Contains(err.Error(), ErrTraceFound) {
 			return method.Outputs.Pack(transfertypes.Denom{})
 		}
 		return nil, err
@@ -50,7 +50,7 @@ func (p Precompile) Denom(
 	return method.Outputs.Pack(*res.Denom)
 }
 
-// Denoms returns the requested denomination traces information.
+// Denoms returns the requested denomination information.
 func (p Precompile) Denoms(
 	ctx sdk.Context,
 	_ *vm.Contract,
@@ -70,7 +70,7 @@ func (p Precompile) Denoms(
 	return method.Outputs.Pack(res.Denoms, res.Pagination)
 }
 
-// DenomHash returns the denom hash (in hex format) of the denomination trace information.
+// DenomHash returns the denom hash (in hex format) of the denomination information.
 func (p Precompile) DenomHash(
 	ctx sdk.Context,
 	_ *vm.Contract,
@@ -85,7 +85,7 @@ func (p Precompile) DenomHash(
 	res, err := p.transferKeeper.DenomHash(ctx, req)
 	if err != nil {
 		// if the denom hash does not exist, return empty string
-		if strings.Contains(err.Error(), ErrTraceNotFound) {
+		if strings.Contains(err.Error(), ErrTraceFound) {
 			return method.Outputs.Pack("")
 		}
 		return nil, err

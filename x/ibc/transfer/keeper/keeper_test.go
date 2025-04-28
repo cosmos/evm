@@ -51,12 +51,9 @@ func (suite *KeeperTestSuite) SetupTest() {
 	keys := keyring.New(2)
 	suite.otherDenom = "xmpl"
 
-	customGenesis := network.CustomGenesisState{}
-
 	nw := network.NewUnitTestNetwork(
 		network.WithPreFundedAccounts(keys.GetAllAccAddrs()...),
 		network.WithOtherDenoms([]string{suite.otherDenom}),
-		network.WithCustomGenesis(customGenesis),
 	)
 	gh := grpc.NewIntegrationHandler(nw)
 	tf := factory.New(nw, gh)

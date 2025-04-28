@@ -118,6 +118,8 @@ func (suite *KeeperTestSuite) TestTransfer() {
 				suite.Require().NoError(err)
 
 				// No conversion to IBC coin, so the balance is insufficient
+				suite.Require().EqualValues(suite.network.App.BankKeeper.GetBalance(
+					ctx, sender.AccAddr, pair[0].Denom).Amount, math.ZeroInt())
 
 				params := suite.network.App.Erc20Keeper.GetParams(ctx)
 				params.EnableErc20 = false

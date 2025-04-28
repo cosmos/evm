@@ -24,7 +24,7 @@ const (
 
 // RegisterEvmosERC20Coins uses the UnitNetwork to register the evmos token as an
 // ERC20 token. The function performs all the required steps for the registration
-// like registering the denom trace in the transfer keeper and minting the token
+// like registering the denom in the transfer keeper and minting the token
 // with the bank. Returns the TokenPair or an error.
 func RegisterEvmosERC20Coins(
 	network network.UnitTestNetwork,
@@ -75,7 +75,7 @@ func RegisterEvmosERC20Coins(
 
 // RegisterIBCERC20Coins uses the UnitNetwork to register the denomTrace as an
 // ERC20 token. The function performs all the required steps for the registration
-// like registering the denom trace in the transfer keeper and minting the token
+// like registering the denom in the transfer keeper and minting the token
 // with the bank. Returns the TokenPair or an error.
 //
 // TODO: why is this not yet used

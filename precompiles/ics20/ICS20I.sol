@@ -74,7 +74,7 @@ interface ICS20I is IICS20Authorization {
         string memory memo
     ) external returns (uint64 nextSequence);
 
-    /// @dev denoms Defines a method for returning all denom traces.
+    /// @dev denoms Defines a method for returning all denoms.
     /// @param pageRequest Defines the pagination parameters to for the request.
     function denoms(
         PageRequest memory pageRequest
@@ -86,12 +86,12 @@ interface ICS20I is IICS20Authorization {
             PageResponse memory pageResponse
         );
 
-    /// @dev DenomTrace defines a method for returning a denom trace.
+    /// @dev Denom defines a method for returning a denom.
     function denom(
         string memory hash
     ) external view returns (Denom memory denom);
 
-    /// @dev DenomHash defines a method for returning a hash of the denomination trace info.
+    /// @dev DenomHash defines a method for returning a hash of the denomination info.
     function denomHash(
         string memory trace
     ) external view returns (string memory hash);

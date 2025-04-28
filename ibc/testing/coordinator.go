@@ -38,10 +38,10 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 		CurrentTime: globalStartTime,
 	}
 
-	require.NoError(t, evmd.EvmAppOptions("cosmos_9001-1"))
 	ibctesting.DefaultTestingAppInit = SetupExampleApp
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := GetEvmChainID(i)
+		require.NoError(t, evmd.EvmAppOptions(chainID))
 		// setup EVM chains
 		chains[chainID] = NewTestChain(t, true, coord, chainID)
 	}
@@ -160,7 +160,7 @@ func GetChainID(index int) string {
 
 // GetEvmChainID returns the EIP-155 chainID used for the provided index.
 func GetEvmChainID(index int) string {
-	return fmt.Sprintf("cosmos_900%d-1", index)
+	return fmt.Sprintf("%s_%d-1", ChainIDPrefix, 9000+index)
 }
 
 // CommitBlock commits a block on the provided indexes and then increments the global time.

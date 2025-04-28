@@ -29,6 +29,16 @@ var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 		DisplayDenom: testconstants.ExampleDisplayDenom,
 		Decimals:     evmtypes.SixDecimals,
 	},
+	TestChainID1: {
+		Denom:        ExampleChainDenom,
+		DisplayDenom: ExampleChainDenom,
+		Decimals:     evmtypes.EighteenDecimals,
+	},
+	TestChainID2: {
+		Denom:        ExampleChainDenom,
+		DisplayDenom: ExampleChainDenom,
+		Decimals:     evmtypes.EighteenDecimals,
+	},
 }
 
 // EVMOptionsFn defines a function type for setting app options specifically for

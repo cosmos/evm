@@ -301,6 +301,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
 	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
+	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
+	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
 }
 
 func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
@@ -361,6 +363,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
@@ -419,6 +422,16 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				// relay the sent packet
 				err = path.RelayPacket(packet)
 				suite.Require().NoError(err) // relay committed
+
+				// ensure the ibc token is escrowed.
+				balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+				suite.Require().Equal(
+					balBeforeTransfer.Amount.Sub(sendAmt).String(),
+					balAfterTransfer.Amount.String(),
+				)
+				escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+				escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+				suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
 			}
 
 			err = onAck()
@@ -620,6 +633,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
@@ -677,9 +691,19 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 
 				err = path.RelayPacket(packet)
 				suite.Require().NoError(err) // relay committed
-			}
 
+			}
 			err = onTimeout()
+			// ensure that the escrowed coins were refunded on timeout.
+			balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+			escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+			suite.Require().Equal(
+				balBeforeTransfer.Amount.String(),
+				balAfterTransfer.Amount.String(),
+			)
+			suite.Require().Equal(escrowedBal.Amount.String(), math.ZeroInt().String())
+
 			if tc.expError == "" {
 				suite.Require().NoError(err)
 			} else {
