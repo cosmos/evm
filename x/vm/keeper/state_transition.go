@@ -4,10 +4,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	evmcore "github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -43,19 +45,19 @@ func (k *Keeper) NewEVM(
 		Coinbase:    cfg.CoinBase,
 		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        big.NewInt(ctx.BlockHeader().Time.Unix()),
+		Time:        uint64(ctx.BlockHeader().Time.Unix()),
 		Difficulty:  big.NewInt(0), // unused. Only required in PoW context
 		BaseFee:     cfg.BaseFee,
-		Random:      nil, // not supported
+		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
-	txCtx := evmcore.NewEVMTxContext(msg)
+	txCtx := evmcore.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, cfg.ChainConfig)
 	}
 	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
 
-	signer := msg.From()
+	signer := msg.From
 	accessControl := types.NewRestrictedPermissionPolicy(&cfg.Params.AccessControl, signer)
 
 	// Set hooks for the EVM opcodes
@@ -153,8 +155,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()))
-	msg, err := tx.AsMessage(signer, cfg.BaseFee)
+	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
 	}
@@ -165,7 +167,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	tmpCtx, commit := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, true, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -188,8 +190,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	evmDenom := types.GetEVMCoinDenom()
 
 	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
-	if err = k.RefundGas(ctx, msg, msg.Gas()-res.GasUsed, evmDenom); err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From())
+	if err = k.RefundGas(ctx, *msg, msg.GasLimit-res.GasUsed, evmDenom); err != nil {
+		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
 	if len(logs) > 0 {
@@ -277,19 +279,19 @@ func (k *Keeper) ApplyMessageWithConfig(
 	stateDB := statedb.New(ctx, k, txConfig)
 	evm := k.NewEVM(ctx, msg, cfg, tracer, stateDB)
 
-	leftoverGas := msg.Gas()
+	leftoverGas := msg.GasLimit
 
 	// Allow the tracer captures the tx level events, mainly the gas consumption.
 	vmCfg := evm.Config
-	if vmCfg.Debug {
+	if vmCfg.Tracer != nil {
 		vmCfg.Tracer.CaptureTxStart(leftoverGas)
 		defer func() {
 			vmCfg.Tracer.CaptureTxEnd(leftoverGas)
 		}()
 	}
 
-	sender := vm.AccountRef(msg.From())
-	contractCreation := msg.To() == nil
+	sender := vm.AccountRef(msg.From)
+	contractCreation := msg.To == nil
 	isLondon := cfg.ChainConfig.IsLondon(evm.Context.BlockNumber)
 
 	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, cfg.ChainConfig, contractCreation)
@@ -307,22 +309,18 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	if rules := cfg.ChainConfig.Rules(big.NewInt(ctx.BlockHeight()), cfg.ChainConfig.MergeNetsplitBlock != nil); rules.IsBerlin {
-		// The access list is prepared without any precompile because it is
-		// filled with only the recipient precompile address in the EVM'hook
-		// call.
-		stateDB.PrepareAccessList(msg.From(), msg.To(), []common.Address{}, msg.AccessList())
-	}
+	rules := cfg.ChainConfig.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix()))
+	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(rules), msg.AccessList)
 
 	if contractCreation {
 		// take over the nonce management from evm:
 		// - reset sender's nonce to msg.Nonce() before calling evm.
 		// - increase sender's nonce by one no matter the result.
-		stateDB.SetNonce(sender.Address(), msg.Nonce())
-		ret, _, leftoverGas, vmErr = evm.Create(sender, msg.Data(), leftoverGas, msg.Value())
-		stateDB.SetNonce(sender.Address(), msg.Nonce()+1)
+		stateDB.SetNonce(sender.Address(), msg.Nonce)
+		ret, _, leftoverGas, vmErr = evm.Create(sender, msg.Data, leftoverGas, uint256.MustFromBig(msg.Value))
+		stateDB.SetNonce(sender.Address(), msg.Nonce+1)
 	} else {
-		ret, leftoverGas, vmErr = evm.Call(sender, *msg.To(), msg.Data(), leftoverGas, msg.Value())
+		ret, leftoverGas, vmErr = evm.Call(sender, *msg.To, msg.Data, leftoverGas, uint256.MustFromBig(msg.Value))
 	}
 
 	refundQuotient := params.RefundQuotient
@@ -333,11 +331,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 
 	// calculate gas refund
-	if msg.Gas() < leftoverGas {
+	if msg.GasLimit < leftoverGas {
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
 	}
 	// refund gas
-	temporaryGasUsed := msg.Gas() - leftoverGas
+	temporaryGasUsed := msg.GasLimit - leftoverGas
 	refund := GasToRefund(stateDB.GetRefund(), temporaryGasUsed, refundQuotient)
 
 	// update leftoverGas and temporaryGasUsed with refund amount
@@ -360,7 +358,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
 	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
-	gasLimit := math.LegacyNewDec(int64(msg.Gas())) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
+	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
 	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
 
@@ -368,13 +366,13 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "minimumGasUsed(%s) is not a uint64", minimumGasUsed.TruncateInt().String())
 	}
 
-	if msg.Gas() < leftoverGas {
-		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.Gas(), leftoverGas)
+	if msg.GasLimit < leftoverGas {
+		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
 	}
 
 	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here
 	// reset leftoverGas, to be used by the tracer
-	leftoverGas = msg.Gas() - gasUsed
+	leftoverGas = msg.GasLimit - gasUsed
 
 	return &types.MsgEthereumTxResponse{
 		GasUsed: gasUsed,

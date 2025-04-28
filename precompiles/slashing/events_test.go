@@ -1,8 +1,6 @@
 package slashing_test
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -83,7 +81,7 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 			stateDB = s.network.GetStateDB()
 			ctx = s.network.GetContext()
 
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 			ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 			initialGas := ctx.GasMeter().GasConsumed()
 			s.Require().Zero(initialGas)

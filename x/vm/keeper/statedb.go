@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -107,12 +108,16 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 }
 
 // SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
-func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *big.Int) error {
+func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) error {
+	if amount == nil {
+		return nil
+	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	delta := new(big.Int).Sub(amount, coin.Amount.BigInt())
+	balance := coin.Amount.BigInt()
+	delta := new(big.Int).Sub(amount.ToBig(), balance)
 	switch delta.Sign() {
 	case 1:
 		// mint
@@ -254,7 +259,7 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
 	}
 
 	// clear balance
-	if err := k.SetBalance(ctx, addr, new(big.Int)); err != nil {
+	if err := k.SetBalance(ctx, addr, new(uint256.Int)); err != nil {
 		return err
 	}
 

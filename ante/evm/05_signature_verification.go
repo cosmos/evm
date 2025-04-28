@@ -35,7 +35,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 	evmParams := esvd.evmKeeper.GetParams(ctx)
 	ethCfg := evmtypes.GetEthChainConfig()
 	blockNum := big.NewInt(ctx.BlockHeight())
-	signer := ethtypes.MakeSigner(ethCfg, blockNum)
+	signer := ethtypes.MakeSigner(ethCfg, blockNum, uint64(ctx.BlockTime().Unix()))
 	allowUnprotectedTxs := evmParams.GetAllowUnprotectedTxs()
 
 	msgs := tx.GetMsgs()

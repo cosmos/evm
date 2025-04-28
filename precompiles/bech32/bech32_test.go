@@ -1,10 +1,9 @@
 package bech32_test
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/precompiles/bech32"
@@ -56,7 +55,7 @@ func (s *PrecompileTestSuite) TestRun() {
 	contract := vm.NewPrecompile(
 		vm.AccountRef(s.keyring.GetAddr(0)),
 		s.precompile,
-		big.NewInt(0),
+		uint256.NewInt(0),
 		uint64(1000000),
 	)
 
@@ -86,7 +85,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			func([]byte) {},
 			false,
-			"abi: attempting to unmarshall an empty string while arguments are expected",
+			"abi: attempting to unmarshal an empty string while arguments are expected",
 		},
 		{
 			"fail - HexToBech32 method error",

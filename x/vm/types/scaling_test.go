@@ -2,9 +2,9 @@ package types_test
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -218,38 +218,38 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 func TestZeroExtraDecimalsBigInt(t *testing.T) {
 	testCases := []struct {
 		name string
-		amt  *big.Int
-		exp  *big.Int
+		amt  *uint256.Int
+		exp  *uint256.Int
 	}{
 		{
 			name: "almost 1: 0.99999...",
-			amt:  big.NewInt(999999999999),
-			exp:  big.NewInt(0),
+			amt:  uint256.NewInt(999999999999),
+			exp:  uint256.NewInt(0),
 		},
 		{
 			name: "decimal < 5: 1.4",
-			amt:  big.NewInt(14e11),
-			exp:  big.NewInt(1e12),
+			amt:  uint256.NewInt(14e11),
+			exp:  uint256.NewInt(1e12),
 		},
 		{
 			name: "decimal < 5: 1.499999999999",
-			amt:  big.NewInt(1499999999999),
-			exp:  big.NewInt(1e12),
+			amt:  uint256.NewInt(1499999999999),
+			exp:  uint256.NewInt(1e12),
 		},
 		{
 			name: "decimal == 5: 1.5",
-			amt:  big.NewInt(15e11),
-			exp:  big.NewInt(1e12),
+			amt:  uint256.NewInt(15e11),
+			exp:  uint256.NewInt(1e12),
 		},
 		{
 			name: "decimal > 5: 1.9",
-			amt:  big.NewInt(19e11),
-			exp:  big.NewInt(1e12),
+			amt:  uint256.NewInt(19e11),
+			exp:  uint256.NewInt(1e12),
 		},
 		{
 			name: "1 wei",
-			amt:  big.NewInt(1),
-			exp:  big.NewInt(0),
+			amt:  uint256.NewInt(1),
+			exp:  uint256.NewInt(0),
 		},
 	}
 
@@ -263,7 +263,7 @@ func TestZeroExtraDecimalsBigInt(t *testing.T) {
 				configurator.ResetTestConfig()
 				require.NoError(t, configurator.WithEVMCoinInfo(cfg.Denom, uint8(cfg.Decimals)).Configure())
 
-				res := evmtypes.AdjustExtraDecimalsBigInt(tc.amt)
+				res := evmtypes.AdjustExtraDecimalsUint256(tc.amt)
 				if cfg.Decimals == evmtypes.EighteenDecimals {
 					tc.exp = tc.amt
 				}
@@ -276,32 +276,32 @@ func TestZeroExtraDecimalsBigInt(t *testing.T) {
 func TestConvertBigIntFrom18DecimalsToLegacyDec(t *testing.T) {
 	testCases := []struct {
 		name    string
-		amt     *big.Int
+		amt     *uint256.Int
 		exp6dec math.LegacyDec
 	}{
 		{
 			name:    "smallest amount",
-			amt:     big.NewInt(1),
+			amt:     uint256.NewInt(1),
 			exp6dec: math.LegacyMustNewDecFromStr("0.000000000001"),
 		},
 		{
 			name:    "almost 1: 0.99999...",
-			amt:     big.NewInt(999999999999),
+			amt:     uint256.NewInt(999999999999),
 			exp6dec: math.LegacyMustNewDecFromStr("0.999999999999"),
 		},
 		{
 			name:    "half of the minimum uint",
-			amt:     big.NewInt(5e11),
+			amt:     uint256.NewInt(5e11),
 			exp6dec: math.LegacyMustNewDecFromStr("0.5"),
 		},
 		{
 			name:    "one int",
-			amt:     big.NewInt(1e12),
+			amt:     uint256.NewInt(1e12),
 			exp6dec: math.LegacyOneDec(),
 		},
 		{
 			name:    "one 'ether'",
-			amt:     big.NewInt(1e18),
+			amt:     uint256.NewInt(1e18),
 			exp6dec: math.LegacyNewDec(1e6),
 		},
 	}
@@ -315,8 +315,8 @@ func TestConvertBigIntFrom18DecimalsToLegacyDec(t *testing.T) {
 				configurator := evmtypes.NewEVMConfigurator()
 				configurator.ResetTestConfig()
 				require.NoError(t, configurator.WithEVMCoinInfo(cfg.Denom, uint8(cfg.Decimals)).Configure())
-				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt)
-				exp := math.LegacyNewDecFromBigInt(tc.amt)
+				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt.ToBig())
+				exp := math.LegacyNewDecFromBigInt(tc.amt.ToBig())
 				if cfg.Decimals == evmtypes.SixDecimals {
 					exp = tc.exp6dec
 				}

@@ -51,15 +51,10 @@ func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig
 		noBaseFee = k.feeMarketWrapper.GetParams(ctx).NoBaseFee
 	}
 
-	var debug bool
-	if _, ok := tracer.(types.NoOpTracer); !ok {
-		debug = true
-	}
-
 	return vm.Config{
-		Debug:     debug,
-		Tracer:    tracer,
-		NoBaseFee: noBaseFee,
-		ExtraEips: cfg.Params.EIPs(),
+		EnablePreimageRecording: cfg.EnablePreimageRecording,
+		Tracer:                  tracer,
+		NoBaseFee:               noBaseFee,
+		ExtraEips:               cfg.Params.EIPs(),
 	}
 }

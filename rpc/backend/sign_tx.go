@@ -50,7 +50,12 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		return common.Hash{}, err
 	}
 
-	signer := ethtypes.MakeSigner(b.ChainConfig(), new(big.Int).SetUint64(uint64(bn)))
+	header, err := b.CurrentHeader()
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	signer := ethtypes.MakeSigner(b.ChainConfig(), new(big.Int).SetUint64(uint64(bn)), header.Time)
 
 	// LegacyTx derives chainID from the signature. To make sure the msg.ValidateBasic makes
 	// the corresponding chainID validation, we need to sign the transaction before calling it

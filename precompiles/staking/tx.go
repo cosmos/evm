@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -242,7 +243,7 @@ func (p *Precompile) Delegate(
 
 		// Need to scale the amount to 18 decimals for the EVM balance change entry
 		scaledAmt := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt())
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delHexAddr, scaledAmt, cmn.Sub))
+		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delHexAddr, uint256.MustFromBig(scaledAmt), cmn.Sub))
 	}
 
 	return method.Outputs.Pack(true)

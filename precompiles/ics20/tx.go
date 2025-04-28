@@ -11,6 +11,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	"github.com/holiman/uint256"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -75,7 +76,7 @@ func (p *Precompile) Transfer(
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from another smart contract.
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-		amt := msg.Token.Amount.BigInt()
+		amt := uint256.MustFromBig(msg.Token.Amount.BigInt())
 		p.SetBalanceChangeEntries(
 			cmn.NewBalanceChangeEntry(sender, amt, cmn.Sub),
 			cmn.NewBalanceChangeEntry(escrowHexAddr, amt, cmn.Add),

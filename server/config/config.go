@@ -54,6 +54,9 @@ const (
 	// DefaultEVMTracer is the default vm.Tracer type
 	DefaultEVMTracer = ""
 
+	// DefaultEnablePreimageRecording is the default value for EnablePreimageRecording
+	DefaultEnablePreimageRecording = false
+
 	// DefaultFixRevertGasRefundHeight is the default height at which to overwrite gas refund
 	DefaultFixRevertGasRefundHeight = 0
 
@@ -119,6 +122,8 @@ type EVMConfig struct {
 	Tracer string `mapstructure:"tracer"`
 	// MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 	MaxTxGasWanted uint64 `mapstructure:"max-tx-gas-wanted"`
+	// Enables tracking of SHA3 preimages in the VM
+	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -176,8 +181,9 @@ type TLSConfig struct {
 // DefaultEVMConfig returns the default EVM configuration
 func DefaultEVMConfig() *EVMConfig {
 	return &EVMConfig{
-		Tracer:         DefaultEVMTracer,
-		MaxTxGasWanted: DefaultMaxTxGasWanted,
+		Tracer:                  DefaultEVMTracer,
+		MaxTxGasWanted:          DefaultMaxTxGasWanted,
+		EnablePreimageRecording: DefaultEnablePreimageRecording,
 	}
 }
 

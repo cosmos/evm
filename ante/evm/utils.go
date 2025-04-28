@@ -48,7 +48,7 @@ func NewMonoDecoratorUtils(
 	ethCfg := evmtypes.GetEthChainConfig()
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	blockHeight := big.NewInt(ctx.BlockHeight())
-	rules := ethCfg.Rules(blockHeight, true)
+	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix()))
 	baseFee := ek.GetBaseFee(ctx)
 
 	if rules.IsLondon && baseFee == nil {
@@ -67,7 +67,7 @@ func NewMonoDecoratorUtils(
 	return &DecoratorUtils{
 		EvmParams:          evmParams,
 		Rules:              rules,
-		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight),
+		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix())),
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,
