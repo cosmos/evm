@@ -21,7 +21,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
@@ -58,9 +57,6 @@ type Keeper struct {
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
 
-	// Legacy subspace
-	ss paramstypes.Subspace
-
 	// precompiles defines the map of all available precompiled smart contracts.
 	// Some of these precompiled contracts might not be active depending on the EVM
 	// parameters.
@@ -78,7 +74,6 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
-	ss paramstypes.Subspace,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -105,7 +100,6 @@ func NewKeeper(
 		transientKey:     transientKey,
 		tracer:           tracer,
 		erc20Keeper:      erc20Keeper,
-		ss:               ss,
 	}
 }
 
