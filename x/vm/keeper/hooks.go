@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -13,19 +14,13 @@ import (
 // Event Hooks
 // These can be utilized to customize evm transaction processing.
 
-// EvmHooks event hooks for evm tx processing
-type EvmHooks interface {
-	// Must be called after tx is processed successfully, if an error is returned, the whole transaction is reverted.
-	PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error
-}
-
-var _ EvmHooks = MultiEvmHooks{}
+var _ types.EvmHooks = MultiEvmHooks{}
 
 // MultiEvmHooks combine multiple evm hooks, all hook functions are run in array sequence
-type MultiEvmHooks []EvmHooks
+type MultiEvmHooks []types.EvmHooks
 
 // NewMultiEvmHooks combine multiple evm hooks
-func NewMultiEvmHooks(hooks ...EvmHooks) MultiEvmHooks {
+func NewMultiEvmHooks(hooks ...types.EvmHooks) MultiEvmHooks {
 	return hooks
 }
 

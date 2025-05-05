@@ -59,7 +59,7 @@ type Keeper struct {
 	tracer string
 
 	// EVM Hooks for tx post-processing
-	hooks EvmHooks
+	hooks types.EvmHooks
 
 	// Legacy subspace
 	ss paramstypes.Subspace
@@ -179,7 +179,7 @@ func (k Keeper) GetTxIndexTransient(ctx sdk.Context) uint64 {
 
 // SetHooks sets the hooks for the EVM module
 // Called only once during initialization, panics if called more than once.
-func (k *Keeper) SetHooks(eh EvmHooks) *Keeper {
+func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 	if k.hooks != nil {
 		panic("cannot set evm hooks twice")
 	}
