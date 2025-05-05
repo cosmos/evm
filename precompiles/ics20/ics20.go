@@ -13,7 +13,7 @@ import (
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
+	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -35,7 +35,7 @@ type Precompile struct {
 	cmn.Precompile
 	stakingKeeper  stakingkeeper.Keeper
 	transferKeeper transferkeeper.Keeper
-	channelKeeper  channelkeeper.Keeper
+	channelKeeper  *channelkeeper.Keeper
 	evmKeeper      *evmkeeper.Keeper
 }
 
@@ -44,7 +44,7 @@ type Precompile struct {
 func NewPrecompile(
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
-	channelKeeper channelkeeper.Keeper,
+	channelKeeper *channelkeeper.Keeper,
 	authzKeeper authzkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
 ) (*Precompile, error) {
@@ -117,10 +117,10 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	case TransferMethod:
 		bz, err = p.Transfer(ctx, evm.Origin, contract, stateDB, method, args)
 	// ICS20 queries
-	case DenomTraceMethod:
-		bz, err = p.DenomTrace(ctx, contract, method, args)
-	case DenomTracesMethod:
-		bz, err = p.DenomTraces(ctx, contract, method, args)
+	case DenomMethod:
+		bz, err = p.Denom(ctx, contract, method, args)
+	case DenomsMethod:
+		bz, err = p.Denoms(ctx, contract, method, args)
 	case DenomHashMethod:
 		bz, err = p.DenomHash(ctx, contract, method, args)
 	case authorization.AllowanceMethod:

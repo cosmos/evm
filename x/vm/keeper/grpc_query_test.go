@@ -1498,7 +1498,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
+					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				suite.Require().NoError(err)
 			},
@@ -1523,8 +1523,11 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 	}
 
 	// Save initial configure to restore it between tests
-	denom := types.GetEVMCoinDenom()
-	decimals := types.GetEVMCoinDecimals()
+	coinInfo := types.EvmCoinInfo{
+		Denom:         types.GetEVMCoinDenom(),
+		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
+		Decimals:      types.GetEVMCoinDecimals(),
+	}
 	chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
 
 	for _, tc := range testCases {
@@ -1550,7 +1553,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 			configurator.ResetTestConfig()
 			err = configurator.
 				WithChainConfig(chainConfig).
-				WithEVMCoinInfo(denom, uint8(decimals)).
+				WithEVMCoinInfo(coinInfo).
 				Configure()
 			suite.Require().NoError(err)
 		})
