@@ -221,6 +221,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
 		}
 
+		// Note: PostTxProcessing hooks currently do not charge for gas
+		// and function similar to EndBlockers in abci, but for EVM transactions
 		if err = k.PostTxProcessing(tmpCtx, signerAddr, msg, receipt); err != nil {
 			// If hooks returns an error, revert the whole tx.
 			res.VmError = fmt.Sprintf("failed to execute post transaction processing: %s", err)
