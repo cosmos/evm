@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -225,7 +224,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		// and function similar to EndBlockers in abci, but for EVM transactions
 		if err = k.PostTxProcessing(tmpCtx, signerAddr, msg, receipt); err != nil {
 			// If hooks returns an error, revert the whole tx.
-			res.VmError = fmt.Sprintf("failed to execute post transaction processing: %s", err)
+			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
 			// If the tx failed in post processing hooks, we should clear the logs
 			res.Logs = nil
