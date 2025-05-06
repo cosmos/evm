@@ -11,15 +11,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
-
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
 const (
@@ -43,14 +41,14 @@ var f embed.FS
 // Precompile defines the bank precompile
 type Precompile struct {
 	cmn.Precompile
-	bankKeeper  bankkeeper.Keeper
+	bankKeeper  cmn.BankKeeper
 	erc20Keeper erc20keeper.Keeper
 }
 
 // NewPrecompile creates a new bank Precompile instance implementing the
 // PrecompiledContract interface.
 func NewPrecompile(
-	bankKeeper bankkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	erc20Keeper erc20keeper.Keeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, "abi.json")

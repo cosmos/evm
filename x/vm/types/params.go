@@ -6,12 +6,12 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/evm/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
 )
@@ -23,8 +23,8 @@ var (
 	DefaultStaticPrecompiles []string
 	// DefaultExtraEIPs defines the default extra EIPs to be included.
 	// On v15, EIP 3855 was enabled
-	DefaultExtraEIPs = []string{
-		"ethereum_3855", // NOTE: we suggest to enable EIP-3855 on all chains to support new Solidity versions >=v0.8.20
+	DefaultExtraEIPs = []int64{
+		3855, // NOTE: we suggest to enable EIP-3855 on all chains to support new Solidity versions >=v0.8.20
 	}
 	// DefaultEVMChannels defines a list of IBC channels that connect to EVM chains like injective or cronos.
 	DefaultEVMChannels              []string
@@ -45,7 +45,7 @@ var (
 // NewParams creates a new Params instance
 func NewParams(
 	allowUnprotectedTxs bool,
-	extraEIPs []string,
+	extraEIPs []int64,
 	activeStaticPrecompiles,
 	evmChannels []string,
 	accessControl AccessControl,
@@ -109,10 +109,12 @@ func (p Params) Validate() error {
 	return validateChannels(p.EVMChannels)
 }
 
-// EIPs returns the ExtraEIPS as a slice.
-func (p Params) EIPs() []string {
-	eips := make([]string, len(p.ExtraEIPs))
-	copy(eips, p.ExtraEIPs)
+// EIPs returns the ExtraEIPS as a int slice
+func (p Params) EIPs() []int {
+	eips := make([]int, len(p.ExtraEIPs))
+	for i, eip := range p.ExtraEIPs {
+		eips[i] = int(eip)
+	}
 	return eips
 }
 
@@ -183,24 +185,20 @@ func validateBool(i interface{}) error {
 }
 
 func validateEIPs(i interface{}) error {
-	eips, ok := i.([]string)
+	eips, ok := i.([]int64)
 	if !ok {
 		return fmt.Errorf("invalid EIP slice type: %T", i)
 	}
 
-	uniqueEIPs := make(map[string]struct{})
+	uniqueEIPs := make(map[int64]struct{})
 
 	for _, eip := range eips {
-		if !vm.ExistsEipActivator(eip) {
-			return fmt.Errorf("EIP %s is not activateable, valid EIPs are: %s", eip, vm.ActivateableEips())
-		}
-
-		if err := vm.ValidateEIPName(eip); err != nil {
-			return fmt.Errorf("EIP %s name is not valid", eip)
+		if !vm.ValidEip(int(eip)) {
+			return fmt.Errorf("EIP %d is not activateable, valid EIPs are: %s", eip, vm.ActivateableEips())
 		}
 
 		if _, ok := uniqueEIPs[eip]; ok {
-			return fmt.Errorf("found duplicate EIP: %s", eip)
+			return fmt.Errorf("found duplicate EIP: %d", eip)
 		}
 		uniqueEIPs[eip] = struct{}{}
 

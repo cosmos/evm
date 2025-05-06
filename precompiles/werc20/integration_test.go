@@ -117,7 +117,7 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 		configurator := evmtypes.NewEVMConfigurator()
 		configurator.ResetTestConfig()
 		Expect(configurator.
-			WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(evmtypes.EighteenDecimals)).
+			WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 			Configure()).To(BeNil(), "expected no error setting the evm configurator")
 
 		integrationNetwork := network.NewUnitTestNetwork(

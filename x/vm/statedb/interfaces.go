@@ -2,8 +2,7 @@ package statedb
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

@@ -64,12 +64,7 @@ func GetInitialBaseFeeAmount(decimals evmtypes.Decimals) math.LegacyDec {
 		panic("unsupported decimals")
 	}
 
-	switch decimals {
-	case evmtypes.EighteenDecimals:
-		return math.LegacyNewDec(1_000_000_000)
-	case evmtypes.SixDecimals:
-		return math.LegacyNewDecWithPrec(1, 3)
-	default:
-		panic("base fee not specified")
-	}
+	baseFee := math.LegacyNewDec(1_000_000_000)
+	baseFee = baseFee.Quo(decimals.ConversionFactor().ToLegacyDec())
+	return baseFee
 }

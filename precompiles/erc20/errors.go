@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/x/authz"
@@ -83,7 +83,7 @@ func ConvertErrToERC20Error(err error) error {
 	case strings.Contains(err.Error(), cmn.ErrIntegerOverflow):
 		return vm.ErrExecutionReverted
 	case errors.Is(err, ibc.ErrNoIBCVoucherDenom) ||
-		errors.Is(err, ibc.ErrDenomTraceNotFound) ||
+		errors.Is(err, ibc.ErrDenomNotFound) ||
 		strings.Contains(err.Error(), "invalid base denomination") ||
 		strings.Contains(err.Error(), "display denomination not found") ||
 		strings.Contains(err.Error(), "invalid decimals"):

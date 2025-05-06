@@ -17,8 +17,8 @@ import (
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.KeyPrefixParams)
-	if len(bz) == 0 {
-		return k.GetLegacyParams(ctx)
+	if bz == nil {
+		return params
 	}
 	k.cdc.MustUnmarshal(bz, &params)
 	return
@@ -42,13 +42,6 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 
 	store.Set(types.KeyPrefixParams, bz)
 	return nil
-}
-
-// GetLegacyParams returns param set for version before migrate
-func (k Keeper) GetLegacyParams(ctx sdk.Context) types.Params {
-	var params types.Params
-	k.ss.GetParamSetIfExists(ctx, &params)
-	return params
 }
 
 // EnableStaticPrecompiles appends the addresses of the given Precompiles to the list
@@ -88,7 +81,7 @@ func appendPrecompiles(existingPrecompiles []string, addresses ...common.Address
 }
 
 // EnableEIPs enables the given EIPs in the EVM parameters.
-func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...string) error {
+func (k Keeper) EnableEIPs(ctx sdk.Context, eips ...int64) error {
 	evmParams := k.GetParams(ctx)
 	evmParams.ExtraEIPs = append(evmParams.ExtraEIPs, eips...)
 

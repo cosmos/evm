@@ -12,22 +12,11 @@ import (
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.ParamsKey)
-	if len(bz) == 0 {
-		k.ss.GetParamSetIfExists(ctx, &params)
-	} else {
-		k.cdc.MustUnmarshal(bz, &params)
+	if bz == nil {
+		return params
 	}
-
-	// zero the nil params for legacy blocks
-	if params.MinGasPrice.IsNil() {
-		params.MinGasPrice = math.LegacyZeroDec()
-	}
-
-	if params.MinGasMultiplier.IsNil() {
-		params.MinGasMultiplier = math.LegacyZeroDec()
-	}
-
-	return
+	k.cdc.MustUnmarshal(bz, &params)
+	return params
 }
 
 // SetParams sets the fee market params in a single key
@@ -60,17 +49,7 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) math.LegacyDec {
 	if params.NoBaseFee {
 		return math.LegacyDec{}
 	}
-
-	baseFee := params.BaseFee
-	if baseFee.IsNil() || baseFee.IsZero() {
-		bfV1 := k.GetBaseFeeV1(ctx)
-		if bfV1 == nil {
-			return math.LegacyDec{}
-		}
-		// try v1 format
-		return math.LegacyNewDecFromBigInt(bfV1)
-	}
-	return baseFee
+	return params.BaseFee
 }
 
 // SetBaseFee set's the base fee in the store
