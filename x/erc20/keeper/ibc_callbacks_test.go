@@ -13,11 +13,11 @@ import (
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"
-	ibcmock "github.com/cosmos/ibc-go/v8/testing/mock"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v10/testing"
+	ibcmock "github.com/cosmos/ibc-go/v10/testing/mock"
 
 	"cosmossdk.io/math"
 
@@ -27,7 +27,7 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-var erc20Denom = "erc20/0xdac17f958d2ee523a2206206994597c13d831ec7"
+var erc20Denom = "erc20:0xdac17f958d2ee523a2206206994597c13d831ec7"
 
 func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	var ctx sdk.Context
@@ -46,7 +46,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	// Setup Cosmos <=> Cosmos EVM IBC relayer
 	sourceChannel := "channel-292"
 	cosmosEVMChannel := "channel-3"
-	path := fmt.Sprintf("%s/%s", transfertypes.PortID, cosmosEVMChannel)
+	hop := transfertypes.NewHop(transfertypes.PortID, cosmosEVMChannel)
 
 	timeoutHeight := clienttypes.NewHeight(0, 100)
 	disabledTimeoutTimestamp := uint64(0)
@@ -169,10 +169,10 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 			name: "no-op - base denomination",
 			malleate: func() {
 				// base denom should be prefixed
-				sourcePrefix := transfertypes.GetDenomPrefix(transfertypes.PortID, sourceChannel)
+				hop := transfertypes.NewHop(transfertypes.PortID, sourceChannel)
 				bondDenom, err := suite.network.App.StakingKeeper.BondDenom(ctx)
 				suite.Require().NoError(err)
-				prefixedDenom := sourcePrefix + bondDenom
+				prefixedDenom := transfertypes.NewDenom(bondDenom, hop).Path()
 				transfer := transfertypes.NewFungibleTokenPacketData(prefixedDenom, "100", secpAddrCosmos, ethsecpAddrEvmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
 				packet = channeltypes.NewPacket(bz, 1, transfertypes.PortID, sourceChannel, transfertypes.PortID, cosmosEVMChannel, timeoutHeight, 0)
@@ -200,8 +200,8 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 			name: "no-op - pair disabled",
 			malleate: func() {
 				pk1 := secp256k1.GenPrivKey()
-				sourcePrefix := transfertypes.GetDenomPrefix(transfertypes.PortID, sourceChannel)
-				prefixedDenom := sourcePrefix + registeredDenom
+				hop := transfertypes.NewHop(transfertypes.PortID, sourceChannel)
+				prefixedDenom := transfertypes.NewDenom(registeredDenom, hop).Path()
 				otherSecpAddrEvmos := sdk.AccAddress(pk1.PubKey().Address()).String()
 				transfer := transfertypes.NewFungibleTokenPacketData(prefixedDenom, "500", otherSecpAddrEvmos, ethsecpAddrEvmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
@@ -233,12 +233,9 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 			// get updated context after registering ERC20 pair
 			ctx = suite.network.GetContext()
 
-			// Set Denom Trace
-			denomTrace := transfertypes.DenomTrace{
-				Path:      path,
-				BaseDenom: registeredDenom,
-			}
-			suite.network.App.TransferKeeper.SetDenomTrace(ctx, denomTrace)
+			// Set Denom
+			denom := transfertypes.NewDenom(registeredDenom, hop)
+			suite.network.App.TransferKeeper.SetDenom(ctx, denom)
 
 			// Set Cosmos Channel
 			channel := channeltypes.Channel{

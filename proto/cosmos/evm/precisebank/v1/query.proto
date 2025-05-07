@@ -1,0 +1,46 @@
+syntax = "proto3";
+package cosmos.evm.precisebank.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/cosmos/evm/x/precisebank/types";
+option (gogoproto.goproto_getters_all) = false;
+
+// Query defines the gRPC querier service for precisebank module
+service Query {
+  // Remainder returns the amount backed by the reserve, but not yet owned by
+  // any account, i.e. not in circulation.
+  rpc Remainder(QueryRemainderRequest) returns (QueryRemainderResponse) {
+    option (google.api.http).get = "/cosmos/evm/precisebank/v1/remainder";
+  }
+
+  // FractionalBalance returns only the fractional balance of an address. This
+  // does not include any integer balance.
+  rpc FractionalBalance(QueryFractionalBalanceRequest) returns (QueryFractionalBalanceResponse) {
+    option (google.api.http).get = "/cosmos/evm/precisebank/v1/fractional_balance/{address}";
+  }
+}
+
+// QueryRemainderRequest defines the request type for Query/Remainder method.
+message QueryRemainderRequest {}
+
+// QueryRemainderResponse defines the response type for Query/Remainder method.
+message QueryRemainderResponse {
+  // remainder is the amount backed by the reserve, but not yet owned by any
+  // account, i.e. not in circulation.
+  cosmos.base.v1beta1.Coin remainder = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryFractionalBalanceRequest defines the request type for Query/FractionalBalance method.
+message QueryFractionalBalanceRequest {
+  // address is the account address to query  fractional balance for.
+  string address = 1;
+}
+
+// QueryFractionalBalanceResponse defines the response type for Query/FractionalBalance method.
+message QueryFractionalBalanceResponse {
+  // fractional_balance is the fractional balance of the address.
+  cosmos.base.v1beta1.Coin fractional_balance = 1 [(gogoproto.nullable) = false];
+}
