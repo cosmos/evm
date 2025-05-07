@@ -19,6 +19,6 @@ const (
 	ErrNoMatchingAllocation = "no matching allocation found for source port: %s, source channel: %s, and denom: %s"
 	// ErrDifferentOriginFromSender is raised when the origin address is not the same as the sender address.
 	ErrDifferentOriginFromSender = "origin address %s is not the same as sender address %s"
-	// ErrTraceFound is raised when the denom for the specified request does not exist.
-	ErrTraceFound = "denomination not found"
+	// ErrDenomNotFound is raised when the denom for the specified request does not exist.
+	ErrDenomNotFound = "denomination not found"
 )
