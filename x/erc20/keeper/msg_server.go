@@ -241,7 +241,7 @@ func (k Keeper) ConvertCoinNativeERC20(
 	sender sdk.AccAddress,
 ) error {
 	if !amount.IsPositive() {
-		return nil
+		return sdkerrors.Wrap(types.ErrNegativeToken, "converted coin amount must be positive")
 	}
 
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
