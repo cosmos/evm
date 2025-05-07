@@ -103,13 +103,19 @@ func (suite *AnteTestSuite) SetupTest() {
 	// get the denom and decimals set when initialized the chain
 	// to set them again
 	// when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()       //nolint:staticcheck
-	decimals := evmtypes.GetEVMCoinDecimals() //nolint:staticcheck
+	denom := evmtypes.GetEVMCoinDenom()                 //nolint:staticcheck
+	extendedDenom := evmtypes.GetEVMCoinExtendedDenom() //nolint:staticcheck
+	decimals := evmtypes.GetEVMCoinDecimals()           //nolint:staticcheck
+
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
 	err := configurator.
 		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(denom, uint8(decimals)).
+		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
+			Denom:         denom,
+			ExtendedDenom: extendedDenom,
+			Decimals:      decimals,
+		}).
 		Configure()
 	suite.Require().NoError(err)
 

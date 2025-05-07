@@ -18,12 +18,11 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evm "github.com/cosmos/evm/x/vm/types"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	"github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"cosmossdk.io/math"
 
@@ -52,35 +51,9 @@ func (suite *KeeperTestSuite) SetupTest() {
 	keys := keyring.New(2)
 	suite.otherDenom = "xmpl"
 
-	// Set custom genesis with capability record
-	customGenesis := network.CustomGenesisState{}
-
-	capParams := capabilitytypes.DefaultGenesis()
-	capParams.Index = 2
-	capParams.Owners = []capabilitytypes.GenesisOwners{
-		{
-			Index: 1,
-			IndexOwners: capabilitytypes.CapabilityOwners{
-				Owners: []capabilitytypes.Owner{
-					{
-						Module: "ibc",
-						Name:   "capabilities/ports/transfer/channels/channel-0",
-					},
-					{
-						Module: "transfer",
-						Name:   "capabilities/ports/transfer/channels/channel-0",
-					},
-				},
-			},
-		},
-	}
-
-	customGenesis[capabilitytypes.ModuleName] = capParams
-
 	nw := network.NewUnitTestNetwork(
 		network.WithPreFundedAccounts(keys.GetAllAccAddrs()...),
 		network.WithOtherDenoms([]string{suite.otherDenom}),
-		network.WithCustomGenesis(customGenesis),
 	)
 	gh := grpc.NewIntegrationHandler(nw)
 	tf := factory.New(nw, gh)
@@ -102,6 +75,11 @@ func (b *MockChannelKeeper) GetChannel(ctx sdk.Context, srcPort, srcChan string)
 	return args.Get(0).(channeltypes.Channel), true
 }
 
+func (b *MockChannelKeeper) HasChannel(ctx sdk.Context, srcPort, srcChan string) bool {
+	_ = b.Called(mock.Anything, mock.Anything, mock.Anything)
+	return true
+}
+
 func (b *MockChannelKeeper) GetNextSequenceSend(ctx sdk.Context, portID, channelID string) (uint64, bool) {
 	_ = b.Called(mock.Anything, mock.Anything, mock.Anything)
 	return 1, true
@@ -117,7 +95,7 @@ type MockICS4Wrapper struct {
 	mock.Mock
 }
 
-func (b *MockICS4Wrapper) WriteAcknowledgement(_ sdk.Context, _ *capabilitytypes.Capability, _ exported.PacketI, _ exported.Acknowledgement) error {
+func (b *MockICS4Wrapper) WriteAcknowledgement(_ sdk.Context, _ exported.PacketI, _ exported.Acknowledgement) error {
 	return nil
 }
 
@@ -127,7 +105,6 @@ func (b *MockICS4Wrapper) GetAppVersion(ctx sdk.Context, portID string, channelI
 
 func (b *MockICS4Wrapper) SendPacket(
 	ctx sdk.Context,
-	channelCap *capabilitytypes.Capability,
 	sourcePort string,
 	sourceChannel string,
 	timeoutHeight clienttypes.Height,
