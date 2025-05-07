@@ -2,13 +2,13 @@ package keeper_test
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/testutil/integration/common/factory"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/cosmos/evm/testutil/integration/common/factory"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -590,7 +590,7 @@ func (suite *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 			_, err = suite.MintERC20Token(contractAddr, senderHex, big.NewInt(tc.mint))
 			suite.Require().NoError(err)
 
-			//convert tokens to native first
+			// convert tokens to native first
 			convertERC20Msg := types.NewMsgConvertERC20(
 				math.NewInt(tc.mint),
 				sender,
@@ -608,7 +608,7 @@ func (suite *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 			suite.Require().NoError(err)
 			suite.Require().Equal(big.NewInt(0).Int64(), evmTokenBalanceBefore.(*big.Int).Int64())
 
-			//then convert native tokens back into EVM tokens
+			// then convert native tokens back into EVM tokens
 			convertNativeMsg := types.NewMsgConvertCoin(sdk.Coin{Denom: coinName, Amount: math.NewInt(tc.transfer)}, senderHex, sender)
 
 			if tc.expPass {

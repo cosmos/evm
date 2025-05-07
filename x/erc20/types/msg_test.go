@@ -230,7 +230,7 @@ func (suite *MsgsTestSuite) TestMsgConvertCoin() {
 
 	for i, tc := range testCases {
 		tx := types.MsgConvertCoin{
-			Coin:     sdk.Coin{tc.denom, tc.amount},
+			Coin:     sdk.Coin{Denom: tc.denom, Amount: tc.amount},
 			Receiver: tc.receiver,
 			Sender:   tc.sender,
 		}
