@@ -46,6 +46,15 @@ func NewMsgConvertERC20(amount math.Int, receiver sdk.AccAddress, contract, send
 	}
 }
 
+// NewMsgConvertERC20 creates a new instance of MsgConvertERC20
+func NewMsgConvertCoin(coin sdk.Coin, receiver common.Address, sender sdk.AccAddress) *MsgConvertCoin { //nolint: interfacer
+	return &MsgConvertCoin{
+		Coin:     coin,
+		Receiver: receiver.Hex(),
+		Sender:   sender.String(),
+	}
+}
+
 // Route should return the name of the module
 func (msg MsgConvertERC20) Route() string { return RouterKey }
 
