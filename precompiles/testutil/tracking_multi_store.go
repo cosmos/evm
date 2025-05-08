@@ -59,10 +59,6 @@ func (t *TrackingMultiStore) LatestVersion() int64 {
 	return t.Store.LatestVersion()
 }
 
-func (t *TrackingMultiStore) Copy() storetypes.CacheMultiStore {
-	return t.Store.Copy()
-}
-
 func (t *TrackingMultiStore) Write() {
 	t.Writes++
 	now := time.Now()
