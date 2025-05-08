@@ -11,11 +11,17 @@ import (
 )
 
 // TrackingMultiStore implements the CacheMultiStore interface, but tracks calls to the Write interface as
-// well ass the branches created via CacheMultiStore()
+// well as the branches created via CacheMultiStore()
 type TrackingMultiStore struct {
-	Store            storetypes.CacheMultiStore
-	Writes           int
-	WriteTS          *time.Time
+	// Store is the underlying CacheMultiStore being wrapped and tracked.
+	Store storetypes.CacheMultiStore
+	// Writes is the number of times Write() has been called on this store.
+	Writes int
+	// WriteTS is the timestamp of the last Write() call, used to determine write order.
+	WriteTS *time.Time
+	// HistoricalStores holds any CacheMultiStores created from this store via CacheMultiStore().
+	// Each represents a new *branch* of the same logical root, not a hierarchical child.
+	// Branches are tracked in order of creation, but have no implied depth or parent-child relationship.
 	HistoricalStores []*TrackingMultiStore
 }
 

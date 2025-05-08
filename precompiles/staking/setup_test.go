@@ -27,8 +27,9 @@ type PrecompileTestSuite struct {
 	grpcHandler grpc.Handler
 	keyring     testkeyring.Keyring
 
-	bondDenom  string
-	precompile *staking.Precompile
+	bondDenom     string
+	precompile    *staking.Precompile
+	customGenesis bool
 }
 
 func TestPrecompileUnitTestSuite(t *testing.T) {
@@ -49,9 +50,14 @@ func (s *PrecompileTestSuite) SetupTest() {
 	bankGenesis := banktypes.DefaultGenesisState()
 	bankGenesis.Balances = balances
 	customGenesis[banktypes.ModuleName] = bankGenesis
-	nw := network.NewUnitTestNetwork(
+	cfgOpts := []network.ConfigOption{
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-		network.WithCustomGenesis(customGenesis),
+	}
+	if s.customGenesis {
+		cfgOpts = append(cfgOpts, network.WithCustomGenesis(customGenesis))
+	}
+	nw := network.NewUnitTestNetwork(
+		cfgOpts...,
 	)
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)

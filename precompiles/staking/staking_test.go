@@ -505,6 +505,7 @@ func (s *PrecompileTestSuite) TestRun() {
 
 // TestCMS tests the cache multistore writes.
 func (s *PrecompileTestSuite) TestCMS() {
+	s.customGenesis = true
 	var ctx sdk.Context
 	testcases := []struct {
 		name          string
