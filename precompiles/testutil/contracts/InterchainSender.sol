@@ -214,7 +214,7 @@ contract InterchainSender {
 
     function testDenom(
         string memory hash
-    ) public view returns (Denom memory denomTrace) {
+    ) public view returns (Denom memory denom) {
         return ICS20_CONTRACT.denom(hash);
     }
 

@@ -5,6 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -32,7 +34,6 @@ type AccountKeeper interface {
 // BankKeeper defines the expected interface needed to retrieve account balances.
 type BankKeeper interface {
 	authtypes.BankKeeper
-	GetAllBalances(ctx context.Context, addr sdk.AccAddress) sdk.Coins
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
@@ -56,6 +57,12 @@ type FeeMarketKeeper interface {
 // Erc20Keeper defines the expected interface needed to instantiate ERC20 precompiles.
 type Erc20Keeper interface {
 	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
+}
+
+// EvmHooks event hooks for evm tx processing
+type EvmHooks interface {
+	// Must be called after tx is processed successfully, if return an error, the whole transaction is reverted.
+	PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error
 }
 
 // BankWrapper defines the methods required by the wrapper around

@@ -73,7 +73,7 @@ func RegisterEvmosERC20Coins(
 	return tokenPair, nil
 }
 
-// RegisterIBCERC20Coins uses the UnitNetwork to register the denomTrace as an
+// RegisterIBCERC20Coins uses the UnitNetwork to register the denom as an
 // ERC20 token. The function performs all the required steps for the registration
 // like registering the denom in the transfer keeper and minting the token
 // with the bank. Returns the TokenPair or an error.

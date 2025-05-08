@@ -41,6 +41,12 @@ var (
 	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
 	SixDecimalsChainID = "ossix_9002-2"
 
+	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
+	TwelveDecimalsChainID = "ostwelve_9003-3"
+
+	// TwoDecimalsChainID provides a chain ID which is being set up with 2 decimals
+	TwoDecimalsChainID = "ostwo_9004-4"
+
 	// ExampleChainCoinInfo provides the coin info for the example chain
 	//
 	// It is a map of the chain id and its corresponding EvmCoinInfo
@@ -48,14 +54,28 @@ var (
 	// chain id
 	ExampleChainCoinInfo = map[string]evmtypes.EvmCoinInfo{
 		ExampleChainID: {
-			Denom:        ExampleAttoDenom,
-			DisplayDenom: ExampleDisplayDenom,
-			Decimals:     evmtypes.EighteenDecimals,
+			Denom:         ExampleAttoDenom,
+			ExtendedDenom: ExampleAttoDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
 		},
 		SixDecimalsChainID: {
-			Denom:        ExampleMicroDenom,
-			DisplayDenom: ExampleDisplayDenom,
-			Decimals:     evmtypes.SixDecimals,
+			Denom:         "utest",
+			ExtendedDenom: "atest",
+			DisplayDenom:  "test",
+			Decimals:      evmtypes.SixDecimals,
+		},
+		TwelveDecimalsChainID: {
+			Denom:         "ptest2",
+			ExtendedDenom: "atest2",
+			DisplayDenom:  "test2",
+			Decimals:      evmtypes.TwelveDecimals,
+		},
+		TwoDecimalsChainID: {
+			Denom:         "ctest3",
+			ExtendedDenom: "atest3",
+			DisplayDenom:  "test3",
+			Decimals:      evmtypes.TwoDecimals,
 		},
 	}
 )

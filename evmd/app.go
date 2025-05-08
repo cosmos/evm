@@ -36,6 +36,9 @@ import (
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
+	"github.com/cosmos/evm/x/precisebank"
+	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -96,6 +99,8 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	txmodule "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	authzmodule "github.com/cosmos/cosmos-sdk/x/authz/module"
@@ -158,9 +163,10 @@ var (
 		govtypes.ModuleName:            {authtypes.Burner},
 
 		// Cosmos EVM modules
-		evmtypes.ModuleName:       {authtypes.Minter, authtypes.Burner},
-		feemarkettypes.ModuleName: nil,
-		erc20types.ModuleName:     {authtypes.Minter, authtypes.Burner},
+		evmtypes.ModuleName:         {authtypes.Minter, authtypes.Burner},
+		feemarkettypes.ModuleName:   nil,
+		erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
+		precisebanktypes.ModuleName: {authtypes.Minter, authtypes.Burner},
 	}
 )
 
@@ -204,9 +210,10 @@ type EVMD struct {
 	TransferKeeper transferkeeper.Keeper
 
 	// Cosmos EVM keepers
-	FeeMarketKeeper feemarketkeeper.Keeper
-	EVMKeeper       *evmkeeper.Keeper
-	Erc20Keeper     erc20keeper.Keeper
+	FeeMarketKeeper   feemarketkeeper.Keeper
+	EVMKeeper         *evmkeeper.Keeper
+	Erc20Keeper       erc20keeper.Keeper
+	PreciseBankKeeper precisebankkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -288,7 +295,7 @@ func NewExampleApp(
 		// ibc keys
 		ibcexported.StoreKey, ibctransfertypes.StoreKey,
 		// Cosmos EVM store keys
-		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey,
+		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
@@ -474,6 +481,16 @@ func NewExampleApp(
 		tkeys[feemarkettypes.TransientKey],
 	)
 
+	// Set up PreciseBank keeper
+	//
+	// NOTE: PreciseBank is not needed if SDK use 18 decimals for gas coin. Use BankKeeper instead.
+	app.PreciseBankKeeper = precisebankkeeper.NewKeeper(
+		appCodec,
+		keys[precisebanktypes.StoreKey],
+		app.BankKeeper,
+		app.AccountKeeper,
+	)
+
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
@@ -483,7 +500,7 @@ func NewExampleApp(
 		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey],
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
-		app.BankKeeper,
+		app.PreciseBankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
 		&app.Erc20Keeper,
@@ -563,7 +580,7 @@ func NewExampleApp(
 		NewAvailableStaticPrecompiles(
 			*app.StakingKeeper,
 			app.DistrKeeper,
-			app.BankKeeper,
+			app.PreciseBankKeeper,
 			app.Erc20Keeper,
 			app.AuthzKeeper,
 			app.TransferKeeper,
@@ -597,6 +614,7 @@ func NewExampleApp(
 		params.NewAppModule(app.ParamsKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		consensus.NewAppModule(appCodec, app.ConsensusParamsKeeper),
+		vesting.NewAppModule(app.AccountKeeper, app.BankKeeper),
 		// IBC modules
 		ibc.NewAppModule(app.IBCKeeper),
 		ibctm.NewAppModule(tmLightClientModule),
@@ -605,6 +623,7 @@ func NewExampleApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
+		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager which is in charge of setting up basic,
@@ -654,6 +673,8 @@ func NewExampleApp(
 		authtypes.ModuleName, banktypes.ModuleName, govtypes.ModuleName, genutiltypes.ModuleName,
 		authz.ModuleName, feegrant.ModuleName,
 		paramstypes.ModuleName, consensusparamtypes.ModuleName,
+		precisebanktypes.ModuleName,
+		vestingtypes.ModuleName,
 	)
 
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
@@ -671,6 +692,8 @@ func NewExampleApp(
 		slashingtypes.ModuleName, minttypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
 		feegrant.ModuleName, paramstypes.ModuleName, upgradetypes.ModuleName, consensusparamtypes.ModuleName,
+		precisebanktypes.ModuleName,
+		vestingtypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -689,10 +712,11 @@ func NewExampleApp(
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
 		erc20types.ModuleName,
+		precisebanktypes.ModuleName,
 
 		ibctransfertypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
-		feegrant.ModuleName, upgradetypes.ModuleName,
+		feegrant.ModuleName, upgradetypes.ModuleName, vestingtypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)

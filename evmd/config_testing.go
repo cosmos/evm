@@ -10,8 +10,6 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -20,24 +18,40 @@ import (
 // chain id
 var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 	EighteenDecimalsChainID: {
-		Denom:        ExampleChainDenom,
-		DisplayDenom: ExampleChainDenom,
-		Decimals:     evmtypes.EighteenDecimals,
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
 	},
 	SixDecimalsChainID: {
-		Denom:        testconstants.ExampleMicroDenom,
-		DisplayDenom: testconstants.ExampleDisplayDenom,
-		Decimals:     evmtypes.SixDecimals,
+		Denom:         "utest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.SixDecimals,
+	},
+	TwelveDecimalsChainID: {
+		Denom:         "ptest2",
+		ExtendedDenom: "atest2",
+		DisplayDenom:  "test2",
+		Decimals:      evmtypes.TwelveDecimals,
+	},
+	TwoDecimalsChainID: {
+		Denom:         "ctest3",
+		ExtendedDenom: "atest3",
+		DisplayDenom:  "test3",
+		Decimals:      evmtypes.TwoDecimals,
 	},
 	TestChainID1: {
-		Denom:        ExampleChainDenom,
-		DisplayDenom: ExampleChainDenom,
-		Decimals:     evmtypes.EighteenDecimals,
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleChainDenom,
+		Decimals:      evmtypes.EighteenDecimals,
 	},
 	TestChainID2: {
-		Denom:        ExampleChainDenom,
-		DisplayDenom: ExampleChainDenom,
-		Decimals:     evmtypes.EighteenDecimals,
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleChainDenom,
+		Decimals:      evmtypes.EighteenDecimals,
 	},
 }
 
@@ -67,20 +81,15 @@ func EvmAppOptions(chainID string) error {
 		return err
 	}
 
-	baseDenom, err := sdk.GetBaseDenom()
-	if err != nil {
-		return err
-	}
-
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
 
 	configurator := evmtypes.NewEVMConfigurator()
 	// reset configuration to set the new one
 	configurator.ResetTestConfig()
-	err = configurator.
+	err := configurator.
 		WithExtendedEips(cosmosEVMActivators).
 		WithChainConfig(ethCfg).
-		WithEVMCoinInfo(baseDenom, uint8(coinInfo.Decimals)).
+		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {
 		return err
