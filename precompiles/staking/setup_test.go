@@ -1,6 +1,11 @@
 package staking_test
 
 import (
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -30,8 +35,21 @@ func TestPrecompileUnitTestSuite(t *testing.T) {
 
 func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
+	customGenesis := network.CustomGenesisState{}
+	// mint some coin to fee collector
+	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000)))
+	balances := []banktypes.Balance{
+		{
+			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
+			Coins:   coins,
+		},
+	}
+	bankGenesis := banktypes.DefaultGenesisState()
+	bankGenesis.Balances = balances
+	customGenesis[banktypes.ModuleName] = bankGenesis
 	nw := network.NewUnitTestNetwork(
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
+		network.WithCustomGenesis(customGenesis),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
