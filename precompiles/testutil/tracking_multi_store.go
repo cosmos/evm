@@ -32,7 +32,7 @@ func (t *TrackingMultiStore) CacheWrapWithTrace(w io.Writer, tc storetypes.Trace
 }
 
 func (t *TrackingMultiStore) CacheMultiStoreWithVersion(version int64) (storetypes.CacheMultiStore, error) {
-	return t.CacheMultiStoreWithVersion(version)
+	return t.Store.CacheMultiStoreWithVersion(version)
 }
 
 func (t *TrackingMultiStore) GetStore(key storetypes.StoreKey) storetypes.Store {
@@ -76,6 +76,7 @@ func (t *TrackingMultiStore) CacheMultiStore() storetypes.CacheMultiStore {
 // ValidateWrites tests the number of writes to a tree of tracking multi stores,
 // and that all the writes in a branching cache multistore/cascade upwards
 func ValidateWrites(t *testing.T, ms *TrackingMultiStore, expWrites int) {
+	t.Helper()
 	toTestCMS := []*TrackingMultiStore{ms}
 	writes := 0
 	var writeTS *time.Time
@@ -91,9 +92,7 @@ func ValidateWrites(t *testing.T, ms *TrackingMultiStore, expWrites int) {
 			writeTS = currCMS.WriteTS
 		}
 		if len(currCMS.HistoricalStores) > 0 {
-			for _, s := range currCMS.HistoricalStores {
-				toTestCMS = append(toTestCMS, s)
-			}
+			toTestCMS = append(toTestCMS, currCMS.HistoricalStores...)
 		}
 	}
 	require.Equal(t, expWrites, writes)
