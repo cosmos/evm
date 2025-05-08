@@ -1,10 +1,11 @@
 package testutil
 
 import (
-	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	storetypes "cosmossdk.io/store/types"
 )
