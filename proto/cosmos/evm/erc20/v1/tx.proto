@@ -20,6 +20,11 @@ service Msg {
   rpc ConvertERC20(MsgConvertERC20) returns (MsgConvertERC20Response) {
     option (google.api.http).get = "/cosmos/evm/erc20/v1/tx/convert_erc20";
   };
+  // ConvertCoin mints a ERC20 token representation of the native Cosmos coin
+  // that is registered on the token mapping.
+  rpc ConvertCoin(MsgConvertCoin) returns (MsgConvertCoinResponse) {
+    option (google.api.http).get = "/cosmos/evm/erc20/v1/tx/convert_coin";
+  }
   // UpdateParams defines a governance operation for updating the x/erc20 module
   // parameters. The authority is hard-coded to the Cosmos SDK x/gov module
   // account
@@ -60,6 +65,8 @@ message MsgConvertERC20Response {}
 
 // MsgConvertCoin defines a Msg to convert a native Cosmos coin to a ERC20 token
 message MsgConvertCoin {
+  option (amino.name) = "cosmos/evm/x/erc20/MsgConvertCoin";
+  option (cosmos.msg.v1.signer) = "sender";
   // coin is a Cosmos coin whose denomination is registered in a token pair. The
   // coin amount defines the amount of coins to convert.
   cosmos.base.v1beta1.Coin coin = 1 [ (gogoproto.nullable) = false ];

@@ -21,4 +21,5 @@ var (
 	ErrInvalidIBC               = errorsmod.Register(ModuleName, 14, "invalid IBC transaction")
 	ErrTokenPairOwnedByModule   = errorsmod.Register(ModuleName, 15, "token pair owned by module")
 	ErrNativeConversionDisabled = errorsmod.Register(ModuleName, 16, "native coins manual conversion is disabled")
+	ErrNegativeToken            = errorsmod.Register(ModuleName, 17, "token amount is negative")
 )
