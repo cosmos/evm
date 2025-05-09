@@ -60,7 +60,7 @@ func setTestChainConfig(cc *ChainConfig) error {
 	if testChainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig. Call the configurators ResetTestConfig method before configuring a new chain.")
 	}
-	config := DefaultChainConfig("")
+	config := DefaultChainConfig(0)
 	if cc != nil {
 		config = cc
 	}

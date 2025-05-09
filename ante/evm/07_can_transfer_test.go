@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"fmt"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"math/big"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -21,7 +22,10 @@ import (
 func (suite *EvmAnteTestSuite) TestCanTransfer() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)

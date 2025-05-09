@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
-
-	ostypes "github.com/cosmos/evm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txTypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -97,14 +96,14 @@ func legacyDecodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		FeePayer: feePayer,
 	}
 
-	chainID, err := ostypes.ParseChainID(aminoDoc.ChainID)
+	chainID, err := strconv.ParseUint(aminoDoc.ChainID, 10, 64)
 	if err != nil {
 		return apitypes.TypedData{}, errors.New("invalid chain ID passed as argument")
 	}
 
 	typedData, err := LegacyWrapTxToTypedData(
 		protoCodec,
-		chainID.Uint64(),
+		chainID,
 		msg,
 		signDocBytes,
 		feeDelegation,
@@ -167,7 +166,7 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error
 
 	signerInfo := authInfo.SignerInfos[0]
 
-	chainID, err := ostypes.ParseChainID(signDoc.ChainId)
+	chainID, err := strconv.ParseUint(signDoc.ChainId, 10, 64)
 	if err != nil {
 		return apitypes.TypedData{}, fmt.Errorf("invalid chain ID passed as argument: %w", err)
 	}
@@ -199,7 +198,7 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error
 
 	typedData, err := LegacyWrapTxToTypedData(
 		protoCodec,
-		chainID.Uint64(),
+		chainID,
 		msg,
 		signBytes,
 		feeDelegation,

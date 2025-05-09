@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"slices"
 	"time"
 
@@ -159,7 +160,7 @@ func createBalances(
 }
 
 // createTestingApp creates an evmos app
-func createTestingApp(chainID string, customBaseAppOptions ...func(*baseapp.BaseApp)) *exampleapp.EVMD {
+func createTestingApp(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) *exampleapp.EVMD {
 	// Create evmos app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
@@ -173,6 +174,7 @@ func createTestingApp(chainID string, customBaseAppOptions ...func(*baseapp.Base
 		nil,
 		loadLatest,
 		appOptions,
+		evmChainID,
 		exampleapp.EvmAppOptions,
 		baseAppOptions...,
 	)
@@ -486,10 +488,13 @@ func setDefaultMintGenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosm
 	return genesisState
 }
 
-func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
+func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.EVMD, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
 	// NOTE: here we are using the setup from the example chain
 	erc20Gen := exampleapp.NewErc20GenesisState()
-	updatedErc20Gen := updateErc20GenesisStateForChainID(cosmosEVMApp.ChainID(), *erc20Gen)
+	updatedErc20Gen := updateErc20GenesisStateForChainID(testconstants.ChainID{
+		ChainID:    cosmosEVMApp.ChainID(),
+		EVMChainID: evmChainID,
+	}, *erc20Gen)
 
 	genesisState[erc20types.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedErc20Gen)
 	return genesisState
@@ -497,7 +502,7 @@ func setDefaultErc20GenesisState(cosmosEVMApp *exampleapp.EVMD, genesisState cos
 
 // defaultAuthGenesisState sets the default genesis state
 // for the testing setup
-func newDefaultGenesisState(cosmosEVMApp *exampleapp.EVMD, params defaultGenesisParams) cosmosevmtypes.GenesisState {
+func newDefaultGenesisState(cosmosEVMApp *exampleapp.EVMD, evmChainID uint64, params defaultGenesisParams) cosmosevmtypes.GenesisState {
 	genesisState := cosmosEVMApp.DefaultGenesis()
 
 	genesisState = setDefaultAuthGenesisState(cosmosEVMApp, genesisState, params.genAccounts)
@@ -507,7 +512,7 @@ func newDefaultGenesisState(cosmosEVMApp *exampleapp.EVMD, params defaultGenesis
 	genesisState = setDefaultFeeMarketGenesisState(cosmosEVMApp, genesisState, params.feemarket)
 	genesisState = setDefaultSlashingGenesisState(cosmosEVMApp, genesisState, params.slashing)
 	genesisState = setDefaultMintGenesisState(cosmosEVMApp, genesisState, params.mint)
-	genesisState = setDefaultErc20GenesisState(cosmosEVMApp, genesisState)
+	genesisState = setDefaultErc20GenesisState(cosmosEVMApp, evmChainID, genesisState)
 
 	return genesisState
 }

@@ -3,6 +3,7 @@ package eip712_test
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -345,7 +346,7 @@ func (suite *EIP712TestSuite) TestEIP712() {
 				err = txBuilder.SetSignatures([]signing.SignatureV2{txSig}...)
 				suite.Require().NoError(err)
 
-				chainID := constants.ExampleChainID
+				chainID := strconv.FormatUint(constants.ExampleChainID.EVMChainID, 10)
 				if tc.chainID != "" {
 					chainID = tc.chainID
 				}

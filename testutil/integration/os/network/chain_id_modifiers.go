@@ -44,7 +44,7 @@ func generateBankGenesisMetadata() banktypes.Metadata {
 
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID string, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
+func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
 	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
@@ -52,7 +52,7 @@ func updateErc20GenesisStateForChainID(chainID string, erc20GenesisState erc20ty
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct
 // WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID string, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
+func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	testnetAddress := GetWEVMOSContractHex(chainID)
 	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
 

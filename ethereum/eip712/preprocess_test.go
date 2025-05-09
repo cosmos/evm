@@ -30,7 +30,7 @@ import (
 // Testing Constants
 var (
 	// chainID is used in EIP-712 tests.
-	chainID = constants.ExampleChainID
+	chainID = uint64(constants.ExampleEIP155ChainID)
 
 	ctx = client.Context{}.WithTxConfig(
 		encoding.MakeConfig().TxConfig,
@@ -153,7 +153,7 @@ func TestInvalidChainId(t *testing.T) {
 	txBuilder := ctx.TxConfig.NewTxBuilder()
 
 	err := eip712.PreprocessLedgerTx(
-		"invalid-chain-id",
+		0,
 		keyring.TypeLedger,
 		txBuilder,
 	)

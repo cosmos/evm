@@ -3,10 +3,9 @@ package eip712
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
-
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -100,13 +99,13 @@ func decodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		return apitypes.TypedData{}, err
 	}
 
-	chainID, err := cosmosevmtypes.ParseChainID(aminoDoc.ChainID)
+	chainID, err := strconv.ParseUint(aminoDoc.ChainID, 10, 64)
 	if err != nil {
 		return apitypes.TypedData{}, errors.New("invalid chain ID passed as argument")
 	}
 
 	typedData, err := WrapTxToTypedData(
-		chainID.Uint64(),
+		chainID,
 		signDocBytes,
 	)
 	if err != nil {
@@ -164,7 +163,7 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 
 	signerInfo := authInfo.SignerInfos[0]
 
-	chainID, err := cosmosevmtypes.ParseChainID(signDoc.ChainId)
+	chainID, err := strconv.ParseUint(signDoc.ChainId, 10, 64)
 	if err != nil {
 		return apitypes.TypedData{}, fmt.Errorf("invalid chain ID passed as argument: %w", err)
 	}
@@ -186,7 +185,7 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 	)
 
 	typedData, err := WrapTxToTypedData(
-		chainID.Uint64(),
+		chainID,
 		signBytes,
 	)
 	if err != nil {

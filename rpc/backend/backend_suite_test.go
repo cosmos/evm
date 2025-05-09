@@ -74,7 +74,7 @@ func (suite *BackendTestSuite) SetupTest() {
 
 	nw := testnetwork.New()
 	encodingConfig := nw.GetEncodingConfig()
-	clientCtx := client.Context{}.WithChainID(ChainID).
+	clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
 		WithHeight(1).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithKeyringDir(clientDir).

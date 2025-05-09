@@ -44,10 +44,10 @@ func (suite *GenesisTestSuite) SetupTest() {
 	consAddress := sdk.ConsAddress(utiltx.GenerateAddress().Bytes())
 
 	chainID := constants.ExampleChainID
-	suite.app = exampleapp.Setup(suite.T(), chainID)
+	suite.app = exampleapp.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
 	suite.ctx = suite.app.BaseApp.NewContextLegacy(false, tmproto.Header{
 		Height:          1,
-		ChainID:         chainID,
+		ChainID:         chainID.ChainID,
 		Time:            time.Now().UTC(),
 		ProposerAddress: consAddress.Bytes(),
 

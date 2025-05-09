@@ -57,7 +57,7 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig()
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	err := exampleapp.EvmAppOptions("cosmos_9001-1")
+	err := exampleapp.EvmAppOptions(9001)
 	suite.Require().NoError(err)
 }
 

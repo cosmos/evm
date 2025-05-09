@@ -89,7 +89,7 @@ func (suite *AnteTestSuite) SetupTest() {
 
 	suite.Require().NotNil(suite.network.App.AppCodec())
 
-	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetChainID())
+	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 	if !suite.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt

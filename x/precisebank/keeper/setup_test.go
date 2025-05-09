@@ -30,7 +30,7 @@ func (suite *KeeperIntegrationTestSuite) SetupTest() {
 	suite.SetupTestWithChainID(testconstants.SixDecimalsChainID)
 }
 
-func (suite *KeeperIntegrationTestSuite) SetupTestWithChainID(chainID string) {
+func (suite *KeeperIntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
 	suite.keyring = keyring.New(2)
 
 	nw := network.NewUnitTestNetwork(

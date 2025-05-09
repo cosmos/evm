@@ -37,7 +37,7 @@ func TestPrecompileUnitTestSuite(t *testing.T) {
 // SetupTest allows to configure the testing suite embedding a network with a
 // custom chainID. This is important to check that the correct address is used
 // for the precompile.
-func (s *PrecompileUnitTestSuite) SetupTest(chainID string) {
+func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
 	keyring := keyring.New(2)
 
 	integrationNetwork := network.NewUnitTestNetwork(
@@ -88,7 +88,7 @@ type WithdrawalEvent struct {
 func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 	testCases := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "mainnet",
@@ -147,7 +147,7 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 	testCases := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "mainnet",

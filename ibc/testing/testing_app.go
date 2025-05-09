@@ -21,6 +21,7 @@ func SetupExampleApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
+		0,
 		testutil.NoOpEvmAppOptions,
 	)
 	// disable base fee for testing

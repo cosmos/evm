@@ -364,7 +364,7 @@ func (suite *KeeperIntegrationTestSuite) TestMintCoins() {
 func (suite *KeeperIntegrationTestSuite) TestMintCoins_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "6 decimals",

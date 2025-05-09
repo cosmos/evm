@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"fmt"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
@@ -20,7 +21,10 @@ import (
 func (suite *EvmAnteTestSuite) TestCheckGasWanted() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
