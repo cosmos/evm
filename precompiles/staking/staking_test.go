@@ -485,7 +485,6 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"fail - contract gas limit is < gas cost to run a query / tx",
 			func(delegator testkeyring.Key) []byte {
-
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -503,7 +502,6 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - delegate transaction",
 			func(delegator testkeyring.Key) []byte {
-
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -521,7 +519,6 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - undelegate transaction",
 			func(delegator testkeyring.Key) []byte {
-
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					delegator.Addr,
@@ -539,7 +536,6 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - redelegate transaction",
 			func(delegator testkeyring.Key) []byte {
-
 				input, err := s.precompile.Pack(
 					staking.RedelegateMethod,
 					delegator.Addr,
