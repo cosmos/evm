@@ -58,7 +58,7 @@ func RegisterERC20(tf factory.TxFactory, network network.Network, data ERC20Regi
 	}
 
 	proposal := erc20types.MsgRegisterERC20{
-		Authority:      authtypes.NewModuleAddress("gov").String(),
+		Signer:         authtypes.NewModuleAddress("gov").String(),
 		Erc20Addresses: data.Addresses,
 	}
 

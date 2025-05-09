@@ -166,7 +166,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			tc.malleate()
 
 			_, err = suite.network.App.Erc20Keeper.RegisterERC20(ctx, &types.MsgRegisterERC20{
-				Authority:      authtypes.NewModuleAddress("gov").String(),
+				Signer:         suite.keyring.GetAccAddr(0).String(),
 				Erc20Addresses: []string{contractAddr.Hex()},
 			})
 			metadata, found := suite.network.App.BankKeeper.GetDenomMetaData(ctx, coinName)

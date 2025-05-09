@@ -96,7 +96,7 @@ func (suite *MsgsTestSuite) TestMsgConvertERC20() {
 		{
 			"invalid receiver address",
 			math.NewInt(100),
-			sdk.AccAddress{}.String(),
+			"not_a_hex_address",
 			utiltx.GenerateAddress().String(),
 			utiltx.GenerateAddress().String(),
 			false,
@@ -121,6 +121,119 @@ func (suite *MsgsTestSuite) TestMsgConvertERC20() {
 
 	for i, tc := range testCases {
 		tx := types.MsgConvertERC20{tc.contract, tc.amount, tc.receiver, tc.sender}
+		err := tx.ValidateBasic()
+
+		if tc.expectPass {
+			suite.Require().NoError(err, "valid test %d failed: %s, %v", i, tc.msg)
+		} else {
+			suite.Require().Error(err, "invalid test %d passed: %s, %v", i, tc.msg)
+		}
+	}
+}
+
+func (suite *MsgsTestSuite) TestMsgConvertCoinGetters() {
+	msgInvalid := types.MsgConvertCoin{}
+	msg := types.NewMsgConvertCoin(
+		sdk.NewCoin(
+			"atest",
+			math.NewInt(100),
+		),
+		utiltx.GenerateAddress(),
+		sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
+	)
+	suite.Require().Equal(types.RouterKey, msg.Route())
+	suite.Require().Equal(types.TypeMsgConvertCoin, msg.Type())
+	suite.Require().NotNil(msgInvalid.GetSignBytes())
+}
+
+func (suite *MsgsTestSuite) TestNewMsgConvertCoin() {
+	testCases := []struct {
+		msg        string
+		denom      string
+		amount     math.Int
+		receiver   string
+		sender     string
+		expectPass bool
+	}{
+		{
+			"msg convert coin - pass",
+			"atest",
+			math.NewInt(100),
+			utiltx.GenerateAddress().String(),
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()).String(),
+			true,
+		},
+	}
+
+	for i, tc := range testCases {
+		tx := types.NewMsgConvertCoin(sdk.NewCoin(tc.denom, tc.amount), common.HexToAddress(tc.receiver), sdk.MustAccAddressFromBech32(tc.sender))
+		err := tx.ValidateBasic()
+
+		if tc.expectPass {
+			suite.Require().NoError(err, "valid test %d failed: %s, %v", i, tc.msg)
+		} else {
+			suite.Require().Error(err, "invalid test %d passed: %s, %v", i, tc.msg)
+		}
+	}
+}
+
+func (suite *MsgsTestSuite) TestMsgConvertCoin() {
+	testCases := []struct {
+		msg        string
+		denom      string
+		amount     math.Int
+		receiver   string
+		sender     string
+		expectPass bool
+	}{
+		{
+			"denom cannot be empty",
+			"",
+			math.NewInt(100),
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()).String(),
+			utiltx.GenerateAddress().String(),
+			false,
+		},
+		{
+			"cannot mint a non-positive amount",
+			"atest",
+			math.NewInt(-100),
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()).String(),
+			utiltx.GenerateAddress().String(),
+			false,
+		},
+		{
+			"invalid sender address",
+			"atest",
+			math.NewInt(100),
+			utiltx.GenerateAddress().String(),
+			sdk.AccAddress{}.String(),
+			false,
+		},
+		{
+			"invalid receiver hex address",
+			"atest",
+			math.NewInt(100),
+			"not_a_hex_address",
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()).String(),
+			false,
+		},
+		{
+			"msg convert coin - pass",
+			"atest",
+			math.NewInt(100),
+			utiltx.GenerateAddress().String(),
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()).String(),
+			true,
+		},
+	}
+
+	for i, tc := range testCases {
+		tx := types.MsgConvertCoin{
+			Coin:     sdk.Coin{Denom: tc.denom, Amount: tc.amount},
+			Receiver: tc.receiver,
+			Sender:   tc.sender,
+		}
 		err := tx.ValidateBasic()
 
 		if tc.expectPass {

@@ -19,6 +19,7 @@
 ### FEATURES
 
 - [\#69](https://github.com/cosmos/evm/pull/69) Add new `x/precisebank` module with bank decimal extension for EVM usage.
+- [\#84](https://github.com/cosmos/evm/pull/84) permissionless erc20 registration to cosmos coin conversion
 
 ### STATE BREAKING
 
