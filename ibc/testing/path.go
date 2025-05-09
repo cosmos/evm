@@ -125,7 +125,7 @@ func (path *Path) RelayPacketWithResults(packet channeltypes.Packet) (*abci.Exec
 	return nil, nil, errors.New("packet commitment does not exist on either endpoint for provided packet")
 }
 
-// RelayPacket attempts to relay the packet first on EndpointA and then on EndpointB
+// RelayPacketV2 attempts to relay the v2 packet first on EndpointA and then on EndpointB
 // if EndpointA does not contain a packet commitment for that packet. An error is returned
 // if a relay step fails or the packet commitment does not exist on either endpoint.
 func (path *Path) RelayPacketV2(packet channeltypesv2.Packet) error {

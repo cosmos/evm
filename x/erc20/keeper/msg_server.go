@@ -186,6 +186,46 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 	return &types.MsgConvertERC20Response{}, nil
 }
 
+// ConvertCoin converts native Cosmos coins into ERC20 tokens for both
+// Cosmos-native and ERC20 TokenPair Owners
+func (k Keeper) ConvertCoin(
+	goCtx context.Context,
+	msg *types.MsgConvertCoin,
+) (*types.MsgConvertCoinResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Error checked during msg validation
+	sender := sdk.MustAccAddressFromBech32(msg.Sender)
+	receiver := common.HexToAddress(msg.Receiver)
+
+	pair, err := k.MintingEnabled(ctx, sender, receiver.Bytes(), msg.Coin.Denom)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check ownership and execute conversion
+	switch {
+	case pair.IsNativeERC20():
+		// Remove token pair if contract is suicided
+		acc := k.evmKeeper.GetAccountWithoutBalance(ctx, pair.GetERC20Contract())
+		if acc == nil || !acc.IsContract() {
+			k.DeleteTokenPair(ctx, pair)
+			k.Logger(ctx).Debug(
+				"deleting selfdestructed token pair from state",
+				"contract", pair.Erc20Address,
+			)
+			// NOTE: return nil error to persist the changes from the deletion
+			return nil, nil
+		}
+
+		return nil, k.ConvertCoinNativeERC20(ctx, pair, msg.Coin.Amount, receiver, sender)
+	case pair.IsNativeCoin():
+		return nil, types.ErrNativeConversionDisabled
+	}
+
+	return nil, types.ErrUndefinedOwner
+}
+
 // ConvertCoinNativeERC20 handles the coin conversion for a native ERC20 token
 // pair:
 //   - escrow Coins on module account
@@ -201,7 +241,7 @@ func (k Keeper) ConvertCoinNativeERC20(
 	sender sdk.AccAddress,
 ) error {
 	if !amount.IsPositive() {
-		return nil
+		return sdkerrors.Wrap(types.ErrNegativeToken, "converted coin amount must be positive")
 	}
 
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
@@ -275,18 +315,13 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-// RegisterERC20 implements the gRPC MsgServer interface. After a successful governance vote
-// it updates creates the token pair for an ERC20 contract if the requested authority
-// is the Cosmos SDK governance module account
+// RegisterERC20 implements the gRPC MsgServer interface. Any account can permissionlessly
+// register a native ERC20 contract to map to a Cosmos Coin.
 func (k *Keeper) RegisterERC20(goCtx context.Context, req *types.MsgRegisterERC20) (*types.MsgRegisterERC20Response, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	// Check if the conversion is globally enabled
 	if !k.IsERC20Enabled(ctx) {
 		return nil, types.ErrERC20Disabled.Wrap("registration is currently disabled by governance")
-	}
-
-	if err := k.validateAuthority(req.Authority); err != nil {
-		return nil, err
 	}
 
 	for _, addr := range req.Erc20Addresses {

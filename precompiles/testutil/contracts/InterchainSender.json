@@ -52,7 +52,7 @@
             }
           ],
           "internalType": "struct Denom",
-          "name": "denomTrace",
+          "name": "denom",
           "type": "tuple"
         }
       ],

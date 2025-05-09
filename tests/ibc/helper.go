@@ -49,7 +49,7 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain) *NativeErc20
 
 	// Register the contract
 	_, err = evmApp.Erc20Keeper.RegisterERC20(evmCtx, &erc20types.MsgRegisterERC20{
-		Authority:      authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Signer:         authtypes.NewModuleAddress(govtypes.ModuleName).String(), // does not have to be gov
 		Erc20Addresses: []string{contractAddr.Hex()},
 	})
 	if err != nil {
