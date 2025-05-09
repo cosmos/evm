@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"math/big"
+	time "time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -29,6 +30,9 @@ type AccountKeeper interface {
 	GetParams(ctx context.Context) (params authtypes.Params)
 	GetSequence(ctx context.Context, account sdk.AccAddress) (uint64, error)
 	AddressCodec() address.Codec
+	UnorderedTransactionsEnabled() bool
+	RemoveExpiredUnorderedNonces(ctx sdk.Context) error
+	TryAddUnorderedNonce(ctx sdk.Context, sender []byte, timestamp time.Time) error
 }
 
 // BankKeeper defines the expected interface needed to retrieve account balances.
