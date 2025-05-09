@@ -10,11 +10,9 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
@@ -26,10 +24,16 @@ const (
 	// TransferFromMethod defines the ABI method name for the ERC-20 transferFrom
 	// transaction.
 	TransferFromMethod = "transferFrom"
+	// ApproveMethod defines the ABI method name for ERC-20 Approve
+	// transaction.
+	ApproveMethod = "approve"
+	// DecreaseAllowanceMethod defines the ABI method name for the DecreaseAllowance
+	// transaction.
+	DecreaseAllowanceMethod = "decreaseAllowance"
+	// IncreaseAllowanceMethod defines the ABI method name for the IncreaseAllowance
+	// transaction.
+	IncreaseAllowanceMethod = "increaseAllowance"
 )
-
-// SendMsgURL defines the authorization type for MsgSend
-var SendMsgURL = sdk.MsgTypeURL(&banktypes.MsgSend{})
 
 // Transfer executes a direct transfer from the caller address to the
 // destination address.
@@ -67,8 +71,8 @@ func (p *Precompile) TransferFrom(
 }
 
 // transfer is a common function that handles transfers for the ERC-20 Transfer
-// and TransferFrom methods. It executes a bank Send message if the spender is
-// the sender of the transfer, otherwise it executes an authorization.
+// and TransferFrom methods. It executes a bank Send message. If the spender isn't
+// the sender of the transfer, it checks the allowance and updates it accordingly.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,
@@ -86,28 +90,38 @@ func (p *Precompile) transfer(
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
-	owner := sdk.AccAddress(from.Bytes())
 	spenderAddr := contract.CallerAddress
-	spender := sdk.AccAddress(spenderAddr.Bytes()) // aka. grantee
-	ownerIsSpender := spender.Equals(owner)
+	newAllowance := big.NewInt(0)
 
-	var prevAllowance *big.Int
-	if ownerIsSpender {
-		msgSrv := bankkeeper.NewMsgServerImpl(p.BankKeeper)
-		_, err = msgSrv.Send(ctx, msg)
-	} else {
-		_, _, prevAllowance, err = GetAuthzExpirationAndAllowance(p.AuthzKeeper, ctx, spenderAddr, from, p.tokenPair.Denom)
+	if isTransferFrom {
+		spenderAddr := contract.CallerAddress
+
+		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
-			return nil, ConvertErrToERC20Error(errorsmod.Wrap(err, authz.ErrNoAuthorizationFound.Error()))
+			return nil, ConvertErrToERC20Error(err)
 		}
 
-		_, err = p.AuthzKeeper.DispatchActions(ctx, spender, []sdk.Msg{msg})
+		newAllowance := new(big.Int).Sub(prevAllowance, amount)
+		if newAllowance.Sign() < 0 {
+			return nil, ConvertErrToERC20Error(ErrInsufficientAllowance)
+		}
+
+		if newAllowance.Sign() == 0 {
+			// If the new allowance is 0, we need to delete it from the store.
+			err = p.erc20Keeper.DeleteAllowance(ctx, p.Address(), from, spenderAddr)
+		} else {
+			// If the new allowance is not 0, we need to set it in the store.
+			err = p.erc20Keeper.SetAllowance(ctx, p.Address(), from, spenderAddr, newAllowance)
+		}
+		if err != nil {
+			return nil, ConvertErrToERC20Error(err)
+		}
 	}
 
-	if err != nil {
-		err = ConvertErrToERC20Error(err)
+	msgSrv := bankkeeper.NewMsgServerImpl(p.BankKeeper)
+	if _, err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
-		return nil, err
+		return nil, ConvertErrToERC20Error(err)
 	}
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
@@ -123,21 +137,10 @@ func (p *Precompile) transfer(
 
 	// NOTE: if it's a direct transfer, we return here but if used through transferFrom,
 	// we need to emit the approval event with the new allowance.
-	if !isTransferFrom {
-		return method.Outputs.Pack(true)
-	}
-
-	var newAllowance *big.Int
-	if ownerIsSpender {
-		// NOTE: in case the spender is the owner we emit an approval event with
-		// the maxUint256 value.
-		newAllowance = abi.MaxUint256
-	} else {
-		newAllowance = new(big.Int).Sub(prevAllowance, amount)
-	}
-
-	if err = p.EmitApprovalEvent(ctx, stateDB, from, spenderAddr, newAllowance); err != nil {
-		return nil, err
+	if isTransferFrom {
+		if err = p.EmitApprovalEvent(ctx, stateDB, from, spenderAddr, newAllowance); err != nil {
+			return nil, err
+		}
 	}
 
 	return method.Outputs.Pack(true)

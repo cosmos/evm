@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
-	"github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -30,21 +29,6 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 		method abi.Method
 		isTx   bool
 	}{
-		{
-			authorization.ApproveMethod,
-			s.precompile.Methods[authorization.ApproveMethod],
-			true,
-		},
-		{
-			authorization.IncreaseAllowanceMethod,
-			s.precompile.Methods[authorization.IncreaseAllowanceMethod],
-			true,
-		},
-		{
-			authorization.DecreaseAllowanceMethod,
-			s.precompile.Methods[authorization.DecreaseAllowanceMethod],
-			true,
-		},
 		{
 			staking.CreateValidatorMethod,
 			s.precompile.Methods[staking.CreateValidatorMethod],
@@ -143,7 +127,7 @@ func (s *PrecompileTestSuite) TestRun() {
 	var ctx sdk.Context
 	testcases := []struct {
 		name        string
-		malleate    func(delegator, grantee testkeyring.Key) []byte
+		malleate    func(delegator testkeyring.Key) []byte
 		gas         uint64
 		readOnly    bool
 		expPass     bool
@@ -151,11 +135,7 @@ func (s *PrecompileTestSuite) TestRun() {
 	}{
 		{
 			"fail - contract gas limit is < gas cost to run a query / tx",
-			func(delegator, grantee testkeyring.Key) []byte {
-				// TODO: why is this required?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
-
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -172,10 +152,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - delegate transaction",
-			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
-
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -192,10 +169,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - undelegate transaction",
-			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
-
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.UndelegateMethod,
 					delegator.Addr,
@@ -212,10 +186,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - redelegate transaction",
-			func(delegator, grantee testkeyring.Key) []byte {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.RedelegateAuthz, nil)
-				s.Require().NoError(err)
-
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.RedelegateMethod,
 					delegator.Addr,
@@ -233,7 +204,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - cancel unbonding delegation transaction",
-			func(delegator, grantee testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err)
 				// add unbonding delegation to staking keeper
@@ -249,9 +220,6 @@ func (s *PrecompileTestSuite) TestRun() {
 				)
 				err = s.network.App.StakingKeeper.SetUnbondingDelegation(ctx, ubd)
 				s.Require().NoError(err, "failed to set unbonding delegation")
-
-				err = s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.CancelUnbondingDelegationAuthz, nil)
-				s.Require().NoError(err)
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool
@@ -276,7 +244,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - delegation query",
-			func(delegator, _ testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
@@ -292,7 +260,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - validator query",
-			func(_, _ testkeyring.Key) []byte {
+			func(_ testkeyring.Key) []byte {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 
@@ -310,7 +278,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - redelgation query",
-			func(delegator, _ testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				valAddr1, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err)
 				valAddr2, err := sdk.ValAddressFromBech32(s.network.GetValidators()[1].GetOperator())
@@ -348,7 +316,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - delegation query - read only",
-			func(delegator, _ testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.DelegationMethod,
 					delegator.Addr,
@@ -364,7 +332,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"pass - unbonding delegation query",
-			func(delegator, _ testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err)
 				// add unbonding delegation to staking keeper
@@ -402,7 +370,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"fail - delegate method - read only",
-			func(delegator, _ testkeyring.Key) []byte {
+			func(delegator testkeyring.Key) []byte {
 				input, err := s.precompile.Pack(
 					staking.DelegateMethod,
 					delegator.Addr,
@@ -419,7 +387,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		},
 		{
 			"fail - invalid method",
-			func(_, _ testkeyring.Key) []byte {
+			func(_ testkeyring.Key) []byte {
 				return []byte("invalid")
 			},
 			1, // use gas > 0 to avoid doing gas estimation
@@ -438,13 +406,12 @@ func (s *PrecompileTestSuite) TestRun() {
 			baseFee := s.network.App.EVMKeeper.GetBaseFee(ctx)
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
 
 			contract := vm.NewPrecompile(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), tc.gas)
 			contractAddr := contract.Address()
 
 			// malleate testcase
-			contract.Input = tc.malleate(delegator, grantee)
+			contract.Input = tc.malleate(delegator)
 
 			// Build and sign Ethereum transaction
 			txArgs := evmtypes.EvmTxArgs{

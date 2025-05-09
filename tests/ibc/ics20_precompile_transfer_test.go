@@ -47,7 +47,6 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
-		evmAppA.AuthzKeeper,
 		evmAppA.EVMKeeper,
 	)
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
@@ -55,7 +54,6 @@ func (suite *ICS20TransferTestSuite) SetupTest() {
 		*evmAppB.StakingKeeper,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
-		evmAppB.AuthzKeeper,
 		evmAppB.EVMKeeper,
 	)
 }

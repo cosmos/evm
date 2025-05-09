@@ -11,8 +11,6 @@ import (
 	"github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	"github.com/cosmos/cosmos-sdk/x/authz"
 )
 
 // Errors that have formatted information are defined here as a string.
@@ -75,8 +73,6 @@ func ConvertErrToERC20Error(err error) error {
 	case strings.Contains(err.Error(), "spendable balance"):
 		return ErrTransferAmountExceedsBalance
 	case strings.Contains(err.Error(), "requested amount is more than spend limit"):
-		return ErrInsufficientAllowance
-	case strings.Contains(err.Error(), authz.ErrNoAuthorizationFound.Error()):
 		return ErrInsufficientAllowance
 	case strings.Contains(err.Error(), "subtracted value cannot be greater than existing allowance"):
 		return ErrDecreasedAllowanceBelowZero

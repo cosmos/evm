@@ -16,7 +16,6 @@ import (
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -42,7 +41,6 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	evidenceKeeper evidencekeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -52,10 +50,8 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  abi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		evidenceKeeper: evidenceKeeper,
 	}

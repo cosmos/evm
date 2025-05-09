@@ -704,7 +704,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 
 	testCases := []struct {
 		name                string
-		malleate            func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{}
+		malleate            func(delegator testkeyring.Key, operatorAddress string) []interface{}
 		gas                 uint64
 		expDelegationShares *big.Int
 		postCheck           func(data []byte)
@@ -713,7 +713,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 	}{
 		{
 			"fail - empty input args",
-			func(_, _ testkeyring.Key, _ string) []interface{} {
+			func(_ testkeyring.Key, _ string) []interface{} {
 				return []interface{}{}
 			},
 			200000,
@@ -722,10 +722,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
-			malleate: func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
+			malleate: func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
@@ -739,7 +738,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
 					operatorAddress,
@@ -754,7 +753,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 		},
 		{
 			"fail - invalid amount",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -769,10 +768,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 		},
 		{
 			"fail - delegation failed because of insufficient funds",
-			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				//  TODO: why is this necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				amt, ok := math.NewIntFromString("1000000000000000000000000000")
 				s.Require().True(ok)
 				return []interface{}{
@@ -787,35 +783,9 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			true,
 			"insufficient funds",
 		},
-		// TODO: adjust tests to work with authorizations (currently does not work because origin == precompile caller which needs no authorization)
-		// {
-		//	"fail - delegation should not be possible to validators outside of the allow list",
-		//	func(string) []interface{} {
-		//		err := s.CreateAuthorization(validatorADdress, staking.DelegateAuthz, nil)
-		//		s.Require().NoError(err)
-		//
-		//		// Create new validator --> this is not included in the authorized allow list
-		//		testutil.CreateValidator(s.network.GetContext(), s.T(), s.privKey.PubKey(), s.network.App.StakingKeeper, math.NewInt(100))
-		//		newValAddr := sdk.ValAddress(s.keyring.GetAccAddr(0))
-		//
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			newValAddr.String(),
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	200000,
-		//	big.NewInt(15),
-		//	func( []byte) {},
-		//	true,
-		//	"cannot delegate/undelegate",
-		// },
 		{
 			"success",
-			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				// TODO: necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -839,49 +809,6 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			false,
 			"",
 		},
-		// TODO: adjust tests to work with authorizations (currently does not work because origin == precompile caller which needs no authorization)
-		// {
-		//	"success - delegate and update the authorization for the delegator",
-		//	func(operatorAddress string) []interface{} {
-		//		err := s.CreateAuthorization(s.keyring.GetAddr(0), staking.DelegateAuthz, &sdk.Coin{Denom: testconstants.ExampleAttoDenom, Amount: math.NewInt(2e18)})
-		//		s.Require().NoError(err)
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			operatorAddress,
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	20000,
-		//	big.NewInt(2),
-		//	func(data []byte) {
-		//		authorization, _ := s.network.App.AuthzKeeper.GetAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), s.keyring.GetAccAddr(0), staking.DelegateMsg)
-		//		s.Require().NotNil(authorization)
-		//		stakeAuthorization := authorization.(*stakingtypes.StakeAuthorization)
-		//		s.Require().Equal(math.NewInt(1e18), stakeAuthorization.MaxTokens.Amount)
-		//	},
-		//	false,
-		//	"",
-		// },
-		// {
-		//	"success - delegate and delete the authorization for the delegator",
-		//	func(operatorAddress string) []interface{} {
-		//		err := s.CreateAuthorization(s.keyring.GetAddr(0), staking.DelegateAuthz, &sdk.Coin{Denom: testconstants.ExampleAttoDenom, Amount: math.NewInt(1e18)})
-		//		s.Require().NoError(err)
-		//		return []interface{}{
-		//			s.keyring.GetAddr(0),
-		//			operatorAddress,
-		//			big.NewInt(1e18),
-		//		}
-		//	},
-		//	20000,
-		//	big.NewInt(2),
-		//	func(data []byte) {
-		//		authorization, _ := s.network.App.AuthzKeeper.GetAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), s.keyring.GetAccAddr(0), staking.DelegateMsg)
-		//		s.Require().Nil(authorization)
-		//	},
-		//	false,
-		//	"",
-		// },
 	}
 
 	for _, tc := range testCases {
@@ -891,13 +818,11 @@ func (s *PrecompileTestSuite) TestDelegate() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
 
 			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
 
 			delegateArgs := tc.malleate(
 				delegator,
-				grantee,
 				s.network.GetValidators()[0].OperatorAddress,
 			)
 			bz, err := s.precompile.Delegate(ctx, delegator.Addr, contract, stDB, &method, delegateArgs)
@@ -934,7 +859,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 
 	testCases := []struct {
 		name                  string
-		malleate              func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{}
+		malleate              func(delegator testkeyring.Key, operatorAddress string) []interface{}
 		postCheck             func(data []byte)
 		gas                   uint64
 		expUndelegationShares *big.Int
@@ -943,7 +868,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 	}{
 		{
 			"fail - empty input args",
-			func(testkeyring.Key, testkeyring.Key, string) []interface{} {
+			func(testkeyring.Key, string) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -952,10 +877,9 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
-			malleate: func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
+			malleate: func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
@@ -969,7 +893,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
 					operatorAddress,
@@ -984,7 +908,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 		},
 		{
 			"fail - invalid amount",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -999,9 +923,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 		},
 		{
 			"success",
-			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1036,12 +958,11 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			stDB = s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
 
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
 
-			undelegateArgs := tc.malleate(delegator, grantee, s.network.GetValidators()[0].OperatorAddress)
+			undelegateArgs := tc.malleate(delegator, s.network.GetValidators()[0].OperatorAddress)
 			bz, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &method, undelegateArgs)
 
 			// query the unbonding delegations in the staking keeper
@@ -1069,7 +990,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 
 	testCases := []struct {
 		name                  string
-		malleate              func(delegator, grantee testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{}
+		malleate              func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{}
 		postCheck             func(data []byte)
 		gas                   uint64
 		expRedelegationShares *big.Int
@@ -1078,7 +999,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 	}{
 		{
 			"fail - empty input args",
-			func(_, _ testkeyring.Key, _, _ string) []interface{} {
+			func(_ testkeyring.Key, _, _ string) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -1087,10 +1008,9 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
 		},
-		// TODO: check case if authorization does not exist
 		{
 			name: "fail - different origin than delegator",
-			malleate: func(_, _ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
+			malleate: func(_ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				differentAddr := cosmosevmutiltx.GenerateAddress()
 				return []interface{}{
 					differentAddr,
@@ -1105,7 +1025,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(_, _ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
+			func(_ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					"",
 					srcOperatorAddr,
@@ -1121,7 +1041,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		},
 		{
 			"fail - invalid amount",
-			func(delegator, _ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
+			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					srcOperatorAddr,
@@ -1137,7 +1057,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		},
 		{
 			"fail - invalid shares amount",
-			func(delegator, _ testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
+			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					srcOperatorAddr,
@@ -1153,10 +1073,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 		},
 		{
 			"success",
-			func(delegator, grantee testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
-				// TODO: necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.RedelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(delegator testkeyring.Key, srcOperatorAddr, dstOperatorAddr string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					srcOperatorAddr,
@@ -1187,14 +1104,11 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			s.SetupTest()
 			ctx = s.network.GetContext()
 			delegator := s.keyring.GetKey(0)
-			// TODO: even necessary??
-			grantee := s.keyring.GetKey(1)
 
 			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
 
 			redelegateArgs := tc.malleate(
 				delegator,
-				grantee,
 				s.network.GetValidators()[0].OperatorAddress,
 				s.network.GetValidators()[1].OperatorAddress,
 			)
@@ -1227,7 +1141,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 
 	testCases := []struct {
 		name               string
-		malleate           func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{}
+		malleate           func(delegator testkeyring.Key, operatorAddress string) []interface{}
 		postCheck          func(data []byte)
 		gas                uint64
 		expDelegatedShares *big.Int
@@ -1236,7 +1150,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 	}{
 		{
 			"fail - empty input args",
-			func(_, _ testkeyring.Key, _ string) []interface{} {
+			func(_ testkeyring.Key, _ string) []interface{} {
 				return []interface{}{}
 			},
 			func([]byte) {},
@@ -1247,7 +1161,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"fail - invalid delegator address",
-			func(_, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(_ testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					"",
 					operatorAddress,
@@ -1263,7 +1177,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"fail - creation height",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1279,7 +1193,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"fail - invalid amount",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1295,7 +1209,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"fail - invalid amount",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1311,7 +1225,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"fail - invalid shares amount",
-			func(delegator, _ testkeyring.Key, operatorAddress string) []interface{} {
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1327,11 +1241,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 		},
 		{
 			"success",
-			func(delegator, grantee testkeyring.Key, operatorAddress string) []interface{} {
-				// TODO: why is this necessary
-				// TODO: remove also grantee from malleate
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.DelegateAuthz, nil)
-				s.Require().NoError(err)
+			func(delegator testkeyring.Key, operatorAddress string) []interface{} {
 				return []interface{}{
 					delegator.Addr,
 					operatorAddress,
@@ -1358,10 +1268,9 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 			stDB := s.network.GetStateDB()
 
 			delegator := s.keyring.GetKey(0)
-			grantee := s.keyring.GetKey(1)
 
 			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
-			cancelArgs := tc.malleate(delegator, grantee, s.network.GetValidators()[0].OperatorAddress)
+			cancelArgs := tc.malleate(delegator, s.network.GetValidators()[0].OperatorAddress)
 
 			if tc.expError {
 				bz, err := s.precompile.CancelUnbondingDelegation(ctx, delegator.Addr, contract, stDB, &method, cancelArgs)
@@ -1374,11 +1283,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 					big.NewInt(1000000000000000000),
 				}
 
-				// TODO: is this even necessary?
-				err := s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.UndelegateAuthz, nil)
-				s.Require().NoError(err)
-
-				_, err = s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &undelegateMethod, undelegateArgs)
+				_, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &undelegateMethod, undelegateArgs)
 				s.Require().NoError(err)
 
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
@@ -1387,9 +1292,6 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 				_, err = s.network.App.StakingKeeper.GetDelegation(ctx, delegator.AccAddr, valAddr)
 				s.Require().Error(err)
 				s.Require().Contains("no delegation for (address, validator) tuple", err.Error())
-
-				err = s.CreateAuthorization(ctx, delegator.AccAddr, grantee.AccAddr, staking.CancelUnbondingDelegationAuthz, nil)
-				s.Require().NoError(err)
 
 				bz, err := s.precompile.CancelUnbondingDelegation(ctx, delegator.Addr, contract, stDB, &method, cancelArgs)
 				s.Require().NoError(err)

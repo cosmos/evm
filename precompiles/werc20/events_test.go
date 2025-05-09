@@ -66,7 +66,7 @@ func (s *PrecompileUnitTestSuite) SetupTest(chainID string) {
 	precompile, err := werc20.NewPrecompile(
 		tokenPair,
 		s.network.App.BankKeeper,
-		s.network.App.AuthzKeeper,
+		s.network.App.Erc20Keeper,
 		s.network.App.TransferKeeper,
 	)
 	s.Require().NoError(err, "failed to instantiate the werc20 precompile")

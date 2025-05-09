@@ -129,7 +129,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = gov.NewPrecompile(
 		s.network.App.GovKeeper,
-		s.network.App.AuthzKeeper,
 	); err != nil {
 		panic(err)
 	}
