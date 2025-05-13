@@ -63,7 +63,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		0,
+		cosmosevmserverconfig.DefaultEVMChainID,
 		testutil.NoOpEvmAppOptions,
 	)
 
@@ -74,7 +74,7 @@ func NewRootCmd() *cobra.Command {
 		Amino:             tempApp.LegacyAmino(),
 	}
 
-	initClientCtx := cosmosevmcmd.EVMContext{}.
+	initClientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(encodingConfig.TxConfig).
@@ -146,6 +146,12 @@ func NewRootCmd() *cobra.Command {
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
+	}
+
+	if initClientCtx.ChainID != "" {
+		if err := evmd.EvmAppOptions(cosmosevmserverconfig.DefaultEVMChainID); err != nil {
+			panic(err)
+		}
 	}
 
 	return rootCmd
