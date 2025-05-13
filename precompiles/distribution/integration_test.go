@@ -717,7 +717,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			// the expected rewards should be the accruedRewards per validator
 			// plus the 5% commission
 			expRewardAmt := accruedRewards.AmountOf(s.bondDenom).
-				Quo(math.LegacyNewDec(3)).             // divide by validators count
+				Quo(math.LegacyNewDec(3)).
 				Quo(math.LegacyNewDecWithPrec(95, 2)). // add 5% commission
 				TruncateInt()
 
@@ -2214,6 +2214,85 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 					after:  true,
 				}),
 			)
+		})
+	})
+
+	Context("tryClaimRewards", func() {
+		var (
+			// initialBalance is the initial balance of the delegator
+			initialBalance *sdk.Coin
+			// diffAddrInitialBalance is the initial balance of the different address
+			// diffInitialBalance *sdk.Coin
+			accruedRewardsAmt math.Int
+		)
+
+		BeforeEach(func() {
+			// fund the diffAddr
+			err := testutils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), differentAddr.Bytes(), math.NewInt(2e18))
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// make a delegation
+			err = s.factory.Delegate(diffKey, s.network.GetValidators()[0].OperatorAddress, sdk.NewCoin(s.bondDenom, math.NewInt(1e18)))
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// wait to accrue some rewards for s.keyring.GetAddr(0) & another address
+			_, err = testutils.WaitToAccrueRewards(s.network, s.grpcHandler, sdk.AccAddress(differentAddr.Bytes()).String(), minExpRewardOrCommission)
+			Expect(err).To(BeNil())
+
+			// check if s.keyring.GetAddr(0) accrued rewards too
+			res, err := s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
+			Expect(err).To(BeNil())
+
+			accruedRewardsAmt = res.Total.AmountOf(s.bondDenom).TruncateInt()
+			Expect(accruedRewardsAmt.IsPositive()).To(BeTrue())
+
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialBalance = balRes.Balance
+
+			// populate default arguments
+			callArgs.MethodName = "testTryClaimRewards"
+			txArgs.GasPrice = gasPrice.BigInt()
+		})
+		It("should claim rewards successfully", func() {
+			callArgs.Args = []interface{}{s.keyring.GetAddr(0), uint32(10)}
+
+			// no logs should be emitted since the precompile call runs out of gas
+			logCheckArgs := passCheck //.
+			//	WithExpEvents(distribution.EventTypeClaimRewards)
+
+			res, err := s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
+			Expect(err).To(BeNil())
+
+			accruedRewardsAmt = res.Total.AmountOf(s.bondDenom).TruncateInt()
+			Expect(accruedRewardsAmt.IsPositive()).To(BeTrue())
+
+			// set gas such that the internal keeper function called by the precompile fails out mid-execution
+			txArgs.GasLimit = 80_000
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			finalBalance := balRes.Balance
+			expectedGasCost := math.NewInt(79_415_000_000_000)
+			Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
+
+			res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
+			Expect(err).To(BeNil())
+
+			// accrued rewards should still be increasing
+			secondAccruedRewardsAmt := res.Total.AmountOf(s.bondDenom).TruncateInt()
+			Expect(secondAccruedRewardsAmt.IsPositive()).To(BeTrue())
+			Expect(secondAccruedRewardsAmt.GTE(accruedRewardsAmt)).To(BeTrue())
 		})
 	})
 
