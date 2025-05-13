@@ -1,6 +1,7 @@
 package ante_test
 
 import (
+	"github.com/cosmos/evm/server/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ func TestConsumeSignatureVerificationGas(t *testing.T) {
 	params := authtypes.DefaultParams()
 	msg := []byte{1, 2, 3, 4}
 
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := encoding.MakeConfig(config.DefaultEVMChainID)
 	cdc := encodingConfig.Amino
 
 	p := authtypes.DefaultParams()

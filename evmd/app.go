@@ -237,7 +237,7 @@ func NewExampleApp(
 	evmAppOptions EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
-	encodingConfig := evmosencoding.MakeConfig()
+	encodingConfig := evmosencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino

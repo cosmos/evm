@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
 
@@ -21,7 +20,7 @@ type aminoMessage struct {
 // LegacyGetEIP712BytesForMsg returns the EIP-712 object bytes for the given SignDoc bytes by decoding the bytes into
 // an EIP-712 object, then converting via LegacyWrapTxToTypedData. See https://eips.ethereum.org/EIPS/eip-712 for more.
 func LegacyGetEIP712BytesForMsg(signDocBytes []byte) ([]byte, error) {
-	typedData, err := LegacyGetEIP712TypedDataForMsg(signDocBytes)
+	typedData, err := LegacyGetEIP712TypedDataForMsg(signDocBytes, eip155ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,14 +35,14 @@ func LegacyGetEIP712BytesForMsg(signDocBytes []byte) ([]byte, error) {
 
 // LegacyGetEIP712TypedDataForMsg returns the EIP-712 TypedData representation for either
 // Amino or Protobuf encoded signature doc bytes.
-func LegacyGetEIP712TypedDataForMsg(signDocBytes []byte) (apitypes.TypedData, error) {
+func LegacyGetEIP712TypedDataForMsg(signDocBytes []byte, eip155ChainID uint64) (apitypes.TypedData, error) {
 	// Attempt to decode as both Amino and Protobuf since the message format is unknown.
 	// If either decode works, we can move forward with the corresponding typed data.
-	typedDataAmino, errAmino := legacyDecodeAminoSignDoc(signDocBytes)
+	typedDataAmino, errAmino := legacyDecodeAminoSignDoc(signDocBytes, eip155ChainID)
 	if errAmino == nil && isValidEIP712Payload(typedDataAmino) {
 		return typedDataAmino, nil
 	}
-	typedDataProtobuf, errProtobuf := legacyDecodeProtobufSignDoc(signDocBytes)
+	typedDataProtobuf, errProtobuf := legacyDecodeProtobufSignDoc(signDocBytes, eip155ChainID)
 	if errProtobuf == nil && isValidEIP712Payload(typedDataProtobuf) {
 		return typedDataProtobuf, nil
 	}
@@ -53,7 +52,7 @@ func LegacyGetEIP712TypedDataForMsg(signDocBytes []byte) (apitypes.TypedData, er
 
 // legacyDecodeAminoSignDoc attempts to decode the provided sign doc (bytes) as an Amino payload
 // and returns a signable EIP-712 TypedData object.
-func legacyDecodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
+func legacyDecodeAminoSignDoc(signDocBytes []byte, eip155ChainID uint64) (apitypes.TypedData, error) {
 	// Ensure codecs have been initialized
 	if err := validateCodecInit(); err != nil {
 		return apitypes.TypedData{}, err
@@ -96,14 +95,9 @@ func legacyDecodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		FeePayer: feePayer,
 	}
 
-	chainID, err := strconv.ParseUint(aminoDoc.ChainID, 10, 64)
-	if err != nil {
-		return apitypes.TypedData{}, errors.New("invalid chain ID passed as argument")
-	}
-
 	typedData, err := LegacyWrapTxToTypedData(
 		protoCodec,
-		chainID,
+		eip155ChainID,
 		msg,
 		signDocBytes,
 		feeDelegation,
@@ -117,7 +111,7 @@ func legacyDecodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 
 // legacyDecodeProtobufSignDoc attempts to decode the provided sign doc (bytes) as a Protobuf payload
 // and returns a signable EIP-712 TypedData object.
-func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
+func legacyDecodeProtobufSignDoc(signDocBytes []byte, eip155ChainID uint64) (apitypes.TypedData, error) {
 	// Ensure codecs have been initialized
 	if err := validateCodecInit(); err != nil {
 		return apitypes.TypedData{}, err
@@ -166,11 +160,6 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error
 
 	signerInfo := authInfo.SignerInfos[0]
 
-	chainID, err := strconv.ParseUint(signDoc.ChainId, 10, 64)
-	if err != nil {
-		return apitypes.TypedData{}, fmt.Errorf("invalid chain ID passed as argument: %w", err)
-	}
-
 	stdFee := &legacytx.StdFee{
 		Amount: authInfo.Fee.Amount,
 		Gas:    authInfo.Fee.GasLimit,
@@ -198,7 +187,7 @@ func legacyDecodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error
 
 	typedData, err := LegacyWrapTxToTypedData(
 		protoCodec,
-		chainID,
+		eip155ChainID,
 		msg,
 		signBytes,
 		feeDelegation,

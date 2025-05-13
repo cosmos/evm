@@ -3,7 +3,6 @@ package eip712_test
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -264,18 +263,6 @@ func (suite *EIP712TestSuite) TestEIP712() {
 			expectSuccess: false,
 		},
 		{
-			title:   "Fails - Invalid ChainID",
-			chainID: "invalidchainid",
-			msgs: []sdk.Msg{
-				govtypes.NewMsgVote(
-					suite.createTestAddress(),
-					5,
-					govtypes.OptionNo,
-				),
-			},
-			expectSuccess: false,
-		},
-		{
 			title: "Fails - Includes TimeoutHeight",
 			msgs: []sdk.Msg{
 				govtypes.NewMsgVote(
@@ -346,7 +333,7 @@ func (suite *EIP712TestSuite) TestEIP712() {
 				err = txBuilder.SetSignatures([]signing.SignatureV2{txSig}...)
 				suite.Require().NoError(err)
 
-				chainID := strconv.FormatUint(constants.ExampleChainID.EVMChainID, 10)
+				chainID := constants.ExampleChainID.ChainID
 				if tc.chainID != "" {
 					chainID = tc.chainID
 				}

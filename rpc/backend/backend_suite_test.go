@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	"github.com/cosmos/evm/server/config"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -170,7 +171,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 
 func (suite *BackendTestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig()
+	encCfg := encoding.MakeConfig(config.DefaultEVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 

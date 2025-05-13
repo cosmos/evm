@@ -33,7 +33,7 @@ var (
 	chainID = uint64(constants.ExampleEIP155ChainID)
 
 	ctx = client.Context{}.WithTxConfig(
-		encoding.MakeConfig().TxConfig,
+		encoding.MakeConfig(chainID).TxConfig,
 	)
 
 	// feePayerAddress is the address of the fee payer used in EIP-712 tests.

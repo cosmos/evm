@@ -13,8 +13,7 @@ import (
 )
 
 var (
-	ChainIDPrefix = "testchain"
-	// to disable revision format, set ChainIDSuffix to ""
+	ChainIDPrefix   = "testchain"
 	ChainIDSuffix   = "-1"
 	globalStartTime = time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 	TimeIncrement   = time.Second * 5
@@ -45,7 +44,7 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 		require.NoError(t, err)
 		require.NoError(t, evmd.EvmAppOptions(evmChainID))
 		// setup EVM chains
-		chains[chainID] = NewTestChain(t, true, coord, chainID)
+		chains[strconv.FormatUint(evmChainID, 10)] = NewTestChain(t, true, coord, chainID)
 	}
 
 	// setup Cosmos chains
@@ -157,7 +156,7 @@ func (coord *Coordinator) GetChain(chainID string) *TestChain {
 
 // GetChainID returns the chainID used for the provided index.
 func GetChainID(index int) string {
-	return ChainIDPrefix + ChainIDSuffix
+	return ChainIDPrefix + fmt.Sprintf("%d", index) + ChainIDSuffix
 }
 
 // GetEvmChainID returns the EIP-155 chainID used for the provided index.
