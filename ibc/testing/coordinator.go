@@ -161,7 +161,7 @@ func GetChainID(index int) string {
 
 // GetEvmChainID returns the EIP-155 chainID used for the provided index.
 func GetEvmChainID(index int) string {
-	return strconv.FormatUint(uint64(9000+index), 10)
+	return strconv.FormatUint(uint64(9000+index), 10) //nolint:gosec // G115 // won't exceed uint64
 }
 
 // CommitBlock commits a block on the provided indexes and then increments the global time.

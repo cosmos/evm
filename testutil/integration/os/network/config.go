@@ -122,7 +122,7 @@ func WithChainID(chainID testconstants.ChainID) ConfigOption {
 
 	return func(cfg *Config) {
 		cfg.chainID = chainID.ChainID
-		cfg.eip155ChainID = big.NewInt(int64(chainID.EVMChainID))
+		cfg.eip155ChainID = big.NewInt(int64(chainID.EVMChainID)) //nolint:gosec // G115 // won't exceed uint64
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
 			cfg.chainCoins.baseCoin.Denom = evmCoinInfo.Denom

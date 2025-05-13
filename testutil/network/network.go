@@ -103,7 +103,7 @@ type Config struct {
 // testing requirements.
 func DefaultConfig() Config {
 	chainID := "evmos-1"
-	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1)
+	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1) //nolint:gosec // G115 // won't exceed uint64
 	dir, err := os.MkdirTemp("", "simapp")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))

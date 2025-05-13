@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"fmt"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"

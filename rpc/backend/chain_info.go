@@ -2,7 +2,6 @@ package backend
 
 import (
 	"fmt"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -14,6 +13,7 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
