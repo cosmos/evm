@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"strconv"
 	"strings"
 
@@ -184,12 +185,7 @@ func LegacyEIP712Cmd() *cobra.Command {
 				return errors.Wrap(err, "encode tx")
 			}
 
-			chainID, err := strconv.ParseUint(clientCtx.ChainID, 10, 64)
-			if err != nil {
-				return errors.Wrap(err, "invalid chain ID passed as argument")
-			}
-
-			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, chainID, stdTx.GetMsgs()[0], txBytes, nil)
+			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, evmdconfig.EVMChainID, stdTx.GetMsgs()[0], txBytes, nil)
 			if err != nil {
 				return errors.Wrap(err, "wrap tx to typed data")
 			}
