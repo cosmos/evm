@@ -11,7 +11,7 @@ import (
 // that allows initializing the app with different coin info based on the
 // chain id
 var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
-	EighteenDecimals: {
+	EighteenDecimalsChainID: {
 		Denom:         ExampleChainDenom,
 		ExtendedDenom: ExampleChainDenom,
 		DisplayDenom:  ExampleDisplayDenom,
