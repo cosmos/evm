@@ -144,11 +144,6 @@ func NewBackend(
 	allowUnprotectedTxs bool,
 	indexer cosmosevmtypes.EVMTxIndexer,
 ) *Backend {
-	chainID, err := cosmosevmtypes.ParseChainID(clientCtx.ChainID)
-	if err != nil {
-		panic(err)
-	}
-
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
 		panic(err)
@@ -165,7 +160,7 @@ func NewBackend(
 		rpcClient:           rpcClient,
 		queryClient:         rpctypes.NewQueryClient(clientCtx),
 		logger:              logger.With("module", "backend"),
-		chainID:             chainID,
+		chainID:             big.NewInt(int64(appConf.EVM.EVMChainID)),
 		cfg:                 appConf,
 		allowUnprotectedTxs: allowUnprotectedTxs,
 		indexer:             indexer,

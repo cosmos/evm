@@ -1,8 +1,6 @@
 package constants
 
 import (
-	"fmt"
-
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -38,28 +36,45 @@ const (
 	ExampleEvmAddressBob = "0x0AFc8e15F0A74E98d0AEC6C67389D2231384D4B2"
 )
 
+type ChainID struct {
+	ChainID    string `json:"chain_id"`
+	EVMChainID uint64 `json:"evm_chain_id"`
+}
+
 var (
 	// ExampleChainIDPrefix provides a chain ID prefix for EIP-155 that can be used in tests
-	ExampleChainIDPrefix = fmt.Sprintf("cosmos_%d", ExampleEIP155ChainID)
+	ExampleChainIDPrefix = "cosmos"
 
 	// ExampleChainID provides a chain ID that can be used in tests
-	ExampleChainID = ExampleChainIDPrefix + "-1"
+	ExampleChainID = ChainID{
+		ChainID:    ExampleChainIDPrefix + "-1",
+		EVMChainID: 9001,
+	}
 
 	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
-	SixDecimalsChainID = "ossix_9002-2"
+	SixDecimalsChainID = ChainID{
+		ChainID:    "ossix-2",
+		EVMChainID: 9002,
+	}
 
 	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
-	TwelveDecimalsChainID = "ostwelve_9003-3"
+	TwelveDecimalsChainID = ChainID{
+		ChainID:    "ostwelve-3",
+		EVMChainID: 9003,
+	}
 
 	// TwoDecimalsChainID provides a chain ID which is being set up with 2 decimals
-	TwoDecimalsChainID = "ostwo_9004-4"
+	TwoDecimalsChainID = ChainID{
+		ChainID:    "ostwo-4",
+		EVMChainID: 9004,
+	}
 
 	// ExampleChainCoinInfo provides the coin info for the example chain
 	//
 	// It is a map of the chain id and its corresponding EvmCoinInfo
 	// that allows initializing the app with different coin info based on the
 	// chain id
-	ExampleChainCoinInfo = map[string]evmtypes.EvmCoinInfo{
+	ExampleChainCoinInfo = map[ChainID]evmtypes.EvmCoinInfo{
 		ExampleChainID: {
 			Denom:         ExampleAttoDenom,
 			ExtendedDenom: ExampleAttoDenom,

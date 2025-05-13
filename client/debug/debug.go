@@ -11,15 +11,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/cosmos/evm/ethereum/eip712"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-
 	"github.com/cosmos/cosmos-sdk/client"
 	cosmosclientdebug "github.com/cosmos/cosmos-sdk/client/debug"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
 	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
+	"github.com/cosmos/evm/ethereum/eip712"
 )
 
 var flagPrefix = "prefix"
@@ -185,12 +183,12 @@ func LegacyEIP712Cmd() *cobra.Command {
 				return errors.Wrap(err, "encode tx")
 			}
 
-			chainID, err := cosmosevmtypes.ParseChainID(clientCtx.ChainID)
+			chainID, err := strconv.ParseUint(clientCtx.ChainID, 10, 64)
 			if err != nil {
 				return errors.Wrap(err, "invalid chain ID passed as argument")
 			}
 
-			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, chainID.Uint64(), stdTx.GetMsgs()[0], txBytes, nil)
+			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, chainID, stdTx.GetMsgs()[0], txBytes, nil)
 			if err != nil {
 				return errors.Wrap(err, "wrap tx to typed data")
 			}

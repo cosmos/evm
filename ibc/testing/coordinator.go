@@ -41,7 +41,7 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 	ibctesting.DefaultTestingAppInit = SetupExampleApp
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := GetEvmChainID(i)
-		require.NoError(t, evmd.EvmAppOptions(chainID))
+		require.NoError(t, evmd.EvmAppOptions(uint64(9000+i)))
 		// setup EVM chains
 		chains[chainID] = NewTestChain(t, true, coord, chainID)
 	}

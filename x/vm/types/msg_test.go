@@ -54,10 +54,10 @@ func (suite *MsgsTestSuite) SetupTest() {
 	suite.chainID = big.NewInt(1)
 	suite.hundredBigInt = big.NewInt(100)
 
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	err := exampleapp.EvmAppOptions("cosmos_9001-1")
+	err := exampleapp.EvmAppOptions(9001)
 	suite.Require().NoError(err)
 }
 

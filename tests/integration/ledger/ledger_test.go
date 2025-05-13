@@ -3,6 +3,7 @@ package ledger_test
 import (
 	"bytes"
 	"context"
+	"github.com/cosmos/evm/server/config"
 
 	"github.com/spf13/cobra"
 
@@ -60,7 +61,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Adding a key from ledger using the CLI", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig()
+			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
 
 			cmd = s.cosmosEVMAddKeyCmd()
 
@@ -109,7 +110,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Singing a transactions", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig()
+			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
 
 			var err error
 

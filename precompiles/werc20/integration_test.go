@@ -132,7 +132,10 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 		is.keyring = keyring
 
 		is.wrappedCoinDenom = evmtypes.GetEVMCoinDenom()
-		is.precompileAddrHex = network.GetWEVMOSContractHex(is.network.GetChainID())
+		is.precompileAddrHex = network.GetWEVMOSContractHex(testconstants.ChainID{
+			ChainID:    is.network.GetChainID(),
+			EVMChainID: is.network.GetEIP155ChainID().Uint64(),
+		})
 
 		ctx := integrationNetwork.GetContext()
 
@@ -590,7 +593,10 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 				err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
 				Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
 
-				coinInfo := testconstants.ExampleChainCoinInfo[is.network.GetChainID()]
+				coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ChainID{
+					ChainID:    is.network.GetChainID(),
+					EVMChainID: is.network.GetEIP155ChainID().Uint64(),
+				}]
 				Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals")
 			},
 			)

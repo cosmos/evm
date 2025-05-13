@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"fmt"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +25,10 @@ func (suite *EvmAnteTestSuite) TestVerifyAccountBalance() {
 	keyring := testkeyring.New(2)
 	unitNetwork := network.NewUnitTestNetwork(
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
 	txFactory := factory.New(unitNetwork, grpcHandler)
