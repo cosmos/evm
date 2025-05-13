@@ -235,10 +235,6 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 	l.Log("acquiring test network lock")
 	lock.Lock()
 
-	if !cosmosevmtypes.IsValidChainID(cfg.ChainID) {
-		return nil, fmt.Errorf("invalid chain-id: %s", cfg.ChainID)
-	}
-
 	network := &Network{
 		Logger:     l,
 		BaseDir:    baseDir,
