@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -24,12 +25,11 @@ import (
 
 // ChainID is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (b *Backend) ChainID() (*hexutil.Big, error) {
-
 	// if current block is at or past the EIP-155 replay-protection fork block, return chainID from config
 	bn, err := b.BlockNumber()
 	if err != nil {
 		b.logger.Debug("failed to fetch latest block number", "error", err.Error())
-		return (*hexutil.Big)(big.NewInt(int64(b.cfg.EVM.EVMChainID))), nil
+		return (*hexutil.Big)(big.NewInt(int64(evmdconfig.EVMChainID))), nil
 	}
 
 	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {

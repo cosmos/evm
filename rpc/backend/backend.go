@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"time"
 
@@ -160,7 +161,7 @@ func NewBackend(
 		rpcClient:           rpcClient,
 		queryClient:         rpctypes.NewQueryClient(clientCtx),
 		logger:              logger.With("module", "backend"),
-		chainID:             big.NewInt(int64(appConf.EVM.EVMChainID)),
+		chainID:             big.NewInt(int64(evmdconfig.EVMChainID)),
 		cfg:                 appConf,
 		allowUnprotectedTxs: allowUnprotectedTxs,
 		indexer:             indexer,

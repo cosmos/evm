@@ -3,6 +3,7 @@ package net
 import (
 	"context"
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
@@ -16,9 +17,9 @@ type PublicAPI struct {
 }
 
 // NewPublicAPI creates an instance of the public Net Web3 API.
-func NewPublicAPI(clientCtx client.Context, evmChainID uint64) *PublicAPI {
+func NewPublicAPI(clientCtx client.Context) *PublicAPI {
 	return &PublicAPI{
-		networkVersion: evmChainID,
+		networkVersion: evmdconfig.EVMChainID,
 		tmClient:       clientCtx.Client.(rpcclient.Client),
 	}
 }

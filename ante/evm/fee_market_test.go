@@ -1,13 +1,13 @@
 package evm_test
 
 import (
-	"github.com/cosmos/evm/server/config"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/ante/testutils"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"

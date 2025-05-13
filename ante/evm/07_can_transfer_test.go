@@ -2,12 +2,12 @@ package evm_test
 
 import (
 	"fmt"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"math/big"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"

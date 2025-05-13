@@ -3,7 +3,6 @@ package ledger_test
 import (
 	"bytes"
 	"context"
-	"github.com/cosmos/evm/server/config"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/tests/integration/ledger/mocks"
 	"github.com/cosmos/evm/testutil"
 	utiltx "github.com/cosmos/evm/testutil/tx"

@@ -102,9 +102,9 @@ func (suite *KeeperTestSuite) SetupTest() {
 	}
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()                 //nolint:staticcheck
-	extendedDenom := evmtypes.GetEVMCoinExtendedDenom() //nolint:staticcheck
-	decimals := evmtypes.GetEVMCoinDecimals()           //nolint:staticcheck
+	denom := evmtypes.GetEVMCoinDenom()
+	extendedDenom := evmtypes.GetEVMCoinExtendedDenom()
+	decimals := evmtypes.GetEVMCoinDecimals()
 
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()

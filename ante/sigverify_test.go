@@ -1,7 +1,6 @@
 package ante_test
 
 import (
-	"github.com/cosmos/evm/server/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +8,7 @@ import (
 	"github.com/cosmos/evm/ante"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/server/config"
 
 	storetypes "cosmossdk.io/store/types"
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,7 +41,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	// signers to be backwards-compatible with old transactions.
 	cfg := b.ChainConfig()
 	if cfg == nil {
-		cfg = evmtypes.DefaultChainConfig(b.cfg.EVM.EVMChainID).EthereumConfig(nil)
+		cfg = evmtypes.DefaultChainConfig(evmdconfig.EVMChainID).EthereumConfig(nil)
 	}
 
 	signer := ethtypes.LatestSigner(cfg)

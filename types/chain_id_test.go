@@ -1,7 +1,7 @@
 package types
 
 //
-//import (
+// import (
 //	"math/big"
 //	"strings"
 //	"testing"
@@ -9,7 +9,7 @@ package types
 //	"github.com/stretchr/testify/require"
 //)
 //
-//func TestParseChainID(t *testing.T) {
+// func TestParseChainID(t *testing.T) {
 //	testCases := []struct {
 //		name     string
 //		chainID  string
@@ -87,4 +87,4 @@ package types
 //	}
 //}
 
-//todo: do we need these?
+// todo: do we need these?

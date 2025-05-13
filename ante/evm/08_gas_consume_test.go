@@ -2,9 +2,9 @@ package evm_test
 
 import (
 	"fmt"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 
 	evmante "github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	testfactory "github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"

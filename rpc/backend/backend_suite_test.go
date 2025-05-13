@@ -2,7 +2,6 @@ package backend
 
 import (
 	"bufio"
-	"github.com/cosmos/evm/server/config"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
 	testnetwork "github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"

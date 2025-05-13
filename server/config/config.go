@@ -121,8 +121,6 @@ type EVMConfig struct {
 	Tracer string `mapstructure:"tracer"`
 	// MaxTxGasWanted defines the gas wanted for each eth tx returned in ante handler in check tx mode.
 	MaxTxGasWanted uint64 `mapstructure:"max-tx-gas-wanted"`
-	// todo: docs
-	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -182,7 +180,6 @@ func DefaultEVMConfig() *EVMConfig {
 	return &EVMConfig{
 		Tracer:         DefaultEVMTracer,
 		MaxTxGasWanted: DefaultMaxTxGasWanted,
-		EVMChainID:     DefaultEVMChainID,
 	}
 }
 

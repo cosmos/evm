@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"slices"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	exampleapp "github.com/cosmos/evm/evmd"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
