@@ -148,13 +148,6 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	//todo: do we need this?
-	//if initClientCtx.ChainID != "" {
-	//	if err := evmd.EvmAppOptions(); err != nil {
-	//		panic(err)
-	//	}
-	//}
-
 	return rootCmd
 }
 
@@ -367,11 +360,10 @@ func newApp(
 		app.SetProcessProposal(handler.ProcessProposalHandler())
 	})
 
-	//todo: find where we can get the evm chain id
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		9001,
+		evmdconfig.EVMChainID,
 		evmd.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -412,15 +404,14 @@ func appExport(
 		return servertypes.ExportedApp{}, err
 	}
 
-	//todo: fix this 0
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, 9001, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, 9001, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

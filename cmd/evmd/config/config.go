@@ -28,6 +28,8 @@ const (
 	BaseDenom = "aatom"
 	// BaseDenomUnit defines the precision of the base denomination.
 	BaseDenomUnit = 18
+
+	EVMChainID = 262144
 )
 
 // SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.
