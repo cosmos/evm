@@ -3,6 +3,7 @@ package ibctesting
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"testing"
 	"time"
@@ -133,7 +134,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 			Address: acc.GetAddress().String(),
 			Coins: sdk.NewCoins(
 				sdk.NewCoin(sdk.DefaultBondDenom, amount),
-				sdk.NewCoin(evmd.ExampleChainDenom, amount),
+				sdk.NewCoin(config.ExampleChainDenom, amount),
 			),
 		}
 

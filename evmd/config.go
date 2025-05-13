@@ -5,6 +5,7 @@ package evmd
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/cmd/evmd/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -17,31 +18,7 @@ import (
 // any.
 type EVMOptionsFn func(uint64) error
 
-// NoOpEVMOptions is a no-op function that can be used when the app does not
-// need any specific configuration.
-func NoOpEVMOptions(_ uint64) error {
-	return nil
-}
-
 var sealed = false
-
-// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
-// that allows initializing the app with different coin info based on the
-// chain id
-var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
-	},
-	CosmosChainID: {
-		Denom:         "atest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.EighteenDecimals,
-	},
-}
 
 // EvmAppOptions allows to setup the global configuration
 // for the Cosmos EVM chain.
@@ -50,7 +27,7 @@ func EvmAppOptions(chainID uint64) error {
 		return nil
 	}
 
-	coinInfo, found := ChainsCoinInfo[chainID]
+	coinInfo, found := config.ChainsCoinInfo[chainID]
 	if !found {
 		return fmt.Errorf("unknown chain id: %s", chainID)
 	}
