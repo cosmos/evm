@@ -31,13 +31,13 @@ struct Params {
     /// @dev SignedBlocksWindow defines how many blocks the validator should have signed
     uint64 signedBlocksWindow;
     /// @dev MinSignedPerWindow defines the minimum blocks signed per window to avoid slashing
-    string minSignedPerWindow;
+    Dec minSignedPerWindow;
     /// @dev DowntimeJailDuration defines how long the validator will be jailed for downtime
     uint64 downtimeJailDuration;
     /// @dev SlashFractionDoubleSign defines the percentage of slash for double sign
-    string slashFractionDoubleSign;
+    Dec slashFractionDoubleSign;
     /// @dev SlashFractionDowntime defines the percentage of slash for downtime
-    string slashFractionDowntime;
+    Dec slashFractionDowntime;
 }
 
 /// @author Evmos Team

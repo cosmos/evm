@@ -28,9 +28,21 @@
               "type": "uint64"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "minSignedPerWindow",
-              "type": "string"
+              "type": "tuple"
             },
             {
               "internalType": "uint64",
@@ -38,14 +50,38 @@
               "type": "uint64"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "slashFractionDoubleSign",
-              "type": "string"
+              "type": "tuple"
             },
             {
-              "internalType": "string",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "precision",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Dec",
               "name": "slashFractionDowntime",
-              "type": "string"
+              "type": "tuple"
             }
           ],
           "internalType": "struct Params",

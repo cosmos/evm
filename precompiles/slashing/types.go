@@ -3,6 +3,7 @@ package slashing
 import (
 	"fmt"
 
+	"cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -111,11 +112,11 @@ type ValidatorUnjailed struct {
 
 // Params defines the parameters for the slashing module
 type Params struct {
-	SignedBlocksWindow      uint64 `abi:"signedBlocksWindow"`
-	MinSignedPerWindow      string `abi:"minSignedPerWindow"`
-	DowntimeJailDuration    uint64 `abi:"downtimeJailDuration"`
-	SlashFractionDoubleSign string `abi:"slashFractionDoubleSign"`
-	SlashFractionDowntime   string `abi:"slashFractionDowntime"`
+	SignedBlocksWindow      uint64  `abi:"signedBlocksWindow"`
+	MinSignedPerWindow      cmn.Dec `abi:"minSignedPerWindow"`
+	DowntimeJailDuration    uint64  `abi:"downtimeJailDuration"`
+	SlashFractionDoubleSign cmn.Dec `abi:"slashFractionDoubleSign"`
+	SlashFractionDowntime   cmn.Dec `abi:"slashFractionDowntime"`
 }
 
 // ParamsOutput represents the output of the params query
@@ -125,11 +126,20 @@ type ParamsOutput struct {
 
 func (po *ParamsOutput) FromResponse(res *slashingtypes.QueryParamsResponse) *ParamsOutput {
 	po.Params = Params{
-		SignedBlocksWindow:      uint64(res.Params.SignedBlocksWindow), //nolint:gosec // G115
-		MinSignedPerWindow:      res.Params.MinSignedPerWindow.String(),
-		DowntimeJailDuration:    uint64(res.Params.DowntimeJailDuration.Seconds()),
-		SlashFractionDoubleSign: res.Params.SlashFractionDoubleSign.String(),
-		SlashFractionDowntime:   res.Params.SlashFractionDowntime.String(),
+		SignedBlocksWindow: uint64(res.Params.SignedBlocksWindow), //nolint:gosec // G115
+		MinSignedPerWindow: cmn.Dec{
+			Value:     res.Params.MinSignedPerWindow.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
+		DowntimeJailDuration: uint64(res.Params.DowntimeJailDuration.Seconds()),
+		SlashFractionDoubleSign: cmn.Dec{
+			Value:     res.Params.SlashFractionDoubleSign.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
+		SlashFractionDowntime: cmn.Dec{
+			Value:     res.Params.SlashFractionDowntime.BigInt(),
+			Precision: math.LegacyPrecision,
+		},
 	}
 	return po
 }
