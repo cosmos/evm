@@ -22,8 +22,8 @@ type EventSetWithdrawAddress struct {
 	WithdrawerAddress string
 }
 
-// EventWithdrawDelegatorRewards defines the event data for the WithdrawDelegatorRewards transaction.
-type EventWithdrawDelegatorRewards struct {
+// EventWithdrawDelegatorReward defines the event data for the WithdrawDelegatorReward transaction.
+type EventWithdrawDelegatorReward struct {
 	DelegatorAddress common.Address
 	ValidatorAddress common.Address
 	Amount           *big.Int

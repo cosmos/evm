@@ -19,7 +19,7 @@ contract DistributionCaller {
         );
     }
 
-    function testWithdrawDelegatorRewardsFromContract(
+    function testWithdrawDelegatorRewardFromContract(
         string memory _valAddr
     ) public returns (types.Coin[] memory) {
         return
@@ -40,7 +40,7 @@ contract DistributionCaller {
         );
     }
 
-    function testWithdrawDelegatorRewardsWithTransfer(
+    function testWithdrawDelegatorRewardWithTransfer(
         address payable _delAddr,
         string memory _valAddr,
         bool _before,
@@ -82,7 +82,7 @@ contract DistributionCaller {
         }
     }
 
-    function testWithdrawDelegatorRewards(
+    function testWithdrawDelegatorReward(
         address _delAddr,
         string memory _valAddr
     ) public returns (types.Coin[] memory) {

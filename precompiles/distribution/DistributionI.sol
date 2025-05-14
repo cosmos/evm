@@ -50,11 +50,11 @@ interface DistributionI {
         string withdrawerAddress
     );
 
-    /// @dev WithdrawDelegatorRewards defines an Event emitted when rewards from a delegation are withdrawn
+    /// @dev WithdrawDelegatorReward defines an Event emitted when rewards from a delegation are withdrawn
     /// @param delegatorAddress the address of the delegator
     /// @param validatorAddress the address of the validator
     /// @param amount the amount being withdrawn from the delegation
-    event WithdrawDelegatorRewards(
+    event WithdrawDelegatorReward(
         address indexed delegatorAddress,
         address indexed validatorAddress,
         uint256 amount

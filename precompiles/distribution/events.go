@@ -17,8 +17,8 @@ import (
 const (
 	// EventTypeSetWithdrawAddress defines the event type for the distribution SetWithdrawAddressMethod transaction.
 	EventTypeSetWithdrawAddress = "SetWithdrawerAddress"
-	// EventTypeWithdrawDelegatorRewards defines the event type for the distribution WithdrawDelegatorRewardsMethod transaction.
-	EventTypeWithdrawDelegatorRewards = "WithdrawDelegatorRewards"
+	// EventTypeWithdrawDelegatorReward defines the event type for the distribution WithdrawDelegatorRewardMethod transaction.
+	EventTypeWithdrawDelegatorReward = "WithdrawDelegatorReward"
 	// EventTypeWithdrawValidatorCommission defines the event type for the distribution WithdrawValidatorCommissionMethod transaction.
 	EventTypeWithdrawValidatorCommission = "WithdrawValidatorCommission"
 	// EventTypeFundCommunityPool defines the event type for the distribution FundCommunityPoolMethod transaction.
@@ -97,15 +97,15 @@ func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.Stat
 	return nil
 }
 
-// EmitWithdrawDelegatorRewardsEvent creates a new event emitted on a WithdrawDelegatorRewards transaction.
-func (p Precompile) EmitWithdrawDelegatorRewardsEvent(ctx sdk.Context, stateDB vm.StateDB, delegatorAddress common.Address, validatorAddress string, coins sdk.Coins) error {
+// EmitWithdrawDelegatorRewardEvent creates a new event emitted on a WithdrawDelegatorReward transaction.
+func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm.StateDB, delegatorAddress common.Address, validatorAddress string, coins sdk.Coins) error {
 	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
 	if err != nil {
 		return err
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeWithdrawDelegatorRewards]
+	event := p.ABI.Events[EventTypeWithdrawDelegatorReward]
 	topics := make([]common.Hash, 3)
 
 	// The first topic is always the signature of the event.
