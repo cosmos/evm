@@ -3,7 +3,6 @@ package ibctesting
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"testing"
 	"time"
@@ -18,6 +17,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 	cmtversion "github.com/cometbft/cometbft/version"
 
+	"github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/tx"

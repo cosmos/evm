@@ -1,8 +1,9 @@
 package factory
 
 import (
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"math/big"
+
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"

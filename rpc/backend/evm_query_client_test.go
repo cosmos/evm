@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/evm/server/config"
 	"strconv"
 	"testing"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpc "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 

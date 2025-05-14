@@ -124,7 +124,7 @@ func (suite *BackendTestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byt
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
-func (suite *BackendTestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int) (*evmtypes.MsgEthereumTx, []byte) {
+func (suite *BackendTestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int) *evmtypes.MsgEthereumTx {
 	ethTxParams := evmtypes.EvmTxArgs{
 		ChainID:  eip155ChainID,
 		Nonce:    uint64(0),
@@ -142,9 +142,7 @@ func (suite *BackendTestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int
 	err := txBuilder.SetMsgs(msgEthereumTx)
 	suite.Require().NoError(err)
 
-	bz, err := suite.backend.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
-	suite.Require().NoError(err)
-	return msgEthereumTx, bz
+	return msgEthereumTx
 }
 
 // buildFormattedBlock returns a formatted block for testing

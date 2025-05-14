@@ -1,13 +1,13 @@
 package distribution_test
 
 import (
-	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/testutil/constants"

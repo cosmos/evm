@@ -3,9 +3,10 @@ package net
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/evm/server/config"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+
+	"github.com/cosmos/evm/server/config"
 
 	"github.com/cosmos/cosmos-sdk/client"
 )

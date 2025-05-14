@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	config2 "github.com/cosmos/evm/cmd/evmd/config"
 	"io"
 	"os"
 
@@ -15,6 +14,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
+	config2 "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/testutil"

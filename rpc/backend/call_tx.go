@@ -113,7 +113,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 		}
 		if tx.ChainId() != b.chainID {
-			return common.Hash{}, errors.New(fmt.Sprintf("incorrect chain-id; expected %d, got %d", b.chainID, tx.ChainId()))
+			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.chainID, tx.ChainId())
 		}
 	}
 

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"strconv"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/ethereum/eip712"
 
 	"github.com/cosmos/cosmos-sdk/client"

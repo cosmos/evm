@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	chaincmd "github.com/cosmos/evm/cmd/evmd/cmd"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,6 +27,7 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
+	chaincmd "github.com/cosmos/evm/cmd/evmd/cmd"
 	"github.com/cosmos/evm/crypto/hd"
 	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/server/config"

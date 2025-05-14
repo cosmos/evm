@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +18,8 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (suite *BackendTestSuite) TestResend() {
@@ -290,8 +291,8 @@ func (suite *BackendTestSuite) TestResend() {
 func (suite *BackendTestSuite) TestSendRawTransaction() {
 	ethTx, bz := suite.buildEthereumTx()
 
-	emptyChainIdTx, _ := suite.buildEthereumTxWithChainID(nil)
-	invalidChainIdTx, _ := suite.buildEthereumTxWithChainID(big.NewInt(1))
+	emptyChainIDTx := suite.buildEthereumTxWithChainID(nil)
+	invalidChainIDTx := suite.buildEthereumTxWithChainID(big.NewInt(1))
 
 	// Sign the ethTx
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
@@ -333,14 +334,14 @@ func (suite *BackendTestSuite) TestSendRawTransaction() {
 			func() []byte {
 				from, priv := utiltx.NewAddrKey()
 				signer := utiltx.NewSigner(priv)
-				invalidChainIdTx.From = from.String()
-				err := invalidChainIdTx.Sign(ethSigner, signer)
+				invalidChainIDTx.From = from.String()
+				err := invalidChainIDTx.Sign(ethSigner, signer)
 				suite.Require().NoError(err)
-				bytes, _ := rlp.EncodeToBytes(invalidChainIdTx.AsTransaction())
+				bytes, _ := rlp.EncodeToBytes(invalidChainIDTx.AsTransaction())
 				return bytes
 			},
 			common.Hash{},
-			errors.New(fmt.Sprintf("incorrect chain-id; expected %d, got %d", 262144, big.NewInt(1))).Error(),
+			fmt.Errorf("incorrect chain-id; expected %d, got %d", 262144, big.NewInt(1)).Error(),
 			false,
 		},
 		{
@@ -349,7 +350,7 @@ func (suite *BackendTestSuite) TestSendRawTransaction() {
 				suite.backend.allowUnprotectedTxs = false
 			},
 			func() []byte {
-				bytes, _ := rlp.EncodeToBytes(emptyChainIdTx.AsTransaction())
+				bytes, _ := rlp.EncodeToBytes(emptyChainIDTx.AsTransaction())
 				return bytes
 			},
 			common.Hash{},
