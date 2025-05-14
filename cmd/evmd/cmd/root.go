@@ -14,7 +14,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
-	config2 "github.com/cosmos/evm/cmd/evmd/config"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/testutil"
@@ -131,7 +131,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := InitAppConfig(config2.BaseDenom, config2.EVMChainID)
+			customAppTemplate, customAppConfig := InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
 			customTMConfig := initTendermintConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -372,7 +372,7 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		config2.EVMChainID,
+		evmdconfig.EVMChainID,
 		evmd.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -414,13 +414,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config2.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config2.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
@@ -435,7 +435,7 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 	if chainID == "" {
 		// If not available load from home
 		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-		chainID, err = config2.GetChainIDFromHome(homeDir)
+		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
 		if err != nil {
 			return "", err
 		}
