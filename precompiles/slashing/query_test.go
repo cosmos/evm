@@ -66,9 +66,9 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 				}
 			},
 			func(signingInfo *slashing.SigningInfo) {
-				s.Require().Equal(uint64(1), signingInfo.StartHeight)
-				s.Require().Equal(uint64(2), signingInfo.IndexOffset)
-				s.Require().Equal(uint64(1), signingInfo.MissedBlocksCounter)
+				s.Require().Equal(int64(1), signingInfo.StartHeight)
+				s.Require().Equal(int64(2), signingInfo.IndexOffset)
+				s.Require().Equal(int64(1), signingInfo.MissedBlocksCounter)
 				s.Require().False(signingInfo.Tombstoned)
 			},
 			200000,
@@ -135,21 +135,21 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().Equal(uint64(3), pageResponse.Total)
 
 				// Check first validator's signing info
-				s.Require().Equal(uint64(0), signingInfos[0].StartHeight)
-				s.Require().Equal(uint64(1), signingInfos[0].IndexOffset)
-				s.Require().Equal(uint64(18446744011573954816), signingInfos[0].JailedUntil)
+				s.Require().Equal(int64(0), signingInfos[0].StartHeight)
+				s.Require().Equal(int64(1), signingInfos[0].IndexOffset)
+				s.Require().Equal(int64(0), signingInfos[0].JailedUntil)
 				s.Require().False(signingInfos[0].Tombstoned)
 
 				// Check second validator's signing info
-				s.Require().Equal(uint64(0), signingInfos[1].StartHeight)
-				s.Require().Equal(uint64(1), signingInfos[1].IndexOffset)
-				s.Require().Equal(uint64(18446744011573954816), signingInfos[1].JailedUntil)
+				s.Require().Equal(int64(0), signingInfos[1].StartHeight)
+				s.Require().Equal(int64(1), signingInfos[1].IndexOffset)
+				s.Require().Equal(int64(0), signingInfos[1].JailedUntil)
 				s.Require().False(signingInfos[1].Tombstoned)
 
 				// Check third validator's signing info
-				s.Require().Equal(uint64(0), signingInfos[2].StartHeight)
-				s.Require().Equal(uint64(1), signingInfos[2].IndexOffset)
-				s.Require().Equal(uint64(18446744011573954816), signingInfos[2].JailedUntil)
+				s.Require().Equal(int64(0), signingInfos[2].StartHeight)
+				s.Require().Equal(int64(1), signingInfos[2].IndexOffset)
+				s.Require().Equal(int64(0), signingInfos[2].JailedUntil)
 				s.Require().False(signingInfos[2].Tombstoned)
 			},
 			200000,
@@ -172,9 +172,9 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().NotNil(pageResponse.NextKey)
 
 				// Check first validator's signing info
-				s.Require().Equal(uint64(0), signingInfos[0].StartHeight)
-				s.Require().Equal(uint64(1), signingInfos[0].IndexOffset)
-				s.Require().Equal(uint64(18446744011573954816), signingInfos[0].JailedUntil)
+				s.Require().Equal(int64(0), signingInfos[0].StartHeight)
+				s.Require().Equal(int64(1), signingInfos[0].IndexOffset)
+				s.Require().Equal(int64(0), signingInfos[0].JailedUntil)
 				s.Require().False(signingInfos[0].Tombstoned)
 			},
 			200000,
@@ -225,9 +225,9 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				// Get the default params from the network
 				defaultParams, err := s.network.App.SlashingKeeper.GetParams(s.network.GetContext())
 				s.Require().NoError(err)
-				s.Require().Equal(uint64(defaultParams.SignedBlocksWindow), params.SignedBlocksWindow) //nolint:gosec // G115
+				s.Require().Equal(defaultParams.SignedBlocksWindow, params.SignedBlocksWindow)
 				s.Require().Equal(defaultParams.MinSignedPerWindow.BigInt(), params.MinSignedPerWindow.Value)
-				s.Require().Equal(uint64(defaultParams.DowntimeJailDuration.Seconds()), params.DowntimeJailDuration)
+				s.Require().Equal(int64(defaultParams.DowntimeJailDuration.Seconds()), params.DowntimeJailDuration)
 				s.Require().Equal(defaultParams.SlashFractionDoubleSign.BigInt(), params.SlashFractionDoubleSign.Value)
 				s.Require().Equal(defaultParams.SlashFractionDowntime.BigInt(), params.SlashFractionDowntime.Value)
 			},

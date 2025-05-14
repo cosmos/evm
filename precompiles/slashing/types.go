@@ -17,11 +17,11 @@ import (
 // SigningInfo represents the signing info for a validator
 type SigningInfo struct {
 	ValidatorAddress    common.Address `abi:"validatorAddress"`
-	StartHeight         uint64         `abi:"startHeight"`
-	IndexOffset         uint64         `abi:"indexOffset"`
-	JailedUntil         uint64         `abi:"jailedUntil"`
+	StartHeight         int64          `abi:"startHeight"`
+	IndexOffset         int64          `abi:"indexOffset"`
+	JailedUntil         int64          `abi:"jailedUntil"`
 	Tombstoned          bool           `abi:"tombstoned"`
-	MissedBlocksCounter uint64         `abi:"missedBlocksCounter"`
+	MissedBlocksCounter int64          `abi:"missedBlocksCounter"`
 }
 
 // SigningInfoOutput represents the output of the signing info query
@@ -75,11 +75,11 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) *SigningInfoOutput {
 	sio.SigningInfo = SigningInfo{
 		ValidatorAddress:    common.BytesToAddress([]byte(res.ValSigningInfo.Address)),
-		StartHeight:         uint64(res.ValSigningInfo.StartHeight),        //nolint:gosec // G115
-		IndexOffset:         uint64(res.ValSigningInfo.IndexOffset),        //nolint:gosec // G115
-		JailedUntil:         uint64(res.ValSigningInfo.JailedUntil.Unix()), //nolint:gosec // G115
+		StartHeight:         res.ValSigningInfo.StartHeight,
+		IndexOffset:         res.ValSigningInfo.IndexOffset,
+		JailedUntil:         res.ValSigningInfo.JailedUntil.Unix(),
 		Tombstoned:          res.ValSigningInfo.Tombstoned,
-		MissedBlocksCounter: uint64(res.ValSigningInfo.MissedBlocksCounter), //nolint:gosec // G115
+		MissedBlocksCounter: res.ValSigningInfo.MissedBlocksCounter,
 	}
 	return sio
 }
@@ -89,11 +89,11 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 	for i, info := range res.Info {
 		sio.SigningInfos[i] = SigningInfo{
 			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
-			StartHeight:         uint64(info.StartHeight),        //nolint:gosec // G115
-			IndexOffset:         uint64(info.IndexOffset),        //nolint:gosec // G115
-			JailedUntil:         uint64(info.JailedUntil.Unix()), //nolint:gosec // G115
+			StartHeight:         info.StartHeight,
+			IndexOffset:         info.IndexOffset,
+			JailedUntil:         int64(info.JailedUntil.Unix()),
 			Tombstoned:          info.Tombstoned,
-			MissedBlocksCounter: uint64(info.MissedBlocksCounter), //nolint:gosec // G115
+			MissedBlocksCounter: info.MissedBlocksCounter,
 		}
 	}
 	if res.Pagination != nil {
@@ -112,9 +112,9 @@ type ValidatorUnjailed struct {
 
 // Params defines the parameters for the slashing module
 type Params struct {
-	SignedBlocksWindow      uint64  `abi:"signedBlocksWindow"`
+	SignedBlocksWindow      int64   `abi:"signedBlocksWindow"`
 	MinSignedPerWindow      cmn.Dec `abi:"minSignedPerWindow"`
-	DowntimeJailDuration    uint64  `abi:"downtimeJailDuration"`
+	DowntimeJailDuration    int64   `abi:"downtimeJailDuration"`
 	SlashFractionDoubleSign cmn.Dec `abi:"slashFractionDoubleSign"`
 	SlashFractionDowntime   cmn.Dec `abi:"slashFractionDowntime"`
 }
@@ -126,12 +126,12 @@ type ParamsOutput struct {
 
 func (po *ParamsOutput) FromResponse(res *slashingtypes.QueryParamsResponse) *ParamsOutput {
 	po.Params = Params{
-		SignedBlocksWindow: uint64(res.Params.SignedBlocksWindow), //nolint:gosec // G115
+		SignedBlocksWindow: res.Params.SignedBlocksWindow,
 		MinSignedPerWindow: cmn.Dec{
 			Value:     res.Params.MinSignedPerWindow.BigInt(),
 			Precision: math.LegacyPrecision,
 		},
-		DowntimeJailDuration: uint64(res.Params.DowntimeJailDuration.Seconds()),
+		DowntimeJailDuration: int64(res.Params.DowntimeJailDuration.Seconds()),
 		SlashFractionDoubleSign: cmn.Dec{
 			Value:     res.Params.SlashFractionDoubleSign.BigInt(),
 			Precision: math.LegacyPrecision,

@@ -15,25 +15,25 @@ struct SigningInfo {
     /// @dev Address of the validator
     address validatorAddress;
     /// @dev Height at which validator was first a candidate OR was unjailed
-    uint64 startHeight;
+    int64 startHeight;
     /// @dev Index offset into signed block bit array
-    uint64 indexOffset;
+    int64 indexOffset;
     /// @dev Timestamp until which validator is jailed due to liveness downtime
-    uint64 jailedUntil;
+    int64 jailedUntil;
     /// @dev Whether or not a validator has been tombstoned (killed out of validator set)
     bool tombstoned;
     /// @dev Missed blocks counter (to avoid scanning the array every time)
-    uint64 missedBlocksCounter;
+    int64 missedBlocksCounter;
 }
 
 /// @dev Params defines the parameters for the slashing module.
 struct Params {
     /// @dev SignedBlocksWindow defines how many blocks the validator should have signed
-    uint64 signedBlocksWindow;
+    int64 signedBlocksWindow;
     /// @dev MinSignedPerWindow defines the minimum blocks signed per window to avoid slashing
     Dec minSignedPerWindow;
     /// @dev DowntimeJailDuration defines how long the validator will be jailed for downtime
-    uint64 downtimeJailDuration;
+    int64 downtimeJailDuration;
     /// @dev SlashFractionDoubleSign defines the percentage of slash for double sign
     Dec slashFractionDoubleSign;
     /// @dev SlashFractionDowntime defines the percentage of slash for downtime
