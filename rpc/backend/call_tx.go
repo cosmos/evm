@@ -112,7 +112,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
 			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 		}
-		if tx.ChainId() != b.chainID {
+		if tx.ChainId().Uint64() != b.chainID.Uint64() {
 			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.chainID, tx.ChainId())
 		}
 	}
