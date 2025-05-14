@@ -3,11 +3,12 @@ package slashing
 import (
 	"fmt"
 
-	"cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+
+	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -91,7 +92,7 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
 			StartHeight:         info.StartHeight,
 			IndexOffset:         info.IndexOffset,
-			JailedUntil:         int64(info.JailedUntil.Unix()),
+			JailedUntil:         info.JailedUntil.Unix(),
 			Tombstoned:          info.Tombstoned,
 			MissedBlocksCounter: info.MissedBlocksCounter,
 		}
