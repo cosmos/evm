@@ -1,12 +1,12 @@
 package bech32_test
 
 import (
+	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/precompiles/bech32"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"

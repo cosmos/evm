@@ -13,7 +13,6 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -29,7 +28,7 @@ func (b *Backend) ChainID() (*hexutil.Big, error) {
 	bn, err := b.BlockNumber()
 	if err != nil {
 		b.logger.Debug("failed to fetch latest block number", "error", err.Error())
-		return (*hexutil.Big)(big.NewInt(int64(evmdconfig.EVMChainID))), nil
+		return (*hexutil.Big)(b.chainID), nil
 	}
 
 	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {

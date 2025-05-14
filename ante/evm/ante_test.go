@@ -159,6 +159,28 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				return txBuilder.GetTx()
 			}, true, false, false,
 		},
+		{
+			"fail - CheckTx (invalid EIP-155 chain ID)",
+			func() sdk.Tx {
+				chainID := big.NewInt(1)
+				txParamsCopy := evmtypes.EvmTxArgs{
+					Nonce:     ethTxParams.Nonce,
+					GasLimit:  ethTxParams.GasLimit,
+					Input:     ethTxParams.Input,
+					GasFeeCap: ethTxParams.GasFeeCap,
+					GasPrice:  ethTxParams.GasPrice,
+					ChainID:   chainID,
+					Amount:    ethTxParams.Amount,
+					GasTipCap: ethTxParams.GasTipCap,
+					To:        ethTxParams.To,
+					Accesses:  ethTxParams.Accesses,
+				}
+				tx, err := suite.GetTxFactory().GenerateSignedEthTxWithChainID(privKey, txParamsCopy, chainID)
+				suite.Require().NoError(err)
+				return tx
+			},
+			true, false, false,
+		},
 		// Based on EVMBackend.SendTransaction, for cosmos tx, forcing null for some fields except ExtensionOptions, Fee, MsgEthereumTx
 		// should be part of consensus
 		{

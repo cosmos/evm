@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	config2 "github.com/cosmos/evm/cmd/evmd/config"
 	"io"
 	"os"
 
@@ -14,7 +15,6 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/testutil"
@@ -131,7 +131,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := InitAppConfig(evmdconfig.BaseDenom)
+			customAppTemplate, customAppConfig := InitAppConfig(config2.BaseDenom, config2.EVMChainID)
 			customTMConfig := initTendermintConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -171,7 +171,7 @@ func initTendermintConfig() *tmcfg.Config {
 
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
-func InitAppConfig(denom string) (string, interface{}) {
+func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	type CustomAppConfig struct {
 		serverconfig.Config
 
@@ -197,9 +197,12 @@ func InitAppConfig(denom string) (string, interface{}) {
 	// In this example application, we set the min gas prices to 0.
 	srvCfg.MinGasPrices = "0" + denom
 
+	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
+	evmCfg.EVMChainID = evmChainID
+
 	customAppConfig := CustomAppConfig{
 		Config:  *srvCfg,
-		EVM:     *cosmosevmserverconfig.DefaultEVMConfig(),
+		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
@@ -369,7 +372,7 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		evmdconfig.EVMChainID,
+		config2.EVMChainID,
 		evmd.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -411,13 +414,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config2.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config2.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
@@ -432,7 +435,7 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 	if chainID == "" {
 		// If not available load from home
 		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
+		chainID, err = config2.GetChainIDFromHome(homeDir)
 		if err != nil {
 			return "", err
 		}

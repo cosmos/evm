@@ -3,10 +3,9 @@ package net
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/evm/server/config"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
-
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 
 	"github.com/cosmos/cosmos-sdk/client"
 )
@@ -19,8 +18,12 @@ type PublicAPI struct {
 
 // NewPublicAPI creates an instance of the public Net Web3 API.
 func NewPublicAPI(clientCtx client.Context) *PublicAPI {
+	cfg, err := config.GetConfig(clientCtx.Viper)
+	if err != nil {
+		panic(err)
+	}
 	return &PublicAPI{
-		networkVersion: evmdconfig.EVMChainID,
+		networkVersion: cfg.EVM.EVMChainID,
 		tmClient:       clientCtx.Client.(rpcclient.Client),
 	}
 }

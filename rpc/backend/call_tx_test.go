@@ -2,7 +2,9 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -288,6 +290,9 @@ func (suite *BackendTestSuite) TestResend() {
 func (suite *BackendTestSuite) TestSendRawTransaction() {
 	ethTx, bz := suite.buildEthereumTx()
 
+	emptyChainIdTx, _ := suite.buildEthereumTxWithChainID(nil)
+	invalidChainIdTx, _ := suite.buildEthereumTxWithChainID(big.NewInt(1))
+
 	// Sign the ethTx
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
 	err := ethTx.Sign(ethSigner, suite.signer)
@@ -295,61 +300,93 @@ func (suite *BackendTestSuite) TestSendRawTransaction() {
 
 	rlpEncodedBz, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
 	evmDenom := evmtypes.GetEVMCoinDenom()
-	cosmosTx, _ := ethTx.BuildTx(suite.backend.clientCtx.TxConfig.NewTxBuilder(), evmDenom)
-	txBytes, _ := suite.backend.clientCtx.TxConfig.TxEncoder()(cosmosTx)
 
 	testCases := []struct {
 		name         string
 		registerMock func()
-		rawTx        []byte
+		rawTx        func() []byte
 		expHash      common.Hash
+		expError     string
 		expPass      bool
 	}{
 		{
 			"fail - empty bytes",
 			func() {},
-			[]byte{},
+			func() []byte { return []byte{} },
 			common.Hash{},
+			"",
 			false,
 		},
 		{
 			"fail - no RLP encoded bytes",
 			func() {},
-			bz,
+			func() []byte { return bz },
 			common.Hash{},
+			"",
 			false,
 		},
 		{
-			"fail - unprotected transactions",
+			"fail - invalid chain-id",
 			func() {
 				suite.backend.allowUnprotectedTxs = false
-				client := suite.backend.clientCtx.Client.(*mocks.Client)
-				RegisterBroadcastTxError(client, txBytes)
 			},
-			rlpEncodedBz,
+			func() []byte {
+				from, priv := utiltx.NewAddrKey()
+				signer := utiltx.NewSigner(priv)
+				invalidChainIdTx.From = from.String()
+				err := invalidChainIdTx.Sign(ethSigner, signer)
+				suite.Require().NoError(err)
+				bytes, _ := rlp.EncodeToBytes(invalidChainIdTx.AsTransaction())
+				return bytes
+			},
 			common.Hash{},
+			errors.New(fmt.Sprintf("incorrect chain-id; expected %d, got %d", 262144, big.NewInt(1))).Error(),
+			false,
+		},
+		{
+			"fail - unprotected tx",
+			func() {
+				suite.backend.allowUnprotectedTxs = false
+			},
+			func() []byte {
+				bytes, _ := rlp.EncodeToBytes(emptyChainIdTx.AsTransaction())
+				return bytes
+			},
+			common.Hash{},
+			errors.New("only replay-protected (EIP-155) transactions allowed over RPC").Error(),
 			false,
 		},
 		{
 			"fail - failed to broadcast transaction",
 			func() {
+				cosmosTx, _ := ethTx.BuildTx(suite.backend.clientCtx.TxConfig.NewTxBuilder(), evmDenom)
+				txBytes, _ := suite.backend.clientCtx.TxConfig.TxEncoder()(cosmosTx)
+
 				client := suite.backend.clientCtx.Client.(*mocks.Client)
 				suite.backend.allowUnprotectedTxs = true
 				RegisterBroadcastTxError(client, txBytes)
 			},
-			rlpEncodedBz,
+			func() []byte {
+				bytes, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
+				return bytes
+			},
 			common.HexToHash(ethTx.Hash),
+			errortypes.ErrInvalidRequest.Error(),
 			false,
 		},
 		{
 			"pass - Gets the correct transaction hash of the eth transaction",
 			func() {
+				cosmosTx, _ := ethTx.BuildTx(suite.backend.clientCtx.TxConfig.NewTxBuilder(), evmDenom)
+				txBytes, _ := suite.backend.clientCtx.TxConfig.TxEncoder()(cosmosTx)
+
 				client := suite.backend.clientCtx.Client.(*mocks.Client)
 				suite.backend.allowUnprotectedTxs = true
 				RegisterBroadcastTx(client, txBytes)
 			},
-			rlpEncodedBz,
+			func() []byte { return rlpEncodedBz },
 			common.HexToHash(ethTx.Hash),
+			"",
 			true,
 		},
 	}
@@ -359,12 +396,12 @@ func (suite *BackendTestSuite) TestSendRawTransaction() {
 			suite.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			hash, err := suite.backend.SendRawTransaction(tc.rawTx)
+			hash, err := suite.backend.SendRawTransaction(tc.rawTx())
 
 			if tc.expPass {
 				suite.Require().Equal(tc.expHash, hash)
 			} else {
-				suite.Require().Error(err)
+				suite.Require().Errorf(err, tc.expError)
 			}
 		})
 	}

@@ -16,7 +16,6 @@ import (
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -161,7 +160,7 @@ func NewBackend(
 		rpcClient:           rpcClient,
 		queryClient:         rpctypes.NewQueryClient(clientCtx),
 		logger:              logger.With("module", "backend"),
-		chainID:             big.NewInt(int64(evmdconfig.EVMChainID)),
+		chainID:             big.NewInt(int64(appConf.EVM.EVMChainID)),
 		cfg:                 appConf,
 		allowUnprotectedTxs: allowUnprotectedTxs,
 		indexer:             indexer,

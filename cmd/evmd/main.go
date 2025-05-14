@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/cosmos/evm/cmd/evmd/cmd"
 	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
+	"os"
+
 	examplechain "github.com/cosmos/evm/evmd"
 
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"

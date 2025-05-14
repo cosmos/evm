@@ -5,7 +5,6 @@ package evmd
 
 import (
 	"fmt"
-
 	"github.com/cosmos/evm/cmd/evmd/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 

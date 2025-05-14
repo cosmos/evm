@@ -36,11 +36,17 @@ type TxFactory interface {
 	GenerateDefaultTxTypeArgs(sender common.Address, txType int) (evmtypes.EvmTxArgs, error)
 	// GenerateSignedEthTx generates an Ethereum tx with the provided private key and txArgs but does not broadcast it.
 	GenerateSignedEthTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (signing.Tx, error)
+	// GenerateSignedEthTxWithChainID generates an Ethereum tx with the provided private key, txArgs, and Chain ID, but does not broadcast it.
+	GenerateSignedEthTxWithChainID(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, eip155ChainID *big.Int) (signing.Tx, error)
 	// GenerateSignedMsgEthereumTx generates an MsgEthereumTx signed with the provided private key and txArgs.
 	GenerateSignedMsgEthereumTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (evmtypes.MsgEthereumTx, error)
+	// GenerateSignedMsgEthereumTxWithChainID generates an MsgEthereumTx signed with the provided private key, txArgs, and Chain ID.
+	GenerateSignedMsgEthereumTxWithChainID(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, eip155ChainID *big.Int) (evmtypes.MsgEthereumTx, error)
 
-	// SignMsgEthereumTx signs a MsgEthereumTx with the provided private key.
+	// SignMsgEthereumTx signs a MsgEthereumTx with the provided private key and uses the chain's ID for convenience.
 	SignMsgEthereumTx(privKey cryptotypes.PrivKey, msgEthereumTx evmtypes.MsgEthereumTx) (evmtypes.MsgEthereumTx, error)
+	// SignMsgEthereumTxWithChainID signs a MsgEthereumTx with the provided private key and chainID.
+	SignMsgEthereumTxWithChainID(privKey cryptotypes.PrivKey, msgEthereumTx evmtypes.MsgEthereumTx, eip155ChainID *big.Int) (evmtypes.MsgEthereumTx, error)
 
 	// ExecuteEthTx builds, signs and broadcasts an Ethereum tx with the provided private key and txArgs.
 	// If the txArgs are not provided, they will be populated with default values or gas estimations.
