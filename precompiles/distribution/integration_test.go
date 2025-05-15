@@ -3403,13 +3403,33 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 		})
 
 		Context("get comminity pool coins", func() {
+			var fundAmt *big.Int
+
 			BeforeEach(func() {
-				callArgs.MethodName = "getCommunityPool"
-				callArgs.Args = []interface{}{}
+				fundAmt = big.NewInt(1_000_000)
+				txArgs.GasLimit = 200_000
+
+				callArgs.MethodName = "testFundCommunityPool"
+				callArgs.Args = []interface{}{
+					s.keyring.GetAddr(0),
+					fundAmt,
+				}
+
+				fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+				_, _, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					fundCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				Expect(s.network.NextBlock()).To(BeNil())
 			})
 
-			It("should get community pool coins - empty pool", func() {
-				txArgs.GasLimit = 200_000 // set gas limit to avoid out of gas error
+			It("should get community pool coins", func() {
+				callArgs.MethodName = "getCommunityPool"
+				callArgs.Args = []interface{}{}
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
