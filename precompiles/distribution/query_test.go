@@ -969,5 +969,4 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 			}
 		})
 	}
-
 }
