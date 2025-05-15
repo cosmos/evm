@@ -166,6 +166,36 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "communityPool",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "denom",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint8",
+              "name": "precision",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct DecCoin[]",
+          "name": "coins",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",

@@ -389,6 +389,10 @@ contract DistributionCaller {
         );
     }
 
+    function getCommunityPool() public view returns (types.DecCoin[] memory) {
+        return distribution.DISTRIBUTION_CONTRACT.communityPool();
+    }
+
     // testRevertState allows sender to change the withdraw address
     // and then tries to withdraw other user delegation rewards
     function testRevertState(

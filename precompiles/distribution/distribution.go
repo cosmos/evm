@@ -126,6 +126,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.DelegatorValidators(ctx, contract, method, args)
 		case DelegatorWithdrawAddressMethod:
 			bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
+		case CommunityPoolMethod:
+			bz, err = p.CommunityPool(ctx, contract, method, args)
 		}
 
 		if err != nil {
@@ -153,13 +155,16 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 //   - SetWithdrawAddress
 //   - WithdrawDelegatorRewards
 //   - WithdrawValidatorCommission
+//   - FundCommunityPool
+//   - DepositValidatorRewardsPool
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case ClaimRewardsMethod,
 		SetWithdrawAddressMethod,
 		WithdrawDelegatorRewardsMethod,
 		WithdrawValidatorCommissionMethod,
-		FundCommunityPoolMethod:
+		FundCommunityPoolMethod,
+		DepositValidatorRewardsPoolMethod:
 		return true
 	default:
 		return false

@@ -1099,6 +1099,46 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			expAddr := s.keyring.GetAccAddr(0)
 			Expect(withdrawAddr[0]).To(Equal(expAddr.String()))
 		})
+
+		It("should get community pool coins - communityPool query", func() {
+			fundAmount := big.NewInt(1_000_000)
+			callArgs.MethodName = distribution.FundCommunityPoolMethod
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				big.NewInt(1_000_000),
+			}
+
+			txArgs.GasLimit = 200_000
+
+			fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				fundCheck,
+			)
+			Expect(err).To(BeNil(), "error while calling the precompile")
+			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
+
+			callArgs.MethodName = distribution.CommunityPoolMethod
+			callArgs.Args = []interface{}{}
+
+			_, ethRes, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				passCheck,
+			)
+			Expect(err).To(BeNil(), "error while calling the precompile")
+
+			var coins []cmn.DecCoin
+			err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(len(coins)).To(Equal(1))
+			Expect(coins[0].Denom).To(Equal(s.bondDenom))
+			Expect(coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
+		})
 	})
 })
 
@@ -1108,7 +1148,6 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 	// performed before and/or after the precompile call
 	type testCase struct {
 		withdrawer *common.Address
-		depositor  *common.Address
 		before     bool
 		after      bool
 	}
@@ -2647,7 +2686,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			})
 		})
 
-		When("depositor is differnt from signer", func() {
+		When("depositor is different from signer", func() {
 			It("should fail to deposit rewards to the validator rewards pool", func() {
 				callArgs.Args = []interface{}{
 					differentAddr,
@@ -2811,7 +2850,6 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			contractFinalBalance := balRes.Balance
 			Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(math.NewIntFromBigInt(depositAmt))))
 		})
-
 	})
 
 	Context("Forbidden operations", func() {
@@ -3361,6 +3399,31 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				// get the bech32 encoding
 				expAddr := sdk.AccAddress(s.keyring.GetAddr(0).Bytes())
 				Expect(withdrawAddr[0]).To(ContainSubstring(expAddr.String()))
+			})
+		})
+
+		Context("get comminity pool coins", func() {
+			BeforeEach(func() {
+				callArgs.MethodName = "getCommunityPool"
+				callArgs.Args = []interface{}{}
+			})
+
+			It("should get community pool coins - empty pool", func() {
+				txArgs.GasLimit = 200_000 // set gas limit to avoid out of gas error
+
+				_, ethRes, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					passCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+
+				var coins []cmn.DecCoin
+				err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+				Expect(err).To(BeNil())
+				Expect(len(coins)).To(Equal(1))
+				Expect(s.bondDenom).To(Equal(coins[0].Denom))
 			})
 		})
 	})

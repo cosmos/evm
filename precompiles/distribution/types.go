@@ -333,6 +333,16 @@ func NewDelegatorWithdrawAddressRequest(args []interface{}) (*distributiontypes.
 	}, nil
 }
 
+// NewCommunityPoolRequest creates a new QueryCommunityPoolRequest instance and does sanity
+// checks on the provided arguments.
+func NewCommunityPoolRequest(args []interface{}) (*distributiontypes.QueryCommunityPoolRequest, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	return &distributiontypes.QueryCommunityPoolRequest{}, nil
+}
+
 // ValidatorDistributionInfo is a struct to represent the key information from
 // a ValidatorDistributionInfoResponse.
 type ValidatorDistributionInfo struct {
@@ -436,4 +446,21 @@ func (dtr *DelegationTotalRewardsOutput) FromResponse(res *distributiontypes.Que
 // Pack packs a given slice of abi arguments into a byte array.
 func (dtr *DelegationTotalRewardsOutput) Pack(args abi.Arguments) ([]byte, error) {
 	return args.Pack(dtr.Rewards, dtr.Total)
+}
+
+// CommunityPoolOutput is a struct to represent the key information from
+// a CommunityPool response.
+type CommunityPoolOutput struct {
+	Pool []cmn.DecCoin
+}
+
+// FromResponse populates the CommunityPoolOutput from a QueryCommunityPoolResponse.
+func (cp *CommunityPoolOutput) FromResponse(res *distributiontypes.QueryCommunityPoolResponse) *CommunityPoolOutput {
+	cp.Pool = cmn.NewDecCoinsResponse(res.Pool)
+	return cp
+}
+
+// Pack packs a given slice of abi arguments into a byte array.
+func (cp *CommunityPoolOutput) Pack(args abi.Arguments) ([]byte, error) {
+	return args.Pack(cp.Pool)
 }
