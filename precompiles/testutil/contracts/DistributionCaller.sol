@@ -239,6 +239,56 @@ contract DistributionCaller {
         }
     }
 
+    /// @dev testDepositValidatorRewardsPool defines a method to allow an account to directly
+    /// fund the validator rewards pool.
+    /// @param depositor The address of the depositor
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coins sent to the validator rewards pool
+    /// @return success Whether the transaction was successful or not
+    function testDepositValidatorRewardsPool(
+        address depositor,
+        string memory validatorAddress,
+        types.Coin[] memory  amount
+    ) public returns (bool success) {
+        counter += 1;
+        success = distribution.DISTRIBUTION_CONTRACT.depositValidatorRewardsPool(
+            depositor,
+            validatorAddress,
+            amount
+        );
+        counter -= 1;
+        return success;
+    }
+
+    /// @dev testDepositValidatorRewardsPoolWithTransfer defines a method to allow an account to directly
+    /// fund the validator rewards pool and performs a transfer to the deposit.
+    /// @param depositor The address of the depositor
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coins sent to the validator rewards pool
+    /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
+    /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
+    function testDepositValidatorRewardsPoolWithTransfer(
+        address payable depositor,
+        string memory validatorAddress,
+        types.Coin[] memory amount,
+        bool _before,
+        bool _after
+    ) public {
+        if (_before) {
+            counter++;
+            (bool sent, ) = depositor.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
+        }
+        bool success = distribution.DISTRIBUTION_CONTRACT
+            .depositValidatorRewardsPool(depositor, validatorAddress, amount);
+        require(success);
+        if (_after) {
+            counter++;
+            (bool sent, ) = depositor.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
+        }
+    }
+
     /// @dev This function calls the staking precompile's delegate method.
     /// @param _validatorAddr The validator address to delegate to.
     /// @param _amount The amount to delegate.

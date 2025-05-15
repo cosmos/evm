@@ -28,6 +28,8 @@ const (
 	FundCommunityPoolMethod = "fundCommunityPool"
 	// ClaimRewardsMethod defines the ABI method name for the custom ClaimRewards transaction
 	ClaimRewardsMethod = "claimRewards"
+	// DepositValidatorRewardsPoolMethod defines the ABI method name for the DepositValidatorRewardsPool transaction
+	DepositValidatorRewardsPoolMethod = "depositValidatorRewardsPool"
 )
 
 // ClaimRewards claims the rewards accumulated by a delegator from multiple or all validators.
@@ -286,6 +288,54 @@ func (p *Precompile) FundCommunityPool(
 	}
 
 	if err = p.EmitFundCommunityPoolEvent(ctx, stateDB, depositorHexAddr, msg.Amount); err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(true)
+}
+
+// DepositValidatorRewardsPool
+func (p *Precompile) DepositValidatorRewardsPool(
+	ctx sdk.Context,
+	origin common.Address,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(args)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the contract is the validator, we don't need an origin check
+	// Otherwise check if the origin matches the validator address
+	isContractDepositor := contract.CallerAddress == depositorHexAddr && origin != depositorHexAddr
+	if !isContractDepositor && origin != depositorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrSpenderDifferentOrigin, origin.String(), depositorHexAddr.String())
+	}
+
+	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
+	_, err = msgSrv.DepositValidatorRewardsPool(ctx, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
+	// when calling the precompile from a smart contract
+	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
+	if contract.CallerAddress != origin {
+		if found, evmCoinAmount := msg.Amount.Find(evmtypes.GetEVMCoinDenom()); found {
+			// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
+			convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(evmCoinAmount.Amount.BigInt())
+			// check if converted amount is greater than zero
+			if convertedAmount.Cmp(common.Big0) == 1 {
+				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
+			}
+		}
+	}
+
+	if err = p.EmitDepositValidatorRewardsPoolEvent(ctx, stateDB, depositorHexAddr, msg.ValidatorAddress, msg.Amount); err != nil {
 		return nil, err
 	}
 

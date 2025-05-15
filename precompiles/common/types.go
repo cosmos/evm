@@ -1,7 +1,9 @@
 package common
 
 import (
+	"fmt"
 	"math/big"
+	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -101,4 +103,56 @@ func HexAddressFromBech32String(addr string) (res common.Address, err error) {
 func SafeAdd(a, b math.Int) (res *big.Int, overflow bool) {
 	res = a.BigInt().Add(a.BigInt(), b.BigInt())
 	return res, res.BitLen() > math.MaxBitLen
+}
+
+// ToCoins converts a value returned from the ABI to a slice of Coin.
+func ToCoins(v interface{}) ([]Coin, error) {
+	// Fast-path: if ABI already returned []Coin (e.g. in tests) just cast.
+	if coins, ok := v.([]Coin); ok {
+		return coins, nil
+	}
+
+	// Slow-path: reflect over anonymous struct slice.
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("expected slice, got %T", v)
+	}
+
+	out := make([]Coin, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		item := rv.Index(i)
+		denomField := item.FieldByName("Denom")
+		amountField := item.FieldByName("Amount")
+
+		// Field lookup failure would panic → treat as programmer error.
+		if !denomField.IsValid() || !amountField.IsValid() {
+			return nil, fmt.Errorf("coin tuple does not have expected fields")
+		}
+
+		denom, ok1 := denomField.Interface().(string)
+		amount, ok2 := amountField.Interface().(*big.Int)
+		if !ok1 || !ok2 || amount == nil || denom == "" {
+			return nil, fmt.Errorf("invalid coin at index %d", i)
+		}
+
+		out[i] = Coin{Denom: denom, Amount: amount}
+	}
+	return out, nil
+}
+
+// NewSdkCoinsFromCoins converts a slice of Coin to sdk.Coins.
+func NewSdkCoinsFromCoins(coins []Coin) (sdk.Coins, error) {
+	sdkCoins := make(sdk.Coins, len(coins))
+	for i, coin := range coins {
+		sdkCoin := sdk.Coin{
+			Denom:  coin.Denom,
+			Amount: math.NewIntFromBigInt(coin.Amount),
+		}
+		if err := sdkCoin.Validate(); err != nil {
+			return nil, err
+		}
+
+		sdkCoins[i] = sdkCoin
+	}
+	return sdkCoins, nil
 }

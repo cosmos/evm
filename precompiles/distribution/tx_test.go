@@ -16,6 +16,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -564,6 +565,160 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			s.Require().Equal(balance.Amount, network.PrefundedAccountInitialBalance)
 
 			bz, err := s.precompile.FundCommunityPool(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+
+			if tc.expError {
+				s.Require().ErrorContains(err, tc.errContains)
+			} else {
+				s.Require().NoError(err)
+				tc.postCheck(bz)
+			}
+		})
+	}
+}
+
+func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
+	var ctx sdk.Context
+	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
+
+	testCases := []struct {
+		name        string
+		malleate    func(val stakingtypes.Validator) []interface{}
+		postCheck   func(data []byte)
+		gas         uint64
+		expError    bool
+		errContains string
+	}{
+		{
+			"fail - empty input args",
+			func(_ stakingtypes.Validator) []interface{} {
+				return []interface{}{}
+			},
+			func([]byte) {},
+			200000,
+			true,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
+		},
+		{
+			"fail - invalid depositor address",
+			func(val stakingtypes.Validator) []interface{} {
+				return []interface{}{
+					"invalidAddress",
+					val.OperatorAddress,
+					[]cmn.Coin{
+						{
+							Denom:  testconstants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
+				}
+			},
+			func([]byte) {},
+			200000,
+			true,
+			fmt.Sprintf(cmn.ErrInvalidHexAddress, "invalidAddress"),
+		},
+		{
+			"fail - empty validator address",
+			func(val stakingtypes.Validator) []interface{} {
+				return []interface{}{
+					s.keyring.GetAddr(0),
+					"",
+					[]cmn.Coin{
+						{
+							Denom:  testconstants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
+				}
+			},
+			func([]byte) {},
+			200000,
+			true,
+			"empty address string is not allowed",
+		},
+		{
+			"fail - invalid amount",
+			func(val stakingtypes.Validator) []interface{} {
+				return []interface{}{
+					s.keyring.GetAddr(0),
+					val.OperatorAddress,
+					"invalidAmount",
+				}
+			},
+			func([]byte) {},
+			200000,
+			true,
+			fmt.Sprintf(cmn.ErrInvalidAmount, "invalidAmount"),
+		},
+		{
+			"success - deposit rewards to the validator pool",
+			func(val stakingtypes.Validator) []interface{} {
+				return []interface{}{
+					s.keyring.GetAddr(0),
+					val.OperatorAddress,
+					[]cmn.Coin{
+						{
+							Denom:  testconstants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
+				}
+			},
+			func(data []byte) {
+				// check data is true
+				var success bool
+				err := s.precompile.UnpackIntoInterface(&success, distribution.DepositValidatorRewardsPoolMethod, data)
+				s.Require().NoError(err, "failed to unpack output")
+				s.Require().True(success, "expected true, got false")
+
+				val := s.network.GetValidators()[0]
+				valCodec := address.NewBech32Codec("cosmosvaloper")
+				valBz, err := valCodec.StringToBytes(val.GetOperator())
+				s.Require().NoError(err)
+
+				depositCoins := sdk.DecCoins{
+					{Denom: testconstants.ExampleAttoDenom, Amount: math.LegacyNewDecFromBigInt(big.NewInt(1e18))},
+				}
+				expectedValCommission := depositCoins.MulDec(val.GetCommission())
+				expectedCurrentRewards := depositCoins.Sub(expectedValCommission)
+				expectedOutstandingRewards := depositCoins
+
+				// check validation commission
+				valCommission, err := s.network.App.DistrKeeper.GetValidatorAccumulatedCommission(ctx, valBz)
+				s.Require().NoError(err)
+				s.Require().Equal(expectedValCommission, valCommission.Commission)
+
+				// check current rewards
+				currentRewards, err := s.network.App.DistrKeeper.GetValidatorCurrentRewards(ctx, valBz)
+				s.Require().NoError(err)
+				s.Require().Equal(expectedCurrentRewards, currentRewards.Rewards)
+
+				// check outstanding rewards
+				outstandingRewards, err := s.network.App.DistrKeeper.GetValidatorOutstandingRewards(ctx, valBz)
+				s.Require().NoError(err)
+				s.Require().Equal(expectedOutstandingRewards, outstandingRewards.Rewards)
+
+				// check bank balance after the deposit
+				balance := s.network.App.BankKeeper.GetBalance(ctx, s.keyring.GetAddr(0).Bytes(), testconstants.ExampleAttoDenom)
+				s.Require().Equal(balance.Amount, network.PrefundedAccountInitialBalance.Sub(math.NewInt(1e18)))
+				s.Require().Equal(balance.Denom, testconstants.ExampleAttoDenom)
+			},
+			20000,
+			false,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx = s.network.GetContext()
+
+			var contract *vm.Contract
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
+
+			args := tc.malleate(s.network.GetValidators()[0])
+			bz, err := s.precompile.DepositValidatorRewardsPool(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

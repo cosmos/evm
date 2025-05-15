@@ -74,6 +74,17 @@ interface DistributionI {
     /// @param amount the amount being sent to the community pool
     event FundCommunityPool(address indexed depositor, uint256 amount);
 
+    /// @dev DepositValidatorRewardsPool defines an Event emitted when an account
+    /// deposits the validator rewards pool
+    /// @param depositor the address funding the validator rewards pool
+    /// @param validatorAddress the address of the validator
+    /// @param amount the amount being sent to the validator rewards pool
+    event DepositValidatorRewardsPool(
+        address indexed depositor,
+        string indexed validatorAddress,
+        Coin amount
+    );
+
     /// TRANSACTIONS
 
     /// @dev Claims all rewards from a select set of validators or all of them for a delegator.
@@ -119,6 +130,18 @@ interface DistributionI {
     function fundCommunityPool(
         address depositor,
         uint256 amount
+    ) external returns (bool success);
+
+    /// @dev depositValidatorRewardsPool defines a method to allow an account to directly
+    /// fund the validator rewards pool.
+    /// @param depositor The address of the depositor
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coin sent to the validator rewards pool
+    /// @return success Whether the transaction was successful or not
+    function depositValidatorRewardsPool(
+        address depositor,
+        string memory validatorAddress,
+        Coin[] memory amount
     ) external returns (bool success);
 
     /// QUERIES

@@ -161,6 +161,38 @@ func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontyp
 	return msg, depositorAddress, nil
 }
 
+// NewMsgDepositValidatorRewardsPool creates a new MsgDepositValidatorRewardsPool message.
+func NewMsgDepositValidatorRewardsPool(args []interface{}) (*distributiontypes.MsgDepositValidatorRewardsPool, common.Address, error) {
+	if len(args) != 3 {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
+	}
+
+	depositorAddress, ok := args[0].(common.Address)
+	if !ok || depositorAddress == (common.Address{}) {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+	}
+
+	validatorAddress, _ := args[1].(string)
+
+	coins, err := cmn.ToCoins(args[2])
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[2])
+	}
+
+	amount, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
+	}
+
+	msg := &distributiontypes.MsgDepositValidatorRewardsPool{
+		Depositor:        sdk.AccAddress(depositorAddress.Bytes()).String(),
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+	}
+
+	return msg, depositorAddress, nil
+}
+
 // NewValidatorDistributionInfoRequest creates a new QueryValidatorDistributionInfoRequest  instance and does sanity
 // checks on the provided arguments.
 func NewValidatorDistributionInfoRequest(args []interface{}) (*distributiontypes.QueryValidatorDistributionInfoRequest, error) {

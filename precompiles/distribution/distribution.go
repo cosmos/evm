@@ -107,6 +107,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.WithdrawValidatorCommission(ctx, evm.Origin, contract, stateDB, method, args)
 		case FundCommunityPoolMethod:
 			bz, err = p.FundCommunityPool(ctx, evm.Origin, contract, stateDB, method, args)
+		case DepositValidatorRewardsPoolMethod:
+			bz, err = p.DepositValidatorRewardsPool(ctx, evm.Origin, contract, stateDB, method, args)
 		// Distribution queries
 		case ValidatorDistributionInfoMethod:
 			bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)

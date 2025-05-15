@@ -25,6 +25,8 @@ const (
 	EventTypeFundCommunityPool = "FundCommunityPool"
 	// EventTypeClaimRewards defines the event type for the distribution ClaimRewardsMethod transaction.
 	EventTypeClaimRewards = "ClaimRewards"
+	// EventTypeDepositValidatorRewardsPool defines the event type for the distribution DepositValidatorRewardsPoolMethod transaction.
+	EventTypeDepositValidatorRewardsPool = "DepositValidatorRewardsPool"
 )
 
 // EmitClaimRewardsEvent creates a new event emitted on a ClaimRewards transaction.
@@ -175,6 +177,44 @@ func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.State
 
 	var err error
 	topics[1], err = cmn.MakeTopic(depositor)
+	if err != nil {
+		return err
+	}
+
+	// Prepare the event data
+	var b bytes.Buffer
+	b.Write(cmn.PackNum(reflect.ValueOf(coins[0].Amount.BigInt())))
+
+	stateDB.AddLog(&ethtypes.Log{
+		Address:     p.Address(),
+		Topics:      topics,
+		Data:        b.Bytes(),
+		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+	})
+
+	return nil
+}
+
+// EmitDepositValidatorRewardsPoolEvent creates a new event emitted on a DepositValidatorRewardsPool transaction.
+func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, validatorAddress string, coins sdk.Coins) error {
+	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
+	if err != nil {
+		return err
+	}
+
+	// Prepare the event topics
+	event := p.ABI.Events[EventTypeDepositValidatorRewardsPool]
+	topics := make([]common.Hash, 3)
+
+	// The first topic is always the signature of the event.
+	topics[0] = event.ID
+
+	topics[1], err = cmn.MakeTopic(depositor)
+	if err != nil {
+		return err
+	}
+
+	topics[2], err = cmn.MakeTopic(common.BytesToAddress(valAddr.Bytes()))
 	if err != nil {
 		return err
 	}
