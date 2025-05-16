@@ -154,5 +154,5 @@ func NewSdkCoinsFromCoins(coins []Coin) (sdk.Coins, error) {
 
 		sdkCoins[i] = sdkCoin
 	}
-	return sdkCoins, nil
+	return sdkCoins.Sort(), nil
 }

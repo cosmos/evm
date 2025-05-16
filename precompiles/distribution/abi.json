@@ -33,27 +33,21 @@
         },
         {
           "indexed": true,
-          "internalType": "string",
+          "internalType": "address",
           "name": "validatorAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "denom",
           "type": "string"
         },
         {
-          "components": [
-            {
-              "internalType": "string",
-              "name": "denom",
-              "type": "string"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-            }
-          ],
           "indexed": false,
-          "internalType": "struct Coin",
+          "internalType": "uint256",
           "name": "amount",
-          "type": "tuple"
+          "type": "uint256"
         }
       ],
       "name": "DepositValidatorRewardsPool",

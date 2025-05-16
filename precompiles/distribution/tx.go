@@ -28,7 +28,8 @@ const (
 	FundCommunityPoolMethod = "fundCommunityPool"
 	// ClaimRewardsMethod defines the ABI method name for the custom ClaimRewards transaction
 	ClaimRewardsMethod = "claimRewards"
-	// DepositValidatorRewardsPoolMethod defines the ABI method name for the DepositValidatorRewardsPool transaction
+	// DepositValidatorRewardsPoolMethod defines the ABI method name for the distribution
+	// DepositValidatorRewardsPool transaction
 	DepositValidatorRewardsPoolMethod = "depositValidatorRewardsPool"
 )
 
@@ -294,7 +295,8 @@ func (p *Precompile) FundCommunityPool(
 	return method.Outputs.Pack(true)
 }
 
-// DepositValidatorRewardsPool
+// DepositValidatorRewardsPool deposits rewards into the validator rewards pool
+// for a specific validator.
 func (p *Precompile) DepositValidatorRewardsPool(
 	ctx sdk.Context,
 	origin common.Address,
@@ -308,8 +310,8 @@ func (p *Precompile) DepositValidatorRewardsPool(
 		return nil, err
 	}
 
-	// If the contract is the validator, we don't need an origin check
-	// Otherwise check if the origin matches the validator address
+	// If the contract is the depositor, we don't need an origin check
+	// Otherwise check if the origin matches the depositor address
 	isContractDepositor := contract.CallerAddress == depositorHexAddr && origin != depositorHexAddr
 	if !isContractDepositor && origin != depositorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrSpenderDifferentOrigin, origin.String(), depositorHexAddr.String())

@@ -761,7 +761,11 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 				},
 			}
 
-			passCheckWithEvent := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+			passCheckWithEvent := passCheck.WithExpEvents(
+				distribution.EventTypeDepositValidatorRewardsPool,
+				distribution.EventTypeDepositValidatorRewardsPool,
+				distribution.EventTypeDepositValidatorRewardsPool,
+			)
 
 			_, txRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0), // tx from Addr0
@@ -3402,7 +3406,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			})
 		})
 
-		Context("get comminity pool coins", func() {
+		Context("get community pool coins", func() {
 			var fundAmt *big.Int
 
 			BeforeEach(func() {

@@ -78,11 +78,13 @@ interface DistributionI {
     /// deposits the validator rewards pool
     /// @param depositor the address funding the validator rewards pool
     /// @param validatorAddress the address of the validator
-    /// @param amount the amount being sent to the validator rewards pool
+    /// @param denom the denomination of the coin being sent to the validator rewards pool
+    /// @param amount the amount of the coin being sent to the validator rewards pool
     event DepositValidatorRewardsPool(
         address indexed depositor,
-        string indexed validatorAddress,
-        Coin amount
+        address indexed validatorAddress,
+        string denom,
+        uint256 amount
     );
 
     /// TRANSACTIONS

@@ -47,6 +47,14 @@ type EventFundCommunityPool struct {
 	Amount    *big.Int
 }
 
+// EventDepositValidatorRewardsPool defines the event data for the DepositValidatorRewardsPool transaction.
+type EventDepositValidatorRewardsPool struct {
+	Depositor        common.Address
+	ValidatorAddress common.Address
+	Denom            string
+	Amount           *big.Int
+}
+
 // parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
 func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
 	if len(args) != 2 {
