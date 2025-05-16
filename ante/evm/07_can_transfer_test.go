@@ -97,7 +97,6 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 				unitNetwork.App.EVMKeeper,
 				coreMsg,
 				baseFeeResp.BaseFee.BigInt(),
-				ethCfg,
 				evmParams.Params,
 				tc.isLondon,
 			)

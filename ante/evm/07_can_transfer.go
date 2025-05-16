@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -23,7 +22,6 @@ func CanTransfer(
 	evmKeeper anteinterfaces.EVMKeeper,
 	msg core.Message,
 	baseFee *big.Int,
-	ethCfg *params.ChainConfig,
 	params evmtypes.Params,
 	isLondon bool,
 ) error {
@@ -37,10 +35,9 @@ func CanTransfer(
 
 	// NOTE: pass in an empty coinbase address and nil tracer as we don't need them for the check below
 	cfg := &statedb.EVMConfig{
-		ChainConfig: ethCfg,
-		Params:      params,
-		CoinBase:    common.Address{},
-		BaseFee:     baseFee,
+		Params:   params,
+		CoinBase: common.Address{},
+		BaseFee:  baseFee,
 	}
 
 	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
