@@ -14,6 +14,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// AccountKeeper defines the contract required for account APIs.
+type AccountKeeper interface {
+	GetModuleAddress(name string) sdk.AccAddress
+	GetModuleAccount(ctx context.Context, name string) sdk.ModuleAccountI
+}
+
 // EVMKeeper defines the expected EVM keeper interface used on erc20
 type EVMKeeper interface {
 	// TODO: should these methods also be converted to use context.Context?
