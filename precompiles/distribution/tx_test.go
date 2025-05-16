@@ -127,12 +127,12 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 	}
 }
 
-func (s *PrecompileTestSuite) TestWithdrawDelegatorRewards() {
+func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 	var (
 		ctx sdk.Context
 		err error
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardsMethod]
+	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 
 	testCases := []struct {
 		name        string
@@ -197,7 +197,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewards() {
 			},
 			func(data []byte) {
 				var coins []cmn.Coin
-				err := s.precompile.UnpackIntoInterface(&coins, distribution.WithdrawDelegatorRewardsMethod, data)
+				err := s.precompile.UnpackIntoInterface(&coins, distribution.WithdrawDelegatorRewardMethod, data)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(coins[0].Denom, testconstants.ExampleAttoDenom)
 				s.Require().Equal(coins[0].Amount.Int64(), expRewardsAmt.Int64())
@@ -220,7 +220,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewards() {
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
-			bz, err := s.precompile.WithdrawDelegatorRewards(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
+			bz, err := s.precompile.WithdrawDelegatorReward(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -237,7 +237,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 		ctx         sdk.Context
 		prevBalance sdk.Coin
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardsMethod]
+	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 
 	testCases := []struct {
 		name        string

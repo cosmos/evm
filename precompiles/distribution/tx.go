@@ -18,9 +18,9 @@ const (
 	// SetWithdrawAddressMethod defines the ABI method name for the distribution
 	// SetWithdrawAddress transaction.
 	SetWithdrawAddressMethod = "setWithdrawAddress"
-	// WithdrawDelegatorRewardsMethod defines the ABI method name for the distribution
-	// WithdrawDelegatorRewards transaction.
-	WithdrawDelegatorRewardsMethod = "withdrawDelegatorRewards"
+	// WithdrawDelegatorRewardMethod defines the ABI method name for the distribution
+	// WithdrawDelegatorReward transaction.
+	WithdrawDelegatorRewardMethod = "withdrawDelegatorRewards"
 	// WithdrawValidatorCommissionMethod defines the ABI method name for the distribution
 	// WithdrawValidatorCommission transaction.
 	WithdrawValidatorCommissionMethod = "withdrawValidatorCommission"
@@ -140,8 +140,8 @@ func (p Precompile) SetWithdrawAddress(
 	return method.Outputs.Pack(true)
 }
 
-// WithdrawDelegatorRewards withdraws the rewards of a delegator from a single validator.
-func (p *Precompile) WithdrawDelegatorRewards(
+// WithdrawDelegatorReward withdraws the rewards of a delegator from a single validator.
+func (p *Precompile) WithdrawDelegatorReward(
 	ctx sdk.Context,
 	origin common.Address,
 	contract *vm.Contract,
@@ -184,7 +184,7 @@ func (p *Precompile) WithdrawDelegatorRewards(
 		}
 	}
 
-	if err = p.EmitWithdrawDelegatorRewardsEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
+	if err = p.EmitWithdrawDelegatorRewardEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
 		return nil, err
 	}
 

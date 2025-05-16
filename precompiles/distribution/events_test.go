@@ -89,12 +89,12 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 	}
 }
 
-func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardsEvent() {
+func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 	var (
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardsMethod]
+	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 	testCases := []struct {
 		name        string
 		malleate    func(val stakingtypes.Validator) []interface{}
@@ -124,7 +124,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardsEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeWithdrawDelegatorRewards]
+				event := s.precompile.ABI.Events[distribution.EventTypeWithdrawDelegatorReward]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -133,8 +133,8 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardsEvent() {
 				optHexAddr := common.BytesToAddress(optAddr)
 
 				// Check the fully unpacked event matches the one emitted
-				var delegatorRewards distribution.EventWithdrawDelegatorRewards
-				err = cmn.UnpackLog(s.precompile.ABI, &delegatorRewards, distribution.EventTypeWithdrawDelegatorRewards, *log)
+				var delegatorRewards distribution.EventWithdrawDelegatorReward
+				err = cmn.UnpackLog(s.precompile.ABI, &delegatorRewards, distribution.EventTypeWithdrawDelegatorReward, *log)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), delegatorRewards.DelegatorAddress)
 				s.Require().Equal(optHexAddr, delegatorRewards.ValidatorAddress)
@@ -156,7 +156,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardsEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.WithdrawDelegatorRewards(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.network.GetValidators()[0]))
+		_, err := s.precompile.WithdrawDelegatorReward(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.network.GetValidators()[0]))
 
 		if tc.expError {
 			s.Require().Error(err)

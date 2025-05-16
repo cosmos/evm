@@ -167,13 +167,13 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 		})
 	})
 
-	Describe("Execute WithdrawDelegatorRewards transaction", func() {
+	Describe("Execute WithdrawDelegatorReward transaction", func() {
 		var accruedRewards sdk.DecCoins
 
 		BeforeEach(func() {
 			var err error
 			// set the default call arguments
-			callArgs.MethodName = distribution.WithdrawDelegatorRewardsMethod
+			callArgs.MethodName = distribution.WithdrawDelegatorRewardMethod
 
 			accruedRewards, err = testutils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 			Expect(err).To(BeNil())
@@ -215,7 +215,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -227,7 +227,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -276,7 +276,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -289,7 +289,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -355,7 +355,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -368,7 +368,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 			Expect(rewards[0].Denom).To(Equal(s.bondDenom))
@@ -1308,7 +1308,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(err).To(BeNil())
 			initialBalance = balRes.Balance
 
-			callArgs.MethodName = "testWithdrawDelegatorRewards"
+			callArgs.MethodName = "testWithdrawDelegatorReward"
 
 			// set gas price to calculate fees paid
 			txArgs.GasPrice = gasPrice.BigInt()
@@ -1360,7 +1360,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 			logCheckArgs := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1406,7 +1406,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			}
 
 			logCheckArgs := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1418,7 +1418,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -1455,7 +1455,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			contractInitialBalance := math.NewInt(100)
 
 			BeforeEach(func() {
-				callArgs.MethodName = "testWithdrawDelegatorRewardsWithTransfer"
+				callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
 
 				// send some funds to the contract
 				err := testutils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), contractInitialBalance)
@@ -1492,7 +1492,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 					}
 
 					logCheckArgs := passCheck.
-						WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+						WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 					res, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -1693,13 +1693,13 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			initialBalance = balRes.Balance
 
 			// populate default arguments
-			callArgs.MethodName = "testWithdrawDelegatorRewardsFromContract"
+			callArgs.MethodName = "testWithdrawDelegatorRewardFromContract"
 		})
 
 		It("should withdraw rewards successfully without origin check", func() {
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			_, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1748,7 +1748,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			accruedRewardsAmt = rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1779,7 +1779,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				contractInitialBalance = math.NewInt(100)
 			)
 			BeforeEach(func() {
-				callArgs.MethodName = "testWithdrawDelegatorRewardsWithTransfer"
+				callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
 
 				// deploy another delegator contract
 				delContractAddr, err = s.factory.DeployContract(
@@ -1924,7 +1924,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(err).To(BeNil())
 			expRewards := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 

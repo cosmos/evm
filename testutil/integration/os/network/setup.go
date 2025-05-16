@@ -283,7 +283,8 @@ func getValidatorsSlashingGen(validators []stakingtypes.Validator, sk slashingty
 		signInfo[i] = slashingtypes.SigningInfo{
 			Address: consAddr,
 			ValidatorSigningInfo: slashingtypes.ValidatorSigningInfo{
-				Address: consAddr,
+				Address:     consAddr,
+				JailedUntil: time.Unix(0, 0),
 			},
 		}
 		missedBlocks[i] = slashingtypes.ValidatorMissedBlocks{
