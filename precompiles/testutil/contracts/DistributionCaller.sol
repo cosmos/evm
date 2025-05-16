@@ -150,6 +150,21 @@ contract DistributionCaller {
         );
     }
 
+    function testTryClaimRewards(
+        address delegatorAddress,
+        uint32 maxRetrieve
+    ) external returns (bool) {
+        bool success;
+
+        try distribution.DISTRIBUTION_CONTRACT.claimRewards(delegatorAddress, maxRetrieve) returns (bool result) {
+            success = result;
+        } catch {
+            success = false;
+        }
+
+        return success;
+    }
+
     /// @dev testFundCommunityPool defines a method to allow an account to directly
     /// fund the community pool.
     /// @param depositor The address of the depositor

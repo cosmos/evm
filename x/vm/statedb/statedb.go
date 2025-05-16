@@ -119,6 +119,16 @@ func (s *StateDB) MultiStoreSnapshot() storetypes.CacheMultiStore {
 	return snapshot
 }
 
+func (s *StateDB) RevertMultiStore(cms storetypes.CacheMultiStore, events sdk.Events) {
+	s.cacheCtx = s.cacheCtx.WithMultiStore(cms)
+	s.writeCache = func() {
+		// rollback the events to the ones
+		// on the snapshot
+		s.ctx.EventManager().EmitEvents(events)
+		cms.Write()
+	}
+}
+
 // cache creates the stateDB cache context
 func (s *StateDB) cache() error {
 	if s.ctx.MultiStore() == nil {

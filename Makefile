@@ -128,7 +128,8 @@ endif
 
 test-scripts:
 	@echo "Running scripts tests"
-	@pytest -s -vv ./scripts
+# TODO: revert python3
+	@python3 -m pytest -s -vv ./scripts
 
 test-solidity:
 	@echo "Beginning solidity tests..."
