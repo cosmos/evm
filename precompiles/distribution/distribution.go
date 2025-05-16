@@ -101,12 +101,14 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		// Distribution transactions
 		case SetWithdrawAddressMethod:
 			bz, err = p.SetWithdrawAddress(ctx, evm.Origin, contract, stateDB, method, args)
-		case WithdrawDelegatorRewardsMethod:
-			bz, err = p.WithdrawDelegatorRewards(ctx, evm.Origin, contract, stateDB, method, args)
+		case WithdrawDelegatorRewardMethod:
+			bz, err = p.WithdrawDelegatorReward(ctx, evm.Origin, contract, stateDB, method, args)
 		case WithdrawValidatorCommissionMethod:
 			bz, err = p.WithdrawValidatorCommission(ctx, evm.Origin, contract, stateDB, method, args)
 		case FundCommunityPoolMethod:
 			bz, err = p.FundCommunityPool(ctx, evm.Origin, contract, stateDB, method, args)
+		case DepositValidatorRewardsPoolMethod:
+			bz, err = p.DepositValidatorRewardsPool(ctx, evm.Origin, contract, stateDB, method, args)
 		// Distribution queries
 		case ValidatorDistributionInfoMethod:
 			bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)
@@ -124,6 +126,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.DelegatorValidators(ctx, contract, method, args)
 		case DelegatorWithdrawAddressMethod:
 			bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
+		case CommunityPoolMethod:
+			bz, err = p.CommunityPool(ctx, contract, method, args)
 		}
 
 		if err != nil {
@@ -149,15 +153,18 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 // Available distribution transactions are:
 //   - ClaimRewards
 //   - SetWithdrawAddress
-//   - WithdrawDelegatorRewards
+//   - WithdrawDelegatorReward
 //   - WithdrawValidatorCommission
+//   - FundCommunityPool
+//   - DepositValidatorRewardsPool
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case ClaimRewardsMethod,
 		SetWithdrawAddressMethod,
-		WithdrawDelegatorRewardsMethod,
+		WithdrawDelegatorRewardMethod,
 		WithdrawValidatorCommissionMethod,
-		FundCommunityPoolMethod:
+		FundCommunityPoolMethod,
+		DepositValidatorRewardsPoolMethod:
 		return true
 	default:
 		return false

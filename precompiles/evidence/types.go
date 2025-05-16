@@ -44,7 +44,7 @@ type AllEvidenceOutput struct {
 // EquivocationData represents the Solidity Equivocation struct
 type EquivocationData struct {
 	Height           int64  `abi:"height"`
-	Time             uint64 `abi:"time"`
+	Time             int64  `abi:"time"`
 	Power            int64  `abi:"power"`
 	ConsensusAddress string `abi:"consensusAddress"`
 }
@@ -53,7 +53,7 @@ type EquivocationData struct {
 func (e EquivocationData) ToEquivocation() *evidencetypes.Equivocation {
 	return &evidencetypes.Equivocation{
 		Height:           e.Height,
-		Time:             time.Unix(int64(e.Time), 0).UTC(), //nolint:gosec // G115
+		Time:             time.Unix(e.Time, 0).UTC(),
 		Power:            e.Power,
 		ConsensusAddress: e.ConsensusAddress,
 	}

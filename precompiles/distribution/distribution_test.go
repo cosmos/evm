@@ -32,8 +32,8 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 			true,
 		},
 		{
-			distribution.WithdrawDelegatorRewardsMethod,
-			s.precompile.Methods[distribution.WithdrawDelegatorRewardsMethod],
+			distribution.WithdrawDelegatorRewardMethod,
+			s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod],
 			true,
 		},
 		{
@@ -143,7 +143,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardsMethod,
+					distribution.WithdrawDelegatorRewardMethod,
 					s.keyring.GetAddr(0),
 					val.OperatorAddress,
 				)
@@ -352,7 +352,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardsMethod,
+					distribution.WithdrawDelegatorRewardMethod,
 					s.keyring.GetAddr(0),
 					val.OperatorAddress,
 				)

@@ -894,3 +894,79 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 		})
 	}
 }
+
+func (s *PrecompileTestSuite) TestCommunityPool() {
+	var ctx sdk.Context
+	method := s.precompile.Methods[distribution.CommunityPoolMethod]
+
+	testCases := []distrTestCases{
+		{
+			"fail - invalid number of args",
+			func() []interface{} {
+				return []interface{}{
+					"invalid",
+				}
+			},
+			func(bz []byte) {},
+			100000,
+			true,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+		},
+		{
+			"success - empty community pool",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			func(bz []byte) {
+				var out []cmn.DecCoin
+				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				s.Require().NoError(err, "failed to unpack output", err)
+				s.Require().Equal(0, len(out))
+			},
+			100000,
+			false,
+			"",
+		},
+		{
+			"success - with community pool",
+			func() []interface{} {
+				amt := math.NewInt(expValAmount)
+				err := s.network.App.DistrKeeper.FundCommunityPool(ctx, sdk.NewCoins(sdk.NewCoin(s.bondDenom, amt)), s.keyring.GetAccAddr(0))
+				s.Require().NoError(err)
+
+				return []interface{}{}
+			},
+			func(bz []byte) {
+				var out []cmn.DecCoin
+				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				s.Require().NoError(err, "failed to unpack output", err)
+				s.Require().Equal(1, len(out))
+				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(s.bondDenom, out[0].Denom)
+				s.Require().Equal(expValAmount, out[0].Amount.Int64())
+			},
+			100000,
+			false,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest() // reset
+			ctx = s.network.GetContext()
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+
+			bz, err := s.precompile.CommunityPool(ctx, contract, &method, tc.malleate())
+
+			if tc.expErr {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			} else {
+				s.Require().NoError(err)
+				s.Require().NotEmpty(bz)
+				tc.postCheck(bz)
+			}
+		})
+	}
+}

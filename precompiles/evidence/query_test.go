@@ -87,7 +87,7 @@ func (s *PrecompileTestSuite) TestEvidence() {
 			"",
 			func(e *evidence.EquivocationData) {
 				s.Require().Equal(int64(1), e.Height)
-				s.Require().Equal(uint64(1234567890), e.Time)
+				s.Require().Equal(int64(1234567890), e.Time)
 				s.Require().Equal(int64(1000), e.Power)
 				s.Require().NotEmpty(e.ConsensusAddress)
 			},
@@ -194,7 +194,7 @@ func (s *PrecompileTestSuite) TestGetAllEvidence() {
 			func(evidenceList []evidence.EquivocationData, _ *query.PageResponse) {
 				s.Require().Len(evidenceList, 1)
 				s.Require().Equal(int64(1), evidenceList[0].Height)
-				s.Require().Equal(uint64(1234567890), evidenceList[0].Time)
+				s.Require().Equal(int64(1234567890), evidenceList[0].Time)
 				s.Require().Equal(int64(1000), evidenceList[0].Power)
 				s.Require().NotEmpty(evidenceList[0].ConsensusAddress)
 			},
