@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/constants"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	"cosmossdk.io/math"
@@ -354,7 +353,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 			func(operatorAddress string) []interface{} {
 				coins = []cmn.Coin{
 					{
-						Denom:  testconstants.ExampleAttoDenom,
+						Denom:  constants.ExampleAttoDenom,
 						Amount: big.NewInt(1e18),
 					},
 				}
@@ -383,7 +382,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 				s.Require().NoError(err)
 				s.Require().Equal(depositValidatorRewardsPool.Depositor, s.keyring.GetAddr(0))
 				s.Require().Equal(depositValidatorRewardsPool.ValidatorAddress, common.BytesToAddress(valAddr.Bytes()))
-				s.Require().Equal(depositValidatorRewardsPool.Denom, testconstants.ExampleAttoDenom)
+				s.Require().Equal(depositValidatorRewardsPool.Denom, constants.ExampleAttoDenom)
 				s.Require().Equal(depositValidatorRewardsPool.Amount, amt.BigInt())
 			},
 			20000,
@@ -395,7 +394,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 			func(operatorAddress string) []interface{} {
 				coins = []cmn.Coin{
 					{
-						Denom:  testconstants.ExampleAttoDenom,
+						Denom:  constants.ExampleAttoDenom,
 						Amount: big.NewInt(1e18),
 					},
 					{
