@@ -94,6 +94,22 @@ struct Params {
 /// @title Gov Precompile Contract
 /// @dev The interface through which solidity contracts will interact with Gov
 interface IGov {
+    /// @dev SubmitProposal defines an Event emitted when a proposal is submitted.
+    /// @param proposer the address of the proposer
+    /// @param proposalId the proposal of id
+    event SubmitProposal(address indexed proposer, uint64 proposalId);
+
+    /// @dev CancelProposal defines an Event emitted when a proposal is canceled.
+    /// @param proposer the address of the proposer
+    /// @param proposalId the proposal of id
+    event CancelProposal(address indexed proposer, uint64 proposalId);
+
+    /// @dev Deposit defines an Event emitted when a deposit is made.
+    /// @param depositor the address of the depositor
+    /// @param proposalId the proposal of id
+    /// @param amount the amount of the deposit
+    event Deposit(address indexed depositor, uint64 proposalId, Coin[] amount);
+
     /// @dev Vote defines an Event emitted when a proposal voted.
     /// @param voter the address of the voter
     /// @param proposalId the proposal of id
@@ -111,6 +127,35 @@ interface IGov {
     );
 
     /// TRANSACTIONS
+
+    /// @notice submitProposal creates a new proposal from a protoJSON document.
+    /// @dev submitProposal defines a method to submit a proposal.
+    /// @param jsonProposal The JSON proposal
+    /// @param deposit The deposit for the proposal
+    /// @return proposalId The proposal id
+    function submitProposal(
+        address proposer,
+        bytes calldata jsonProposal,
+        Coin[] calldata deposit
+    ) external returns (uint64 proposalId);
+
+    /// @dev cancelProposal defines a method to cancel a proposal.
+    /// @param proposalId The proposal id
+    /// @return success Whether the transaction was successful or not
+    function cancelProposal(
+        address proposer,
+        uint64 proposalId
+    ) external returns (bool success);
+
+    /// @dev deposit defines a method to add a deposit to a proposal.
+    /// @param proposalId The proposal id
+    /// @param amount The amount to deposit
+    function deposit(
+        address depositor,
+        uint64 proposalId,
+        Coin[] calldata amount
+    ) external returns (bool success);
+
 
     /// @dev vote defines a method to add a vote on a specific proposal.
     /// @param voter The address of the voter
@@ -225,5 +270,9 @@ interface IGov {
     /// @dev getParams returns the current governance parameters.
     /// @return params The governance parameters
     function getParams() external view returns (Params memory params);
+
+    /// @dev getConstitution returns the current constitution.
+    /// @return constitution The current constitution
+    function getConstitution() external view returns (string memory constitution);
 }
 

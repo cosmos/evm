@@ -14,6 +14,7 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
@@ -29,6 +30,7 @@ var f embed.FS
 type Precompile struct {
 	cmn.Precompile
 	govKeeper govkeeper.Keeper
+	codec     codec.Codec
 }
 
 // LoadABI loads the gov ABI from the embedded abi.json file
@@ -41,6 +43,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	govKeeper govkeeper.Keeper,
+	codec codec.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -54,6 +57,7 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		govKeeper: govKeeper,
+		codec:     codec,
 	}
 
 	// SetAddress defines the address of the gov precompiled contract.
@@ -97,6 +101,12 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.Vote(ctx, evm.Origin, contract, stateDB, method, args)
 		case VoteWeightedMethod:
 			bz, err = p.VoteWeighted(ctx, evm.Origin, contract, stateDB, method, args)
+		case SubmitProposalMethod:
+			bz, err = p.SubmitProposal(ctx, evm.Origin, contract, stateDB, method, args)
+		case DepositMethod:
+			bz, err = p.Deposit(ctx, evm.Origin, contract, stateDB, method, args)
+		case CancelProposalMethod:
+			bz, err = p.CancelProposal(ctx, evm.Origin, contract, stateDB, method, args)
 
 		// gov queries
 		case GetVoteMethod:
@@ -115,6 +125,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.GetProposals(ctx, method, contract, args)
 		case GetParamsMethod:
 			bz, err = p.GetParams(ctx, method, contract, args)
+		case GetConstitutionMethod:
+			bz, err = p.GetConstitution(ctx, method, contract, args)
 		default:
 			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 		}
@@ -140,7 +152,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
-	case VoteMethod, VoteWeightedMethod:
+	case VoteMethod, VoteWeightedMethod,
+		SubmitProposalMethod, DepositMethod, CancelProposalMethod:
 		return true
 	default:
 		return false

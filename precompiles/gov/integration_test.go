@@ -1,6 +1,7 @@
 package gov_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/precompiles/gov/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -21,7 +23,11 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
@@ -41,6 +47,14 @@ var (
 	passCheck testutil.LogCheckArgs
 	// outOfGasCheck defines the arguments to check if the precompile returns out of gas error
 	outOfGasCheck testutil.LogCheckArgs
+	// proposerKey is the private key of the proposerAddr for the test cases
+	proposerKey types.PrivKey
+	// proposerAddr is the address of the proposerAddr for the test cases
+	proposerAddr common.Address
+	// proposerAccAddr is the address of the proposerAddr account
+	proposerAccAddr sdk.AccAddress
+	// govModuleAddr is the address of the gov module account
+	govModuleAddr sdk.AccAddress
 )
 
 func TestKeeperIntegrationTestSuite(t *testing.T) {
@@ -77,11 +91,219 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 			To: &precompileAddr,
 		}
 		txArgs.GasLimit = 200_000
+
+		proposerKey = s.keyring.GetPrivKey(0)
+		proposerAddr = s.keyring.GetAddr(0)
+		proposerAccAddr = sdk.AccAddress(proposerAddr.Bytes())
+		govModuleAddr = authtypes.NewModuleAddress(govtypes.ModuleName)
 	})
 
 	// =====================================
 	// 				TRANSACTIONS
 	// =====================================
+	Describe("Execute SubmitProposal transaction", func() {
+		const method = gov.SubmitProposalMethod
+
+		BeforeEach(func() { callArgs.MethodName = method })
+
+		It("fails with low gas", func() {
+			txArgs.GasLimit = 30_000
+			jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "50")
+			callArgs.Args = []interface{}{proposerAddr, jsonBlob, minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+
+			_, _, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, outOfGasCheck)
+			Expect(err).To(BeNil())
+		})
+
+		It("creates a proposal and emits event", func() {
+			jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "1")
+			callArgs.Args = []interface{}{proposerAddr, jsonBlob, minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
+
+			_, ethRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+
+			// unpack return → proposalId
+			var out uint64
+			err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(out).To(BeNumerically(">", 0))
+
+			// ensure proposal exists on-chain
+			prop, err := s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), out)
+			Expect(err).To(BeNil())
+			Expect(prop.Proposer).To(Equal(sdk.AccAddress(proposerAddr.Bytes()).String()))
+		})
+
+		It("fails with invalid JSON", func() {
+			callArgs.Args = []interface{}{proposerAddr, []byte("{invalid}"), minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+			errCheck := defaultLogCheck.WithErrContains("invalid proposal JSON")
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				proposerKey, txArgs, callArgs, errCheck)
+			Expect(err).To(BeNil())
+		})
+
+		It("fails with invalid deposit denom", func() {
+			jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "1")
+			invalidDep := []cmn.Coin{{Denom: "bad", Amount: big.NewInt(1)}}
+			callArgs.Args = []interface{}{proposerAddr, jsonBlob, invalidDep}
+			errCheck := defaultLogCheck.WithErrContains("invalid deposit denom")
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				proposerKey, txArgs, callArgs, errCheck)
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Describe("Execute Deposit transaction", func() {
+		const method = gov.DepositMethod
+
+		BeforeEach(func() { callArgs.MethodName = method })
+
+		It("fails with wrong proposal id", func() {
+			callArgs.Args = []interface{}{proposerAddr, uint64(999), minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+			errCheck := defaultLogCheck.WithErrContains("not found")
+			_, _, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, errCheck)
+			Expect(err).To(BeNil())
+		})
+
+		It("deposits successfully and emits event", func() {
+			jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "1")
+			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
+			callArgs.MethodName = gov.SubmitProposalMethod
+			minDeposit := minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))
+			callArgs.Args = []interface{}{proposerAddr, jsonBlob, minDeposit}
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			var propID uint64
+			err = s.precompile.UnpackIntoInterface(&propID, gov.SubmitProposalMethod, evmRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// get proposal by propID
+			prop, err := s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), propID)
+			Expect(err).To(BeNil())
+			Expect(prop.Status).To(Equal(govv1.StatusDepositPeriod))
+			Expect(prop.Proposer).To(Equal(sdk.AccAddress(proposerAddr.Bytes()).String()))
+			minDepositCoins, err := cmn.NewSdkCoinsFromCoins(minDeposit)
+			Expect(err).To(BeNil())
+			td := prop.GetTotalDeposit()
+			Expect(td).To(HaveLen(1))
+			Expect(td[0].Denom).To(Equal(minDepositCoins[0].Denom))
+			Expect(td[0].Amount.String()).To(Equal(minDepositCoins[0].Amount.String()))
+
+			callArgs.MethodName = gov.DepositMethod
+			callArgs.Args = []interface{}{proposerAddr, propID, minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+			eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
+			_, _, err = s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+			// Update expected total deposit
+			td[0].Amount = td[0].Amount.Add(minDepositCoins[0].Amount)
+
+			// verify via query
+			callArgs.MethodName = gov.GetProposalMethod
+			callArgs.Args = []interface{}{propID}
+			_, ethRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, passCheck)
+			Expect(err).To(BeNil())
+
+			var out gov.ProposalOutput
+			err = s.precompile.UnpackIntoInterface(&out, gov.GetProposalMethod, ethRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(out.Proposal.Id).To(Equal(propID))
+			Expect(out.Proposal.Status).To(Equal(uint32(govv1.StatusDepositPeriod)))
+			newTd := out.Proposal.TotalDeposit
+			Expect(newTd).To(HaveLen(1))
+			Expect(newTd[0].Denom).To(Equal(minDepositCoins[0].Denom))
+			Expect(newTd[0].Amount.String()).To(Equal(td[0].Amount.String()))
+		})
+	})
+
+	Describe("Execute CancelProposal transaction", func() {
+		const method = gov.CancelProposalMethod
+
+		BeforeEach(func() {
+			callArgs.MethodName = method
+		})
+
+		It("fails when called by a non-proposer", func() {
+			callArgs.Args = []interface{}{proposerAddr, proposalID}
+			notProposerKey := s.keyring.GetPrivKey(1)
+			notProposerAddr := s.keyring.GetAddr(1)
+			errCheck := defaultLogCheck.WithErrContains(
+				gov.ErrDifferentOrigin,
+				notProposerAddr.String(),
+				proposerAddr.String(),
+			)
+
+			_, _, err := s.factory.CallContractAndCheckLogs(notProposerKey, txArgs, callArgs, errCheck)
+			Expect(err).To(BeNil())
+		})
+
+		It("cancels a live proposal and emits event", func() {
+			proposal, err := s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), proposalID)
+			Expect(err).To(BeNil())
+
+			// Cancel proposal
+			callArgs.Args = []interface{}{proposerAddr, proposal.Id}
+			eventCheck := passCheck.WithExpEvents(gov.EventTypeCancelProposal)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+			var succeeded bool
+			err = s.precompile.UnpackIntoInterface(&succeeded, gov.CancelProposalMethod, evmRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(succeeded).To(BeTrue())
+
+			// 3. Check that the proposal is not found
+			_, err = s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), proposal.Id)
+			Expect(err.Error()).To(ContainSubstring("not found"))
+		})
+
+		It("cancels a proposal and see cancellation fee charged", func() {
+			// Fix the gas limit and gas price for predictable gas usage.
+			// This is for calculating expected cancellation fee.
+			baseFee := s.network.App.FeeMarketKeeper.GetBaseFee(s.network.GetContext())
+			baseFeeInt := baseFee.TruncateInt64()
+			txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+			txArgs.GasLimit = 500_000
+
+			// Get the prposal for cancellation
+			proposal, err := s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), 1)
+			Expect(err).To(BeNil())
+
+			// Calc cancellation fee
+			proposalDeposits, err := s.network.App.GovKeeper.GetDeposits(s.network.GetContext(), proposal.Id)
+			Expect(err).To(BeNil())
+			proposalDepositAmt := proposalDeposits[0].Amount[0].Amount
+			params, err := s.network.App.GovKeeper.Params.Get(s.network.GetContext())
+			Expect(err).To(BeNil())
+			rate := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+			cancelFee := proposalDepositAmt.ToLegacyDec().Mul(rate).TruncateInt()
+
+			// Cancel it
+			callArgs.Args = []interface{}{proposerAddr, proposal.Id}
+			eventCheck := passCheck.WithExpEvents(gov.EventTypeCancelProposal)
+			// Balance of proposer
+			proposalBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, s.network.GetBaseDenom())
+			res, _, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+			gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
+
+			// 6. Check that the cancellation fee is charged, diff should be less than the deposit amount
+			afterCancelBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, s.network.GetBaseDenom())
+			Expect(afterCancelBal.Amount).To(Equal(
+				proposalBal.Amount.Sub(gasCost).
+					Sub(cancelFee).
+					Add(proposalDepositAmt)),
+				"expected cancellation fee to be deducted from proposer balance")
+
+			// 7. Check that the proposal is not found
+			_, err = s.network.App.GovKeeper.Proposals.Get(s.network.GetContext(), proposal.Id)
+			Expect(err.Error()).To(ContainSubstring("not found"))
+		})
+	})
+
 	Describe("Execute Vote transaction", func() {
 		const method = gov.VoteMethod
 
@@ -747,5 +969,54 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 				Entry("through a caller contract", contractCall),
 			)
 		})
+
+		Context("constitution query", func() {
+			method := gov.GetConstitutionMethod
+			BeforeEach(func() {
+				callArgs.MethodName = method
+			})
+
+			It("should return a constitution", func() {
+				callArgs.Args = []interface{}{}
+
+				_, ethRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, passCheck)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+
+				var out string
+				err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
+				Expect(err).To(BeNil())
+			})
+		})
 	})
 })
+
+// -----------------------------------------------------------------------------
+// Helper functions (test‑only)
+// -----------------------------------------------------------------------------
+
+func minimalDeposit(denom string, amount *big.Int) []cmn.Coin {
+	return []cmn.Coin{{Denom: denom, Amount: amount}}
+}
+
+// minimalBankSendProposalJSON returns a valid governance proposal encoded as UTF‑8 bytes.
+func minimalBankSendProposalJSON(to sdk.AccAddress, denom, amount string) []byte {
+	// proto‑JSON marshal via std JSON since test helpers don’t expose codec here.
+	// We craft by hand for brevity.
+	msgJSON, _ := json.Marshal(map[string]interface{}{
+		"@type": "/cosmos.bank.v1beta1.MsgSend",
+		// from_address must be gov module account
+		"from_address": govModuleAddr.String(),
+		"to_address":   to.String(),
+		"amount":       []map[string]string{{"denom": denom, "amount": amount}},
+	})
+
+	prop := map[string]interface{}{
+		"messages":  []json.RawMessage{msgJSON},
+		"metadata":  "ipfs://CID",
+		"title":     "test prop",
+		"summary":   "test prop",
+		"expedited": false,
+	}
+	blob, _ := json.Marshal(prop)
+	return blob
+}
