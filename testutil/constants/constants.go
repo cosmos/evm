@@ -103,8 +103,8 @@ var (
 
 	// OtherCoinDenoms provides a list of other coin denoms that can be used in tests
 	OtherCoinDenoms = []string{
-		"denom1",
-		"denom2",
+		"foo",
+		"bar",
 	}
 
 	// ExampleTokenPairs creates a slice of token pairs, that contains a pair for the native denom of the example chain

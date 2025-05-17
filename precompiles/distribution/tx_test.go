@@ -534,7 +534,12 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  testconstants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
 				}
 			},
 			func([]byte) {

@@ -297,12 +297,12 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 	testCases := []struct {
 		name      string
 		coins     sdk.Coins
-		postCheck func()
+		postCheck func(sdk.Coins)
 	}{
 		{
 			"success - the correct event is emitted",
 			sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18))),
-			func() {
+			func(coins sdk.Coins) {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
@@ -314,7 +314,48 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 				err := cmn.UnpackLog(s.precompile.ABI, &fundCommunityPoolEvent, distribution.EventTypeFundCommunityPool, *log)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), fundCommunityPoolEvent.Depositor)
+				s.Require().Equal(constants.ExampleAttoDenom, fundCommunityPoolEvent.Denom)
 				s.Require().Equal(big.NewInt(1e18), fundCommunityPoolEvent.Amount)
+			},
+		},
+		{
+			// New multi-coin deposit test case
+			name: "success - multiple coins => multiple events emitted",
+			coins: sdk.NewCoins(
+				sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(10)),   // coin #1
+				sdk.NewCoin(constants.OtherCoinDenoms[0], math.NewInt(20)), // coin #2
+				sdk.NewCoin(constants.OtherCoinDenoms[1], math.NewInt(30)), // coin #3
+			).Sort(),
+			postCheck: func(coins sdk.Coins) {
+				logs := stDB.Logs()
+				s.Require().Len(logs, 3, "expected exactly one event log *per coin*")
+
+				// For convenience, map the sdk.Coins to their big.Int amounts for checking
+				expected := []struct {
+					amount *big.Int
+					// denom  string // If your event includes a Denom field
+				}{
+					{amount: big.NewInt(10)},
+					{amount: big.NewInt(30)},
+					{amount: big.NewInt(20)}, // sorted by denom
+				}
+
+				for i, log := range logs {
+					s.Require().Equal(log.Address, s.precompile.Address(), "log address must match the precompile address")
+
+					// Check event signature
+					event := s.precompile.ABI.Events[distribution.EventTypeFundCommunityPool]
+					s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
+					s.Require().Equal(uint64(ctx.BlockHeight()), log.BlockNumber) //nolint:gosec // G115
+
+					var fundCommunityPoolEvent distribution.EventFundCommunityPool
+					err := cmn.UnpackLog(s.precompile.ABI, &fundCommunityPoolEvent, distribution.EventTypeFundCommunityPool, *log)
+					s.Require().NoError(err)
+
+					s.Require().Equal(s.keyring.GetAddr(0), fundCommunityPoolEvent.Depositor)
+					s.Require().Equal(coins.GetDenomByIndex(i), fundCommunityPoolEvent.Denom)
+					s.Require().Equal(expected[i].amount, fundCommunityPoolEvent.Amount)
+				}
 			},
 		},
 	}
@@ -327,44 +368,45 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 
 			err := s.precompile.EmitFundCommunityPoolEvent(ctx, stDB, s.keyring.GetAddr(0), tc.coins)
 			s.Require().NoError(err)
-			tc.postCheck()
+			tc.postCheck(tc.coins)
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 	var (
-		ctx   sdk.Context
-		stDB  *statedb.StateDB
-		amt   = math.NewInt(1e18)
-		coins []cmn.Coin
+		ctx  sdk.Context
+		stDB *statedb.StateDB
+		amt  = math.NewInt(1e18)
 	)
 	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func()
+		malleate    func(operatorAddress string) ([]interface{}, sdk.Coins)
+		postCheck   func(sdk.Coins)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
 			"success - the correct event is emitted",
-			func(operatorAddress string) []interface{} {
-				coins = []cmn.Coin{
+			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
 						Amount: big.NewInt(1e18),
 					},
 				}
+				sdkCoins, err := cmn.NewSdkCoinsFromCoins(coins)
+				s.Require().NoError(err)
 
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					operatorAddress,
 					coins,
-				}
+				}, sdkCoins.Sort()
 			},
-			func() {
+			func(sdkCoins sdk.Coins) {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
@@ -391,8 +433,8 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		},
 		{
 			"success - the correct event is emitted for multiple coins",
-			func(operatorAddress string) []interface{} {
-				coins = []cmn.Coin{
+			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
 						Amount: big.NewInt(1e18),
@@ -406,14 +448,16 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 						Amount: big.NewInt(3e18),
 					},
 				}
+				sdkCoins, err := cmn.NewSdkCoinsFromCoins(coins)
+				s.Require().NoError(err)
 
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					operatorAddress,
 					coins,
-				}
+				}, sdkCoins.Sort()
 			},
-			func() {
+			func(sdkCoins sdk.Coins) {
 				for i, log := range stDB.Logs() {
 					s.Require().Equal(log.Address, s.precompile.Address())
 
@@ -431,8 +475,8 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 					s.Require().NoError(err)
 					s.Require().Equal(depositValidatorRewardsPool.Depositor, s.keyring.GetAddr(0))
 					s.Require().Equal(depositValidatorRewardsPool.ValidatorAddress, common.BytesToAddress(valAddr.Bytes()))
-					s.Require().Equal(depositValidatorRewardsPool.Denom, coins[i].Denom)
-					s.Require().Equal(depositValidatorRewardsPool.Amount, coins[i].Amount)
+					s.Require().Equal(depositValidatorRewardsPool.Denom, sdkCoins[i].Denom)
+					s.Require().Equal(depositValidatorRewardsPool.Amount, sdkCoins[i].Amount.BigInt())
 				}
 			},
 			20000,
@@ -449,7 +493,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		var contract *vm.Contract
 		contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
 
-		args := tc.malleate(s.network.GetValidators()[0].OperatorAddress)
+		args, sdkCoins := tc.malleate(s.network.GetValidators()[0].OperatorAddress)
 		_, err := s.precompile.DepositValidatorRewardsPool(ctx, s.keyring.GetAddr(0), contract, stDB, &method, args)
 
 		if tc.expError {
@@ -457,7 +501,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 			s.Require().Contains(err.Error(), tc.errContains)
 		} else {
 			s.Require().NoError(err)
-			tc.postCheck()
+			tc.postCheck(sdkCoins)
 		}
 	}
 }
