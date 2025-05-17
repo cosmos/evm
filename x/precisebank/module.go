@@ -32,7 +32,6 @@ var (
 
 	_ appmodule.AppModule   = AppModule{}
 	_ module.HasABCIGenesis = AppModule{}
-	_ module.HasInvariants  = AppModule{}
 )
 
 // ----------------------------------------------------------------------------
@@ -135,11 +134,6 @@ func (am AppModule) Name() string {
 // module-specific GRPC queries.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
-}
-
-// RegisterInvariants registers precisebank module's invariants.
-func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
-	keeper.RegisterInvariants(ir, am.keeper)
 }
 
 // InitGenesis performs precisebank module's genesis initialization It returns
