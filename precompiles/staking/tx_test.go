@@ -33,9 +33,9 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			Details:         "",
 		}
 		commission = staking.Commission{
-			Rate:          math.LegacyOneDec().BigInt(),
-			MaxRate:       math.LegacyOneDec().BigInt(),
-			MaxChangeRate: math.LegacyOneDec().BigInt(),
+			Rate:          big.NewInt(5e16), // 5%
+			MaxRate:       big.NewInt(2e17), // 20%
+			MaxChangeRate: big.NewInt(5e16), // 5%
 		}
 		minSelfDelegation = big.NewInt(1)
 		pubkey            = "nfJ0axJC9dhta1MAE1EBFaVdxxkYzxYrBaHuJVjG//M="
@@ -278,6 +278,18 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 				s.Require().NoError(err)
 				s.Require().Equal(validatorAddress, createValidatorEvent.ValidatorAddress)
 				s.Require().Equal(value, createValidatorEvent.Value)
+
+				// check the validator state
+				validator, err := s.network.App.StakingKeeper.GetValidator(s.network.GetContext(), validatorAddress.Bytes())
+				s.Require().NoError(err)
+				s.Require().NotNil(validator, "expected validator not to be nil")
+				expRate := math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision)
+				s.Require().Equal(expRate, validator.Commission.Rate, "expected validator commission rate to be %s; got %s", expRate, validator.Commission.Rate)
+				expMaxRate := math.LegacyNewDecFromBigIntWithPrec(commission.MaxRate, math.LegacyPrecision)
+				s.Require().Equal(expMaxRate, validator.Commission.MaxRate, "expected validator commission max rate to be %s; got %s", expMaxRate, validator.Commission.MaxRate)
+				expMaxChangeRate := math.LegacyNewDecFromBigIntWithPrec(commission.MaxChangeRate, math.LegacyPrecision)
+				s.Require().Equal(expMaxChangeRate, validator.Commission.MaxChangeRate, "expected validator commission max change rate to be %s; got %s", expMaxChangeRate, validator.Commission.MaxChangeRate)
+				s.Require().Equal(math.NewIntFromBigInt(minSelfDelegation), validator.MinSelfDelegation, "expected validator min self delegation to be %s; got %s", minSelfDelegation, validator.MinSelfDelegation)
 			},
 			false,
 			"",
