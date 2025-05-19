@@ -1,12 +1,14 @@
 package types
 
 import (
+	"math"
 	"math/big"
 	"os"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/params"
@@ -21,22 +23,27 @@ const (
 
 // NewTracer creates a new Logger tracer to collect execution traces from an
 // EVM transaction.
-func NewTracer(tracer string, msg core.Message, cfg *params.ChainConfig, height int64) vm.EVMLogger {
+func NewTracer(tracer string, msg *core.Message, cfg *params.ChainConfig, height int64) *tracing.Hooks {
 	// TODO: enable additional log configuration
-	logCfg := &logger.Config{
-		Debug: true,
-	}
+	logCfg := &logger.Config{}
 
 	switch tracer {
 	case TracerAccessList:
-		preCompiles := vm.DefaultActivePrecompiles(cfg.Rules(big.NewInt(height), cfg.MergeNetsplitBlock != nil))
-		return logger.NewAccessListTracer(msg.AccessList(), msg.From(), *msg.To(), preCompiles)
+		blockAddrs := map[common.Address]struct{}{
+			*msg.To: {}, msg.From: {},
+		}
+		precompiles := vm.ActivePrecompiles(cfg.Rules(big.NewInt(height), cfg.MergeNetsplitBlock != nil,
+			math.MaxUint64))
+		for _, addr := range precompiles {
+			blockAddrs[addr] = struct{}{}
+		}
+		return logger.NewAccessListTracer(msg.AccessList, blockAddrs).Hooks()
 	case TracerJSON:
 		return logger.NewJSONLogger(logCfg, os.Stderr)
 	case TracerMarkdown:
-		return logger.NewMarkdownLogger(logCfg, os.Stdout) // TODO: Stderr ?
+		return logger.NewMarkdownLogger(logCfg, os.Stdout).Hooks() // TODO: Stderr ?
 	case TracerStruct:
-		return logger.NewStructLogger(logCfg)
+		return logger.NewStructLogger(logCfg).Hooks()
 	default:
 		return NewNoOpTracer()
 	}
@@ -48,62 +55,82 @@ type TxTraceResult struct {
 	Error  string      `json:"error,omitempty"`  // Trace failure produced by the tracer
 }
 
-var _ vm.EVMLogger = &NoOpTracer{}
-
 // NoOpTracer is an empty implementation of vm.Tracer interface
 type NoOpTracer struct{}
 
 // NewNoOpTracer creates a no-op vm.Tracer
-func NewNoOpTracer() *NoOpTracer {
-	return &NoOpTracer{}
+func NewNoOpTracer() *tracing.Hooks {
+	t := NoOpTracer{}
+	return &tracing.Hooks{
+		OnTxStart:        t.OnTxStart,
+		OnTxEnd:          t.OnTxEnd,
+		OnEnter:          t.OnEnter,
+		OnExit:           t.OnExit,
+		OnOpcode:         t.OnOpcode,
+		OnFault:          t.OnFault,
+		OnGasChange:      t.OnGasChange,
+		OnBlockchainInit: t.OnBlockchainInit,
+		OnBlockStart:     t.OnBlockStart,
+		OnBlockEnd:       t.OnBlockEnd,
+		OnSkippedBlock:   t.OnSkippedBlock,
+		OnGenesisBlock:   t.OnGenesisBlock,
+		OnBalanceChange:  t.OnBalanceChange,
+		OnNonceChange:    t.OnNonceChange,
+		OnCodeChange:     t.OnCodeChange,
+		OnStorageChange:  t.OnStorageChange,
+		OnLog:            t.OnLog,
+	}
 }
 
-// CaptureStart implements vm.Tracer interface
-//
-
-func (dt NoOpTracer) CaptureStart(env *vm.EVM,
-	from common.Address,
-	to common.Address,
-	create bool,
-	input []byte,
-	gas uint64,
-	value *big.Int) {
+func (dt *NoOpTracer) OnOpcode(_ uint64, _ byte, _, _ uint64, _ tracing.OpContext, _ []byte, _ int, _ error) {
 }
 
-// CaptureState implements vm.Tracer interface
-//
-
-func (dt NoOpTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+func (dt *NoOpTracer) OnFault(_ uint64, _ byte, _, _ uint64, _ tracing.OpContext, _ int, _ error) {
 }
 
-// CaptureFault implements vm.Tracer interface
-//
-
-func (dt NoOpTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
+func (dt *NoOpTracer) OnEnter(_ int, _ byte, _ common.Address, _ common.Address, _ []byte, _ uint64,
+	_ *big.Int) {
 }
 
-// CaptureEnd implements vm.Tracer interface
-//
-
-func (dt NoOpTracer) CaptureEnd(output []byte, gasUsed uint64, tm time.Duration, err error) {}
-
-// CaptureEnter implements vm.Tracer interface
-//
-
-func (dt NoOpTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+func (dt *NoOpTracer) OnExit(_ int, _ []byte, _ uint64, _ error, _ bool) {
 }
 
-// CaptureExit implements vm.Tracer interface
-//
+func (dt *NoOpTracer) OnTxStart(_ *tracing.VMContext, _ *types.Transaction, _ common.Address) {
+}
 
-func (dt NoOpTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
+func (dt *NoOpTracer) OnTxEnd(_ *types.Receipt, _ error) {
+}
 
-// CaptureTxStart implements vm.Tracer interface
-//
+func (dt *NoOpTracer) OnBlockStart(_ tracing.BlockEvent) {
+}
 
-func (dt NoOpTracer) CaptureTxStart(gasLimit uint64) {}
+func (dt *NoOpTracer) OnBlockEnd(_ error) {
+}
 
-// CaptureTxEnd implements vm.Tracer interface
-//
+func (dt *NoOpTracer) OnSkippedBlock(_ tracing.BlockEvent) {}
 
-func (dt NoOpTracer) CaptureTxEnd(restGas uint64) {}
+func (dt *NoOpTracer) OnBlockchainInit(_ *params.ChainConfig) {
+}
+
+func (dt *NoOpTracer) OnGenesisBlock(_ *types.Block, _ types.GenesisAlloc) {
+}
+
+func (dt *NoOpTracer) OnBalanceChange(_ common.Address, _, _ *big.Int, _ tracing.BalanceChangeReason) {
+}
+
+func (dt *NoOpTracer) OnNonceChange(_ common.Address, _, _ uint64) {
+}
+
+func (dt *NoOpTracer) OnCodeChange(_ common.Address, _ common.Hash, _ []byte, _ common.Hash,
+	_ []byte) {
+}
+
+func (dt *NoOpTracer) OnStorageChange(_ common.Address, _, _, _ common.Hash) {
+}
+
+func (dt *NoOpTracer) OnLog(_ *types.Log) {
+
+}
+
+func (dt *NoOpTracer) OnGasChange(_, _ uint64, _ tracing.GasChangeReason) {
+}

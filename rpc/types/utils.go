@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 
@@ -219,7 +218,10 @@ func NewRPCTransaction(
 		// if the transaction has been mined, compute the effective gas price
 		if baseFee != nil && blockHash != (common.Hash{}) {
 			// price = min(tip, gasFeeCap - baseFee) + baseFee
-			price := math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee), tx.GasFeeCap())
+			price := new(big.Int).Add(tx.GasTipCap(), baseFee)
+			if price.Cmp(tx.GasFeeCap()) > 0 {
+				price = tx.GasFeeCap()
+			}
 			result.GasPrice = (*hexutil.Big)(price)
 		} else {
 			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())

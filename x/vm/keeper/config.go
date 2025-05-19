@@ -3,6 +3,7 @@ package keeper
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -45,19 +46,13 @@ func (k *Keeper) TxConfig(ctx sdk.Context, txHash common.Hash) statedb.TxConfig 
 
 // VMConfig creates an EVM configuration from the debug setting and the extra EIPs enabled on the
 // module parameters. The config generated uses the default JumpTable from the EVM.
-func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig, tracer vm.EVMLogger) vm.Config {
+func (k Keeper) VMConfig(ctx sdk.Context, _ *core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks) vm.Config {
 	noBaseFee := true
 	if types.IsLondon(cfg.ChainConfig, ctx.BlockHeight()) {
 		noBaseFee = k.feeMarketWrapper.GetParams(ctx).NoBaseFee
 	}
 
-	var debug bool
-	if _, ok := tracer.(types.NoOpTracer); !ok {
-		debug = true
-	}
-
 	return vm.Config{
-		Debug:     debug,
 		Tracer:    tracer,
 		NoBaseFee: noBaseFee,
 		ExtraEips: cfg.Params.EIPs(),

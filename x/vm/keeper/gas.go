@@ -17,12 +17,13 @@ import (
 )
 
 // GetEthIntrinsicGas returns the intrinsic gas cost for the transaction
-func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *params.ChainConfig, isContractCreation bool) (uint64, error) {
+func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg *core.Message, cfg *params.ChainConfig,
+	isContractCreation bool) (uint64, error) {
 	height := big.NewInt(ctx.BlockHeight())
 	homestead := cfg.IsHomestead(height)
 	istanbul := cfg.IsIstanbul(height)
 
-	return core.IntrinsicGas(msg.Data(), msg.AccessList(), isContractCreation, homestead, istanbul)
+	return core.IntrinsicGas(msg.Data, msg.AccessList, isContractCreation, homestead, istanbul)
 }
 
 // RefundGas transfers the leftover gas to the sender of the message, capped to half of the total gas

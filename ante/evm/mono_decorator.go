@@ -163,7 +163,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		if err := CanTransfer(
 			ctx,
 			md.evmKeeper,
-			coreMsg,
+			*coreMsg,
 			decUtils.BaseFee,
 			ethCfg,
 			decUtils.EvmParams,

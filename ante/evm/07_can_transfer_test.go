@@ -91,7 +91,7 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 			err = evm.CanTransfer(
 				unitNetwork.GetContext(),
 				unitNetwork.App.EVMKeeper,
-				coreMsg,
+				*coreMsg,
 				baseFeeResp.BaseFee.BigInt(),
 				ethCfg,
 				evmParams.Params,

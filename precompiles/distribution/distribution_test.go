@@ -15,6 +15,8 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/holiman/uint256"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
@@ -220,7 +222,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			// malleate testcase
 			caller, input := tc.malleate()
 
-			contract := vm.NewPrecompile(vm.AccountRef(caller), s.precompile, big.NewInt(0), uint64(1e6))
+			contract := vm.NewPrecompile(caller, s.precompile.Address(), uint256.NewInt(0), uint64(1e6))
 			contract.Input = input
 
 			contractAddr := contract.Address()
@@ -254,13 +256,13 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			// Instantiate EVM
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, s.network.GetStateDB(),
+				ctx, *msg, cfg, nil, s.network.GetStateDB(),
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)
 			s.Require().NoError(err, "failed to instantiate precompile")
 			s.Require().True(found, "not found precompile")
-			evm.WithPrecompiles(precompiles.Map, precompiles.Addresses)
+			evm.WithPrecompiles(precompiles.Map)
 			// Run precompiled contract
 			bz, err := s.precompile.Run(evm, contract, tc.readOnly)
 

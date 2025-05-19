@@ -3,11 +3,12 @@ package types
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -154,10 +155,10 @@ func (args *TransactionArgs) ToTransaction() *MsgEthereumTx {
 
 // ToMessage converts the arguments to the Message type used by the core evm.
 // This assumes that setTxDefaults has been called.
-func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (ethtypes.Message, error) {
+func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
-		return ethtypes.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+		return core.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 
 	// Set sender address or use zero address if none specified.
@@ -205,7 +206,10 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (e
 			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
 			gasPrice = new(big.Int)
 			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
-				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, baseFee), gasFeeCap)
+				gasPrice = new(big.Int).Add(gasTipCap, baseFee)
+				if gasPrice.Cmp(gasFeeCap) > 0 {
+					gasPrice = gasFeeCap
+				}
 			}
 		}
 	}
@@ -224,7 +228,19 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (e
 		nonce = uint64(*args.Nonce)
 	}
 
-	msg := ethtypes.NewMessage(addr, args.To, nonce, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	msg := core.Message{
+		To:              args.To,
+		From:            addr,
+		Nonce:           nonce,
+		Value:           value,
+		GasLimit:        gas,
+		GasPrice:        gasPrice,
+		GasFeeCap:       gasFeeCap,
+		GasTipCap:       gasTipCap,
+		Data:            data,
+		AccessList:      accessList,
+		SkipNonceChecks: true,
+	}
 	return msg, nil
 }
 

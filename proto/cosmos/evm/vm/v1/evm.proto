@@ -167,9 +167,6 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"berlin_block\""
   ];
-  // DEPRECATED: EWASM, YOLOV3 and Catalyst block have been deprecated
-  reserved 14, 15, 16;
-  reserved "yolo_v3_block", "ewasm_block", "catalyst_block";
   // london_block: London switch block (nil = no fork, 0 = already on london)
   string london_block = 17 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
@@ -181,10 +178,6 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"arrow_glacier_block\""
   ];
-  // DEPRECATED: merge fork block was deprecated:
-  // https://github.com/ethereum/go-ethereum/pull/24904
-  reserved 19;
-  reserved "merge_fork_block";
   // gray_glacier_block: EIP-5133 (bomb delay) switch block (nil = no fork, 0 =
   // already activated)
   string gray_glacier_block = 20 [
@@ -197,22 +190,35 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"merge_netsplit_block\""
   ];
-  // shanghai_block switch block (nil = no fork, 0 = already on shanghai)
-  string shanghai_block = 22 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.moretags) = "yaml:\"shanghai_block\""
-  ];
-  // cancun_block switch block (nil = no fork, 0 = already on cancun)
-  string cancun_block = 23 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.moretags) = "yaml:\"cancun_block\""
-  ];
   // chain_id is the id of the chain (EIP-155)
   uint64 chain_id = 24;
   // denom is the denomination used on the EVM
   string denom = 25;
   // decimals is the real decimal precision of the denomination used on the EVM
   uint64 decimals = 26;
+
+  // Fork scheduling was switched from blocks to timestamps here
+  string shanghai_time = 27 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"shanghai_time\""
+  ];
+  string cancun_time = 28 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"cancun_time\""
+  ];
+  string prague_time = 29 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"prague_time\""
+  ];
+  string osaka_time = 30 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"osaka_time\""
+  ];
+  string verkle_time = 31 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"verkle_time\""
+  ];
+
 }
 
 // State represents a single Storage key value pair item.
