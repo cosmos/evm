@@ -167,31 +167,39 @@ func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateD
 	return nil
 }
 
-// EmitFundCommunityPoolEvent creates a new event emitted on a FundCommunityPool transaction.
+// EmitFundCommunityPoolEvent creates a new event emitted per Coin on a FundCommunityPool transaction.
 func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, coins sdk.Coins) error {
 	// Prepare the event topics
 	event := p.ABI.Events[EventTypeFundCommunityPool]
-	topics := make([]common.Hash, 2)
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
+	for _, coin := range coins {
+		topics := make([]common.Hash, 2)
 
-	var err error
-	topics[1], err = cmn.MakeTopic(depositor)
-	if err != nil {
-		return err
+		// The first topic is always the signature of the event.
+		topics[0] = event.ID
+
+		// Second topic: depositor address
+		var err error
+		topics[1], err = cmn.MakeTopic(depositor)
+		if err != nil {
+			return err
+		}
+
+		// Encode denom and amount as event data
+		// Assuming FundCommunityPool(address,string,uint256)
+		data, err := event.Inputs.NonIndexed().Pack(coin.Denom, coin.Amount.BigInt())
+		if err != nil {
+			return fmt.Errorf("failed to pack event data: %w", err)
+		}
+
+		// Emit log for each coin
+		stateDB.AddLog(&ethtypes.Log{
+			Address:     p.Address(),
+			Topics:      topics,
+			Data:        data,
+			BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+		})
 	}
-
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(coins[0].Amount.BigInt())))
-
-	stateDB.AddLog(&ethtypes.Log{
-		Address:     p.Address(),
-		Topics:      topics,
-		Data:        b.Bytes(),
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
-	})
 
 	return nil
 }

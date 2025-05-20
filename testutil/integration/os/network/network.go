@@ -130,7 +130,7 @@ func (n *IntegrationNetwork) configureAndInitChain() error {
 	delegations := createDelegations(validators, genAccounts[0].GetAddress())
 
 	// Create a new testing app with the following params
-	exampleApp := createTestingApp(n.cfg.chainID, n.cfg.customBaseAppOpts...)
+	exampleApp := createTestingApp(n.cfg.chainID, n.cfg.eip155ChainID.Uint64(), n.cfg.customBaseAppOpts...)
 
 	stakingParams := StakingCustomGenesisState{
 		denom:       n.cfg.chainCoins.BaseDenom(),
@@ -167,6 +167,7 @@ func (n *IntegrationNetwork) configureAndInitChain() error {
 	// Configure Genesis state
 	genesisState := newDefaultGenesisState(
 		exampleApp,
+		n.cfg.eip155ChainID.Uint64(),
 		defaultGenesisParams{
 			genAccounts: genAccounts,
 			staking:     stakingParams,

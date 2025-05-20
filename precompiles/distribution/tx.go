@@ -258,7 +258,7 @@ func (p *Precompile) FundCommunityPool(
 		return nil, err
 	}
 
-	msg, depositorHexAddr, err := NewMsgFundCommunityPool(baseDenom, args)
+	msg, depositorHexAddr, err := NewMsgFundCommunityPool(args)
 	if err != nil {
 		return nil, err
 	}

@@ -5,8 +5,7 @@ package evmd
 
 import (
 	"fmt"
-	"strings"
-
+	"github.com/cosmos/evm/cmd/evmd/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -17,41 +16,41 @@ import (
 // ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
 // that allows initializing the app with different coin info based on the
 // chain id
-var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
+var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
+	config.EighteenDecimalsChainID: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
-	SixDecimalsChainID: {
+	config.SixDecimalsChainID: {
 		Denom:         "utest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.SixDecimals,
 	},
-	TwelveDecimalsChainID: {
+	config.TwelveDecimalsChainID: {
 		Denom:         "ptest2",
 		ExtendedDenom: "atest2",
 		DisplayDenom:  "test2",
 		Decimals:      evmtypes.TwelveDecimals,
 	},
-	TwoDecimalsChainID: {
+	config.TwoDecimalsChainID: {
 		Denom:         "ctest3",
 		ExtendedDenom: "atest3",
 		DisplayDenom:  "test3",
 		Decimals:      evmtypes.TwoDecimals,
 	},
-	TestChainID1: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
+	config.TestChainID1: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleChainDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
-	TestChainID2: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
+	config.TestChainID2: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleChainDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
 }
@@ -59,22 +58,20 @@ var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 // EVMOptionsFn defines a function type for setting app options specifically for
 // the Cosmos EVM app. The function should receive the chainID and return an error if
 // any.
-type EVMOptionsFn func(string) error
+type EVMOptionsFn func(uint64) error
 
 // NoOpEVMOptions is a no-op function that can be used when the app does not
 // need any specific configuration.
-func NoOpEVMOptions(_ string) error {
+func NoOpEVMOptions(_ uint64) error {
 	return nil
 }
 
 // EvmAppOptions allows to setup the global configuration
 // for the Cosmos EVM chain.
-func EvmAppOptions(chainID string) error {
-	// Split the revision height from the given chain ID
-	id := strings.Split(chainID, "-")[0]
-	coinInfo, found := ChainsCoinInfo[id]
+func EvmAppOptions(chainID uint64) error {
+	coinInfo, found := ChainsCoinInfo[chainID]
 	if !found {
-		return fmt.Errorf("unknown chain id: %s", id)
+		return fmt.Errorf("unknown chain id: %d", chainID)
 	}
 
 	// set the base denom considering if its mainnet or testnet

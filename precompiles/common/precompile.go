@@ -22,7 +22,7 @@ type Precompile struct {
 	KvGasConfig          storetypes.GasConfig
 	TransientKVGasConfig storetypes.GasConfig
 	address              common.Address
-	journalEntries       []balanceChangeEntry
+	journalEntries       []BalanceChangeEntry
 }
 
 // Operation is a type that defines if the precompile call
@@ -34,20 +34,20 @@ const (
 	Add
 )
 
-type balanceChangeEntry struct {
+type BalanceChangeEntry struct {
 	Account common.Address
 	Amount  *big.Int
 	Op      Operation
 }
 
-func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) balanceChangeEntry { //nolint:revive
-	return balanceChangeEntry{acc, amt, op}
+func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) BalanceChangeEntry {
+	return BalanceChangeEntry{acc, amt, op}
 }
 
-// snapshot contains all state and events previous to the precompile call
+// Snapshot contains all state and events previous to the precompile call
 // This is needed to allow us to revert the changes
 // during the EVM execution
-type snapshot struct {
+type Snapshot struct {
 	MultiStore storetypes.CacheMultiStore
 	Events     sdk.Events
 }
@@ -68,7 +68,7 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 // RunAtomic is used within the Run function of each Precompile implementation.
 // It handles rolling back to the provided snapshot if an error is returned from the core precompile logic.
 // Note: This is only required for stateful precompiles.
-func (p Precompile) RunAtomic(s snapshot, stateDB *statedb.StateDB, fn func() ([]byte, error)) ([]byte, error) {
+func (p Precompile) RunAtomic(s Snapshot, stateDB *statedb.StateDB, fn func() ([]byte, error)) ([]byte, error) {
 	bz, err := fn()
 	if err != nil {
 		// revert to snapshot on error
@@ -84,7 +84,7 @@ func (p Precompile) RunSetup(
 	contract *vm.Contract,
 	readOnly bool,
 	isTransaction func(name *abi.Method) bool,
-) (ctx sdk.Context, stateDB *statedb.StateDB, s snapshot, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) { //nolint:revive
+) (ctx sdk.Context, stateDB *statedb.StateDB, s Snapshot, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) {
 	stateDB, ok := evm.StateDB.(*statedb.StateDB)
 	if !ok {
 		return sdk.Context{}, nil, s, nil, uint64(0), nil, errors.New(ErrNotRunInEvm)
@@ -164,7 +164,7 @@ func (p Precompile) RunSetup(
 
 // HandleGasError handles the out of gas panic by resetting the gas meter and returning an error.
 // This is used in order to avoid panics and to allow for the EVM to continue cleanup if the tx or query run out of gas.
-func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetypes.Gas, err *error, stateDB *statedb.StateDB, snapshot snapshot) func() {
+func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetypes.Gas, err *error, stateDB *statedb.StateDB, snapshot Snapshot) func() {
 	return func() {
 		if r := recover(); r != nil {
 			switch r.(type) {
@@ -191,7 +191,7 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 // AddJournalEntries adds the balanceChange (if corresponds)
 // and precompileCall entries on the stateDB journal
 // This allows to revert the call changes within an evm tx
-func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) error {
+func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s Snapshot) error {
 	for _, entry := range p.journalEntries {
 		switch entry.Op {
 		case Sub:
@@ -210,7 +210,7 @@ func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) erro
 // as the journalEntries field of the precompile.
 // These entries will be added to the stateDB's journal
 // when calling the AddJournalEntries function
-func (p *Precompile) SetBalanceChangeEntries(entries ...balanceChangeEntry) {
+func (p *Precompile) SetBalanceChangeEntries(entries ...BalanceChangeEntry) {
 	p.journalEntries = entries
 }
 

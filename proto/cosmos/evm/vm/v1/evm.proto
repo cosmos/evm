@@ -20,28 +20,21 @@ message Params {
     (gogoproto.customname) = "ExtraEIPs",
     (gogoproto.moretags) = "yaml:\"extra_eips\""
   ];
-  // chain_config defines the EVM chain configuration parameters
-  ChainConfig chain_config = 5 [
-    (gogoproto.moretags) = "yaml:\"chain_config\"",
-    (gogoproto.nullable) = false,
-    (amino.dont_omitempty) = true
-  ];
-
   // allow_unprotected_txs defines if replay-protected (i.e non EIP155
   // signed) transactions can be executed on the state machine.
-  bool allow_unprotected_txs = 6;
+  bool allow_unprotected_txs = 5;
   // renamed active_precompiles to active_static_precompiles
-  reserved 7;
+  reserved 6;
   // evm_channels is the list of channel identifiers from EVM compatible chains
-  repeated string evm_channels = 8 [ (gogoproto.customname) = "EVMChannels" ];
+  repeated string evm_channels = 7 [ (gogoproto.customname) = "EVMChannels" ];
   // access_control defines the permission policy of the EVM
-  AccessControl access_control = 9 [
+  AccessControl access_control = 8 [
     (gogoproto.customname) = "AccessControl",
     (gogoproto.nullable) = false
   ];
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
-  repeated string active_static_precompiles = 10;
+  repeated string active_static_precompiles = 9;
 }
 
 // AccessControl defines the permission policy of the EVM

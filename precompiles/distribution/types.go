@@ -44,6 +44,7 @@ type EventClaimRewards struct {
 // EventFundCommunityPool defines the event data for the FundCommunityPool transaction.
 type EventFundCommunityPool struct {
 	Depositor common.Address
+	Denom     string
 	Amount    *big.Int
 }
 
@@ -146,24 +147,30 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 }
 
 // NewMsgFundCommunityPool creates a new NewMsgFundCommunityPool message.
-func NewMsgFundCommunityPool(denom string, args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+func NewMsgFundCommunityPool(args []interface{}) (*distributiontypes.MsgFundCommunityPool, common.Address, error) {
+	emptyAddr := common.Address{}
 	if len(args) != 2 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
 
 	depositorAddress, ok := args[0].(common.Address)
-	if !ok || depositorAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
+	if !ok || depositorAddress == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidHexAddress, args[0])
 	}
 
-	amount, ok := args[1].(*big.Int)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args[1])
+	coins, err := cmn.ToCoins(args[1])
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
+	}
+
+	amt, err := cmn.NewSdkCoinsFromCoins(coins)
+	if err != nil {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidAmount, "amount arg")
 	}
 
 	msg := &distributiontypes.MsgFundCommunityPool{
 		Depositor: sdk.AccAddress(depositorAddress.Bytes()).String(),
-		Amount:    sdk.Coins{sdk.Coin{Denom: denom, Amount: math.NewIntFromBigInt(amount)}},
+		Amount:    amt,
 	}
 
 	return msg, depositorAddress, nil

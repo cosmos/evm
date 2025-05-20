@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/constants"
@@ -185,7 +186,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -195,12 +201,25 @@ func (s *PrecompileTestSuite) TestRun() {
 			expPass:  true,
 		},
 		{
-			name: "pass - fund community pool transaction",
+			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "foo",
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "bar",
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -392,7 +411,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 
@@ -401,12 +425,25 @@ func (s *PrecompileTestSuite) TestCMS() {
 			expPass: true,
 		},
 		{
-			name: "pass - fund community pool transaction",
+			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
 				input, err := s.precompile.Pack(
 					distribution.FundCommunityPoolMethod,
 					s.keyring.GetAddr(0),
-					big.NewInt(1e18),
+					[]cmn.Coin{
+						{
+							Denom:  constants.ExampleAttoDenom,
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "foo",
+							Amount: big.NewInt(1e18),
+						},
+						{
+							Denom:  "bar",
+							Amount: big.NewInt(1e18),
+						},
+					},
 				)
 				s.Require().NoError(err, "failed to pack input")
 

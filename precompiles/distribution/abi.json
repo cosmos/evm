@@ -64,6 +64,12 @@
         },
         {
           "indexed": false,
+          "internalType": "string",
+          "name": "denom",
+          "type": "string"
+        },
+        {
+          "indexed": false,
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
@@ -387,9 +393,21 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
+          "components": [
+            {
+              "internalType": "string",
+              "name": "denom",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct Coin[]",
           "name": "amount",
-          "type": "uint256"
+          "type": "tuple[]"
         }
       ],
       "name": "fundCommunityPool",

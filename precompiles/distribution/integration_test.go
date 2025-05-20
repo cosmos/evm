@@ -797,6 +797,156 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 		})
 	})
 
+	Describe("Execute FundCommunityPool transaction", func() {
+		const method = distribution.FundCommunityPoolMethod
+
+		BeforeEach(func() {
+			callArgs.MethodName = method
+		})
+
+		It("should fail if the depositor has insufficient balance", func() {
+			// Here, we attempt to deposit an amount that the EOA does not have.
+
+			// 1) Query the current balance
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialBalance := balRes.Balance
+
+			// 2) Attempt to deposit more than current balance
+			deposit := initialBalance.Amount.Add(math.NewInt(9999999999))
+
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: deposit.BigInt()},
+				},
+			}
+
+			// We expect the tx to fail ("execution reverted") because of insufficient funds
+			insufficientFundsCheck := defaultLogCheck.WithErrContains("insufficient funds")
+
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				insufficientFundsCheck,
+			)
+			Expect(err).To(BeNil())
+		})
+
+		It("should fund the community pool successfully from EOA", func() {
+			// 1) Fund the EOA to ensure it has enough tokens
+			err := testutils.FundAccountWithBaseDenom(
+				s.factory, s.network,
+				s.keyring.GetKey(0),
+				s.keyring.GetAccAddr(0),
+				math.NewInt(1_000_000),
+			)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialEOABal := balRes.Balance
+
+			// 2) Prepare and execute the FundCommunityPool call
+			fundAmt := math.NewInt(10)
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
+				},
+			}
+
+			txArgs.GasPrice = gasPrice.BigInt()
+			txArgs.GasLimit = 500_000
+
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+			res, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil())
+
+			// Persist state changes
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// 3) Ensure the EOA's final balance is decreased by (fundAmt + fees)
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			finalEOABal := balRes.Balance
+
+			fees := gasPrice.Mul(math.NewInt(res.GasUsed))
+			// The final balance must be: initialBalance - fundAmt - fees
+			// We only check if it's consistent ( >= ), because we funded the EOA in step 1
+			expLowerBound := fundAmt.Add(fees)
+
+			diff := initialEOABal.Amount.Sub(finalEOABal.Amount)
+			Expect(diff.GTE(expLowerBound)).To(BeTrue(),
+				"final EOA balance must be decreased at least by funded amt + fees")
+		})
+
+		It("should fund multiple coins to the community pool successfully from EOA", func() {
+			// 1) Fund the EOA to ensure it has enough tokens
+			err := testutils.FundAccountWithBaseDenom(
+				s.factory, s.network,
+				s.keyring.GetKey(0),
+				s.keyring.GetAccAddr(0),
+				math.NewInt(1_000_000),
+			)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetAllBalances(s.keyring.GetAccAddr(0))
+			Expect(err).To(BeNil())
+			initialEOABals := balRes.Balances
+
+			// 2) Prepare and execute the FundCommunityPool call
+			fundAmt := math.NewInt(10)
+			sendAmt := []cmn.Coin{
+				{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
+				{Denom: testconstants.OtherCoinDenoms[0], Amount: fundAmt.BigInt()},
+				{Denom: testconstants.OtherCoinDenoms[1], Amount: fundAmt.BigInt()},
+			}
+			sendSdkCoins, err := cmn.NewSdkCoinsFromCoins(sendAmt)
+			Expect(err).To(BeNil())
+
+			callArgs.Args = []interface{}{s.keyring.GetAddr(0), sendAmt}
+
+			txArgs.GasPrice = gasPrice.BigInt()
+			txArgs.GasLimit = 500_000
+
+			logCheckArgs := passCheck.WithExpEvents(
+				distribution.EventTypeFundCommunityPool,
+				distribution.EventTypeFundCommunityPool,
+				distribution.EventTypeFundCommunityPool,
+			)
+
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil())
+
+			// Persist state changes
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// 3) Ensure the EOA's final balance is decreased by (fundAmt + fees)
+			balRes, err = s.grpcHandler.GetAllBalances(s.keyring.GetAccAddr(0))
+			Expect(err).To(BeNil())
+			finalEOABals := balRes.Balances
+
+			diffs := initialEOABals.Sub(finalEOABals...)
+			Expect(diffs.IsAllGTE(sendSdkCoins)).To(BeTrue(),
+				"final EOA balance must be decreased at least by funded amt + fees")
+		})
+	})
+
 	// =====================================
 	// 				QUERIES
 	// =====================================
@@ -1109,7 +1259,9 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			callArgs.MethodName = distribution.FundCommunityPoolMethod
 			callArgs.Args = []interface{}{
 				s.keyring.GetAddr(0),
-				big.NewInt(1_000_000),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: fundAmount},
+				},
 			}
 
 			txArgs.GasLimit = 200_000
@@ -3416,7 +3568,9 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				callArgs.MethodName = "testFundCommunityPool"
 				callArgs.Args = []interface{}{
 					s.keyring.GetAddr(0),
-					fundAmt,
+					[]cmn.Coin{
+						{Denom: s.bondDenom, Amount: fundAmt},
+					},
 				}
 
 				fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
