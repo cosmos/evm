@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/core"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -76,19 +77,18 @@ func (k Keeper) CallEVMWithData(
 		gasCap = gasRes.Gas
 	}
 
-	msg := ethtypes.NewMessage(
-		from,
-		contract,
-		nonce,
-		big.NewInt(0), // amount
-		gasCap,        // gasLimit
-		big.NewInt(0), // gasFeeCap
-		big.NewInt(0), // gasTipCap
-		big.NewInt(0), // gasPrice
-		data,
-		ethtypes.AccessList{}, // AccessList
-		!commit,               // isFake
-	)
+	msg := core.Message{
+		From:       from,
+		To:         contract,
+		Nonce:      nonce,
+		Value:      big.NewInt(0), // amount
+		GasLimit:   gasCap,        // gasLimit
+		GasFeeCap:  big.NewInt(0), // gasFeeCap
+		GasTipCap:  big.NewInt(0), // gasTipCap
+		GasPrice:   big.NewInt(0), // gasPrice
+		Data:       data,
+		AccessList: ethtypes.AccessList{}, // AccessList
+	}
 
 	res, err := k.ApplyMessage(ctx, msg, types.NewNoOpTracer(), commit)
 	if err != nil {

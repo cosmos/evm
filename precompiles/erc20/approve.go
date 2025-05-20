@@ -45,7 +45,7 @@ func (p Precompile) Approve(
 	}
 
 	grantee := spender
-	granter := contract.CallerAddress
+	granter := contract.Address()
 
 	// NOTE: We do not support approvals if the grantee is the granter.
 	// This is different from the ERC20 standard but there is no reason to
@@ -112,7 +112,7 @@ func (p Precompile) IncreaseAllowance(
 	}
 
 	grantee := spender
-	granter := contract.CallerAddress
+	granter := contract.Address()
 
 	if bytes.Equal(grantee.Bytes(), granter.Bytes()) {
 		return nil, ErrSpenderIsOwner
@@ -174,7 +174,7 @@ func (p Precompile) DecreaseAllowance(
 	}
 
 	grantee := spender
-	granter := contract.CallerAddress
+	granter := contract.Address()
 
 	if bytes.Equal(grantee.Bytes(), granter.Bytes()) {
 		return nil, ErrSpenderIsOwner

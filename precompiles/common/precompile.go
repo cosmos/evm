@@ -2,7 +2,8 @@ package common
 
 import (
 	"errors"
-	"math/big"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/holiman/uint256"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -40,11 +41,11 @@ const (
 
 type balanceChangeEntry struct {
 	Account common.Address
-	Amount  *big.Int
+	Amount  *uint256.Int
 	Op      Operation
 }
 
-func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) balanceChangeEntry { //nolint:revive
+func NewBalanceChangeEntry(acc common.Address, amt *uint256.Int, op Operation) balanceChangeEntry { //nolint:revive
 	return balanceChangeEntry{acc, amt, op}
 }
 
@@ -163,7 +164,7 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 			case storetypes.ErrorOutOfGas:
 				// update contract gas
 				usedGas := ctx.GasMeter().GasConsumed() - initialGas
-				_ = contract.UseGas(usedGas)
+				_ = contract.UseGas(usedGas, nil, tracing.GasChangeCallFailedExecution)
 
 				*err = vm.ErrOutOfGas
 				// FIXME: add InfiniteGasMeter with previous Gas limit.
@@ -184,10 +185,10 @@ func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) erro
 		switch entry.Op {
 		case Sub:
 			// add the corresponding balance change to the journal
-			stateDB.SubBalance(entry.Account, entry.Amount)
+			stateDB.SubBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
 		case Add:
 			// add the corresponding balance change to the journal
-			stateDB.AddBalance(entry.Account, entry.Amount)
+			stateDB.AddBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
 		}
 	}
 

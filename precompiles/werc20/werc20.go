@@ -3,6 +3,7 @@ package werc20
 import (
 	"embed"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -135,7 +136,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-	if !contract.UseGas(cost) {
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 		return nil, vm.ErrOutOfGas
 	}
 

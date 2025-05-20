@@ -34,7 +34,7 @@ func (p Precompile) Vote(
 
 	// If the contract is the voter, we don't need an origin check
 	// Otherwise check if the origin matches the voter address
-	isContractVoter := contract.CallerAddress == voterHexAddr && contract.CallerAddress != origin
+	isContractVoter := contract.Address() == voterHexAddr && contract.Address() != origin
 	if !isContractVoter && origin != voterHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), voterHexAddr.String())
 	}
@@ -67,7 +67,7 @@ func (p Precompile) VoteWeighted(
 
 	// If the contract is the voter, we don't need an origin check
 	// Otherwise check if the origin matches the voter address
-	isContractVoter := contract.CallerAddress == voterHexAddr && contract.CallerAddress != origin
+	isContractVoter := contract.Address() == voterHexAddr && contract.Address() != origin
 	if !isContractVoter && origin != voterHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), voterHexAddr.String())
 	}

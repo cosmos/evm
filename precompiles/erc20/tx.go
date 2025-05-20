@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"github.com/holiman/uint256"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -40,7 +41,7 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	from := contract.CallerAddress
+	from := contract.Address()
 	to, amount, err := ParseTransferArgs(args)
 	if err != nil {
 		return nil, err
@@ -87,7 +88,7 @@ func (p *Precompile) transfer(
 
 	isTransferFrom := method.Name == TransferFromMethod
 	owner := sdk.AccAddress(from.Bytes())
-	spenderAddr := contract.CallerAddress
+	spenderAddr := contract.Address()
 	spender := sdk.AccAddress(spenderAddr.Bytes()) // aka. grantee
 	ownerIsSpender := spender.Equals(owner)
 
@@ -112,7 +113,7 @@ func (p *Precompile) transfer(
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	if p.tokenPair.Denom == evmDenom {
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(amount)
+		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(amount.Uint64()))
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
 			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}

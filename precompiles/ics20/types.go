@@ -380,7 +380,7 @@ func convertToAllocation(allocs []transfertypes.Allocation) []cmn.ICS20Allocatio
 
 // CheckOriginAndSender ensures the correct sender is being used.
 func CheckOriginAndSender(contract *vm.Contract, origin common.Address, sender common.Address) (common.Address, error) {
-	if contract.CallerAddress == sender {
+	if contract.Address() == sender {
 		return sender, nil
 	} else if origin != sender {
 		return common.Address{}, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
@@ -397,16 +397,16 @@ func CheckAndAcceptAuthorizationIfNeeded(
 	authzKeeper authzkeeper.Keeper,
 	msg *transfertypes.MsgTransfer,
 ) (*authz.AcceptResponse, *time.Time, error) {
-	if contract.CallerAddress == origin {
+	if contract.Address() == origin {
 		return nil, nil, nil
 	}
 
-	auth, expiration, err := authorization.CheckAuthzExists(ctx, authzKeeper, contract.CallerAddress, origin, TransferMsgURL)
+	auth, expiration, err := authorization.CheckAuthzExists(ctx, authzKeeper, contract.Address(), origin, TransferMsgURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf(authorization.ErrAuthzDoesNotExistOrExpired, contract.CallerAddress, origin)
+		return nil, nil, fmt.Errorf(authorization.ErrAuthzDoesNotExistOrExpired, contract.Address(), origin)
 	}
 
-	resp, err := AcceptGrant(ctx, contract.CallerAddress, origin, msg, auth)
+	resp, err := AcceptGrant(ctx, contract.Address(), origin, msg, auth)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -416,8 +416,8 @@ func CheckAndAcceptAuthorizationIfNeeded(
 
 // UpdateGrantIfNeeded updates the grant in case the contract caller is not the origin of the message.
 func UpdateGrantIfNeeded(ctx sdk.Context, contract *vm.Contract, authzKeeper authzkeeper.Keeper, origin common.Address, expiration *time.Time, resp *authz.AcceptResponse) error {
-	if contract.CallerAddress != origin {
-		return UpdateGrant(ctx, authzKeeper, contract.CallerAddress, origin, expiration, resp)
+	if contract.Address() != origin {
+		return UpdateGrant(ctx, authzKeeper, contract.Address(), origin, expiration, resp)
 	}
 	return nil
 }

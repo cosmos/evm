@@ -2,6 +2,7 @@ package werc20
 
 import (
 	"fmt"
+	"github.com/holiman/uint256"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -43,7 +44,7 @@ func (p Precompile) Deposit(
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
 			Denom:  evmtypes.GetEVMCoinDenom(),
-			Amount: math.NewIntFromBigInt(depositedAmount),
+			Amount: math.NewIntFromUint64(depositedAmount.Uint64()),
 		}),
 	); err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 
-	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, amount); err != nil {
+	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, uint256.NewInt(amount.Uint64())); err != nil {
 		return nil, err
 	}
 	return nil, nil

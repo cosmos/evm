@@ -185,7 +185,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	// Compute block bloom filter
 	if len(logs) > 0 {
 		bloom = k.GetBlockBloomTransient(ctx)
-		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
+		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs}).Bytes()))
 		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
 	}
 
@@ -243,8 +243,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	evmDenom := types.GetEVMCoinDenom()
 
 	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
-	if err = k.RefundGas(ctx, msg, msg.Gas()-res.GasUsed, evmDenom); err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From())
+	if err = k.RefundGas(ctx, *msg, msg.GasLimit-res.GasUsed, evmDenom); err != nil {
+		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
 	if len(logs) > 0 {
@@ -275,7 +275,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg evmcore.Message, tracer *trac
 	}
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
-	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig)
+	return k.ApplyMessageWithConfig(ctx, &msg, tracer, commit, cfg, txConfig)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -334,20 +334,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	leftoverGas := msg.GasLimit
 
-	// Allow the tracer captures the tx level events, mainly the gas consumption.
-	vmCfg := evm.Config
-	if vmCfg.Tracer != nil {
-		vmCfg.Tracer.OnTxStart(leftoverGas)
-		defer func() {
-			vmCfg.Tracer.OnTxEnd(leftoverGas)
-		}()
-	}
-
 	sender := vm.AccountRef(msg.From)
 	contractCreation := msg.To == nil
 	isLondon := cfg.ChainConfig.IsLondon(evm.Context.BlockNumber)
 
-	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, *msg, cfg.ChainConfig, contractCreation)
+	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, cfg.ChainConfig, contractCreation)
 	if err != nil {
 		// should have already been checked on Ante Handler
 		return nil, errorsmod.Wrap(err, "intrinsic gas failed")
@@ -394,7 +385,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 
 	// calculate gas refund
-	if msg.Gas() < leftoverGas {
+	if msg.GasLimit < leftoverGas {
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
 	}
 	// refund gas
@@ -421,7 +412,8 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
 	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
-	gasLimit := math.LegacyNewDec(int64(msg.Gas())) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
+	gasLimit := math.LegacyNewDec(int64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is
+	// not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
 	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
 
@@ -429,8 +421,9 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "minimumGasUsed(%s) is not a uint64", minimumGasUsed.TruncateInt().String())
 	}
 
-	if msg.Gas() < leftoverGas {
-		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.Gas(), leftoverGas)
+	if msg.GasLimit < leftoverGas {
+		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit,
+			leftoverGas)
 	}
 
 	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here
