@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"cosmossdk.io/log"
 	"log/slog"
+
+	"cosmossdk.io/log"
 )
 
 // SDKSlogHandler is a compat log handler between the eth root logger and the SDK's log types

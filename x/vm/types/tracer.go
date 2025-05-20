@@ -129,7 +129,6 @@ func (dt *NoOpTracer) OnStorageChange(_ common.Address, _, _, _ common.Hash) {
 }
 
 func (dt *NoOpTracer) OnLog(_ *types.Log) {
-
 }
 
 func (dt *NoOpTracer) OnGasChange(_, _ uint64, _ tracing.GasChangeReason) {

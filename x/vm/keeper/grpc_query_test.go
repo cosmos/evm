@@ -1491,8 +1491,6 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.ArrowGlacierBlock = &maxInt
 				chainConfig.GrayGlacierBlock = &maxInt
 				chainConfig.MergeNetsplitBlock = &maxInt
-				chainConfig.ShanghaiBlock = &maxInt
-				chainConfig.CancunBlock = &maxInt
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()

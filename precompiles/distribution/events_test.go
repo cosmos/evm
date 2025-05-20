@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -70,7 +71,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		ctx = s.network.GetContext()
 		stDB = s.network.GetStateDB()
 
-		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
@@ -149,7 +150,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardsEvent() {
 		ctx = s.network.GetContext()
 		stDB = s.network.GetStateDB()
 
-		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
@@ -229,7 +230,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 		s.Require().NoError(err)
 		validatorAddress := common.BytesToAddress(valAddr)
-		contract := vm.NewContract(vm.AccountRef(validatorAddress), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(validatorAddress, s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)

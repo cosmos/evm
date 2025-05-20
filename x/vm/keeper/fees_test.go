@@ -4,8 +4,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/keeper"
@@ -209,7 +211,7 @@ func (suite *KeeperTestSuite) TestCheckSenderBalance() {
 	}
 
 	vmdb := suite.StateDB()
-	vmdb.AddBalance(addr, hundredInt.BigInt())
+	vmdb.AddBalance(addr, uint256.MustFromBig(hundredInt.BigInt()), tracing.BalanceChangeUnspecified)
 	balance := vmdb.GetBalance(addr)
 	suite.Require().Equal(balance, hundredInt.BigInt())
 	err := vmdb.Commit()
@@ -253,7 +255,7 @@ func (suite *KeeperTestSuite) TestCheckSenderBalance() {
 
 			acct := suite.network.App.EVMKeeper.GetAccountOrEmpty(suite.network.GetContext(), addr)
 			err := keeper.CheckSenderBalance(
-				sdkmath.NewIntFromBigInt(acct.Balance),
+				sdkmath.NewIntFromBigInt(acct.Balance.ToBig()),
 				txData,
 			)
 
@@ -470,7 +472,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 				} else {
 					gasTipCap = tc.gasTipCap
 				}
-				vmdb.AddBalance(addr, initBalance.BigInt())
+				vmdb.AddBalance(addr, uint256.MustFromBig(initBalance.BigInt()), tracing.BalanceChangeUnspecified)
 				balance := vmdb.GetBalance(addr)
 				suite.Require().Equal(balance, initBalance.BigInt())
 			} else {
@@ -478,7 +480,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 					gasPrice = tc.gasPrice.BigInt()
 				}
 
-				vmdb.AddBalance(addr, hundredInt.BigInt())
+				vmdb.AddBalance(addr, uint256.MustFromBig(hundredInt.BigInt()), tracing.BalanceChangeUnspecified)
 				balance := vmdb.GetBalance(addr)
 				suite.Require().Equal(balance, hundredInt.BigInt())
 			}
@@ -507,7 +509,8 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, suite.network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false,
+				false, suite.network.GetContext().IsCheckTx())
 			if tc.expectPassVerify {
 				suite.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.enableFeemarket {

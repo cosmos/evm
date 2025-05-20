@@ -2,13 +2,13 @@ package common
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/core/tracing"
-	"github.com/holiman/uint256"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 

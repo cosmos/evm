@@ -136,7 +136,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 
 	root := common.Hash{}.Bytes()
 	receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
-	bloom := ethtypes.CreateBloom(ethtypes.Receipts{receipt})
+	bloom := ethtypes.CreateBloom(receipt)
 
 	ethRPCTxs := []interface{}{}
 	if tx != nil {

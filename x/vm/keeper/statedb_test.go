@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/contracts"
@@ -44,11 +46,11 @@ func (suite *KeeperTestSuite) TestCreateAccount() {
 			"reset account (keep balance)",
 			utiltx.GenerateAddress(),
 			func(vmdb vm.StateDB, addr common.Address) {
-				vmdb.AddBalance(addr, big.NewInt(100))
-				suite.Require().NotZero(vmdb.GetBalance(addr).Int64())
+				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+				suite.Require().False(vmdb.GetBalance(addr).IsZero())
 			},
 			func(vmdb vm.StateDB, addr common.Address) {
-				suite.Require().Equal(vmdb.GetBalance(addr).Int64(), int64(100))
+				suite.Require().Equal(vmdb.GetBalance(addr).Uint64(), uint64(100))
 			},
 		},
 		{
@@ -100,13 +102,14 @@ func (suite *KeeperTestSuite) TestAddBalance() {
 		suite.Run(tc.name, func() {
 			vmdb := suite.StateDB()
 			prev := vmdb.GetBalance(suite.keyring.GetAddr(0))
-			vmdb.AddBalance(suite.keyring.GetAddr(0), tc.amount)
+			vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(tc.amount), tracing.BalanceChangeUnspecified)
 			post := vmdb.GetBalance(suite.keyring.GetAddr(0))
 
 			if tc.isNoOp {
-				suite.Require().Equal(prev.Int64(), post.Int64())
+				suite.Require().Equal(prev.Uint64(), post.Uint64())
 			} else {
-				suite.Require().Equal(new(big.Int).Add(prev, tc.amount).Int64(), post.Int64())
+				suite.Require().Equal(new(uint256.Int).Add(prev, uint256.MustFromBig(tc.amount)).Uint64(),
+					post.Uint64())
 			}
 		})
 	}
@@ -129,7 +132,7 @@ func (suite *KeeperTestSuite) TestSubBalance() {
 			"positive amount, above zero",
 			big.NewInt(50),
 			func(vmdb vm.StateDB) {
-				vmdb.AddBalance(suite.keyring.GetAddr(0), big.NewInt(100))
+				vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 			},
 			false,
 		},
@@ -153,13 +156,14 @@ func (suite *KeeperTestSuite) TestSubBalance() {
 			tc.malleate(vmdb)
 
 			prev := vmdb.GetBalance(suite.keyring.GetAddr(0))
-			vmdb.SubBalance(suite.keyring.GetAddr(0), tc.amount)
+			vmdb.SubBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(tc.amount), tracing.BalanceChangeUnspecified)
 			post := vmdb.GetBalance(suite.keyring.GetAddr(0))
 
 			if tc.isNoOp {
-				suite.Require().Equal(prev.Int64(), post.Int64())
+				suite.Require().Equal(prev.Uint64(), post.Uint64())
 			} else {
-				suite.Require().Equal(new(big.Int).Sub(prev, tc.amount).Int64(), post.Int64())
+				suite.Require().Equal(new(uint256.Int).Sub(prev, uint256.MustFromBig(tc.amount)).Uint64(),
+					post.Uint64())
 			}
 		})
 	}
@@ -183,7 +187,7 @@ func (suite *KeeperTestSuite) TestGetNonce() {
 			suite.keyring.GetAddr(0),
 			1,
 			func(vmdb vm.StateDB) {
-				vmdb.SetNonce(suite.keyring.GetAddr(0), 1)
+				vmdb.SetNonce(suite.keyring.GetAddr(0), 1, tracing.NonceChangeUnspecified)
 			},
 		},
 	}
@@ -223,7 +227,7 @@ func (suite *KeeperTestSuite) TestSetNonce() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			vmdb := suite.StateDB()
-			vmdb.SetNonce(tc.address, tc.nonce)
+			vmdb.SetNonce(tc.address, tc.nonce, tracing.NonceChangeUnspecified)
 			nonce := vmdb.GetNonce(tc.address)
 			suite.Require().Equal(tc.nonce, nonce)
 		})
@@ -556,10 +560,11 @@ func (suite *KeeperTestSuite) TestSuicide() {
 	}
 
 	// Call Suicide
-	suite.Require().Equal(true, db.Suicide(firstAddress))
+	_, b := db.SelfDestruct6780(firstAddress)
+	suite.Require().Equal(true, b)
 
 	// Check suicided is marked
-	suite.Require().Equal(true, db.HasSuicided(firstAddress))
+	suite.Require().Equal(true, db.HasSelfDestructed(firstAddress))
 
 	// Commit state
 	suite.Require().NoError(db.Commit())
@@ -581,7 +586,7 @@ func (suite *KeeperTestSuite) TestSuicide() {
 
 	// Check code is still present in addr2 and suicided is false
 	suite.Require().NotNil(db.GetCode(secondAddress))
-	suite.Require().Equal(false, db.HasSuicided(secondAddress))
+	suite.Require().Equal(false, db.HasSelfDestructed(secondAddress))
 }
 
 func (suite *KeeperTestSuite) TestExist() {
@@ -593,7 +598,7 @@ func (suite *KeeperTestSuite) TestExist() {
 	}{
 		{"success, account exists", suite.keyring.GetAddr(0), func(vm.StateDB) {}, true},
 		{"success, has suicided", suite.keyring.GetAddr(0), func(vmdb vm.StateDB) {
-			vmdb.Suicide(suite.keyring.GetAddr(0))
+			vmdb.SelfDestruct(suite.keyring.GetAddr(0))
 		}, true},
 		{"success, account doesn't exist", utiltx.GenerateAddress(), func(vm.StateDB) {}, false},
 	}
@@ -619,7 +624,9 @@ func (suite *KeeperTestSuite) TestEmpty() {
 		{
 			"not empty, positive balance",
 			utiltx.GenerateAddress(),
-			func(vmdb vm.StateDB, addr common.Address) { vmdb.AddBalance(addr, big.NewInt(100)) },
+			func(vmdb vm.StateDB, addr common.Address) {
+				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+			},
 			false,
 		},
 		{"empty, account doesn't exist", utiltx.GenerateAddress(), func(vm.StateDB, common.Address) {}, true},
@@ -1015,7 +1022,8 @@ func (suite *KeeperTestSuite) TestSetBalance() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			tc.malleate()
-			err := suite.network.App.EVMKeeper.SetBalance(suite.network.GetContext(), tc.addr, amount)
+			err := suite.network.App.EVMKeeper.SetBalance(suite.network.GetContext(), tc.addr,
+				uint256.MustFromBig(amount))
 			if tc.expErr {
 				suite.Require().Error(err)
 			} else {

@@ -63,7 +63,7 @@ type TxFactory interface {
 	// GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.
 	GenerateMsgEthereumTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (evmtypes.MsgEthereumTx, error)
 	// GenerateGethCoreMsg creates a new GethCoreMsg with the provided arguments.
-	GenerateGethCoreMsg(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (core.Message, error)
+	GenerateGethCoreMsg(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (*core.Message, error)
 	// EstimateGasLimit estimates the gas limit for a tx with the provided address and txArgs
 	EstimateGasLimit(from *common.Address, txArgs *evmtypes.EvmTxArgs) (uint64, error)
 	// GetEvmTransactionResponseFromTxResult returns the MsgEthereumTxResponse from the provided txResult

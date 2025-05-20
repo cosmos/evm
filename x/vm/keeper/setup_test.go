@@ -97,8 +97,6 @@ func (suite *KeeperTestSuite) SetupTest() {
 		chainConfig.ArrowGlacierBlock = &maxInt
 		chainConfig.GrayGlacierBlock = &maxInt
 		chainConfig.MergeNetsplitBlock = &maxInt
-		chainConfig.ShanghaiBlock = &maxInt
-		chainConfig.CancunBlock = &maxInt
 	}
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config

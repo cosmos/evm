@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/ante/testutils"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
@@ -452,7 +453,8 @@ func (suite *AnteTestSuite) RegisterAccount(pubKey cryptotypes.PubKey, balance *
 	acc := suite.GetNetwork().App.AccountKeeper.NewAccountWithAddress(ctx, sdk.AccAddress(pubKey.Address()))
 	suite.GetNetwork().App.AccountKeeper.SetAccount(ctx, acc)
 
-	err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, common.BytesToAddress(pubKey.Address()), balance)
+	err := suite.GetNetwork().App.EVMKeeper.SetBalance(ctx, common.BytesToAddress(pubKey.Address()),
+		uint256.MustFromBig(balance))
 	suite.Require().NoError(err)
 }
 

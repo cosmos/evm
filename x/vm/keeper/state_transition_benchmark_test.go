@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -145,8 +146,8 @@ func newNativeMessage(
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
-) (core.Message, error) {
-	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight))
+) (*core.Message, error) {
+	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight), uint64(time.Now().Unix()))
 
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList)
 	if err != nil {
@@ -275,7 +276,7 @@ func BenchmarkApplyMessage(b *testing.B) {
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), m, nil, true)
+		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), *m, nil, true)
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -310,7 +311,7 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), m, nil, true)
+		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), *m, nil, true)
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -345,7 +346,7 @@ func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B) {
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), m, nil, true)
+		resp, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), *m, nil, true)
 		b.StopTimer()
 
 		require.NoError(b, err)

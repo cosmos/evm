@@ -93,7 +93,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			stateDB := s.network.GetStateDB()
 
 			var contract *vm.Contract
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), fromAddr, s.precompile, 0)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), fromAddr, s.precompile.Address(), 0)
 
 			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.BankKeeper.MintCoins(s.network.GetContext(), erc20types.ModuleName, XMPLCoin)
@@ -245,7 +245,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			stDB = s.network.GetStateDB()
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile, 0)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, spender.Addr, s.precompile.Address(), 0)
 
 			// Mint some coins to the module account and then send to the from address
 			err := s.network.App.BankKeeper.MintCoins(ctx, erc20types.ModuleName, XMPLCoin)

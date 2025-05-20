@@ -448,7 +448,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 				},
 			)
 			suite.Require().NoError(err)
-			transactionGas := coreMsg.Gas()
+			transactionGas := coreMsg.GasLimit
 
 			vmdb := unitNetwork.GetStateDB()
 			vmdb.AddRefund(params.TxGas)
@@ -463,7 +463,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 
 			err = unitNetwork.App.EVMKeeper.RefundGas(
 				unitNetwork.GetContext(),
-				coreMsg,
+				*coreMsg,
 				refund,
 				unitNetwork.GetBaseDenom(),
 			)
@@ -638,7 +638,7 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	)
 	res, err := suite.network.App.EVMKeeper.ApplyMessage(
 		suite.network.GetContext(),
-		coreMsg,
+		*coreMsg,
 		tracer,
 		true,
 	)
@@ -673,7 +673,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			feemarkettypes.DefaultParams,
@@ -692,7 +692,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -717,7 +717,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -743,7 +743,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			func() feemarkettypes.Params {
@@ -789,7 +789,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 			// Function being tested
 			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(
 				suite.network.GetContext(),
-				msg,
+				&msg,
 				nil,
 				true,
 				config,

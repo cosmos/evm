@@ -62,7 +62,7 @@ func (s *PrecompileTestSuite) TestSubmitEvidence() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bytes, err := s.precompile.SubmitEvidence(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
 

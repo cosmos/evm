@@ -2,8 +2,9 @@ package types
 
 import (
 	"fmt"
-	"github.com/holiman/uint256"
 	"math/big"
+
+	"github.com/holiman/uint256"
 
 	sdkmath "cosmossdk.io/math"
 

@@ -1,15 +1,15 @@
 package keeper
 
 import (
-	"github.com/ethereum/go-ethereum/core/tracing"
-	"github.com/holiman/uint256"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -187,7 +187,8 @@ func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 // PostTxProcessing delegates the call to the hooks.
 // If no hook has been registered, this function returns with a `nil` error
 func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message,
-	receipt *ethtypes.Receipt) error {
+	receipt *ethtypes.Receipt,
+) error {
 	if k.hooks == nil {
 		return nil
 	}

@@ -236,7 +236,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 				s.T(),
 				ctx,
 				s.keyring.GetAddr(0),
-				s.precompile,
+				s.precompile.Address(),
 				200_000,
 			)
 
@@ -433,7 +433,7 @@ func (s *PrecompileTestSuite) TestIncreaseAllowance() {
 				s.T(),
 				ctx,
 				s.keyring.GetAddr(0),
-				s.precompile,
+				s.precompile.Address(),
 				200_000,
 			)
 
@@ -731,7 +731,7 @@ func (s *PrecompileTestSuite) TestDecreaseAllowance() {
 				s.T(),
 				ctx,
 				s.keyring.GetAddr(0),
-				s.precompile,
+				s.precompile.Address(),
 				200_000,
 			)
 

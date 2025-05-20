@@ -112,7 +112,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			ctx = s.network.GetContext()
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			_, err := s.precompile.SetWithdrawAddress(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
 
@@ -216,7 +216,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewards() {
 			ctx = s.network.GetContext()
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
 			bz, err := s.precompile.WithdrawDelegatorRewards(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
@@ -321,7 +321,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 
 			validatorAddress := common.BytesToAddress(valAddr.Bytes())
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.WithdrawValidatorCommission(ctx, validatorAddress, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
@@ -463,7 +463,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 				err      error
 			)
 			addr := s.keyring.GetAddr(0)
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, addr, s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, addr, s.precompile.Address(), tc.gas)
 
 			validators := s.network.GetValidators()
 			srs := make([]stakingRewards, len(validators))
@@ -557,7 +557,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			ctx = s.network.GetContext()
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			// Sanity check to make sure the starting balance is always 100k ATOM
 			balance := s.network.App.BankKeeper.GetBalance(ctx, s.keyring.GetAddr(0).Bytes(), testconstants.ExampleAttoDenom)

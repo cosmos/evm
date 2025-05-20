@@ -3,9 +3,9 @@ package erc20
 import (
 	"embed"
 	"fmt"
-	"github.com/ethereum/go-ethereum/core/tracing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	auth "github.com/cosmos/evm/precompiles/authorization"

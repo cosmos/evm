@@ -18,10 +18,10 @@ package statedb
 
 import (
 	"bytes"
-	"github.com/holiman/uint256"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	storetypes "cosmossdk.io/store/types"
 

@@ -362,7 +362,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 			grantee := s.keyring.GetKey(1)
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, granter.Addr, s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, granter.Addr, s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(contract, granter, grantee)
 			bz, err := s.precompile.Approve(ctx, granter.Addr, stDB, &method, args)
@@ -513,7 +513,7 @@ func (s *PrecompileTestSuite) TestDecreaseAllowance() {
 			grantee := s.keyring.GetKey(1)
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, granter.Addr, s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, granter.Addr, s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(contract, granter, grantee)
 			bz, err := s.precompile.DecreaseAllowance(ctx, granter.Addr, stDB, &method, args)

@@ -3,11 +3,11 @@ package werc20
 import (
 	"embed"
 	"fmt"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"

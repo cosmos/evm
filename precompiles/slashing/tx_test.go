@@ -122,7 +122,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 				s.T(),
 				s.network.GetContext(),
 				s.keyring.GetAddr(0),
-				s.precompile,
+				s.precompile.Address(),
 				tc.gas,
 			)
 
