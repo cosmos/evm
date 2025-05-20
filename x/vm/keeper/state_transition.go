@@ -53,9 +53,11 @@ func (k *Keeper) NewEVM(
 		Random:      nil, // not supported
 	}
 
+	ethCfg := types.GetEthChainConfig()
+
 	txCtx := evmcore.NewEVMTxContext(msg)
 	if tracer == nil {
-		tracer = k.Tracer(ctx, msg, cfg.ChainConfig)
+		tracer = k.Tracer(ctx, msg, ethCfg)
 	}
 	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
 
@@ -71,7 +73,7 @@ func (k *Keeper) NewEVM(
 		accessControl.GetCallHook(signer),
 		k.GetPrecompilesCallHook(ctx),
 	)
-	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, cfg.ChainConfig, vmConfig)
+	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
 }
 
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
@@ -160,7 +162,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
+	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
 	msg, err := evmcore.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
@@ -334,11 +336,13 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	leftoverGas := msg.GasLimit
 
+	ethCfg := types.GetEthChainConfig()
+
 	sender := vm.AccountRef(msg.From)
 	contractCreation := msg.To == nil
-	isLondon := cfg.ChainConfig.IsLondon(evm.Context.BlockNumber)
+	isLondon := ethCfg.IsLondon(evm.Context.BlockNumber)
 
-	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, cfg.ChainConfig, contractCreation)
+	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, ethCfg, contractCreation)
 	if err != nil {
 		// should have already been checked on Ante Handler
 		return nil, errorsmod.Wrap(err, "intrinsic gas failed")
@@ -358,7 +362,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	if rules := cfg.ChainConfig.Rules(big.NewInt(ctx.BlockHeight()), cfg.ChainConfig.MergeNetsplitBlock != nil,
+	if rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), ethCfg.MergeNetsplitBlock != nil,
 		uint64(ctx.BlockTime().Unix())); rules.IsBerlin {
 		// The access list is prepared without any precompile because it is
 		// filled with only the recipient precompile address in the EVM'hook

@@ -7,6 +7,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
@@ -21,7 +22,10 @@ import (
 func (suite *EvmAnteTestSuite) TestCanTransfer() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
@@ -94,7 +98,6 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 				unitNetwork.App.EVMKeeper,
 				*coreMsg,
 				baseFeeResp.BaseFee.BigInt(),
-				ethCfg,
 				evmParams.Params,
 				tc.isLondon,
 			)

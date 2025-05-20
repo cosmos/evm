@@ -2,14 +2,32 @@ package config
 
 import (
 	"github.com/cosmos/evm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
+// that allows initializing the app with different coin info based on the
+// chain id
+var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
+	EighteenDecimalsChainID: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
+	CosmosChainID: {
+		Denom:         "atest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.EighteenDecimals,
+	},
+}
+
 const (
 	// Bech32Prefix defines the Bech32 prefix used for accounts on the exemplary Cosmos EVM blockchain.
 	Bech32Prefix = "cosmos"
-
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address.
 	Bech32PrefixAccAddr = Bech32Prefix
 	// Bech32PrefixAccPub defines the Bech32 prefix of an account's public key.
@@ -28,6 +46,8 @@ const (
 	BaseDenom = "aatom"
 	// BaseDenomUnit defines the precision of the base denomination.
 	BaseDenomUnit = 18
+	// EVMChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.
+	EVMChainID = 262144
 )
 
 // SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.

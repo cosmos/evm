@@ -11,7 +11,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
@@ -26,7 +25,6 @@ type Keeper struct {
 	bankKeeper     bankkeeper.Keeper
 	evmKeeper      types.EVMKeeper
 	stakingKeeper  types.StakingKeeper
-	authzKeeper    authzkeeper.Keeper
 	transferKeeper *transferkeeper.Keeper
 }
 
@@ -39,7 +37,6 @@ func NewKeeper(
 	bk bankkeeper.Keeper,
 	evmKeeper types.EVMKeeper,
 	sk types.StakingKeeper,
-	authzKeeper authzkeeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 ) Keeper {
 	// ensure gov module account is set and is not nil
@@ -55,7 +52,6 @@ func NewKeeper(
 		bankKeeper:     bk,
 		evmKeeper:      evmKeeper,
 		stakingKeeper:  sk,
-		authzKeeper:    authzKeeper,
 		transferKeeper: transferKeeper,
 	}
 }

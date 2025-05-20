@@ -1485,7 +1485,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				suite.Require().NoError(suite.network.App.FeeMarketKeeper.SetParams(suite.network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+				chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt
@@ -1526,7 +1526,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
 		Decimals:      types.GetEVMCoinDecimals(),
 	}
-	chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+	chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {

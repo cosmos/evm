@@ -262,9 +262,6 @@ require (
 replace (
 	// need this replace when importing cosmos/rosetta pkg
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
-	// need this replace to pick up the store changes (Copy func) in our cosmos-sdk branch
-	//todo: merge this sdk release
-	cosmossdk.io/store => github.com/cosmos/cosmos-sdk/store v1.1.2-0.20250319183239-53dea340efc7
 
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0

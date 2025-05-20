@@ -90,7 +90,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	s.handler = gh
 	s.keyring = keys
 
-	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetChainID())
+	chainConfig := evmtypes.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 	if !s.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt

@@ -9,7 +9,6 @@ import (
 
 	app "github.com/cosmos/evm/evmd"
 	chainutil "github.com/cosmos/evm/evmd/testutil"
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
@@ -118,11 +117,6 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 		expName     string
 		expSymbol   string
 	}{
-		{
-			name:        "fail - empty denom",
-			denom:       "",
-			errContains: vm.ErrExecutionReverted.Error(),
-		},
 		{
 			name:        "fail - invalid denom trace",
 			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
@@ -233,11 +227,6 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		errContains string
 		expDecimals uint8
 	}{
-		{
-			name:        "fail - empty denom",
-			denom:       "",
-			errContains: vm.ErrExecutionReverted.Error(),
-		},
 		{
 			name:        "fail - invalid denom trace",
 			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
@@ -485,7 +474,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 }
 
 func (s *PrecompileTestSuite) TestAllowance() {
-	method := s.precompile.Methods[auth.AllowanceMethod]
+	method := s.precompile.Methods[erc20.AllowanceMethod]
 
 	testcases := []struct {
 		name        string
@@ -524,35 +513,19 @@ func (s *PrecompileTestSuite) TestAllowance() {
 			expAllow: common.Big0,
 		},
 		{
-			name: "pass - allowance exists but not for precompile token pair denom",
-			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
-				granterIdx := 0
-				granteeIdx := 1
-
-				s.setupSendAuthz(
-					s.keyring.GetAccAddr(granteeIdx),
-					s.keyring.GetPrivKey(granterIdx),
-					sdk.NewCoins(sdk.NewInt64Coin(s.bondDenom, 100)),
-				)
-
-				return []interface{}{s.keyring.GetAddr(granterIdx), s.keyring.GetAddr(granteeIdx)}
-			},
-			expPass:  true,
-			expAllow: common.Big0,
-		},
-		{
 			name: "pass - allowance exists for precompile token pair denom",
 			malleate: func(_ sdk.Context, _ *app.EVMD, amount *big.Int) []interface{} {
-				granterIdx := 0
-				granteeIdx := 1
+				ownerIdx := 0
+				spenderIdx := 1
 
-				s.setupSendAuthz(
-					s.keyring.GetAccAddr(granteeIdx),
-					s.keyring.GetPrivKey(granterIdx),
-					sdk.NewCoins(sdk.NewCoin(s.tokenDenom, sdkmath.NewIntFromBigInt(amount))),
+				s.setAllowance(
+					s.precompile.Address(),
+					s.keyring.GetPrivKey(ownerIdx),
+					s.keyring.GetAddr(spenderIdx),
+					amount,
 				)
 
-				return []interface{}{s.keyring.GetAddr(granterIdx), s.keyring.GetAddr(granteeIdx)}
+				return []interface{}{s.keyring.GetAddr(ownerIdx), s.keyring.GetAddr(spenderIdx)}
 			},
 			expPass:  true,
 			expAllow: big.NewInt(100),
@@ -568,9 +541,7 @@ func (s *PrecompileTestSuite) TestAllowance() {
 				allowanceArgs = tc.malleate(s.network.GetContext(), s.network.App, tc.expAllow)
 			}
 
-			precompile := s.setupERC20Precompile(s.tokenDenom)
-
-			bz, err := precompile.Allowance(
+			bz, err := s.precompile.Allowance(
 				s.network.GetContext(),
 				nil,
 				nil,

@@ -446,7 +446,7 @@ func (suite *KeeperIntegrationTestSuite) TestBurnCoins_Spread_Remainder() {
 func (suite *KeeperIntegrationTestSuite) TestBurnCoins_RandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID string
+		chainID testconstants.ChainID
 	}{
 		{
 			name:    "6 decimals",

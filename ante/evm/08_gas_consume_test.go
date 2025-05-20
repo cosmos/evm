@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	evmante "github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	testfactory "github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
@@ -20,7 +21,10 @@ import (
 func (suite *EvmAnteTestSuite) TestUpdateCumulativeGasWanted() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 
@@ -93,7 +97,10 @@ func (suite *EvmAnteTestSuite) TestUpdateCumulativeGasWanted() {
 func (suite *EvmAnteTestSuite) TestConsumeGasAndEmitEvent() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)

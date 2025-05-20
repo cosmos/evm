@@ -3,8 +3,8 @@ syntax = "proto3";
 package cosmos.evm.erc20.v1;
 
 import "amino/amino.proto";
-import "gogoproto/gogo.proto";
 import "cosmos/evm/erc20/v1/erc20.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "github.com/cosmos/evm/x/erc20/types";
 
@@ -15,6 +15,9 @@ message GenesisState {
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   // token_pairs is a slice of the registered token pairs at genesis
   repeated TokenPair token_pairs = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // allowances is a slice of the registered allowances at genesis
+  repeated Allowance allowances = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 

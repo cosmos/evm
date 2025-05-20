@@ -5,8 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // EventTransfer defines the event data for the ERC20 Transfer events.
@@ -128,22 +126,4 @@ func ParseBalanceOfArgs(args []interface{}) (common.Address, error) {
 	}
 
 	return account, nil
-}
-
-// updateOrAddCoin replaces the coin of the given denomination in the coins slice or adds it if it
-// does not exist yet.
-//
-// CONTRACT: Requires the coins struct to contain at most one coin of the given
-// denom.
-func updateOrAddCoin(coins sdk.Coins, coin sdk.Coin) sdk.Coins {
-	for idx, c := range coins {
-		if c.Denom == coin.Denom {
-			coins[idx] = coin
-			return coins
-		}
-	}
-
-	// NOTE: if no coin with the correct denomination is in the coins slice, we
-	// add it here.
-	return coins.Add(coin)
 }

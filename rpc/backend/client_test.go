@@ -97,7 +97,7 @@ func RegisterBlockMultipleTxs(
 	txs []types.Tx,
 ) (*cmtrpctypes.ResultBlock, error) {
 	block := types.MakeBlock(height, txs, nil, nil)
-	block.ChainID = ChainID
+	block.ChainID = ChainID.ChainID
 	resBlock := &cmtrpctypes.ResultBlock{Block: block}
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 	return resBlock, nil
@@ -111,7 +111,7 @@ func RegisterBlock(
 	// without tx
 	if tx == nil {
 		emptyBlock := types.MakeBlock(height, []types.Tx{}, nil, nil)
-		emptyBlock.ChainID = ChainID
+		emptyBlock.ChainID = ChainID.ChainID
 		resBlock := &cmtrpctypes.ResultBlock{Block: emptyBlock}
 		client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 		return resBlock, nil
@@ -119,7 +119,7 @@ func RegisterBlock(
 
 	// with tx
 	block := types.MakeBlock(height, []types.Tx{tx}, nil, nil)
-	block.ChainID = ChainID
+	block.ChainID = ChainID.ChainID
 	resBlock := &cmtrpctypes.ResultBlock{Block: block}
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).Return(resBlock, nil)
 	return resBlock, nil
@@ -151,7 +151,7 @@ func TestRegisterBlock(t *testing.T) {
 	res, err := client.Block(rpc.ContextWithHeight(height), &height)
 
 	emptyBlock := types.MakeBlock(height, []types.Tx{}, nil, nil)
-	emptyBlock.ChainID = ChainID
+	emptyBlock.ChainID = ChainID.ChainID
 	resBlock := &cmtrpctypes.ResultBlock{Block: emptyBlock}
 	require.Equal(t, resBlock, res)
 	require.NoError(t, err)

@@ -233,10 +233,11 @@ func NewExampleApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
+	evmChainID uint64,
 	evmAppOptions EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
-	encodingConfig := evmosencoding.MakeConfig()
+	encodingConfig := evmosencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -283,7 +284,7 @@ func NewExampleApp(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	// initialize the Cosmos EVM application configuration
-	if err := evmAppOptions(bApp.ChainID()); err != nil {
+	if err := evmAppOptions(evmChainID); err != nil {
 		panic(err)
 	}
 
@@ -472,6 +473,15 @@ func NewExampleApp(
 		runtime.ProvideCometInfoService(),
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
+	// Note: The evidence precompile allows evidence to be submitted through an EVM transaction.
+	// If you implement a custom evidence handler in the router that changes token balances (e.g. penalizing
+	// addresses, deducting fees, etc.), be aware that the precompile logic (e.g. SetBalanceChangeEntries)
+	// must be properly integrated to reflect these balance changes in the EVM state. Otherwise, there is a risk
+	// of desynchronization between the Cosmos SDK state and the EVM state when evidence is submitted via the EVM.
+	//
+	// For example, if your custom evidence handler deducts tokens from a user’s account, ensure that the evidence
+	// precompile also applies these deductions through the EVM’s balance tracking. Failing to do so may cause
+	// inconsistencies in reported balances and break state synchronization.
 	app.EvidenceKeeper = *evidenceKeeper
 
 	// Cosmos EVM keepers
@@ -515,7 +525,6 @@ func NewExampleApp(
 		app.BankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
-		app.AuthzKeeper,
 		&app.TransferKeeper,
 	)
 
@@ -582,7 +591,6 @@ func NewExampleApp(
 			app.DistrKeeper,
 			app.PreciseBankKeeper,
 			app.Erc20Keeper,
-			app.AuthzKeeper,
 			app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
 			app.EVMKeeper,

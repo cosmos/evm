@@ -132,7 +132,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 					suite.network.App.GetKey("erc20"), suite.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), suite.network.App.AccountKeeper,
 					suite.network.App.BankKeeper, mockEVMKeeper, suite.network.App.StakingKeeper,
-					suite.network.App.AuthzKeeper, &suite.network.App.TransferKeeper,
+					&suite.network.App.TransferKeeper,
 				)
 
 				mockEVMKeeper.On("EstimateGasInternal", mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.EstimateGasResponse{Gas: uint64(200)}, nil)
@@ -166,7 +166,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			tc.malleate()
 
 			_, err = suite.network.App.Erc20Keeper.RegisterERC20(ctx, &types.MsgRegisterERC20{
-				Authority:      authtypes.NewModuleAddress("gov").String(),
+				Signer:         suite.keyring.GetAccAddr(0).String(),
 				Erc20Addresses: []string{contractAddr.Hex()},
 			})
 			metadata, found := suite.network.App.BankKeeper.GetDenomMetaData(ctx, coinName)

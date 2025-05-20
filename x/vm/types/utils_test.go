@@ -47,10 +47,11 @@ func TestEvmDataEncoding(t *testing.T) {
 }
 
 func TestUnwrapEthererumMsg(t *testing.T) {
+	chainID := big.NewInt(1)
 	_, err := evmtypes.UnwrapEthereumMsg(nil, common.Hash{})
 	require.NotNil(t, err)
 
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := encoding.MakeConfig(chainID.Uint64())
 	clientCtx := client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 	builder, _ := clientCtx.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
 
@@ -59,7 +60,7 @@ func TestUnwrapEthererumMsg(t *testing.T) {
 	require.NotNil(t, err)
 
 	evmTxParams := &evmtypes.EvmTxArgs{
-		ChainID:  big.NewInt(1),
+		ChainID:  chainID,
 		Nonce:    0,
 		To:       &common.Address{},
 		Amount:   big.NewInt(0),

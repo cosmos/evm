@@ -19,9 +19,9 @@ const (
 	// SetWithdrawAddressMethod defines the ABI method name for the distribution
 	// SetWithdrawAddress transaction.
 	SetWithdrawAddressMethod = "setWithdrawAddress"
-	// WithdrawDelegatorRewardsMethod defines the ABI method name for the distribution
-	// WithdrawDelegatorRewards transaction.
-	WithdrawDelegatorRewardsMethod = "withdrawDelegatorRewards"
+	// WithdrawDelegatorRewardMethod defines the ABI method name for the distribution
+	// WithdrawDelegatorReward transaction.
+	WithdrawDelegatorRewardMethod = "withdrawDelegatorRewards"
 	// WithdrawValidatorCommissionMethod defines the ABI method name for the distribution
 	// WithdrawValidatorCommission transaction.
 	WithdrawValidatorCommissionMethod = "withdrawValidatorCommission"
@@ -29,6 +29,9 @@ const (
 	FundCommunityPoolMethod = "fundCommunityPool"
 	// ClaimRewardsMethod defines the ABI method name for the custom ClaimRewards transaction
 	ClaimRewardsMethod = "claimRewards"
+	// DepositValidatorRewardsPoolMethod defines the ABI method name for the distribution
+	// DepositValidatorRewardsPool transaction
+	DepositValidatorRewardsPoolMethod = "depositValidatorRewardsPool"
 )
 
 // ClaimRewards claims the rewards accumulated by a delegator from multiple or all validators.
@@ -139,8 +142,8 @@ func (p Precompile) SetWithdrawAddress(
 	return method.Outputs.Pack(true)
 }
 
-// WithdrawDelegatorRewards withdraws the rewards of a delegator from a single validator.
-func (p *Precompile) WithdrawDelegatorRewards(
+// WithdrawDelegatorReward withdraws the rewards of a delegator from a single validator.
+func (p *Precompile) WithdrawDelegatorReward(
 	ctx sdk.Context,
 	origin common.Address,
 	contract *vm.Contract,
@@ -184,7 +187,7 @@ func (p *Precompile) WithdrawDelegatorRewards(
 		}
 	}
 
-	if err = p.EmitWithdrawDelegatorRewardsEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
+	if err = p.EmitWithdrawDelegatorRewardEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
 		return nil, err
 	}
 
@@ -259,7 +262,7 @@ func (p *Precompile) FundCommunityPool(
 		return nil, err
 	}
 
-	msg, depositorHexAddr, err := NewMsgFundCommunityPool(baseDenom, args)
+	msg, depositorHexAddr, err := NewMsgFundCommunityPool(args)
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +294,55 @@ func (p *Precompile) FundCommunityPool(
 	}
 
 	if err = p.EmitFundCommunityPoolEvent(ctx, stateDB, depositorHexAddr, msg.Amount); err != nil {
+		return nil, err
+	}
+
+	return method.Outputs.Pack(true)
+}
+
+// DepositValidatorRewardsPool deposits rewards into the validator rewards pool
+// for a specific validator.
+func (p *Precompile) DepositValidatorRewardsPool(
+	ctx sdk.Context,
+	origin common.Address,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(args)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the contract is the depositor, we don't need an origin check
+	// Otherwise check if the origin matches the depositor address
+	isContractDepositor := contract.Caller() == depositorHexAddr && origin != depositorHexAddr
+	if !isContractDepositor && origin != depositorHexAddr {
+		return nil, fmt.Errorf(cmn.ErrSpenderDifferentOrigin, origin.String(), depositorHexAddr.String())
+	}
+
+	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
+	_, err = msgSrv.DepositValidatorRewardsPool(ctx, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
+	// when calling the precompile from a smart contract
+	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
+	if contract.Caller() != origin {
+		if found, evmCoinAmount := msg.Amount.Find(evmtypes.GetEVMCoinDenom()); found {
+			// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
+			convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(evmCoinAmount.Amount.Uint64()))
+			// check if converted amount is greater than zero
+			if convertedAmount.Cmp(common.U2560) == 1 {
+				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
+			}
+		}
+	}
+
+	if err = p.EmitDepositValidatorRewardsPoolEvent(ctx, stateDB, depositorHexAddr, msg.ValidatorAddress, msg.Amount); err != nil {
 		return nil, err
 	}
 

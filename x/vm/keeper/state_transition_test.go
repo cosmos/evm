@@ -549,7 +549,6 @@ func (suite *KeeperTestSuite) TestEVMConfig() {
 	suite.Require().Equal(defaultChainEVMParams, cfg.Params)
 	// london hardfork is enabled by default
 	suite.Require().Equal(big.NewInt(0), cfg.BaseFee)
-	suite.Require().Equal(types.GetEthChainConfig(), cfg.ChainConfig)
 
 	validators := suite.network.GetValidators()
 	proposerHextAddress := utils.ValidatorConsAddressToHex(validators[0].OperatorAddress)
@@ -611,13 +610,6 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	defer func() { suite.enableFeemarket = false }()
 	suite.SetupTest()
 
-	proposerAddress := suite.network.GetContext().BlockHeader().ProposerAddress
-	config, err := suite.network.App.EVMKeeper.EVMConfig(
-		suite.network.GetContext(),
-		proposerAddress,
-	)
-	suite.Require().NoError(err)
-
 	// Generate a transfer tx message
 	sender := suite.keyring.GetKey(0)
 	recipient := suite.keyring.GetAddr(1)
@@ -634,7 +626,7 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	tracer := suite.network.App.EVMKeeper.Tracer(
 		suite.network.GetContext(),
 		coreMsg,
-		config.ChainConfig,
+		types.GetEthChainConfig(),
 	)
 	res, err := suite.network.App.EVMKeeper.ApplyMessage(
 		suite.network.GetContext(),

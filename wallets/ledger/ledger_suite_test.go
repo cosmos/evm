@@ -90,7 +90,7 @@ func (suite *LedgerTestSuite) getMockTxAmino() []byte {
 				}
 			}],
 			"sequence":"6"
-		}`, constants.ExampleChainID),
+		}`, constants.ExampleChainID.ChainID),
 		"",
 	)
 
@@ -154,7 +154,7 @@ func (suite *LedgerTestSuite) getMockTxProtobuf() []byte {
 	signBytes, err := auxTx.DirectSignBytes(
 		bodyBytes,
 		authInfoBytes,
-		constants.ExampleChainID,
+		constants.ExampleChainID.ChainID,
 		0,
 	)
 	suite.Require().NoError(err)

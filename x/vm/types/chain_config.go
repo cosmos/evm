@@ -8,14 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethparams "github.com/ethereum/go-ethereum/params"
 
-	"github.com/cosmos/evm/types"
-
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 )
 
 // testChainID represents the ChainID used for the purpose of testing.
-const testChainID string = "cosmos_9001-1"
+const testChainID uint64 = 262144
 
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
@@ -58,14 +56,9 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 	}
 }
 
-func DefaultChainConfig(chainID string) *ChainConfig {
-	if chainID == "" {
-		chainID = testChainID
-	}
-
-	eip155ChainID, err := types.ParseChainID(chainID)
-	if err != nil {
-		panic(err)
+func DefaultChainConfig(evmChainID uint64) *ChainConfig {
+	if evmChainID == 0 {
+		evmChainID = testChainID
 	}
 
 	homesteadBlock := sdkmath.ZeroInt()
@@ -89,7 +82,7 @@ func DefaultChainConfig(chainID string) *ChainConfig {
 	osakaTime := sdkmath.ZeroInt()
 	verkleTime := sdkmath.ZeroInt()
 	cfg := &ChainConfig{
-		ChainId:             eip155ChainID.Uint64(),
+		ChainId:             evmChainID,
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,
@@ -123,7 +116,7 @@ func setChainConfig(cc *ChainConfig) error {
 	if chainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig")
 	}
-	config := DefaultChainConfig("")
+	config := DefaultChainConfig(0)
 	if cc != nil {
 		config = cc
 	}

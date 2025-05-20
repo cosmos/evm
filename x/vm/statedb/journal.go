@@ -182,13 +182,7 @@ func (ch createContractChange) Dirtied() *common.Address {
 func (pc precompileCallChange) Revert(s *StateDB) {
 	// rollback multi store from cache ctx to the previous
 	// state stored in the snapshot
-	s.cacheCtx = s.cacheCtx.WithMultiStore(pc.multiStore)
-	s.writeCache = func() {
-		// rollback the events to the ones snapshot
-		// on the snapshot
-		s.ctx.EventManager().EmitEvents(pc.events)
-		pc.multiStore.Write()
-	}
+	s.RevertMultiStore(pc.multiStore, pc.events)
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {

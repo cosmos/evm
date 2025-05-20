@@ -2,7 +2,6 @@ package erc20_test
 
 import (
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -12,10 +11,7 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 
-	"cosmossdk.io/math"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 var (
@@ -179,15 +175,8 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		{
 			"fail - not enough balance",
 			func() []interface{} {
-				expiration := time.Now().Add(time.Hour)
-				err := s.network.App.AuthzKeeper.SaveGrant(
-					ctx,
-					spender.AccAddr,
-					owner.AccAddr,
-					&banktypes.SendAuthorization{SpendLimit: sdk.Coins{sdk.Coin{Denom: s.tokenDenom, Amount: math.NewInt(5e18)}}},
-					&expiration,
-				)
-				s.Require().NoError(err, "failed to save grant")
+				err := s.network.App.Erc20Keeper.SetAllowance(ctx, s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(5e18))
+				s.Require().NoError(err, "failed to set allowance")
 
 				return []interface{}{owner.Addr, toAddr, big.NewInt(2e18)}
 			},
@@ -196,19 +185,38 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			erc20.ErrTransferAmountExceedsBalance.Error(),
 		},
 		{
-			"pass - spend on behalf of other account",
+			"fail - spend on behalf of own account without allowance",
 			func() []interface{} {
-				expiration := time.Now().Add(time.Hour)
-				err := s.network.App.AuthzKeeper.SaveGrant(
-					ctx,
-					spender.AccAddr,
-					owner.AccAddr,
-					&banktypes.SendAuthorization{SpendLimit: sdk.Coins{sdk.Coin{Denom: tokenDenom, Amount: math.NewInt(300)}}},
-					&expiration,
-				)
-				s.Require().NoError(err, "failed to save grant")
+				// Mint some coins to the module account and then send to the spender address
+				err := s.network.App.BankKeeper.MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
+				s.Require().NoError(err, "failed to mint coins")
+				err = s.network.App.BankKeeper.SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, spender.AccAddr, XMPLCoin)
+				s.Require().NoError(err, "failed to send coins from module to account")
 
-				return []interface{}{owner.Addr, toAddr, big.NewInt(100)}
+				// NOTE: no allowance is necessary to spend on behalf of the same account
+				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
+			},
+			func() {
+				toAddrBalance := s.network.App.BankKeeper.GetBalance(ctx, toAddr.Bytes(), tokenDenom)
+				s.Require().Equal(big.NewInt(100), toAddrBalance.Amount.BigInt(), "expected toAddr to have 100 XMPL")
+			},
+			true,
+			"",
+		},
+		{
+			"pass - spend on behalf of own account with allowance",
+			func() []interface{} {
+				// Mint some coins to the module account and then send to the spender address
+				err := s.network.App.BankKeeper.MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
+				s.Require().NoError(err, "failed to mint coins")
+				err = s.network.App.BankKeeper.SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, spender.AccAddr, XMPLCoin)
+				s.Require().NoError(err, "failed to send coins from module to account")
+
+				err = s.network.App.Erc20Keeper.SetAllowance(ctx, s.precompile.Address(), spender.Addr, spender.Addr, big.NewInt(100))
+				s.Require().NoError(err, "failed to set allowance")
+
+				// NOTE: no allowance is necessary to spend on behalf of the same account
+				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.BankKeeper.GetBalance(ctx, toAddr.Bytes(), tokenDenom)
@@ -218,16 +226,12 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			"",
 		},
 		{
-			"pass - spend on behalf of own account",
+			"pass - spend on behalf of other account",
 			func() []interface{} {
-				// Mint some coins to the module account and then send to the spender address
-				err := s.network.App.BankKeeper.MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
-				s.Require().NoError(err, "failed to mint coins")
-				err = s.network.App.BankKeeper.SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, spender.AccAddr, XMPLCoin)
-				s.Require().NoError(err, "failed to send coins from module to account")
+				err := s.network.App.Erc20Keeper.SetAllowance(ctx, s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(300))
+				s.Require().NoError(err, "failed to set allowance")
 
-				// NOTE: no authorization is necessary to spend on behalf of the same account
-				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
+				return []interface{}{owner.Addr, toAddr, big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.BankKeeper.GetBalance(ctx, toAddr.Bytes(), tokenDenom)
