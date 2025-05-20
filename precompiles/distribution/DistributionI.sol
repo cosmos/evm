@@ -71,8 +71,9 @@ interface DistributionI {
     /// @dev FundCommunityPool defines an Event emitted when an account
     /// fund the community pool
     /// @param depositor the address funding the community pool
+    /// @param denom the denomination of the coin being sent to the community pool
     /// @param amount the amount being sent to the community pool
-    event FundCommunityPool(address indexed depositor, uint256 amount);
+    event FundCommunityPool(address indexed depositor, string denom, uint256 amount);
 
     /// @dev DepositValidatorRewardsPool defines an Event emitted when an account
     /// deposits the validator rewards pool
@@ -131,7 +132,7 @@ interface DistributionI {
     /// @return success Whether the transaction was successful or not
     function fundCommunityPool(
         address depositor,
-        uint256 amount
+        Coin[] memory amount
     ) external returns (bool success);
 
     /// @dev depositValidatorRewardsPool defines a method to allow an account to directly
