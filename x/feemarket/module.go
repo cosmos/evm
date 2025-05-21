@@ -122,8 +122,7 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 
 // BeginBlock returns the begin block for the fee market module.
 func (am AppModule) BeginBlock(ctx context.Context) error {
-	c := sdk.UnwrapSDKContext(ctx)
-	return am.keeper.BeginBlock(c)
+	return nil
 }
 
 // EndBlock returns the end blocker for the fee market module. It returns no validator
