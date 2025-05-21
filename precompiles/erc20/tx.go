@@ -45,7 +45,7 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	from := contract.Address()
+	from := contract.Caller()
 	to, amount, err := ParseTransferArgs(args)
 	if err != nil {
 		return nil, err
@@ -91,11 +91,11 @@ func (p *Precompile) transfer(
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
-	spenderAddr := contract.Address()
+	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
 
 	if isTransferFrom {
-		spenderAddr := contract.Address()
+		spenderAddr := contract.Caller()
 
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {

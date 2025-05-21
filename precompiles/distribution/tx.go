@@ -58,7 +58,7 @@ func (p *Precompile) ClaimRewards(
 
 	// If the contract is the delegator, we don't need an origin check
 	// Otherwise check if the origin matches the delegator address
-	isContractDelegator := (contract.Address() == delegatorAddr) && (origin != delegatorAddr)
+	isContractDelegator := (contract.Caller() == delegatorAddr) && (origin != delegatorAddr)
 	if !isContractDelegator && origin != delegatorAddr {
 		return nil, fmt.Errorf(cmn.ErrDelegatorDifferentOrigin, origin.String(), delegatorAddr.String())
 	}
@@ -87,7 +87,7 @@ func (p *Precompile) ClaimRewards(
 	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB.
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 	// this happens when the precompile is called from a smart contract
-	if contract.Address() != origin {
+	if contract.Caller() != origin {
 		// rewards go to the withdrawer address
 		withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, delegatorAddr)
 		if err != nil {
@@ -125,7 +125,7 @@ func (p Precompile) SetWithdrawAddress(
 
 	// If the contract is the delegator, we don't need an origin check
 	// Otherwise check if the origin matches the delegator address
-	isContractDelegator := contract.Address() == delegatorHexAddr && origin != delegatorHexAddr
+	isContractDelegator := contract.Caller() == delegatorHexAddr && origin != delegatorHexAddr
 	if !isContractDelegator && origin != delegatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrDelegatorDifferentOrigin, origin.String(), delegatorHexAddr.String())
 	}
@@ -158,7 +158,7 @@ func (p *Precompile) WithdrawDelegatorReward(
 
 	// If the contract is the delegator, we don't need an origin check
 	// Otherwise check if the origin matches the delegator address
-	isContractDelegator := contract.Address() == delegatorHexAddr && origin != delegatorHexAddr
+	isContractDelegator := contract.Caller() == delegatorHexAddr && origin != delegatorHexAddr
 	if !isContractDelegator && origin != delegatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrDelegatorDifferentOrigin, origin.String(), delegatorHexAddr.String())
 	}
@@ -172,7 +172,7 @@ func (p *Precompile) WithdrawDelegatorReward(
 	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 	// when calling the precompile from a smart contract
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-	if contract.Address() != origin {
+	if contract.Caller() != origin {
 		// rewards go to the withdrawer address
 		withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, delegatorHexAddr)
 		if err != nil {
@@ -210,7 +210,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 
 	// If the contract is the validator, we don't need an origin check
 	// Otherwise check if the origin matches the validator address
-	isContractValidator := contract.Address() == validatorHexAddr && origin != validatorHexAddr
+	isContractValidator := contract.Caller() == validatorHexAddr && origin != validatorHexAddr
 	if !isContractValidator && origin != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrDelegatorDifferentOrigin, origin.String(), validatorHexAddr.String())
 	}
@@ -224,7 +224,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 	// when calling the precompile from a smart contract
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-	if contract.Address() != origin {
+	if contract.Caller() != origin {
 		// commissions go to the withdrawer address
 		withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, validatorHexAddr)
 		if err != nil {
@@ -269,7 +269,7 @@ func (p *Precompile) FundCommunityPool(
 
 	// If the contract is the depositor, we don't need an origin check
 	// Otherwise check if the origin matches the depositor address
-	isContractDepositor := contract.Address() == depositorHexAddr && origin != depositorHexAddr
+	isContractDepositor := contract.Caller() == depositorHexAddr && origin != depositorHexAddr
 	if !isContractDepositor && origin != depositorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrSpenderDifferentOrigin, origin.String(), depositorHexAddr.String())
 	}
@@ -283,7 +283,7 @@ func (p *Precompile) FundCommunityPool(
 	// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 	// when calling the precompile from a smart contract
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-	if contract.Address() != origin {
+	if contract.Caller() != origin {
 		// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
 		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(msg.Amount.AmountOf(baseDenom).
 			Uint64()))

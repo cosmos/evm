@@ -52,7 +52,11 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		Clique:                  nil,
-		BlobScheduleConfig:      nil,
+		BlobScheduleConfig: &gethparams.BlobScheduleConfig{
+			Cancun: gethparams.DefaultCancunBlobConfig,
+			Prague: gethparams.DefaultPragueBlobConfig,
+			Osaka:  gethparams.DefaultOsakaBlobConfig,
+		},
 	}
 }
 

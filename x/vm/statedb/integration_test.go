@@ -2,6 +2,7 @@ package statedb_test
 
 import (
 	"fmt"
+	"github.com/holiman/uint256"
 	"math/big"
 	"testing"
 
@@ -33,8 +34,8 @@ func TestNestedEVMExtensionCall(t *testing.T) {
 type testCase struct {
 	method                  string
 	expDelegation           bool
-	expSenderERC20Balance   *big.Int
-	expContractERC20Balance *big.Int
+	expSenderERC20Balance   *uint256.Int
+	expContractERC20Balance *uint256.Int
 }
 
 // This test is a demonstration of the flash loan exploit that was reported.
@@ -62,7 +63,7 @@ var _ = Describe("testing the flash loan exploit", Ordered, func() {
 		delegatedAmountPre math.Int
 	)
 
-	mintAmount := big.NewInt(2e18)
+	mintAmount := uint256.NewInt(2e18)
 	delegateAmount := big.NewInt(1e18)
 
 	BeforeAll(func() {
@@ -145,8 +146,8 @@ var _ = Describe("testing the flash loan exploit", Ordered, func() {
 		)
 		Expect(err).ToNot(HaveOccurred(), "failed to unpack balance")
 
-		balance, ok := unpacked[0].(*big.Int)
-		Expect(ok).To(BeTrue(), "failed to convert balance to big.Int")
+		balance, ok := unpacked[0].(*uint256.Int)
+		Expect(ok).To(BeTrue(), "failed to convert balance to uint256.Int")
 		Expect(balance.String()).To(Equal(mintAmount.String()), "balance is not correct")
 
 		// Deploy the flash loan contract.
@@ -203,9 +204,9 @@ var _ = Describe("testing the flash loan exploit", Ordered, func() {
 		)
 		Expect(err).ToNot(HaveOccurred(), "failed to unpack allowance")
 
-		var allowance *big.Int
-		allowance, ok = unpacked[0].(*big.Int)
-		Expect(ok).To(BeTrue(), "failed to convert allowance to big.Int")
+		var allowance *uint256.Int
+		allowance, ok = unpacked[0].(*uint256.Int)
+		Expect(ok).To(BeTrue(), "failed to convert allowance to uint256.Int")
 		Expect(allowance.String()).To(Equal(mintAmount.String()), "allowance is not correct")
 	})
 
@@ -276,8 +277,8 @@ var _ = Describe("testing the flash loan exploit", Ordered, func() {
 		)
 		Expect(err).ToNot(HaveOccurred(), "failed to unpack balance")
 
-		balance, ok := unpacked[0].(*big.Int)
-		Expect(ok).To(BeTrue(), "failed to convert balance to big.Int")
+		balance, ok := unpacked[0].(*uint256.Int)
+		Expect(ok).To(BeTrue(), "failed to convert balance to uint256.Int")
 		Expect(balance.String()).To(Equal(tc.expSenderERC20Balance.String()), "balance is not correct")
 
 		// Check FlashLoan smart contract ERC20 token balance.
@@ -305,21 +306,21 @@ var _ = Describe("testing the flash loan exploit", Ordered, func() {
 		)
 		Expect(err).ToNot(HaveOccurred(), "failed to unpack balance")
 
-		balance, ok = unpacked[0].(*big.Int)
-		Expect(ok).To(BeTrue(), "failed to convert balance to big.Int")
+		balance, ok = unpacked[0].(*uint256.Int)
+		Expect(ok).To(BeTrue(), "failed to convert balance to uint256.Int")
 		Expect(balance.String()).To(Equal(tc.expContractERC20Balance.String()), "balance is not correct")
 	},
 		Entry("flashLoan method & expect delegation", testCase{
 			method:                  "flashLoan",
 			expDelegation:           true,
 			expSenderERC20Balance:   mintAmount,
-			expContractERC20Balance: big.NewInt(0),
+			expContractERC20Balance: uint256.NewInt(0),
 		}),
 		Entry("flashLoanWithRevert method - delegation reverted", testCase{
 			method:                  "flashLoanWithRevert",
 			expDelegation:           false,
-			expSenderERC20Balance:   delegateAmount,
-			expContractERC20Balance: delegateAmount,
+			expSenderERC20Balance:   uint256.MustFromBig(delegateAmount),
+			expContractERC20Balance: uint256.MustFromBig(delegateAmount),
 		}),
 	)
 })

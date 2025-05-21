@@ -286,7 +286,9 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	return uint256.NewInt(coin.Amount.Uint64())
+	bal := new(uint256.Int)
+	_ = bal.SetFromBig(coin.Amount.BigInt())
+	return bal
 }
 
 // GetBaseFee returns current base fee, return values:

@@ -39,7 +39,7 @@ func (p Precompile) Approve(
 		return nil, err
 	}
 
-	owner := contract.Address()
+	owner := contract.Caller()
 
 	// TODO: owner should be the owner of the contract
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
@@ -95,7 +95,7 @@ func (p Precompile) IncreaseAllowance(
 		return nil, err
 	}
 
-	owner := contract.Address()
+	owner := contract.Caller()
 
 	// TODO: owner should be the owner of the contract
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
@@ -155,10 +155,9 @@ func (p Precompile) DecreaseAllowance(
 		return nil, err
 	}
 
-	owner := contract.Address()
+	owner := contract.Caller()
 
 	// TODO: owner should be the owner of the contract
-
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, fmt.Sprintf(ErrNoAllowanceForToken, p.tokenPair.Denom))

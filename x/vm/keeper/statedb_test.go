@@ -560,8 +560,7 @@ func (suite *KeeperTestSuite) TestSuicide() {
 	}
 
 	// Call Suicide
-	_, b := db.SelfDestruct6780(firstAddress)
-	suite.Require().Equal(true, b)
+	db.SelfDestruct(firstAddress)
 
 	// Check suicided is marked
 	suite.Require().Equal(true, db.HasSelfDestructed(firstAddress))
@@ -1081,7 +1080,7 @@ func (suite *KeeperTestSuite) TestDeleteAccount() {
 				suite.Require().Nil(acc, "expected no account to be found after deleting")
 
 				balance := suite.network.App.EVMKeeper.GetBalance(ctx, addr)
-				suite.Require().Equal(new(big.Int), balance, "expected balance to be zero after deleting account")
+				suite.Require().Equal(new(uint256.Int), balance, "expected balance to be zero after deleting account")
 			} else {
 				suite.Require().ErrorContains(err, tc.errContains, "expected error to contain message")
 

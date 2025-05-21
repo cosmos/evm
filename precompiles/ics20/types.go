@@ -222,7 +222,7 @@ func NewDenomHashRequest(args []interface{}) (*transfertypes.QueryDenomHashReque
 
 // CheckOriginAndSender ensures the correct sender is being used.
 func CheckOriginAndSender(contract *vm.Contract, origin common.Address, sender common.Address) (common.Address, error) {
-	if contract.Address() == sender {
+	if contract.Caller() == sender {
 		return sender, nil
 	} else if origin != sender {
 		return common.Address{}, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())

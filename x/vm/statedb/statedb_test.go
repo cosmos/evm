@@ -43,7 +43,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 		{"non-exist account", func(db *statedb.StateDB) {
 			suite.Require().Equal(false, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
-			suite.Require().Equal(big.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
 			suite.Require().Equal([]byte(nil), db.GetCode(address))
 			suite.Require().Equal(common.Hash{}, db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
@@ -61,7 +61,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
-			suite.Require().Equal(big.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
 			suite.Require().Equal([]byte(nil), db.GetCode(address))
 			suite.Require().Equal(common.BytesToHash(emptyCodeHash), db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
@@ -83,13 +83,12 @@ func (suite *StateDBTestSuite) TestAccount() {
 			// suicide
 			db = statedb.New(sdk.Context{}, db.Keeper(), emptyTxConfig)
 			suite.Require().False(db.HasSelfDestructed(address))
-			_, b = db.SelfDestruct6780(address)
-			suite.Require().True(b)
+			db.SelfDestruct(address)
 
 			// check dirty state
 			suite.Require().True(db.HasSelfDestructed(address))
 			// balance is cleared
-			suite.Require().Equal(big.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
 			// but code and state are still accessible in dirty state
 			suite.Require().Equal(value1, db.GetState(address, key1))
 			suite.Require().Equal([]byte("hello world"), db.GetCode(address))
@@ -144,8 +143,7 @@ func (suite *StateDBTestSuite) TestDBError() {
 		}},
 		{"delete account", func(db vm.StateDB) {
 			db.SetNonce(errAddress, 1, tracing.NonceChangeUnspecified)
-			_, b := db.SelfDestruct6780(address)
-			suite.Require().True(b)
+			db.SelfDestruct(address)
 		}},
 	}
 	for _, tc := range testCases {
@@ -323,8 +321,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 		{"suicide", func(db vm.StateDB) {
 			db.SetState(address, v1, v2)
 			db.SetCode(address, []byte("hello world"))
-			_, b := db.SelfDestruct6780(address)
-			suite.Require().True(b)
+			db.SelfDestruct(address)
 		}},
 		{"add log", func(db vm.StateDB) {
 			db.AddLog(&ethtypes.Log{
@@ -467,6 +464,7 @@ func (suite *StateDBTestSuite) TestAccessList() {
 				IsMerge:          true,
 				IsShanghai:       true,
 				IsCancun:         true,
+				IsEIP2929:        true,
 			}
 			db.Prepare(rules, address, common.Address{}, &address2, vm.PrecompiledAddressesBerlin, al)
 
