@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -62,8 +63,7 @@ func (p Precompile) CreateValidator(
 		"value", msg.Value.Amount.String(),
 	)
 
-	// we won't allow calls from smart contracts
-	if contract.CallerAddress != origin {
+	if contract.Caller() != origin {
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
@@ -112,7 +112,7 @@ func (p Precompile) EditValidator(
 	)
 
 	// we won't allow calls from smart contracts
-	if contract.CallerAddress != origin {
+	if contract.Caller() != origin {
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
@@ -165,8 +165,8 @@ func (p *Precompile) Delegate(
 	)
 
 	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
+	if contract.Caller() != delegatorHexAddr {
+		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.Caller().String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
@@ -180,13 +180,14 @@ func (p *Precompile) Delegate(
 		return nil, err
 	}
 
-	if contract.CallerAddress != origin && msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
+	if contract.Caller() != origin && msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from a smart contract
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 
 		// Need to scale the amount to 18 decimals for the EVM balance change entry
-		scaledAmt := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt())
+
+		scaledAmt := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(msg.Amount.Amount.Uint64()))
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delegatorHexAddr, scaledAmt, cmn.Sub))
 	}
 
@@ -224,8 +225,8 @@ func (p Precompile) Undelegate(
 	)
 
 	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
+	if contract.Caller() != delegatorHexAddr {
+		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.Caller().String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
@@ -276,7 +277,7 @@ func (p Precompile) Redelegate(
 	)
 
 	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
+	if contract.Caller() != delegatorHexAddr {
 		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, origin.String(), delegatorHexAddr.String())
 	}
 
@@ -326,7 +327,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	)
 
 	// The provided delegator address should always be equal to the contract caller address.
-	if contract.CallerAddress != delegatorHexAddr {
+	if contract.Caller() != delegatorHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
 	}
 

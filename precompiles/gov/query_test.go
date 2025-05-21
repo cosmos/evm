@@ -108,7 +108,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 			}
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), gas)
 
 			bz, err := s.precompile.GetVotes(ctx, &method, contract, tc.args)
 
@@ -207,7 +207,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 				args = tc.malleate()
 			}
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), voterAddr, s.precompile, gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), voterAddr, s.precompile.Address(), gas)
 
 			bz, err := s.precompile.GetVote(ctx, &method, contract, args)
 
@@ -275,7 +275,7 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 
 			tc.malleate()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := []interface{}{tc.propNumber, common.BytesToAddress(depositor.Bytes())}
 			bz, err := s.precompile.GetDeposit(ctx, &method, contract, args)
@@ -336,7 +336,7 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 			ctx := s.network.GetContext()
 
 			deposits := tc.malleate()
-			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetDeposits(ctx, &method, contract, tc.args)
 			if tc.expPass {
@@ -399,7 +399,7 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 
 			expTally := tc.malleate()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := []interface{}{tc.propNumber}
 			bz, err := s.precompile.GetTallyResult(ctx, &method, contract, args)
@@ -485,7 +485,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetProposal(ctx, &method, contract, tc.malleate())
 
@@ -630,7 +630,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetProposals(ctx, &method, contract, tc.malleate())
 

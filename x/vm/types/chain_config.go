@@ -32,7 +32,6 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 		DAOForkBlock:            getBlockValue(cc.DAOForkBlock),
 		DAOForkSupport:          cc.DAOForkSupport,
 		EIP150Block:             getBlockValue(cc.EIP150Block),
-		EIP150Hash:              common.HexToHash(cc.EIP150Hash),
 		EIP155Block:             getBlockValue(cc.EIP155Block),
 		EIP158Block:             getBlockValue(cc.EIP158Block),
 		ByzantiumBlock:          getBlockValue(cc.ByzantiumBlock),
@@ -45,11 +44,19 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 		ArrowGlacierBlock:       getBlockValue(cc.ArrowGlacierBlock),
 		GrayGlacierBlock:        getBlockValue(cc.GrayGlacierBlock),
 		MergeNetsplitBlock:      getBlockValue(cc.MergeNetsplitBlock),
-		ShanghaiBlock:           getBlockValue(cc.ShanghaiBlock),
-		CancunBlock:             getBlockValue(cc.CancunBlock),
+		ShanghaiTime:            getTimeValue(cc.ShanghaiTime),
+		CancunTime:              getTimeValue(cc.CancunTime),
+		PragueTime:              getTimeValue(cc.PragueTime),
+		OsakaTime:               getTimeValue(cc.OsakaTime),
+		VerkleTime:              getTimeValue(cc.VerkleTime),
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		Clique:                  nil,
+		BlobScheduleConfig: &gethparams.BlobScheduleConfig{
+			Cancun: gethparams.DefaultCancunBlobConfig,
+			Prague: gethparams.DefaultPragueBlobConfig,
+			Osaka:  gethparams.DefaultOsakaBlobConfig,
+		},
 	}
 }
 
@@ -73,8 +80,11 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 	arrowGlacierBlock := sdkmath.ZeroInt()
 	grayGlacierBlock := sdkmath.ZeroInt()
 	mergeNetsplitBlock := sdkmath.ZeroInt()
-	shanghaiBlock := sdkmath.ZeroInt()
-	cancunBlock := sdkmath.ZeroInt()
+	shanghaiTime := sdkmath.ZeroInt()
+	cancunTime := sdkmath.ZeroInt()
+	pragueTime := sdkmath.ZeroInt()
+	osakaTime := sdkmath.ZeroInt()
+	verkleTime := sdkmath.ZeroInt()
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
 		HomesteadBlock:      &homesteadBlock,
@@ -94,8 +104,11 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 		ArrowGlacierBlock:   &arrowGlacierBlock,
 		GrayGlacierBlock:    &grayGlacierBlock,
 		MergeNetsplitBlock:  &mergeNetsplitBlock,
-		ShanghaiBlock:       &shanghaiBlock,
-		CancunBlock:         &cancunBlock,
+		ShanghaiTime:        &shanghaiTime,
+		CancunTime:          &cancunTime,
+		PragueTime:          &pragueTime,
+		OsakaTime:           &osakaTime,
+		VerkleTime:          &verkleTime,
 	}
 	return cfg
 }
@@ -125,6 +138,15 @@ func getBlockValue(block *sdkmath.Int) *big.Int {
 	}
 
 	return block.BigInt()
+}
+
+func getTimeValue(ts *sdkmath.Int) *uint64 {
+	if ts == nil || ts.IsNegative() {
+		return nil
+	}
+
+	val := ts.Uint64()
+	return &val
 }
 
 // Validate performs a basic validation of the ChainConfig params. The function will return an error
@@ -178,11 +200,20 @@ func (cc ChainConfig) Validate() error {
 	if err := validateBlock(cc.MergeNetsplitBlock); err != nil {
 		return errorsmod.Wrap(err, "MergeNetsplitBlock")
 	}
-	if err := validateBlock(cc.ShanghaiBlock); err != nil {
-		return errorsmod.Wrap(err, "ShanghaiBlock")
+	if err := validateTime(cc.ShanghaiTime); err != nil {
+		return errorsmod.Wrap(err, "ShanghaiTime")
 	}
-	if err := validateBlock(cc.CancunBlock); err != nil {
-		return errorsmod.Wrap(err, "CancunBlock")
+	if err := validateTime(cc.CancunTime); err != nil {
+		return errorsmod.Wrap(err, "CancunTime")
+	}
+	if err := validateTime(cc.PragueTime); err != nil {
+		return errorsmod.Wrap(err, "PragueTime")
+	}
+	if err := validateTime(cc.OsakaTime); err != nil {
+		return errorsmod.Wrap(err, "OsakaTime")
+	}
+	if err := validateTime(cc.VerkleTime); err != nil {
+		return errorsmod.Wrap(err, "VerkelTime")
 	}
 	// NOTE: chain ID is not needed to check config order
 	if err := cc.EthereumConfig(nil).CheckConfigForkOrder(); err != nil {
@@ -208,6 +239,21 @@ func validateBlock(block *sdkmath.Int) error {
 	if block.IsNegative() {
 		return errorsmod.Wrapf(
 			ErrInvalidChainConfig, "block value cannot be negative: %s", block,
+		)
+	}
+
+	return nil
+}
+
+func validateTime(ts *sdkmath.Int) error {
+	// nil value means that the fork has not yet been applied
+	if ts == nil {
+		return nil
+	}
+
+	if ts.IsNegative() {
+		return errorsmod.Wrapf(
+			ErrInvalidChainConfig, "time value cannot be negative: %s", ts,
 		)
 	}
 

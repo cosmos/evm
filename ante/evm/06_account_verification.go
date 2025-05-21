@@ -41,7 +41,7 @@ func VerifyAccountBalance(
 		account = statedb.NewEmptyAccount()
 	}
 
-	if err := keeper.CheckSenderBalance(sdkmath.NewIntFromBigInt(account.Balance), txData); err != nil {
+	if err := keeper.CheckSenderBalance(sdkmath.NewIntFromBigInt(account.Balance.ToBig()), txData); err != nil {
 		return errorsmod.Wrap(err, "failed to check sender balance")
 	}
 

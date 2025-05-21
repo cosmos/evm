@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -134,10 +135,9 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 			cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
+			if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 				return nil, vm.ErrOutOfGas
 			}
-
 			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
 				return nil, err
 			}

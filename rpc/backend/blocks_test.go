@@ -1092,7 +1092,7 @@ func (suite *BackendTestSuite) TestGetEthBlockFromTendermint() {
 
 			root := common.Hash{}.Bytes()
 			receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
-			bloom := ethtypes.CreateBloom(ethtypes.Receipts{receipt})
+			bloom := ethtypes.CreateBloom(receipt)
 
 			ethRPCTxs := []interface{}{}
 
@@ -1476,8 +1476,7 @@ func (suite *BackendTestSuite) TestEthBlockByNumber() {
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
 				),
-				[]*ethtypes.Transaction{},
-				nil,
+				&ethtypes.Body{},
 				nil,
 				nil,
 			),
@@ -1503,8 +1502,9 @@ func (suite *BackendTestSuite) TestEthBlockByNumber() {
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
 				),
-				[]*ethtypes.Transaction{msgEthereumTx.AsTransaction()},
-				nil,
+				&ethtypes.Body{
+					Transactions: []*ethtypes.Transaction{msgEthereumTx.AsTransaction()},
+				},
 				nil,
 				trie.NewStackTrie(nil),
 			),
@@ -1567,8 +1567,7 @@ func (suite *BackendTestSuite) TestEthBlockFromTendermintBlock() {
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
 				),
-				[]*ethtypes.Transaction{},
-				nil,
+				&ethtypes.Body{},
 				nil,
 				nil,
 			),
@@ -1602,8 +1601,7 @@ func (suite *BackendTestSuite) TestEthBlockFromTendermintBlock() {
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
 				),
-				[]*ethtypes.Transaction{msgEthereumTx.AsTransaction()},
-				nil,
+				&ethtypes.Body{Transactions: []*ethtypes.Transaction{msgEthereumTx.AsTransaction()}},
 				nil,
 				trie.NewStackTrie(nil),
 			),

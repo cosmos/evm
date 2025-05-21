@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -130,5 +129,9 @@ func BinSearch(lo, hi uint64, executable func(uint64) (bool, *MsgEthereumTxRespo
 // EffectiveGasPrice computes the effective gas price based on eip-1559 rules
 // `effectiveGasPrice = min(baseFee + tipCap, feeCap)`
 func EffectiveGasPrice(baseFee, feeCap, tipCap *big.Int) *big.Int {
-	return math.BigMin(new(big.Int).Add(tipCap, baseFee), feeCap)
+	calcVal := new(big.Int).Add(tipCap, baseFee)
+	if calcVal.Cmp(feeCap) < 0 {
+		return calcVal
+	}
+	return feeCap
 }

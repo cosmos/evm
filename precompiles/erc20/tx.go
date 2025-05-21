@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -44,7 +45,7 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	from := contract.CallerAddress
+	from := contract.Caller()
 	to, amount, err := ParseTransferArgs(args)
 	if err != nil {
 		return nil, err
@@ -90,11 +91,11 @@ func (p *Precompile) transfer(
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
-	spenderAddr := contract.CallerAddress
+	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
 
 	if isTransferFrom {
-		spenderAddr := contract.CallerAddress
+		spenderAddr := contract.Caller()
 
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
@@ -126,7 +127,7 @@ func (p *Precompile) transfer(
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	if p.tokenPair.Denom == evmDenom {
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(amount)
+		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(amount.Uint64()))
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
 			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}

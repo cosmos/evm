@@ -1340,7 +1340,7 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 				return nil
 			},
 			expPass:       true,
-			traceResponse: "[{\"error\":\"rpc error: code = Internal desc = tracer not found\"}]",
+			traceResponse: "[{\"error\":\"rpc error: code = Internal desc = invalid_tracer is not defined\"}]",
 		},
 	}
 
@@ -1385,9 +1385,9 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 				suite.Require().NoError(err)
 				// if data is too big, slice the result
 				if len(res.Data) > 150 {
-					suite.Require().Equal(tc.traceResponse, string(res.Data[:150]))
+					suite.Require().Contains(string(res.Data[:150]), tc.traceResponse)
 				} else {
-					suite.Require().Equal(tc.traceResponse, string(res.Data))
+					suite.Require().Contains(string(res.Data), tc.traceResponse)
 				}
 			} else {
 				suite.Require().Error(err)
@@ -1491,8 +1491,6 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.ArrowGlacierBlock = &maxInt
 				chainConfig.GrayGlacierBlock = &maxInt
 				chainConfig.MergeNetsplitBlock = &maxInt
-				chainConfig.ShanghaiBlock = &maxInt
-				chainConfig.CancunBlock = &maxInt
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()

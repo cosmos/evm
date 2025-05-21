@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -60,7 +61,7 @@ func (p *Precompile) Transfer(
 	}
 
 	// isCallerSender is true when the contract caller is the same as the sender
-	isCallerSender := contract.CallerAddress == sender
+	isCallerSender := contract.Caller() == sender
 
 	// If the contract caller is not the same as the sender, the sender must be the origin
 	if !isCallerSender && origin != sender {
@@ -73,7 +74,7 @@ func (p *Precompile) Transfer(
 	}
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
-	if contract.CallerAddress != origin && msg.Token.Denom == evmDenom {
+	if contract.Caller() != origin && msg.Token.Denom == evmDenom {
 		// escrow address is also changed on this tx, and it is not a module account
 		// so we need to account for this on the UpdateDirties
 		escrowAccAddress := transfertypes.GetEscrowAddress(msg.SourcePort, msg.SourceChannel)
@@ -81,7 +82,7 @@ func (p *Precompile) Transfer(
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from another smart contract.
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-		amt := msg.Token.Amount.BigInt()
+		amt := uint256.NewInt(msg.Token.Amount.Uint64())
 		p.SetBalanceChangeEntries(
 			cmn.NewBalanceChangeEntry(sender, amt, cmn.Sub),
 			cmn.NewBalanceChangeEntry(escrowHexAddr, amt, cmn.Add),

@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -44,7 +45,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20CodeHash() {
 				err := suite.network.App.EVMKeeper.SetAccount(ctx, account, statedb.Account{
 					CodeHash: codeHash,
 					Nonce:    nonce,
-					Balance:  balance,
+					Balance:  uint256.MustFromBig(balance),
 				})
 				suite.Require().NoError(err)
 			},

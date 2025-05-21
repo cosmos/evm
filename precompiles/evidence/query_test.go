@@ -100,7 +100,7 @@ func (s *PrecompileTestSuite) TestEvidence() {
 
 			evidenceHash := tc.setupEvidence()
 
-			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.Evidence(ctx, &method, tc.malleate(evidenceHash))
 
@@ -207,7 +207,7 @@ func (s *PrecompileTestSuite) TestGetAllEvidence() {
 
 			tc.setupEvidence()
 
-			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetAllEvidence(ctx, &method, tc.malleate())
 

@@ -782,7 +782,8 @@ func (_c *MockBankKeeper_SpendableCoin_Call) RunAndReturn(run func(context.Conte
 func NewMockBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *MockBankKeeper {
+},
+) *MockBankKeeper {
 	mock := &MockBankKeeper{}
 	mock.Mock.Test(t)
 

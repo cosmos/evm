@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -52,7 +54,7 @@ func BenchmarkAddBalance(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.AddBalance(suite.keyring.GetAddr(0), amt)
+		vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(amt), tracing.BalanceChangeUnspecified)
 	}
 }
 
@@ -144,7 +146,7 @@ func BenchmarkSubBalance(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.SubBalance(suite.keyring.GetAddr(0), amt)
+		vmdb.SubBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(amt), tracing.BalanceChangeUnspecified)
 	}
 }
 
@@ -157,7 +159,7 @@ func BenchmarkSetNonce(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.SetNonce(suite.keyring.GetAddr(0), 1)
+		vmdb.SetNonce(suite.keyring.GetAddr(0), 1, tracing.NonceChangeUnspecified)
 	}
 }
 
@@ -187,6 +189,6 @@ func BenchmarkSuicide(b *testing.B) {
 		vmdb.CreateAccount(addr)
 		b.StartTimer()
 
-		vmdb.Suicide(addr)
+		vmdb.SelfDestruct(addr)
 	}
 }

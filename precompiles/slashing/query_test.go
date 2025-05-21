@@ -81,7 +81,8 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0),
+				s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetSigningInfo(ctx, &method, contract, tc.malleate())
 
@@ -187,7 +188,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetSigningInfos(ctx, &method, contract, tc.malleate())
 
@@ -241,7 +242,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.GetParams(ctx, &method, contract, tc.malleate())
 

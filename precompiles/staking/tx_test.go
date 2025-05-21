@@ -306,12 +306,13 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			// reset sender
 			validator := s.keyring.GetKey(0)
 			validatorAddress = validator.Addr
+			caller := validatorAddress
+			if tc.callerAddress != nil {
+				caller = *tc.callerAddress
+			}
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile, tc.gas)
-			if tc.callerAddress != nil {
-				contract.CallerAddress = *tc.callerAddress
-			}
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, caller, s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.CreateValidator(ctx, validatorAddress, contract, stDB, &method, tc.malleate())
 
@@ -663,12 +664,13 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			s.Require().NoError(err)
 
 			validatorAddress = common.BytesToAddress(valAddr.Bytes())
+			caller := validatorAddress
+			if tc.callerAddress != nil {
+				caller = *tc.callerAddress
+			}
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile, tc.gas)
-			if tc.callerAddress != nil {
-				contract.CallerAddress = *tc.callerAddress
-			}
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, caller, s.precompile.Address(), tc.gas)
 
 			bz, err := s.precompile.EditValidator(ctx, validatorAddress, contract, stDB, &method, tc.malleate())
 
@@ -831,7 +833,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 
 			delegator := s.keyring.GetKey(0)
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile.Address(), tc.gas)
 
 			delegateArgs := tc.malleate(
 				delegator,
@@ -972,7 +974,7 @@ func (s *PrecompileTestSuite) TestUndelegate() {
 			delegator := s.keyring.GetKey(0)
 
 			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
+			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile.Address(), tc.gas)
 
 			undelegateArgs := tc.malleate(delegator, s.network.GetValidators()[0].OperatorAddress)
 			bz, err := s.precompile.Undelegate(ctx, delegator.Addr, contract, stDB, &method, undelegateArgs)
@@ -1117,7 +1119,7 @@ func (s *PrecompileTestSuite) TestRedelegate() {
 			ctx = s.network.GetContext()
 			delegator := s.keyring.GetKey(0)
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile.Address(), tc.gas)
 
 			redelegateArgs := tc.malleate(
 				delegator,
@@ -1281,7 +1283,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegation() {
 
 			delegator := s.keyring.GetKey(0)
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile, tc.gas)
+			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, delegator.Addr, s.precompile.Address(), tc.gas)
 			cancelArgs := tc.malleate(delegator, s.network.GetValidators()[0].OperatorAddress)
 
 			if tc.expError {

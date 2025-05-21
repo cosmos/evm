@@ -1,7 +1,7 @@
 package keeper
 
 import (
-	"github.com/ethereum/go-ethereum/common/math"
+	"math"
 
 	sdkmath "cosmossdk.io/math"
 
