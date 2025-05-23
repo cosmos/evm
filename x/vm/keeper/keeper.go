@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"

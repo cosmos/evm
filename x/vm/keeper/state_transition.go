@@ -1,10 +1,8 @@
 package keeper
 
 import (
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
-	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -12,7 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
+	cmttypes "github.com/cometbft/cometbft/types"
+
 	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 

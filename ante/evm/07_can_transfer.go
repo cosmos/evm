@@ -1,14 +1,15 @@
 package evm
 
 import (
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
-	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/x/vm/statedb"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	"github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 

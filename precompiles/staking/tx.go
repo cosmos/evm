@@ -3,13 +3,14 @@ package staking
 import (
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/utils"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"

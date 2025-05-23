@@ -1,14 +1,15 @@
 package erc20
 
 import (
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 

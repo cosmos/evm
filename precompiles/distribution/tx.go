@@ -2,7 +2,6 @@ package distribution
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,6 +9,7 @@ import (
 	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
