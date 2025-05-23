@@ -270,7 +270,7 @@ replace (
 	// use Cosmos-SDK fork to enable Ledger functionality
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.13-0.20250319183239-53dea340efc7
 	// use Cosmos geth fork
-	github.com/ethereum/go-ethereum => github.com/TacBuild/go-ethereum v0.0.0-20250428082551-b4f5a8f8420a
+	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.13.5-cosmos-rc0
 	// Security Advisory https://github.com/advisories/GHSA-h395-qcrw-5vmq
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.1
 	// replace broken goleveldb
