@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/precompiles/staking"
@@ -407,7 +408,7 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			delegator := s.keyring.GetKey(0)
 
-			contract := vm.NewPrecompile(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewPrecompile(vm.AccountRef(delegator.Addr), s.precompile, common.U2560, tc.gas)
 			contractAddr := contract.Address()
 
 			// malleate testcase
@@ -442,7 +443,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				statedb.NewEmptyTxConfig(common.BytesToHash(headerHash)),
 			)
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, stDB,
+				ctx, *msg, cfg, nil, stDB,
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)
@@ -745,7 +746,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 			delegator := s.keyring.GetKey(0)
 
-			contract := vm.NewPrecompile(vm.AccountRef(delegator.Addr), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewPrecompile(vm.AccountRef(delegator.Addr), s.precompile, uint256.NewInt(0), tc.gas)
 			contractAddr := contract.Address()
 
 			// malleate testcase

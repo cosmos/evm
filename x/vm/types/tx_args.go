@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -36,6 +37,12 @@ type TransactionArgs struct {
 	// Introduced by AccessListTxType transaction.
 	AccessList *ethtypes.AccessList `json:"accessList,omitempty"`
 	ChainID    *hexutil.Big         `json:"chainId,omitempty"`
+
+	// Introduced by BlobTx type
+	BlobGasFeeCap *big.Int
+	BlobHashes    []common.Hash
+
+	SkipAccountChecks bool
 }
 
 // String return the struct in a string format
@@ -154,10 +161,10 @@ func (args *TransactionArgs) ToTransaction() *MsgEthereumTx {
 
 // ToMessage converts the arguments to the Message type used by the core evm.
 // This assumes that setTxDefaults has been called.
-func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (ethtypes.Message, error) {
+func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
-		return ethtypes.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+		return core.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 
 	// Set sender address or use zero address if none specified.
@@ -224,7 +231,21 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (e
 		nonce = uint64(*args.Nonce)
 	}
 
-	msg := ethtypes.NewMessage(addr, args.To, nonce, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	msg := core.Message{
+		From:              addr,
+		To:                args.To,
+		Nonce:             nonce,
+		Value:             value,
+		GasLimit:          gas,
+		GasPrice:          gasPrice,
+		GasFeeCap:         gasFeeCap,
+		GasTipCap:         gasTipCap,
+		Data:              data,
+		AccessList:        accessList,
+		BlobGasFeeCap:     args.BlobGasFeeCap,
+		BlobHashes:        args.BlobHashes,
+		SkipAccountChecks: args.SkipAccountChecks,
+	}
 	return msg, nil
 }
 

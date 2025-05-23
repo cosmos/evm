@@ -71,7 +71,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		ctx = s.network.GetContext()
 		stDB = s.network.GetStateDB()
 
-		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
@@ -150,7 +150,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 		ctx = s.network.GetContext()
 		stDB = s.network.GetStateDB()
 
-		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
@@ -230,7 +230,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 		s.Require().NoError(err)
 		validatorAddress := common.BytesToAddress(valAddr)
-		contract := vm.NewContract(vm.AccountRef(validatorAddress), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(vm.AccountRef(validatorAddress), s.precompile, common.U2560, tc.gas)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)

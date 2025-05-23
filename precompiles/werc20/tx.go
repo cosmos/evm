@@ -43,7 +43,7 @@ func (p Precompile) Deposit(
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
 			Denom:  evmtypes.GetEVMCoinDenom(),
-			Amount: math.NewIntFromBigInt(depositedAmount),
+			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (p Precompile) Deposit(
 		cmn.NewBalanceChangeEntry(p.Address(), depositedAmount, cmn.Sub),
 	)
 
-	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount); err != nil {
+	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
 		return nil, err
 	}
 

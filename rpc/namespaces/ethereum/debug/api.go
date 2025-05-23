@@ -3,7 +3,6 @@ package debug
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"runtime" // #nosec G702
@@ -15,7 +14,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/rlp"
 	stderrors "github.com/pkg/errors"
 
@@ -313,16 +311,6 @@ func (a *API) PrintBlock(number uint64) (string, error) {
 	}
 
 	return spew.Sdump(block), nil
-}
-
-// SeedHash retrieves the seed hash of a block.
-func (a *API) SeedHash(number uint64) (string, error) {
-	_, err := a.backend.HeaderByNumber(rpctypes.BlockNumber(number)) //#nosec G115 -- int overflow is not a concern here -- block number is not likely to exceed int64 max value
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("0x%x", ethash.SeedHash(number)), nil
 }
 
 // IntermediateRoots executes a block, and returns a list

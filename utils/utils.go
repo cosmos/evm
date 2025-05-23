@@ -2,10 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"golang.org/x/exp/constraints"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
@@ -143,4 +145,12 @@ func SortSlice[T constraints.Ordered](slice []T) {
 	sort.Slice(slice, func(i, j int) bool {
 		return slice[i] < slice[j]
 	})
+}
+
+func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
+	result, overflow := uint256.FromBig(i)
+	if overflow {
+		return nil, fmt.Errorf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result)
+	}
+	return result, nil
 }

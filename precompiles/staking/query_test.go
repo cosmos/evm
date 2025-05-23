@@ -78,7 +78,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 				var delOut staking.DelegationOutput
 				err := s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, bz)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(delOut.Shares.Int64(), big.NewInt(0).Int64())
+				s.Require().Equal(delOut.Shares.Int64(), common.U2560.ToBig().Int64())
 			},
 			100000,
 			false,
@@ -107,7 +107,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			bz, err := s.precompile.Delegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
@@ -201,7 +201,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			s.Require().NoError(err)
@@ -287,7 +287,7 @@ func (s *PrecompileTestSuite) TestValidator() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			operatorAddress, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 			s.Require().NoError(err)
@@ -399,7 +399,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			bz, err := s.precompile.Validators(s.network.GetContext(), &method, contract, tc.malleate())
 
@@ -523,7 +523,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			delegationArgs := []interface{}{
 				s.keyring.GetAddr(0),
@@ -681,7 +681,7 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, common.U2560, tc.gas)
 
 			err := s.setupRedelegations(s.network.GetContext(), delAmt)
 			s.Require().NoError(err)
