@@ -17,6 +17,7 @@ import (
 	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/testutil"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -38,6 +39,7 @@ import (
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -48,14 +50,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 )
-
-type emptyAppOptions struct{}
-
-func (ao emptyAppOptions) Get(_ string) interface{} { return nil }
-
-func NoOpEvmAppOptions(_ string) error {
-	return nil
-}
 
 // NewRootCmd creates a new root command for evmd. It is called once in the
 // main function.
@@ -68,8 +62,9 @@ func NewRootCmd() *cobra.Command {
 		dbm.NewMemDB(),
 		nil,
 		true,
-		emptyAppOptions{},
-		NoOpEvmAppOptions,
+		simtestutil.EmptyAppOptions{},
+		cosmosevmserverconfig.DefaultEVMChainID,
+		testutil.NoOpEvmAppOptions,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -136,7 +131,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := InitAppConfig(evmdconfig.BaseDenom)
+			customAppTemplate, customAppConfig := InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
 			customTMConfig := initTendermintConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -151,6 +146,12 @@ func NewRootCmd() *cobra.Command {
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
+	}
+
+	if initClientCtx.ChainID != "" {
+		if err := evmd.EvmAppOptions(cosmosevmserverconfig.DefaultEVMChainID); err != nil {
+			panic(err)
+		}
 	}
 
 	return rootCmd
@@ -170,7 +171,7 @@ func initTendermintConfig() *tmcfg.Config {
 
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
-func InitAppConfig(denom string) (string, interface{}) {
+func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	type CustomAppConfig struct {
 		serverconfig.Config
 
@@ -196,9 +197,12 @@ func InitAppConfig(denom string) (string, interface{}) {
 	// In this example application, we set the min gas prices to 0.
 	srvCfg.MinGasPrices = "0" + denom
 
+	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
+	evmCfg.EVMChainID = evmChainID
+
 	customAppConfig := CustomAppConfig{
 		Config:  *srvCfg,
-		EVM:     *cosmosevmserverconfig.DefaultEVMConfig(),
+		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
@@ -368,6 +372,7 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
+		evmdconfig.EVMChainID,
 		evmd.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -409,13 +414,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmd.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

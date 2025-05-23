@@ -29,7 +29,6 @@ import (
 const consensusVersion = 9
 
 var (
-	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 	_ module.HasABCIGenesis = AppModule{}
 
@@ -104,28 +103,20 @@ type AppModule struct {
 	AppModuleBasic
 	keeper *keeper.Keeper
 	ak     types.AccountKeeper
-	// legacySubspace is used solely for migration of x/params managed parameters
-	legacySubspace types.Subspace
 }
 
 // NewAppModule creates a new AppModule object
-func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, ss types.Subspace) AppModule {
+func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{},
 		keeper:         k,
 		ak:             ak,
-		legacySubspace: ss,
 	}
 }
 
 // Name returns the evm module's name.
 func (AppModule) Name() string {
 	return types.ModuleName
-}
-
-// RegisterInvariants interface for registering invariants. Performs a no-op
-// as the evm module doesn't expose invariants.
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
 }
 
 // RegisterServices registers a GRPC query service to respond to the

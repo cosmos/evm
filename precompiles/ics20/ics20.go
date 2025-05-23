@@ -8,16 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
+	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 
 	storetypes "cosmossdk.io/store/types"
 
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
@@ -35,7 +33,7 @@ type Precompile struct {
 	cmn.Precompile
 	stakingKeeper  stakingkeeper.Keeper
 	transferKeeper transferkeeper.Keeper
-	channelKeeper  channelkeeper.Keeper
+	channelKeeper  *channelkeeper.Keeper
 	evmKeeper      *evmkeeper.Keeper
 }
 
@@ -44,8 +42,7 @@ type Precompile struct {
 func NewPrecompile(
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
-	channelKeeper channelkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
+	channelKeeper *channelkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
@@ -56,10 +53,8 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  newAbi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
@@ -102,73 +97,47 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	return p.RunAtomic(
-		snapshot,
-		stateDB,
-		func() ([]byte, error) {
-			switch method.Name {
-			// TODO Approval transactions => need cosmos-sdk v0.46 & ibc-go v6.2.0
-			// Authorization Methods:
-			case authorization.ApproveMethod:
-				bz, err = p.Approve(ctx, evm.Origin, stateDB, method, args)
-			case authorization.RevokeMethod:
-				bz, err = p.Revoke(ctx, evm.Origin, stateDB, method, args)
-			case authorization.IncreaseAllowanceMethod:
-				bz, err = p.IncreaseAllowance(ctx, evm.Origin, stateDB, method, args)
-			case authorization.DecreaseAllowanceMethod:
-				bz, err = p.DecreaseAllowance(ctx, evm.Origin, stateDB, method, args)
-			// ICS20 transactions
-			case TransferMethod:
-				bz, err = p.Transfer(ctx, evm.Origin, contract, stateDB, method, args)
-			// ICS20 queries
-			case DenomTraceMethod:
-				bz, err = p.DenomTrace(ctx, contract, method, args)
-			case DenomTracesMethod:
-				bz, err = p.DenomTraces(ctx, contract, method, args)
-			case DenomHashMethod:
-				bz, err = p.DenomHash(ctx, contract, method, args)
-			case authorization.AllowanceMethod:
-				bz, err = p.Allowance(ctx, method, args)
-			default:
-				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-			}
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		switch method.Name {
+		// ICS20 transactions
+		case TransferMethod:
+			bz, err = p.Transfer(ctx, evm.Origin, contract, stateDB, method, args)
+		// ICS20 queries
+		case DenomMethod:
+			bz, err = p.Denom(ctx, contract, method, args)
+		case DenomsMethod:
+			bz, err = p.Denoms(ctx, contract, method, args)
+		case DenomHashMethod:
+			bz, err = p.DenomHash(ctx, contract, method, args)
+		default:
+			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		}
 
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
-				return nil, vm.ErrOutOfGas
-			}
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
 
-			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-				return nil, err
-			}
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
 
-			return bz, nil
-		},
-	)
+		return bz, nil
+	})
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 //
 // Available ics20 transactions are:
 //   - Transfer
-//
-// Available authorization transactions are:
-//   - Approve
-//   - Revoke
-//   - IncreaseAllowance
-//   - DecreaseAllowance
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
-	case TransferMethod,
-		authorization.ApproveMethod,
-		authorization.RevokeMethod,
-		authorization.IncreaseAllowanceMethod,
-		authorization.DecreaseAllowanceMethod:
+	case TransferMethod:
 		return true
 	default:
 		return false

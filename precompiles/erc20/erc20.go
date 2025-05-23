@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -15,7 +14,6 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
@@ -47,6 +45,7 @@ type Precompile struct {
 	cmn.Precompile
 	tokenPair      erc20types.TokenPair
 	transferKeeper transferkeeper.Keeper
+	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
 	BankKeeper bankkeeper.Keeper
 }
@@ -56,7 +55,7 @@ type Precompile struct {
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper bankkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
+	erc20Keeper Erc20Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, abiPath)
@@ -67,13 +66,12 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  newABI,
-			AuthzKeeper:          authzKeeper,
-			ApprovalExpiration:   cmn.DefaultExpirationDuration,
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
 		},
 		tokenPair:      tokenPair,
 		BankKeeper:     bankKeeper,
+		erc20Keeper:    erc20Keeper,
 		transferKeeper: transferKeeper,
 	}
 	// Address defines the address of the ERC-20 precompile contract.
@@ -103,11 +101,11 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return GasTransfer
 	case TransferFromMethod:
 		return GasTransfer
-	case auth.ApproveMethod:
+	case ApproveMethod:
 		return GasApprove
-	case auth.IncreaseAllowanceMethod:
+	case IncreaseAllowanceMethod:
 		return GasIncreaseAllowance
-	case auth.DecreaseAllowanceMethod:
+	case DecreaseAllowanceMethod:
 		return GasDecreaseAllowance
 	// ERC-20 queries
 	case NameMethod:
@@ -120,7 +118,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return GasTotalSupply
 	case BalanceOfMethod:
 		return GasBalanceOf
-	case auth.AllowanceMethod:
+	case AllowanceMethod:
 		return GasAllowance
 	default:
 		return 0
@@ -146,26 +144,22 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	return p.RunAtomic(
-		snapshot,
-		stateDB,
-		func() ([]byte, error) {
-			bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
-			if err != nil {
-				return nil, err
-			}
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
+		if err != nil {
+			return nil, err
+		}
 
-			cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
-				return nil, vm.ErrOutOfGas
-			}
-			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-				return nil, err
-			}
-			return bz, nil
-		},
-	)
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
+		return bz, nil
+	})
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
@@ -173,9 +167,9 @@ func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case TransferMethod,
 		TransferFromMethod,
-		auth.ApproveMethod,
-		auth.IncreaseAllowanceMethod,
-		auth.DecreaseAllowanceMethod:
+		ApproveMethod,
+		IncreaseAllowanceMethod,
+		DecreaseAllowanceMethod:
 		return true
 	default:
 		return false
@@ -196,11 +190,11 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.Transfer(ctx, contract, stateDB, method, args)
 	case TransferFromMethod:
 		bz, err = p.TransferFrom(ctx, contract, stateDB, method, args)
-	case auth.ApproveMethod:
+	case ApproveMethod:
 		bz, err = p.Approve(ctx, contract, stateDB, method, args)
-	case auth.IncreaseAllowanceMethod:
+	case IncreaseAllowanceMethod:
 		bz, err = p.IncreaseAllowance(ctx, contract, stateDB, method, args)
-	case auth.DecreaseAllowanceMethod:
+	case DecreaseAllowanceMethod:
 		bz, err = p.DecreaseAllowance(ctx, contract, stateDB, method, args)
 	// ERC-20 queries
 	case NameMethod:
@@ -213,7 +207,7 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.TotalSupply(ctx, contract, stateDB, method, args)
 	case BalanceOfMethod:
 		bz, err = p.BalanceOf(ctx, contract, stateDB, method, args)
-	case auth.AllowanceMethod:
+	case AllowanceMethod:
 		bz, err = p.Allowance(ctx, contract, stateDB, method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)

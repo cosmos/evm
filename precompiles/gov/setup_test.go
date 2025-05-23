@@ -97,6 +97,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		Coins:   sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(200))),
 	}}
 	govGen := govv1.DefaultGenesisState()
+	govGen.StartingProposalId = 3
 	govGen.Deposits = []*govv1.Deposit{
 		{
 			ProposalId: 1,
@@ -129,7 +130,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = gov.NewPrecompile(
 		s.network.App.GovKeeper,
-		s.network.App.AuthzKeeper,
+		s.network.App.AppCodec(),
 	); err != nil {
 		panic(err)
 	}

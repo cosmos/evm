@@ -54,10 +54,10 @@ func (suite *MsgsTestSuite) SetupTest() {
 	suite.chainID = big.NewInt(1)
 	suite.hundredBigInt = big.NewInt(100)
 
-	encodingConfig := encoding.MakeConfig()
+	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	err := exampleapp.EvmAppOptions("cosmos_9001-1")
+	err := exampleapp.EvmAppOptions(9001)
 	suite.Require().NoError(err)
 }
 
@@ -114,19 +114,20 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 			true,
 		},
 	}
-	for _, cfg := range []types.EvmCoinInfo{
-		{Denom: testconstants.ExampleMicroDenom, Decimals: types.SixDecimals},
-		{Denom: testconstants.ExampleAttoDenom, Decimals: types.EighteenDecimals},
+	for _, coinInfo := range []types.EvmCoinInfo{
+		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEVMConfigurator()
 			configurator.ResetTestConfig()
-			suite.Require().NoError(configurator.WithEVMCoinInfo(cfg.Denom, uint8(cfg.Decimals)).Configure())
+			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
 			if strings.Contains(tc.name, "nil data") {
 				tc.msg.Data = nil
 			}
 
 			baseDenom := types.GetEVMCoinDenom()
+			extendedDenom := types.GetEVMCoinExtendedDenom()
 
 			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
 			if tc.expError {
@@ -139,11 +140,7 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 				suite.Require().Equal(uint64(100000), tx.GetGas())
 
 				expFeeAmt := sdkmath.NewIntFromBigInt(evmTx.GasPrice).MulRaw(int64(evmTx.GasLimit)) //#nosec
-				expFee := sdk.NewCoins(sdk.NewCoin(baseDenom, expFeeAmt))
-				if cfg.Decimals == types.SixDecimals {
-					scaledAmt := expFeeAmt.QuoRaw(1e12)
-					expFee = sdk.NewCoins(sdk.NewCoin(baseDenom, scaledAmt))
-				}
+				expFee := sdk.NewCoins(sdk.NewCoin(extendedDenom, expFeeAmt))
 				suite.Require().Equal(expFee, tx.GetFee())
 			}
 		}

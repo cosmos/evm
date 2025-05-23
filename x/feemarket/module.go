@@ -98,16 +98,13 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 type AppModule struct {
 	AppModuleBasic
 	keeper keeper.Keeper
-	// legacySubspace is used solely for migration of x/params managed parameters
-	legacySubspace types.Subspace
 }
 
 // NewAppModule creates a new AppModule object
-func NewAppModule(k keeper.Keeper, ss types.Subspace) AppModule {
+func NewAppModule(k keeper.Keeper) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{},
 		keeper:         k,
-		legacySubspace: ss,
 	}
 }
 
@@ -115,10 +112,6 @@ func NewAppModule(k keeper.Keeper, ss types.Subspace) AppModule {
 func (AppModule) Name() string {
 	return types.ModuleName
 }
-
-// RegisterInvariants interface for registering invariants. Performs a no-op
-// as the fee market module doesn't expose invariants.
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // RegisterServices registers the GRPC query service and migrator service to respond to the
 // module-specific GRPC queries and handle the upgrade store migration for the module.

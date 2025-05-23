@@ -5,8 +5,8 @@ package evmd
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/cosmos/evm/cmd/evmd/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -17,43 +17,20 @@ import (
 // EVMOptionsFn defines a function type for setting app options specifically for
 // the Cosmos EVM app. The function should receive the chainID and return an error if
 // any.
-type EVMOptionsFn func(string) error
-
-// NoOpEVMOptions is a no-op function that can be used when the app does not
-// need any specific configuration.
-func NoOpEVMOptions(_ string) error {
-	return nil
-}
+type EVMOptionsFn func(uint64) error
 
 var sealed = false
 
-// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
-// that allows initializing the app with different coin info based on the
-// chain id
-var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
-	EighteenDecimalsChainID: {
-		Denom:        ExampleChainDenom,
-		DisplayDenom: ExampleDisplayDenom,
-		Decimals:     evmtypes.EighteenDecimals,
-	},
-	CosmosChainID: {
-		Denom:        "atest",
-		DisplayDenom: "test",
-		Decimals:     evmtypes.EighteenDecimals,
-	},
-}
-
 // EvmAppOptions allows to setup the global configuration
 // for the Cosmos EVM chain.
-func EvmAppOptions(chainID string) error {
+func EvmAppOptions(chainID uint64) error {
 	if sealed {
 		return nil
 	}
 
-	id := strings.Split(chainID, "-")[0]
-	coinInfo, found := ChainsCoinInfo[id]
+	coinInfo, found := config.ChainsCoinInfo[chainID]
 	if !found {
-		return fmt.Errorf("unknown chain id: %s", id)
+		return fmt.Errorf("unknown chain id: %d", chainID)
 	}
 
 	// set the denom info for the chain
@@ -61,18 +38,13 @@ func EvmAppOptions(chainID string) error {
 		return err
 	}
 
-	baseDenom, err := sdk.GetBaseDenom()
-	if err != nil {
-		return err
-	}
-
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
 
-	err = evmtypes.NewEVMConfigurator().
+	err := evmtypes.NewEVMConfigurator().
 		WithExtendedEips(cosmosEVMActivators).
 		WithChainConfig(ethCfg).
 		// NOTE: we're using the 18 decimals default for the example chain
-		WithEVMCoinInfo(baseDenom, uint8(coinInfo.Decimals)).
+		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {
 		return err

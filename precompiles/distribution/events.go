@@ -2,6 +2,7 @@ package distribution
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -17,14 +18,16 @@ import (
 const (
 	// EventTypeSetWithdrawAddress defines the event type for the distribution SetWithdrawAddressMethod transaction.
 	EventTypeSetWithdrawAddress = "SetWithdrawerAddress"
-	// EventTypeWithdrawDelegatorRewards defines the event type for the distribution WithdrawDelegatorRewardsMethod transaction.
-	EventTypeWithdrawDelegatorRewards = "WithdrawDelegatorRewards"
+	// EventTypeWithdrawDelegatorReward defines the event type for the distribution WithdrawDelegatorRewardMethod transaction.
+	EventTypeWithdrawDelegatorReward = "WithdrawDelegatorReward"
 	// EventTypeWithdrawValidatorCommission defines the event type for the distribution WithdrawValidatorCommissionMethod transaction.
 	EventTypeWithdrawValidatorCommission = "WithdrawValidatorCommission"
 	// EventTypeFundCommunityPool defines the event type for the distribution FundCommunityPoolMethod transaction.
 	EventTypeFundCommunityPool = "FundCommunityPool"
 	// EventTypeClaimRewards defines the event type for the distribution ClaimRewardsMethod transaction.
 	EventTypeClaimRewards = "ClaimRewards"
+	// EventTypeDepositValidatorRewardsPool defines the event type for the distribution DepositValidatorRewardsPoolMethod transaction.
+	EventTypeDepositValidatorRewardsPool = "DepositValidatorRewardsPool"
 )
 
 // EmitClaimRewardsEvent creates a new event emitted on a ClaimRewards transaction.
@@ -97,15 +100,15 @@ func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.Stat
 	return nil
 }
 
-// EmitWithdrawDelegatorRewardsEvent creates a new event emitted on a WithdrawDelegatorRewards transaction.
-func (p Precompile) EmitWithdrawDelegatorRewardsEvent(ctx sdk.Context, stateDB vm.StateDB, delegatorAddress common.Address, validatorAddress string, coins sdk.Coins) error {
+// EmitWithdrawDelegatorRewardEvent creates a new event emitted on a WithdrawDelegatorReward transaction.
+func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm.StateDB, delegatorAddress common.Address, validatorAddress string, coins sdk.Coins) error {
 	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
 	if err != nil {
 		return err
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeWithdrawDelegatorRewards]
+	event := p.ABI.Events[EventTypeWithdrawDelegatorReward]
 	topics := make([]common.Hash, 3)
 
 	// The first topic is always the signature of the event.
@@ -164,31 +167,86 @@ func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateD
 	return nil
 }
 
-// EmitFundCommunityPoolEvent creates a new event emitted on a FundCommunityPool transaction.
+// EmitFundCommunityPoolEvent creates a new event emitted per Coin on a FundCommunityPool transaction.
 func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, coins sdk.Coins) error {
 	// Prepare the event topics
 	event := p.ABI.Events[EventTypeFundCommunityPool]
-	topics := make([]common.Hash, 2)
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
+	for _, coin := range coins {
+		topics := make([]common.Hash, 2)
 
-	var err error
-	topics[1], err = cmn.MakeTopic(depositor)
+		// The first topic is always the signature of the event.
+		topics[0] = event.ID
+
+		// Second topic: depositor address
+		var err error
+		topics[1], err = cmn.MakeTopic(depositor)
+		if err != nil {
+			return err
+		}
+
+		// Encode denom and amount as event data
+		// Assuming FundCommunityPool(address,string,uint256)
+		data, err := event.Inputs.NonIndexed().Pack(coin.Denom, coin.Amount.BigInt())
+		if err != nil {
+			return fmt.Errorf("failed to pack event data: %w", err)
+		}
+
+		// Emit log for each coin
+		stateDB.AddLog(&ethtypes.Log{
+			Address:     p.Address(),
+			Topics:      topics,
+			Data:        data,
+			BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+		})
+	}
+
+	return nil
+}
+
+// EmitDepositValidatorRewardsPoolEvent creates a new event emitted on a DepositValidatorRewardsPool transaction.
+func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, validatorAddress string, coins sdk.Coins) error {
+	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(coins[0].Amount.BigInt())))
+	// Prepare the event topics
+	event := p.ABI.Events[EventTypeDepositValidatorRewardsPool]
+	for _, coin := range coins {
+		topics := make([]common.Hash, 3)
 
-	stateDB.AddLog(&ethtypes.Log{
-		Address:     p.Address(),
-		Topics:      topics,
-		Data:        b.Bytes(),
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
-	})
+		// The first topic is always the signature of the event.
+		topics[0] = event.ID
+
+		// The second topic is depositor address.
+		var err error
+		topics[1], err = cmn.MakeTopic(depositor)
+		if err != nil {
+			return err
+		}
+
+		// The third topic is validator address.
+		topics[2], err = cmn.MakeTopic(common.BytesToAddress(valAddr.Bytes()))
+		if err != nil {
+			return err
+		}
+
+		// Encode denom and amount as event data assuming the event type is
+		// DepositValidatorRewardsPool(address, address, string, uint256)
+		data, err := event.Inputs.NonIndexed().Pack(coin.Denom, coin.Amount.BigInt())
+		if err != nil {
+			return fmt.Errorf("failed to pack event data: %w", err)
+		}
+
+		// Emit log for each coin
+		stateDB.AddLog(&ethtypes.Log{
+			Address:     p.Address(),
+			Topics:      topics,
+			Data:        data,
+			BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+		})
+	}
 
 	return nil
 }

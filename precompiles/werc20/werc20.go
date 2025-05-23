@@ -14,7 +14,6 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
@@ -52,7 +51,7 @@ func LoadABI() (abi.ABI, error) {
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper bankkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
+	erc20Keeper Erc20Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
 	newABI, err := LoadABI()
@@ -60,7 +59,7 @@ func NewPrecompile(
 		return nil, fmt.Errorf("error loading the ABI: %w", err)
 	}
 
-	erc20Precompile, err := erc20.NewPrecompile(tokenPair, bankKeeper, authzKeeper, transferKeeper)
+	erc20Precompile, err := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper)
 	if err != nil {
 		return nil, fmt.Errorf("error instantiating the ERC20 precompile: %w", err)
 	}
@@ -117,38 +116,34 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	return p.RunAtomic(
-		snapshot,
-		stateDB,
-		func() ([]byte, error) {
-			switch {
-			case method.Type == abi.Fallback,
-				method.Type == abi.Receive,
-				method.Name == DepositMethod:
-				bz, err = p.Deposit(ctx, contract, stateDB)
-			case method.Name == WithdrawMethod:
-				bz, err = p.Withdraw(ctx, contract, stateDB, args)
-			default:
-				// ERC20 transactions and queries
-				bz, err = p.Precompile.HandleMethod(ctx, contract, stateDB, method, args)
-			}
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		switch {
+		case method.Type == abi.Fallback,
+			method.Type == abi.Receive,
+			method.Name == DepositMethod:
+			bz, err = p.Deposit(ctx, contract, stateDB)
+		case method.Name == WithdrawMethod:
+			bz, err = p.Withdraw(ctx, contract, stateDB, args)
+		default:
+			// ERC20 transactions and queries
+			bz, err = p.Precompile.HandleMethod(ctx, contract, stateDB, method, args)
+		}
 
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
-				return nil, vm.ErrOutOfGas
-			}
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
 
-			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-				return nil, err
-			}
-			return bz, nil
-		},
-	)
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
+		return bz, nil
+	})
 }
 
 // IsTransaction returns true if the given method name correspond to a

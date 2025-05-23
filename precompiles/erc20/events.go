@@ -8,7 +8,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -17,6 +16,9 @@ import (
 const (
 	// EventTypeTransfer defines the event type for the ERC-20 Transfer and TransferFrom transactions.
 	EventTypeTransfer = "Transfer"
+
+	// EventTypeApproval defines the event type for the ERC-20 Approval event.
+	EventTypeApproval = "Approval"
 )
 
 // EmitTransferEvent creates a new Transfer event emitted on transfer and transferFrom transactions.
@@ -59,7 +61,7 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 // and DecreaseAllowance transactions.
 func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, owner, spender common.Address, value *big.Int) error {
 	// Prepare the event topics
-	event := p.ABI.Events[auth.EventTypeApproval]
+	event := p.ABI.Events[EventTypeApproval]
 	topics := make([]common.Hash, 3)
 
 	// The first topic is always the signature of the event.

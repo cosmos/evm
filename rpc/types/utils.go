@@ -57,7 +57,7 @@ func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEt
 // from a tendermint Header.
 func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
 	txHash := ethtypes.EmptyRootHash
-	if len(header.DataHash) == 0 {
+	if len(header.DataHash) != 0 {
 		txHash = common.BytesToHash(header.DataHash)
 	}
 

@@ -4,8 +4,9 @@ alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and custo
 />
 
 **Please note**: This repo is undergoing changes in preparation for a new audit. After this audit we will cut the first
-v1 release, targeting late Q2. Some breaking changes might occur. While the Cosmos EVM is currently being used in
-production on various chains without fault, Interchain Labs will only mark this repository as stable after the audit is completed.
+v1 release, targeting late Q2. Some breaking changes might occur. While the original evmOS repo is currently being used in
+production on a few chains without fault, Interchain Labs will only mark the Cosmos EVM repository as stable after the audit
+is completed.
 
 **Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
 
@@ -139,6 +140,49 @@ meaning that any Cosmos EVM chain can run any valid smart contract
 from Ethereum but can also implement new features that are
 not (yet) available on the standard Ethereum VM,
 thus moving the standard forward.
+
+## Getting started
+
+To run the example `evmd` chain, run the script using `./local_node.sh`
+from the root folder of the respository.
+
+### Testing
+
+All of the test scripts are found in `Makefile` in the root of the repository.
+Listed below are the commands for various tests:
+
+#### Unit Testing
+
+```bash
+make test-unit
+```
+
+#### Coverage Test
+
+This generates a code coverage file `filtered_coverage.txt` and prints out the
+covered code percentage for the working files.
+
+```bash
+make test-unit-cover
+```
+
+#### Fuzz Testing
+
+```bash
+make test-fuzz
+```
+
+#### Solidity Tests
+
+```bash
+make test-solidity
+```
+
+#### Benchmark Tests
+
+```bash
+make benchmark
+```
 
 ## Open-source License & Credits
 

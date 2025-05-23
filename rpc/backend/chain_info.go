@@ -14,7 +14,6 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -25,15 +24,11 @@ import (
 
 // ChainID is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (b *Backend) ChainID() (*hexutil.Big, error) {
-	eip155ChainID, err := types.ParseChainID(b.clientCtx.ChainID)
-	if err != nil {
-		panic(err)
-	}
 	// if current block is at or past the EIP-155 replay-protection fork block, return chainID from config
 	bn, err := b.BlockNumber()
 	if err != nil {
 		b.logger.Debug("failed to fetch latest block number", "error", err.Error())
-		return (*hexutil.Big)(eip155ChainID), nil
+		return (*hexutil.Big)(b.chainID), nil
 	}
 
 	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {

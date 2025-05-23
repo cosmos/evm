@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	exampleapp "github.com/cosmos/evm/evmd"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
 
@@ -23,14 +23,14 @@ func (suite *KeeperTestSuite) TestGetTokenPairs() {
 		malleate func()
 	}{
 		{
-			"no pair registered", func() { expRes = exampleapp.ExampleTokenPairs },
+			"no pair registered", func() { expRes = testconstants.ExampleTokenPairs },
 		},
 		{
 			"1 pair registered",
 			func() {
 				pair := types.NewTokenPair(utiltx.GenerateAddress(), "coin", types.OWNER_MODULE)
 				suite.network.App.Erc20Keeper.SetTokenPair(ctx, pair)
-				expRes = exampleapp.ExampleTokenPairs
+				expRes = testconstants.ExampleTokenPairs
 				expRes = append(expRes, pair)
 			},
 		},
@@ -41,7 +41,7 @@ func (suite *KeeperTestSuite) TestGetTokenPairs() {
 				pair2 := types.NewTokenPair(utiltx.GenerateAddress(), "coin2", types.OWNER_MODULE)
 				suite.network.App.Erc20Keeper.SetTokenPair(ctx, pair)
 				suite.network.App.Erc20Keeper.SetTokenPair(ctx, pair2)
-				expRes = exampleapp.ExampleTokenPairs
+				expRes = testconstants.ExampleTokenPairs
 				expRes = append(expRes, []types.TokenPair{pair, pair2}...)
 			},
 		},

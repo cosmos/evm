@@ -119,7 +119,7 @@ func (suite *KeeperTestSuite) TestBalanceOf() {
 			authtypes.NewModuleAddress(govtypes.ModuleName),
 			suite.network.App.AccountKeeper, suite.network.App.BankKeeper,
 			mockEVMKeeper, suite.network.App.StakingKeeper,
-			suite.network.App.AuthzKeeper, &suite.network.App.TransferKeeper,
+			&suite.network.App.TransferKeeper,
 		)
 
 		tc.malleate()
@@ -217,7 +217,7 @@ func (suite *KeeperTestSuite) TestQueryERC20ForceFail() {
 			suite.network.App.GetKey("erc20"), suite.network.App.AppCodec(),
 			authtypes.NewModuleAddress(govtypes.ModuleName), suite.network.App.AccountKeeper,
 			suite.network.App.BankKeeper, mockEVMKeeper, suite.network.App.StakingKeeper,
-			suite.network.App.AuthzKeeper, &suite.network.App.TransferKeeper,
+			&suite.network.App.TransferKeeper,
 		)
 
 		tc.malleate()

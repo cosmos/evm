@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -15,7 +14,6 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
@@ -42,7 +40,6 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	stakingKeeper stakingkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -52,10 +49,8 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  abi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		stakingKeeper: stakingKeeper,
 	}
@@ -94,68 +89,52 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	return p.RunAtomic(
-		snapshot,
-		stateDB,
-		func() ([]byte, error) {
-			switch method.Name {
-			// Authorization transactions
-			case authorization.ApproveMethod:
-				bz, err = p.Approve(ctx, evm.Origin, stateDB, method, args)
-			case authorization.RevokeMethod:
-				bz, err = p.Revoke(ctx, evm.Origin, stateDB, method, args)
-			case authorization.IncreaseAllowanceMethod:
-				bz, err = p.IncreaseAllowance(ctx, evm.Origin, stateDB, method, args)
-			case authorization.DecreaseAllowanceMethod:
-				bz, err = p.DecreaseAllowance(ctx, evm.Origin, stateDB, method, args)
-			// Staking transactions
-			case CreateValidatorMethod:
-				bz, err = p.CreateValidator(ctx, evm.Origin, contract, stateDB, method, args)
-			case EditValidatorMethod:
-				bz, err = p.EditValidator(ctx, evm.Origin, contract, stateDB, method, args)
-			case DelegateMethod:
-				bz, err = p.Delegate(ctx, evm.Origin, contract, stateDB, method, args)
-			case UndelegateMethod:
-				bz, err = p.Undelegate(ctx, evm.Origin, contract, stateDB, method, args)
-			case RedelegateMethod:
-				bz, err = p.Redelegate(ctx, evm.Origin, contract, stateDB, method, args)
-			case CancelUnbondingDelegationMethod:
-				bz, err = p.CancelUnbondingDelegation(ctx, evm.Origin, contract, stateDB, method, args)
-			// Staking queries
-			case DelegationMethod:
-				bz, err = p.Delegation(ctx, contract, method, args)
-			case UnbondingDelegationMethod:
-				bz, err = p.UnbondingDelegation(ctx, contract, method, args)
-			case ValidatorMethod:
-				bz, err = p.Validator(ctx, method, contract, args)
-			case ValidatorsMethod:
-				bz, err = p.Validators(ctx, method, contract, args)
-			case RedelegationMethod:
-				bz, err = p.Redelegation(ctx, method, contract, args)
-			case RedelegationsMethod:
-				bz, err = p.Redelegations(ctx, method, contract, args)
-			// Authorization queries
-			case authorization.AllowanceMethod:
-				bz, err = p.Allowance(ctx, method, contract, args)
-			}
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		switch method.Name {
+		// Staking transactions
+		case CreateValidatorMethod:
+			bz, err = p.CreateValidator(ctx, evm.Origin, contract, stateDB, method, args)
+		case EditValidatorMethod:
+			bz, err = p.EditValidator(ctx, evm.Origin, contract, stateDB, method, args)
+		case DelegateMethod:
+			bz, err = p.Delegate(ctx, evm.Origin, contract, stateDB, method, args)
+		case UndelegateMethod:
+			bz, err = p.Undelegate(ctx, evm.Origin, contract, stateDB, method, args)
+		case RedelegateMethod:
+			bz, err = p.Redelegate(ctx, evm.Origin, contract, stateDB, method, args)
+		case CancelUnbondingDelegationMethod:
+			bz, err = p.CancelUnbondingDelegation(ctx, evm.Origin, contract, stateDB, method, args)
+		// Staking queries
+		case DelegationMethod:
+			bz, err = p.Delegation(ctx, contract, method, args)
+		case UnbondingDelegationMethod:
+			bz, err = p.UnbondingDelegation(ctx, contract, method, args)
+		case ValidatorMethod:
+			bz, err = p.Validator(ctx, method, contract, args)
+		case ValidatorsMethod:
+			bz, err = p.Validators(ctx, method, contract, args)
+		case RedelegationMethod:
+			bz, err = p.Redelegation(ctx, method, contract, args)
+		case RedelegationsMethod:
+			bz, err = p.Redelegations(ctx, method, contract, args)
+		}
 
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
-				return nil, vm.ErrOutOfGas
-			}
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
 
-			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-				return nil, err
-			}
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
 
-			return bz, nil
-		},
-	)
+		return bz, nil
+	})
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
@@ -167,12 +146,6 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 //   - Undelegate
 //   - Redelegate
 //   - CancelUnbondingDelegation
-//
-// Available authorization transactions are:
-//   - Approve
-//   - Revoke
-//   - IncreaseAllowance
-//   - DecreaseAllowance
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case CreateValidatorMethod,
@@ -180,11 +153,7 @@ func (Precompile) IsTransaction(method *abi.Method) bool {
 		DelegateMethod,
 		UndelegateMethod,
 		RedelegateMethod,
-		CancelUnbondingDelegationMethod,
-		authorization.ApproveMethod,
-		authorization.RevokeMethod,
-		authorization.IncreaseAllowanceMethod,
-		authorization.DecreaseAllowanceMethod:
+		CancelUnbondingDelegationMethod:
 		return true
 	default:
 		return false

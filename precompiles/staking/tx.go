@@ -3,20 +3,17 @@ package staking
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 const (
@@ -36,17 +33,6 @@ const (
 	// CancelUnbondingDelegationMethod defines the ABI method name for the staking
 	// CancelUnbondingDelegation transaction.
 	CancelUnbondingDelegationMethod = "cancelUnbondingDelegation"
-)
-
-const (
-	// DelegateAuthz defines the authorization type for the staking Delegate
-	DelegateAuthz = stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_DELEGATE
-	// UndelegateAuthz defines the authorization type for the staking Undelegate
-	UndelegateAuthz = stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_UNDELEGATE
-	// RedelegateAuthz defines the authorization type for the staking Redelegate
-	RedelegateAuthz = stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_REDELEGATE
-	// CancelUnbondingDelegationAuthz defines the authorization type for the staking
-	CancelUnbondingDelegationAuthz = stakingtypes.AuthorizationType_AUTHORIZATION_TYPE_CANCEL_UNBONDING_DELEGATION
 )
 
 // CreateValidator performs create validator.
@@ -77,9 +63,7 @@ func (p Precompile) CreateValidator(
 		"value", msg.Value.Amount.String(),
 	)
 
-	// ATM there's no authorization type for the MsgCreateValidator
-	// and MsgEditValidator (source: https://github.com/cosmos/cosmos-sdk/blob/4bd73b667f8aed50ad4602ddf862a4ed6e1450a8/x/staking/proto/cosmos/staking/v1beta1/authz.proto#L39-L50)
-	// so, for the time being, we won't allow calls from smart contracts
+	// we won't allow calls from smart contracts
 	if contract.CallerAddress != origin {
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
@@ -128,9 +112,7 @@ func (p Precompile) EditValidator(
 		"min_self_delegation", msg.MinSelfDelegation,
 	)
 
-	// ATM there's no authorization type for the MsgCreateValidator
-	// and MsgEditValidator (source: https://github.com/cosmos/cosmos-sdk/blob/4bd73b667f8aed50ad4602ddf862a4ed6e1450a8/x/staking/proto/cosmos/staking/v1beta1/authz.proto#L39-L50)
-	// so, for the time being, we won't allow calls from smart contracts
+	// we won't allow calls from smart contracts
 	if contract.CallerAddress != origin {
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
@@ -183,36 +165,9 @@ func (p *Precompile) Delegate(
 		),
 	)
 
-	var (
-		// stakeAuthz is the authorization grant for the caller and the delegator address
-		stakeAuthz *stakingtypes.StakeAuthorization
-		// expiration is the expiration time of the authorization grant
-		expiration *time.Time
-
-		// isCallerOrigin is true when the contract caller is the same as the origin
-		isCallerOrigin = contract.CallerAddress == origin
-		// isCallerDelegator is true when the contract caller is the same as the delegator
-		isCallerDelegator = contract.CallerAddress == delegatorHexAddr
-	)
-
-	// The provided delegator address should always be equal to the origin address.
-	// In case the contract caller address is the same as the delegator address provided,
-	// update the delegator address to be equal to the origin address.
-	// Otherwise, if the provided delegator address is different from the origin address,
-	// return an error because is a forbidden operation
-	if isCallerDelegator {
-		delegatorHexAddr = origin
-	} else if origin != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
-	}
-
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	if !isCallerOrigin {
-		// Check if the authorization grant exists for the caller and the origin
-		stakeAuthz, expiration, err = authorization.CheckAuthzAndAllowanceForGranter(ctx, p.AuthzKeeper, contract.CallerAddress, delegatorHexAddr, &msg.Amount, DelegateMsg)
-		if err != nil {
-			return nil, err
-		}
+	// The provided delegator address should always be equal to the contract caller address.
+	if contract.CallerAddress != delegatorHexAddr {
+		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
@@ -221,29 +176,19 @@ func (p *Precompile) Delegate(
 		return nil, err
 	}
 
-	// Only update the authorization if the contract caller is different from the origin
-	if !isCallerOrigin {
-		if err := p.UpdateStakingAuthorization(ctx, contract.CallerAddress, delegatorHexAddr, stakeAuthz, expiration, DelegateMsg, msg); err != nil {
-			return nil, err
-		}
-	}
-
 	// Emit the event for the delegate transaction
 	if err = p.EmitDelegateEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {
 		return nil, err
 	}
 
-	if !isCallerOrigin && msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
-		// get the delegator address from the message
-		delAccAddr := sdk.MustAccAddressFromBech32(msg.DelegatorAddress)
-		delHexAddr := common.BytesToAddress(delAccAddr)
+	if contract.CallerAddress != origin && msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from a smart contract
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 
 		// Need to scale the amount to 18 decimals for the EVM balance change entry
 		scaledAmt := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt())
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delHexAddr, uint256.MustFromBig(scaledAmt), cmn.Sub))
+		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delegatorHexAddr, uint256.MustFromBig(scaledAmt), cmn.Sub))
 	}
 
 	return method.Outputs.Pack(true)
@@ -279,36 +224,9 @@ func (p Precompile) Undelegate(
 		),
 	)
 
-	var (
-		// stakeAuthz is the authorization grant for the caller and the delegator address
-		stakeAuthz *stakingtypes.StakeAuthorization
-		// expiration is the expiration time of the authorization grant
-		expiration *time.Time
-
-		// isCallerOrigin is true when the contract caller is the same as the origin
-		isCallerOrigin = contract.CallerAddress == origin
-		// isCallerDelegator is true when the contract caller is the same as the delegator
-		isCallerDelegator = contract.CallerAddress == delegatorHexAddr
-	)
-
-	// The provided delegator address should always be equal to the origin address.
-	// In case the contract caller address is the same as the delegator address provided,
-	// update the delegator address to be equal to the origin address.
-	// Otherwise, if the provided delegator address is different from the origin address,
-	// return an error because is a forbidden operation
-	if isCallerDelegator {
-		delegatorHexAddr = origin
-	} else if origin != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
-	}
-
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	if !isCallerOrigin {
-		// Check if the authorization grant exists for the caller and the origin
-		stakeAuthz, expiration, err = authorization.CheckAuthzAndAllowanceForGranter(ctx, p.AuthzKeeper, contract.CallerAddress, delegatorHexAddr, &msg.Amount, UndelegateMsg)
-		if err != nil {
-			return nil, err
-		}
+	// The provided delegator address should always be equal to the contract caller address.
+	if contract.CallerAddress != delegatorHexAddr {
+		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, contract.CallerAddress.String(), delegatorHexAddr.String())
 	}
 
 	// Execute the transaction using the message server
@@ -316,13 +234,6 @@ func (p Precompile) Undelegate(
 	res, err := msgSrv.Undelegate(ctx, msg)
 	if err != nil {
 		return nil, err
-	}
-
-	// Only update the authorization if the contract caller is different from the origin
-	if !isCallerOrigin {
-		if err := p.UpdateStakingAuthorization(ctx, contract.CallerAddress, delegatorHexAddr, stakeAuthz, expiration, UndelegateMsg, msg); err != nil {
-			return nil, err
-		}
 	}
 
 	// Emit the event for the undelegate transaction
@@ -365,49 +276,15 @@ func (p Precompile) Redelegate(
 		),
 	)
 
-	var (
-		// stakeAuthz is the authorization grant for the caller and the delegator address
-		stakeAuthz *stakingtypes.StakeAuthorization
-		// expiration is the expiration time of the authorization grant
-		expiration *time.Time
-
-		// isCallerOrigin is true when the contract caller is the same as the origin
-		isCallerOrigin = contract.CallerAddress == origin
-		// isCallerDelegator is true when the contract caller is the same as the delegator
-		isCallerDelegator = contract.CallerAddress == delegatorHexAddr
-	)
-
-	// The provided delegator address should always be equal to the origin address.
-	// In case the contract caller address is the same as the delegator address provided,
-	// update the delegator address to be equal to the origin address.
-	// Otherwise, if the provided delegator address is different from the origin address,
-	// return an error because is a forbidden operation
-	if isCallerDelegator {
-		delegatorHexAddr = origin
-	} else if origin != delegatorHexAddr {
-		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
-	}
-
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	if !isCallerOrigin {
-		// Check if the authorization grant exists for the caller and the origin
-		stakeAuthz, expiration, err = authorization.CheckAuthzAndAllowanceForGranter(ctx, p.AuthzKeeper, contract.CallerAddress, delegatorHexAddr, &msg.Amount, RedelegateMsg)
-		if err != nil {
-			return nil, err
-		}
+	// The provided delegator address should always be equal to the contract caller address.
+	if contract.CallerAddress != delegatorHexAddr {
+		return nil, fmt.Errorf(ErrDifferentCallerFromDelegator, origin.String(), delegatorHexAddr.String())
 	}
 
 	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
 	res, err := msgSrv.BeginRedelegate(ctx, msg)
 	if err != nil {
 		return nil, err
-	}
-
-	// Only update the authorization if the contract caller is different from the origin
-	if !isCallerOrigin {
-		if err := p.UpdateStakingAuthorization(ctx, contract.CallerAddress, delegatorHexAddr, stakeAuthz, expiration, RedelegateMsg, msg); err != nil {
-			return nil, err
-		}
 	}
 
 	if err = p.EmitRedelegateEvent(ctx, stateDB, msg, delegatorHexAddr, res.CompletionTime.UTC().Unix()); err != nil {
@@ -449,48 +326,14 @@ func (p Precompile) CancelUnbondingDelegation(
 		),
 	)
 
-	var (
-		// stakeAuthz is the authorization grant for the caller and the delegator address
-		stakeAuthz *stakingtypes.StakeAuthorization
-		// expiration is the expiration time of the authorization grant
-		expiration *time.Time
-
-		// isCallerOrigin is true when the contract caller is the same as the origin
-		isCallerOrigin = contract.CallerAddress == origin
-		// isCallerDelegator is true when the contract caller is the same as the delegator
-		isCallerDelegator = contract.CallerAddress == delegatorHexAddr
-	)
-
-	// The provided delegator address should always be equal to the origin address.
-	// In case the contract caller address is the same as the delegator address provided,
-	// update the delegator address to be equal to the origin address.
-	// Otherwise, if the provided delegator address is different from the origin address,
-	// return an error because is a forbidden operation
-	if isCallerDelegator {
-		delegatorHexAddr = origin
-	} else if origin != delegatorHexAddr {
+	// The provided delegator address should always be equal to the contract caller address.
+	if contract.CallerAddress != delegatorHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOriginFromDelegator, origin.String(), delegatorHexAddr.String())
-	}
-
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	if !isCallerOrigin {
-		// Check if the authorization grant exists for the caller and the origin
-		stakeAuthz, expiration, err = authorization.CheckAuthzAndAllowanceForGranter(ctx, p.AuthzKeeper, contract.CallerAddress, delegatorHexAddr, &msg.Amount, CancelUnbondingDelegationMsg)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
 	if _, err = msgSrv.CancelUnbondingDelegation(ctx, msg); err != nil {
 		return nil, err
-	}
-
-	// Only update the authorization if the contract caller is different from the origin
-	if !isCallerOrigin {
-		if err := p.UpdateStakingAuthorization(ctx, contract.CallerAddress, delegatorHexAddr, stakeAuthz, expiration, CancelUnbondingDelegationMsg, msg); err != nil {
-			return nil, err
-		}
 	}
 
 	if err = p.EmitCancelUnbondingDelegationEvent(ctx, stateDB, msg, delegatorHexAddr); err != nil {

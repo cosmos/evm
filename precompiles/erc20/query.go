@@ -1,24 +1,17 @@
 package erc20
 
 import (
-	"bytes"
 	"fmt"
 	"math"
-	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/ibc"
-	auth "github.com/cosmos/evm/precompiles/authorization"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 const (
@@ -37,6 +30,9 @@ const (
 	// BalanceOfMethod defines the ABI method name for the ERC-20 BalanceOf
 	// query.
 	BalanceOfMethod = "balanceOf"
+	// AllowanceMethod defines the ABI method name for the Allowance
+	// query.
+	AllowanceMethod = "allowance"
 )
 
 // Name returns the name of the token. If the token metadata is registered in the
@@ -99,13 +95,13 @@ func (p Precompile) Decimals(
 ) ([]byte, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if !found {
-		denomTrace, err := ibc.GetDenomTrace(p.transferKeeper, ctx, p.tokenPair.Denom)
+		denom, err := ibc.GetDenom(p.transferKeeper, ctx, p.tokenPair.Denom)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
 
 		// we assume the decimal from the first character of the denomination
-		decimals, err := ibc.DeriveDecimalsFromDenom(denomTrace.BaseDenom)
+		decimals, err := ibc.DeriveDecimalsFromDenom(denom.Base)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
@@ -174,8 +170,7 @@ func (p Precompile) BalanceOf(
 	return method.Outputs.Pack(balance.Amount.BigInt())
 }
 
-// Allowance returns the remaining allowance of a spender to the contract by
-// checking the existence of a bank SendAuthorization.
+// Allowance returns the remaining allowance of a spender for a given owner.
 func (p Precompile) Allowance(
 	ctx sdk.Context,
 	_ *vm.Contract,
@@ -188,13 +183,7 @@ func (p Precompile) Allowance(
 		return nil, err
 	}
 
-	// NOTE: In case the allowance is queried by the owner, we return the max uint256 value, which
-	// resembles an infinite allowance.
-	if bytes.Equal(owner.Bytes(), spender.Bytes()) {
-		return method.Outputs.Pack(abi.MaxUint256)
-	}
-
-	_, _, allowance, err := GetAuthzExpirationAndAllowance(p.AuthzKeeper, ctx, spender, owner, p.tokenPair.Denom)
+	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
 	if err != nil {
 		// NOTE: We are not returning the error here, because we want to align the behavior with
 		// standard ERC20 smart contracts, which return zero if an allowance is not found.
@@ -204,44 +193,20 @@ func (p Precompile) Allowance(
 	return method.Outputs.Pack(allowance)
 }
 
-// GetAuthzExpirationAndAllowance returns the authorization, its expiration as well as the amount of denom
-// that the grantee is allowed to spend on behalf of the granter.
-func GetAuthzExpirationAndAllowance(
-	authzKeeper authzkeeper.Keeper,
-	ctx sdk.Context,
-	grantee, granter common.Address,
-	denom string,
-) (authz.Authorization, *time.Time, *big.Int, error) {
-	authorization, expiration, err := auth.CheckAuthzExists(ctx, authzKeeper, grantee, granter, SendMsgURL)
-	if err != nil {
-		return nil, nil, common.Big0, err
-	}
-
-	sendAuth, ok := authorization.(*banktypes.SendAuthorization)
-	if !ok {
-		return nil, nil, common.Big0, fmt.Errorf(
-			"expected authorization to be a %T", banktypes.SendAuthorization{},
-		)
-	}
-
-	allowance := sendAuth.SpendLimit.AmountOfNoDenomValidation(denom)
-	return authorization, expiration, allowance.BigInt(), nil
-}
-
 // getBaseDenomFromIBCVoucher returns the base denomination from the given IBC voucher denomination.
-func (p Precompile) getBaseDenomFromIBCVoucher(ctx sdk.Context, denom string) (string, error) {
-	// Infer the denomination name from the coin denomination base denom
-	denomTrace, err := ibc.GetDenomTrace(p.transferKeeper, ctx, denom)
+func (p Precompile) getBaseDenomFromIBCVoucher(ctx sdk.Context, voucherDenom string) (string, error) {
+	// Infer the denomination name from the coin denomination base voucherDenom
+	denom, err := ibc.GetDenom(p.transferKeeper, ctx, voucherDenom)
 	if err != nil {
 		// FIXME: return 'not supported' (same error as when you call the method on an ERC20.sol)
 		return "", err
 	}
 
 	// safety check
-	if len(denomTrace.BaseDenom) < 3 {
+	if len(denom.Base) < 3 {
 		// FIXME: return not supported (same error as when you call the method on an ERC20.sol)
-		return "", fmt.Errorf("invalid base denomination; should be at least length 3; got: %q", denomTrace.BaseDenom)
+		return "", fmt.Errorf("invalid base denomination; should be at least length 3; got: %q", denom.Base)
 	}
 
-	return denomTrace.BaseDenom, nil
+	return denom.Base, nil
 }

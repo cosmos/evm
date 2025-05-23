@@ -21,7 +21,7 @@ func TestChainConfigValidate(t *testing.T) {
 		config   types.ChainConfig
 		expError bool
 	}{
-		{"default", *types.DefaultChainConfig(""), false},
+		{"default", *types.DefaultChainConfig(0), false},
 		{
 			"valid",
 			types.ChainConfig{

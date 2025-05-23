@@ -1,6 +1,7 @@
 package v9_test
 
 import (
+	"github.com/cosmos/evm/server/config"
 	"testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestMigrate(t *testing.T) {
-	encCfg := encoding.MakeConfig()
+	encCfg := encoding.MakeConfig(config.DefaultEVMChainID)
 	cdc := encCfg.Codec
 
 	storeKey := storetypes.NewKVStoreKey(types.ModuleName)
@@ -36,30 +37,7 @@ func TestMigrate(t *testing.T) {
 	}
 
 	v8Params := v8types.V8Params{
-		EvmDenom: defaultParams.EvmDenom,
-		ChainConfig: v8types.V8ChainConfig{
-			ChainId:             defaultParams.ChainConfig.ChainId,
-			Denom:               defaultParams.ChainConfig.Denom,
-			Decimals:            defaultParams.ChainConfig.Decimals,
-			HomesteadBlock:      defaultParams.ChainConfig.HomesteadBlock,
-			DAOForkBlock:        defaultParams.ChainConfig.DAOForkBlock,
-			DAOForkSupport:      defaultParams.ChainConfig.DAOForkSupport,
-			EIP150Block:         defaultParams.ChainConfig.EIP150Block,
-			EIP155Block:         defaultParams.ChainConfig.EIP155Block,
-			EIP158Block:         defaultParams.ChainConfig.EIP158Block,
-			ByzantiumBlock:      defaultParams.ChainConfig.ByzantiumBlock,
-			ConstantinopleBlock: defaultParams.ChainConfig.ConstantinopleBlock,
-			PetersburgBlock:     defaultParams.ChainConfig.PetersburgBlock,
-			IstanbulBlock:       defaultParams.ChainConfig.IstanbulBlock,
-			MuirGlacierBlock:    defaultParams.ChainConfig.MuirGlacierBlock,
-			BerlinBlock:         defaultParams.ChainConfig.BerlinBlock,
-			LondonBlock:         defaultParams.ChainConfig.LondonBlock,
-			ArrowGlacierBlock:   defaultParams.ChainConfig.ArrowGlacierBlock,
-			GrayGlacierBlock:    defaultParams.ChainConfig.GrayGlacierBlock,
-			MergeNetsplitBlock:  defaultParams.ChainConfig.MergeNetsplitBlock,
-			ShanghaiBlock:       defaultParams.ChainConfig.ShanghaiTime,
-			CancunBlock:         defaultParams.ChainConfig.CancunTime,
-		},
+		EvmDenom:            defaultParams.EvmDenom,
 		AllowUnprotectedTxs: defaultParams.AllowUnprotectedTxs,
 		AccessControl:       accessCtrl,
 	}

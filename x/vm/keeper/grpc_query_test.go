@@ -1486,7 +1486,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				suite.Require().NoError(suite.network.App.FeeMarketKeeper.SetParams(suite.network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+				chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt
@@ -1499,7 +1499,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
+					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				suite.Require().NoError(err)
 			},
@@ -1524,9 +1524,12 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 	}
 
 	// Save initial configure to restore it between tests
-	denom := types.GetEVMCoinDenom()
-	decimals := types.GetEVMCoinDecimals()
-	chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+	coinInfo := types.EvmCoinInfo{
+		Denom:         types.GetEVMCoinDenom(),
+		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
+		Decimals:      types.GetEVMCoinDecimals(),
+	}
+	chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
@@ -1551,7 +1554,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 			configurator.ResetTestConfig()
 			err = configurator.
 				WithChainConfig(chainConfig).
-				WithEVMCoinInfo(denom, uint8(decimals)).
+				WithEVMCoinInfo(coinInfo).
 				Configure()
 			suite.Require().NoError(err)
 		})

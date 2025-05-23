@@ -51,7 +51,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = slashing.NewPrecompile(
 		s.network.App.SlashingKeeper,
-		s.network.App.AuthzKeeper,
 	); err != nil {
 		panic(err)
 	}

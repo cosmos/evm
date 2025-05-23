@@ -8,6 +8,7 @@ import (
 	evmcore "github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
@@ -51,9 +52,10 @@ func (k *Keeper) NewEVM(
 		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
+	ethCfg := types.GetEthChainConfig()
 	txCtx := evmcore.NewEVMTxContext(&msg)
 	if tracer == nil {
-		tracer = k.Tracer(ctx, msg, cfg.ChainConfig)
+		tracer = k.Tracer(ctx, msg, ethCfg)
 	}
 	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
 
@@ -69,7 +71,7 @@ func (k *Keeper) NewEVM(
 		accessControl.GetCallHook(signer),
 		k.GetPrecompilesCallHook(ctx),
 	)
-	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, cfg.ChainConfig, vmConfig)
+	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
 }
 
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
@@ -146,7 +148,10 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
 func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
-	var bloom *big.Int
+	var (
+		bloom        *big.Int
+		bloomReceipt ethtypes.Bloom
+	)
 
 	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
 	if err != nil {
@@ -155,7 +160,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
+	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
@@ -181,10 +186,58 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	if len(logs) > 0 {
 		bloom = k.GetBlockBloomTransient(ctx)
 		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.LogsBloom(logs)))
+		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
 	}
 
 	if !res.Failed() {
-		commit()
+		var contractAddr common.Address
+		if msg.To == nil {
+			contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+		}
+
+		cumulativeGasUsed := res.GasUsed
+		if ctx.BlockGasMeter() != nil {
+			limit := ctx.BlockGasMeter().Limit()
+			cumulativeGasUsed += ctx.BlockGasMeter().GasConsumed()
+			if cumulativeGasUsed > limit {
+				cumulativeGasUsed = limit
+			}
+		}
+
+		receipt := &ethtypes.Receipt{
+			Type:              tx.Type(),
+			PostState:         nil,
+			CumulativeGasUsed: cumulativeGasUsed,
+			Bloom:             bloomReceipt,
+			Logs:              logs,
+			TxHash:            txConfig.TxHash,
+			ContractAddress:   contractAddr,
+			GasUsed:           res.GasUsed,
+			BlockHash:         txConfig.BlockHash,
+			BlockNumber:       big.NewInt(ctx.BlockHeight()),
+			TransactionIndex:  txConfig.TxIndex,
+		}
+
+		signerAddr, err := signer.Sender(tx)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
+		}
+
+		// Note: PostTxProcessing hooks currently do not charge for gas
+		// and function similar to EndBlockers in abci, but for EVM transactions
+		if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
+			// If hooks returns an error, revert the whole tx.
+			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
+			k.Logger(ctx).Error("tx post processing failed", "error", err)
+			// If the tx failed in post processing hooks, we should clear the logs
+			res.Logs = nil
+		} else if commit != nil {
+			commit()
+
+			// Since the post-processing can alter the log, we need to update the result
+			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			ctx.EventManager().EmitEvents(tmpCtx.EventManager().Events())
+		}
 	}
 
 	evmDenom := types.GetEVMCoinDenom()
@@ -290,11 +343,13 @@ func (k *Keeper) ApplyMessageWithConfig(
 		}()
 	}
 
+	ethCfg := types.GetEthChainConfig()
+
 	sender := vm.AccountRef(msg.From)
 	contractCreation := msg.To == nil
-	isLondon := cfg.ChainConfig.IsLondon(evm.Context.BlockNumber)
+	isLondon := ethCfg.IsLondon(evm.Context.BlockNumber)
 
-	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, cfg.ChainConfig, contractCreation)
+	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, ethCfg, contractCreation)
 	if err != nil {
 		// should have already been checked on Ante Handler
 		return nil, errorsmod.Wrap(err, "intrinsic gas failed")
@@ -309,7 +364,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	rules := cfg.ChainConfig.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix()))
+	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix()))
 	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(rules), msg.AccessList)
 
 	if contractCreation {

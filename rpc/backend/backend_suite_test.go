@@ -19,6 +19,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
 	testnetwork "github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -74,7 +75,7 @@ func (suite *BackendTestSuite) SetupTest() {
 
 	nw := testnetwork.New()
 	encodingConfig := nw.GetEncodingConfig()
-	clientCtx := client.Context{}.WithChainID(ChainID).
+	clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
 		WithHeight(1).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithKeyringDir(clientDir).
@@ -89,6 +90,7 @@ func (suite *BackendTestSuite) SetupTest() {
 	suite.backend.cfg.JSONRPC.GasCap = 0
 	suite.backend.cfg.JSONRPC.EVMTimeout = 0
 	suite.backend.cfg.JSONRPC.AllowInsecureUnlock = true
+	suite.backend.cfg.EVM.EVMChainID = 262144
 	suite.backend.queryClient.QueryClient = mocks.NewEVMQueryClient(suite.T())
 	suite.backend.queryClient.FeeMarket = mocks.NewFeeMarketQueryClient(suite.T())
 	suite.backend.ctx = rpctypes.ContextWithHeight(1)
@@ -119,6 +121,28 @@ func (suite *BackendTestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byt
 	bz, err := suite.backend.clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
 	suite.Require().NoError(err)
 	return msgEthereumTx, bz
+}
+
+// buildEthereumTx returns an example legacy Ethereum transaction
+func (suite *BackendTestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int) *evmtypes.MsgEthereumTx {
+	ethTxParams := evmtypes.EvmTxArgs{
+		ChainID:  eip155ChainID,
+		Nonce:    uint64(0),
+		To:       &common.Address{},
+		Amount:   big.NewInt(0),
+		GasLimit: 100000,
+		GasPrice: big.NewInt(1),
+	}
+	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
+
+	// A valid msg should have empty `From`
+	msgEthereumTx.From = suite.from.Hex()
+
+	txBuilder := suite.backend.clientCtx.TxConfig.NewTxBuilder()
+	err := txBuilder.SetMsgs(msgEthereumTx)
+	suite.Require().NoError(err)
+
+	return msgEthereumTx
 }
 
 // buildFormattedBlock returns a formatted block for testing
@@ -170,7 +194,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 
 func (suite *BackendTestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig()
+	encCfg := encoding.MakeConfig(config.DefaultEVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 

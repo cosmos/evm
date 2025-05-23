@@ -245,25 +245,23 @@ func (suite *EvmAnteTestSuite) TestCheckTxFee() {
 		},
 	}
 
-	for _, decimals := range []evmtypes.Decimals{
-		evmtypes.SixDecimals,
-		evmtypes.EighteenDecimals,
+	for _, chainID := range []testconstants.ChainID{
+		testconstants.ExampleChainID,
+		testconstants.SixDecimalsChainID,
 	} {
 		for _, tc := range testCases {
-			suite.Run(fmt.Sprintf("%d decimals, %s", decimals, tc.name), func() {
+			suite.Run(fmt.Sprintf("%s, %s", chainID.ChainID, tc.name), func() {
 				// Call the configurator to set the EVM coin required for the
 				// function to be tested.
 				configurator := evmtypes.NewEVMConfigurator()
 				configurator.ResetTestConfig()
-				suite.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(decimals)).Configure())
+				suite.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainID]).Configure())
 
 				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
 				// decimals representation.
-				originalAmount := amount
-				evmCoinDecimal := evmtypes.GetEVMCoinDecimals()
-				originalAmount = originalAmount.Quo(evmCoinDecimal.ConversionFactor())
+				evmExtendedDenom := evmtypes.GetEVMCoinExtendedDenom()
 
-				coins := sdktypes.Coins{sdktypes.Coin{Denom: "aatom", Amount: originalAmount}}
+				coins := sdktypes.Coins{sdktypes.Coin{Denom: evmExtendedDenom, Amount: amount}}
 
 				// This struct should hold values in the original representation
 				txFeeInfo := &tx.Fee{

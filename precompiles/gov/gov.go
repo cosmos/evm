@@ -14,8 +14,8 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
@@ -30,6 +30,7 @@ var f embed.FS
 type Precompile struct {
 	cmn.Precompile
 	govKeeper govkeeper.Keeper
+	codec     codec.Codec
 }
 
 // LoadABI loads the gov ABI from the embedded abi.json file
@@ -42,7 +43,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	govKeeper govkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
+	codec codec.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -52,12 +53,11 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  abi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		govKeeper: govKeeper,
+		codec:     codec,
 	}
 
 	// SetAddress defines the address of the gov precompiled contract.
@@ -94,61 +94,66 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	return p.RunAtomic(
-		snapshot,
-		stateDB,
-		func() ([]byte, error) {
-			switch method.Name {
-			// gov transactions
-			case VoteMethod:
-				bz, err = p.Vote(ctx, evm.Origin, contract, stateDB, method, args)
-			case VoteWeightedMethod:
-				bz, err = p.VoteWeighted(ctx, evm.Origin, contract, stateDB, method, args)
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		switch method.Name {
+		// gov transactions
+		case VoteMethod:
+			bz, err = p.Vote(ctx, evm.Origin, contract, stateDB, method, args)
+		case VoteWeightedMethod:
+			bz, err = p.VoteWeighted(ctx, evm.Origin, contract, stateDB, method, args)
+		case SubmitProposalMethod:
+			bz, err = p.SubmitProposal(ctx, evm.Origin, contract, stateDB, method, args)
+		case DepositMethod:
+			bz, err = p.Deposit(ctx, evm.Origin, contract, stateDB, method, args)
+		case CancelProposalMethod:
+			bz, err = p.CancelProposal(ctx, evm.Origin, contract, stateDB, method, args)
 
-			// gov queries
-			case GetVoteMethod:
-				bz, err = p.GetVote(ctx, method, contract, args)
-			case GetVotesMethod:
-				bz, err = p.GetVotes(ctx, method, contract, args)
-			case GetDepositMethod:
-				bz, err = p.GetDeposit(ctx, method, contract, args)
-			case GetDepositsMethod:
-				bz, err = p.GetDeposits(ctx, method, contract, args)
-			case GetTallyResultMethod:
-				bz, err = p.GetTallyResult(ctx, method, contract, args)
-			case GetProposalMethod:
-				bz, err = p.GetProposal(ctx, method, contract, args)
-			case GetProposalsMethod:
-				bz, err = p.GetProposals(ctx, method, contract, args)
-			case GetParamsMethod:
-				bz, err = p.GetParams(ctx, method, contract, args)
-			default:
-				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-			}
+		// gov queries
+		case GetVoteMethod:
+			bz, err = p.GetVote(ctx, method, contract, args)
+		case GetVotesMethod:
+			bz, err = p.GetVotes(ctx, method, contract, args)
+		case GetDepositMethod:
+			bz, err = p.GetDeposit(ctx, method, contract, args)
+		case GetDepositsMethod:
+			bz, err = p.GetDeposits(ctx, method, contract, args)
+		case GetTallyResultMethod:
+			bz, err = p.GetTallyResult(ctx, method, contract, args)
+		case GetProposalMethod:
+			bz, err = p.GetProposal(ctx, method, contract, args)
+		case GetProposalsMethod:
+			bz, err = p.GetProposals(ctx, method, contract, args)
+		case GetParamsMethod:
+			bz, err = p.GetParams(ctx, method, contract, args)
+		case GetConstitutionMethod:
+			bz, err = p.GetConstitution(ctx, method, contract, args)
+		default:
+			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		}
 
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-			if !contract.UseGas(cost) {
-				return nil, vm.ErrOutOfGas
-			}
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
 
-			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-				return nil, err
-			}
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
 
-			return bz, nil
-		},
-	)
+		return bz, nil
+	})
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
-	case VoteMethod, VoteWeightedMethod:
+	case VoteMethod, VoteWeightedMethod,
+		SubmitProposalMethod, DepositMethod, CancelProposalMethod:
 		return true
 	default:
 		return false

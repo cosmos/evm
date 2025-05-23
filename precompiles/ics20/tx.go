@@ -9,8 +9,9 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	"github.com/holiman/uint256"
 
 	errorsmod "cosmossdk.io/errors"
@@ -38,9 +39,25 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
-	// check if channel exists and is open
-	if !p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel) {
-		return nil, errorsmod.Wrapf(channeltypes.ErrChannelNotFound, "port ID (%s) channel ID (%s)", msg.SourcePort, msg.SourceChannel)
+	// If the channel is in v1 format, check if channel exists and is open
+	if channeltypes.IsChannelIDFormat(msg.SourceChannel) {
+		// check if channel exists and is open
+		hasV1Channel := p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel)
+		if !hasV1Channel {
+			return nil, errorsmod.Wrapf(
+				channeltypes.ErrChannelNotFound,
+				"port ID (%s) channel ID (%s)",
+				msg.SourcePort,
+				msg.SourceChannel,
+			)
+		}
+		// otherwise, it’s a v2 packet, so perform client ID validation
+	} else if v2ClientIDErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIDErr != nil {
+		return nil, errorsmod.Wrapf(
+			channeltypes.ErrInvalidChannel,
+			"invalid channel ID (%s) on v2 packet",
+			msg.SourceChannel,
+		)
 	}
 
 	// isCallerSender is true when the contract caller is the same as the sender
@@ -51,19 +68,8 @@ func (p *Precompile) Transfer(
 		return nil, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
 	}
 
-	// no need to have authorization when the contract caller is the same as origin (owner of funds)
-	// and the sender is the origin
-	resp, expiration, err := CheckAndAcceptAuthorizationIfNeeded(ctx, contract, origin, p.AuthzKeeper, msg)
-	if err != nil {
-		return nil, err
-	}
-
 	res, err := p.transferKeeper.Transfer(ctx, msg)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := UpdateGrantIfNeeded(ctx, contract, p.AuthzKeeper, origin, expiration, resp); err != nil {
 		return nil, err
 	}
 

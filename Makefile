@@ -15,7 +15,7 @@ export GO111MODULE = on
 # Default target executed when no arguments are given to make.
 default_target: all
 
-.PHONY: build, default_target
+.PHONY: build default_target
 
 ###############################################################################
 ###                          evmd Build & Install                           ###
@@ -54,6 +54,10 @@ ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
 endif
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
+
+ifeq (staticlink,$(findstring staticlink,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -linkmode external -extldflags '-static'
+endif
 
 BUILD_FLAGS := -tags "$(build_tags)" -ldflags '$(ldflags)'
 # check for nostrip option
@@ -118,6 +122,12 @@ $(TEST_TARGETS): run-tests
 
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
 test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
+test-unit-cover:
+	@echo "Filtering ignored files from coverage.txt..."
+	@grep -v -E '/cmd/|/client/|/proto/|/testutil/|/mocks/|/test_.*\.go:|\.pb\.go:|\.pb\.gw\.go:|/x/[^/]+/module\.go:|/scripts/|/ibc/testing/|/version/|\.md:|\.pulsar\.go:' coverage.txt > tmp_coverage.txt && mv tmp_coverage.txt coverage.txt
+	@echo "Function-level coverage summary:"
+	@go tool cover -func=coverage.txt
+
 
 run-tests:
 ifneq (,$(shell which tparse 2>/dev/null))
@@ -125,6 +135,18 @@ ifneq (,$(shell which tparse 2>/dev/null))
 else
 	go test -tags=test -mod=readonly $(ARGS)  $(EXTRA_ARGS) $(TEST_PACKAGES)
 endif
+
+# Use the old Apple linker to workaround broken xcode - https://github.com/golang/go/issues/65169
+ifeq ($(OS_FAMILY),Darwin)
+  FUZZLDFLAGS := -ldflags=-extldflags=-Wl,-ld_classic
+endif
+
+test-fuzz:
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzMintCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzBurnCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzSendCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_NonZeroRemainder ./x/precisebank/types
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_ZeroRemainder ./x/precisebank/types
 
 test-scripts:
 	@echo "Running scripts tests"

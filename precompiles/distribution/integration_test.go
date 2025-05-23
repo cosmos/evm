@@ -12,7 +12,6 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/staking"
@@ -168,13 +167,13 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 		})
 	})
 
-	Describe("Execute WithdrawDelegatorRewards transaction", func() {
+	Describe("Execute WithdrawDelegatorReward transaction", func() {
 		var accruedRewards sdk.DecCoins
 
 		BeforeEach(func() {
 			var err error
 			// set the default call arguments
-			callArgs.MethodName = distribution.WithdrawDelegatorRewardsMethod
+			callArgs.MethodName = distribution.WithdrawDelegatorRewardMethod
 
 			accruedRewards, err = testutils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 			Expect(err).To(BeNil())
@@ -216,7 +215,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -228,7 +227,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -277,7 +276,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -290,7 +289,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -356,7 +355,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			}
 
 			withdrawalCheck := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -369,7 +368,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 			Expect(rewards[0].Denom).To(Equal(s.bondDenom))
@@ -647,6 +646,307 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			Expect(finalBalance.Amount).To(Equal(expBalanceAmt), "expected final balance to be equal to initial balance + rewards - fees")
 		})
 	})
+
+	Describe("Execute DepositValidatorRewardsPool transaction", func() {
+		const method = distribution.DepositValidatorRewardsPoolMethod
+
+		BeforeEach(func() {
+			txArgs.GasLimit = 300_000
+			txArgs.GasPrice = gasPrice.BigInt()
+			callArgs.MethodName = method
+		})
+
+		It("should revert if the origin is different from the depositor", func() {
+			callArgs.Args = []interface{}{
+				differentAddr, // depositor
+				s.network.GetValidators()[0].OperatorAddress,
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
+				},
+			}
+
+			failureCheck := defaultLogCheck.WithErrContains(
+				cmn.ErrSpenderDifferentOrigin,
+				s.keyring.GetAddr(0).String(),
+				differentAddr,
+			)
+
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0), // tx from Addr0
+				txArgs,
+				callArgs,
+				failureCheck,
+			)
+			Expect(err).To(BeNil())
+		})
+
+		It("should revert if the depositor has insufficient funds", func() {
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			excessAmount := balRes.Balance.Amount.Add(math.NewInt(1))
+
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				s.network.GetValidators()[0].OperatorAddress,
+				[]cmn.Coin{{Denom: s.bondDenom, Amount: excessAmount.BigInt()}},
+			}
+
+			failureCheck := defaultLogCheck.WithErrContains("insufficient funds")
+
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				failureCheck,
+			)
+			Expect(err).To(BeNil())
+		})
+
+		It("should deposit rewards to the validator rewards pool", func() {
+			// check initial balance
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialBalance := balRes.Balance
+
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0), // depositor
+				s.network.GetValidators()[0].OperatorAddress,
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
+				},
+			}
+
+			passCheckWithEvent := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+
+			_, txRes, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0), // tx from Addr0
+				txArgs,
+				callArgs,
+				passCheckWithEvent,
+			)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// check that the balance is reduced by the amount deposited
+			expBalance := initialBalance.Amount.Sub(math.NewInt(1_000_000))
+			fees := math.NewIntFromUint64(txRes.GasUsed).Mul(math.NewIntFromBigInt(txArgs.GasPrice))
+			expBalance = expBalance.Sub(fees)
+
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			Expect(balRes.Balance.Amount).To(Equal(expBalance), "expected final balance to be equal to initial balance - deposit amount")
+		})
+
+		It("should deposit rewards to the validator rewards pool with multiple coins", func() {
+			// get initial balances
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialBalance := balRes.Balance
+
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.otherDenoms[0])
+			Expect(err).To(BeNil())
+			initialBalance1 := balRes.Balance
+
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.otherDenoms[1])
+			Expect(err).To(BeNil())
+			initialBalance2 := balRes.Balance
+
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0), // depositor
+				s.network.GetValidators()[0].OperatorAddress,
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
+					{Denom: s.otherDenoms[0], Amount: big.NewInt(1_000_001)},
+					{Denom: s.otherDenoms[1], Amount: big.NewInt(1_000_002)},
+				},
+			}
+
+			passCheckWithEvent := passCheck.WithExpEvents(
+				distribution.EventTypeDepositValidatorRewardsPool,
+				distribution.EventTypeDepositValidatorRewardsPool,
+				distribution.EventTypeDepositValidatorRewardsPool,
+			)
+
+			_, txRes, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0), // tx from Addr0
+				txArgs,
+				callArgs,
+				passCheckWithEvent,
+			)
+			Expect(err).To(BeNil())
+			Expect(txRes).NotTo(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			fees := math.NewIntFromUint64(txRes.GasUsed).Mul(math.NewIntFromBigInt(txArgs.GasPrice))
+
+			// check that the balance is reduced by the amount deposited
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			expBalance := initialBalance.Amount.Sub(math.NewInt(1_000_000)).Sub(fees)
+			Expect(balRes.Balance.Amount).To(Equal(expBalance), "expected final balance to be equal to initial balance - deposit amount")
+
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.otherDenoms[0])
+			Expect(err).To(BeNil())
+			expBalance1 := initialBalance1.Amount.Sub(math.NewInt(1_000_001))
+			Expect(balRes.Balance.Amount).To(Equal(expBalance1), "expected final balance to be equal to initial balance - deposit amount")
+
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.otherDenoms[1])
+			Expect(err).To(BeNil())
+			expBalance2 := initialBalance2.Amount.Sub(math.NewInt(1_000_002))
+			Expect(balRes.Balance.Amount).To(Equal(expBalance2), "expected final balance to be equal to initial balance - deposit amount")
+		})
+	})
+
+	Describe("Execute FundCommunityPool transaction", func() {
+		const method = distribution.FundCommunityPoolMethod
+
+		BeforeEach(func() {
+			callArgs.MethodName = method
+		})
+
+		It("should fail if the depositor has insufficient balance", func() {
+			// Here, we attempt to deposit an amount that the EOA does not have.
+
+			// 1) Query the current balance
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialBalance := balRes.Balance
+
+			// 2) Attempt to deposit more than current balance
+			deposit := initialBalance.Amount.Add(math.NewInt(9999999999))
+
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: deposit.BigInt()},
+				},
+			}
+
+			// We expect the tx to fail ("execution reverted") because of insufficient funds
+			insufficientFundsCheck := defaultLogCheck.WithErrContains("insufficient funds")
+
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				insufficientFundsCheck,
+			)
+			Expect(err).To(BeNil())
+		})
+
+		It("should fund the community pool successfully from EOA", func() {
+			// 1) Fund the EOA to ensure it has enough tokens
+			err := testutils.FundAccountWithBaseDenom(
+				s.factory, s.network,
+				s.keyring.GetKey(0),
+				s.keyring.GetAccAddr(0),
+				math.NewInt(1_000_000),
+			)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			initialEOABal := balRes.Balance
+
+			// 2) Prepare and execute the FundCommunityPool call
+			fundAmt := math.NewInt(10)
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
+				},
+			}
+
+			txArgs.GasPrice = gasPrice.BigInt()
+			txArgs.GasLimit = 500_000
+
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+			res, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil())
+
+			// Persist state changes
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// 3) Ensure the EOA's final balance is decreased by (fundAmt + fees)
+			balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			finalEOABal := balRes.Balance
+
+			fees := gasPrice.Mul(math.NewInt(res.GasUsed))
+			// The final balance must be: initialBalance - fundAmt - fees
+			// We only check if it's consistent ( >= ), because we funded the EOA in step 1
+			expLowerBound := fundAmt.Add(fees)
+
+			diff := initialEOABal.Amount.Sub(finalEOABal.Amount)
+			Expect(diff.GTE(expLowerBound)).To(BeTrue(),
+				"final EOA balance must be decreased at least by funded amt + fees")
+		})
+
+		It("should fund multiple coins to the community pool successfully from EOA", func() {
+			// 1) Fund the EOA to ensure it has enough tokens
+			err := testutils.FundAccountWithBaseDenom(
+				s.factory, s.network,
+				s.keyring.GetKey(0),
+				s.keyring.GetAccAddr(0),
+				math.NewInt(1_000_000),
+			)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetAllBalances(s.keyring.GetAccAddr(0))
+			Expect(err).To(BeNil())
+			initialEOABals := balRes.Balances
+
+			// 2) Prepare and execute the FundCommunityPool call
+			fundAmt := math.NewInt(10)
+			sendAmt := []cmn.Coin{
+				{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
+				{Denom: testconstants.OtherCoinDenoms[0], Amount: fundAmt.BigInt()},
+				{Denom: testconstants.OtherCoinDenoms[1], Amount: fundAmt.BigInt()},
+			}
+			sendSdkCoins, err := cmn.NewSdkCoinsFromCoins(sendAmt)
+			Expect(err).To(BeNil())
+
+			callArgs.Args = []interface{}{s.keyring.GetAddr(0), sendAmt}
+
+			txArgs.GasPrice = gasPrice.BigInt()
+			txArgs.GasLimit = 500_000
+
+			logCheckArgs := passCheck.WithExpEvents(
+				distribution.EventTypeFundCommunityPool,
+				distribution.EventTypeFundCommunityPool,
+				distribution.EventTypeFundCommunityPool,
+			)
+
+			_, _, err = s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil())
+
+			// Persist state changes
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// 3) Ensure the EOA's final balance is decreased by (fundAmt + fees)
+			balRes, err = s.grpcHandler.GetAllBalances(s.keyring.GetAccAddr(0))
+			Expect(err).To(BeNil())
+			finalEOABals := balRes.Balances
+
+			diffs := initialEOABals.Sub(finalEOABals...)
+			Expect(diffs.IsAllGTE(sendSdkCoins)).To(BeTrue(),
+				"final EOA balance must be decreased at least by funded amt + fees")
+		})
+	})
+
 	// =====================================
 	// 				QUERIES
 	// =====================================
@@ -718,7 +1018,7 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			// the expected rewards should be the accruedRewards per validator
 			// plus the 5% commission
 			expRewardAmt := accruedRewards.AmountOf(s.bondDenom).
-				Quo(math.LegacyNewDec(3)).             // divide by validators count
+				Quo(math.LegacyNewDec(3)).
 				Quo(math.LegacyNewDecWithPrec(95, 2)). // add 5% commission
 				TruncateInt()
 
@@ -953,6 +1253,48 @@ var _ = Describe("Calling distribution precompile from EOA", func() {
 			expAddr := s.keyring.GetAccAddr(0)
 			Expect(withdrawAddr[0]).To(Equal(expAddr.String()))
 		})
+
+		It("should get community pool coins - communityPool query", func() {
+			fundAmount := big.NewInt(1_000_000)
+			callArgs.MethodName = distribution.FundCommunityPoolMethod
+			callArgs.Args = []interface{}{
+				s.keyring.GetAddr(0),
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: fundAmount},
+				},
+			}
+
+			txArgs.GasLimit = 200_000
+
+			fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				fundCheck,
+			)
+			Expect(err).To(BeNil(), "error while calling the precompile")
+			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
+
+			callArgs.MethodName = distribution.CommunityPoolMethod
+			callArgs.Args = []interface{}{}
+
+			_, ethRes, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				passCheck,
+			)
+			Expect(err).To(BeNil(), "error while calling the precompile")
+
+			var coins []cmn.DecCoin
+			err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+			Expect(err).To(BeNil())
+			Expect(len(coins)).To(Equal(1))
+			Expect(coins[0].Denom).To(Equal(s.bondDenom))
+			Expect(coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
+		})
 	})
 })
 
@@ -1118,7 +1460,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(err).To(BeNil())
 			initialBalance = balRes.Balance
 
-			callArgs.MethodName = "testWithdrawDelegatorRewards"
+			callArgs.MethodName = "testWithdrawDelegatorReward"
 
 			// set gas price to calculate fees paid
 			txArgs.GasPrice = gasPrice.BigInt()
@@ -1170,7 +1512,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 			logCheckArgs := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1216,7 +1558,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			}
 
 			logCheckArgs := passCheck.
-				WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+				WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			res, ethRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1228,7 +1570,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
 
 			var rewards []cmn.Coin
-			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardsMethod, ethRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
 			Expect(err).To(BeNil())
 			Expect(len(rewards)).To(Equal(1))
 
@@ -1265,7 +1607,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			contractInitialBalance := math.NewInt(100)
 
 			BeforeEach(func() {
-				callArgs.MethodName = "testWithdrawDelegatorRewardsWithTransfer"
+				callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
 
 				// send some funds to the contract
 				err := testutils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), contractInitialBalance)
@@ -1302,7 +1644,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 					}
 
 					logCheckArgs := passCheck.
-						WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+						WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 					res, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -1473,7 +1815,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
 				ABIEvents: stkPrecompile.ABI.Events,
-				ExpEvents: []string{authorization.EventTypeApproval, staking.EventTypeDelegate},
+				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1503,13 +1845,13 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			initialBalance = balRes.Balance
 
 			// populate default arguments
-			callArgs.MethodName = "testWithdrawDelegatorRewardsFromContract"
+			callArgs.MethodName = "testWithdrawDelegatorRewardFromContract"
 		})
 
 		It("should withdraw rewards successfully without origin check", func() {
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			_, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -1558,7 +1900,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			accruedRewardsAmt = rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			txArgs.GasLimit = 300_000
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1589,7 +1931,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				contractInitialBalance = math.NewInt(100)
 			)
 			BeforeEach(func() {
-				callArgs.MethodName = "testWithdrawDelegatorRewardsWithTransfer"
+				callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
 
 				// deploy another delegator contract
 				delContractAddr, err = s.factory.DeployContract(
@@ -1614,7 +1956,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
 					ABIEvents: stkPrecompile.ABI.Events,
-					ExpEvents: []string{authorization.EventTypeApproval, staking.EventTypeDelegate},
+					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1734,7 +2076,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(err).To(BeNil())
 			expRewards := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorRewards)
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
 
 			callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 
@@ -2284,7 +2626,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 			Expect(err).To(BeNil())
 			finalBalance := balRes.Balance
-			expectedGasCost := math.NewInt(79_415_000_000_000)
+			expectedGasCost := math.NewInt(79_416_000_000_000)
 			Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
 			res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
@@ -2315,7 +2657,7 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
 				ABIEvents: stkPrecompile.ABI.Events,
-				ExpEvents: []string{authorization.EventTypeApproval, staking.EventTypeDelegate},
+				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
@@ -2448,6 +2790,220 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 			Expect(err).To(BeNil())
 			contractFinalBalance := balRes.Balance
 			Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount))
+		})
+	})
+
+	Context("depositValidatorRewardsPool", func() {
+		var (
+			signerInitialBalance *sdk.Coin
+			depositAmt           *big.Int
+		)
+
+		BeforeEach(func() { //nolint:dupl
+			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+			Expect(err).To(BeNil())
+			signerInitialBalance = balRes.Balance
+
+			depositAmt = big.NewInt(1_000_000)
+
+			// populate default arguments
+			callArgs.MethodName = "testDepositValidatorRewardsPool"
+		})
+
+		When("depositor is signer", func() {
+			It("should deposit rewards to the validator rewards pool", func() {
+				callArgs.Args = []interface{}{
+					s.keyring.GetAddr(0),
+					s.network.GetValidators()[0].OperatorAddress,
+					[]cmn.Coin{
+						{Denom: s.bondDenom, Amount: depositAmt},
+					},
+				}
+				txArgs.GasPrice = gasPrice.BigInt()
+
+				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+
+				res, _, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					logCheckArgs,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				// tx signer should have paid the fees
+				fees := gasPrice.Mul(math.NewInt(res.GasUsed))
+				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+				Expect(err).To(BeNil())
+				signerFinalBalance := balRes.Balance
+				Expect(signerFinalBalance.Amount).To(Equal(signerInitialBalance.Amount.Sub(math.NewIntFromBigInt(depositAmt)).Sub(fees)))
+			})
+		})
+
+		When("depositor is different from signer", func() {
+			It("should fail to deposit rewards to the validator rewards pool", func() {
+				callArgs.Args = []interface{}{
+					differentAddr,
+					s.network.GetValidators()[0].OperatorAddress,
+					[]cmn.Coin{
+						{Denom: s.bondDenom, Amount: depositAmt},
+					},
+				}
+				txArgs.GasPrice = gasPrice.BigInt()
+
+				failureCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())
+
+				_, _, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					failureCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				// check that the contract balance didn't change
+				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+				Expect(err).To(BeNil())
+				signerFinalBalance := balRes.Balance
+				Expect(signerFinalBalance.Amount).To(Equal(signerFinalBalance.Amount))
+			})
+		})
+
+		// Specific BeforeEach for table-driven tests
+		Context("Table-driven tests for DepositValidatorRewardsPool", func() {
+			contractInitialBalance := math.NewInt(100)
+
+			BeforeEach(func() {
+				callArgs.MethodName = "testDepositValidatorRewardsPoolWithTransfer"
+
+				// send some funds to the contract
+				err := testutils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), contractInitialBalance)
+				Expect(err).To(BeNil())
+				Expect(s.network.NextBlock()).To(BeNil())
+			})
+
+			DescribeTable("deposit vaidator rewards pool with internal transfers to delegator - should withdraw rewards successfully to the withdrawer address",
+				func(tc testCase) {
+					balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+					Expect(err).To(BeNil())
+					depositorInitialBalance := balRes.Balance
+
+					callArgs.Args = []interface{}{
+						s.keyring.GetAddr(0),
+						s.network.GetValidators()[0].OperatorAddress,
+						[]cmn.Coin{
+							{Denom: s.bondDenom, Amount: depositAmt},
+						},
+						tc.before,
+						tc.after,
+					}
+
+					txArgs.GasPrice = gasPrice.BigInt()
+
+					logCheckArgs := passCheck.
+						WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+
+					res, _, err := s.factory.CallContractAndCheckLogs(
+						s.keyring.GetPrivKey(0),
+						txArgs,
+						callArgs,
+						logCheckArgs,
+					)
+					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+					Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
+
+					fees := gasPrice.Mul(math.NewInt(res.GasUsed))
+
+					// check balances
+					contractTransferredAmt := math.ZeroInt()
+					for _, transferred := range []bool{tc.before, tc.after} {
+						if transferred {
+							contractTransferredAmt = contractTransferredAmt.AddRaw(15)
+						}
+					}
+					// contract balance be updated according to the transferred amount
+					balRes, err = s.grpcHandler.GetBalanceFromBank(contractAddr.Bytes(), s.bondDenom)
+					Expect(err).To(BeNil())
+					contractFinalBalance := balRes.Balance
+					Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Sub(contractTransferredAmt)))
+
+					expDepositorFinalBalance := depositorInitialBalance.Amount.Sub(fees).Sub(math.NewIntFromBigInt(depositAmt)).Add(contractTransferredAmt)
+
+					// depositor balance should have the transferred amt - fees - deposit amount (when is the withdrawer)
+					balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+					Expect(err).To(BeNil())
+					depositorFinalBalance := balRes.Balance
+					Expect(depositorFinalBalance.Amount).To(Equal(expDepositorFinalBalance), "expected final balance to be greater than initial balance after withdrawing rewards")
+				},
+
+				Entry("delegator == withdrawer - with internal transfers before and after precompile call", testCase{
+					before: true,
+					after:  true,
+				}),
+
+				Entry("delegator == withdrawer - with internal transfers before precompile call", testCase{
+					before: true,
+					after:  false,
+				}),
+
+				Entry("delegator == withdrawer - with internal transfers after precompile call", testCase{
+					before: false,
+					after:  true,
+				}),
+			)
+		})
+	})
+
+	Context("depositValidatorRewardsPool with contract as depositor", func() {
+		var (
+			contractInitialBalance *sdk.Coin
+			depositAmt             *big.Int
+		)
+
+		BeforeEach(func() { //nolint:dupl
+			// send funds to the contract
+			err := testutils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(2e18))
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			balRes, err := s.grpcHandler.GetBalanceFromBank(contractAddr.Bytes(), s.bondDenom)
+			Expect(err).To(BeNil())
+			contractInitialBalance = balRes.Balance
+
+			depositAmt = big.NewInt(1_000_000)
+
+			// populate default arguments
+			callArgs.MethodName = "testDepositValidatorRewardsPool"
+		})
+
+		It("should deposit rewards to the validator rewards pool", func() {
+			callArgs.Args = []interface{}{
+				contractAddr,
+				s.network.GetValidators()[0].OperatorAddress,
+				[]cmn.Coin{
+					{Denom: s.bondDenom, Amount: depositAmt},
+				},
+			}
+			txArgs.GasPrice = gasPrice.BigInt()
+
+			logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+
+			_, _, err := s.factory.CallContractAndCheckLogs(
+				s.keyring.GetPrivKey(0),
+				txArgs,
+				callArgs,
+				logCheckArgs,
+			)
+			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// tx signer should have paid the fees
+			balRes, err := s.grpcHandler.GetBalanceFromBank(contractAddr.Bytes(), s.bondDenom)
+			Expect(err).To(BeNil())
+			contractFinalBalance := balRes.Balance
+			Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(math.NewIntFromBigInt(depositAmt))))
 		})
 	})
 
@@ -2998,6 +3554,53 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 				// get the bech32 encoding
 				expAddr := sdk.AccAddress(s.keyring.GetAddr(0).Bytes())
 				Expect(withdrawAddr[0]).To(ContainSubstring(expAddr.String()))
+			})
+		})
+
+		Context("get community pool coins", func() {
+			var fundAmt *big.Int
+
+			BeforeEach(func() {
+				fundAmt = big.NewInt(1_000_000)
+				txArgs.GasLimit = 200_000
+
+				callArgs.MethodName = "testFundCommunityPool"
+				callArgs.Args = []interface{}{
+					s.keyring.GetAddr(0),
+					[]cmn.Coin{
+						{Denom: s.bondDenom, Amount: fundAmt},
+					},
+				}
+
+				fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+
+				_, _, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					fundCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				Expect(s.network.NextBlock()).To(BeNil())
+			})
+
+			It("should get community pool coins", func() {
+				callArgs.MethodName = "getCommunityPool"
+				callArgs.Args = []interface{}{}
+
+				_, ethRes, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					passCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+
+				var coins []cmn.DecCoin
+				err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+				Expect(err).To(BeNil())
+				Expect(len(coins)).To(Equal(1))
+				Expect(s.bondDenom).To(Equal(coins[0].Denom))
 			})
 		})
 	})

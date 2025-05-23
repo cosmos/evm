@@ -63,6 +63,8 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
+	DefaultEVMChainID = 262144
+
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25000000
 
@@ -124,6 +126,8 @@ type EVMConfig struct {
 	MaxTxGasWanted uint64 `mapstructure:"max-tx-gas-wanted"`
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
+	// EVMChainID defines the EIP-155 replay-protection chain ID.
+	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -181,8 +185,9 @@ type TLSConfig struct {
 // DefaultEVMConfig returns the default EVM configuration
 func DefaultEVMConfig() *EVMConfig {
 	return &EVMConfig{
-		Tracer:                  DefaultEVMTracer,
-		MaxTxGasWanted:          DefaultMaxTxGasWanted,
+		Tracer:         DefaultEVMTracer,
+		MaxTxGasWanted: DefaultMaxTxGasWanted,
+		EVMChainID:     DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/tests/integration/ledger/mocks"
 	"github.com/cosmos/evm/testutil"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -60,7 +61,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Adding a key from ledger using the CLI", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig()
+			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
 
 			cmd = s.cosmosEVMAddKeyCmd()
 
@@ -109,7 +110,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Singing a transactions", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig()
+			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
 
 			var err error
 
@@ -211,7 +212,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 						s.FormatFlag(flags.FlagSkipConfirmation),
 					})
 					out := bytes.NewBufferString("")
-					cmd.SetOutput(out)
+					cmd.SetOut(out)
 
 					err := cmd.Execute()
 
@@ -229,7 +230,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 						s.FormatFlag(flags.FlagSkipConfirmation),
 					})
 					out := bytes.NewBufferString("")
-					cmd.SetOutput(out)
+					cmd.SetOut(out)
 
 					err := cmd.Execute()
 

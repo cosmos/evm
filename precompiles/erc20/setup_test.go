@@ -29,6 +29,9 @@ type PrecompileTestSuite struct {
 	keyring     testkeyring.Keyring
 
 	precompile *erc20precompile.Precompile
+
+	// precompile2 is a second instance of the ERC20 precompile whose denom is bondDenom.
+	precompile2 *erc20precompile.Precompile
 }
 
 func TestPrecompileTestSuite(t *testing.T) {
@@ -61,4 +64,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	// NOTE: This has to be done AFTER assigning the suite fields.
 	s.tokenDenom = "xmpl"
 	s.precompile = s.setupERC20Precompile(s.tokenDenom)
+
+	// Instantiate the precompile2 with the bond denom.
+	s.precompile2 = s.setupERC20Precompile(s.bondDenom)
 }

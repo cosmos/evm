@@ -21,7 +21,7 @@ import (
 )
 
 // MakeConfig creates a new EncodingConfig and returns it
-func MakeConfig() sdktestutil.TestEncodingConfig {
+func MakeConfig(evmChainID uint64) sdktestutil.TestEncodingConfig {
 	cdc := amino.NewLegacyAmino()
 	signingOptions := signing.Options{
 		AddressCodec: address.Bech32Codec{
@@ -47,7 +47,7 @@ func MakeConfig() sdktestutil.TestEncodingConfig {
 	// This is needed for the EIP712 txs because currently is using
 	// the deprecated method legacytx.StdSignBytes
 	legacytx.RegressionTestingAminoCodec = cdc
-	eip712.SetEncodingConfig(cdc, interfaceRegistry)
+	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
 	return sdktestutil.TestEncodingConfig{
 		InterfaceRegistry: interfaceRegistry,

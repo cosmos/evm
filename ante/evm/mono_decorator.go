@@ -61,7 +61,6 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		}
 	}
 
-	ethCfg := evmtypes.GetEthChainConfig()
 	evmDenom := evmtypes.GetEVMCoinDenom()
 
 	// 1. setup ctx
@@ -165,7 +164,6 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			md.evmKeeper,
 			*coreMsg,
 			decUtils.BaseFee,
-			ethCfg,
 			decUtils.EvmParams,
 			decUtils.Rules.IsLondon,
 		); err != nil {

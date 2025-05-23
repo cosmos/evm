@@ -10,7 +10,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -31,98 +30,6 @@ const (
 	// EventTypeCancelUnbondingDelegation defines the event type for the staking CancelUnbondingDelegation transaction.
 	EventTypeCancelUnbondingDelegation = "CancelUnbondingDelegation"
 )
-
-// EmitApprovalEvent creates a new approval event emitted on an Approve, IncreaseAllowance and DecreaseAllowance transactions.
-func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, grantee, granter common.Address, coin *sdk.Coin, typeUrls []string) error {
-	// Prepare the event topics
-	event := p.ABI.Events[authorization.EventTypeApproval]
-	topics := make([]common.Hash, 3)
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(grantee)
-	if err != nil {
-		return err
-	}
-
-	topics[2], err = cmn.MakeTopic(granter)
-	if err != nil {
-		return err
-	}
-
-	// Check if the coin is set to infinite
-	value := abi.MaxUint256
-	if coin != nil {
-		value = coin.Amount.BigInt()
-	}
-
-	// Pack the arguments to be used as the Data field
-	arguments := abi.Arguments{event.Inputs[2], event.Inputs[3]}
-	packed, err := arguments.Pack(typeUrls, value)
-	if err != nil {
-		return err
-	}
-
-	stateDB.AddLog(&ethtypes.Log{
-		Address:     p.Address(),
-		Topics:      topics,
-		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
-	})
-
-	return nil
-}
-
-// EmitAllowanceChangeEvent creates a new allowance change event emitted on an IncreaseAllowance and DecreaseAllowance transactions.
-func (p Precompile) EmitAllowanceChangeEvent(ctx sdk.Context, stateDB vm.StateDB, grantee, granter common.Address, typeUrls []string) error {
-	// Prepare the event topics
-	event := p.ABI.Events[authorization.EventTypeAllowanceChange]
-	topics := make([]common.Hash, 3)
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(grantee)
-	if err != nil {
-		return err
-	}
-
-	topics[2], err = cmn.MakeTopic(granter)
-	if err != nil {
-		return err
-	}
-
-	newValues := make([]*big.Int, len(typeUrls))
-	for i, msgURL := range typeUrls {
-		// Not including expiration and convert check because we have already checked it in the previous call
-		msgAuthz, _ := p.AuthzKeeper.GetAuthorization(ctx, grantee.Bytes(), granter.Bytes(), msgURL)
-		stakeAuthz, _ := msgAuthz.(*stakingtypes.StakeAuthorization)
-		if stakeAuthz.MaxTokens == nil {
-			newValues[i] = abi.MaxUint256
-		} else {
-			newValues[i] = stakeAuthz.MaxTokens.Amount.BigInt()
-		}
-	}
-
-	// Pack the arguments to be used as the Data field
-	arguments := abi.Arguments{event.Inputs[2], event.Inputs[3]}
-	packed, err := arguments.Pack(typeUrls, newValues)
-	if err != nil {
-		return err
-	}
-
-	stateDB.AddLog(&ethtypes.Log{
-		Address:     p.Address(),
-		Topics:      topics,
-		Data:        packed,
-		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
-	})
-
-	return nil
-}
 
 // EmitCreateValidatorEvent creates a new create validator event emitted on a CreateValidator transaction.
 func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgCreateValidator, validatorAddr common.Address) error {

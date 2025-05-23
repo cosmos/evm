@@ -344,7 +344,7 @@ func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.
 	feeAmt := sdkmath.NewIntFromBigInt(txData.Fee())
 	if feeAmt.Sign() > 0 {
 		fees = append(fees, sdk.NewCoin(evmDenom, feeAmt))
-		fees = ConvertCoinsFrom18Decimals(fees)
+		fees = ConvertCoinsDenomToExtendedDenom(fees)
 	}
 
 	builder.SetExtensionOptions(option)

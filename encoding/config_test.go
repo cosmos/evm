@@ -32,7 +32,7 @@ func TestTxEncoding(t *testing.T) {
 	err := msg.Sign(ethSigner, signer)
 	require.NoError(t, err)
 
-	cfg := encoding.MakeConfig()
+	cfg := encoding.MakeConfig(big.NewInt(1).Uint64())
 
 	_, err = cfg.TxConfig.TxEncoder()(msg)
 	require.Error(t, err, "encoding failed")

@@ -85,29 +85,31 @@ type Config struct {
 	BondedTokens      math.Int                    // the amount of tokens each validator stakes
 	NumValidators     int                         // the total number of validators to create and bond
 	ChainID           string                      // the network chain-id
-	BondDenom         string                      // the staking bond denomination
-	MinGasPrices      string                      // the minimum gas prices each validator will accept
-	PruningStrategy   string                      // the pruning strategy each validator will have
-	SigningAlgo       string                      // signing algorithm for keys
-	RPCAddress        string                      // RPC listen address (including port)
-	JSONRPCAddress    string                      // JSON-RPC listen address (including port)
-	APIAddress        string                      // REST API listen address (including port)
-	GRPCAddress       string                      // GRPC server listen address (including port)
-	EnableTMLogging   bool                        // enable Tendermint logging to STDOUT
-	CleanupDir        bool                        // remove base temporary directory during cleanup
-	PrintMnemonic     bool                        // print the mnemonic of first validator as log output for testing
+	EVMChainID        uint64
+	BondDenom         string // the staking bond denomination
+	MinGasPrices      string // the minimum gas prices each validator will accept
+	PruningStrategy   string // the pruning strategy each validator will have
+	SigningAlgo       string // signing algorithm for keys
+	RPCAddress        string // RPC listen address (including port)
+	JSONRPCAddress    string // JSON-RPC listen address (including port)
+	APIAddress        string // REST API listen address (including port)
+	GRPCAddress       string // GRPC server listen address (including port)
+	EnableTMLogging   bool   // enable Tendermint logging to STDOUT
+	CleanupDir        bool   // remove base temporary directory during cleanup
+	PrintMnemonic     bool   // print the mnemonic of first validator as log output for testing
 }
 
 // DefaultConfig returns a sane default configuration suitable for nearly all
 // testing requirements.
 func DefaultConfig() Config {
-	chainID := fmt.Sprintf("evmos_%d-1", cmtrand.Int63n(9999999999999)+1)
+	chainID := "evmos-1"
+	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1) //nolint:gosec // G115 // won't exceed uint64
 	dir, err := os.MkdirTemp("", "simapp")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := exampleapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), exampleapp.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := exampleapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, exampleapp.EvmAppOptions, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -115,7 +117,7 @@ func DefaultConfig() Config {
 		LegacyAmino:       tempApp.LegacyAmino(),
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
 		AccountRetriever:  authtypes.AccountRetriever{},
-		AppConstructor:    NewAppConstructor(chainID),
+		AppConstructor:    NewAppConstructor(chainID, evmChainID),
 		GenesisState:      tempApp.DefaultGenesis(),
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
@@ -135,11 +137,12 @@ func DefaultConfig() Config {
 }
 
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
-func NewAppConstructor(chainID string) AppConstructor {
+func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		return exampleapp.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
+			evmChainID,
 			exampleapp.EvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
@@ -231,10 +234,6 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 	// only one caller/test can create and use a network at a time
 	l.Log("acquiring test network lock")
 	lock.Lock()
-
-	if !cosmosevmtypes.IsValidChainID(cfg.ChainID) {
-		return nil, fmt.Errorf("invalid chain-id: %s", cfg.ChainID)
-	}
 
 	network := &Network{
 		Logger:     l,
@@ -477,7 +476,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := chaincmd.InitAppConfig(testconstants.ExampleAttoDenom)
+		customAppTemplate, _ := chaincmd.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

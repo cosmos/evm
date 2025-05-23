@@ -552,24 +552,66 @@ func (suite *KeeperTestSuite) TestEVMConfig() {
 	suite.Require().Equal(defaultChainEVMParams, cfg.Params)
 	// london hardfork is enabled by default
 	suite.Require().Equal(big.NewInt(0), cfg.BaseFee)
-	suite.Require().Equal(types.GetEthChainConfig(), cfg.ChainConfig)
 
 	validators := suite.network.GetValidators()
 	proposerHextAddress := utils.ValidatorConsAddressToHex(validators[0].OperatorAddress)
 	suite.Require().Equal(proposerHextAddress, cfg.CoinBase)
 }
 
+func (suite *KeeperTestSuite) TestApplyTransaction() {
+	suite.enableFeemarket = true
+	defer func() { suite.enableFeemarket = false }()
+	// FeeCollector account is pre-funded with enough tokens
+	// for refund to work
+	// NOTE: everything should happen within the same block for
+	// feecollector account to remain funded
+	suite.SetupTest()
+	// set bounded cosmos block gas limit
+	ctx := suite.network.GetContext().WithBlockGasMeter(storetypes.NewGasMeter(1e6))
+	err := suite.network.App.BankKeeper.MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	suite.Require().NoError(err)
+	err = suite.network.App.BankKeeper.SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+	suite.Require().NoError(err)
+	testCases := []struct {
+		name       string
+		gasLimit   uint64
+		requireErr bool
+		errorMsg   string
+	}{
+		{
+			"pass - set evm limit above cosmos block gas limit and refund",
+			6e6,
+			false,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			tx, err := suite.factory.GenerateSignedEthTx(suite.keyring.GetPrivKey(0), types.EvmTxArgs{
+				GasLimit: tc.gasLimit,
+			})
+			suite.Require().NoError(err)
+			initialBalance := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+
+			ethTx := tx.GetMsgs()[0].(*types.MsgEthereumTx).AsTransaction()
+			res, err := suite.network.App.EVMKeeper.ApplyTransaction(ctx, ethTx)
+			suite.Require().NoError(err)
+			suite.Require().Equal(res.GasUsed, uint64(3e6))
+			// Half of the gas should be refunded based on the protocol refund cap.
+			// Note that the balance should only increment by the refunded amount
+			// because ApplyTransaction does not consume and take the gas from the user.
+			balanceAfterRefund := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+			expectedRefund := new(big.Int).Mul(new(big.Int).SetUint64(6e6/2), suite.network.App.EVMKeeper.GetBaseFee(ctx))
+			suite.Require().Equal(balanceAfterRefund.Sub(initialBalance).Amount, sdkmath.NewIntFromBigInt(expectedRefund))
+		})
+	}
+}
+
 func (suite *KeeperTestSuite) TestApplyMessage() {
 	suite.enableFeemarket = true
 	defer func() { suite.enableFeemarket = false }()
 	suite.SetupTest()
-
-	proposerAddress := suite.network.GetContext().BlockHeader().ProposerAddress
-	config, err := suite.network.App.EVMKeeper.EVMConfig(
-		suite.network.GetContext(),
-		proposerAddress,
-	)
-	suite.Require().NoError(err)
 
 	// Generate a transfer tx message
 	sender := suite.keyring.GetKey(0)
@@ -587,7 +629,7 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	tracer := suite.network.App.EVMKeeper.Tracer(
 		suite.network.GetContext(),
 		*coreMsg,
-		config.ChainConfig,
+		types.GetEthChainConfig(),
 	)
 	res, err := suite.network.App.EVMKeeper.ApplyMessage(
 		suite.network.GetContext(),

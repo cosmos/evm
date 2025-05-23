@@ -31,6 +31,7 @@ type PrecompileTestSuite struct {
 	precompile           *distribution.Precompile
 	bondDenom            string
 	baseDenom            string
+	otherDenoms          []string
 	validatorsKeys       []testkeyring.Key
 	withValidatorSlashes bool
 }
@@ -74,8 +75,15 @@ func (s *PrecompileTestSuite) SetupTest() {
 		operatorsAddr[i] = k.AccAddr
 	}
 
+	s.otherDenoms = []string{
+		testconstants.OtherCoinDenoms[0],
+		testconstants.OtherCoinDenoms[1],
+	}
+
 	nw := network.NewUnitTestNetwork(
+		network.WithOtherDenoms(testconstants.OtherCoinDenoms),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
+		network.WithOtherDenoms(s.otherDenoms),
 		network.WithCustomGenesis(customGen),
 		network.WithValidatorOperators(operatorsAddr),
 	)
@@ -100,7 +108,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.precompile, err = distribution.NewPrecompile(
 		s.network.App.DistrKeeper,
 		*s.network.App.StakingKeeper,
-		s.network.App.AuthzKeeper,
 		s.network.App.EVMKeeper,
 	)
 	if err != nil {

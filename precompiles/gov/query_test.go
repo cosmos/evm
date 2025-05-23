@@ -356,15 +356,14 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 	method := s.precompile.Methods[gov.GetTallyResultMethod]
 	testCases := []struct {
 		name        string
-		malleate    func() gov.TallyResultData
-		propNumber  uint64
+		malleate    func() (gov.TallyResultData, uint64)
 		expPass     bool
 		gas         uint64
 		errContains string
 	}{
 		{
 			name: "valid query",
-			malleate: func() gov.TallyResultData {
+			malleate: func() (gov.TallyResultData, uint64) {
 				proposal, err := s.network.App.GovKeeper.SubmitProposal(s.network.GetContext(), TestProposalMsgs, "", "Proposal", "testing proposal", s.keyring.GetAccAddr(0), false)
 				s.Require().NoError(err)
 				votingStarted, err := s.network.App.GovKeeper.AddDeposit(s.network.GetContext(), proposal.Id, s.keyring.GetAccAddr(0), sdk.NewCoins(sdk.NewCoin(s.network.GetBaseDenom(), math.NewInt(100))))
@@ -377,18 +376,16 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 					Abstain:    "0",
 					No:         "0",
 					NoWithVeto: "0",
-				}
+				}, proposal.Id
 			},
-			propNumber: uint64(1),
-			expPass:    true,
-			gas:        200_000,
+			expPass: true,
+			gas:     200_000,
 		},
 		{
 			name:        "invalid proposal ID",
-			propNumber:  uint64(10),
 			expPass:     false,
 			gas:         200_000,
-			malleate:    func() gov.TallyResultData { return gov.TallyResultData{} },
+			malleate:    func() (gov.TallyResultData, uint64) { return gov.TallyResultData{}, 10 },
 			errContains: "proposal 10 doesn't exist",
 		},
 	}
@@ -397,11 +394,11 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			expTally := tc.malleate()
+			expTally, propID := tc.malleate()
 
 			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile, tc.gas)
 
-			args := []interface{}{tc.propNumber}
+			args := []interface{}{propID}
 			bz, err := s.precompile.GetTallyResult(ctx, &method, contract, args)
 
 			if tc.expPass {
