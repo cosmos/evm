@@ -2,6 +2,7 @@ package distribution
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -94,10 +95,13 @@ func (p *Precompile) ClaimRewards(
 			return nil, err
 		}
 
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
 
@@ -178,10 +182,13 @@ func (p *Precompile) WithdrawDelegatorReward(
 			return nil, err
 		}
 
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
 
@@ -230,10 +237,13 @@ func (p *Precompile) WithdrawValidatorCommission(
 		}
 
 		// TODO: check in all methods here if evm denom is the correct denom to use!
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
 
@@ -282,10 +292,13 @@ func (p *Precompile) FundCommunityPool(
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 	if contract.CallerAddress != origin {
 		// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.AmountOf(baseDenom).BigInt())
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.AmountOf(baseDenom).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, uint256.MustFromBig(convertedAmount), cmn.Sub))
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
 		}
 	}
 
@@ -330,10 +343,13 @@ func (p *Precompile) DepositValidatorRewardsPool(
 	if contract.CallerAddress != origin {
 		if found, evmCoinAmount := msg.Amount.Find(evmtypes.GetEVMCoinDenom()); found {
 			// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
-			convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(evmCoinAmount.Amount.BigInt())
+			convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(evmCoinAmount.Amount.BigInt()))
+			if err != nil {
+				return nil, err
+			}
 			// check if converted amount is greater than zero
-			if convertedAmount.Cmp(common.Big0) == 1 {
-				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, uint256.MustFromBig(convertedAmount), cmn.Sub))
+			if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
 			}
 		}
 	}

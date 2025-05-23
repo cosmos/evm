@@ -2,6 +2,7 @@ package gov
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -58,9 +59,12 @@ func (p *Precompile) SubmitProposal(
 
 	if contract.CallerAddress != origin {
 		deposit := msg.InitialDeposit
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(deposit.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt())
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(proposerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Sub))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(deposit.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(proposerHexAddr, convertedAmount, cmn.Sub))
 		}
 	}
 
@@ -98,9 +102,12 @@ func (p *Precompile) Deposit(
 			if coin.Denom != evmtypes.GetEVMCoinDenom() {
 				continue
 			}
-			convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(coin.Amount.BigInt())
-			if convertedAmount.Cmp(common.Big0) == 1 {
-				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, uint256.MustFromBig(convertedAmount), cmn.Sub))
+			convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(coin.Amount.BigInt()))
+			if err != nil {
+				return nil, err
+			}
+			if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
 			}
 		}
 	}
@@ -161,9 +168,12 @@ func (p *Precompile) CancelProposal(
 	}
 
 	if contract.CallerAddress != origin {
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(remaninig.BigInt())
-		if convertedAmount.Cmp(common.Big0) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(proposerHexAddr, uint256.MustFromBig(convertedAmount), cmn.Add))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(remaninig.BigInt()))
+		if err != nil {
+			return nil, err
+		}
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
+			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(proposerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
 

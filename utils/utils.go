@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"github.com/holiman/uint256"
+	"math/big"
 	"sort"
 	"strings"
 
@@ -143,4 +146,12 @@ func SortSlice[T constraints.Ordered](slice []T) {
 	sort.Slice(slice, func(i, j int) bool {
 		return slice[i] < slice[j]
 	})
+}
+
+func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
+	result, overflow := uint256.FromBig(i)
+	if overflow {
+		return nil, errors.New(fmt.Sprintf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result))
+	}
+	return result, nil
 }

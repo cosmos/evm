@@ -1,17 +1,16 @@
 package keeper
 
 import (
+	"github.com/cosmos/evm/utils"
 	"math/big"
 
+	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/holiman/uint256"
-
-	cmttypes "github.com/cometbft/cometbft/types"
 
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -366,15 +365,20 @@ func (k *Keeper) ApplyMessageWithConfig(
 	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(rules), msg.AccessList)
 
+	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
+	if err != nil {
+		return nil, err
+	}
+
 	if contractCreation {
 		// take over the nonce management from evm:
 		// - reset sender's nonce to msg.Nonce() before calling evm.
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce)
-		ret, _, leftoverGas, vmErr = evm.Create(sender, msg.Data, leftoverGas, uint256.MustFromBig(msg.Value))
+		ret, _, leftoverGas, vmErr = evm.Create(sender, msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1)
 	} else {
-		ret, leftoverGas, vmErr = evm.Call(sender, *msg.To, msg.Data, leftoverGas, uint256.MustFromBig(msg.Value))
+		ret, leftoverGas, vmErr = evm.Call(sender, *msg.To, msg.Data, leftoverGas, convertedValue)
 	}
 
 	refundQuotient := params.RefundQuotient

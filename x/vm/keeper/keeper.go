@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/cosmos/evm/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -283,7 +284,12 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	return uint256.MustFromBig(coin.Amount.BigInt())
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBaseFee returns current base fee, return values:
