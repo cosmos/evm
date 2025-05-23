@@ -241,7 +241,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	evmDenom := types.GetEVMCoinDenom()
 
 	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
-	if err = k.RefundGas(ctx, *msg, msg.GasLimit-res.GasUsed, evmDenom); err != nil {
+	remainingGas := uint64(0)
+	if msg.GasLimit > res.GasUsed {
+		remainingGas = msg.GasLimit - res.GasUsed
+	}
+	if err = k.RefundGas(ctx, *msg, remainingGas, evmDenom); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
