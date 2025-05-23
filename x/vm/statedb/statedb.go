@@ -426,6 +426,8 @@ func (s *StateDB) Selfdestruct6780(addr common.Address) {
 	if stateObject == nil {
 		return
 	}
+
+	// todo: this is not equivalent to upstream (https://github.com/cosmos/evm/pull/181/#discussion_r2105471095)
 	s.SelfDestruct(addr)
 }
 
