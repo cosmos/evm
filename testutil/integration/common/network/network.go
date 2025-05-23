@@ -1,6 +1,7 @@
 package network
 
 import (
+	"cosmossdk.io/x/feegrant"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ type Network interface {
 	GetBankClient() banktypes.QueryClient
 	GetStakingClient() stakingtypes.QueryClient
 	GetDistrClient() distrtypes.QueryClient
+	GetFeeGrantClient() feegrant.QueryClient
 
 	BroadcastTxSync(txBytes []byte) (abcitypes.ExecTxResult, error)
 	Simulate(txBytes []byte) (*txtypes.SimulateResponse, error)

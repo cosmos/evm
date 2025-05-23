@@ -16,6 +16,11 @@ type MockBankKeeper struct {
 	mock.Mock
 }
 
+func (_m *MockBankKeeper) SpendableBalances(ctx context.Context, req *types.QuerySpendableBalancesRequest) (*types.QuerySpendableBalancesResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type MockBankKeeper_Expecter struct {
 	mock *mock.Mock
 }

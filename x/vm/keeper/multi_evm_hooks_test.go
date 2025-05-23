@@ -62,7 +62,7 @@ func (suite *KeeperTestSuite) TestEvmHooks() {
 	for _, tc := range testCases {
 		suite.SetupTest()
 		hook := tc.setupHook()
-		suite.network.App.EVMKeeper.SetHooks(keeper.NewMultiEvmHooks(hook))
+		suite.network.App.EVMKeeper.SetEVMHooks(keeper.NewMultiEvmHooks(hook))
 
 		k := suite.network.App.EVMKeeper
 		ctx := suite.network.GetContext()

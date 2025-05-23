@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"strconv"
 
 	"github.com/hashicorp/go-metrics"
@@ -145,4 +146,86 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 	}
 
 	return &types.MsgUpdateParamsResponse{}, nil
+}
+
+func (k *Keeper) MigrateAccount(goCtx context.Context, req *types.MsgMigrateAccount) (*types.MsgMigrateAccountResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	const (
+		// all active validators in the network
+		maxValidators = 180
+		// 99.99th percentile of tokens held per account
+		maxTokens = 20
+		// >99th percentile of feegrants granted per granter
+		maxFeeGrants = 55
+		// >99th percentile of authz grants granted per granter
+		maxAuthzGrants = 5
+	)
+
+	// todo: should someone need to sign with both keys?
+	// one key signing is probably fine - this functions with similar effect to bank send.
+	// on the other hand, may be good for users to confirm that the other address is actually functional;
+	// hmm
+
+	originalAddress, err := sdk.AccAddressFromBech32(req.OriginalAddress)
+	if err != nil {
+		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid original address: %s", err)
+	}
+
+	if k.bankWrapper.BlockedAddr(originalAddress) {
+		return nil, errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive external funds", originalAddress)
+	}
+
+	newAddress, err := sdk.AccAddressFromBech32(req.NewAddress)
+	if err != nil {
+		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid new address: %s", err)
+	}
+
+	if k.bankWrapper.BlockedAddr(newAddress) {
+		return nil, errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive external funds", newAddress)
+	}
+
+	// call the before-delegation-modified hook
+	if err := k.MigrateAccountHooks().BeforeAll(ctx, originalAddress, newAddress); err != nil {
+		return nil, err
+	}
+
+	// delegations need to be migrated first to withdraw any staking rewards to handle them in the bank migration
+	err = k.migrateDelegations(ctx, originalAddress, maxValidators, newAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := k.MigrateAccountHooks().AfterMigrateDelegations(ctx, originalAddress, newAddress); err != nil {
+		return nil, err
+	}
+
+	err = k.migrateBankTokens(err, ctx, originalAddress, maxTokens, newAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := k.MigrateAccountHooks().AfterMigrateBankTokens(ctx, originalAddress, newAddress); err != nil {
+		return nil, err
+	}
+
+	err = k.migrateFeeGrants(ctx, originalAddress, maxFeeGrants, newAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := k.MigrateAccountHooks().AfterMigrateFeeGrants(ctx, originalAddress, newAddress); err != nil {
+		return nil, err
+	}
+
+	err = k.migrateAuthzGrants(ctx, originalAddress, maxAuthzGrants)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := k.MigrateAccountHooks().AfterAll(ctx, originalAddress, newAddress); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgMigrateAccountResponse{}, nil
 }

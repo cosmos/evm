@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"cosmossdk.io/x/feegrant"
 	"github.com/cosmos/evm/testutil/integration/common/network"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -46,6 +47,9 @@ type Handler interface {
 	GetValidatorOutstandingRewards(validatorAddress string) (*distrtypes.QueryValidatorOutstandingRewardsResponse, error)
 	GetCommunityPool() (*distrtypes.QueryCommunityPoolResponse, error)
 	GetBondedValidators() (*stakingtypes.QueryValidatorsResponse, error)
+
+	// Feegrant methods
+	Allowance(granter, grantee string) (*feegrant.QueryAllowanceResponse, error)
 }
 
 var _ Handler = (*IntegrationHandler)(nil)

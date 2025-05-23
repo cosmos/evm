@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -22,6 +23,18 @@ type Keeper struct {
 
 	bk types.BankKeeper
 	ak types.AccountKeeper
+}
+
+func (k Keeper) GetAllBalances(ctx context.Context, addr sdk.AccAddress) sdk.Coins {
+	return k.bk.GetAllBalances(ctx, addr)
+}
+
+func (k Keeper) SpendableBalances(ctx context.Context, req *banktypes.QuerySpendableBalancesRequest) (*banktypes.QuerySpendableBalancesResponse, error) {
+	return k.bk.SpendableBalances(ctx, req)
+}
+
+func (k Keeper) BlockedAddr(addr sdk.AccAddress) bool {
+	return k.bk.BlockedAddr(addr)
 }
 
 // NewKeeper creates a new keeper

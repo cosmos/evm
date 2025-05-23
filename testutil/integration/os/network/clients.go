@@ -1,6 +1,7 @@
 package network
 
 import (
+	"cosmossdk.io/x/feegrant"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
@@ -72,6 +73,12 @@ func (n *IntegrationNetwork) GetAuthzClient() authz.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
 	authz.RegisterQueryServer(queryHelper, n.app.AuthzKeeper)
 	return authz.NewQueryClient(queryHelper)
+}
+
+func (n *IntegrationNetwork) GetFeeGrantClient() feegrant.QueryClient {
+	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
+	feegrant.RegisterQueryServer(queryHelper, n.app.FeeGrantKeeper)
+	return feegrant.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetStakingClient() stakingtypes.QueryClient {

@@ -11,6 +11,7 @@ package testutil
 
 import (
 	context "context"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	big "math/big"
 	reflect "reflect"
 
@@ -91,6 +92,21 @@ type MockBankWrapper struct {
 	ctrl     *gomock.Controller
 	recorder *MockBankWrapperMockRecorder
 	isgomock struct{}
+}
+
+func (m *MockBankWrapper) SpendableBalances(ctx context.Context, req *banktypes.QuerySpendableBalancesRequest) (*banktypes.QuerySpendableBalancesResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockBankWrapper) BlockedAddr(addr types.AccAddress) bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockBankWrapper) SendCoinsFromModuleToModule(ctx context.Context, senderModule, recipientModule string, amt types.Coins) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 // MockBankWrapperMockRecorder is the mock recorder for MockBankWrapper.
