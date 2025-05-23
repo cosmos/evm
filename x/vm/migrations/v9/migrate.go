@@ -1,12 +1,13 @@
 package v9
 
 import (
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	v8types "github.com/cosmos/evm/x/vm/migrations/v9/types"
 	"github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // MigrateStore migrates the x/evm module state from the consensus version 5 to

@@ -40,8 +40,8 @@ func NewEmptyTxConfig(bhash common.Hash) TxConfig {
 // EVMConfig encapsulates common parameters needed to create an EVM to execute a message
 // It's mainly to reduce the number of method parameters
 type EVMConfig struct {
-	Params   types.Params
-	CoinBase common.Address
-	BaseFee  *big.Int
+	Params                  types.Params
+	CoinBase                common.Address
+	BaseFee                 *big.Int
 	EnablePreimageRecording bool
 }

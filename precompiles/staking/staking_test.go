@@ -1,7 +1,6 @@
 package staking_test
 
 import (
-	"github.com/holiman/uint256"
 	"math/big"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/precompiles/staking"

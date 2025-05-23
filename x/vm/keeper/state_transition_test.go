@@ -263,7 +263,8 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			ethCfg.IstanbulBlock = big.NewInt(3)
 			signer := gethtypes.LatestSignerForChainID(ethCfg.ChainID)
 
-			shanghaiTime := uint64(suite.network.GetContext().BlockTime().Unix()) + 10000 // in the future, fork not enabled
+			// in the future, fork not enabled
+			shanghaiTime := uint64(suite.network.GetContext().BlockTime().Unix()) + 10000 //#nosec G115 -- int overflow is not a concern here
 			ethCfg.ShanghaiTime = &shanghaiTime
 
 			ctx := suite.network.GetContext().WithBlockHeight(tc.height)

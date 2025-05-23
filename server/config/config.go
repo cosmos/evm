@@ -185,9 +185,9 @@ type TLSConfig struct {
 // DefaultEVMConfig returns the default EVM configuration
 func DefaultEVMConfig() *EVMConfig {
 	return &EVMConfig{
-		Tracer:         DefaultEVMTracer,
-		MaxTxGasWanted: DefaultMaxTxGasWanted,
-		EVMChainID:     DefaultEVMChainID,
+		Tracer:                  DefaultEVMTracer,
+		MaxTxGasWanted:          DefaultMaxTxGasWanted,
+		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 	}
 }

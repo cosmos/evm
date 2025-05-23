@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
-
 	"github.com/stretchr/testify/mock"
 	gomock "go.uber.org/mock/gomock"
 

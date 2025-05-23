@@ -1,17 +1,19 @@
 package v9_test
 
 import (
-	"github.com/cosmos/evm/server/config"
 	"testing"
 
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/server/config"
 	v9 "github.com/cosmos/evm/x/vm/migrations/v9"
 	v8types "github.com/cosmos/evm/x/vm/migrations/v9/types"
 	"github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	"github.com/cosmos/cosmos-sdk/testutil"
 )
 
 func TestMigrate(t *testing.T) {
