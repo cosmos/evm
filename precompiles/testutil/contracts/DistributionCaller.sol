@@ -41,28 +41,26 @@ contract DistributionCaller {
     }
 
     function testWithdrawDelegatorRewardWithTransfer(
-        address payable _delAddr,
         string memory _valAddr,
         bool _before,
         bool _after
     ) public returns (types.Coin[] memory coins) {
         if (_before) {
             counter++;
-            (bool sent, ) = _delAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
         coins = distribution.DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(
-            _delAddr,
+            address(this),
             _valAddr
         );
         if (_after) {
             counter++;
-            (bool sent, ) = _delAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
         return coins;
     }
-
     function revertWithdrawRewardsAndTransfer(
         address payable _delAddr,
         address payable _withdrawer,
@@ -184,29 +182,24 @@ contract DistributionCaller {
     }
 
     function testClaimRewardsWithTransfer(
-        address payable _delAddr,
         uint32 _maxRetrieve,
         bool _before,
         bool _after
     ) public {
         if (_before) {
             counter++;
-            if (_delAddr != address(this)) {
-                (bool sent, ) = _delAddr.call{value: 15}("");
-                require(sent, "Failed to send Ether to delegator");
-            }
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
         }
         bool success = distribution.DISTRIBUTION_CONTRACT.claimRewards(
-            _delAddr,
+            address(this),
             _maxRetrieve
         );
         require(success, "failed to claim rewards");
         if (_after) {
             counter++;
-            if (_delAddr != address(this)) {
-                (bool sent, ) = _delAddr.call{value: 15}("");
-                require(sent, "Failed to send Ether to delegator");
-            }
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
         }
     }
 
@@ -262,13 +255,11 @@ contract DistributionCaller {
 
     /// @dev testDepositValidatorRewardsPoolWithTransfer defines a method to allow an account to directly
     /// fund the validator rewards pool and performs a transfer to the deposit.
-    /// @param depositor The address of the depositor
     /// @param validatorAddress The address of the validator
     /// @param amount The amount of coins sent to the validator rewards pool
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testDepositValidatorRewardsPoolWithTransfer(
-        address payable depositor,
         string memory validatorAddress,
         types.Coin[] memory amount,
         bool _before,
@@ -276,15 +267,15 @@ contract DistributionCaller {
     ) public {
         if (_before) {
             counter++;
-            (bool sent, ) = depositor.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
         bool success = distribution.DISTRIBUTION_CONTRACT
-            .depositValidatorRewardsPool(depositor, validatorAddress, amount);
+            .depositValidatorRewardsPool(address(this), validatorAddress, amount);
         require(success);
         if (_after) {
             counter++;
-            (bool sent, ) = depositor.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
     }
@@ -295,7 +286,7 @@ contract DistributionCaller {
     function testDelegateFromContract(
         string memory _validatorAddr,
         uint256 _amount
-    ) public {
+    ) public payable {
         staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,
