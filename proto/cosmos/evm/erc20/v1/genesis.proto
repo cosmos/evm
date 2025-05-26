@@ -35,4 +35,7 @@ message Params {
   // dynamic_precompiles defines the slice of hex addresses of the
   // active precompiles that are used to interact with Bank coins as ERC20s
   repeated string dynamic_precompiles = 4;
+  // permissionless_registration is the parameter that allows ERC20s to be
+  // permissionlessly registered to be converted to bank tokens and vice versa
+  bool permissionless_registration = 5;
 }
