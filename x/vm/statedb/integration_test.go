@@ -2,11 +2,11 @@ package statedb_test
 
 import (
 	"fmt"
-	"github.com/holiman/uint256"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	//nolint:revive // okay to use dot imports for Ginkgo
 	. "github.com/onsi/ginkgo/v2"

@@ -109,22 +109,15 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 
 // SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint256.Int) error {
-<<<<<<< HEAD
-=======
 	if amount == nil {
 		return nil
 	}
->>>>>>> origin/main
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-<<<<<<< HEAD
-	delta := new(big.Int).Sub(amount.ToBig(), coin.Amount.BigInt())
-=======
 	balance := coin.Amount.BigInt()
 	delta := new(big.Int).Sub(amount.ToBig(), balance)
->>>>>>> origin/main
 	switch delta.Sign() {
 	case 1:
 		// mint

@@ -454,8 +454,9 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.Non
 // SetCode sets the code of account.
 func (s *StateDB) SetCode(addr common.Address, code []byte) []byte {
 	stateObject := s.getOrNewStateObject(addr)
-	prev := slices.Clone(stateObject.code)
+	var prev []byte
 	if stateObject != nil {
+		prev = slices.Clone(stateObject.code)
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
 	}
 	return prev

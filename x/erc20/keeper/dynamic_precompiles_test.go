@@ -43,7 +43,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20CodeHash() {
 				err := suite.network.App.EVMKeeper.SetAccount(ctx, account, statedb.Account{
 					CodeHash: codeHash,
 					Nonce:    nonce,
-					Balance:  uint256.MustFromBig(balance),
+					Balance:  balance,
 				})
 				suite.Require().NoError(err)
 			},

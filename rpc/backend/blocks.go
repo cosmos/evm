@@ -613,7 +613,7 @@ func (b *Backend) formatTxReceipt(ethMsg *evmtypes.MsgEthereumTx, blockMsgs []*e
 		// Consensus fields: These fields are defined by the Yellow Paper
 		"status":            status,
 		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
-		"logsBloom":         ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
+		"logsBloom":         ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs}),
 		"logs":              logs,
 
 		// Implementation fields: These fields are added by geth when processing a transaction.

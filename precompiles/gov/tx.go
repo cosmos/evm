@@ -47,7 +47,7 @@ func (p *Precompile) SubmitProposal(
 
 	// If the contract is the voter, we don't need an origin check
 	// Otherwise check if the origin matches the voter address
-	isContractProposer := contract.CallerAddress == proposerHexAddr && contract.CallerAddress != origin
+	isContractProposer := contract.Caller() == proposerHexAddr && contract.Caller() != origin
 	if !isContractProposer && origin != proposerHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), proposerHexAddr.String())
 	}
@@ -57,7 +57,7 @@ func (p *Precompile) SubmitProposal(
 		return nil, err
 	}
 
-	if contract.CallerAddress != origin {
+	if contract.Caller() != origin {
 		deposit := msg.InitialDeposit
 		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(deposit.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
 		if err != nil {
@@ -89,7 +89,7 @@ func (p *Precompile) Deposit(
 		return nil, err
 	}
 
-	isContractDepositor := contract.CallerAddress == depositorHexAddr && contract.CallerAddress != origin
+	isContractDepositor := contract.Caller() == depositorHexAddr && contract.Caller() != origin
 	if !isContractDepositor && origin != depositorHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), depositorHexAddr.String())
 	}
@@ -97,7 +97,7 @@ func (p *Precompile) Deposit(
 	if _, err = govkeeper.NewMsgServerImpl(&p.govKeeper).Deposit(ctx, msg); err != nil {
 		return nil, err
 	}
-	if contract.CallerAddress != origin {
+	if contract.Caller() != origin {
 		for _, coin := range msg.Amount {
 			if coin.Denom != evmtypes.GetEVMCoinDenom() {
 				continue
@@ -133,7 +133,7 @@ func (p *Precompile) CancelProposal(
 		return nil, err
 	}
 
-	isContractProposer := contract.CallerAddress == proposerHexAddr && contract.CallerAddress != origin
+	isContractProposer := contract.Caller() == proposerHexAddr && contract.Caller() != origin
 	if !isContractProposer && origin != proposerHexAddr {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), proposerHexAddr.String())
 	}
@@ -167,7 +167,7 @@ func (p *Precompile) CancelProposal(
 		return nil, err
 	}
 
-	if contract.CallerAddress != origin {
+	if contract.Caller() != origin {
 		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(remaninig.BigInt()))
 		if err != nil {
 			return nil, err

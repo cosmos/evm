@@ -1,12 +1,10 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/holiman/uint256"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/utils"
@@ -46,10 +44,6 @@ func CanTransfer(
 	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
 	evm := evmKeeper.NewEVM(ctx, msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
 
-	val, overflow := uint256.FromBig(msg.Value)
-	if overflow {
-		return fmt.Errorf("transfer value %v exceeds 256 bits", msg.Value)
-	}
 	// check that caller has enough balance to cover asset transfer for **topmost** call
 	// NOTE: here the gas consumed is from the context with the infinite gas meter
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)

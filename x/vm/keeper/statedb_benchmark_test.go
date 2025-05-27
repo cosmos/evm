@@ -53,7 +53,7 @@ func BenchmarkAddBalance(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(amt), tracing.BalanceChangeUnspecified)
+		vmdb.AddBalance(suite.keyring.GetAddr(0), amt, tracing.BalanceChangeUnspecified)
 	}
 }
 
@@ -145,7 +145,7 @@ func BenchmarkSubBalance(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		vmdb.SubBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(amt), tracing.BalanceChangeUnspecified)
+		vmdb.SubBalance(suite.keyring.GetAddr(0), amt, tracing.BalanceChangeUnspecified)
 	}
 }
 

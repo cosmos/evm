@@ -785,7 +785,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 			// Function being tested
 			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(
 				suite.network.GetContext(),
-				&msg,
+				msg,
 				nil,
 				true,
 				config,

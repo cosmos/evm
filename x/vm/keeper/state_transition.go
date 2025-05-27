@@ -428,7 +428,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here
 	// reset leftoverGas, to be used by the tracer
-	leftoverGas = msg.GasLimit - gasUsed
+	leftoverGas = msg.GasLimit - gasUsed //nolint // ineffassign and staticcheck are silenced here
 
 	return &types.MsgEthereumTxResponse{
 		GasUsed: gasUsed,

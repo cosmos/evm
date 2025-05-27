@@ -169,7 +169,8 @@ func (args *TransactionArgs) ToTransaction() *MsgEthereumTx {
 // ToMessage converts the arguments to the Message type used by the core evm.
 // This assumes that setTxDefaults has been called.
 func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int, skipNonceCheck,
-	skipEoACheck bool) (core.Message, error) {
+	skipEoACheck bool,
+) (core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return core.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
