@@ -9,6 +9,7 @@ import (
 	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -94,10 +95,12 @@ func (p *Precompile) ClaimRewards(
 			return nil, err
 		}
 
-		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(
-			uint256.NewInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).Uint64()))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.U2560) == 1 {
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
 			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
@@ -179,10 +182,12 @@ func (p *Precompile) WithdrawDelegatorReward(
 			return nil, err
 		}
 
-		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(
-			uint256.NewInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).Uint64()))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.U2560) == 1 {
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
 			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
@@ -232,10 +237,12 @@ func (p *Precompile) WithdrawValidatorCommission(
 		}
 
 		// TODO: check in all methods here if evm denom is the correct denom to use!
-		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(
-			res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).Uint64()))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.U2560) == 1 {
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
 			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 		}
 	}
@@ -285,10 +292,12 @@ func (p *Precompile) FundCommunityPool(
 	// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 	if contract.Caller() != origin {
 		// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
-		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(msg.Amount.AmountOf(baseDenom).
-			Uint64()))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.AmountOf(baseDenom).BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(common.U2560) == 1 {
+		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
 			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
 		}
 	}
@@ -334,9 +343,12 @@ func (p *Precompile) DepositValidatorRewardsPool(
 	if contract.Caller() != origin {
 		if found, evmCoinAmount := msg.Amount.Find(evmtypes.GetEVMCoinDenom()); found {
 			// TODO: check if correct - should the balance change in the state DB be for the evm denom?? do we need scaling here?
-			convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(evmCoinAmount.Amount.Uint64()))
+			convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(evmCoinAmount.Amount.BigInt()))
+			if err != nil {
+				return nil, err
+			}
 			// check if converted amount is greater than zero
-			if convertedAmount.Cmp(common.U2560) == 1 {
+			if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
 				p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
 			}
 		}

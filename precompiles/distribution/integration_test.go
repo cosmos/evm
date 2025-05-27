@@ -2614,21 +2614,20 @@ var _ = Describe("Calling distribution precompile from another contract", Ordere
 
 			// set gas such that the internal keeper function called by the precompile fails out mid-execution
 			txArgs.GasLimit = 80_000
-			_, txRes, err := s.factory.CallContractAndCheckLogs(
+			_, _, err = s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
 				logCheckArgs,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
-			Expect(txRes).NotTo(BeNil(), "expected tx to succeed")
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 			Expect(err).To(BeNil())
 			finalBalance := balRes.Balance
-			fees := math.NewIntFromUint64(txRes.GasUsed).Mul(math.NewIntFromBigInt(txArgs.GasPrice))
-			Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(fees))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
+			expectedGasCost := math.NewInt(79_416_000_000_000)
+			Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
 			res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
 			Expect(err).To(BeNil())

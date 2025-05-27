@@ -28,7 +28,8 @@ func StartJSONRPC(ctx *server.Context,
 	tmWsClient := ConnectTmWS(tmRPCAddr, tmEndpoint, ctx.Logger)
 
 	logger := ctx.Logger.With("module", "geth")
-	handler := &SDKSlogHandler{logger: logger}
+	// Set Geth's global logger to use this handler
+	handler := &CustomSlogHandler{logger: logger}
 	slog.SetDefault(slog.New(handler))
 
 	rpcServer := ethrpc.NewServer()

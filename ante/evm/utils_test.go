@@ -3,7 +3,6 @@ package evm_test
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -449,7 +448,7 @@ func (suite *AnteTestSuite) generateMultikeySignatures(signMode signing.SignMode
 }
 
 // RegisterAccount creates an account with the keeper and populates the initial balance
-func (suite *AnteTestSuite) RegisterAccount(pubKey cryptotypes.PubKey, balance *big.Int) {
+func (suite *AnteTestSuite) RegisterAccount(pubKey cryptotypes.PubKey, balance *uint256.Int) {
 	ctx := suite.GetNetwork().GetContext()
 
 	acc := suite.GetNetwork().App.AccountKeeper.NewAccountWithAddress(ctx, sdk.AccAddress(pubKey.Address()))
@@ -515,7 +514,7 @@ func (suite *AnteTestSuite) CreateTestSignedMultisigTx(privKeys []cryptotypes.Pr
 	numKeys := len(privKeys)
 	multiKey := kmultisig.NewLegacyAminoPubKey(numKeys, pubKeys)
 
-	suite.RegisterAccount(multiKey, big.NewInt(10000000000))
+	suite.RegisterAccount(multiKey, uint256.NewInt(10000000000))
 
 	txBuilder := suite.createBaseTxBuilder(msg, gas)
 
@@ -548,7 +547,7 @@ func (suite *AnteTestSuite) CreateTestSignedMultisigTx(privKeys []cryptotypes.Pr
 func (suite *AnteTestSuite) CreateTestSingleSignedTx(privKey cryptotypes.PrivKey, signMode signing.SignMode, msg sdk.Msg, chainID string, gas uint64, signType string) client.TxBuilder {
 	pubKey := privKey.PubKey()
 
-	suite.RegisterAccount(pubKey, big.NewInt(10_000_000_000))
+	suite.RegisterAccount(pubKey, uint256.NewInt(10_000_000_000))
 
 	txBuilder := suite.createBaseTxBuilder(msg, gas)
 

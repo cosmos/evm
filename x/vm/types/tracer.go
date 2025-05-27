@@ -1,7 +1,6 @@
 package types
 
 import (
-	"math"
 	"math/big"
 	"os"
 
@@ -23,7 +22,7 @@ const (
 
 // NewTracer creates a new Logger tracer to collect execution traces from an
 // EVM transaction.
-func NewTracer(tracer string, msg *core.Message, cfg *params.ChainConfig, height int64) *tracing.Hooks {
+func NewTracer(tracer string, msg core.Message, cfg *params.ChainConfig, height int64, timestamp uint64) *tracing.Hooks {
 	// TODO: enable additional log configuration
 	logCfg := &logger.Config{}
 
@@ -32,8 +31,7 @@ func NewTracer(tracer string, msg *core.Message, cfg *params.ChainConfig, height
 		blockAddrs := map[common.Address]struct{}{
 			*msg.To: {}, msg.From: {},
 		}
-		precompiles := vm.ActivePrecompiles(cfg.Rules(big.NewInt(height), cfg.MergeNetsplitBlock != nil,
-			math.MaxUint64))
+		precompiles := vm.ActivePrecompiles(cfg.Rules(big.NewInt(height), cfg.MergeNetsplitBlock != nil, timestamp))
 		for _, addr := range precompiles {
 			blockAddrs[addr] = struct{}{}
 		}
@@ -45,7 +43,7 @@ func NewTracer(tracer string, msg *core.Message, cfg *params.ChainConfig, height
 	case TracerStruct:
 		return logger.NewStructLogger(logCfg).Hooks()
 	default:
-		return NewNoOpTracer()
+		return nil
 	}
 }
 

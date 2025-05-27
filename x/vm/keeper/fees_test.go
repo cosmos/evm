@@ -213,7 +213,7 @@ func (suite *KeeperTestSuite) TestCheckSenderBalance() {
 	vmdb := suite.StateDB()
 	vmdb.AddBalance(addr, uint256.MustFromBig(hundredInt.BigInt()), tracing.BalanceChangeUnspecified)
 	balance := vmdb.GetBalance(addr)
-	suite.Require().Equal(balance, uint256.MustFromBig(hundredInt.BigInt()))
+	suite.Require().Equal(balance.ToBig(), hundredInt.BigInt())
 	err := vmdb.Commit()
 	suite.Require().NoError(err, "Unexpected error while committing to vmdb: %d", err)
 
@@ -474,7 +474,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 				}
 				vmdb.AddBalance(addr, uint256.MustFromBig(initBalance.BigInt()), tracing.BalanceChangeUnspecified)
 				balance := vmdb.GetBalance(addr)
-				suite.Require().Equal(balance, uint256.MustFromBig(initBalance.BigInt()))
+				suite.Require().Equal(balance.ToBig(), initBalance.BigInt())
 			} else {
 				if tc.gasPrice != nil {
 					gasPrice = tc.gasPrice.BigInt()
@@ -482,7 +482,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 
 				vmdb.AddBalance(addr, uint256.MustFromBig(hundredInt.BigInt()), tracing.BalanceChangeUnspecified)
 				balance := vmdb.GetBalance(addr)
-				suite.Require().Equal(balance, uint256.MustFromBig(hundredInt.BigInt()))
+				suite.Require().Equal(balance.ToBig(), hundredInt.BigInt())
 			}
 			err := vmdb.Commit()
 			suite.Require().NoError(err, "Unexpected error while committing to vmdb: %d", err)
@@ -509,8 +509,7 @@ func (suite *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false,
-				false, suite.network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, false, suite.network.GetContext().IsCheckTx())
 			if tc.expectPassVerify {
 				suite.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.enableFeemarket {

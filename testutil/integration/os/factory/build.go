@@ -148,7 +148,7 @@ func (tf *IntegrationTxFactory) GenerateGethCoreMsg(
 	signer := gethtypes.LatestSignerForChainID(
 		tf.network.GetEIP155ChainID(),
 	)
-	return signedMsg.AsMessage(signer, baseFeeResp.BaseFee.BigInt())
+	return core.TransactionToMessage(signedMsg.AsTransaction(), signer, baseFeeResp.BaseFee.BigInt())
 }
 
 // GenerateContractCallArgs generates the txArgs for a contract call.

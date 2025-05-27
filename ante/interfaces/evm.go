@@ -23,7 +23,7 @@ import (
 type EVMKeeper interface {
 	statedb.Keeper
 
-	NewEVM(ctx sdk.Context, msg *core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks,
+	NewEVM(ctx sdk.Context, msg core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks,
 		stateDB vm.StateDB) *vm.EVM
 	DeductTxCostsFromUserBalance(ctx sdk.Context, fees sdk.Coins, from common.Address) error
 	GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int

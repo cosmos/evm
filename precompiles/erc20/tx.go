@@ -3,13 +3,12 @@ package erc20
 import (
 	"math/big"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
-
-	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
@@ -127,7 +126,10 @@ func (p *Precompile) transfer(
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	if p.tokenPair.Denom == evmDenom {
-		convertedAmount := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(amount.Uint64()))
+		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
+		if err != nil {
+			return nil, err
+		}
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
 			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}

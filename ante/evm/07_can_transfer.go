@@ -9,6 +9,7 @@ import (
 	"github.com/holiman/uint256"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -43,7 +44,7 @@ func CanTransfer(
 	}
 
 	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
-	evm := evmKeeper.NewEVM(ctx, &msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
+	evm := evmKeeper.NewEVM(ctx, msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
 
 	val, overflow := uint256.FromBig(msg.Value)
 	if overflow {
@@ -51,7 +52,11 @@ func CanTransfer(
 	}
 	// check that caller has enough balance to cover asset transfer for **topmost** call
 	// NOTE: here the gas consumed is from the context with the infinite gas meter
-	if msg.Value.Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From, val) {
+	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
+	if err != nil {
+		return err
+	}
+	if msg.Value.Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From, convertedValue) {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFunds,
 			"failed to transfer %s from address %s using the EVM block context transfer function",

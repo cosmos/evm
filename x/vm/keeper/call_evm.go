@@ -81,16 +81,16 @@ func (k Keeper) CallEVMWithData(
 		From:       from,
 		To:         contract,
 		Nonce:      nonce,
-		Value:      big.NewInt(0), // amount
-		GasLimit:   gasCap,        // gasLimit
-		GasFeeCap:  big.NewInt(0), // gasFeeCap
-		GasTipCap:  big.NewInt(0), // gasTipCap
-		GasPrice:   big.NewInt(0), // gasPrice
+		Value:      big.NewInt(0),
+		GasLimit:   gasCap,
+		GasPrice:   big.NewInt(0),
+		GasTipCap:  big.NewInt(0),
+		GasFeeCap:  big.NewInt(0),
 		Data:       data,
-		AccessList: ethtypes.AccessList{}, // AccessList
+		AccessList: ethtypes.AccessList{},
 	}
 
-	res, err := k.ApplyMessage(ctx, msg, types.NewNoOpTracer(), commit)
+	res, err := k.ApplyMessage(ctx, msg, nil, commit)
 	if err != nil {
 		return nil, err
 	}

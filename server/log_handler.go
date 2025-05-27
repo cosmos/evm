@@ -7,19 +7,20 @@ import (
 	"cosmossdk.io/log"
 )
 
-// SDKSlogHandler is a compat log handler between the eth root logger and the SDK's log types
-type SDKSlogHandler struct {
+// CustomSlogHandler bridges Geth's slog logs to the existing Cosmos SDK logger.
+type CustomSlogHandler struct {
 	logger log.Logger
 }
 
-// Handle is the main entrypoint for log handling
-func (h *SDKSlogHandler) Handle(_ context.Context, r slog.Record) error {
+// Handle processes slog records and forwards them to your Cosmos SDK logger.
+func (h *CustomSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	attrs := []interface{}{}
 	r.Attrs(func(attr slog.Attr) bool {
 		attrs = append(attrs, attr.Key, attr.Value.Any())
 		return true
 	})
 
+	// Map slog levels to Cosmos SDK logger
 	switch r.Level {
 	case slog.LevelDebug:
 		h.logger.Debug(r.Message, attrs...)
@@ -36,17 +37,17 @@ func (h *SDKSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 
-// Enabled handles varying log levels
-func (h *SDKSlogHandler) Enabled(_ context.Context, _ slog.Level) bool {
+// Enabled determines if the handler should log a given level.
+func (h *CustomSlogHandler) Enabled(_ context.Context, _ slog.Level) bool {
 	return true
 }
 
-// WithAttrs implements slog.Handler
-func (h *SDKSlogHandler) WithAttrs(_ []slog.Attr) slog.Handler {
+// WithAttrs allows adding additional attributes.
+func (h *CustomSlogHandler) WithAttrs(_ []slog.Attr) slog.Handler {
 	return h
 }
 
-// WithGroup implements slog.Handler
-func (h *SDKSlogHandler) WithGroup(_ string) slog.Handler {
+// WithGroup is required to implement slog.Handler (not used).
+func (h *CustomSlogHandler) WithGroup(_ string) slog.Handler {
 	return h
 }

@@ -443,7 +443,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				statedb.NewEmptyTxConfig(common.BytesToHash(headerHash)),
 			)
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, stDB,
+				ctx, *msg, cfg, nil, stDB,
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)

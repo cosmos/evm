@@ -43,7 +43,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 		{"non-exist account", func(db *statedb.StateDB) {
 			suite.Require().Equal(false, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
-			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(common.U2560, db.GetBalance(address))
 			suite.Require().Equal([]byte(nil), db.GetCode(address))
 			suite.Require().Equal(common.Hash{}, db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
@@ -61,15 +61,14 @@ func (suite *StateDBTestSuite) TestAccount() {
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
-			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(common.U2560, db.GetBalance(address))
 			suite.Require().Equal([]byte(nil), db.GetCode(address))
 			suite.Require().Equal(common.BytesToHash(emptyCodeHash), db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
 		}},
 		{"suicide", func(db *statedb.StateDB) {
 			// non-exist account.
-			_, b := db.SelfDestruct6780(address)
-			suite.Require().False(b)
+			db.SelfDestruct(address)
 			suite.Require().False(db.HasSelfDestructed(address))
 
 			// create a contract account
@@ -88,7 +87,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			// check dirty state
 			suite.Require().True(db.HasSelfDestructed(address))
 			// balance is cleared
-			suite.Require().Equal(uint256.NewInt(0), db.GetBalance(address))
+			suite.Require().Equal(common.U2560, db.GetBalance(address))
 			// but code and state are still accessible in dirty state
 			suite.Require().Equal(value1, db.GetState(address, key1))
 			suite.Require().Equal([]byte("hello world"), db.GetCode(address))
@@ -143,7 +142,8 @@ func (suite *StateDBTestSuite) TestDBError() {
 		}},
 		{"delete account", func(db vm.StateDB) {
 			db.SetNonce(errAddress, 1, tracing.NonceChangeUnspecified)
-			db.SelfDestruct(address)
+			db.SelfDestruct(errAddress)
+			suite.Require().True(db.HasSelfDestructed(errAddress))
 		}},
 	}
 	for _, tc := range testCases {
@@ -322,6 +322,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 			db.SetState(address, v1, v2)
 			db.SetCode(address, []byte("hello world"))
 			db.SelfDestruct(address)
+			suite.Require().True(db.HasSelfDestructed(address))
 		}},
 		{"add log", func(db vm.StateDB) {
 			db.AddLog(&ethtypes.Log{

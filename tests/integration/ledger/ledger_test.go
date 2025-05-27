@@ -212,7 +212,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 						s.FormatFlag(flags.FlagSkipConfirmation),
 					})
 					out := bytes.NewBufferString("")
-					cmd.SetOutput(out)
+					cmd.SetOut(out)
 
 					err := cmd.Execute()
 
@@ -230,7 +230,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 						s.FormatFlag(flags.FlagSkipConfirmation),
 					})
 					out := bytes.NewBufferString("")
-					cmd.SetOutput(out)
+					cmd.SetOut(out)
 
 					err := cmd.Execute()
 

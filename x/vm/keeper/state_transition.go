@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	evmcore "github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -35,27 +35,26 @@ import (
 // for more information.
 func (k *Keeper) NewEVM(
 	ctx sdk.Context,
-	msg *evmcore.Message,
+	msg core.Message,
 	cfg *statedb.EVMConfig,
 	tracer *tracing.Hooks,
 	stateDB vm.StateDB,
 ) *vm.EVM {
 	blockCtx := vm.BlockContext{
-		CanTransfer: evmcore.CanTransfer,
-		Transfer:    evmcore.Transfer,
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
 		GetHash:     k.GetHashFn(ctx),
 		Coinbase:    cfg.CoinBase,
 		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        uint64(ctx.BlockHeader().Time.Unix()),
-		Difficulty:  big.NewInt(0), // unused. Only required in PoW context
+		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
+		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
 		BaseFee:     cfg.BaseFee,
-		Random:      nil, // not supported
+		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
 	ethCfg := types.GetEthChainConfig()
-
-	txCtx := evmcore.NewEVMTxContext(msg)
+	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
 	}
@@ -162,8 +161,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
-	msg, err := evmcore.TransactionToMessage(tx, signer, cfg.BaseFee)
+	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
 	}
@@ -174,7 +173,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	tmpCtx, commit := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, msg, nil, true, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -245,7 +244,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	evmDenom := types.GetEVMCoinDenom()
 
 	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
-	if err = k.RefundGas(ctx, *msg, msg.GasLimit-res.GasUsed, evmDenom); err != nil {
+	remainingGas := uint64(0)
+	if msg.GasLimit > res.GasUsed {
+		remainingGas = msg.GasLimit - res.GasUsed
+	}
+	if err = k.RefundGas(ctx, *msg, remainingGas, evmDenom); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
@@ -268,7 +271,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg evmcore.Message, tracer *tracing.Hooks,
+func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks,
 	commit bool,
 ) (*types.MsgEthereumTxResponse, error) {
 	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
@@ -277,7 +280,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg evmcore.Message, tracer *trac
 	}
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
-	return k.ApplyMessageWithConfig(ctx, &msg, tracer, commit, cfg, txConfig)
+	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -320,7 +323,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg evmcore.Message, tracer *trac
 // If commit is true, the `StateDB` will be committed, otherwise discarded.
 func (k *Keeper) ApplyMessageWithConfig(
 	ctx sdk.Context,
-	msg *evmcore.Message,
+	msg core.Message,
 	tracer *tracing.Hooks,
 	commit bool,
 	cfg *statedb.EVMConfig,
@@ -351,7 +354,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// Should check again even if it is checked on Ante Handler, because eth_call don't go through Ante Handler.
 	if leftoverGas < intrinsicGas {
 		// eth_estimateGas will check for this exact error
-		return nil, errorsmod.Wrap(evmcore.ErrIntrinsicGas, "apply message")
+		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
 	leftoverGas -= intrinsicGas
 
@@ -362,13 +365,8 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	if rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), ethCfg.MergeNetsplitBlock != nil,
-		uint64(ctx.BlockTime().Unix())); rules.IsBerlin {
-		// The access list is prepared without any precompile because it is
-		// filled with only the recipient precompile address in the EVM'hook
-		// call.
-		stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
-	}
+	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
 
 	if contractCreation {
 		// take over the nonce management from evm:
@@ -416,8 +414,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
 	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
-	gasLimit := math.LegacyNewDec(int64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is
-	// not exceeding int64 max value
+	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
 	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
 
@@ -426,8 +423,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 
 	if msg.GasLimit < leftoverGas {
-		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit,
-			leftoverGas)
+		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
 	}
 
 	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here

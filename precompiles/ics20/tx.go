@@ -3,16 +3,15 @@ package ics20
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -82,7 +81,10 @@ func (p *Precompile) Transfer(
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from another smart contract.
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-		amt := uint256.NewInt(msg.Token.Amount.Uint64())
+		amt, err := utils.Uint256FromBigInt(msg.Token.Amount.BigInt())
+		if err != nil {
+			return nil, err
+		}
 		p.SetBalanceChangeEntries(
 			cmn.NewBalanceChangeEntry(sender, amt, cmn.Sub),
 			cmn.NewBalanceChangeEntry(escrowHexAddr, amt, cmn.Add),

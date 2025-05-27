@@ -108,12 +108,8 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"eip150_block\""
   ];
-  // eip150_hash: EIP150 HF hash (needed for header only clients as only gas
-  // pricing changed)
-  string eip150_hash = 5 [
-    (gogoproto.customname) = "EIP150Hash",
-    (gogoproto.moretags) = "yaml:\"byzantium_block\""
-  ];
+  // DEPRECATED: EIP-150_HASH
+  reserved 5;
   // eip155_block: EIP155Block HF block
   string eip155_block = 6 [
     (gogoproto.customname) = "EIP155Block",
@@ -183,6 +179,9 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"merge_netsplit_block\""
   ];
+  // DEPRECATED: shanghai_block & cancun_block - switched from block to
+  // timestamp
+  reserved 22, 23;
   // chain_id is the id of the chain (EIP-155)
   uint64 chain_id = 24;
   // denom is the denomination used on the EVM
@@ -190,28 +189,31 @@ message ChainConfig {
   // decimals is the real decimal precision of the denomination used on the EVM
   uint64 decimals = 26;
 
-  // Fork scheduling was switched from blocks to timestamps here
+  // shanghai_time: Shanghai switch time (nil = no fork, 0 = already on
+  // shanghai)
   string shanghai_time = 27 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"shanghai_time\""
   ];
+  // cancun_time: Cancun switch time (nil = no fork, 0 = already on cancun)
   string cancun_time = 28 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"cancun_time\""
   ];
+  // prague_time: Prague switch time (nil = no fork, 0 = already on prague)
   string prague_time = 29 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"prague_time\""
   ];
-  string osaka_time = 30 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.moretags) = "yaml:\"osaka_time\""
-  ];
-  string verkle_time = 31 [
+  // verkle_time: Verkle switch time (nil = no fork, 0 = already on verkle)
+  string verkle_time = 30 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"verkle_time\""
   ];
-
+  string osaka_time = 31 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.moretags) = "yaml:\"osaka_time\""
+  ];
 }
 
 // State represents a single Storage key value pair item.

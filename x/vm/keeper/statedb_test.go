@@ -11,6 +11,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
@@ -47,7 +48,7 @@ func (suite *KeeperTestSuite) TestCreateAccount() {
 			utiltx.GenerateAddress(),
 			func(vmdb vm.StateDB, addr common.Address) {
 				vmdb.AddBalance(addr, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
-				suite.Require().False(vmdb.GetBalance(addr).IsZero())
+				suite.Require().NotZero(vmdb.GetBalance(addr).Uint64())
 			},
 			func(vmdb vm.StateDB, addr common.Address) {
 				suite.Require().Equal(vmdb.GetBalance(addr).Uint64(), uint64(100))
@@ -78,23 +79,18 @@ func (suite *KeeperTestSuite) TestCreateAccount() {
 func (suite *KeeperTestSuite) TestAddBalance() {
 	testCases := []struct {
 		name   string
-		amount *big.Int
+		amount *uint256.Int
 		isNoOp bool
 	}{
 		{
 			"positive amount",
-			big.NewInt(100),
+			uint256.NewInt(100),
 			false,
 		},
 		{
 			"zero amount",
-			big.NewInt(0),
+			uint256.NewInt(0),
 			true,
-		},
-		{
-			"negative amount",
-			big.NewInt(-1),
-			false, // seems to be consistent with go-ethereum's implementation
 		},
 	}
 
@@ -102,14 +98,13 @@ func (suite *KeeperTestSuite) TestAddBalance() {
 		suite.Run(tc.name, func() {
 			vmdb := suite.StateDB()
 			prev := vmdb.GetBalance(suite.keyring.GetAddr(0))
-			vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(tc.amount), tracing.BalanceChangeUnspecified)
+			vmdb.AddBalance(suite.keyring.GetAddr(0), tc.amount, tracing.BalanceChangeUnspecified)
 			post := vmdb.GetBalance(suite.keyring.GetAddr(0))
 
 			if tc.isNoOp {
-				suite.Require().Equal(prev.Uint64(), post.Uint64())
+				suite.Require().Equal(prev, post)
 			} else {
-				suite.Require().Equal(new(uint256.Int).Add(prev, uint256.MustFromBig(tc.amount)).Uint64(),
-					post.Uint64())
+				suite.Require().Equal(new(uint256.Int).Add(prev, tc.amount), post)
 			}
 		})
 	}
@@ -118,19 +113,19 @@ func (suite *KeeperTestSuite) TestAddBalance() {
 func (suite *KeeperTestSuite) TestSubBalance() {
 	testCases := []struct {
 		name     string
-		amount   *big.Int
+		amount   *uint256.Int
 		malleate func(vm.StateDB)
 		isNoOp   bool
 	}{
 		{
 			"positive amount, below zero",
-			big.NewInt(100),
+			uint256.NewInt(100),
 			func(vm.StateDB) {},
 			false,
 		},
 		{
 			"positive amount, above zero",
-			big.NewInt(50),
+			uint256.NewInt(50),
 			func(vmdb vm.StateDB) {
 				vmdb.AddBalance(suite.keyring.GetAddr(0), uint256.NewInt(100), tracing.BalanceChangeUnspecified)
 			},
@@ -138,15 +133,9 @@ func (suite *KeeperTestSuite) TestSubBalance() {
 		},
 		{
 			"zero amount",
-			big.NewInt(0),
+			uint256.NewInt(0),
 			func(vm.StateDB) {},
 			true,
-		},
-		{
-			"negative amount",
-			big.NewInt(-1),
-			func(vm.StateDB) {},
-			false,
 		},
 	}
 
@@ -156,14 +145,13 @@ func (suite *KeeperTestSuite) TestSubBalance() {
 			tc.malleate(vmdb)
 
 			prev := vmdb.GetBalance(suite.keyring.GetAddr(0))
-			vmdb.SubBalance(suite.keyring.GetAddr(0), uint256.MustFromBig(tc.amount), tracing.BalanceChangeUnspecified)
+			vmdb.SubBalance(suite.keyring.GetAddr(0), tc.amount, tracing.BalanceChangeUnspecified)
 			post := vmdb.GetBalance(suite.keyring.GetAddr(0))
 
 			if tc.isNoOp {
-				suite.Require().Equal(prev.Uint64(), post.Uint64())
+				suite.Require().Equal(prev, post)
 			} else {
-				suite.Require().Equal(new(uint256.Int).Sub(prev, uint256.MustFromBig(tc.amount)).Uint64(),
-					post.Uint64())
+				suite.Require().Equal(new(uint256.Int).Sub(prev, tc.amount), post)
 			}
 		})
 	}
@@ -563,7 +551,7 @@ func (suite *KeeperTestSuite) TestSuicide() {
 	db.SelfDestruct(firstAddress)
 
 	// Check suicided is marked
-	suite.Require().Equal(true, db.HasSelfDestructed(firstAddress))
+	suite.Require().True(db.HasSelfDestructed(firstAddress))
 
 	// Commit state
 	suite.Require().NoError(db.Commit())
@@ -585,7 +573,7 @@ func (suite *KeeperTestSuite) TestSuicide() {
 
 	// Check code is still present in addr2 and suicided is false
 	suite.Require().NotNil(db.GetCode(secondAddress))
-	suite.Require().Equal(false, db.HasSelfDestructed(secondAddress))
+	suite.Require().False(db.HasSelfDestructed(secondAddress))
 }
 
 func (suite *KeeperTestSuite) TestExist() {
@@ -725,12 +713,12 @@ func (suite *KeeperTestSuite) TestAddLog() {
 	addr, privKey := utiltx.NewAddrKey()
 	toAddr := suite.keyring.GetAddr(0)
 	ethTxParams := &types.EvmTxArgs{
-		ChainID:  big.NewInt(1),
+		ChainID:  common.Big1,
 		Nonce:    0,
 		To:       &toAddr,
-		Amount:   big.NewInt(1),
+		Amount:   common.Big1,
 		GasLimit: 100000,
-		GasPrice: big.NewInt(1),
+		GasPrice: common.Big1,
 		Input:    []byte("test"),
 	}
 	msg := types.NewTx(ethTxParams)
@@ -741,12 +729,12 @@ func (suite *KeeperTestSuite) TestAddLog() {
 	txHash := msg.AsTransaction().Hash()
 
 	ethTx2Params := &types.EvmTxArgs{
-		ChainID:  big.NewInt(1),
+		ChainID:  common.Big1,
 		Nonce:    2,
 		To:       &toAddr,
-		Amount:   big.NewInt(1),
+		Amount:   common.Big1,
 		GasLimit: 100000,
-		GasPrice: big.NewInt(1),
+		GasPrice: common.Big1,
 		Input:    []byte("test"),
 	}
 	msg2 := types.NewTx(ethTx2Params)
@@ -756,10 +744,10 @@ func (suite *KeeperTestSuite) TestAddLog() {
 		ChainID:   big.NewInt(testconstants.ExampleEIP155ChainID),
 		Nonce:     0,
 		To:        &toAddr,
-		Amount:    big.NewInt(1),
+		Amount:    common.Big1,
 		GasLimit:  100000,
-		GasFeeCap: big.NewInt(1),
-		GasTipCap: big.NewInt(1),
+		GasFeeCap: common.Big1,
+		GasTipCap: common.Big1,
 		Input:     []byte("test"),
 	}
 	msg3 := types.NewTx(ethTx3Params)
@@ -770,13 +758,13 @@ func (suite *KeeperTestSuite) TestAddLog() {
 	txHash3 := msg3.AsTransaction().Hash()
 
 	ethTx4Params := &types.EvmTxArgs{
-		ChainID:   big.NewInt(1),
+		ChainID:   common.Big1,
 		Nonce:     1,
 		To:        &toAddr,
-		Amount:    big.NewInt(1),
+		Amount:    common.Big1,
 		GasLimit:  100000,
-		GasFeeCap: big.NewInt(1),
-		GasTipCap: big.NewInt(1),
+		GasFeeCap: common.Big1,
+		GasTipCap: common.Big1,
 		Input:     []byte("test"),
 	}
 	msg4 := types.NewTx(ethTx4Params)
@@ -844,8 +832,25 @@ func (suite *KeeperTestSuite) TestPrepareAccessList() {
 		{Address: utiltx.GenerateAddress(), StorageKeys: []common.Hash{common.BytesToHash([]byte("key1"))}},
 	}
 
+	rules := ethparams.Rules{
+		ChainID:          suite.network.GetEVMChainConfig().ChainID,
+		IsHomestead:      true,
+		IsEIP150:         true,
+		IsEIP155:         true,
+		IsEIP158:         true,
+		IsByzantium:      true,
+		IsConstantinople: true,
+		IsPetersburg:     true,
+		IsIstanbul:       true,
+		IsBerlin:         true,
+		IsLondon:         true,
+		IsMerge:          true,
+		IsShanghai:       true,
+		IsCancun:         true,
+	}
+
 	vmdb := suite.StateDB()
-	vmdb.PrepareAccessList(suite.keyring.GetAddr(0), &dest, precompiles, accesses)
+	vmdb.Prepare(rules, suite.keyring.GetAddr(0), common.Address{}, &dest, precompiles, accesses)
 
 	suite.Require().True(vmdb.AddressInAccessList(suite.keyring.GetAddr(0)))
 	suite.Require().True(vmdb.AddressInAccessList(dest))
@@ -976,7 +981,7 @@ func (suite *KeeperTestSuite) TestAddSlotToAccessList() {
 // }
 
 func (suite *KeeperTestSuite) TestSetBalance() {
-	amount := big.NewInt(-10)
+	amount := common.U2560
 	addr := utiltx.GenerateAddress()
 
 	testCases := []struct {
@@ -986,16 +991,10 @@ func (suite *KeeperTestSuite) TestSetBalance() {
 		expErr   bool
 	}{
 		{
-			"address without funds - invalid amount",
-			addr,
-			func() {},
-			true,
-		},
-		{
 			"mint to address",
 			addr,
 			func() {
-				amount = big.NewInt(100)
+				amount = uint256.NewInt(100)
 			},
 			false,
 		},
@@ -1003,17 +1002,9 @@ func (suite *KeeperTestSuite) TestSetBalance() {
 			"burn from address",
 			addr,
 			func() {
-				amount = big.NewInt(60)
+				amount = uint256.NewInt(60)
 			},
 			false,
-		},
-		{
-			"address with funds - invalid amount",
-			addr,
-			func() {
-				amount = big.NewInt(-10)
-			},
-			true,
 		},
 	}
 
@@ -1021,8 +1012,7 @@ func (suite *KeeperTestSuite) TestSetBalance() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			tc.malleate()
-			err := suite.network.App.EVMKeeper.SetBalance(suite.network.GetContext(), tc.addr,
-				uint256.MustFromBig(amount))
+			err := suite.network.App.EVMKeeper.SetBalance(suite.network.GetContext(), tc.addr, amount)
 			if tc.expErr {
 				suite.Require().Error(err)
 			} else {

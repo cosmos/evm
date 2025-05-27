@@ -442,6 +442,7 @@ func (suite *KeeperTestSuite) TestQueryParams() {
 	ctx := suite.network.GetContext()
 	expParams := types.DefaultParams()
 	expParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
+	expParams.ExtraEIPs = nil
 
 	res, err := suite.network.GetEvmClient().Params(ctx, &types.QueryParamsRequest{})
 	suite.Require().NoError(err)
@@ -690,7 +691,7 @@ func (suite *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1186778,
+			1187108,
 			false,
 			config.DefaultGasCap,
 		},
@@ -800,7 +801,7 @@ func (suite *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1186778,
+			1187108,
 			true,
 			config.DefaultGasCap,
 		},
@@ -1491,6 +1492,8 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.ArrowGlacierBlock = &maxInt
 				chainConfig.GrayGlacierBlock = &maxInt
 				chainConfig.MergeNetsplitBlock = &maxInt
+				chainConfig.ShanghaiTime = &maxInt
+				chainConfig.CancunTime = &maxInt
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()

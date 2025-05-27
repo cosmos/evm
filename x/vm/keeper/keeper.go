@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -233,8 +234,8 @@ func (k Keeper) GetAccountStorage(ctx sdk.Context, address common.Address) types
 // ----------------------------------------------------------------------------
 
 // Tracer return a default vm.Tracer based on current keeper state
-func (k Keeper) Tracer(ctx sdk.Context, msg *core.Message, ethCfg *params.ChainConfig) *tracing.Hooks {
-	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight())
+func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) *tracing.Hooks {
+	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 }
 
 // GetAccountWithoutBalance load nonce and codehash without balance,
@@ -286,9 +287,12 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	bal := new(uint256.Int)
-	_ = bal.SetFromBig(coin.Amount.BigInt())
-	return bal
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBaseFee returns current base fee, return values:

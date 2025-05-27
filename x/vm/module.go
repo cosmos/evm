@@ -26,7 +26,7 @@ import (
 )
 
 // consensusVersion defines the current x/evm module consensus version.
-const consensusVersion = 8
+const consensusVersion = 9
 
 var (
 	_ module.AppModuleBasic = AppModuleBasic{}
@@ -117,11 +117,6 @@ func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper) AppModule {
 // Name returns the evm module's name.
 func (AppModule) Name() string {
 	return types.ModuleName
-}
-
-// RegisterInvariants interface for registering invariants. Performs a no-op
-// as the evm module doesn't expose invariants.
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
 }
 
 // RegisterServices registers a GRPC query service to respond to the

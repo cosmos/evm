@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 
 	sdkmath "cosmossdk.io/math"
 )
@@ -37,6 +38,18 @@ type TransactionArgs struct {
 	// Introduced by AccessListTxType transaction.
 	AccessList *ethtypes.AccessList `json:"accessList,omitempty"`
 	ChainID    *hexutil.Big         `json:"chainId,omitempty"`
+
+	// For BlobTxType
+	BlobFeeCap *hexutil.Big  `json:"maxFeePerBlobGas"`
+	BlobHashes []common.Hash `json:"blobVersionedHashes,omitempty"`
+
+	// For BlobTxType transactions with blob sidecar
+	Blobs       []kzg4844.Blob       `json:"blobs"`
+	Commitments []kzg4844.Commitment `json:"commitments"`
+	Proofs      []kzg4844.Proof      `json:"proofs"`
+
+	// For SetCodeTxType
+	AuthorizationList []ethtypes.SetCodeAuthorization `json:"authorizationList"`
 }
 
 // String return the struct in a string format
@@ -155,7 +168,8 @@ func (args *TransactionArgs) ToTransaction() *MsgEthereumTx {
 
 // ToMessage converts the arguments to the Message type used by the core evm.
 // This assumes that setTxDefaults has been called.
-func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (core.Message, error) {
+func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int, skipNonceCheck,
+	skipEoACheck bool) (core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return core.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -229,17 +243,21 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (c
 	}
 
 	msg := core.Message{
-		To:              args.To,
-		From:            addr,
-		Nonce:           nonce,
-		Value:           value,
-		GasLimit:        gas,
-		GasPrice:        gasPrice,
-		GasFeeCap:       gasFeeCap,
-		GasTipCap:       gasTipCap,
-		Data:            data,
-		AccessList:      accessList,
-		SkipNonceChecks: true,
+		From:                  addr,
+		To:                    args.To,
+		Nonce:                 nonce,
+		Value:                 value,
+		GasLimit:              gas,
+		GasPrice:              gasPrice,
+		GasFeeCap:             gasFeeCap,
+		GasTipCap:             gasTipCap,
+		Data:                  data,
+		AccessList:            accessList,
+		BlobGasFeeCap:         (*big.Int)(args.BlobFeeCap),
+		BlobHashes:            args.BlobHashes,
+		SetCodeAuthorizations: args.AuthorizationList,
+		SkipNonceChecks:       skipNonceCheck,
+		SkipFromEOACheck:      skipEoACheck,
 	}
 	return msg, nil
 }

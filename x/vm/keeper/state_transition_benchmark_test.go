@@ -2,15 +2,13 @@ package keeper_test
 
 import (
 	"errors"
-	"math/big"
-	"testing"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+	"math/big"
+	"testing"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -147,7 +145,7 @@ func newNativeMessage(
 	data []byte,
 	accessList ethtypes.AccessList,
 ) (*core.Message, error) {
-	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight), uint64(time.Now().Unix()))
+	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight), 10000000)
 
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList)
 	if err != nil {

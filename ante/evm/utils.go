@@ -48,8 +48,7 @@ func NewMonoDecoratorUtils(
 	ethCfg := evmtypes.GetEthChainConfig()
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	blockHeight := big.NewInt(ctx.BlockHeight())
-	blkTime := uint64(ctx.BlockTime().Unix())
-	rules := ethCfg.Rules(blockHeight, true, blkTime)
+	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	baseFee := ek.GetBaseFee(ctx)
 
 	if rules.IsLondon && baseFee == nil {
@@ -68,7 +67,7 @@ func NewMonoDecoratorUtils(
 	return &DecoratorUtils{
 		EvmParams:          evmParams,
 		Rules:              rules,
-		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, blkTime),
+		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix())), //#nosec G115 -- int overflow is not a concern here
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,

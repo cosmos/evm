@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,7 +47,7 @@ func BenchmarkAddBalance(b *testing.B) {
 	suite.SetupTest()
 	vmdb := suite.StateDB()
 
-	amt := big.NewInt(10)
+	amt := uint256.NewInt(10)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -140,7 +139,7 @@ func BenchmarkSubBalance(b *testing.B) {
 	suite.SetupTest()
 	vmdb := suite.StateDB()
 
-	amt := big.NewInt(10)
+	amt := uint256.NewInt(10)
 
 	b.ResetTimer()
 	b.ReportAllocs()

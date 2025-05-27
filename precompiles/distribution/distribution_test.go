@@ -275,7 +275,7 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			// Instantiate EVM
 			evm := s.network.App.EVMKeeper.NewEVM(
-				ctx, msg, cfg, nil, s.network.GetStateDB(),
+				ctx, *msg, cfg, nil, s.network.GetStateDB(),
 			)
 
 			precompiles, found, err := s.network.App.EVMKeeper.GetPrecompileInstance(ctx, contractAddr)

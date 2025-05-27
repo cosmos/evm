@@ -85,7 +85,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			},
 			func([]byte) {},
 			false,
-			"abi: attempting to unmarshall an empty string while arguments are expected",
+			"abi: attempting to unmarshal an empty string while arguments are expected",
 		},
 		{
 			"fail - HexToBech32 method error",

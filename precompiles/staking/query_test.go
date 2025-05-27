@@ -79,7 +79,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 				var delOut staking.DelegationOutput
 				err := s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, bz)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(delOut.Shares.Int64(), big.NewInt(0).Int64())
+				s.Require().Equal(delOut.Shares.Int64(), common.U2560.ToBig().Int64())
 			},
 			100000,
 			false,

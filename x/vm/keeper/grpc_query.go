@@ -240,7 +240,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee)
+	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, false, false)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -248,7 +248,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// pass false to not commit StateDB
-	res, err := k.ApplyMessageWithConfig(ctx, &msg, nil, false, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -321,7 +321,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// convert the tx args to an ethereum message
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee)
+	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, true, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -361,16 +361,20 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	executable := func(gas uint64) (vmError bool, rsp *types.MsgEthereumTxResponse, err error) {
 		// update the message with the new gas value
 		msg = core.Message{
-			From:       msg.From,
-			To:         msg.To,
-			Nonce:      msg.Nonce,
-			Value:      msg.Value,
-			GasLimit:   gas,
-			GasPrice:   msg.GasPrice,
-			GasFeeCap:  msg.GasFeeCap,
-			GasTipCap:  msg.GasTipCap,
-			Data:       msg.Data,
-			AccessList: msg.AccessList,
+			From:             msg.From,
+			To:               msg.To,
+			Nonce:            msg.Nonce,
+			Value:            msg.Value,
+			GasLimit:         gas,
+			GasPrice:         msg.GasPrice,
+			GasFeeCap:        msg.GasFeeCap,
+			GasTipCap:        msg.GasTipCap,
+			Data:             msg.Data,
+			AccessList:       msg.AccessList,
+			BlobGasFeeCap:    msg.BlobGasFeeCap,
+			BlobHashes:       msg.BlobHashes,
+			SkipNonceChecks:  msg.SkipNonceChecks,
+			SkipFromEOACheck: msg.SkipFromEOACheck,
 		}
 
 		tmpCtx := ctx
@@ -396,7 +400,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			tmpCtx = evmante.BuildEvmExecutionCtx(tmpCtx).WithGasMeter(gasMeter)
 		}
 		// pass false to not commit StateDB
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, &msg, nil, false, cfg, txConfig)
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, msg, nil, false, cfg, txConfig)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -476,7 +480,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
+	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
@@ -495,7 +499,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		// reset gas meter for each transaction
 		ctx = evmante.BuildEvmExecutionCtx(ctx).
 			WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
-		rsp, err := k.ApplyMessageWithConfig(ctx, msg, types.NewNoOpTracer(), true, cfg, txConfig)
+		rsp, err := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig)
 		if err != nil {
 			continue
 		}
@@ -570,7 +574,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix()))
+	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	txsLength := len(req.Txs)
 	results := make([]*types.TxTraceResult, 0, txsLength)
 
@@ -682,7 +686,7 @@ func (k *Keeper) traceTx(
 	// Build EVM execution context
 	ctx = evmante.BuildEvmExecutionCtx(ctx).
 		WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
-	res, err := k.ApplyMessageWithConfig(ctx, msg, tracer.Hooks, commitMessage, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())
 	}

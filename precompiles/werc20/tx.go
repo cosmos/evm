@@ -44,7 +44,7 @@ func (p Precompile) Deposit(
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
 			Denom:  evmtypes.GetEVMCoinDenom(),
-			Amount: math.NewIntFromUint64(depositedAmount.Uint64()),
+			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
 		return nil, err

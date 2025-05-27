@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
-
-	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
@@ -186,8 +185,10 @@ func (p *Precompile) Delegate(
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
 
 		// Need to scale the amount to 18 decimals for the EVM balance change entry
-
-		scaledAmt := evmtypes.ConvertAmountTo18Decimals256Int(uint256.NewInt(msg.Amount.Amount.Uint64()))
+		scaledAmt, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt()))
+		if err != nil {
+			return nil, err
+		}
 		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delegatorHexAddr, scaledAmt, cmn.Sub))
 	}
 

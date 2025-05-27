@@ -96,6 +96,8 @@ func (suite *AnteTestSuite) SetupTest() {
 		chainConfig.ArrowGlacierBlock = &maxInt
 		chainConfig.GrayGlacierBlock = &maxInt
 		chainConfig.MergeNetsplitBlock = &maxInt
+		chainConfig.ShanghaiTime = &maxInt
+		chainConfig.CancunTime = &maxInt
 	}
 
 	// get the denom and decimals set when initialized the chain
