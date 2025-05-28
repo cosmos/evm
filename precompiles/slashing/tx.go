@@ -38,7 +38,7 @@ func (p Precompile) Unjail(
 		return nil, fmt.Errorf("invalid validator hex address")
 	}
 
-	msgSender := contract.CallerAddress
+	msgSender := contract.Caller()
 	if msgSender != validatorAddress {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorAddress.String())
 	}

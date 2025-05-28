@@ -26,7 +26,7 @@ func (p Precompile) SubmitEvidence(
 		return nil, err
 	}
 
-	msgSender := contract.CallerAddress
+	msgSender := contract.Caller()
 	if msgSender != submitterHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), submitterHexAddr.String())
 	}
