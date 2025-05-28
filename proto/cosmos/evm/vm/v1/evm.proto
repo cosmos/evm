@@ -210,6 +210,7 @@ message ChainConfig {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"verkle_time\""
   ];
+  // osaka_time: Osaka switch time (nil = no fork, 0 = already on osaka)
   string osaka_time = 31 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.moretags) = "yaml:\"osaka_time\""
