@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/suite"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -112,7 +111,7 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 				s.network.GetContext(),
 				stateDB,
 				caller,
-				uint256.MustFromBig(amount),
+				amount,
 			)
 			s.Require().NoError(err, "expected deposit event to be emitted successfully")
 
@@ -171,7 +170,7 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 				s.network.GetContext(),
 				stateDB,
 				caller,
-				uint256.MustFromBig(amount),
+				amount,
 			)
 			s.Require().NoError(err, "expected withdrawal event to be emitted successfully")
 

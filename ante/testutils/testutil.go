@@ -98,6 +98,7 @@ func (suite *AnteTestSuite) SetupTest() {
 		chainConfig.MergeNetsplitBlock = &maxInt
 		chainConfig.ShanghaiTime = &maxInt
 		chainConfig.CancunTime = &maxInt
+		chainConfig.PragueTime = &maxInt
 	}
 
 	// get the denom and decimals set when initialized the chain

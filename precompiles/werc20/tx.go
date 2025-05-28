@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -57,7 +56,7 @@ func (p Precompile) Deposit(
 		cmn.NewBalanceChangeEntry(p.Address(), depositedAmount, cmn.Sub),
 	)
 
-	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount); err != nil {
+	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +80,7 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 
-	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, uint256.NewInt(amount.Uint64())); err != nil {
+	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, amount); err != nil {
 		return nil, err
 	}
 	return nil, nil

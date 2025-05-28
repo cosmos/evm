@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/holiman/uint256"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -339,6 +338,19 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	leftoverGas := msg.GasLimit
 
+	// Allow the tracer captures the tx level events, mainly the gas consumption.
+	vmCfg := evm.Config
+	if vmCfg.Tracer != nil {
+		vmCfg.Tracer.OnTxStart(
+			evm.GetVMContext(),
+			ethtypes.NewTx(&ethtypes.LegacyTx{To: msg.To, Data: msg.Data, Value: msg.Value, Gas: msg.GasLimit}),
+			msg.From,
+		)
+		defer func() {
+			vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
+		}()
+	}
+
 	ethCfg := types.GetEthChainConfig()
 
 	sender := vm.AccountRef(msg.From)
@@ -358,25 +370,25 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 	leftoverGas -= intrinsicGas
 
-	value, overflow := uint256.FromBig(msg.Value)
-	if overflow {
-		return nil, fmt.Errorf("%w: address %v", types.ErrInvalidAmount, msg.From.Hex())
-	}
-
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
 	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
+
+	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
+	if err != nil {
+		return nil, err
+	}
 
 	if contractCreation {
 		// take over the nonce management from evm:
 		// - reset sender's nonce to msg.Nonce() before calling evm.
 		// - increase sender's nonce by one no matter the result.
 		stateDB.SetNonce(sender.Address(), msg.Nonce, tracing.NonceChangeEoACall)
-		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, value)
+		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
 	} else {
-		ret, leftoverGas, vmErr = evm.Call(sender.Address(), *msg.To, msg.Data, leftoverGas, value)
+		ret, leftoverGas, vmErr = evm.Call(sender.Address(), *msg.To, msg.Data, leftoverGas, convertedValue)
 	}
 
 	refundQuotient := params.RefundQuotient
@@ -428,7 +440,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here
 	// reset leftoverGas, to be used by the tracer
-	leftoverGas = msg.GasLimit - gasUsed //nolint // ineffassign and staticcheck are silenced here
+	leftoverGas = msg.GasLimit - gasUsed
 
 	return &types.MsgEthereumTxResponse{
 		GasUsed: gasUsed,

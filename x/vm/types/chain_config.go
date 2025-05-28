@@ -81,8 +81,6 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 	shanghaiTime := sdkmath.ZeroInt()
 	cancunTime := sdkmath.ZeroInt()
 	pragueTime := sdkmath.ZeroInt()
-	osakaTime := sdkmath.ZeroInt()
-	verkleTime := sdkmath.ZeroInt()
 
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
@@ -107,8 +105,8 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 		ShanghaiTime:        &shanghaiTime,
 		CancunTime:          &cancunTime,
 		PragueTime:          &pragueTime,
-		OsakaTime:           &osakaTime,
-		VerkleTime:          &verkleTime,
+		OsakaTime:           nil,
+		VerkleTime:          nil,
 	}
 	return cfg
 }

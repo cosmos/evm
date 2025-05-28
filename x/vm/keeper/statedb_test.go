@@ -847,6 +847,7 @@ func (suite *KeeperTestSuite) TestPrepareAccessList() {
 		IsMerge:          true,
 		IsShanghai:       true,
 		IsCancun:         true,
+		IsEIP2929:        true,
 	}
 
 	vmdb := suite.StateDB()

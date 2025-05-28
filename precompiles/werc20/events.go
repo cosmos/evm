@@ -1,11 +1,12 @@
 package werc20
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -24,7 +25,7 @@ func (p Precompile) EmitDepositEvent(
 	ctx sdk.Context,
 	stateDB vm.StateDB,
 	caller common.Address,
-	amount *uint256.Int,
+	amount *big.Int,
 ) error {
 	event := p.ABI.Events[EventTypeDeposit]
 	return p.createWERC20Event(ctx, stateDB, event, caller, amount)
@@ -35,7 +36,7 @@ func (p Precompile) EmitWithdrawalEvent(
 	ctx sdk.Context,
 	stateDB vm.StateDB,
 	src common.Address,
-	amount *uint256.Int,
+	amount *big.Int,
 ) error {
 	event := p.ABI.Events[EventTypeWithdrawal]
 	return p.createWERC20Event(ctx, stateDB, event, src, amount)
@@ -48,7 +49,7 @@ func (p Precompile) createWERC20Event(
 	stateDB vm.StateDB,
 	event abi.Event,
 	address common.Address,
-	amount *uint256.Int,
+	amount *big.Int,
 ) error {
 	// Prepare the event topics
 	topics := make([]common.Hash, 2)
