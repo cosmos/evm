@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -29,6 +30,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	"github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 )
 
 // General variables used for integration tests
@@ -47,12 +49,6 @@ var (
 	passCheck testutil.LogCheckArgs
 	// outOfGasCheck defines the arguments to check if the precompile returns out of gas error
 	outOfGasCheck testutil.LogCheckArgs
-	// proposerKey is the private key of the proposerAddr for the test cases
-	proposerKey types.PrivKey
-	// proposerAddr is the address of the proposerAddr for the test cases
-	proposerAddr common.Address
-	// proposerAccAddr is the address of the proposerAddr account
-	proposerAccAddr sdk.AccAddress
 	// govModuleAddr is the address of the gov module account
 	govModuleAddr sdk.AccAddress
 )
@@ -68,7 +64,12 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 }
 
 var _ = Describe("Calling governance precompile from EOA", func() {
-	var s *PrecompileTestSuite
+	var (
+		s               *PrecompileTestSuite
+		proposerKey     types.PrivKey
+		proposerAddr    common.Address
+		proposerAccAddr sdk.AccAddress
+	)
 	const (
 		proposalID uint64 = 1
 		option     uint8  = 1
@@ -234,7 +235,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 			notProposerKey := s.keyring.GetPrivKey(1)
 			notProposerAddr := s.keyring.GetAddr(1)
 			errCheck := defaultLogCheck.WithErrContains(
-				gov.ErrDifferentOrigin,
+				cmn.ErrRequesterIsNotMsgSender,
 				notProposerAddr.String(),
 				proposerAddr.String(),
 			)
@@ -339,7 +340,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 				differentAddr, proposalID, option, metadata,
 			}
 
-			voterSetCheck := defaultLogCheck.WithErrContains(gov.ErrDifferentOrigin, s.keyring.GetAddr(0).String(), differentAddr.String())
+			voterSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
 
 			_, _, err := s.factory.CallContractAndCheckLogs(s.keyring.GetPrivKey(0), txArgs, callArgs, voterSetCheck)
 			Expect(err).To(BeNil())
@@ -404,7 +405,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 				metadata,
 			}
 
-			voterSetCheck := defaultLogCheck.WithErrContains(gov.ErrDifferentOrigin, s.keyring.GetAddr(0).String(), differentAddr.String())
+			voterSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
 
 			_, _, err := s.factory.CallContractAndCheckLogs(s.keyring.GetPrivKey(0), txArgs, callArgs, voterSetCheck)
 			Expect(err).To(BeNil())
@@ -996,7 +997,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 	})
 })
 
-var _ = Describe("Calling governance precompile from another contract", Ordered, func() {
+var _ = Describe("Calling governance precompile from contract", Ordered, func() {
 	s := new(PrecompileTestSuite)
 	// testCase is a struct used for cases of contracts calls that have some operation
 	// performed before and/or after the precompile call
@@ -1009,6 +1010,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 		govCallerContract evmtypes.CompiledContract
 		contractAddr      common.Address
 		contractAccAddr   sdk.AccAddress
+		txSenderKey       types.PrivKey
+		txSenderAddr      common.Address
 		err               error
 
 		proposalID         uint64 // proposal id submitted by eoa
@@ -1017,10 +1020,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 		cancelFee math.Int
 		remaining math.Int
 
-		// depositor0 is a proposer
-		depositorAddr0, depositorAddr1 common.Address
-		depositor0, depositor1         sdk.AccAddress
-		depositorKey0, depositorKey1   types.PrivKey
+		depositor1    sdk.AccAddress
+		depositorKey1 types.PrivKey
 
 		// The following variables are used to check the cancellation fees and
 		// remaining fess for multiple deposits case
@@ -1038,8 +1039,10 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 	BeforeEach(func() {
 		s.SetupTest()
 
+		txSenderKey = s.keyring.GetPrivKey(0)
+		txSenderAddr = s.keyring.GetAddr(0)
 		contractAddr, err = s.factory.DeployContract(
-			s.keyring.GetPrivKey(0),
+			txSenderKey,
 			evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 			factory.ContractDeploymentData{
 				Contract: govCallerContract,
@@ -1058,14 +1061,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 		}
 
 		txArgs = evmtypes.EvmTxArgs{
-			To: &contractAddr,
+			To:       &contractAddr,
+			GasLimit: 200_000,
 		}
-
-		txArgs.GasLimit = 200_000
-
-		proposerKey = s.keyring.GetPrivKey(0)
-		proposerAddr = s.keyring.GetAddr(0)
-		proposerAccAddr = sdk.AccAddress(proposerAddr.Bytes())
 		govModuleAddr = authtypes.NewModuleAddress(govtypes.ModuleName)
 
 		defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
@@ -1095,7 +1093,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				GasLimit: 500_000,
 				Amount:   big.NewInt(1000),
 			}
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1135,7 +1133,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				GasLimit: 500_000,
 				Amount:   minDepositAmt.BigInt(),
 			}
-			_, evmRes, _ := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, _ := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			var proposalID uint64
@@ -1161,7 +1159,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			// Balance of contract proposer
 			proposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, s.network.GetBaseDenom())
 			txArgs.Amount = common.Big0
-			_, _, err = s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1199,7 +1197,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				GasLimit: 500_000,
 				Amount:   minDepositAmt.BigInt(),
 			}
-			_, evmRes, _ := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, _ := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			var proposalID uint64
@@ -1216,7 +1214,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				minimalDeposit(s.network.GetBaseDenom(), big.NewInt(100)),
 			}
 			eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
-			_, _, err = s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1231,7 +1229,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 	Context("testSubmitProposal with transfer", func() {
 		BeforeEach(func() { callArgs.MethodName = "testSubmitProposalWithTransfer" })
 
-		DescribeTable("eoa proposer should submit proposal with transfer",
+		DescribeTable("contract proposer should submit proposal with transfer",
 			func(tc testCase) {
 				// Fix the gas limit and gas price for predictable gas usage.
 				// This is for calculating expected cancellation fee.
@@ -1247,20 +1245,22 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				jsonBlob := minimalBankSendProposalJSON(toAddr, denom, amount)
 				minDepositAmt := math.NewInt(100)
 				callArgs.Args = []interface{}{
-					proposerAddr, jsonBlob,
-					minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
+					jsonBlob, minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
 					tc.before, tc.after,
 				}
-				txArgs.Amount = minDepositAmt.BigInt()
+				txArgs.Amount = minDepositAmt.Mul(math.NewInt(2)).BigInt()
 				eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 				txArgs.To = &contractAddr
 				baseDenom := s.network.GetBaseDenom()
+				txSender := s.keyring.GetAccAddr(0)
+				txSenderKey := s.keyring.GetPrivKey(0)
+				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSender, baseDenom)
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				proposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
+
+				fees := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 
 				// check submitted proposal
 				var proposalID uint64
@@ -1268,7 +1268,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(err).To(BeNil())
 				Expect(proposalID).To(BeNumerically(">", 0))
 
-				afterSubmitProposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				afterSubmitTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSender, baseDenom)
 				afterSubmitContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 
 				amtFromContract := math.ZeroInt()
@@ -1277,16 +1277,13 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 						amtFromContract = amtFromContract.AddRaw(15)
 					}
 				}
-				Expect(afterSubmitProposerBal.Amount).To(Equal(
-					proposerBal.Amount.
-						Sub(gasCost).
-						Sub(minDepositAmt).
-						Sub(math.NewIntFromBigInt(txArgs.Amount)).
-						Add(amtFromContract),
-				))
-
+				Expect(afterSubmitTxSenderBal.Amount).To(Equal(
+					txSenderBal.Amount.Sub(math.NewIntFromBigInt(txArgs.Amount)).
+						Sub(fees).Add(amtFromContract)))
 				Expect(afterSubmitContractBal.Amount).To(Equal(
-					contractBal.Amount.Add(math.NewIntFromBigInt(txArgs.Amount).Sub(amtFromContract)),
+					contractBal.Amount.
+						Add(math.NewIntFromBigInt(txArgs.Amount).
+							Sub(amtFromContract)).Sub(minDepositAmt),
 				))
 			},
 			Entry("with internal transfers before and after precompile call", testCase{
@@ -1322,8 +1319,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				amount := "100"
 				jsonBlob := minimalBankSendProposalJSON(toAddr, denom, amount)
 				minDepositAmt := math.NewInt(100)
+				randomAddr := testutiltx.GenerateAddress()
 				callArgs.Args = []interface{}{
-					proposerAddr, jsonBlob,
+					randomAddr, jsonBlob,
 					minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
 					tc.before, tc.after,
 				}
@@ -1333,11 +1331,10 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				txArgs.To = &contractAddr
 				baseDenom := s.network.GetBaseDenom()
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				proposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				randomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
+				_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 
 				// check submitted proposal
 				var proposalID uint64
@@ -1345,7 +1342,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(err).To(BeNil())
 				Expect(proposalID).To(BeNumerically(">", 0))
 
-				afterSubmitProposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				afterSubmitRandomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 				afterSubmitContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 
 				amtFromContract := math.ZeroInt()
@@ -1354,10 +1351,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 						amtFromContract = amtFromContract.AddRaw(15)
 					}
 				}
-				Expect(afterSubmitProposerBal.Amount).To(Equal(
-					proposerBal.Amount.
-						Sub(gasCost).
-						Sub(math.NewIntFromBigInt(txArgs.Amount)).
+				Expect(afterSubmitRandomAddrBal.Amount).To(Equal(
+					randomAddrBal.Amount.
 						Add(amtFromContract),
 				))
 
@@ -1395,7 +1390,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1405,7 +1400,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			callArgs.MethodName = "testDepositWithTransfer"
 		})
 
-		DescribeTable("eoa proposer should submit proposal with transfer",
+		DescribeTable("all balance changes should be correct",
 			func(tc testCase) {
 				// Fix the gas limit and gas price for predictable gas usage.
 				// This is for calculating expected cancellation fee.
@@ -1413,30 +1408,30 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				baseFeeInt := baseFee.TruncateInt64()
 				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 				txArgs.GasLimit = 500_000
+				txArgs.Amount = big.NewInt(300)
 
 				minDepositAmt := math.NewInt(100)
 				callArgs.Args = []interface{}{
-					proposerAddr, contractProposalID,
+					contractProposalID,
 					minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
 					tc.before, tc.after,
 				}
-				txArgs.Amount = minDepositAmt.BigInt()
 				eventCheck := passCheck.WithExpEvents(gov.EventTypeDeposit)
 
 				baseDenom := s.network.GetBaseDenom()
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				depositorBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+				res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
+				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 
 				var success bool
 				err = s.precompile.UnpackIntoInterface(&success, gov.DepositMethod, evmRes.Ret)
 				Expect(err).To(BeNil())
 				Expect(success).To(BeTrue())
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 
-				afterDepositorBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				afterTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
 				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 
 				amtFromContract := math.ZeroInt()
@@ -1445,16 +1440,18 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 						amtFromContract = amtFromContract.AddRaw(15)
 					}
 				}
-				Expect(afterDepositorBal.Amount).To(Equal(
-					depositorBal.Amount.
+				Expect(afterTxSenderBal.Amount).To(Equal(
+					txSenderBal.Amount.
 						Sub(gasCost).
-						Sub(minDepositAmt).
 						Sub(math.NewIntFromBigInt(txArgs.Amount)).
 						Add(amtFromContract),
 				))
 
 				Expect(afterContractBal.Amount).To(Equal(
-					contractBal.Amount.Add(math.NewIntFromBigInt(txArgs.Amount).Sub(amtFromContract)),
+					contractBal.Amount.
+						Add(math.NewIntFromBigInt(txArgs.Amount).
+							Sub(amtFromContract).
+							Sub(minDepositAmt)),
 				))
 			},
 			Entry("with internal transfers before and after precompile call", testCase{
@@ -1487,7 +1484,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1497,18 +1494,12 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			callArgs.MethodName = "testDepositFromContractWithTransfer"
 		})
 
-		DescribeTable("eoa proposer should submit proposal with transfer",
+		DescribeTable("all balance changes should be correct",
 			func(tc testCase) {
-				// Fix the gas limit and gas price for predictable gas usage.
-				// This is for calculating expected cancellation fee.
-				baseFee := s.network.App.FeeMarketKeeper.GetBaseFee(s.network.GetContext())
-				baseFeeInt := baseFee.TruncateInt64()
-				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
-				txArgs.GasLimit = 500_000
-
 				minDepositAmt := math.NewInt(100)
+				randomAddr := testutiltx.GenerateAddress()
 				callArgs.Args = []interface{}{
-					proposerAddr, contractProposalID,
+					randomAddr, contractProposalID,
 					minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
 					tc.before, tc.after,
 				}
@@ -1517,10 +1508,10 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				eventCheck := passCheck.WithExpEvents(gov.EventTypeDeposit)
 
 				baseDenom := s.network.GetBaseDenom()
-				proposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				randomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 				var success bool
@@ -1528,9 +1519,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(err).To(BeNil())
 				Expect(success).To(BeTrue())
 
-				afterProposerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				afterRandomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 
 				amtFromContract := math.ZeroInt()
 				for _, transferred := range []bool{tc.before, tc.after} {
@@ -1539,10 +1529,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 					}
 				}
 
-				Expect(afterProposerBal.Amount).To(Equal(
-					proposerBal.Amount.
-						Sub(gasCost).
-						Sub(math.NewIntFromBigInt(txArgs.Amount)).
+				Expect(afterRandomAddrBal.Amount).To(Equal(
+					randomAddrBal.Amount.
 						Add(amtFromContract),
 				))
 				Expect(afterContractBal.Amount).To(Equal(
@@ -1574,16 +1562,15 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			amount := "100"
 			jsonBlob := minimalBankSendProposalJSON(toAddr, denom, amount)
 			minDepositAmt := math.NewInt(100)
-			callArgs.MethodName = "testSubmitProposal"
+			callArgs.MethodName = testSubmitProposalFromContract
 			callArgs.Args = []interface{}{
-				proposerAddr,
 				jsonBlob,
 				minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
 			}
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1613,19 +1600,17 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				txArgs.GasLimit = 500_000
 				txArgs.Amount = big.NewInt(100)
 
-				cancellerAddr := proposerAddr
 				callArgs.Args = []interface{}{
-					cancellerAddr,
 					proposalID,
 					tc.before, tc.after,
 				}
 				eventCheck := passCheck.WithExpEvents(gov.EventTypeCancelProposal)
 
 				baseDenom := s.network.GetBaseDenom()
-				cancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 				var success bool
@@ -1633,7 +1618,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(err).To(BeNil())
 				Expect(success).To(BeTrue())
 
-				afterCancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				afterTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
 				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
 				amtFromContract := math.ZeroInt()
@@ -1643,15 +1628,15 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 					}
 				}
 
-				Expect(afterCancellerBal.Amount).To(Equal(
-					cancellerBal.Amount.
+				Expect(afterTxSenderBal.Amount).To(Equal(
+					txSenderBal.Amount.
 						Sub(gasCost).
-						Add(remaining).
 						Sub(math.NewIntFromBigInt(txArgs.Amount)).
 						Add(amtFromContract),
 				))
 				Expect(afterContractBal.Amount).To(Equal(
 					contractBal.Amount.
+						Add(remaining).
 						Add(math.NewIntFromBigInt(txArgs.Amount).
 							Sub(amtFromContract)),
 				))
@@ -1686,7 +1671,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1708,16 +1693,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 
 		DescribeTable("contract proposer should cancel proposal with transfer",
 			func(tc testCase) {
-				// Fix the gas limit and gas price for predictable gas usage.
-				// This is for calculating expected cancellation fee.
-				baseFee := s.network.App.FeeMarketKeeper.GetBaseFee(s.network.GetContext())
-				baseFeeInt := baseFee.TruncateInt64()
-				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
-				txArgs.GasLimit = 500_000
-				txArgs.Amount = big.NewInt(100)
-				txSender := proposerAddr
+				randomAddr := testutiltx.GenerateAddress()
 				callArgs.Args = []interface{}{
-					txSender,
+					randomAddr,
 					contractProposalID,
 					tc.before, tc.after,
 				}
@@ -1725,9 +1703,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 
 				baseDenom := s.network.GetBaseDenom()
 				cancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
+				randomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 				var success bool
@@ -1736,8 +1714,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(success).To(BeTrue())
 
 				afterCancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				afterTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), proposerAccAddr, baseDenom)
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
+				afterRandomAddrBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 				amtFromContract := math.ZeroInt()
 				for _, transferred := range []bool{tc.before, tc.after} {
 					if transferred {
@@ -1751,10 +1728,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 						Add(math.NewIntFromBigInt(txArgs.Amount).
 							Sub(amtFromContract)),
 				))
-				Expect(afterTxSenderBal.Amount).To(Equal(
-					txSenderBal.Amount.
-						Sub(gasCost).
-						Sub(math.NewIntFromBigInt(txArgs.Amount)).
+				Expect(afterRandomAddrBal.Amount).To(Equal(
+					randomAddrBal.Amount.
 						Add(amtFromContract),
 				))
 			},
@@ -1775,29 +1750,21 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 
 	Context("testCancel with transfer (multiple deposits & refund)", func() {
 		BeforeEach(func() {
-			depositorAddr0 = s.keyring.GetAddr(0)
-			depositor0 = s.keyring.GetAccAddr(0)
-			depositorKey0 = s.keyring.GetPrivKey(0)
-			depositorAddr1 = s.keyring.GetAddr(1)
-			depositor1 = s.keyring.GetAccAddr(1)
-			depositorKey1 = s.keyring.GetPrivKey(1)
-
 			// Submit a proposal with deposit from depositor0
 			denom := s.network.GetBaseDenom()
 			amount := "100"
 			randomRecipient := sdk.AccAddress(testutiltx.GenerateAddress().Bytes())
 			jsonBlob := minimalBankSendProposalJSON(randomRecipient, denom, amount)
 			minDepositAmt := math.NewInt(100)
-			callArgs.MethodName = "testSubmitProposal"
+			callArgs.MethodName = testSubmitProposalFromContract
 			callArgs.Args = []interface{}{
-				depositorAddr0,
 				jsonBlob,
 				minimalDeposit(denom, minDepositAmt.BigInt()),
 			}
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(depositorKey0, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
@@ -1805,17 +1772,25 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			Expect(err).To(BeNil())
 
 			// Deposit from depositor1
-			callArgs.MethodName = "testDeposit"
-			callArgs.Args = []interface{}{
-				depositorAddr1,
-				proposalID,
-				minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
-			}
-			txArgs.Amount = common.Big0
-			eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
-			_, _, err = s.factory.CallContractAndCheckLogs(depositorKey1, txArgs, callArgs, eventCheck)
+			minDeposits := minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt())
+			minDepositCoins, err := cmn.NewSdkCoinsFromCoins(minDeposits)
 			Expect(err).To(BeNil())
-			Expect(s.network.NextBlock()).To(BeNil())
+
+			depositor1 = s.keyring.GetAccAddr(1)
+			depositorKey1 = s.keyring.GetPrivKey(1)
+
+			msg := &v1beta1.MsgDeposit{
+				ProposalId: proposalID,
+				Depositor:  depositor1.String(),
+				Amount:     minDepositCoins,
+			}
+			var gas uint64 = 500_000
+			res, err := s.factory.ExecuteCosmosTx(depositorKey1, commonfactory.CosmosTxArgs{
+				Gas:  &gas,
+				Msgs: []sdk.Msg{msg},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Code).To(BeZero(), "expected no error code in response")
 
 			// Calc cancellation fees for both deposits
 			params, err := s.network.App.GovKeeper.Params.Get(s.network.GetContext())
@@ -1845,7 +1820,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			callArgs.MethodName = "testCancelWithTransfer"
 		})
 
-		DescribeTable("eoa proposer should cancel proposal with transfer",
+		DescribeTable("contract proposer should cancel proposal with transfer",
 			func(tc testCase) {
 				// Fix the gas limit and gas ice for predictable gas usage.
 				// This is for calculating expected cancellation fee.
@@ -1856,29 +1831,28 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				txArgs.Amount = big.NewInt(100)
 
 				callArgs.Args = []interface{}{
-					depositorAddr0,
 					proposalID,
 					tc.before, tc.after,
 				}
 				eventCheck := passCheck.WithExpEvents(gov.EventTypeCancelProposal)
 
 				baseDenom := s.network.GetBaseDenom()
-				depositor0Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor0, baseDenom)
-				depositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
+				depositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
+				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
 
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, eventCheck)
+				res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 				var success bool
 				err = s.precompile.UnpackIntoInterface(&success, gov.CancelProposalMethod, evmRes.Ret)
 				Expect(err).To(BeNil())
 				Expect(success).To(BeTrue())
-
-				afterDepositor0Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor0, baseDenom)
-				afterDepositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
-				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
+
+				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
+				afterDepositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
+				afterTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
 				amtFromContract := math.ZeroInt()
 				for _, transferred := range []bool{tc.before, tc.after} {
 					if transferred {
@@ -1886,10 +1860,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 					}
 				}
 
-				Expect(afterDepositor0Bal.Amount).To(Equal(
-					depositor0Bal.Amount.
+				Expect(afterTxSenderBal.Amount).To(Equal(
+					txSenderBal.Amount.
 						Sub(gasCost).
-						Add(remainingFees[depositor0.String()]).
 						Sub(math.NewIntFromBigInt(txArgs.Amount)).
 						Add(amtFromContract),
 				))
@@ -1899,6 +1872,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				))
 				Expect(afterContractBal.Amount).To(Equal(
 					contractBal.Amount.
+						Add(remainingFees[contractAccAddr.String()]).
 						Add(math.NewIntFromBigInt(txArgs.Amount).
 							Sub(amtFromContract)),
 				))
@@ -1920,13 +1894,7 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 
 	Context("testCancelFromContract with transfer (multiple deposits & refund)", func() {
 		BeforeEach(func() {
-			depositorAddr0 = s.keyring.GetAddr(0)
-			depositor0 = s.keyring.GetAccAddr(0)
-			depositorKey0 = s.keyring.GetPrivKey(0)
-			depositorAddr1 = s.keyring.GetAddr(1)
-			depositor1 = s.keyring.GetAccAddr(1)
-			depositorKey1 = s.keyring.GetPrivKey(1)
-
+			// Submit a proposal with deposit from depositor0
 			denom := s.network.GetBaseDenom()
 			amount := "100"
 			randomRecipient := sdk.AccAddress(testutiltx.GenerateAddress().Bytes())
@@ -1940,31 +1908,39 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 			txArgs.Amount = minDepositAmt.BigInt()
 			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
 			txArgs.To = &contractAddr
-			_, evmRes, err := s.factory.CallContractAndCheckLogs(depositorKey0, txArgs, callArgs, eventCheck)
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 
-			err = s.precompile.UnpackIntoInterface(&contractProposalID, gov.SubmitProposalMethod, evmRes.Ret)
+			err = s.precompile.UnpackIntoInterface(&proposalID, gov.SubmitProposalMethod, evmRes.Ret)
 			Expect(err).To(BeNil())
 
 			// Deposit from depositor1
-			callArgs.MethodName = "testDeposit"
-			callArgs.Args = []interface{}{
-				depositorAddr1,
-				contractProposalID,
-				minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
-			}
-			txArgs.Amount = common.Big0
-			eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
-			_, _, err = s.factory.CallContractAndCheckLogs(depositorKey1, txArgs, callArgs, eventCheck)
+			minDeposits := minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt())
+			minDepositCoins, err := cmn.NewSdkCoinsFromCoins(minDeposits)
 			Expect(err).To(BeNil())
-			Expect(s.network.NextBlock()).To(BeNil())
+
+			depositor1 = s.keyring.GetAccAddr(1)
+			depositorKey1 = s.keyring.GetPrivKey(1)
+
+			msg := &v1beta1.MsgDeposit{
+				ProposalId: proposalID,
+				Depositor:  depositor1.String(),
+				Amount:     minDepositCoins,
+			}
+			var gas uint64 = 500_000
+			res, err := s.factory.ExecuteCosmosTx(depositorKey1, commonfactory.CosmosTxArgs{
+				Gas:  &gas,
+				Msgs: []sdk.Msg{msg},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Code).To(BeZero(), "expected no error code in response")
 
 			// Calc cancellation fees for both deposits
 			params, err := s.network.App.GovKeeper.Params.Get(s.network.GetContext())
 			Expect(err).To(BeNil())
 			rate := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
-			proposalDeposits, err := s.network.App.GovKeeper.GetDeposits(s.network.GetContext(), contractProposalID)
+			proposalDeposits, err := s.network.App.GovKeeper.GetDeposits(s.network.GetContext(), proposalID)
 			Expect(err).To(BeNil())
 			Expect(proposalDeposits).To(HaveLen(2))
 
@@ -1997,8 +1973,9 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 				txArgs.GasLimit = 500_000
 				txArgs.Amount = big.NewInt(100)
+				randomAddr := testutiltx.GenerateAddress()
 				callArgs.Args = []interface{}{
-					depositorAddr0,
+					randomAddr,
 					contractProposalID,
 					tc.before, tc.after,
 				}
@@ -2006,10 +1983,11 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 
 				baseDenom := s.network.GetBaseDenom()
 				cancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				depositor0Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor0, baseDenom)
 				depositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
+				randomAccBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 
-				res, evmRes, err := s.factory.CallContractAndCheckLogs(depositorKey0, txArgs, callArgs, eventCheck)
+				txSenderKey := s.keyring.GetPrivKey(0)
+				_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 				var success bool
@@ -2018,9 +1996,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 				Expect(success).To(BeTrue())
 
 				afterCancellerBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
-				afterDepositor0Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor0, baseDenom)
 				afterDepositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
-				gasCost := math.NewInt(res.GasUsed).Mul(math.NewInt(txArgs.GasPrice.Int64()))
+				afterRandomAccBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), randomAddr.Bytes(), baseDenom)
 				amtFromContract := math.ZeroInt()
 				for _, transferred := range []bool{tc.before, tc.after} {
 					if transferred {
@@ -2034,10 +2011,8 @@ var _ = Describe("Calling governance precompile from another contract", Ordered,
 						Add(math.NewIntFromBigInt(txArgs.Amount).
 							Sub(amtFromContract)),
 				))
-				Expect(afterDepositor0Bal.Amount).To(Equal(
-					depositor0Bal.Amount.
-						Sub(gasCost).
-						Sub(math.NewIntFromBigInt(txArgs.Amount)).
+				Expect(afterRandomAccBal.Amount).To(Equal(
+					randomAccBal.Amount.
 						Add(amtFromContract),
 				))
 				Expect(afterDepositor1Bal.Amount).To(Equal(

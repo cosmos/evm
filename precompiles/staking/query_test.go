@@ -533,7 +533,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 				big.NewInt(1e18),
 			}
 
-			_, err := s.precompile.Redelegate(s.network.GetContext(), s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
+			_, err := s.precompile.Redelegate(s.network.GetContext(), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
 			s.Require().NoError(err)
 
 			bz, err := s.precompile.Redelegation(s.network.GetContext(), &method, contract, tc.malleate(s.network.GetValidators()[0].OperatorAddress, s.network.GetValidators()[1].OperatorAddress))

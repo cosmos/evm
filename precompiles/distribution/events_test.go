@@ -77,7 +77,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.SetWithdrawAddress(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+		_, err := s.precompile.SetWithdrawAddress(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -156,7 +156,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.WithdrawDelegatorReward(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.network.GetValidators()[0]))
+		_, err := s.precompile.WithdrawDelegatorReward(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0]))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -236,7 +236,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err = s.precompile.WithdrawValidatorCommission(ctx, validatorAddress, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+		_, err = s.precompile.WithdrawValidatorCommission(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -495,7 +495,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 		args, sdkCoins := tc.malleate(s.network.GetValidators()[0].OperatorAddress)
-		_, err := s.precompile.DepositValidatorRewardsPool(ctx, s.keyring.GetAddr(0), contract, stDB, &method, args)
+		_, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, stDB, &method, args)
 
 		if tc.expError {
 			s.Require().Error(err)

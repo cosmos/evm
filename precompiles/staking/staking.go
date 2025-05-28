@@ -94,17 +94,17 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		switch method.Name {
 		// Staking transactions
 		case CreateValidatorMethod:
-			bz, err = p.CreateValidator(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.CreateValidator(ctx, contract, stateDB, method, args)
 		case EditValidatorMethod:
-			bz, err = p.EditValidator(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.EditValidator(ctx, contract, stateDB, method, args)
 		case DelegateMethod:
-			bz, err = p.Delegate(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.Delegate(ctx, contract, stateDB, method, args)
 		case UndelegateMethod:
-			bz, err = p.Undelegate(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.Undelegate(ctx, contract, stateDB, method, args)
 		case RedelegateMethod:
-			bz, err = p.Redelegate(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.Redelegate(ctx, contract, stateDB, method, args)
 		case CancelUnbondingDelegationMethod:
-			bz, err = p.CancelUnbondingDelegation(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
 		// Staking queries
 		case DelegationMethod:
 			bz, err = p.Delegation(ctx, contract, method, args)

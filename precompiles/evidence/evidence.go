@@ -95,7 +95,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		switch method.Name {
 		// evidence transactions
 		case SubmitEvidenceMethod:
-			bz, err = p.SubmitEvidence(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.SubmitEvidence(ctx, contract, stateDB, method, args)
 		// evidence queries
 		case EvidenceMethod:
 			bz, err = p.Evidence(ctx, method, args)

@@ -85,7 +85,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			func() {},
 			200000,
 			true,
-			"does not match the voter address",
+			"does not match the requester address",
 		},
 		{
 			"fail - invalid vote option",
@@ -132,7 +132,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.Vote(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.Vote(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -197,7 +197,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			func() {},
 			200000,
 			true,
-			"does not match the voter address",
+			"does not match the requester address",
 		},
 		{
 			"fail - invalid vote option",
@@ -266,7 +266,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.VoteWeighted(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.VoteWeighted(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

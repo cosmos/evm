@@ -98,18 +98,18 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		switch method.Name {
 		// Custom transactions
 		case ClaimRewardsMethod:
-			bz, err = p.ClaimRewards(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.ClaimRewards(ctx, contract, stateDB, method, args)
 		// Distribution transactions
 		case SetWithdrawAddressMethod:
-			bz, err = p.SetWithdrawAddress(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.SetWithdrawAddress(ctx, contract, stateDB, method, args)
 		case WithdrawDelegatorRewardMethod:
-			bz, err = p.WithdrawDelegatorReward(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.WithdrawDelegatorReward(ctx, contract, stateDB, method, args)
 		case WithdrawValidatorCommissionMethod:
-			bz, err = p.WithdrawValidatorCommission(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.WithdrawValidatorCommission(ctx, contract, stateDB, method, args)
 		case FundCommunityPoolMethod:
-			bz, err = p.FundCommunityPool(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.FundCommunityPool(ctx, contract, stateDB, method, args)
 		case DepositValidatorRewardsPoolMethod:
-			bz, err = p.DepositValidatorRewardsPool(ctx, evm.Origin, contract, stateDB, method, args)
+			bz, err = p.DepositValidatorRewardsPool(ctx, contract, stateDB, method, args)
 		// Distribution queries
 		case ValidatorDistributionInfoMethod:
 			bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)

@@ -115,7 +115,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.SetWithdrawAddress(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.SetWithdrawAddress(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -220,7 +220,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
-			bz, err := s.precompile.WithdrawDelegatorReward(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
+			bz, err := s.precompile.WithdrawDelegatorReward(ctx, contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -324,7 +324,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.WithdrawValidatorCommission(ctx, validatorAddress, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			bz, err := s.precompile.WithdrawValidatorCommission(ctx, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -482,7 +482,7 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			// get previous balance to compare final balance in the postCheck func
 			prevBalance = s.network.App.BankKeeper.GetBalance(ctx, addr.Bytes(), testconstants.ExampleAttoDenom)
 
-			bz, err := s.precompile.ClaimRewards(ctx, addr, contract, s.network.GetStateDB(), &method, tc.malleate())
+			bz, err := s.precompile.ClaimRewards(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -569,7 +569,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			balance := s.network.App.BankKeeper.GetBalance(ctx, s.keyring.GetAddr(0).Bytes(), testconstants.ExampleAttoDenom)
 			s.Require().Equal(balance.Amount, network.PrefundedAccountInitialBalance)
 
-			bz, err := s.precompile.FundCommunityPool(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, tc.malleate())
+			bz, err := s.precompile.FundCommunityPool(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -723,7 +723,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
-			bz, err := s.precompile.DepositValidatorRewardsPool(ctx, s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &method, args)
+			bz, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, s.network.GetStateDB(), &method, args)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

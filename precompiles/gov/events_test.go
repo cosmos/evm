@@ -73,7 +73,7 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.Vote(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
+		_, err := s.precompile.Vote(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -153,7 +153,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 				{Option: 2, Weight: "0.30"},
 			}
 
-			_, err := s.precompile.VoteWeighted(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
+			_, err := s.precompile.VoteWeighted(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
 
 			if tc.expError {
 				s.Require().Error(err)

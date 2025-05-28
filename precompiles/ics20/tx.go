@@ -28,7 +28,6 @@ const (
 // Transfer implements the ICS20 transfer transactions.
 func (p *Precompile) Transfer(
 	ctx sdk.Context,
-	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -60,12 +59,9 @@ func (p *Precompile) Transfer(
 		)
 	}
 
-	// isCallerSender is true when the contract caller is the same as the sender
-	isCallerSender := contract.Caller() == sender
-
-	// If the contract caller is not the same as the sender, the sender must be the origin
-	if !isCallerSender && origin != sender {
-		return nil, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
+	msgSender := contract.Caller()
+	if msgSender != sender {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), sender.String())
 	}
 
 	res, err := p.transferKeeper.Transfer(ctx, msg)
@@ -74,7 +70,7 @@ func (p *Precompile) Transfer(
 	}
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
-	if contract.Caller() != origin && msg.Token.Denom == evmDenom {
+	if msg.Token.Denom == evmDenom {
 		// escrow address is also changed on this tx, and it is not a module account
 		// so we need to account for this on the UpdateDirties
 		escrowAccAddress := transfertypes.GetEscrowAddress(msg.SourcePort, msg.SourceChannel)

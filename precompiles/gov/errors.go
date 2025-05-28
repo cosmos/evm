@@ -1,8 +1,6 @@
 package gov
 
 const (
-	// ErrDifferentOrigin is raised when the origin address is not the same as the voter address.
-	ErrDifferentOrigin = "tx origin address %s does not match the voter address %s"
 	// ErrInvalidVoter is raised when the voter address is not valid.
 	ErrInvalidVoter = "invalid voter address: %s"
 	// ErrInvalidProposalID invalid proposal id.
