@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"path"
 	"time"
 
@@ -63,7 +64,8 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
-	DefaultEVMChainID = 262144
+	// DefaultEVMChainID is the default EVM Chain ID used for tests
+	DefaultEVMChainID = evmdconfig.EVMChainID
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25000000

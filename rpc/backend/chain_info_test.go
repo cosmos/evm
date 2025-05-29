@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -154,7 +155,7 @@ func (suite *BackendTestSuite) TestBaseFee() {
 }
 
 func (suite *BackendTestSuite) TestChainId() {
-	expChainID := (*hexutil.Big)(big.NewInt(262144))
+	expChainID := (*hexutil.Big)(big.NewInt(evmdconfig.EVMChainID))
 	testCases := []struct {
 		name         string
 		registerMock func()
