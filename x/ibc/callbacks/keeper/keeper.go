@@ -13,6 +13,8 @@ import (
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
+	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
+
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
 )
 
@@ -50,7 +52,6 @@ func (k ContractKeeper) IBCSendPacketCallback(
 	packetSenderAddress string,
 	version string,
 ) error {
-
 	return nil
 }
 
@@ -83,6 +84,9 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	ethReceiver := common.BytesToAddress(receiver)
 	contractAddr := common.HexToAddress(contractAddress)
 
+	// TODO: Approve the ERC20 tokens in the transfer packet for the contract on behalf of the receiver
+	// before calling the callback.
+
 	// TODO: Do something with the response
 	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, ethReceiver, &contractAddr, cbData.Calldata, true)
 	if err != nil {
@@ -100,24 +104,18 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	packetSenderAddress string,
 	version string,
 ) error {
-	data, _, err := k.packetDataUnmarshaler.UnmarshalPacketData(cachedCtx, packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetData())
-	if err != nil {
-		return err
-	}
-
-	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetSourcePort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.SourceCallbackKey)
-	if err != nil {
-		return err
-	}
-	if !isCbPacket {
-		return nil
-	}
-
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
 
+	abi, err := callbacksabi.LoadABI()
+	if err != nil {
+		return err
+	}
+
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, sender, &contractAddr, cbData.Calldata, true)
+	// Call the onPacketAcknowledgement function in the contract
+	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketAcknowledgement",
+		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
 	if err != nil {
 		return err
 	}
@@ -132,24 +130,17 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	packetSenderAddress string,
 	version string,
 ) error {
-	data, _, err := k.packetDataUnmarshaler.UnmarshalPacketData(cachedCtx, packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetData())
-	if err != nil {
-		return err
-	}
-
-	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetSourcePort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.SourceCallbackKey)
-	if err != nil {
-		return err
-	}
-	if !isCbPacket {
-		return nil
-	}
-
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
 
+	abi, err := callbacksabi.LoadABI()
+	if err != nil {
+		return err
+	}
+
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, sender, &contractAddr, cbData.Calldata, true)
+	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketTimeout",
+		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
 	if err != nil {
 		return err
 	}
