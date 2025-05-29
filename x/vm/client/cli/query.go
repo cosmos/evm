@@ -1,7 +1,6 @@
 package cli
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/spf13/cobra"
 
@@ -213,7 +212,7 @@ func HexToBech32Cmd() *cobra.Command {
 		Example: "evmd query evm 0x-to-bech32 0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println(utils.EthHexToCosmosAddr(args[0]))
+			cmd.Println(utils.Bech32StringFromHexAddress(args[0]))
 			return nil
 		},
 	}
@@ -231,11 +230,10 @@ func Bech32ToHexCmd() *cobra.Command {
 		Example: "evmd query evm bech32-to-0x cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			addr, err := sdk.AccAddressFromBech32(args[0])
+			hex, err := utils.HexAddressFromBech32String(args[0])
 			if err != nil {
 				return err
 			}
-			hex, err := utils.HexAddressFromBech32String(addr.String())
 			cmd.Println(hex.String())
 			return nil
 		},

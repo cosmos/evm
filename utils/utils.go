@@ -22,15 +22,10 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address
+// Bech32StringFromHexAddress takes a given Hex string and derives a Cosmos SDK account address
 // from it.
-func EthHexToCosmosAddr(hexAddr string) sdk.AccAddress {
-	return EthToCosmosAddr(common.HexToAddress(hexAddr))
-}
-
-// EthToCosmosAddr converts a given Ethereum style address to an SDK address.
-func EthToCosmosAddr(addr common.Address) sdk.AccAddress {
-	return sdk.AccAddress(addr.Bytes())
+func Bech32StringFromHexAddress(hexAddr string) string {
+	return sdk.AccAddress(common.HexToAddress(hexAddr).Bytes()).String()
 }
 
 // HexAddressFromBech32String converts a hex address to a bech32 encoded address.
@@ -49,12 +44,6 @@ func HexAddressFromBech32String(addr string) (res common.Address, err error) {
 	}
 
 	return common.BytesToAddress(accAddr), nil
-}
-
-// CosmosToEthAddr converts a given SDK account address to
-// an Ethereum address.
-func CosmosToEthAddr(accAddr sdk.AccAddress) common.Address {
-	return common.BytesToAddress(accAddr.Bytes())
 }
 
 // IsSupportedKey returns true if the pubkey type is supported by the chain

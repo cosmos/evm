@@ -457,7 +457,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -1091,7 +1091,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[cosmosevmutils.EthHexToCosmosAddr(precompile).String()] = true
+		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
 	}
 
 	return blockedAddrs

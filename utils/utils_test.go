@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
@@ -240,13 +239,7 @@ func TestAddressConversion(t *testing.T) {
 	hex := "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
 	bech32 := "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
 
-	hexAddr := common.HexToAddress(hex)
-	require.Equal(t, bech32, EthToCosmosAddr(hexAddr).String())
-	require.Equal(t, bech32, EthHexToCosmosAddr(hex).String())
-
-	accAddr := sdk.MustAccAddressFromBech32(bech32)
-	require.Equal(t, hex, CosmosToEthAddr(accAddr).Hex())
-
+	require.Equal(t, bech32, Bech32StringFromHexAddress(hex))
 	gotAddr, err := HexAddressFromBech32String(bech32)
 	require.NoError(t, err)
 	require.Equal(t, hex, gotAddr.Hex())
