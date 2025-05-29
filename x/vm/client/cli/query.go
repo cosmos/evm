@@ -1,6 +1,8 @@
 package cli
 
 import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	common "github.com/cosmos/evm/precompiles/common"
 	"github.com/spf13/cobra"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
@@ -26,6 +28,8 @@ func GetQueryCmd() *cobra.Command {
 		GetAccountCmd(),
 		GetParamsCmd(),
 		GetConfigCmd(),
+		HexToBech32Cmd(),
+		Bech32ToHexCmd(),
 	)
 	return cmd
 }
@@ -193,6 +197,47 @@ func GetConfigCmd() *cobra.Command {
 			}
 
 			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// GetConfigCmd queries the evm configuration
+func HexToBech32Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "0x-to-bech32",
+		Short:   "Get the evm 0x address for a given bech32 address",
+		Long:    "Get the evm 0x address for a given bech32 address.",
+		Example: "evmd query evm 0x-to-bech32 0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println(common.Bech32FromHexAddress(args[0]))
+			return nil
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// GetConfigCmd queries the evm configuration
+func Bech32ToHexCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bech32-to-0x",
+		Short:   "Get the bech32 address for a given 0x address",
+		Long:    "Get the evm 0x address for a given bech 32 address.",
+		Example: "evmd query evm 0x-to-bech32 ",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			addr, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return err
+			}
+			hex, err := common.HexAddressFromBech32String(addr.String())
+			cmd.Println(hex.String())
+			return nil
 		},
 	}
 

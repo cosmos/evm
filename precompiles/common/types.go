@@ -98,6 +98,10 @@ func HexAddressFromBech32String(addr string) (res common.Address, err error) {
 	return common.BytesToAddress(accAddr), nil
 }
 
+func Bech32FromHexAddress(addr string) string {
+	return sdk.AccAddress(common.HexToAddress(addr).Bytes()).String()
+}
+
 // SafeAdd adds two integers and returns a boolean if an overflow occurs to avoid panic.
 // TODO: Upstream this to the SDK math package.
 func SafeAdd(a, b math.Int) (res *big.Int, overflow bool) {
