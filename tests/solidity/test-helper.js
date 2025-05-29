@@ -15,28 +15,110 @@ function panic (errMsg) {
   process.exit(-1)
 }
 
+// Function to extract EVMChainID from Go config file
+function extractChainIDFromGo(goFilePath) {
+  try {
+    if (!fs.existsSync(goFilePath)) {
+      logger.warn(`Go config file not found at ${goFilePath}, using default chain ID: 262144`)
+      return 262144
+    }
+
+    const goFileContent = fs.readFileSync(goFilePath, 'utf8')
+
+    // Look for EVMChainID = number
+    const chainIdMatch = goFileContent.match(/EVMChainID\s*=\s*(\d+)/)
+
+    if (chainIdMatch) {
+      const chainId = parseInt(chainIdMatch[1], 10)
+      logger.info(`Extracted EVMChainID from Go config: ${chainId}`)
+      return chainId
+    }
+
+    logger.warn('EVMChainID not found in Go file, using default: 262144')
+    return 262144
+  } catch (error) {
+    logger.warn(`Error reading Go config file: ${error.message}, using default: 262144`)
+    return 262144
+  }
+}
+
+// Function to update Hardhat config with the extracted chain ID
+function updateHardhatConfig(chainId, hardhatConfigPath) {
+  try {
+    if (!fs.existsSync(hardhatConfigPath)) {
+      logger.warn(`Hardhat config not found at ${hardhatConfigPath}`)
+      return
+    }
+
+    let configContent = fs.readFileSync(hardhatConfigPath, 'utf8')
+
+    // Find the cosmos network block and update chainId within it
+    const cosmosBlockRegex = /cosmos:\s*{([^{}]*(?:{[^{}]*}[^{}]*)*)}/
+    const match = configContent.match(cosmosBlockRegex)
+
+    if (match) {
+      const cosmosBlock = match[1]
+      const chainIdRegex = /chainId:\s*\d+/
+
+      if (chainIdRegex.test(cosmosBlock)) {
+        const updatedCosmosBlock = cosmosBlock.replace(chainIdRegex, `chainId: ${chainId}`)
+        const updatedContent = configContent.replace(cosmosBlockRegex, `cosmos: {${updatedCosmosBlock}}`)
+
+        fs.writeFileSync(hardhatConfigPath, updatedContent)
+        logger.info(`Updated Hardhat config with chainId: ${chainId}`)
+      } else {
+        logger.warn('chainId not found in cosmos network block')
+        logger.info('Cosmos block content:', cosmosBlock)
+      }
+    } else {
+      logger.warn('Could not find cosmos network block in Hardhat config')
+      logger.info('Please check if your Hardhat config has a cosmos network configuration')
+
+      // Show available network blocks for debugging
+      const networkMatches = configContent.match(/\w+:\s*{[^{}]*}/g)
+      if (networkMatches) {
+        logger.info('Found network blocks:', networkMatches)
+      }
+    }
+  } catch (error) {
+    logger.warn(`Error updating Hardhat config: ${error.message}`)
+  }
+}
+
+// Function to sync configuration from Go to Hardhat
+function syncConfiguration() {
+  // Adjust these paths based on your project structure
+  const goConfigPath = path.join(__dirname, '../../cmd/evmd/config/config.go')
+  const hardhatConfigPath = path.join(__dirname, './suites/precompiles/hardhat.config.js')
+
+  logger.info('Syncing configuration from Go to Hardhat...')
+
+  const chainId = extractChainIDFromGo(goConfigPath)
+  updateHardhatConfig(chainId, hardhatConfigPath)
+}
+
 function checkTestEnv () {
   const argv = yargs(hideBin(process.argv))
-    .usage('Usage: $0 [options] <tests>')
-    .example('$0 --network cosmos', 'run all tests using cosmos evm network')
-    .example(
-      '$0 --network cosmos --allowTests=test1,test2',
-      'run only test1 and test2 using cosmos network'
-    )
-    .help('h')
-    .alias('h', 'help')
-    .describe('network', 'set which network to use: ganache|cosmos')
-    .describe(
-      'batch',
-      'set the test batch in parallelized testing. Format: %d-%d'
-    )
-    .describe('allowTests', 'only run specified tests. Separated by comma.')
-    .boolean('verbose-log')
-    .describe('verbose-log', 'print evmd output, default false').argv
+      .usage('Usage: $0 [options] <tests>')
+      .example('$0 --network cosmos', 'run all tests using cosmos evm network')
+      .example(
+          '$0 --network cosmos --allowTests=test1,test2',
+          'run only test1 and test2 using cosmos network'
+      )
+      .help('h')
+      .alias('h', 'help')
+      .describe('network', 'set which network to use: ganache|cosmos')
+      .describe(
+          'batch',
+          'set the test batch in parallelized testing. Format: %d-%d'
+      )
+      .describe('allowTests', 'only run specified tests. Separated by comma.')
+      .boolean('verbose-log')
+      .describe('verbose-log', 'print evmd output, default false').argv
 
   if (!fs.existsSync(path.join(__dirname, './node_modules'))) {
     panic(
-      'node_modules not existed. Please run `yarn install` before running tests.'
+        'node_modules not existed. Please run `yarn install` before running tests.'
     )
   }
   const runConfig = {}
@@ -54,8 +136,8 @@ function checkTestEnv () {
 
   if (argv.batch) {
     const [toRunBatch, allBatches] = argv.batch
-      .split('-')
-      .map((e) => Number(e))
+        .split('-')
+        .map((e) => Number(e))
 
     console.log([toRunBatch, allBatches])
     if (!toRunBatch || !allBatches) {
@@ -77,8 +159,8 @@ function checkTestEnv () {
 
   // only test
   runConfig.onlyTest = argv.allowTests
-    ? argv.allowTests.split(',')
-    : undefined
+      ? argv.allowTests.split(',')
+      : undefined
   runConfig.verboseLog = !!argv['verbose-log']
 
   logger.info(`Running on network: ${runConfig.network}`)
@@ -98,7 +180,7 @@ function loadTests (runConfig) {
     for (const f of needFiles) {
       if (!fs.existsSync(path.join(__dirname, 'suites', dirname, f))) {
         logger.warn(
-          `${dirname} does not contains file/dir: ${f}. Skip this test suite.`
+            `${dirname} does not contains file/dir: ${f}. Skip this test suite.`
         )
         return
       }
@@ -107,23 +189,23 @@ function loadTests (runConfig) {
     // test package.json
     try {
       const testManifest = JSON.parse(
-        fs.readFileSync(
-          path.join(__dirname, 'suites', dirname, 'package.json'),
-          'utf-8'
-        )
+          fs.readFileSync(
+              path.join(__dirname, 'suites', dirname, 'package.json'),
+              'utf-8'
+          )
       )
       const needScripts = ['test-ganache', 'test-cosmos']
       for (const s of needScripts) {
         if (Object.keys(testManifest.scripts).indexOf(s) === -1) {
           logger.warn(
-            `${dirname} does not have test script: \`${s}\`. Skip this test suite.`
+              `${dirname} does not have test script: \`${s}\`. Skip this test suite.`
           )
           return
         }
       }
     } catch (error) {
       logger.warn(
-        `${dirname} test package.json load failed. Skip this test suite.`
+          `${dirname} test package.json load failed. Skip this test suite.`
       )
       logger.err(error)
       return
@@ -138,10 +220,10 @@ function loadTests (runConfig) {
   if (runConfig.batch) {
     const chunkSize = Math.ceil(validTests.length / runConfig.batch.all)
     const toRunTests = validTests.slice(
-      (runConfig.batch.this - 1) * chunkSize,
-      runConfig.batch.this === runConfig.batch.all
-        ? undefined
-        : runConfig.batch.this * chunkSize
+        (runConfig.batch.this - 1) * chunkSize,
+        runConfig.batch.this === runConfig.batch.all
+            ? undefined
+            : runConfig.batch.this * chunkSize
     )
     return toRunTests
   } else {
@@ -240,6 +322,8 @@ function setupNetwork ({ runConfig, timeout }) {
 }
 
 async function main () {
+  syncConfiguration()
+
   const runConfig = checkTestEnv()
   const allTests = loadTests(runConfig)
 
