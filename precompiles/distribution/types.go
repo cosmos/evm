@@ -2,6 +2,7 @@ package distribution
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -138,7 +139,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		ValidatorAddress: validatorAddress,
 	}
 
-	validatorHexAddr, err := cmn.HexAddressFromBech32String(msg.ValidatorAddress)
+	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
 	if err != nil {
 		return nil, common.Address{}, err
 	}

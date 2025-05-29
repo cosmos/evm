@@ -247,7 +247,7 @@ func TestAddressConversion(t *testing.T) {
 	accAddr := sdk.MustAccAddressFromBech32(bech32)
 	require.Equal(t, hex, CosmosToEthAddr(accAddr).Hex())
 
-	gotAddr, err := Bech32ToHexAddr(bech32)
+	gotAddr, err := HexAddressFromBech32String(bech32)
 	require.NoError(t, err)
 	require.Equal(t, hex, gotAddr.Hex())
 }

@@ -33,15 +33,22 @@ func EthToCosmosAddr(addr common.Address) sdk.AccAddress {
 	return sdk.AccAddress(addr.Bytes())
 }
 
-// Bech32ToHexAddr converts a given Bech32 address string and converts it to
-// an Ethereum address.
-func Bech32ToHexAddr(bech32Addr string) (common.Address, error) {
-	accAddr, err := sdk.AccAddressFromBech32(bech32Addr)
-	if err != nil {
-		return common.Address{}, errorsmod.Wrapf(err, "failed to convert bech32 string to address")
+// HexAddressFromBech32String converts a hex address to a bech32 encoded address.
+func HexAddressFromBech32String(addr string) (res common.Address, err error) {
+	if strings.Contains(addr, sdk.PrefixValidator) {
+		valAddr, err := sdk.ValAddressFromBech32(addr)
+		if err != nil {
+			return res, err
+		}
+		return common.BytesToAddress(valAddr.Bytes()), nil
 	}
 
-	return CosmosToEthAddr(accAddr), nil
+	accAddr, err := sdk.AccAddressFromBech32(addr)
+	if err != nil {
+		return res, err
+	}
+
+	return common.BytesToAddress(accAddr), nil
 }
 
 // CosmosToEthAddr converts a given SDK account address to

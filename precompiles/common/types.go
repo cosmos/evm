@@ -1,14 +1,10 @@
 package common
 
 import (
+	"cosmossdk.io/math"
 	"fmt"
 	"math/big"
 	"reflect"
-	"strings"
-
-	"github.com/ethereum/go-ethereum/common"
-
-	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -78,28 +74,6 @@ func NewDecCoinsResponse(amount sdk.DecCoins) []DecCoin {
 		}
 	}
 	return outputs
-}
-
-// HexAddressFromBech32String converts a hex address to a bech32 encoded address.
-func HexAddressFromBech32String(addr string) (res common.Address, err error) {
-	if strings.Contains(addr, sdk.PrefixValidator) {
-		valAddr, err := sdk.ValAddressFromBech32(addr)
-		if err != nil {
-			return res, err
-		}
-		return common.BytesToAddress(valAddr.Bytes()), nil
-	}
-
-	accAddr, err := sdk.AccAddressFromBech32(addr)
-	if err != nil {
-		return res, err
-	}
-
-	return common.BytesToAddress(accAddr), nil
-}
-
-func Bech32FromHexAddress(addr string) string {
-	return sdk.AccAddress(common.HexToAddress(addr).Bytes()).String()
 }
 
 // SafeAdd adds two integers and returns a boolean if an overflow occurs to avoid panic.
