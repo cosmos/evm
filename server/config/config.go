@@ -3,13 +3,14 @@ package config
 import (
 	"errors"
 	"fmt"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"path"
 	"time"
 
 	"github.com/spf13/viper"
 
 	"github.com/cometbft/cometbft/libs/strings"
+
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 
 	errorsmod "cosmossdk.io/errors"
 
