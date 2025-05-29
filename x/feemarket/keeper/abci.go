@@ -12,7 +12,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// EndBlock now handles both gas tracking and base fee calculation for the next block
+// EndBlock handles both gas tracking and base fee calculation for the next block
 func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	if ctx.BlockGasMeter() == nil {
 		err := errors.New("block gas meter is nil when setting block gas wanted")
@@ -44,14 +44,12 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	updatedGasWanted := math.LegacyMaxDec(limitedGasWanted, math.LegacyNewDec(gasUsed.Int64())).TruncateInt().Uint64()
 	k.SetBlockGasWanted(ctx, updatedGasWanted)
 
-	// Calculate the next block's base fee using current block's gas data
 	nextBaseFee := k.CalculateBaseFee(ctx)
 
-	// Set the calculated base fee for the next block
+	// Set the calculated base fee for use in the next block
 	if !nextBaseFee.IsNil() {
 		k.SetBaseFee(ctx, nextBaseFee)
 
-		// Emit event for the newly calculated base fee
 		ctx.EventManager().EmitEvents(sdk.Events{
 			sdk.NewEvent(
 				types.EventTypeFeeMarket,
