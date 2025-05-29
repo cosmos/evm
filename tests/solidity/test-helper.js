@@ -85,6 +85,34 @@ function updateHardhatConfig(chainId, hardhatConfigPath) {
   }
 }
 
+// Function to create backup of Hardhat config
+function backupHardhatConfig(hardhatConfigPath) {
+  const backupPath = hardhatConfigPath + '.backup'
+  try {
+    if (fs.existsSync(hardhatConfigPath)) {
+      fs.copyFileSync(hardhatConfigPath, backupPath)
+      logger.info(`Created backup: ${backupPath}`)
+      return backupPath
+    }
+  } catch (error) {
+    logger.warn(`Error creating backup: ${error.message}`)
+  }
+  return null
+}
+
+// Function to restore Hardhat config from backup
+function restoreHardhatConfig(hardhatConfigPath, backupPath) {
+  try {
+    if (backupPath && fs.existsSync(backupPath)) {
+      fs.copyFileSync(backupPath, hardhatConfigPath)
+      fs.unlinkSync(backupPath) // Remove backup file
+      logger.info('Restored original Hardhat config')
+    }
+  } catch (error) {
+    logger.warn(`Error restoring config: ${error.message}`)
+  }
+}
+
 // Function to sync configuration from Go to Hardhat
 function syncConfiguration() {
   // Adjust these paths based on your project structure
@@ -93,8 +121,13 @@ function syncConfiguration() {
 
   logger.info('Syncing configuration from Go to Hardhat...')
 
+  // Create backup before modifying
+  const backupPath = backupHardhatConfig(hardhatConfigPath)
+
   const chainId = extractChainIDFromGo(goConfigPath)
   updateHardhatConfig(chainId, hardhatConfigPath)
+
+  return { hardhatConfigPath, backupPath }
 }
 
 function checkTestEnv () {
@@ -322,33 +355,81 @@ function setupNetwork ({ runConfig, timeout }) {
 }
 
 async function main () {
-  syncConfiguration()
+  // Sync configuration before running tests
+  const configPaths = syncConfiguration()
 
-  const runConfig = checkTestEnv()
-  const allTests = loadTests(runConfig)
+  let proc = null
 
-  console.log(`Running Tests: ${allTests.join()}`)
+  try {
+    const runConfig = checkTestEnv()
+    const allTests = loadTests(runConfig)
 
-  const proc = await setupNetwork({ runConfig, timeout: 50000 })
+    console.log(`Running Tests: ${allTests.join()}`)
 
-  // sleep for 20s to wait blocks being produced
-  //
-  // TODO: this should be handled more gracefully, i.e. check for block height
-  await new Promise((resolve) => setTimeout(resolve, 20000))
+    proc = await setupNetwork({ runConfig, timeout: 50000 })
 
-  await performTests({ allTests, runConfig })
+    // sleep for 20s to wait blocks being produced
+    //
+    // TODO: this should be handled more gracefully, i.e. check for block height
+    await new Promise((resolve) => setTimeout(resolve, 20000))
 
-  if (proc) {
-    proc.kill()
+    await performTests({ allTests, runConfig })
+
+    logger.info('Tests completed successfully!')
+  } catch (error) {
+    logger.err(`Test execution failed: ${error.message}`)
+    throw error
+  } finally {
+    // Always restore the original config, even if tests fail
+    if (configPaths) {
+      restoreHardhatConfig(configPaths.hardhatConfigPath, configPaths.backupPath)
+    }
+
+    if (proc) {
+      proc.kill()
+    }
   }
+
   process.exit(0)
 }
 
 // Add handler to exit the program when UnhandledPromiseRejection
-
 process.on('unhandledRejection', (e) => {
   console.error(e)
+
+  // Try to restore config if possible
+  const hardhatConfigPath = path.join(__dirname, 'hardhat.config.js')
+  const backupPath = hardhatConfigPath + '.backup'
+  if (fs.existsSync(backupPath)) {
+    try {
+      fs.copyFileSync(backupPath, hardhatConfigPath)
+      fs.unlinkSync(backupPath)
+      logger.info('Restored original Hardhat config after error')
+    } catch (restoreError) {
+      logger.warn(`Could not restore config: ${restoreError.message}`)
+    }
+  }
+
   process.exit(-1)
+})
+
+// Handle SIGINT (Ctrl+C) to restore config
+process.on('SIGINT', () => {
+  logger.info('Received SIGINT, cleaning up...')
+
+  const hardhatConfigPath = path.join(__dirname, 'hardhat.config.js')
+  const backupPath = hardhatConfigPath + '.backup'
+  if (fs.existsSync(backupPath)) {
+    try {
+      fs.copyFileSync(backupPath, hardhatConfigPath)
+      fs.unlinkSync(backupPath)
+      logger.info('Restored original Hardhat config')
+    } catch (restoreError) {
+      logger.warn(`Could not restore config: ${restoreError.message}`)
+    }
+  }
+
+  process.exit(0)
 })
 
 main()
