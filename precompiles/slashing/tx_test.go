@@ -46,7 +46,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			"invalid validator hex address",
 		},
 		{
-			"fail - invalid validator address (empty address)",
+			"fail - msg.sender address does not match the validator address (empty address)",
 			func() []interface{} {
 				return []interface{}{
 					common.Address{},
@@ -55,10 +55,10 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			"validator does not exist",
+			"does not match the requester address",
 		},
 		{
-			"fail - validator not found",
+			"fail - msg.sender address does not match the validator address",
 			func() []interface{} {
 				return []interface{}{
 					utiltx.GenerateAddress(),
@@ -67,7 +67,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			func() {},
 			200000,
 			true,
-			"validator does not exist",
+			"does not match the requester address",
 		},
 		{
 			"fail - validator not jailed",
@@ -122,7 +122,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 				s.T(),
 				s.network.GetContext(),
 				s.keyring.GetAddr(0),
-				s.precompile,
+				s.precompile.Address(),
 				tc.gas,
 			)
 

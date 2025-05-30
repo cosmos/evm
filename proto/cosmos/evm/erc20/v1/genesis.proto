@@ -3,8 +3,8 @@ syntax = "proto3";
 package cosmos.evm.erc20.v1;
 
 import "amino/amino.proto";
-import "gogoproto/gogo.proto";
 import "cosmos/evm/erc20/v1/erc20.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "github.com/cosmos/evm/x/erc20/types";
 
@@ -15,6 +15,9 @@ message GenesisState {
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   // token_pairs is a slice of the registered token pairs at genesis
   repeated TokenPair token_pairs = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // allowances is a slice of the registered allowances at genesis
+  repeated Allowance allowances = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
@@ -32,4 +35,7 @@ message Params {
   // dynamic_precompiles defines the slice of hex addresses of the
   // active precompiles that are used to interact with Bank coins as ERC20s
   repeated string dynamic_precompiles = 4;
+  // permissionless_registration is the parameter that allows ERC20s to be
+  // permissionlessly registered to be converted to bank tokens and vice versa
+  bool permissionless_registration = 5;
 }

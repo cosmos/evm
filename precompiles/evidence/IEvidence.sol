@@ -14,7 +14,7 @@ struct Equivocation {
     // height is the equivocation height
     int64 height;
     // time is the equivocation time
-    uint64 time;
+    int64 time;
     // power is the validator's power at the time of the equivocation
     int64 power;
     // consensusAddress is the validator's consensus address

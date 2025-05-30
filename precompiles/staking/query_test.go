@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
-	"github.com/cosmos/evm/precompiles/authorization"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/staking"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
@@ -79,7 +79,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 				var delOut staking.DelegationOutput
 				err := s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, bz)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(delOut.Shares.Int64(), big.NewInt(0).Int64())
+				s.Require().Equal(delOut.Shares.Int64(), common.U2560.ToBig().Int64())
 			},
 			100000,
 			false,
@@ -108,7 +108,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.Delegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
@@ -202,7 +202,7 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			s.Require().NoError(err)
@@ -288,7 +288,7 @@ func (s *PrecompileTestSuite) TestValidator() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			operatorAddress, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 			s.Require().NoError(err)
@@ -400,7 +400,7 @@ func (s *PrecompileTestSuite) TestValidators() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.Validators(s.network.GetContext(), &method, contract, tc.malleate())
 
@@ -524,7 +524,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			delegationArgs := []interface{}{
 				s.keyring.GetAddr(0),
@@ -533,10 +533,7 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 				big.NewInt(1e18),
 			}
 
-			err := s.CreateAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), s.keyring.GetAccAddr(0), staking.RedelegateAuthz, nil)
-			s.Require().NoError(err)
-
-			_, err = s.precompile.Redelegate(s.network.GetContext(), s.keyring.GetAddr(0), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
+			_, err := s.precompile.Redelegate(s.network.GetContext(), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
 			s.Require().NoError(err)
 
 			bz, err := s.precompile.Redelegation(s.network.GetContext(), &method, contract, tc.malleate(s.network.GetValidators()[0].OperatorAddress, s.network.GetValidators()[1].OperatorAddress))
@@ -685,99 +682,13 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			err := s.setupRedelegations(s.network.GetContext(), delAmt)
 			s.Require().NoError(err)
 
 			// query redelegations
 			bz, err := s.precompile.Redelegations(s.network.GetContext(), &method, contract, tc.malleate())
-
-			if tc.expErr {
-				s.Require().Error(err)
-				s.Require().Contains(err.Error(), tc.errContains)
-			} else {
-				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
-			}
-		})
-	}
-}
-
-func (s *PrecompileTestSuite) TestAllowance() {
-	approvedCoin := sdk.Coin{Denom: s.bondDenom, Amount: math.NewInt(1e18)}
-	granteeAddr := testutiltx.GenerateAddress()
-	method := s.precompile.Methods[authorization.AllowanceMethod]
-
-	testCases := []struct {
-		name        string
-		malleate    func() []interface{}
-		postCheck   func(bz []byte)
-		gas         uint64
-		expErr      bool
-		errContains string
-	}{
-		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			"success - query delegate method allowance",
-			func() []interface{} {
-				err := s.CreateAuthorization(s.network.GetContext(), s.keyring.GetAccAddr(0), granteeAddr.Bytes(), staking.DelegateAuthz, &approvedCoin)
-				s.Require().NoError(err)
-
-				return []interface{}{
-					granteeAddr,
-					s.keyring.GetAddr(0),
-					staking.DelegateMsg,
-				}
-			},
-			func(bz []byte) {
-				var amountsOut *big.Int
-				err := s.precompile.UnpackIntoInterface(&amountsOut, authorization.AllowanceMethod, bz)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(big.NewInt(1e18), amountsOut, "expected different allowed amount")
-			},
-			100000,
-			false,
-			"",
-		},
-		{
-			"success - return empty allowance if authorization is not found",
-			func() []interface{} {
-				return []interface{}{
-					granteeAddr,
-					s.keyring.GetAddr(0),
-					staking.UndelegateMsg,
-				}
-			},
-			func(bz []byte) {
-				var amountsOut *big.Int
-				err := s.precompile.UnpackIntoInterface(&amountsOut, authorization.AllowanceMethod, bz)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(int64(0), amountsOut.Int64(), "expected no allowance")
-			},
-			100000,
-			false,
-			"",
-		},
-	}
-
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.SetupTest() // reset
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
-
-			args := tc.malleate()
-			bz, err := s.precompile.Allowance(s.network.GetContext(), &method, contract, args)
 
 			if tc.expErr {
 				s.Require().Error(err)

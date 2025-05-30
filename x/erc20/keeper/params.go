@@ -19,7 +19,8 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	enableErc20 := k.IsERC20Enabled(ctx)
 	dynamicPrecompiles := k.getDynamicPrecompiles(ctx)
 	nativePrecompiles := k.getNativePrecompiles(ctx)
-	return types.NewParams(enableErc20, nativePrecompiles, dynamicPrecompiles)
+	permissionlessRegistration := k.isPermissionlessRegistration(ctx)
+	return types.NewParams(enableErc20, nativePrecompiles, dynamicPrecompiles, permissionlessRegistration)
 }
 
 // UpdateCodeHash takes in the updated parameters and
@@ -87,6 +88,7 @@ func (k Keeper) SetParams(ctx sdk.Context, newParams types.Params) error {
 	k.setERC20Enabled(ctx, newParams.EnableErc20)
 	k.setDynamicPrecompiles(ctx, newParams.DynamicPrecompiles)
 	k.setNativePrecompiles(ctx, newParams.NativePrecompiles)
+	k.SetPermissionlessRegistration(ctx, newParams.PermissionlessRegistration)
 	return nil
 }
 
@@ -145,4 +147,20 @@ func (k Keeper) getNativePrecompiles(ctx sdk.Context) (nativePrecompiles []strin
 		nativePrecompiles = append(nativePrecompiles, string(bz[i:i+addressLength]))
 	}
 	return nativePrecompiles
+}
+
+// isPermissionlessRegistration returns true if the module enabled permissionless
+// erc20 registration
+func (k Keeper) isPermissionlessRegistration(ctx sdk.Context) bool {
+	store := ctx.KVStore(k.storeKey)
+	return store.Has(types.ParamStoreKeyPermissionlessRegistration)
+}
+
+func (k Keeper) SetPermissionlessRegistration(ctx sdk.Context, permissionlessRegistration bool) {
+	store := ctx.KVStore(k.storeKey)
+	if permissionlessRegistration {
+		store.Set(types.ParamStoreKeyPermissionlessRegistration, isTrue)
+		return
+	}
+	store.Delete(types.ParamStoreKeyPermissionlessRegistration)
 }

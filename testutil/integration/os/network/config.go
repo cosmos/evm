@@ -6,7 +6,6 @@ import (
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testtx "github.com/cosmos/evm/testutil/tx"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -52,7 +51,7 @@ func DefaultConfig() Config {
 	account, _ := testtx.NewAccAddressAndKey()
 
 	return Config{
-		chainID:             testconstants.ExampleChainID,
+		chainID:             testconstants.ExampleChainID.ChainID,
 		eip155ChainID:       big.NewInt(testconstants.ExampleEIP155ChainID),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
@@ -111,12 +110,7 @@ type ConfigOption func(*Config)
 
 // WithChainID sets a custom chainID for the network. Changing the chainID
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
-func WithChainID(chainID string) ConfigOption {
-	eip155ChainID, err := cosmosevmtypes.ParseChainID(chainID)
-	if err != nil {
-		panic(err)
-	}
-
+func WithChainID(chainID testconstants.ChainID) ConfigOption {
 	evmCoinInfo, found := testconstants.ExampleChainCoinInfo[chainID]
 	if !found {
 		panic(fmt.Sprintf(
@@ -127,8 +121,8 @@ func WithChainID(chainID string) ConfigOption {
 	}
 
 	return func(cfg *Config) {
-		cfg.chainID = chainID
-		cfg.eip155ChainID = eip155ChainID
+		cfg.chainID = chainID.ChainID
+		cfg.eip155ChainID = big.NewInt(int64(chainID.EVMChainID)) //nolint:gosec // G115 // won't exceed uint64
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
 			cfg.chainCoins.baseCoin.Denom = evmCoinInfo.Denom

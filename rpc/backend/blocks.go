@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -503,6 +504,157 @@ func (b *Backend) EthBlockFromTendermintBlock(
 	}
 
 	// TODO: add tx receipts
-	ethBlock := ethtypes.NewBlock(ethHeader, txs, nil, nil, trie.NewStackTrie(nil))
+	ethBlock := ethtypes.NewBlock(
+		ethHeader,
+		&ethtypes.Body{Transactions: txs, Uncles: nil, Withdrawals: nil},
+		nil,
+		trie.NewStackTrie(nil))
 	return ethBlock, nil
+}
+
+// GetBlockReceipts returns the receipts for a given block number or hash.
+func (b *Backend) GetBlockReceipts(
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+) ([]map[string]interface{}, error) {
+	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block number from hash: %w", err)
+	}
+
+	resBlock, err := b.TendermintBlockByNumber(blockNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block by number: %w", err)
+	}
+
+	if resBlock == nil {
+		return nil, fmt.Errorf("block not found for height %d", *blockNum.TmHeight())
+	}
+
+	blockRes, err := b.rpcClient.BlockResults(b.ctx, blockNum.TmHeight())
+	if err != nil {
+		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
+	}
+
+	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	result := make([]map[string]interface{}, len(msgs))
+	for i, msg := range msgs {
+		result[i], err = b.formatTxReceipt(
+			msg,
+			msgs,
+			blockRes,
+			common.BytesToHash(resBlock.Block.Header.Hash()).Hex(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get transaction receipt for tx %s: %w", msg.Hash, err)
+		}
+	}
+
+	return result, nil
+}
+
+func (b *Backend) formatTxReceipt(ethMsg *evmtypes.MsgEthereumTx, blockMsgs []*evmtypes.MsgEthereumTx, blockRes *tmrpctypes.ResultBlockResults, blockHeaderHash string) (map[string]interface{}, error) {
+	txResult, err := b.GetTxByEthHash(common.HexToHash(ethMsg.Hash))
+	if err != nil {
+		return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash, err.Error())
+	}
+
+	txData, err := evmtypes.UnpackTxData(ethMsg.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack tx data: %w", err)
+	}
+
+	cumulativeGasUsed := uint64(0)
+
+	for _, txResult := range blockRes.TxsResults[0:txResult.TxIndex] {
+		cumulativeGasUsed += uint64(txResult.GasUsed) // #nosec G115 -- checked for int overflow already
+	}
+
+	cumulativeGasUsed += txResult.CumulativeGasUsed
+
+	var status hexutil.Uint
+	if txResult.Failed {
+		status = hexutil.Uint(ethtypes.ReceiptStatusFailed)
+	} else {
+		status = hexutil.Uint(ethtypes.ReceiptStatusSuccessful)
+	}
+
+	chainID, err := b.ChainID()
+	if err != nil {
+		return nil, err
+	}
+
+	from, err := ethMsg.GetSender(chainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+
+	// parse tx logs from events
+	msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
+	logs, err := TxLogsFromEvents(blockRes.TxsResults[txResult.TxIndex].Events, msgIndex)
+	if err != nil {
+		b.logger.Debug("failed to parse logs", "hash", ethMsg.Hash, "error", err.Error())
+	}
+
+	if txResult.EthTxIndex == -1 {
+		// Fallback to find tx index by iterating all valid eth transactions
+		for i := range blockMsgs {
+			if blockMsgs[i].Hash == ethMsg.Hash {
+				txResult.EthTxIndex = int32(i) // #nosec G115
+				break
+			}
+		}
+	}
+	// return error if still unable to find the eth tx index
+	if txResult.EthTxIndex == -1 {
+		return nil, fmt.Errorf("can't find index of ethereum tx")
+	}
+
+	receipt := map[string]interface{}{
+		// Consensus fields: These fields are defined by the Yellow Paper
+		"status":            status,
+		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
+		"logsBloom":         ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs}),
+		"logs":              logs,
+
+		// Implementation fields: These fields are added by geth when processing a transaction.
+		// They are stored in the chain database.
+		"transactionHash": common.HexToHash(ethMsg.Hash),
+		"contractAddress": nil,
+		"gasUsed":         hexutil.Uint64(b.GetGasUsed(txResult, txData.GetGasPrice(), txData.GetGas())),
+
+		// Inclusion information: These fields provide information about the inclusion of the
+		// transaction corresponding to this receipt.
+		"blockHash":        blockHeaderHash,
+		"blockNumber":      hexutil.Uint64(txResult.Height),     //nolint:gosec // G115 // won't exceed uint64
+		"transactionIndex": hexutil.Uint64(txResult.EthTxIndex), //nolint:gosec // G115 // no int overflow expected here
+
+		// https://github.com/foundry-rs/foundry/issues/7640
+		"effectiveGasPrice": (*hexutil.Big)(txData.GetGasPrice()),
+
+		// sender and receiver (contract or EOA) addreses
+		"from": from,
+		"to":   txData.GetTo(),
+		"type": hexutil.Uint(ethMsg.AsTransaction().Type()),
+	}
+
+	if logs == nil {
+		receipt["logs"] = [][]*ethtypes.Log{}
+	}
+
+	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+	if txData.GetTo() == nil {
+		receipt["contractAddress"] = crypto.CreateAddress(from, txData.GetNonce())
+	}
+
+	if dynamicTx, ok := txData.(*evmtypes.DynamicFeeTx); ok {
+		baseFee, err := b.BaseFee(blockRes)
+		if err != nil {
+			// tolerate the error for pruned node.
+			b.logger.Error("fetch basefee failed, node is pruned?", "height", txResult.Height, "error", err)
+		} else {
+			receipt["effectiveGasPrice"] = hexutil.Big(*dynamicTx.EffectiveGasPrice(baseFee))
+		}
+	}
+
+	return receipt, nil
 }

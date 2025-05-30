@@ -5,7 +5,6 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/testutil"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -21,7 +20,8 @@ func SetupExampleApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		testutil.NoOpEvmAppOptions,
+		9001,
+		evmd.EvmAppOptions,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

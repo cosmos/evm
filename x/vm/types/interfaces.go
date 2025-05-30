@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 	"math/big"
-	time "time"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"

@@ -1,11 +1,10 @@
 package gov_test
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
@@ -69,12 +68,12 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 		stDB = s.network.GetStateDB()
 		ctx = s.network.GetContext()
 
-		contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+		contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 		ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.Vote(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
+		_, err := s.precompile.Vote(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -144,7 +143,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 			stDB = s.network.GetStateDB()
 			ctx = s.network.GetContext()
 
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 			ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 			initialGas := ctx.GasMeter().GasConsumed()
 			s.Require().Zero(initialGas)
@@ -154,7 +153,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 				{Option: 2, Weight: "0.30"},
 			}
 
-			_, err := s.precompile.VoteWeighted(ctx, s.keyring.GetAddr(0), contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
+			_, err := s.precompile.VoteWeighted(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
 
 			if tc.expError {
 				s.Require().Error(err)

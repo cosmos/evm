@@ -188,7 +188,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 		expGas             uint64
 	}{
 		{
-			"no data, no accesslist, not contract creation, not homestead, not istanbul",
+			"no data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			nil,
 			1,
@@ -197,7 +197,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas,
 		},
 		{
-			"with one zero data, no accesslist, not contract creation, not homestead, not istanbul",
+			"with one zero data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			[]byte{0},
 			nil,
 			1,
@@ -206,7 +206,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxDataZeroGas*1,
 		},
 		{
-			"with one non zero data, no accesslist, not contract creation, not homestead, not istanbul",
+			"with one non zero data, no accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			[]byte{1},
 			nil,
 			1,
@@ -215,7 +215,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxDataNonZeroGasFrontier*1,
 		},
 		{
-			"no data, one accesslist, not contract creation, not homestead, not istanbul",
+			"no data, one accesslist, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			[]gethtypes.AccessTuple{
 				{},
@@ -226,7 +226,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxAccessListAddressGas,
 		},
 		{
-			"no data, one accesslist with one storageKey, not contract creation, not homestead, not istanbul",
+			"no data, one accesslist with one storageKey, not contract creation, not homestead, not istanbul, not shanghai",
 			nil,
 			[]gethtypes.AccessTuple{
 				{StorageKeys: make([]common.Hash, 1)},
@@ -237,7 +237,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGas + params.TxAccessListAddressGas + params.TxAccessListStorageKeyGas*1,
 		},
 		{
-			"no data, no accesslist, is contract creation, is homestead, not istanbul",
+			"no data, no accesslist, is contract creation, is homestead, not istanbul, not shanghai",
 			nil,
 			nil,
 			2,
@@ -246,7 +246,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			params.TxGasContractCreation,
 		},
 		{
-			"with one zero data, no accesslist, not contract creation, is homestead, is istanbul",
+			"with one zero data, no accesslist, not contract creation, is homestead, is istanbul, not shanghai",
 			[]byte{1},
 			nil,
 			3,
@@ -262,6 +262,10 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			ethCfg.HomesteadBlock = big.NewInt(2)
 			ethCfg.IstanbulBlock = big.NewInt(3)
 			signer := gethtypes.LatestSignerForChainID(ethCfg.ChainID)
+
+			// in the future, fork not enabled
+			shanghaiTime := uint64(suite.network.GetContext().BlockTime().Unix()) + 10000 //#nosec G115 -- int overflow is not a concern here
+			ethCfg.ShanghaiTime = &shanghaiTime
 
 			ctx := suite.network.GetContext().WithBlockHeight(tc.height)
 
@@ -284,7 +288,7 @@ func (suite *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			// Function being tested
 			gas, err := suite.network.App.EVMKeeper.GetEthIntrinsicGas(
 				ctx,
-				m,
+				*m,
 				ethCfg,
 				tc.isContractCreation,
 			)
@@ -448,7 +452,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 				},
 			)
 			suite.Require().NoError(err)
-			transactionGas := coreMsg.Gas()
+			transactionGas := coreMsg.GasLimit
 
 			vmdb := unitNetwork.GetStateDB()
 			vmdb.AddRefund(params.TxGas)
@@ -463,7 +467,7 @@ func (suite *KeeperTestSuite) TestRefundGas() {
 
 			err = unitNetwork.App.EVMKeeper.RefundGas(
 				unitNetwork.GetContext(),
-				coreMsg,
+				*coreMsg,
 				refund,
 				unitNetwork.GetBaseDenom(),
 			)
@@ -549,7 +553,6 @@ func (suite *KeeperTestSuite) TestEVMConfig() {
 	suite.Require().Equal(defaultChainEVMParams, cfg.Params)
 	// london hardfork is enabled by default
 	suite.Require().Equal(big.NewInt(0), cfg.BaseFee)
-	suite.Require().Equal(types.GetEthChainConfig(), cfg.ChainConfig)
 
 	validators := suite.network.GetValidators()
 	proposerHextAddress := utils.ValidatorConsAddressToHex(validators[0].OperatorAddress)
@@ -611,13 +614,6 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 	defer func() { suite.enableFeemarket = false }()
 	suite.SetupTest()
 
-	proposerAddress := suite.network.GetContext().BlockHeader().ProposerAddress
-	config, err := suite.network.App.EVMKeeper.EVMConfig(
-		suite.network.GetContext(),
-		proposerAddress,
-	)
-	suite.Require().NoError(err)
-
 	// Generate a transfer tx message
 	sender := suite.keyring.GetKey(0)
 	recipient := suite.keyring.GetAddr(1)
@@ -633,12 +629,12 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 
 	tracer := suite.network.App.EVMKeeper.Tracer(
 		suite.network.GetContext(),
-		coreMsg,
-		config.ChainConfig,
+		*coreMsg,
+		types.GetEthChainConfig(),
 	)
 	res, err := suite.network.App.EVMKeeper.ApplyMessage(
 		suite.network.GetContext(),
-		coreMsg,
+		*coreMsg,
 		tracer,
 		true,
 	)
@@ -673,7 +669,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			feemarkettypes.DefaultParams,
@@ -692,7 +688,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -717,7 +713,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Input:  []byte("contract_data"),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			func() types.Params {
 				defaultParams := types.DefaultParams()
@@ -743,7 +739,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 					Amount: big.NewInt(100),
 				})
 				suite.Require().NoError(err)
-				return msg
+				return *msg
 			},
 			types.DefaultParams,
 			func() feemarkettypes.Params {

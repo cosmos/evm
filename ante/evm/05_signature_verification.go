@@ -35,7 +35,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 	evmParams := esvd.evmKeeper.GetParams(ctx)
 	ethCfg := evmtypes.GetEthChainConfig()
 	blockNum := big.NewInt(ctx.BlockHeight())
-	signer := ethtypes.MakeSigner(ethCfg, blockNum)
+	signer := ethtypes.MakeSigner(ethCfg, blockNum, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	allowUnprotectedTxs := evmParams.GetAllowUnprotectedTxs()
 
 	msgs := tx.GetMsgs()
@@ -68,11 +68,19 @@ func SignatureVerification(
 	allowUnprotectedTxs bool,
 ) error {
 	ethTx := msg.AsTransaction()
+	ethCfg := evmtypes.GetEthChainConfig()
 
-	if !allowUnprotectedTxs && !ethTx.Protected() {
-		return errorsmod.Wrapf(
-			errortypes.ErrNotSupported,
-			"rejected unprotected ethereum transaction; please sign your transaction according to EIP-155 to protect it against replay-attacks")
+	if !allowUnprotectedTxs {
+		if !ethTx.Protected() {
+			return errorsmod.Wrapf(
+				errortypes.ErrNotSupported,
+				"rejected unprotected ethereum transaction; please sign your transaction according to EIP-155 to protect it against replay-attacks")
+		}
+		if ethTx.ChainId().Uint64() != ethCfg.ChainID.Uint64() {
+			return errorsmod.Wrapf(
+				errortypes.ErrInvalidChainID,
+				"rejected ethereum transaction with incorrect chain-id; expected %d, got %d", ethCfg.ChainID, ethTx.ChainId())
+		}
 	}
 
 	sender, err := signer.Sender(ethTx)

@@ -1,4 +1,4 @@
-package testdata
+package contracts
 
 import (
 	contractutils "github.com/cosmos/evm/contracts/utils"

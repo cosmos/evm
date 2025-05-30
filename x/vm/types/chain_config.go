@@ -3,19 +3,15 @@ package types
 import (
 	"errors"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethparams "github.com/ethereum/go-ethereum/params"
-
-	"github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 )
 
 // testChainID represents the ChainID used for the purpose of testing.
-const testChainID string = "cosmos_9001-1"
+const testChainID uint64 = 262144
 
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
@@ -34,7 +30,6 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 		DAOForkBlock:            getBlockValue(cc.DAOForkBlock),
 		DAOForkSupport:          cc.DAOForkSupport,
 		EIP150Block:             getBlockValue(cc.EIP150Block),
-		EIP150Hash:              common.HexToHash(cc.EIP150Hash),
 		EIP155Block:             getBlockValue(cc.EIP155Block),
 		EIP158Block:             getBlockValue(cc.EIP158Block),
 		ByzantiumBlock:          getBlockValue(cc.ByzantiumBlock),
@@ -47,22 +42,25 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 		ArrowGlacierBlock:       getBlockValue(cc.ArrowGlacierBlock),
 		GrayGlacierBlock:        getBlockValue(cc.GrayGlacierBlock),
 		MergeNetsplitBlock:      getBlockValue(cc.MergeNetsplitBlock),
-		ShanghaiBlock:           getBlockValue(cc.ShanghaiBlock),
-		CancunBlock:             getBlockValue(cc.CancunBlock),
+		ShanghaiTime:            getTimestampValue(cc.ShanghaiTime),
+		CancunTime:              getTimestampValue(cc.CancunTime),
+		PragueTime:              getTimestampValue(cc.PragueTime),
+		OsakaTime:               getTimestampValue(cc.OsakaTime),
+		VerkleTime:              getTimestampValue(cc.VerkleTime),
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		Clique:                  nil,
+		BlobScheduleConfig: &gethparams.BlobScheduleConfig{
+			Cancun: gethparams.DefaultCancunBlobConfig,
+			Prague: gethparams.DefaultPragueBlobConfig,
+			Osaka:  gethparams.DefaultOsakaBlobConfig,
+		},
 	}
 }
 
-func DefaultChainConfig(chainID string) *ChainConfig {
-	if chainID == "" {
-		chainID = testChainID
-	}
-
-	eip155ChainID, err := types.ParseChainID(chainID)
-	if err != nil {
-		panic(err)
+func DefaultChainConfig(evmChainID uint64) *ChainConfig {
+	if evmChainID == 0 {
+		evmChainID = testChainID
 	}
 
 	homesteadBlock := sdkmath.ZeroInt()
@@ -80,15 +78,18 @@ func DefaultChainConfig(chainID string) *ChainConfig {
 	arrowGlacierBlock := sdkmath.ZeroInt()
 	grayGlacierBlock := sdkmath.ZeroInt()
 	mergeNetsplitBlock := sdkmath.ZeroInt()
-	shanghaiBlock := sdkmath.ZeroInt()
-	cancunBlock := sdkmath.ZeroInt()
+	shanghaiTime := sdkmath.ZeroInt()
+	cancunTime := sdkmath.ZeroInt()
+	pragueTime := sdkmath.ZeroInt()
+
 	cfg := &ChainConfig{
-		ChainId:             eip155ChainID.Uint64(),
+		ChainId:             evmChainID,
+		Denom:               DefaultEVMDenom,
+		Decimals:            DefaultEVMDecimals,
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,
 		EIP150Block:         &eip150Block,
-		EIP150Hash:          common.Hash{}.String(),
 		EIP155Block:         &eip155Block,
 		EIP158Block:         &eip158Block,
 		ByzantiumBlock:      &byzantiumBlock,
@@ -101,8 +102,11 @@ func DefaultChainConfig(chainID string) *ChainConfig {
 		ArrowGlacierBlock:   &arrowGlacierBlock,
 		GrayGlacierBlock:    &grayGlacierBlock,
 		MergeNetsplitBlock:  &mergeNetsplitBlock,
-		ShanghaiBlock:       &shanghaiBlock,
-		CancunBlock:         &cancunBlock,
+		ShanghaiTime:        &shanghaiTime,
+		CancunTime:          &cancunTime,
+		PragueTime:          &pragueTime,
+		OsakaTime:           nil,
+		VerkleTime:          nil,
 	}
 	return cfg
 }
@@ -114,7 +118,7 @@ func setChainConfig(cc *ChainConfig) error {
 	if chainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig")
 	}
-	config := DefaultChainConfig("")
+	config := DefaultChainConfig(0)
 	if cc != nil {
 		config = cc
 	}
@@ -134,62 +138,76 @@ func getBlockValue(block *sdkmath.Int) *big.Int {
 	return block.BigInt()
 }
 
+func getTimestampValue(ts *sdkmath.Int) *uint64 {
+	if ts == nil || ts.IsNegative() {
+		return nil
+	}
+	res := ts.Uint64()
+	return &res
+}
+
 // Validate performs a basic validation of the ChainConfig params. The function will return an error
 // if any of the block values is uninitialized (i.e nil) or if the EIP150Hash is an invalid hash.
 func (cc ChainConfig) Validate() error {
-	if err := validateBlock(cc.HomesteadBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.HomesteadBlock); err != nil {
 		return errorsmod.Wrap(err, "homesteadBlock")
 	}
-	if err := validateBlock(cc.DAOForkBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.DAOForkBlock); err != nil {
 		return errorsmod.Wrap(err, "daoForkBlock")
 	}
-	if err := validateBlock(cc.EIP150Block); err != nil {
+	if err := validateBlockOrTimestamp(cc.EIP150Block); err != nil {
 		return errorsmod.Wrap(err, "eip150Block")
 	}
-	if err := validateHash(cc.EIP150Hash); err != nil {
-		return err
-	}
-	if err := validateBlock(cc.EIP155Block); err != nil {
+	if err := validateBlockOrTimestamp(cc.EIP155Block); err != nil {
 		return errorsmod.Wrap(err, "eip155Block")
 	}
-	if err := validateBlock(cc.EIP158Block); err != nil {
+	if err := validateBlockOrTimestamp(cc.EIP158Block); err != nil {
 		return errorsmod.Wrap(err, "eip158Block")
 	}
-	if err := validateBlock(cc.ByzantiumBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.ByzantiumBlock); err != nil {
 		return errorsmod.Wrap(err, "byzantiumBlock")
 	}
-	if err := validateBlock(cc.ConstantinopleBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.ConstantinopleBlock); err != nil {
 		return errorsmod.Wrap(err, "constantinopleBlock")
 	}
-	if err := validateBlock(cc.PetersburgBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.PetersburgBlock); err != nil {
 		return errorsmod.Wrap(err, "petersburgBlock")
 	}
-	if err := validateBlock(cc.IstanbulBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.IstanbulBlock); err != nil {
 		return errorsmod.Wrap(err, "istanbulBlock")
 	}
-	if err := validateBlock(cc.MuirGlacierBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.MuirGlacierBlock); err != nil {
 		return errorsmod.Wrap(err, "muirGlacierBlock")
 	}
-	if err := validateBlock(cc.BerlinBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.BerlinBlock); err != nil {
 		return errorsmod.Wrap(err, "berlinBlock")
 	}
-	if err := validateBlock(cc.LondonBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.LondonBlock); err != nil {
 		return errorsmod.Wrap(err, "londonBlock")
 	}
-	if err := validateBlock(cc.ArrowGlacierBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.ArrowGlacierBlock); err != nil {
 		return errorsmod.Wrap(err, "arrowGlacierBlock")
 	}
-	if err := validateBlock(cc.GrayGlacierBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.GrayGlacierBlock); err != nil {
 		return errorsmod.Wrap(err, "GrayGlacierBlock")
 	}
-	if err := validateBlock(cc.MergeNetsplitBlock); err != nil {
+	if err := validateBlockOrTimestamp(cc.MergeNetsplitBlock); err != nil {
 		return errorsmod.Wrap(err, "MergeNetsplitBlock")
 	}
-	if err := validateBlock(cc.ShanghaiBlock); err != nil {
-		return errorsmod.Wrap(err, "ShanghaiBlock")
+	if err := validateBlockOrTimestamp(cc.ShanghaiTime); err != nil {
+		return errorsmod.Wrap(err, "ShanghaiTime")
 	}
-	if err := validateBlock(cc.CancunBlock); err != nil {
-		return errorsmod.Wrap(err, "CancunBlock")
+	if err := validateBlockOrTimestamp(cc.CancunTime); err != nil {
+		return errorsmod.Wrap(err, "CancunTime")
+	}
+	if err := validateBlockOrTimestamp(cc.PragueTime); err != nil {
+		return errorsmod.Wrap(err, "PragueTime")
+	}
+	if err := validateBlockOrTimestamp(cc.OsakaTime); err != nil {
+		return errorsmod.Wrap(err, "OsakaTime")
+	}
+	if err := validateBlockOrTimestamp(cc.VerkleTime); err != nil {
+		return errorsmod.Wrap(err, "VerkleTime")
 	}
 	// NOTE: chain ID is not needed to check config order
 	if err := cc.EthereumConfig(nil).CheckConfigForkOrder(); err != nil {
@@ -198,23 +216,15 @@ func (cc ChainConfig) Validate() error {
 	return nil
 }
 
-func validateHash(hex string) error {
-	if hex != "" && strings.TrimSpace(hex) == "" {
-		return errorsmod.Wrap(ErrInvalidChainConfig, "hash cannot be blank")
-	}
-
-	return nil
-}
-
-func validateBlock(block *sdkmath.Int) error {
+func validateBlockOrTimestamp(value *sdkmath.Int) error {
 	// nil value means that the fork has not yet been applied
-	if block == nil {
+	if value == nil {
 		return nil
 	}
 
-	if block.IsNegative() {
+	if value.IsNegative() {
 		return errorsmod.Wrapf(
-			ErrInvalidChainConfig, "block value cannot be negative: %s", block,
+			ErrInvalidChainConfig, "block or timestamp value cannot be negative: %s", value,
 		)
 	}
 

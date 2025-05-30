@@ -2,31 +2,28 @@ package common
 
 import (
 	"errors"
-	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 )
 
 // Precompile is a common struct for all precompiles that holds the common data each
-// precompile needs to run which includes the ABI, Gas config, approval expiration and the authz keeper.
+// precompile needs to run which includes the ABI, Gas config.
 type Precompile struct {
 	abi.ABI
-	AuthzKeeper          authzkeeper.Keeper
-	ApprovalExpiration   time.Duration
 	KvGasConfig          storetypes.GasConfig
 	TransientKVGasConfig storetypes.GasConfig
 	address              common.Address
-	journalEntries       []balanceChangeEntry
+	journalEntries       []BalanceChangeEntry
 }
 
 // Operation is a type that defines if the precompile call
@@ -38,20 +35,20 @@ const (
 	Add
 )
 
-type balanceChangeEntry struct {
+type BalanceChangeEntry struct {
 	Account common.Address
-	Amount  *big.Int
+	Amount  *uint256.Int
 	Op      Operation
 }
 
-func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) balanceChangeEntry { //nolint:revive
-	return balanceChangeEntry{acc, amt, op}
+func NewBalanceChangeEntry(acc common.Address, amt *uint256.Int, op Operation) BalanceChangeEntry {
+	return BalanceChangeEntry{acc, amt, op}
 }
 
-// snapshot contains all state and events previous to the precompile call
+// Snapshot contains all state and events previous to the precompile call
 // This is needed to allow us to revert the changes
 // during the EVM execution
-type snapshot struct {
+type Snapshot struct {
 	MultiStore storetypes.CacheMultiStore
 	Events     sdk.Events
 }
@@ -69,6 +66,18 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 	return p.KvGasConfig.ReadCostFlat + (p.KvGasConfig.ReadCostPerByte * uint64(len(argsBz)))
 }
 
+// RunAtomic is used within the Run function of each Precompile implementation.
+// It handles rolling back to the provided snapshot if an error is returned from the core precompile logic.
+// Note: This is only required for stateful precompiles.
+func (p Precompile) RunAtomic(s Snapshot, stateDB *statedb.StateDB, fn func() ([]byte, error)) ([]byte, error) {
+	bz, err := fn()
+	if err != nil {
+		// revert to snapshot on error
+		stateDB.RevertMultiStore(s.MultiStore, s.Events)
+	}
+	return bz, err
+}
+
 // RunSetup runs the initial setup required to run a transaction or a query.
 // It returns the sdk Context, EVM stateDB, ABI method, initial gas and calling arguments.
 func (p Precompile) RunSetup(
@@ -76,7 +85,7 @@ func (p Precompile) RunSetup(
 	contract *vm.Contract,
 	readOnly bool,
 	isTransaction func(name *abi.Method) bool,
-) (ctx sdk.Context, stateDB *statedb.StateDB, s snapshot, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) { //nolint:revive
+) (ctx sdk.Context, stateDB *statedb.StateDB, s Snapshot, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) {
 	stateDB, ok := evm.StateDB.(*statedb.StateDB)
 	if !ok {
 		return sdk.Context{}, nil, s, nil, uint64(0), nil, errors.New(ErrNotRunInEvm)
@@ -141,7 +150,7 @@ func (p Precompile) RunSetup(
 
 	initialGas := ctx.GasMeter().GasConsumed()
 
-	defer HandleGasError(ctx, contract, initialGas, &err)()
+	defer HandleGasError(ctx, contract, initialGas, &err, stateDB, s)()
 
 	// set the default SDK gas configuration to track gas usage
 	// we are changing the gas meter type, so it panics gracefully when out of gas
@@ -156,14 +165,18 @@ func (p Precompile) RunSetup(
 
 // HandleGasError handles the out of gas panic by resetting the gas meter and returning an error.
 // This is used in order to avoid panics and to allow for the EVM to continue cleanup if the tx or query run out of gas.
-func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetypes.Gas, err *error) func() {
+func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetypes.Gas, err *error, stateDB *statedb.StateDB, snapshot Snapshot) func() {
 	return func() {
 		if r := recover(); r != nil {
 			switch r.(type) {
 			case storetypes.ErrorOutOfGas:
+
+				// revert to snapshot on error
+				stateDB.RevertMultiStore(snapshot.MultiStore, snapshot.Events)
+
 				// update contract gas
 				usedGas := ctx.GasMeter().GasConsumed() - initialGas
-				_ = contract.UseGas(usedGas)
+				_ = contract.UseGas(usedGas, nil, tracing.GasChangeCallFailedExecution)
 
 				*err = vm.ErrOutOfGas
 				// FIXME: add InfiniteGasMeter with previous Gas limit.
@@ -179,15 +192,15 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 // AddJournalEntries adds the balanceChange (if corresponds)
 // and precompileCall entries on the stateDB journal
 // This allows to revert the call changes within an evm tx
-func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) error {
+func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s Snapshot) error {
 	for _, entry := range p.journalEntries {
 		switch entry.Op {
 		case Sub:
 			// add the corresponding balance change to the journal
-			stateDB.SubBalance(entry.Account, entry.Amount)
+			stateDB.SubBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
 		case Add:
 			// add the corresponding balance change to the journal
-			stateDB.AddBalance(entry.Account, entry.Amount)
+			stateDB.AddBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
 		}
 	}
 
@@ -198,7 +211,7 @@ func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) erro
 // as the journalEntries field of the precompile.
 // These entries will be added to the stateDB's journal
 // when calling the AddJournalEntries function
-func (p *Precompile) SetBalanceChangeEntries(entries ...balanceChangeEntry) {
+func (p *Precompile) SetBalanceChangeEntries(entries ...BalanceChangeEntry) {
 	p.journalEntries = entries
 }
 

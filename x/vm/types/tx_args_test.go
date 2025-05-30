@@ -215,7 +215,7 @@ func (suite *TxDataTestSuite) TestToMessageEVM() {
 		},
 	}
 	for _, tc := range testCases {
-		res, err := tc.txArgs.ToMessage(tc.globalGasCap, tc.baseFee)
+		res, err := tc.txArgs.ToMessage(tc.globalGasCap, tc.baseFee, true, true)
 
 		if tc.expError {
 			suite.Require().NotNil(err)

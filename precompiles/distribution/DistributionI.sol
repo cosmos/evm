@@ -50,11 +50,11 @@ interface DistributionI {
         string withdrawerAddress
     );
 
-    /// @dev WithdrawDelegatorRewards defines an Event emitted when rewards from a delegation are withdrawn
+    /// @dev WithdrawDelegatorReward defines an Event emitted when rewards from a delegation are withdrawn
     /// @param delegatorAddress the address of the delegator
     /// @param validatorAddress the address of the validator
     /// @param amount the amount being withdrawn from the delegation
-    event WithdrawDelegatorRewards(
+    event WithdrawDelegatorReward(
         address indexed delegatorAddress,
         address indexed validatorAddress,
         uint256 amount
@@ -71,8 +71,22 @@ interface DistributionI {
     /// @dev FundCommunityPool defines an Event emitted when an account
     /// fund the community pool
     /// @param depositor the address funding the community pool
+    /// @param denom the denomination of the coin being sent to the community pool
     /// @param amount the amount being sent to the community pool
-    event FundCommunityPool(address indexed depositor, uint256 amount);
+    event FundCommunityPool(address indexed depositor, string denom, uint256 amount);
+
+    /// @dev DepositValidatorRewardsPool defines an Event emitted when an account
+    /// deposits the validator rewards pool
+    /// @param depositor the address funding the validator rewards pool
+    /// @param validatorAddress the address of the validator
+    /// @param denom the denomination of the coin being sent to the validator rewards pool
+    /// @param amount the amount of the coin being sent to the validator rewards pool
+    event DepositValidatorRewardsPool(
+        address indexed depositor,
+        address indexed validatorAddress,
+        string denom,
+        uint256 amount
+    );
 
     /// TRANSACTIONS
 
@@ -118,7 +132,19 @@ interface DistributionI {
     /// @return success Whether the transaction was successful or not
     function fundCommunityPool(
         address depositor,
-        uint256 amount
+        Coin[] memory amount
+    ) external returns (bool success);
+
+    /// @dev depositValidatorRewardsPool defines a method to allow an account to directly
+    /// fund the validator rewards pool.
+    /// @param depositor The address of the depositor
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coin sent to the validator rewards pool
+    /// @return success Whether the transaction was successful or not
+    function depositValidatorRewardsPool(
+        address depositor,
+        string memory validatorAddress,
+        Coin[] memory amount
     ) external returns (bool success);
 
     /// QUERIES
@@ -204,4 +230,8 @@ interface DistributionI {
     function delegatorWithdrawAddress(
         address delegatorAddress
     ) external view returns (string memory withdrawAddress);
+
+    /// @dev Queries the coins in the community pool.
+    /// @return coins The coins in the community pool
+    function communityPool() external view returns (DecCoin[] calldata coins);
 }

@@ -13,10 +13,11 @@ contract FlashLoan {
 
     function flashLoan(
         address _token,
-        string memory _validator,
-        uint256 _amount
-    ) public returns (bool) {
+        string memory _validator
+    ) public payable returns (bool) {
         require(msg.sender == owner, "Only owner can call this function");
+
+        uint256 _amount = msg.value;
 
         // Get some tokens to initiate the flash loan
         IERC20 token = IERC20(_token);
@@ -35,7 +36,7 @@ contract FlashLoan {
 
         // Execute some precompile logic (e.g. staking)
         success = staking.STAKING_CONTRACT.delegate(
-            msg.sender,
+            address(this),
             _validator,
             _amount
         );
@@ -54,10 +55,11 @@ contract FlashLoan {
 
     function flashLoanWithRevert(
         address _token,
-        string memory _validator,
-        uint256 _amount
-    ) public returns (bool) {
+        string memory _validator
+    ) public payable returns (bool) {
         require(msg.sender == owner, "Only owner can call this function");
+
+        uint256 _amount = msg.value;
 
         // Get some tokens to initiate the flash loan
         IERC20 token = IERC20(_token);
@@ -76,7 +78,7 @@ contract FlashLoan {
 
         try
             FlashLoan(address(this)).delegateWithRevert(
-                msg.sender,
+                address(this),
                 _validator,
                 _amount
             )

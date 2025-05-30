@@ -1,5 +1,5 @@
 package testutil
 
-func NoOpEvmAppOptions(_ string) error {
+func NoOpEvmAppOptions(_ uint64) error {
 	return nil
 }

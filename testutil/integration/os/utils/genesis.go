@@ -51,7 +51,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	tokenPairs := make([]erc20types.TokenPair, 0, len(denoms)+1)
 	tokenPairs = append(tokenPairs,
 		// NOTE: the example token pairs are being added in the integration test utils
-		exampleapp.ExampleTokenPairs...,
+		constants.ExampleTokenPairs...,
 	)
 
 	dynPrecAddr := make([]string, 0, len(denoms))

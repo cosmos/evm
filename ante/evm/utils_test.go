@@ -3,10 +3,10 @@ package evm_test
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/ante/testutils"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
@@ -106,21 +106,21 @@ func (suite *AnteTestSuite) CreateTestCosmosTxBuilder(gasPrice sdkmath.Int, deno
 	return txBuilder
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712TxBuilderMsgSend(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712TxBuilderMsgSend(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	// Build MsgSend
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend := banktypes.NewMsgSend(from, recipient, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgSend)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgSend)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712TxBuilderMsgDelegate(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712TxBuilderMsgDelegate(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	// Build MsgDelegate
 	val := suite.GetNetwork().GetValidators()[0]
 	msgDelegate := stakingtypes.NewMsgDelegate(from.String(), val.OperatorAddress, sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(20)))
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgDelegate)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgDelegate)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	// Build MsgCreateValidator
 	valAddr := sdk.ValAddress(from.Bytes())
 	privEd := ed25519.GenPrivKey()
@@ -134,10 +134,10 @@ func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator(from sdk.AccAddre
 		sdkmath.OneInt(),
 	)
 	suite.Require().NoError(err)
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgCreate)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgCreate)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator2(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator2(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	// Build MsgCreateValidator
 	valAddr := sdk.ValAddress(from.Bytes())
 	privEd := ed25519.GenPrivKey()
@@ -151,18 +151,18 @@ func (suite *AnteTestSuite) CreateTestEIP712MsgCreateValidator2(from sdk.AccAddr
 		sdkmath.OneInt(),
 	)
 	suite.Require().NoError(err)
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgCreate)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgCreate)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712SubmitProposal(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins, deposit sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712SubmitProposal(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins, deposit sdk.Coins) (client.TxBuilder, error) {
 	proposal, ok := govtypes.ContentFromProposalType("My proposal", "My description", govtypes.ProposalTypeText)
 	suite.Require().True(ok)
 	msgSubmit, err := govtypes.NewMsgSubmitProposal(proposal, deposit, from)
 	suite.Require().NoError(err)
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgSubmit)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgSubmit)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712GrantAllowance(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712GrantAllowance(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	spendLimit := sdk.NewCoins(sdk.NewInt64Coin(suite.GetNetwork().GetBaseDenom(), 10))
 	threeHours := time.Now().Add(3 * time.Hour)
 	basic := &feegrant.BasicAllowance{
@@ -173,10 +173,10 @@ func (suite *AnteTestSuite) CreateTestEIP712GrantAllowance(from sdk.AccAddress, 
 	grantedAddr := suite.GetNetwork().App.AccountKeeper.NewAccountWithAddress(suite.GetNetwork().GetContext(), granted.Bytes())
 	msgGrant, err := feegrant.NewMsgGrantAllowance(basic, from, grantedAddr.GetAddress())
 	suite.Require().NoError(err)
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgGrant)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgGrant)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgEditValidator(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgEditValidator(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	valAddr := sdk.ValAddress(from.Bytes())
 	msgEdit := stakingtypes.NewMsgEditValidator(
 		valAddr.String(),
@@ -184,10 +184,10 @@ func (suite *AnteTestSuite) CreateTestEIP712MsgEditValidator(from sdk.AccAddress
 		nil,
 		nil,
 	)
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgEdit)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgEdit)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgSubmitEvidence(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgSubmitEvidence(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	pk := ed25519.GenPrivKey()
 	msgEvidence, err := evtypes.NewMsgSubmitEvidence(from, &evtypes.Equivocation{
 		Height:           11,
@@ -197,15 +197,15 @@ func (suite *AnteTestSuite) CreateTestEIP712MsgSubmitEvidence(from sdk.AccAddres
 	})
 	suite.Require().NoError(err)
 
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgEvidence)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgEvidence)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgVoteV1(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgVoteV1(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	msgVote := govtypesv1.NewMsgVote(from, 1, govtypesv1.VoteOption_VOTE_OPTION_YES, "")
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgVote)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgVote)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712SubmitProposalV1(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712SubmitProposalV1(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	// Build V1 proposal messages. Must all be same-type, since EIP-712
 	// does not support arrays of variable type.
 	authAcc := suite.GetNetwork().App.GovKeeper.GetGovernanceAccount(suite.GetNetwork().GetContext())
@@ -242,23 +242,23 @@ func (suite *AnteTestSuite) CreateTestEIP712SubmitProposalV1(from sdk.AccAddress
 
 	suite.Require().NoError(err)
 
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgProposal)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgProposal)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgExec(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgExec(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend := banktypes.NewMsgSend(from, recipient, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
 	msgExec := authz.NewMsgExec(from, []sdk.Msg{msgSend})
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, &msgExec)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, &msgExec)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MultipleMsgSend(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MultipleMsgSend(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend := banktypes.NewMsgSend(from, recipient, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgSend, msgSend, msgSend})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgSend, msgSend, msgSend})
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MultipleDifferentMsgs(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MultipleDifferentMsgs(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend := banktypes.NewMsgSend(from, recipient, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
 
@@ -268,36 +268,36 @@ func (suite *AnteTestSuite) CreateTestEIP712MultipleDifferentMsgs(from sdk.AccAd
 	valAddr := sdk.ValAddress(valEthAddr.Bytes())
 	msgDelegate := stakingtypes.NewMsgDelegate(from.String(), valAddr.String(), sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(20)))
 
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgSend, msgVote, msgDelegate})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgSend, msgVote, msgDelegate})
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712SameMsgDifferentSchemas(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712SameMsgDifferentSchemas(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	msgVote1 := govtypesv1.NewMsgVote(from, 1, govtypesv1.VoteOption_VOTE_OPTION_YES, "")
 	msgVote2 := govtypesv1.NewMsgVote(from, 5, govtypesv1.VoteOption_VOTE_OPTION_ABSTAIN, "With Metadata")
 
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgVote1, msgVote2})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgVote1, msgVote2})
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712ZeroValueArray(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712ZeroValueArray(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend := banktypes.NewMsgSend(from, recipient, sdk.NewCoins())
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgSend})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgSend})
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712ZeroValueNumber(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712ZeroValueNumber(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	msgVote := govtypesv1.NewMsgVote(from, 0, govtypesv1.VoteOption_VOTE_OPTION_NO, "")
 
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgVote})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgVote})
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgTransfer(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgTransfer(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	msgTransfer := suite.createMsgTransfer(from, "With Memo")
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgTransfer)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgTransfer)
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MsgTransferWithoutMemo(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MsgTransferWithoutMemo(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	msgTransfer := suite.createMsgTransfer(from, "")
-	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, gas, gasAmount, msgTransfer)
+	return suite.CreateTestEIP712SingleMessageTxBuilder(priv, chainID, evmChainID, gas, gasAmount, msgTransfer)
 }
 
 func (suite *AnteTestSuite) createMsgTransfer(from sdk.AccAddress, memo string) *ibctypes.MsgTransfer {
@@ -306,11 +306,11 @@ func (suite *AnteTestSuite) createMsgTransfer(from sdk.AccAddress, memo string) 
 	return msgTransfer
 }
 
-func (suite *AnteTestSuite) CreateTestEIP712MultipleSignerMsgs(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
+func (suite *AnteTestSuite) CreateTestEIP712MultipleSignerMsgs(from sdk.AccAddress, priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins) (client.TxBuilder, error) {
 	recipient := sdk.AccAddress(common.Address{}.Bytes())
 	msgSend1 := banktypes.NewMsgSend(from, recipient, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
 	msgSend2 := banktypes.NewMsgSend(recipient, from, sdk.NewCoins(sdk.NewCoin(suite.GetNetwork().GetBaseDenom(), sdkmath.NewInt(1))))
-	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, gas, gasAmount, []sdk.Msg{msgSend1, msgSend2})
+	return suite.CreateTestEIP712CosmosTxBuilder(priv, chainID, evmChainID, gas, gasAmount, []sdk.Msg{msgSend1, msgSend2})
 }
 
 // StdSignBytes returns the bytes to sign for a transaction.
@@ -342,12 +342,13 @@ func StdSignBytes(cdc *codec.LegacyAmino, chainID string, accnum uint64, sequenc
 }
 
 func (suite *AnteTestSuite) CreateTestEIP712SingleMessageTxBuilder(
-	priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins, msg sdk.Msg,
+	priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins, msg sdk.Msg,
 ) (client.TxBuilder, error) {
 	msgs := []sdk.Msg{msg}
 	return suite.CreateTestEIP712CosmosTxBuilder(
 		priv,
 		chainID,
+		evmChainID,
 		gas,
 		gasAmount,
 		msgs,
@@ -355,7 +356,7 @@ func (suite *AnteTestSuite) CreateTestEIP712SingleMessageTxBuilder(
 }
 
 func (suite *AnteTestSuite) CreateTestEIP712CosmosTxBuilder(
-	priv cryptotypes.PrivKey, chainID string, gas uint64, gasAmount sdk.Coins, msgs []sdk.Msg,
+	priv cryptotypes.PrivKey, chainID string, evmChainID, gas uint64, gasAmount sdk.Coins, msgs []sdk.Msg,
 ) (client.TxBuilder, error) {
 	txConf := suite.GetClientCtx().TxConfig
 	cosmosTxArgs := utiltx.CosmosTxArgs{
@@ -373,6 +374,7 @@ func (suite *AnteTestSuite) CreateTestEIP712CosmosTxBuilder(
 		utiltx.EIP712TxArgs{
 			CosmosTxArgs:       cosmosTxArgs,
 			UseLegacyTypedData: suite.useLegacyEIP712TypedData,
+			EVMChainID:         evmChainID,
 		},
 	)
 }
@@ -446,7 +448,7 @@ func (suite *AnteTestSuite) generateMultikeySignatures(signMode signing.SignMode
 }
 
 // RegisterAccount creates an account with the keeper and populates the initial balance
-func (suite *AnteTestSuite) RegisterAccount(pubKey cryptotypes.PubKey, balance *big.Int) {
+func (suite *AnteTestSuite) RegisterAccount(pubKey cryptotypes.PubKey, balance *uint256.Int) {
 	ctx := suite.GetNetwork().GetContext()
 
 	acc := suite.GetNetwork().App.AccountKeeper.NewAccountWithAddress(ctx, sdk.AccAddress(pubKey.Address()))
@@ -511,7 +513,7 @@ func (suite *AnteTestSuite) CreateTestSignedMultisigTx(privKeys []cryptotypes.Pr
 	numKeys := len(privKeys)
 	multiKey := kmultisig.NewLegacyAminoPubKey(numKeys, pubKeys)
 
-	suite.RegisterAccount(multiKey, big.NewInt(10000000000))
+	suite.RegisterAccount(multiKey, uint256.NewInt(10000000000))
 
 	txBuilder := suite.createBaseTxBuilder(msg, gas)
 
@@ -544,7 +546,7 @@ func (suite *AnteTestSuite) CreateTestSignedMultisigTx(privKeys []cryptotypes.Pr
 func (suite *AnteTestSuite) CreateTestSingleSignedTx(privKey cryptotypes.PrivKey, signMode signing.SignMode, msg sdk.Msg, chainID string, gas uint64, signType string) client.TxBuilder {
 	pubKey := privKey.PubKey()
 
-	suite.RegisterAccount(pubKey, big.NewInt(10_000_000_000))
+	suite.RegisterAccount(pubKey, uint256.NewInt(10_000_000_000))
 
 	txBuilder := suite.createBaseTxBuilder(msg, gas)
 

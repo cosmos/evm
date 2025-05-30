@@ -2,7 +2,6 @@
 pragma solidity >=0.8.18;
 
 import "../common/Types.sol";
-import "../authorization/IICS20Authorization.sol";
 
 /// @dev The ICS20I contract's address.
 address constant ICS20_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000802;
@@ -30,7 +29,7 @@ struct Hop {
 /// @title ICS20 Transfer Precompiled Contract
 /// @dev The interface through which solidity contracts will interact with IBC Transfer (ICS20)
 /// @custom:address 0x0000000000000000000000000000000000000802
-interface ICS20I is IICS20Authorization {
+interface ICS20I {
     /// @dev Emitted when an ICS-20 transfer is executed.
     /// @param sender The address of the sender.
     /// @param receiver The address of the receiver.

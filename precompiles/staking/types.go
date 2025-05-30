@@ -155,8 +155,8 @@ func NewMsgCreateValidator(args []interface{}, denom string) (*stakingtypes.MsgC
 		},
 		Commission: stakingtypes.CommissionRates{
 			Rate:          math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
-			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.Rate, math.LegacyPrecision),
+			MaxRate:       math.LegacyNewDecFromBigIntWithPrec(commission.MaxRate, math.LegacyPrecision),
+			MaxChangeRate: math.LegacyNewDecFromBigIntWithPrec(commission.MaxChangeRate, math.LegacyPrecision),
 		},
 		MinSelfDelegation: math.NewIntFromBigInt(minSelfDelegation),
 		DelegatorAddress:  sdk.AccAddress(validatorAddress.Bytes()).String(),

@@ -44,7 +44,7 @@ type AllEvidenceOutput struct {
 // EquivocationData represents the Solidity Equivocation struct
 type EquivocationData struct {
 	Height           int64  `abi:"height"`
-	Time             uint64 `abi:"time"`
+	Time             int64  `abi:"time"`
 	Power            int64  `abi:"power"`
 	ConsensusAddress string `abi:"consensusAddress"`
 }
@@ -53,21 +53,27 @@ type EquivocationData struct {
 func (e EquivocationData) ToEquivocation() *evidencetypes.Equivocation {
 	return &evidencetypes.Equivocation{
 		Height:           e.Height,
-		Time:             time.Unix(int64(e.Time), 0).UTC(), //nolint:gosec // G115
+		Time:             time.Unix(e.Time, 0).UTC(),
 		Power:            e.Power,
 		ConsensusAddress: e.ConsensusAddress,
 	}
 }
 
 // NewMsgSubmitEvidence creates a new MsgSubmitEvidence instance.
-func NewMsgSubmitEvidence(origin common.Address, args []interface{}) (*evidencetypes.MsgSubmitEvidence, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+func NewMsgSubmitEvidence(args []interface{}) (*evidencetypes.MsgSubmitEvidence, common.Address, error) {
+	emptyAddr := common.Address{}
+	if len(args) != 2 {
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
 
-	equivocation, ok := args[0].(EquivocationData)
+	submitterAddress, ok := args[0].(common.Address)
 	if !ok {
-		return nil, fmt.Errorf("invalid equivocation evidence")
+		return nil, emptyAddr, fmt.Errorf("invalid submitter address")
+	}
+
+	equivocation, ok := args[1].(EquivocationData)
+	if !ok {
+		return nil, emptyAddr, fmt.Errorf("invalid equivocation evidence")
 	}
 
 	// Convert the EquivocationData to a types.Equivocation
@@ -75,12 +81,12 @@ func NewMsgSubmitEvidence(origin common.Address, args []interface{}) (*evidencet
 
 	// Create the MsgSubmitEvidence using the SDK msg builder
 	msg, err := evidencetypes.NewMsgSubmitEvidence(
-		sdk.AccAddress(origin.Bytes()),
+		sdk.AccAddress(submitterAddress.Bytes()),
 		evidence,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence message: %w", err)
+		return nil, emptyAddr, fmt.Errorf("failed to create evidence message: %w", err)
 	}
 
-	return msg, nil
+	return msg, submitterAddress, nil
 }

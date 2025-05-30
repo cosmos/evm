@@ -19,7 +19,7 @@ contract DistributionCaller {
         );
     }
 
-    function testWithdrawDelegatorRewardsFromContract(
+    function testWithdrawDelegatorRewardFromContract(
         string memory _valAddr
     ) public returns (types.Coin[] memory) {
         return
@@ -40,29 +40,27 @@ contract DistributionCaller {
         );
     }
 
-    function testWithdrawDelegatorRewardsWithTransfer(
-        address payable _delAddr,
+    function testWithdrawDelegatorRewardWithTransfer(
         string memory _valAddr,
         bool _before,
         bool _after
     ) public returns (types.Coin[] memory coins) {
         if (_before) {
             counter++;
-            (bool sent, ) = _delAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
         coins = distribution.DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(
-            _delAddr,
+            address(this),
             _valAddr
         );
         if (_after) {
             counter++;
-            (bool sent, ) = _delAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
         return coins;
     }
-
     function revertWithdrawRewardsAndTransfer(
         address payable _delAddr,
         address payable _withdrawer,
@@ -82,7 +80,7 @@ contract DistributionCaller {
         }
     }
 
-    function testWithdrawDelegatorRewards(
+    function testWithdrawDelegatorReward(
         address _delAddr,
         string memory _valAddr
     ) public returns (types.Coin[] memory) {
@@ -150,6 +148,21 @@ contract DistributionCaller {
         );
     }
 
+    function testTryClaimRewards(
+        address delegatorAddress,
+        uint32 maxRetrieve
+    ) external returns (bool) {
+        bool success;
+
+        try distribution.DISTRIBUTION_CONTRACT.claimRewards(delegatorAddress, maxRetrieve) returns (bool result) {
+            success = result;
+        } catch {
+            success = false;
+        }
+
+        return success;
+    }
+
     /// @dev testFundCommunityPool defines a method to allow an account to directly
     /// fund the community pool.
     /// @param depositor The address of the depositor
@@ -157,7 +170,7 @@ contract DistributionCaller {
     /// @return success Whether the transaction was successful or not
     function testFundCommunityPool(
         address depositor,
-        uint256 amount
+        types.Coin[] memory amount
     ) public returns (bool success) {
         counter += 1;
         success = distribution.DISTRIBUTION_CONTRACT.fundCommunityPool(
@@ -169,29 +182,24 @@ contract DistributionCaller {
     }
 
     function testClaimRewardsWithTransfer(
-        address payable _delAddr,
         uint32 _maxRetrieve,
         bool _before,
         bool _after
     ) public {
         if (_before) {
             counter++;
-            if (_delAddr != address(this)) {
-                (bool sent, ) = _delAddr.call{value: 15}("");
-                require(sent, "Failed to send Ether to delegator");
-            }
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
         }
         bool success = distribution.DISTRIBUTION_CONTRACT.claimRewards(
-            _delAddr,
+            address(this),
             _maxRetrieve
         );
         require(success, "failed to claim rewards");
         if (_after) {
             counter++;
-            if (_delAddr != address(this)) {
-                (bool sent, ) = _delAddr.call{value: 15}("");
-                require(sent, "Failed to send Ether to delegator");
-            }
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
         }
     }
 
@@ -203,7 +211,7 @@ contract DistributionCaller {
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testFundCommunityPoolWithTransfer(
         address payable depositor,
-        uint256 amount,
+        types.Coin[] memory amount,
         bool _before,
         bool _after
     ) public {
@@ -224,20 +232,61 @@ contract DistributionCaller {
         }
     }
 
+    /// @dev testDepositValidatorRewardsPool defines a method to allow an account to directly
+    /// fund the validator rewards pool.
+    /// @param depositor The address of the depositor
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coins sent to the validator rewards pool
+    /// @return success Whether the transaction was successful or not
+    function testDepositValidatorRewardsPool(
+        address depositor,
+        string memory validatorAddress,
+        types.Coin[] memory  amount
+    ) public returns (bool success) {
+        counter += 1;
+        success = distribution.DISTRIBUTION_CONTRACT.depositValidatorRewardsPool(
+            depositor,
+            validatorAddress,
+            amount
+        );
+        counter -= 1;
+        return success;
+    }
+
+    /// @dev testDepositValidatorRewardsPoolWithTransfer defines a method to allow an account to directly
+    /// fund the validator rewards pool and performs a transfer to the deposit.
+    /// @param validatorAddress The address of the validator
+    /// @param amount The amount of coins sent to the validator rewards pool
+    /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
+    /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
+    function testDepositValidatorRewardsPoolWithTransfer(
+        string memory validatorAddress,
+        types.Coin[] memory amount,
+        bool _before,
+        bool _after
+    ) public {
+        if (_before) {
+            counter++;
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
+        }
+        bool success = distribution.DISTRIBUTION_CONTRACT
+            .depositValidatorRewardsPool(address(this), validatorAddress, amount);
+        require(success);
+        if (_after) {
+            counter++;
+            (bool sent, ) = msg.sender.call{value: 15}("");
+            require(sent, "Failed to send Ether to delegator");
+        }
+    }
+
     /// @dev This function calls the staking precompile's delegate method.
     /// @param _validatorAddr The validator address to delegate to.
     /// @param _amount The amount to delegate.
     function testDelegateFromContract(
         string memory _validatorAddr,
         uint256 _amount
-    ) public {
-        // Create approval
-        bool success = staking.STAKING_CONTRACT.approve(
-            address(this),
-            _amount,
-            delegateMethod
-        );
-        require(success, "Failed to approve staking methods");
+    ) public payable {
         staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,
@@ -329,6 +378,10 @@ contract DistributionCaller {
             distribution.DISTRIBUTION_CONTRACT.delegatorWithdrawAddress(
             _delAddr
         );
+    }
+
+    function getCommunityPool() public view returns (types.DecCoin[] memory) {
+        return distribution.DISTRIBUTION_CONTRACT.communityPool();
     }
 
     // testRevertState allows sender to change the withdraw address

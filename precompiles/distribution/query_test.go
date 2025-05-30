@@ -2,9 +2,9 @@ package distribution_test
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
@@ -129,7 +129,7 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.ValidatorDistributionInfo(ctx, contract, &method, tc.malleate())
 
@@ -222,7 +222,7 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.ValidatorOutstandingRewards(ctx, contract, &method, tc.malleate())
 
@@ -320,7 +320,7 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.ValidatorCommission(ctx, contract, &method, tc.malleate())
 
@@ -489,7 +489,7 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.ValidatorSlashes(ctx, contract, &method, tc.malleate())
 
@@ -604,7 +604,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			args := tc.malleate()
 			bz, err := s.precompile.DelegationRewards(ctx, contract, &method, args)
@@ -738,7 +738,7 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
 
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			args := tc.malleate()
 			bz, err := s.precompile.DelegationTotalRewards(ctx, contract, &method, args)
@@ -822,7 +822,7 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.DelegatorValidators(ctx, contract, &method, tc.malleate())
 
@@ -879,9 +879,85 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(vm.AccountRef(s.keyring.GetAddr(0)), s.precompile, big.NewInt(0), tc.gas)
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			bz, err := s.precompile.DelegatorWithdrawAddress(ctx, contract, &method, tc.malleate())
+
+			if tc.expErr {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			} else {
+				s.Require().NoError(err)
+				s.Require().NotEmpty(bz)
+				tc.postCheck(bz)
+			}
+		})
+	}
+}
+
+func (s *PrecompileTestSuite) TestCommunityPool() {
+	var ctx sdk.Context
+	method := s.precompile.Methods[distribution.CommunityPoolMethod]
+
+	testCases := []distrTestCases{
+		{
+			"fail - invalid number of args",
+			func() []interface{} {
+				return []interface{}{
+					"invalid",
+				}
+			},
+			func(bz []byte) {},
+			100000,
+			true,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+		},
+		{
+			"success - empty community pool",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			func(bz []byte) {
+				var out []cmn.DecCoin
+				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				s.Require().NoError(err, "failed to unpack output", err)
+				s.Require().Equal(0, len(out))
+			},
+			100000,
+			false,
+			"",
+		},
+		{
+			"success - with community pool",
+			func() []interface{} {
+				amt := math.NewInt(expValAmount)
+				err := s.network.App.DistrKeeper.FundCommunityPool(ctx, sdk.NewCoins(sdk.NewCoin(s.bondDenom, amt)), s.keyring.GetAccAddr(0))
+				s.Require().NoError(err)
+
+				return []interface{}{}
+			},
+			func(bz []byte) {
+				var out []cmn.DecCoin
+				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				s.Require().NoError(err, "failed to unpack output", err)
+				s.Require().Equal(1, len(out))
+				s.Require().Equal(uint8(18), out[0].Precision)
+				s.Require().Equal(s.bondDenom, out[0].Denom)
+				s.Require().Equal(expValAmount, out[0].Amount.Int64())
+			},
+			100000,
+			false,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest() // reset
+			ctx = s.network.GetContext()
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
+
+			bz, err := s.precompile.CommunityPool(ctx, contract, &method, tc.malleate())
 
 			if tc.expErr {
 				s.Require().Error(err)

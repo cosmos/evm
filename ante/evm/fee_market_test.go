@@ -7,6 +7,7 @@ import (
 
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/ante/testutils"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -102,7 +103,7 @@ func (suite *AnteTestSuite) TestGasWantedDecorator() {
 				acc := suite.GetNetwork().App.AccountKeeper.NewAccountWithAddress(ctx, from.Bytes())
 				suite.Require().NoError(acc.SetSequence(1))
 				suite.GetNetwork().App.AccountKeeper.SetAccount(ctx, acc)
-				builder, err := suite.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), gas, amount)
+				builder, err := suite.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), config.DefaultEVMChainID, gas, amount)
 				suite.Require().NoError(err)
 				return builder.GetTx()
 			},

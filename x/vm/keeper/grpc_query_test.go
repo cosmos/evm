@@ -442,6 +442,7 @@ func (suite *KeeperTestSuite) TestQueryParams() {
 	ctx := suite.network.GetContext()
 	expParams := types.DefaultParams()
 	expParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
+	expParams.ExtraEIPs = nil
 
 	res, err := suite.network.GetEvmClient().Params(ctx, &types.QueryParamsRequest{})
 	suite.Require().NoError(err)
@@ -690,7 +691,7 @@ func (suite *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1186778,
+			1187108,
 			false,
 			config.DefaultGasCap,
 		},
@@ -800,7 +801,7 @@ func (suite *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1186778,
+			1187108,
 			true,
 			config.DefaultGasCap,
 		},
@@ -998,8 +999,10 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 			getPredecessors: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass:       true,
-			expectedTrace: "{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas\":",
+			expPass: true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 		},
 		{
 			msg: "default trace with filtered response",
@@ -1015,8 +1018,10 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 			getPredecessors: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass:       true,
-			expectedTrace: "{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas\":",
+			expPass: true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 		},
 		{
 			msg: "javascript tracer",
@@ -1061,8 +1066,10 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 
 				return []*types.MsgEthereumTx{txMsg}
 			},
-			expPass:       true,
-			expectedTrace: "{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas\":",
+			expPass: true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"" + "\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 		},
 		{
 			msg: "invalid trace config - Negative Limit",
@@ -1153,8 +1160,10 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 				suite.Require().NoError(err)
 				return []*types.MsgEthereumTx{&txMsg}
 			},
-			expPass:       true,
-			expectedTrace: "{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas\":",
+			expPass: true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"" + "\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 			// expFinalGas:   26744, // gas consumed in traceTx setup (GetProposerAddr + CalculateBaseFee) + gas consumed in malleate func
 		},
 	}
@@ -1249,8 +1258,10 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 			getAdditionalTxs: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass:       true,
-			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PU",
+			expPass: true,
+			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PU",
 		},
 		{
 			msg: "filtered trace",
@@ -1266,8 +1277,10 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 			getAdditionalTxs: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass:       true,
-			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PU",
+			expPass: true,
+			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PU",
 		},
 		{
 			msg: "javascript tracer",
@@ -1310,8 +1323,10 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 				suite.Require().NoError(err)
 				return []*types.MsgEthereumTx{firstTransferMessage}
 			},
-			expPass:       true,
-			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false,\"returnValue\":\"0000000000000000000000000000000000000000000000000000000000000001\",\"structLogs\":[{\"pc\":0,\"op\":\"PU",
+			expPass: true,
+			traceResponse: "[{\"result\":{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PU",
 		},
 		{
 			msg: "invalid trace config - Negative Limit",
@@ -1339,8 +1354,9 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 			getAdditionalTxs: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass:       true,
-			traceResponse: "[{\"error\":\"rpc error: code = Internal desc = tracer not found\"}]",
+			expPass: true,
+			traceResponse: "[{\"error\":\"rpc error: code = Internal desc = ReferenceError: invalid_tracer is not" +
+				" defined",
 		},
 	}
 
@@ -1384,10 +1400,10 @@ func (suite *KeeperTestSuite) TestTraceBlock() {
 			if tc.expPass {
 				suite.Require().NoError(err)
 				// if data is too big, slice the result
-				if len(res.Data) > 150 {
-					suite.Require().Equal(tc.traceResponse, string(res.Data[:150]))
+				if len(res.Data) > 200 {
+					suite.Require().Contains(string(res.Data[:200]), tc.traceResponse)
 				} else {
-					suite.Require().Equal(tc.traceResponse, string(res.Data))
+					suite.Require().Contains(string(res.Data), tc.traceResponse)
 				}
 			} else {
 				suite.Require().Error(err)
@@ -1409,7 +1425,7 @@ func (suite *KeeperTestSuite) TestNonceInQuery() {
 	suite.Require().Equal(uint64(0), nonce)
 
 	// accupy nonce 0
-	_, err := deployErc20Contract(suite.keyring.GetKey(0), suite.factory)
+	contractAddr, err := deployErc20Contract(suite.keyring.GetKey(0), suite.factory)
 	suite.Require().NoError(err)
 
 	erc20Contract, err := testdata.LoadERC20Contract()
@@ -1423,6 +1439,7 @@ func (suite *KeeperTestSuite) TestNonceInQuery() {
 	data = append(data, ctorArgs...)
 	args, err := json.Marshal(&types.TransactionArgs{
 		From: &senderKey.Addr,
+		To:   &contractAddr,
 		Data: (*hexutil.Bytes)(&data),
 	})
 	suite.Require().NoError(err)
@@ -1485,14 +1502,15 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				suite.Require().NoError(suite.network.App.FeeMarketKeeper.SetParams(suite.network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+				chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt
 				chainConfig.GrayGlacierBlock = &maxInt
 				chainConfig.MergeNetsplitBlock = &maxInt
-				chainConfig.ShanghaiBlock = &maxInt
-				chainConfig.CancunBlock = &maxInt
+				chainConfig.ShanghaiTime = &maxInt
+				chainConfig.CancunTime = &maxInt
+				chainConfig.PragueTime = &maxInt
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()
@@ -1528,7 +1546,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
 		Decimals:      types.GetEVMCoinDecimals(),
 	}
-	chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
+	chainConfig := types.DefaultChainConfig(suite.network.GetEIP155ChainID().Uint64())
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {

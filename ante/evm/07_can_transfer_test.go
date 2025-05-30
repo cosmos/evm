@@ -7,6 +7,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
@@ -21,7 +22,10 @@ import (
 func (suite *EvmAnteTestSuite) TestCanTransfer() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
-		network.WithChainID(suite.chainID),
+		network.WithChainID(testconstants.ChainID{
+			ChainID:    suite.chainID,
+			EVMChainID: suite.evmChainID,
+		}),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
@@ -73,7 +77,7 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 			evmParams, err := grpcHandler.GetEvmParams()
 			suite.Require().NoError(err)
 			ctx := unitNetwork.GetContext()
-			signer := gethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()))
+			signer := gethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 			txArgs, err := txFactory.GenerateDefaultTxTypeArgs(senderKey.Addr, suite.ethTxType)
 			suite.Require().NoError(err)
 			txArgs.Amount = big.NewInt(100)
@@ -91,9 +95,8 @@ func (suite *EvmAnteTestSuite) TestCanTransfer() {
 			err = evm.CanTransfer(
 				unitNetwork.GetContext(),
 				unitNetwork.App.EVMKeeper,
-				coreMsg,
+				*coreMsg,
 				baseFeeResp.BaseFee.BigInt(),
-				ethCfg,
 				evmParams.Params,
 				tc.isLondon,
 			)

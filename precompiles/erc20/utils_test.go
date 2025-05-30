@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,11 +11,8 @@ import (
 	//nolint:revive // dot imports are fine for Gomega
 	. "github.com/onsi/gomega"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
-	commonfactory "github.com/cosmos/evm/testutil/integration/common/factory"
-	commonnetwork "github.com/cosmos/evm/testutil/integration/common/network"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	network "github.com/cosmos/evm/testutil/integration/os/network"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
@@ -29,128 +25,72 @@ import (
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-// setupSendAuthz is a helper function to set up a SendAuthorization for
-// a given grantee and granter combination for a given amount.
+// CallType indicates which type of contract call is made during the integration tests.
+type CallType int
+
+// callType constants to differentiate between direct calls and calls through a contract.
+const (
+	directCall CallType = iota + 1
+	directCallToken2
+	contractCall
+	contractCallToken2
+	erc20Call
+	erc20CallerCall
+	erc20V5Call
+	erc20V5CallerCall
+)
+
+var (
+	nativeCallTypes = []CallType{directCall, directCallToken2, contractCall, contractCallToken2}
+	erc20CallTypes  = []CallType{erc20Call, erc20CallerCall, erc20V5Call, erc20V5CallerCall}
+)
+
+// setAllowance is a helper function to set up a SendAuthorization for
+// a given owner and spender combination for a given amount.
 //
 // NOTE: A default expiration of 1 hour after the current block time is used.
-func (s *PrecompileTestSuite) setupSendAuthz(
-	grantee sdk.AccAddress, granterPriv cryptotypes.PrivKey, amount sdk.Coins,
+func (s *PrecompileTestSuite) setAllowance(
+	erc20Addr common.Address, ownerPriv cryptotypes.PrivKey, spender common.Address, amount *big.Int,
 ) {
-	err := setupSendAuthz(
-		s.network,
-		s.factory,
-		grantee,
-		granterPriv,
-		amount,
-	)
-	s.Require().NoError(err, "failed to set up send authorization")
+	owner := common.BytesToAddress(ownerPriv.PubKey().Address().Bytes())
+	err := s.network.App.Erc20Keeper.SetAllowance(s.network.GetContext(), erc20Addr, owner, spender, amount)
+	s.Require().NoError(err, "failed to set set allowance")
 }
 
-func (is *IntegrationTestSuite) setupSendAuthz(
-	grantee sdk.AccAddress, granterPriv cryptotypes.PrivKey, amount sdk.Coins,
-) {
-	err := setupSendAuthz(
-		is.network,
-		is.factory,
-		grantee,
-		granterPriv,
-		amount,
-	)
-	Expect(err).ToNot(HaveOccurred(), "failed to set up send authorization")
-
-	// commit changes to chain state
-	err = is.network.NextBlock()
-	Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
-}
-
-func setupSendAuthz(
-	network commonnetwork.Network,
-	factory commonfactory.BaseTxFactory,
-	grantee sdk.AccAddress,
-	granterPriv cryptotypes.PrivKey,
-	amount sdk.Coins,
-) error {
-	granter := sdk.AccAddress(granterPriv.PubKey().Address())
-	expiration := network.GetContext().BlockHeader().Time.Add(time.Hour)
-	sendAuthz := banktypes.NewSendAuthorization(
-		amount,
-		[]sdk.AccAddress{},
-	)
-
-	msgGrant, err := authz.NewMsgGrant(
-		granter,
-		grantee,
-		sendAuthz,
-		&expiration,
-	)
-	if err != nil {
-		return errorsmod.Wrap(err, "failed to create MsgGrant")
-	}
-
-	// Create an authorization
-	txArgs := commonfactory.CosmosTxArgs{Msgs: []sdk.Msg{msgGrant}}
-	_, err = factory.ExecuteCosmosTx(granterPriv, txArgs)
-	if err != nil {
-		return errorsmod.Wrap(err, "failed to execute MsgGrant")
-	}
-
-	return nil
-}
-
-// setupSendAuthzForContract is a helper function which executes an approval
+// setAllowanceForContract is a helper function which executes an approval
 // for the given contract data.
-//
-// If:
-//   - the classic ERC20 contract is used, it calls the `approve` method on the contract.
-//   - in other cases, it sends a `MsgGrant` to set up the authorization.
-func (is *IntegrationTestSuite) setupSendAuthzForContract(
-	callType CallType, contractData ContractsData, grantee common.Address, granterPriv cryptotypes.PrivKey, amount sdk.Coins,
+func (is *IntegrationTestSuite) setAllowanceForContract(
+	callType CallType, contractData ContractsData, ownerPriv cryptotypes.PrivKey, spender common.Address, amount *big.Int,
 ) {
-	Expect(amount).To(HaveLen(1), "expected only one coin")
-	Expect(amount[0].Denom).To(Equal(is.tokenDenom),
-		"this test utility only works with the token denom in the context of these integration tests",
-	)
-
+	// NOTE: When using the caller contract, erc20 contract must be called instead of caller contract.
+	// This is because caller of erc20 contract becomes the owner of allowance.
 	switch {
-	case slices.Contains(nativeCallTypes, callType):
-		is.setupSendAuthz(grantee.Bytes(), granterPriv, amount)
-	case slices.Contains(erc20CallTypes, callType):
-		is.setupSendAuthzForERC20(callType, contractData, grantee, granterPriv, amount)
-	default:
-		panic("unknown contract call type")
-	}
-
-	// commit changes to the chain state
-	err := is.network.NextBlock()
-	Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-}
-
-// setupSendAuthzForERC20 is a helper function to set up a SendAuthorization for
-// a given grantee and granter combination for a given amount.
-func (is *IntegrationTestSuite) setupSendAuthzForERC20(
-	callType CallType, contractData ContractsData, grantee common.Address, granterPriv cryptotypes.PrivKey, amount sdk.Coins,
-) {
-	if callType == erc20V5CallerCall {
-		// NOTE: When using the ERC20 caller contract, we must still approve from the actual ERC20 v5 contract.
+	case callType == erc20V5CallerCall:
 		callType = erc20V5Call
+	case callType == contractCall:
+		callType = directCall
+	case callType == contractCallToken2:
+		callType = directCallToken2
 	}
 
 	abiEvents := contractData.GetContractData(callType).ABI.Events
 
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, auth.ApproveMethod, grantee, amount.AmountOf(is.tokenDenom).BigInt())
+	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.ApproveMethod, spender, amount)
 
 	approveCheck := testutil.LogCheckArgs{
 		ABIEvents: abiEvents,
-		ExpEvents: []string{auth.EventTypeApproval},
+		ExpEvents: []string{erc20.EventTypeApproval},
 		ExpPass:   true,
 	}
 
-	_, _, err := is.factory.CallContractAndCheckLogs(granterPriv, txArgs, callArgs, approveCheck)
+	_, _, err := is.factory.CallContractAndCheckLogs(ownerPriv, txArgs, callArgs, approveCheck)
 	Expect(err).ToNot(HaveOccurred(), "failed to execute approve")
+
+	// commit changes to the chain state
+	err = is.network.NextBlock()
+	Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
 }
 
 // requireOut is a helper utility to reduce the amount of boilerplate code in the query tests.
@@ -192,30 +132,12 @@ func (s *PrecompileTestSuite) requireOut(
 	}
 }
 
-// requireSendAuthz is a helper function to check that a SendAuthorization
-// exists for a given grantee and granter combination for a given amount.
-//
-// NOTE: This helper expects only one authorization to exist.
-func (s *PrecompileTestSuite) requireSendAuthz(grantee, granter sdk.AccAddress, amount sdk.Coins, allowList []string) {
-	grants, err := s.grpcHandler.GetGrantsByGrantee(grantee.String())
-	s.Require().NoError(err, "expected no error querying the grants")
-	s.Require().Len(grants, 1, "expected one grant")
-	s.Require().Equal(grantee.String(), grants[0].Grantee, "expected different grantee")
-	s.Require().Equal(granter.String(), grants[0].Granter, "expected different granter")
-
-	authzs, err := s.grpcHandler.GetAuthorizationsByGrantee(grantee.String())
-	s.Require().NoError(err, "expected no error unpacking the authorization")
-	s.Require().Len(authzs, 1, "expected one authorization")
-
-	sendAuthz, ok := authzs[0].(*banktypes.SendAuthorization)
-	s.Require().True(ok, "expected send authorization")
-
-	s.Require().Equal(amount, sendAuthz.SpendLimit, "expected different spend limit amount")
-	if len(allowList) == 0 {
-		s.Require().Empty(sendAuthz.AllowList, "expected empty allow list")
-	} else {
-		s.Require().Equal(allowList, sendAuthz.AllowList, "expected different allow list")
-	}
+// requireAllowance is a helper function to check that a SendAuthorization
+// exists for a given owner and spender combination for a given amount.
+func (s *PrecompileTestSuite) requireAllowance(erc20Addr, owner, spender common.Address, amount *big.Int) {
+	allowance, err := s.network.App.Erc20Keeper.GetAllowance(s.network.GetContext(), erc20Addr, owner, spender)
+	s.Require().NoError(err, "expected no error unpacking the allowance")
+	s.Require().Equal(allowance.Int64(), amount.Int64(), "expected different allowance")
 }
 
 // setupERC20Precompile is a helper function to set up an instance of the ERC20 precompile for
@@ -223,7 +145,7 @@ func (s *PrecompileTestSuite) requireSendAuthz(grantee, granter sdk.AccAddress, 
 // to the available and active precompiles.
 func (s *PrecompileTestSuite) setupERC20Precompile(denom string) *erc20.Precompile {
 	tokenPair := erc20types.NewTokenPair(utiltx.GenerateAddress(), denom, erc20types.OWNER_MODULE)
-	s.network.App.Erc20Keeper.SetTokenPair(s.network.GetContext(), tokenPair)
+	s.network.App.Erc20Keeper.SetToken(s.network.GetContext(), tokenPair)
 
 	precompile, err := setupERC20PrecompileForTokenPair(*s.network, tokenPair)
 	s.Require().NoError(err, "failed to set up %q erc20 precompile", tokenPair.Denom)
@@ -246,7 +168,7 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.BankKeeper,
-		is.network.App.AuthzKeeper,
+		is.network.App.Erc20Keeper,
 		is.network.App.TransferKeeper,
 	)
 	Expect(err).ToNot(HaveOccurred(), "failed to set up %q erc20 precompile", tokenPair.Denom)
@@ -263,7 +185,7 @@ func setupERC20PrecompileForTokenPair(
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.BankKeeper,
-		unitNetwork.App.AuthzKeeper,
+		unitNetwork.App.Erc20Keeper,
 		unitNetwork.App.TransferKeeper,
 	)
 	if err != nil {
@@ -292,7 +214,7 @@ func setupNewERC20PrecompileForTokenPair(
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.BankKeeper,
-		unitNetwork.App.AuthzKeeper,
+		unitNetwork.App.Erc20Keeper,
 		unitNetwork.App.TransferKeeper,
 	)
 	if err != nil {
@@ -319,26 +241,6 @@ func setupNewERC20PrecompileForTokenPair(
 
 	return precompile, nil
 }
-
-// CallType indicates which type of contract call is made during the integration tests.
-type CallType int
-
-// callType constants to differentiate between direct calls and calls through a contract.
-const (
-	directCall CallType = iota + 1
-	directCallToken2
-	contractCall
-	contractCallToken2
-	erc20Call
-	erc20CallerCall
-	erc20V5Call
-	erc20V5CallerCall
-)
-
-var (
-	nativeCallTypes = []CallType{directCall, directCallToken2, contractCall, contractCallToken2}
-	erc20CallTypes  = []CallType{erc20Call, erc20CallerCall, erc20V5Call, erc20V5CallerCall}
-)
 
 // getTxAndCallArgs is a helper function to return the correct call arguments for a given call type.
 //
@@ -420,29 +322,14 @@ func (is *IntegrationTestSuite) ExpectBalancesForERC20(callType CallType, contra
 	}
 }
 
-// expectSendAuthz is a helper function to check that a SendAuthorization
-// exists for a given grantee and granter combination for a given amount and optionally an access list.
-//
-// NOTE: This helper expects only one authorization to exist.
-//
-// NOTE 2: This mirrors the requireSendAuthz method but adapted to Ginkgo.
-func (is *IntegrationTestSuite) expectSendAuthz(grantee, granter sdk.AccAddress, expAmount sdk.Coins) {
-	authzs, err := is.handler.GetAuthorizations(grantee.String(), granter.String())
-	Expect(err).ToNot(HaveOccurred(), "expected no error unpacking the authorization")
-	Expect(authzs).To(HaveLen(1), "expected one authorization")
-
-	sendAuthz, ok := authzs[0].(*banktypes.SendAuthorization)
-	Expect(ok).To(BeTrue(), "expected send authorization")
-
-	Expect(sendAuthz.SpendLimit).To(Equal(expAmount), "expected different spend limit amount")
-}
-
-// expectSendAuthzForERC20 is a helper function to check that a SendAuthorization
-// exists for a given grantee and granter combination for a given amount.
-func (is *IntegrationTestSuite) expectSendAuthzForERC20(callType CallType, contractData ContractsData, grantee, granter common.Address, expAmount sdk.Coins) {
+// ExpectAllowanceForContract is a helper function to check that a SendAuthorization
+// exists for a given owner and spender combination for a given amount and optionally an access list.
+func (is *IntegrationTestSuite) ExpectAllowanceForContract(
+	callType CallType, contractData ContractsData, owner, spender common.Address, expAmount *big.Int,
+) {
 	contractABI := contractData.GetContractData(callType).ABI
 
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, auth.AllowanceMethod, granter, grantee)
+	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.AllowanceMethod, owner, spender)
 
 	passCheck := testutil.LogCheckArgs{ExpPass: true}
 
@@ -454,53 +341,7 @@ func (is *IntegrationTestSuite) expectSendAuthzForERC20(callType CallType, contr
 	var allowance *big.Int
 	err = contractABI.UnpackIntoInterface(&allowance, "allowance", ethRes.Ret)
 	Expect(err).ToNot(HaveOccurred(), "expected no error unpacking allowance")
-	Expect(math.NewIntFromBigInt(allowance)).To(Equal(expAmount.AmountOf(is.tokenDenom)), "expected different allowance")
-}
-
-// ExpectSendAuthzForContract is a helper function to check that a SendAuthorization
-// exists for a given grantee and granter combination for a given amount and optionally an access list.
-//
-// NOTE: This helper expects only one authorization to exist.
-func (is *IntegrationTestSuite) ExpectSendAuthzForContract(
-	callType CallType, contractData ContractsData, grantee, granter common.Address, expAmount sdk.Coins,
-) {
-	switch {
-	case slices.Contains(nativeCallTypes, callType):
-		is.expectSendAuthz(grantee.Bytes(), granter.Bytes(), expAmount)
-	case slices.Contains(erc20CallTypes, callType):
-		is.expectSendAuthzForERC20(callType, contractData, grantee, granter, expAmount)
-	default:
-		panic("unknown contract call type")
-	}
-}
-
-// expectNoSendAuthz is a helper function to check that no SendAuthorization
-// exists for a given grantee and granter combination.
-func (is *IntegrationTestSuite) expectNoSendAuthz(grantee, granter sdk.AccAddress) {
-	authzs, err := is.handler.GetAuthorizations(grantee.String(), granter.String())
-	Expect(err).ToNot(HaveOccurred(), "expected no error unpacking the authorizations")
-	Expect(authzs).To(HaveLen(0), "expected no authorizations")
-}
-
-// expectNoSendAuthzForERC20 is a helper function to check that no SendAuthorization
-// exists for a given grantee and granter combination.
-func (is *IntegrationTestSuite) expectNoSendAuthzForERC20(callType CallType, contractData ContractsData, grantee, granter common.Address) {
-	is.expectSendAuthzForERC20(callType, contractData, grantee, granter, sdk.Coins{})
-}
-
-// ExpectNoSendAuthzForContract is a helper function to check that no SendAuthorization
-// exists for a given grantee and granter combination.
-func (is *IntegrationTestSuite) ExpectNoSendAuthzForContract(
-	callType CallType, contractData ContractsData, grantee, granter common.Address,
-) {
-	switch {
-	case slices.Contains(nativeCallTypes, callType):
-		is.expectNoSendAuthz(grantee.Bytes(), granter.Bytes())
-	case slices.Contains(erc20CallTypes, callType):
-		is.expectNoSendAuthzForERC20(callType, contractData, grantee, granter)
-	default:
-		panic("unknown contract call type")
-	}
+	Expect(allowance.Uint64()).To(Equal(expAmount.Uint64()), "expected different allowance")
 }
 
 // ExpectTrueToBeReturned is a helper function to check that the precompile returns true

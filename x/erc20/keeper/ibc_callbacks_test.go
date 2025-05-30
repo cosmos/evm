@@ -27,7 +27,7 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-var erc20Denom = "erc20/0xdac17f958d2ee523a2206206994597c13d831ec7"
+var erc20Denom = "erc20:0xdac17f958d2ee523a2206206994597c13d831ec7"
 
 func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	var ctx sdk.Context
@@ -257,7 +257,6 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 				suite.network.App.BankKeeper,
 				suite.network.App.EVMKeeper,
 				suite.network.App.StakingKeeper,
-				suite.network.App.AuthzKeeper,
 				&suite.network.App.TransferKeeper,
 			)
 
