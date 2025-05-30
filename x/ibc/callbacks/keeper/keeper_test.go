@@ -92,3 +92,166 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 		}
 	}
 }
+
+func (suite *KeeperTestSuite) TestOnAcknowledgementPacket() {
+	var (
+		contract     common.Address
+		ctx          sdk.Context
+		senderKey    keyring.Key
+		receiver     string
+		transferData transfertypes.FungibleTokenPacketData
+		packet       channeltypes.Packet
+	)
+	testCases := []struct {
+		name     string
+		malleate func()
+		expErr   bool
+	}{
+		{
+			"packet data is not transfer",
+			func() {
+				packet.Data = []byte("not a transfer packet")
+			},
+			true,
+		},
+		{
+			"packet data is transfer but callback data is not valid",
+			func() {
+				transferData.Memo = "not callback data"
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
+			},
+			true,
+		},
+		{
+			"packet data is transfer but custom calldata is set",
+			func() {
+				transferData.Memo = fmt.Sprintf(`{"src_callback": {"address": "%s", "calldata": "%x"}}`, contract.Hex(), []byte("calldata"))
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
+			},
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.SetupTest() // reset
+		ctx = suite.network.GetContext()
+
+		senderKey = suite.keyring.GetKey(0)
+		receiver = types.GenerateIsolatedAddress("channel-1", senderKey.AccAddr.String()).String()
+
+		transferData = transfertypes.NewFungibleTokenPacketData(
+			"uatom",
+			"100",
+			senderKey.AccAddr.String(),
+			receiver,
+			fmt.Sprintf(`{"src_callback": {"address": "%s"}}`, contract.Hex()),
+		)
+		transferDataBz := transferData.GetBytes()
+
+		packet = channeltypes.NewPacket(
+			transferDataBz,
+			1,
+			transfertypes.PortID,
+			"channel-0",
+			transfertypes.PortID,
+			"channel-1",
+			clienttypes.ZeroHeight(),
+			10000000,
+		)
+		ack := channeltypes.NewResultAcknowledgement([]byte{1})
+
+		tc.malleate()
+
+		err := suite.network.App.CallbackKeeper.IBCOnAcknowledgementPacketCallback(
+			ctx, packet, ack.Acknowledgement(), senderKey.AccAddr, contract.Hex(), senderKey.AccAddr.String(), transfertypes.V1,
+		)
+		if tc.expErr {
+			suite.Require().Error(err)
+		} else {
+			suite.Require().NoError(err)
+		}
+	}
+}
+
+func (suite *KeeperTestSuite) TestOnTimeoutPacket() {
+	var (
+		contract     common.Address
+		ctx          sdk.Context
+		senderKey    keyring.Key
+		receiver     string
+		transferData transfertypes.FungibleTokenPacketData
+		packet       channeltypes.Packet
+	)
+	testCases := []struct {
+		name     string
+		malleate func()
+		expErr   bool
+	}{
+		{
+			"packet data is not transfer",
+			func() {
+				packet.Data = []byte("not a transfer packet")
+			},
+			true,
+		},
+		{
+			"packet data is transfer but callback data is not valid",
+			func() {
+				transferData.Memo = "not callback data"
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
+			},
+			true,
+		},
+		{
+			"packet data is transfer but custom calldata is set",
+			func() {
+				transferData.Memo = fmt.Sprintf(`{"src_callback": {"address": "%s", "calldata": "%x"}}`, contract.Hex(), []byte("calldata"))
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
+			},
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.SetupTest() // reset
+		ctx = suite.network.GetContext()
+
+		senderKey = suite.keyring.GetKey(0)
+		receiver = types.GenerateIsolatedAddress("channel-1", senderKey.AccAddr.String()).String()
+
+		transferData = transfertypes.NewFungibleTokenPacketData(
+			"uatom",
+			"100",
+			senderKey.AccAddr.String(),
+			receiver,
+			fmt.Sprintf(`{"src_callback": {"address": "%s"}}`, contract.Hex()),
+		)
+		transferDataBz := transferData.GetBytes()
+
+		packet = channeltypes.NewPacket(
+			transferDataBz,
+			1,
+			transfertypes.PortID,
+			"channel-0",
+			transfertypes.PortID,
+			"channel-1",
+			clienttypes.ZeroHeight(),
+			10000000,
+		)
+
+		tc.malleate()
+
+		err := suite.network.App.CallbackKeeper.IBCOnTimeoutPacketCallback(
+			ctx, packet, senderKey.AccAddr, contract.Hex(), senderKey.AccAddr.String(), transfertypes.V1,
+		)
+		if tc.expErr {
+			suite.Require().Error(err)
+		} else {
+			suite.Require().NoError(err)
+		}
+	}
+}
