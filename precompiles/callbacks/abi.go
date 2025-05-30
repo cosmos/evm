@@ -14,7 +14,7 @@ import (
 var f embed.FS
 
 func LoadABI() (*abi.ABI, error) {
-	newABI, err := cmn.LoadABI(f, "ICallbacks.json")
+	newABI, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
 		return nil, err
 	}

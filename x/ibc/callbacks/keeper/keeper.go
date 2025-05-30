@@ -131,7 +131,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketAcknowledgement",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
 	if err != nil {
-		return err
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
 	return nil
 }
@@ -173,7 +173,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketTimeout",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
 	if err != nil {
-		return err
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
 	return nil
 }
