@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	callbacktypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
@@ -67,9 +69,11 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return err
 	}
 
-	// can only call callback if the receiver is the module address
+	// can only call callback if the receiver is the isolated address for the packet sender on this chain
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
-	if !receiver.Equals(k.authKeeper.GetModuleAddress(types.ModuleName)) {
+	isolatedAddr := sdk.AccAddress(address.Module(types.ModuleName, []byte(packet.GetDestChannel()), []byte(data.Sender))[:32])
+
+	if !receiver.Equals(isolatedAddr) {
 		return nil
 	}
 
