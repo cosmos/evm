@@ -1,10 +1,11 @@
 package common
 
 import (
-	"cosmossdk.io/math"
 	"fmt"
 	"math/big"
 	"reflect"
+
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

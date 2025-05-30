@@ -2,13 +2,13 @@ package distribution
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/math"
 

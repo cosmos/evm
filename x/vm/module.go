@@ -2,7 +2,6 @@ package vm
 
 import (
 	"context"
-	"cosmossdk.io/core/address"
 	"encoding/json"
 	"fmt"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
 
 	"github.com/cosmos/cosmos-sdk/client"

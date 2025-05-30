@@ -2,12 +2,7 @@ package cli
 
 import (
 	"bufio"
-	"cosmossdk.io/core/address"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/client/tx"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	types2 "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/evm/utils"
 	"os"
 	"strings"
 
@@ -15,11 +10,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/core/address"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	types2 "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // NewTxCmd returns a root CLI command handler for evm module transaction commands
