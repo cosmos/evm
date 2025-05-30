@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bufio"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -50,6 +51,7 @@ var ChainID = constants.ExampleChainID
 func (suite *BackendTestSuite) SetupTest() {
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
+	ctx.Viper.Set("evm.evm-chain-id", evmdconfig.EVMChainID)
 
 	baseDir := suite.T().TempDir()
 	nodeDirName := "node"
@@ -90,7 +92,7 @@ func (suite *BackendTestSuite) SetupTest() {
 	suite.backend.cfg.JSONRPC.GasCap = 0
 	suite.backend.cfg.JSONRPC.EVMTimeout = 0
 	suite.backend.cfg.JSONRPC.AllowInsecureUnlock = true
-	suite.backend.cfg.EVM.EVMChainID = 262144
+	suite.backend.cfg.EVM.EVMChainID = evmdconfig.EVMChainID
 	suite.backend.queryClient.QueryClient = mocks.NewEVMQueryClient(suite.T())
 	suite.backend.queryClient.FeeMarket = mocks.NewFeeMarketQueryClient(suite.T())
 	suite.backend.ctx = rpctypes.ContextWithHeight(1)
