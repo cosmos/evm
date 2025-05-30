@@ -132,7 +132,7 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fromAddr := args[0]
 			if strings.HasPrefix(args[0], "0x") {
-				fromAddr = utils.Bech32StringFromHexAddress(args[1])
+				fromAddr = utils.Bech32StringFromHexAddress(args[0])
 			}
 
 			err := cmd.Flags().Set(flags.FlagFrom, fromAddr)

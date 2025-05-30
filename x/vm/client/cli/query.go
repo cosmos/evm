@@ -1,8 +1,15 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/spf13/cobra"
+	"math/big"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/x/vm/types"
@@ -29,6 +36,8 @@ func GetQueryCmd() *cobra.Command {
 		GetConfigCmd(),
 		HexToBech32Cmd(),
 		Bech32ToHexCmd(),
+		GetBankBalanceCmd(),
+		GetERC20BalanceCmd(),
 	)
 	return cmd
 }
@@ -235,6 +244,95 @@ func Bech32ToHexCmd() *cobra.Command {
 				return err
 			}
 			cmd.Println(hex.String())
+			return nil
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func GetBankBalanceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bank-balance [address] [denom]",
+		Short:   "Get the bank balance for a given 0x address and bank denom",
+		Long:    "Get the bank balance for a given 0x address and bank denom.",
+		Example: "evmd query evm balance 0xA2A8B87390F8F2D188242656BFb6852914073D06 atoken",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			queryClient := banktypes.NewQueryClient(clientCtx)
+
+			res, err := queryClient.Balance(cmd.Context(), &banktypes.QueryBalanceRequest{
+				Address: utils.Bech32StringFromHexAddress(args[0]),
+				Denom:   args[1],
+			})
+
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func GetERC20BalanceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "erc20-balance [address] [erc20-address]",
+		Short:   "Get the bank balance for a given 0x address and erc20 address",
+		Long:    "Get the bank balance for a given 0x address and erc20 address.",
+		Example: "evmd query evm balance 0xA2A8B87390F8F2D188242656BFb6852914073D06 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			queryClient := types.NewQueryClient(clientCtx)
+
+			input, err := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack(
+				"balanceOf",
+				common.HexToAddress(args[0]),
+			)
+			if err != nil {
+				return err
+			}
+
+			erc20Address := common.HexToAddress(args[1])
+
+			callData, err := json.Marshal(types.TransactionArgs{
+				To:    &erc20Address,
+				Input: (*hexutil.Bytes)(&input),
+			})
+			if err != nil {
+				return err
+			}
+
+			res, err := queryClient.EthCall(
+				cmd.Context(),
+				&types.EthCallRequest{
+					Args: callData,
+				},
+			)
+
+			if err != nil {
+				return err
+			}
+
+			var balance *big.Int
+			err = contracts.ERC20MinterBurnerDecimalsContract.ABI.UnpackIntoInterface(&balance, "balanceOf", res.Ret)
+
+			fmt.Printf("balance:\n  amount: %s\n  erc20_address: %s\n", balance.String(), args[1])
+
 			return nil
 		},
 	}
