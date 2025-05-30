@@ -10,8 +10,6 @@ import (
 
 	"github.com/cometbft/cometbft/libs/strings"
 
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
-
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/server/config"
@@ -65,8 +63,8 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
-	// DefaultEVMChainID is the default EVM Chain ID used for tests
-	DefaultEVMChainID = evmdconfig.EVMChainID
+	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
+	DefaultEVMChainID = 262144
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25000000

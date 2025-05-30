@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/evm/x/vm/types"
 	"strconv"
 	"strings"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/ethereum/eip712"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -185,7 +185,7 @@ func LegacyEIP712Cmd() *cobra.Command {
 				return errors.Wrap(err, "encode tx")
 			}
 
-			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, evmdconfig.EVMChainID, stdTx.GetMsgs()[0], txBytes, nil)
+			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, types.GetEthChainConfig().ChainID.Uint64(), stdTx.GetMsgs()[0], txBytes, nil)
 			if err != nil {
 				return errors.Wrap(err, "wrap tx to typed data")
 			}
