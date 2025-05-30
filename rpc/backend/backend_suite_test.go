@@ -2,7 +2,6 @@ package backend
 
 import (
 	"bufio"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
