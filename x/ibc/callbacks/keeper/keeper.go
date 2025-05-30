@@ -74,11 +74,14 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
 
+	acc := k.authKeeper.NewAccountWithAddress(cachedCtx, receiver)
+	k.authKeeper.SetAccount(cachedCtx, acc)
+
 	if !receiver.Equals(isolatedAddr) {
 		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "expected %s, got %s", isolatedAddr.String(), receiver.String())
 	}
 
-	ethReceiver := common.BytesToAddress(receiver)
+	ethReceiver := common.BytesToAddress(receiver.Bytes())
 	contractAddr := common.HexToAddress(contractAddress)
 
 	// TODO: Approve the ERC20 tokens in the transfer packet for the contract on behalf of the receiver

@@ -13,8 +13,8 @@ import (
 
 // AccountKeeper defines the contract required for account APIs.
 type AccountKeeper interface {
-	GetModuleAddress(name string) sdk.AccAddress
-	GetModuleAccount(ctx context.Context, name string) sdk.ModuleAccountI
+	NewAccountWithAddress(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
+	SetAccount(ctx context.Context, acc sdk.AccountI)
 }
 
 // EVMKeeper defines the expected EVM keeper interface used on erc20
