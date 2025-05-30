@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/address"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -30,11 +29,6 @@ type ContractKeeper struct {
 }
 
 func NewKeeper(authKeeper types.AccountKeeper, pdUnmarshaler porttypes.PacketDataUnmarshaler, evmKeeper types.EVMKeeper) ContractKeeper {
-	// ensure evm callbacks module account is set
-	if addr := authKeeper.GetModuleAddress(types.ModuleName); addr == nil {
-		panic(errors.New("the EVM callbacks module account has not been set"))
-	}
-
 	return ContractKeeper{
 		authKeeper:            authKeeper,
 		packetDataUnmarshaler: pdUnmarshaler,
@@ -71,7 +65,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 
 	// can only call callback if the receiver is the isolated address for the packet sender on this chain
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
-	isolatedAddr := sdk.AccAddress(address.Module(types.ModuleName, []byte(packet.GetDestChannel()), []byte(data.Sender))[:32])
+	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
 
 	if !receiver.Equals(isolatedAddr) {
 		return nil
@@ -108,6 +102,23 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	packetSenderAddress string,
 	version string,
 ) error {
+	data, err := transfertypes.UnmarshalPacketData(packet.GetData(), version, "")
+	if err != nil {
+		return err
+	}
+
+	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.DestinationCallbackKey)
+	if err != nil {
+		return err
+	}
+	if !isCbPacket {
+		return nil
+	}
+
+	if len(cbData.Calldata) != 0 {
+		return errors.New("acknowledgement callback data should not contain calldata")
+	}
+
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
 
@@ -134,6 +145,23 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	packetSenderAddress string,
 	version string,
 ) error {
+	data, err := transfertypes.UnmarshalPacketData(packet.GetData(), version, "")
+	if err != nil {
+		return err
+	}
+
+	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.DestinationCallbackKey)
+	if err != nil {
+		return err
+	}
+	if !isCbPacket {
+		return nil
+	}
+
+	if len(cbData.Calldata) != 0 {
+		return errors.New("acknowledgement callback data should not contain calldata")
+	}
+
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
 

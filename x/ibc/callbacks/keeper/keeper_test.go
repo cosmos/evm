@@ -1,0 +1,94 @@
+package keeper_test
+
+import (
+	"fmt"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/evm/testutil/integration/os/keyring"
+	"github.com/cosmos/evm/x/ibc/callbacks/types"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+)
+
+func (suite *KeeperTestSuite) TestOnRecvPacket() {
+	var (
+		contract     common.Address
+		ctx          sdk.Context
+		senderKey    keyring.Key
+		receiver     string
+		transferData transfertypes.FungibleTokenPacketData
+		packet       channeltypes.Packet
+	)
+	testCases := []struct {
+		name     string
+		malleate func()
+		expErr   bool
+	}{
+		{
+			"packet data is not transfer",
+			func() {
+				packet.Data = []byte("not a transfer packet")
+			},
+			true,
+		},
+		{
+			"packet data is transfer but receiver is not isolated address",
+			func() {
+				receiver = senderKey.AccAddr.String() // not an isolated address
+			},
+			true,
+		},
+		{
+			"packet data is transfer but callback data is not valid",
+			func() {
+				transferData.Memo = "not callback data"
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
+			},
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.SetupTest() // reset
+		ctx = suite.network.GetContext()
+
+		senderKey = suite.keyring.GetKey(0)
+		receiver = types.GenerateIsolatedAddress("channel-1", senderKey.AccAddr.String()).String()
+
+		transferData = transfertypes.NewFungibleTokenPacketData(
+			"uatom",
+			"100",
+			senderKey.AccAddr.String(),
+			receiver,
+			fmt.Sprintf(`{"dest_callback": {"address": "%s", "calldata": "%x"}}`, contract.Hex(), []byte("calldata")),
+		)
+		transferDataBz := transferData.GetBytes()
+
+		packet = channeltypes.NewPacket(
+			transferDataBz,
+			1,
+			transfertypes.PortID,
+			"channel-0",
+			transfertypes.PortID,
+			"channel-1",
+			clienttypes.ZeroHeight(),
+			10000000,
+		)
+		ack := channeltypes.NewResultAcknowledgement([]byte{1})
+
+		tc.malleate()
+
+		err := suite.network.App.CallbackKeeper.IBCReceivePacketCallback(ctx, packet, ack, contract.Hex(), transfertypes.V1)
+		if tc.expErr {
+			suite.Require().Error(err)
+		} else {
+			suite.Require().NoError(err)
+		}
+	}
+}
