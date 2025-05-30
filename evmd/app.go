@@ -457,7 +457,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -626,7 +626,7 @@ func NewExampleApp(
 		ibctm.NewAppModule(tmLightClientModule),
 		transferModule,
 		// Cosmos EVM modules
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),

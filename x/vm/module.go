@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"cosmossdk.io/core/address"
 	"encoding/json"
 	"fmt"
 
@@ -37,7 +38,9 @@ var (
 )
 
 // AppModuleBasic defines the basic application module used by the evm module.
-type AppModuleBasic struct{}
+type AppModuleBasic struct {
+	ac address.Codec
+}
 
 // Name returns the evm module's name.
 func (AppModuleBasic) Name() string {
@@ -87,8 +90,8 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 }
 
 // GetTxCmd returns the root tx command for the erc20 module.
-func (AppModuleBasic) GetTxCmd() *cobra.Command {
-	return cli.NewTxCmd()
+func (b AppModuleBasic) GetTxCmd() *cobra.Command {
+	return cli.NewTxCmd(b.ac)
 }
 
 // GetQueryCmd returns the root query command for the erc20 module.
@@ -106,7 +109,7 @@ type AppModule struct {
 }
 
 // NewAppModule creates a new AppModule object
-func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper) AppModule {
+func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, ac address.Codec) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{},
 		keeper:         k,

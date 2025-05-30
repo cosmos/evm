@@ -2,8 +2,14 @@ package cli
 
 import (
 	"bufio"
+	"cosmossdk.io/core/address"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	types2 "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/utils"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -17,7 +23,7 @@ import (
 )
 
 // NewTxCmd returns a root CLI command handler for evm module transaction commands
-func NewTxCmd() *cobra.Command {
+func NewTxCmd(ac address.Codec) *cobra.Command {
 	txCmd := &cobra.Command{
 		Use:                        types.ModuleName,
 		Short:                      "evm subcommands",
@@ -28,6 +34,7 @@ func NewTxCmd() *cobra.Command {
 
 	txCmd.AddCommand(
 		NewRawTxCmd(),
+		NewSendTxCmd(ac),
 	)
 	return txCmd
 }
@@ -107,5 +114,57 @@ func NewRawTxCmd() *cobra.Command {
 	}
 
 	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewSendTxCmd returns a CLI command handler for creating a MsgSend transaction.
+func NewSendTxCmd(ac address.Codec) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "send [from_key_or_address] [to_address] [amount]",
+		Short: "Send funds from one account to another.",
+		Long: `Send funds from one account to another. Both 0x and bech32 addresses
+may be used.
+Note, the '--from' flag is ignored as it is implied from [from_key_or_address].
+When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
+`,
+		Example: "evmd tx evm send 0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E 0xA2A8B87390F8F2D188242656BFb6852914073D06 10utoken",
+		Args:    cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fromAddr := args[0]
+			if strings.HasPrefix(args[0], "0x") {
+				fromAddr = utils.Bech32StringFromHexAddress(args[1])
+			}
+
+			err := cmd.Flags().Set(flags.FlagFrom, fromAddr)
+			if err != nil {
+				return err
+			}
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			toAddr, err := ac.StringToBytes(utils.Bech32StringFromHexAddress(args[1]))
+			if err != nil {
+				return err
+			}
+
+			coins, err := sdk.ParseCoinsNormalized(args[2])
+			if err != nil {
+				return err
+			}
+
+			if len(coins) == 0 {
+				return fmt.Errorf("invalid coins")
+			}
+
+			msg := types2.NewMsgSend(clientCtx.GetFromAddress(), toAddr, coins)
+
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+
 	return cmd
 }
