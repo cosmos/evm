@@ -10,9 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cbtypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
 )
 
 func (suite *KeeperTestSuite) TestOnRecvPacket() {
@@ -27,30 +29,33 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	testCases := []struct {
 		name     string
 		malleate func()
-		expErr   bool
+		expErr   error
 	}{
 		{
 			"packet data is not transfer",
 			func() {
 				packet.Data = []byte("not a transfer packet")
 			},
-			true,
+			ibcerrors.ErrInvalidType,
 		},
 		{
 			"packet data is transfer but receiver is not isolated address",
 			func() {
 				receiver = senderKey.AccAddr.String() // not an isolated address
+				transferData.Receiver = receiver
+				transferDataBz := transferData.GetBytes()
+				packet.Data = transferDataBz
 			},
-			true,
+			types.ErrInvalidReceiverAddress,
 		},
 		{
 			"packet data is transfer but callback data is not valid",
 			func() {
-				transferData.Memo = "not callback data"
+				transferData.Memo = fmt.Sprintf(`{"dest_callback": {"address": 10, "calldata": "%x"}}`, []byte("calldata"))
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			true,
+			cbtypes.ErrInvalidCallbackData,
 		},
 	}
 
@@ -85,8 +90,8 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 		tc.malleate()
 
 		err := suite.network.App.CallbackKeeper.IBCReceivePacketCallback(ctx, packet, ack, contract.Hex(), transfertypes.V1)
-		if tc.expErr {
-			suite.Require().Error(err)
+		if tc.expErr != nil {
+			suite.Require().Contains(err.Error(), tc.expErr.Error(), "expected error: %s, got: %s", tc.expErr.Error(), err.Error())
 		} else {
 			suite.Require().NoError(err)
 		}
@@ -105,23 +110,23 @@ func (suite *KeeperTestSuite) TestOnAcknowledgementPacket() {
 	testCases := []struct {
 		name     string
 		malleate func()
-		expErr   bool
+		expErr   error
 	}{
 		{
 			"packet data is not transfer",
 			func() {
 				packet.Data = []byte("not a transfer packet")
 			},
-			true,
+			ibcerrors.ErrInvalidType,
 		},
 		{
 			"packet data is transfer but callback data is not valid",
 			func() {
-				transferData.Memo = "not callback data"
+				transferData.Memo = fmt.Sprintf(`{"src_callback": {"address": 10, "calldata": "%x"}}`, []byte("calldata"))
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			true,
+			cbtypes.ErrInvalidCallbackData,
 		},
 		{
 			"packet data is transfer but custom calldata is set",
@@ -130,7 +135,7 @@ func (suite *KeeperTestSuite) TestOnAcknowledgementPacket() {
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			true,
+			types.ErrInvalidCalldata,
 		},
 	}
 
@@ -167,8 +172,8 @@ func (suite *KeeperTestSuite) TestOnAcknowledgementPacket() {
 		err := suite.network.App.CallbackKeeper.IBCOnAcknowledgementPacketCallback(
 			ctx, packet, ack.Acknowledgement(), senderKey.AccAddr, contract.Hex(), senderKey.AccAddr.String(), transfertypes.V1,
 		)
-		if tc.expErr {
-			suite.Require().Error(err)
+		if tc.expErr != nil {
+			suite.Require().Contains(err.Error(), tc.expErr.Error(), "expected error: %s, got: %s", tc.expErr.Error(), err.Error())
 		} else {
 			suite.Require().NoError(err)
 		}
@@ -187,23 +192,23 @@ func (suite *KeeperTestSuite) TestOnTimeoutPacket() {
 	testCases := []struct {
 		name     string
 		malleate func()
-		expErr   bool
+		expErr   error
 	}{
 		{
 			"packet data is not transfer",
 			func() {
 				packet.Data = []byte("not a transfer packet")
 			},
-			true,
+			ibcerrors.ErrInvalidType,
 		},
 		{
 			"packet data is transfer but callback data is not valid",
 			func() {
-				transferData.Memo = "not callback data"
+				transferData.Memo = fmt.Sprintf(`{"src_callback": {"address": 10, "calldata": "%x"}}`, []byte("calldata"))
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			true,
+			cbtypes.ErrInvalidCallbackData,
 		},
 		{
 			"packet data is transfer but custom calldata is set",
@@ -212,7 +217,7 @@ func (suite *KeeperTestSuite) TestOnTimeoutPacket() {
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			true,
+			types.ErrInvalidCalldata,
 		},
 	}
 
@@ -248,8 +253,8 @@ func (suite *KeeperTestSuite) TestOnTimeoutPacket() {
 		err := suite.network.App.CallbackKeeper.IBCOnTimeoutPacketCallback(
 			ctx, packet, senderKey.AccAddr, contract.Hex(), senderKey.AccAddr.String(), transfertypes.V1,
 		)
-		if tc.expErr {
-			suite.Require().Error(err)
+		if tc.expErr != nil {
+			suite.Require().Contains(err.Error(), tc.expErr.Error(), "expected error: %s, got: %s", tc.expErr.Error(), err.Error())
 		} else {
 			suite.Require().NoError(err)
 		}

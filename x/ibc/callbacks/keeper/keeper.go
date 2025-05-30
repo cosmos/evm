@@ -1,8 +1,7 @@
 package keeper
 
 import (
-	"errors"
-
+	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -63,20 +62,20 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return err
 	}
 
-	// can only call callback if the receiver is the isolated address for the packet sender on this chain
-	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
-	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
-
-	if !receiver.Equals(isolatedAddr) {
-		return nil
-	}
-
 	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.DestinationCallbackKey)
 	if err != nil {
 		return err
 	}
 	if !isCbPacket {
 		return nil
+	}
+
+	// can only call callback if the receiver is the isolated address for the packet sender on this chain
+	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
+	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
+
+	if !receiver.Equals(isolatedAddr) {
+		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "expected %s, got %s", isolatedAddr.String(), receiver.String())
 	}
 
 	ethReceiver := common.BytesToAddress(receiver)
@@ -88,7 +87,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// TODO: Do something with the response
 	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, ethReceiver, &contractAddr, cbData.Calldata, true)
 	if err != nil {
-		return err
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
 	return nil
 }
@@ -107,7 +106,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 		return err
 	}
 
-	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.DestinationCallbackKey)
+	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.SourceCallbackKey)
 	if err != nil {
 		return err
 	}
@@ -116,7 +115,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	}
 
 	if len(cbData.Calldata) != 0 {
-		return errors.New("acknowledgement callback data should not contain calldata")
+		return errorsmod.Wrap(types.ErrInvalidCalldata, "acknowledgement callback data should not contain calldata")
 	}
 
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
@@ -150,7 +149,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 		return err
 	}
 
-	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.DestinationCallbackKey)
+	cbData, isCbPacket, err := callbacktypes.GetCallbackData(data, version, packet.GetDestPort(), cachedCtx.GasMeter().GasRemaining(), cachedCtx.GasMeter().GasRemaining(), callbacktypes.SourceCallbackKey)
 	if err != nil {
 		return err
 	}
@@ -159,7 +158,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	}
 
 	if len(cbData.Calldata) != 0 {
-		return errors.New("acknowledgement callback data should not contain calldata")
+		return errorsmod.Wrap(types.ErrInvalidCalldata, "acknowledgement callback data should not contain calldata")
 	}
 
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
