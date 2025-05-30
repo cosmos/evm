@@ -32,7 +32,10 @@ import (
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	"github.com/cosmos/evm/x/ibc/transfer" // NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
+
+	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
 	"github.com/cosmos/evm/x/precisebank"
@@ -42,6 +45,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
@@ -206,6 +210,7 @@ type EVMD struct {
 	// IBC keepers
 	IBCKeeper      *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	TransferKeeper transferkeeper.Keeper
+	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
 	FeeMarketKeeper   feemarketkeeper.Keeper
@@ -545,19 +550,27 @@ func NewExampleApp(
 
 		transfer stack contains (from bottom to top):
 			- ERC-20 Middleware
+			- IBC Callbacks Middleware (with EVM ContractKeeper)
 			- IBC Transfer
 
 		SendPacket, since it is originating from the application to core IBC:
-		 	transferKeeper.SendPacket -> erc20.SendPacket -> channel.SendPacket
+		 	transferKeeper.SendPacket -> callbacks.SendPacket -> erc20.SendPacket -> channel.SendPacket
 
 		RecvPacket, message that originates from core IBC and goes down to app, the flow is the other way
-			channel.RecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
+			channel.RecvPacket -> erc20.OnRecvPacket -> callbacks.OnRecvPacket -> transfer.OnRecvPacket
 	*/
 
 	// create IBC module from top to bottom of stack
 	var transferStack porttypes.IBCModule
 
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
+	maxCallbackGas := uint64(1_000_000)
+	app.CallbackKeeper = ibccallbackskeeper.NewKeeper(
+		app.AccountKeeper,
+		transferStack.(transfer.IBCModule),
+		app.EVMKeeper,
+	)
+	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
 	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
 
 	var transferStackV2 ibcapi.IBCModule
