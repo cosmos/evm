@@ -355,7 +355,7 @@ func ParseVotesArgs(method *abi.Method, args []interface{}) (*govv1.QueryVotesRe
 func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) *VotesOutput {
 	vo.Votes = make([]WeightedVote, len(res.Votes))
 	for i, v := range res.Votes {
-		hexAddr, err := utils.Bech32ToHexAddr(v.Voter)
+		hexAddr, err := utils.HexAddressFromBech32String(v.Voter)
 		if err != nil {
 			return nil
 		}
@@ -406,7 +406,7 @@ func ParseVoteArgs(args []interface{}) (*govv1.QueryVoteRequest, error) {
 }
 
 func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) *VoteOutput {
-	hexVoter, err := utils.Bech32ToHexAddr(res.Vote.Voter)
+	hexVoter, err := utils.HexAddressFromBech32String(res.Vote.Voter)
 	if err != nil {
 		return nil
 	}
@@ -482,7 +482,7 @@ func ParseTallyResultArgs(args []interface{}) (*govv1.QueryTallyResultRequest, e
 }
 
 func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) *DepositOutput {
-	hexDepositor, err := utils.Bech32ToHexAddr(res.Deposit.Depositor)
+	hexDepositor, err := utils.HexAddressFromBech32String(res.Deposit.Depositor)
 	if err != nil {
 		return nil
 	}
@@ -504,7 +504,7 @@ func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) *DepositO
 func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) *DepositsOutput {
 	do.Deposits = make([]DepositData, len(res.Deposits))
 	for i, d := range res.Deposits {
-		hexDepositor, err := utils.Bech32ToHexAddr(d.Depositor)
+		hexDepositor, err := utils.HexAddressFromBech32String(d.Depositor)
 		if err != nil {
 			return nil
 		}
@@ -635,7 +635,7 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) *Propos
 		}
 	}
 
-	proposer, err := utils.Bech32ToHexAddr(res.Proposal.Proposer)
+	proposer, err := utils.HexAddressFromBech32String(res.Proposal.Proposer)
 	if err != nil {
 		return nil
 	}
@@ -684,7 +684,7 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 			}
 		}
 
-		proposer, err := utils.Bech32ToHexAddr(p.Proposer)
+		proposer, err := utils.HexAddressFromBech32String(p.Proposer)
 		if err != nil {
 			return nil
 		}

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/math"
 
@@ -138,7 +139,7 @@ func NewMsgWithdrawValidatorCommission(args []interface{}) (*distributiontypes.M
 		ValidatorAddress: validatorAddress,
 	}
 
-	validatorHexAddr, err := cmn.HexAddressFromBech32String(msg.ValidatorAddress)
+	validatorHexAddr, err := utils.HexAddressFromBech32String(msg.ValidatorAddress)
 	if err != nil {
 		return nil, common.Address{}, err
 	}

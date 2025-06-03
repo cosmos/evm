@@ -14,12 +14,12 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
 	testnetwork "github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -50,6 +50,7 @@ var ChainID = constants.ExampleChainID
 func (suite *BackendTestSuite) SetupTest() {
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
+	ctx.Viper.Set("evm.evm-chain-id", evmdconfig.EVMChainID)
 
 	baseDir := suite.T().TempDir()
 	nodeDirName := "node"
@@ -90,7 +91,7 @@ func (suite *BackendTestSuite) SetupTest() {
 	suite.backend.cfg.JSONRPC.GasCap = 0
 	suite.backend.cfg.JSONRPC.EVMTimeout = 0
 	suite.backend.cfg.JSONRPC.AllowInsecureUnlock = true
-	suite.backend.cfg.EVM.EVMChainID = 262144
+	suite.backend.cfg.EVM.EVMChainID = evmdconfig.EVMChainID
 	suite.backend.queryClient.QueryClient = mocks.NewEVMQueryClient(suite.T())
 	suite.backend.queryClient.FeeMarket = mocks.NewFeeMarketQueryClient(suite.T())
 	suite.backend.ctx = rpctypes.ContextWithHeight(1)
@@ -194,7 +195,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 
 func (suite *BackendTestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig(config.DefaultEVMChainID)
+	encCfg := encoding.MakeConfig(evmdconfig.EVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 

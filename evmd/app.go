@@ -639,7 +639,7 @@ func NewExampleApp(
 		ibctm.NewAppModule(tmLightClientModule),
 		transferModule,
 		// Cosmos EVM modules
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
@@ -1104,7 +1104,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[cosmosevmutils.EthHexToCosmosAddr(precompile).String()] = true
+		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
 	}
 
 	return blockedAddrs

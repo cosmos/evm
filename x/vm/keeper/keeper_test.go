@@ -80,7 +80,7 @@ func (suite *KeeperTestSuite) TestGetAccountStorage() {
 					return false
 				}
 
-				address, err := utils.Bech32ToHexAddr(acc.Address)
+				address, err := utils.HexAddressFromBech32String(acc.Address)
 				if err != nil {
 					// NOTE: we panic in the test to see any potential problems
 					// instead of skipping to the next account

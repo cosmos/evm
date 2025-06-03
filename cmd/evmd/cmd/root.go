@@ -63,7 +63,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		cosmosevmserverconfig.DefaultEVMChainID,
+		evmdconfig.EVMChainID,
 		testutil.NoOpEvmAppOptions,
 	)
 
@@ -149,7 +149,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	if initClientCtx.ChainID != "" {
-		if err := evmd.EvmAppOptions(cosmosevmserverconfig.DefaultEVMChainID); err != nil {
+		if err := evmd.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
 			panic(err)
 		}
 	}
