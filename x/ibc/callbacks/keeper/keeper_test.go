@@ -34,7 +34,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 		{
 			"success",
 			func() {},
-			nil, // TODO: This is unexpected. Not sure why this is passing without a valid contract address
+			types.ErrCallbackFailed,
 		},
 		{
 			"packet data is not transfer",
@@ -122,7 +122,7 @@ func (suite *KeeperTestSuite) TestOnAcknowledgementPacket() {
 		{
 			"success",
 			func() {},
-			nil, // TODO: This is unexpected. Not sure why this is passing without a valid contract address
+			types.ErrCallbackFailed,
 		},
 		{
 			"packet data is not transfer",
@@ -209,7 +209,7 @@ func (suite *KeeperTestSuite) TestOnTimeoutPacket() {
 		{
 			"success",
 			func() {},
-			nil, // TODO: This is unexpected. Not sure why this is passing without a valid contract address
+			types.ErrCallbackFailed,
 		},
 		{
 			"packet data is not transfer",

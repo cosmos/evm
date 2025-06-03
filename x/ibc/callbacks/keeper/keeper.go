@@ -152,6 +152,12 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
+	contractAccount := k.evmKeeper.GetAccountOrEmpty(cachedCtx, contractAddr)
+	// this check is required because if there is no code, the call will still pass on the EVM side, but it will ignore the calldata
+	// and funds may get stuck
+	if !contractAccount.IsContract() {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
+	}
 
 	abi, err := callbacksabi.LoadABI()
 	if err != nil {
@@ -195,6 +201,12 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 
 	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
 	contractAddr := common.HexToAddress(contractAddress)
+	contractAccount := k.evmKeeper.GetAccountOrEmpty(cachedCtx, contractAddr)
+	// this check is required because if there is no code, the call will still pass on the EVM side, but it will ignore the calldata
+	// and funds may get stuck
+	if !contractAccount.IsContract() {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
+	}
 
 	abi, err := callbacksabi.LoadABI()
 	if err != nil {
