@@ -2,6 +2,8 @@ package types
 
 import (
 	"context"
+	"github.com/cosmos/evm/x/erc20/types"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,4 +23,10 @@ type AccountKeeper interface {
 type EVMKeeper interface {
 	CallEVM(ctx sdk.Context, abi abi.ABI, from, contract common.Address, commit bool, method string, args ...interface{}) (*evmtypes.MsgEthereumTxResponse, error)
 	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool) (*evmtypes.MsgEthereumTxResponse, error)
+}
+
+type ERC20Keeper interface {
+	GetTokenPairID(ctx sdk.Context, token string) []byte
+	GetTokenPair(ctx sdk.Context, id []byte) (types.TokenPair, bool)
+	SetAllowance(ctx sdk.Context, erc20 common.Address, owner common.Address, spender common.Address, value *big.Int) error
 }

@@ -2,8 +2,9 @@ package keeper
 
 import (
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
+	"github.com/cosmos/evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 
 	callbacktypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
@@ -24,14 +25,16 @@ var _ callbacktypes.ContractKeeper = (*ContractKeeper)(nil)
 type ContractKeeper struct {
 	authKeeper            types.AccountKeeper
 	evmKeeper             types.EVMKeeper
+	erc20Keeper           types.ERC20Keeper
 	packetDataUnmarshaler porttypes.PacketDataUnmarshaler
 }
 
-func NewKeeper(authKeeper types.AccountKeeper, pdUnmarshaler porttypes.PacketDataUnmarshaler, evmKeeper types.EVMKeeper) ContractKeeper {
+func NewKeeper(authKeeper types.AccountKeeper, pdUnmarshaler porttypes.PacketDataUnmarshaler, evmKeeper types.EVMKeeper, erc20Keeper types.ERC20Keeper) ContractKeeper {
 	return ContractKeeper{
 		authKeeper:            authKeeper,
 		packetDataUnmarshaler: pdUnmarshaler,
 		evmKeeper:             evmKeeper,
+		erc20Keeper:           erc20Keeper,
 	}
 }
 
@@ -72,23 +75,43 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 
 	// can only call callback if the receiver is the isolated address for the packet sender on this chain
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
+	receiverHex, err := utils.HexAddressFromBech32String(receiver.String())
+	if err != nil {
+		return errorsmod.Wrapf(err, "address conversion failed for receiver address: %s", receiver)
+	}
+
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
+	isolatedAddrHex, err := utils.HexAddressFromBech32String(isolatedAddr.String())
+	if err != nil {
+		return errorsmod.Wrapf(err, "address conversion failed for isolated address: %s", isolatedAddr)
+	}
 
 	acc := k.authKeeper.NewAccountWithAddress(cachedCtx, receiver)
 	k.authKeeper.SetAccount(cachedCtx, acc)
 
-	if !receiver.Equals(isolatedAddr) {
-		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "expected %s, got %s", isolatedAddr.String(), receiver.String())
+	if receiverHex.Cmp(isolatedAddrHex) != 0 {
+		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "expected %s, got %s", isolatedAddrHex.String(), receiverHex.String())
 	}
 
-	ethReceiver := common.BytesToAddress(receiver.Bytes())
 	contractAddr := common.HexToAddress(contractAddress)
 
-	// TODO: Approve the ERC20 tokens in the transfer packet for the contract on behalf of the receiver
-	// before calling the callback.
+	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, data.Token.Denom.IBCDenom())
+	tokenPair, found := k.erc20Keeper.GetTokenPair(cachedCtx, tokenPairID)
+	if !found {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
+	}
+	amountInt, overflow := math.NewIntFromString(data.Token.Amount)
+	if overflow {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "amount overflow")
+	}
+
+	err = k.erc20Keeper.SetAllowance(cachedCtx, tokenPair.GetERC20Contract(), isolatedAddrHex, contractAddr, amountInt.BigInt())
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance: %v", err)
+	}
 
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, ethReceiver, &contractAddr, cbData.Calldata, true)
+	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
