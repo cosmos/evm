@@ -1,12 +1,11 @@
 package keeper
 
 import (
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/utils"
 	"github.com/ethereum/go-ethereum/common"
 
+	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
+	"github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/ibc/callbacks/types"
 	callbacktypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -14,9 +13,10 @@ import (
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
-	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 
-	"github.com/cosmos/evm/x/ibc/callbacks/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // ContractKeeper implements callbacktypes.ContractKeeper

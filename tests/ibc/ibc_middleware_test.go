@@ -416,7 +416,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
 				// relay the sent packet
@@ -686,7 +686,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
 				err = path.RelayPacket(packet)

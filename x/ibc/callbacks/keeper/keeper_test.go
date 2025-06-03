@@ -3,18 +3,17 @@ package keeper_test
 import (
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
-
-	"github.com/ethereum/go-ethereum/common"
-
 	cbtypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (suite *KeeperTestSuite) TestOnRecvPacket() {
