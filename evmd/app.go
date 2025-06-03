@@ -462,7 +462,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -569,6 +569,7 @@ func NewExampleApp(
 		app.AccountKeeper,
 		transferStack.(transfer.IBCModule),
 		app.EVMKeeper,
+		app.Erc20Keeper,
 	)
 	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
 	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
