@@ -53,7 +53,7 @@ prefix. This is done by setting the sender to `address.Module(ModuleName, channe
 - `gasCap`: IBC callbacks gas limit
 
 <!-- markdown-link-check-disable-next-line -->
-> **_WARNING:_**  Due to a [bug](https://twitter.com/SCVSecurity/status/1682329758020022272) in the
+> ***WARNING:***  Due to a [bug](https://twitter.com/SCVSecurity/status/1682329758020022272) in the
 > packet forward middleware, we cannot trust the sender from chains that use PFM. Until that is fixed,
 > we recommend chains to not trust the sender on contracts executed via IBC callbacks.
 
@@ -206,7 +206,7 @@ this account even though it is a cross-chain representation of the packet sender
 Thus, a contract that receives the funds and calldata from the isolated receiver address **must** send the tokens
 onwards to a desired address that is specified in the calldata. If tokens are deposited back into the isolated address,
 they are unreachabe. If you wish to interact with a contract that does not implement functionality for sending the
-tokens to a different address then you must interact with that contract through some wrapper contract interface that 
+tokens to a different address then you must interact with that contract through some wrapper contract interface that
 can receive the funds, call the contract which deposits funds back to `msg.sender` and then the wrapper contract
 can move the funds to a final desired address.
 
