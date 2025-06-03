@@ -94,6 +94,12 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	}
 
 	contractAddr := common.HexToAddress(contractAddress)
+	contractAccount := k.evmKeeper.GetAccountOrEmpty(cachedCtx, contractAddr)
+	// this check is required because if there is no code, the call will still pass on the EVM side, but it will ignore the calldata
+	// and funds may get stuck
+	if !contractAccount.IsContract() {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
+	}
 
 	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, data.Token.Denom.IBCDenom())
 	tokenPair, found := k.erc20Keeper.GetTokenPair(cachedCtx, tokenPairID)
