@@ -117,7 +117,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	}
 
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true)
+	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
@@ -166,7 +166,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	// TODO: Do something with the response
 	// Call the onPacketAcknowledgement function in the contract
-	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketAcknowledgement",
+	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketAcknowledgement", nil,
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
@@ -214,7 +214,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	}
 
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketTimeout",
+	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketTimeout", math.NewIntFromUint64(cbData.CommitGasLimit).BigInt(),
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())

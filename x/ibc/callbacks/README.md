@@ -25,6 +25,7 @@ func (k Keeper) CallEVMWithData(
 	contract *common.Address,
 	data []byte,
 	commit bool,
+    gasCap *big.Int,
 ) (*types.MsgEthereumTxResponse, error)
 ```
 
@@ -34,6 +35,7 @@ For use with EVM `recvPacket callbacks, the message fields above can be derived 
 - `Contract`: This field should be directly obtained from the ICS-20 packet metadata
 - `Data`: This field should be directly obtained from the ICS-20 packet metadata.
 - `commit`: true
+- `gasCap`: IBC callbacks gas limit
 
 <!-- markdown-link-check-disable-next-line -->
 > **_WARNING:_**  Due to a [bug](https://twitter.com/SCVSecurity/status/1682329758020022272) in the packet forward middleware, we cannot trust the sender from chains that use PFM. Until that is fixed, we recommend chains to not trust the sender on contracts executed via IBC callbacks.
