@@ -106,8 +106,8 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	if !found {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
 	}
-	amountInt, overflow := math.NewIntFromString(data.Token.Amount)
-	if overflow {
+	amountInt, ok := math.NewIntFromString(data.Token.Amount)
+	if !ok {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "amount overflow")
 	}
 

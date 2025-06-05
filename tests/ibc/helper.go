@@ -1,6 +1,10 @@
 package ibc
 
 import (
+	errorsmod "cosmossdk.io/errors"
+	"errors"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"testing"
 
@@ -90,4 +94,31 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain) *NativeErc20
 		Account:      common.BytesToAddress(senderAcc),
 		InitialBal:   big.NewInt(sendAmt.Int64()),
 	}
+}
+
+// SetupNativeErc20 deploys, registers, and mints a native ERC20 token on an EVM-based chain.
+func DeployContract(t *testing.T, chain *evmibctesting.TestChain, deploymentData factory.ContractDeploymentData) (common.Address, error) {
+	t.Helper()
+
+	// Get account's nonce to create contract hash
+	from := common.BytesToAddress(chain.SenderPrivKey.PubKey().Address().Bytes())
+	account := chain.App.(*evmd.EVMD).EVMKeeper.GetAccount(chain.GetContext(), from)
+	if account == nil {
+		return common.Address{}, errors.New("account not found")
+	}
+
+	ctorArgs, err := deploymentData.Contract.ABI.Pack("", deploymentData.ConstructorArgs...)
+	if err != nil {
+		return common.Address{}, errorsmod.Wrap(err, "failed to pack constructor arguments")
+	}
+
+	data := deploymentData.Contract.Bin
+	data = append(data, ctorArgs...)
+
+	_, err = chain.App.(*evmd.EVMD).EVMKeeper.CallEVMWithData(chain.GetContext(), from, nil, data, true, nil)
+	if err != nil {
+		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract")
+	}
+
+	return crypto.CreateAddress(from, account.Nonce), nil
 }

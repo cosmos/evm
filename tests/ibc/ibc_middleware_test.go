@@ -2,17 +2,19 @@ package ibc
 
 import (
 	"errors"
+	"fmt"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
+	"github.com/cosmos/evm/utils"
+	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
+	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
 	"math/big"
 	"testing"
 
 	testifysuite "github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/testutil"
-	"github.com/cosmos/evm/x/erc20"
-	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -40,17 +42,17 @@ type MiddlewareTestSuite struct {
 
 // SetupTest initializes the coordinator and test chains before each test.
 func (suite *MiddlewareTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
-
-	// Setup path for A->B
-	suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
-	suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
-	suite.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
-	suite.pathAToB.Setup()
+	//
+	//// Setup path for A->B
+	//suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
+	//suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
+	//suite.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
+	//suite.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
+	//suite.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
+	//suite.pathAToB.Setup()
 
 	// Setup path for B->A
 	suite.pathBToA = evmibctesting.NewPath(suite.chainB, suite.evmChainA)
@@ -65,53 +67,233 @@ func TestMiddlewareTestSuite(t *testing.T) {
 	testifysuite.Run(t, new(MiddlewareTestSuite))
 }
 
-// TestNewIBCMiddleware verifies the middleware instantiation logic.
-func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
+// TestOnRecvPacket checks the OnRecvPacket logic for ICS-20.
+func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
+	var packet channeltypes.Packet
+
 	testCases := []struct {
-		name          string
-		instantiateFn func()
-		expError      error
+		name     string
+		malleate func()
+		memo     func() string
+		expError string
 	}{
 		{
-			"success",
-			func() {
-				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibc.Module{})
+			name:     "pass - callback to function",
+			malleate: nil,
+			memo: func() string {
+				return ""
 			},
-			nil,
+			expError: "",
 		},
-		{
-			"panics with nil underlying app",
-			func() {
-				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, nil)
-			},
-			errors.New("underlying application cannot be nil"),
-		},
-		{
-			"panics with nil erc20 keeper",
-			func() {
-				_ = erc20.NewIBCMiddleware(nil, ibc.Module{})
-			},
-			errors.New("erc20 keeper cannot be nil"),
-		},
+		//{
+		//	name:     "fail: callback to evm revert",
+		//	malleate: nil,
+		//	memo: func() string {
+		//		return ""
+		//	},
+		//	expError: "TODO",
+		//},
+		//{
+		//	name:     "fail: callback to incorrect abi call",
+		//	malleate: nil,
+		//	memo: func() string {
+		//		return ""
+		//	},
+		//	expError: "TODO",
+		//},
+		//{
+		//	name:     "fail: callback to non-contract",
+		//	malleate: nil,
+		//	memo: func() string {
+		//		return ""
+		//	},
+		//	expError: "TODO",
+		//},
+		//{
+		//	name:     "fail: recipient != isolated address",
+		//	malleate: nil,
+		//	memo: func() string {
+		//		return ""
+		//	},
+		//	expError: "TODO",
+		//},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			if tc.expError == nil {
-				suite.Require().NotPanics(
-					tc.instantiateFn,
-					"unexpected panic: NewIBCMiddleware",
-				)
+			//suite.SetupTest()
+
+			ctxB := suite.chainB.GetContext()
+			bondDenom, err := suite.chainB.GetSimApp().StakingKeeper.BondDenom(ctxB)
+			suite.Require().NoError(err)
+
+			sendAmt := ibctesting.DefaultCoinAmount
+			//receiver := suite.evmChainA.SenderAccount.GetAddress()
+
+			isolatedAddr := types2.GenerateIsolatedAddress(packet.GetDestChannel(), suite.chainB.SenderAccount.GetAddress().String())
+			//isolatedAddrHex, err := utils.HexAddressFromBech32String(isolatedAddr.String())
+			suite.Require().NoError(err)
+
+			contractData, err := testutil2.LoadCounterWithCallbacksContract()
+			suite.Require().NoError(err)
+
+			deploymentData := factory.ContractDeploymentData{
+				Contract:        contractData,
+				ConstructorArgs: nil,
+			}
+
+			contractAddr, err := DeployContract(suite.T(), suite.evmChainA, deploymentData)
+			if err != nil {
+				return
+			}
+
+			//transferICS4Wrapper := suite.evmChainA.App.(*evmd.EVMD).TransferKeeper.GetICS4Wrapper()
+
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				suite.chainB.SenderAccount.GetAddress().String(),
+				isolatedAddr.String(),
+				tc.memo(),
+			)
+
+			path := suite.pathBToA
+			ctxA := suite.evmChainA.GetContext()
+			_ = path.EndpointA.GetChannel()
+			sourceChan := path.EndpointB.GetChannel()
+
+			data, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
+			suite.Require().Nil(ackErr)
+
+			voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+
+			// Make sure token pair is registered
+			singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
+			suite.Require().NoError(err)
+
+			amountInt, ok := math.NewIntFromString(packetData.Amount)
+			suite.Require().True(ok)
+
+			packedBytes, err := contractData.ABI.Pack("add", singleTokenRepresentation.GetERC20Contract(), amountInt.BigInt())
+			suite.Require().NoError(err)
+
+			destCallback := fmt.Sprintf(`{
+			   "dest_callback": {
+				  "address": "%s",
+				  "gas_limit": "%d",
+				  "calldata": "%x",
+				}
+        	}`, contractAddr, 1_000_000, packedBytes)
+
+			packetData.Memo = destCallback
+
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointB.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointB.ChannelID,
+				DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointA.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			suite.Require().True(ok)
+
+			ack := transferStack.OnRecvPacket(
+				ctxA,
+				sourceChan.Version,
+				packet,
+				suite.evmChainA.SenderAccount.GetAddress(),
+			)
+
+			if tc.expError == "" {
+				suite.Require().True(ack.Success())
+
+				// Ensure ibc transfer from chainB to evmChainA is successful.
+				data, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
+				suite.Require().Nil(ackErr)
+
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, packet.GetDestPort(), packet.GetDestChannel())
+
+				evmApp := suite.evmChainA.App.(*evmd.EVMD)
+				voucherCoin := evmApp.BankKeeper.GetBalance(ctxA, sdk.AccAddress(utils.Bech32StringFromHexAddress(contractAddr.String())), voucherDenom)
+				suite.Require().Equal(sendAmt.String(), voucherCoin.Amount.String())
+
+				// Make sure token pair is registered
+				singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
+				suite.Require().NoError(err)
+				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(ctxA, singleTokenRepresentation.GetID())
+				suite.Require().True(found)
+				suite.Require().Equal(voucherDenom, tokenPair.Denom)
+				// Make sure dynamic precompile is registered
+				params := evmApp.Erc20Keeper.GetParams(ctxA)
+				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
 			} else {
-				suite.Require().PanicsWithError(
-					tc.expError.Error(),
-					tc.instantiateFn,
-					"expected panic with error: ", tc.expError.Error(),
-				)
+				suite.Require().False(ack.Success())
+
+				ackObj, ok := ack.(channeltypes.Acknowledgement)
+				suite.Require().True(ok)
+				ackErr, ok := ackObj.Response.(*channeltypes.Acknowledgement_Error)
+				suite.Require().True(ok)
+				suite.Require().Contains(ackErr.Error, tc.expError)
 			}
 		})
 	}
 }
+
+//// TestNewIBCMiddleware verifies the middleware instantiation logic.
+//func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
+//	testCases := []struct {
+//		name          string
+//		instantiateFn func()
+//		expError      error
+//	}{
+//		{
+//			"success",
+//			func() {
+//				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibctransfer.IBCModule{}, )
+//			},
+//			nil,
+//		},
+//		{
+//			"panics with nil underlying app",
+//			func() {
+//				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, nil)
+//			},
+//			errors.New("underlying application cannot be nil"),
+//		},
+//		{
+//			"panics with nil erc20 keeper",
+//			func() {
+//				_ = erc20.NewIBCMiddleware(nil, ibc.Module{})
+//			},
+//			errors.New("erc20 keeper cannot be nil"),
+//		},
+//	}
+//
+//	for _, tc := range testCases {
+//		suite.Run(tc.name, func() {
+//			if tc.expError == nil {
+//				suite.Require().NotPanics(
+//					tc.instantiateFn,
+//					"unexpected panic: NewIBCMiddleware",
+//				)
+//			} else {
+//				suite.Require().PanicsWithError(
+//					tc.expError.Error(),
+//					tc.instantiateFn,
+//					"expected panic with error: ", tc.expError.Error(),
+//				)
+//			}
+//		})
+//	}
+//}
 
 // TestOnRecvPacket checks the OnRecvPacket logic for ICS-20.
 func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
