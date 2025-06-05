@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmosevm.io/evmd"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,6 @@ import (
 
 	"github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/tx"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"

@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	exampleapp "cosmosevm.io/evmd"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -29,7 +30,6 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	chaincmd "github.com/cosmos/evm/cmd/evmd/cmd"
 	"github.com/cosmos/evm/crypto/hd"
-	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"

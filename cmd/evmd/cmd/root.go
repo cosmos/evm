@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"cosmosevm.io/evmd"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,8 +17,6 @@ import (
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/testutil"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -57,6 +56,9 @@ func NewRootCmd() *cobra.Command {
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
+	noOpEvmAppOptions := func(_ uint64) error {
+		return nil
+	}
 	tempApp := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
@@ -64,7 +66,7 @@ func NewRootCmd() *cobra.Command {
 		true,
 		simtestutil.EmptyAppOptions{},
 		evmdconfig.EVMChainID,
-		testutil.NoOpEvmAppOptions,
+		noOpEvmAppOptions,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{

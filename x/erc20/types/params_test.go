@@ -4,11 +4,11 @@ import (
 	"slices"
 	"testing"
 
+	"cosmosevm.io/evmd"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	exampleapp "github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/erc20/types"
 )
@@ -162,7 +162,7 @@ func (suite *ParamsTestSuite) TestIsNativePrecompile() {
 	}{
 		{
 			"default",
-			func() types.Params { return exampleapp.NewErc20GenesisState().Params },
+			func() types.Params { return evmd.NewErc20GenesisState().Params },
 			common.HexToAddress(testconstants.WEVMOSContractMainnet),
 			true,
 		},

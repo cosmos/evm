@@ -52,6 +52,10 @@ issues:
       text: 'SA1019:'
       linters:
         - staticcheck
+    - path: ^tests/integration/
+      linters:
+        - stylecheck
+      text: 'ST1001:'
   exclude-dirs:
     - x/vm/core
 

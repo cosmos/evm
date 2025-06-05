@@ -3,8 +3,9 @@ package ibctesting
 import (
 	"encoding/json"
 
+	"cosmosevm.io/evmd"
+
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/evm/evmd"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 

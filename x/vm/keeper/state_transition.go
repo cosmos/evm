@@ -166,7 +166,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
 	}
 
-	// Create a cache context to revert state. The cache context is only committed when both tx and hooks executed successfully.
+	// create a cache context to revert state. The cache context is only committed when both tx and hooks executed successfully.
 	// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commit := ctx.CacheContext()
@@ -347,7 +347,9 @@ func (k *Keeper) ApplyMessageWithConfig(
 			msg.From,
 		)
 		defer func() {
-			vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
+			if vmCfg.Tracer.OnTxEnd != nil {
+				vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
+			}
 		}()
 	}
 
