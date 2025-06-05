@@ -29,13 +29,14 @@ type ContractKeeper struct {
 	packetDataUnmarshaler porttypes.PacketDataUnmarshaler
 }
 
-func NewKeeper(authKeeper types.AccountKeeper, pdUnmarshaler porttypes.PacketDataUnmarshaler, evmKeeper types.EVMKeeper, erc20Keeper types.ERC20Keeper) ContractKeeper {
-	return ContractKeeper{
-		authKeeper:            authKeeper,
-		packetDataUnmarshaler: pdUnmarshaler,
-		evmKeeper:             evmKeeper,
-		erc20Keeper:           erc20Keeper,
+func NewKeeper(authKeeper types.AccountKeeper, evmKeeper types.EVMKeeper, erc20Keeper types.ERC20Keeper) ContractKeeper {
+	ck := ContractKeeper{
+		authKeeper:  authKeeper,
+		evmKeeper:   evmKeeper,
+		erc20Keeper: erc20Keeper,
 	}
+	ck.packetDataUnmarshaler = types.Unmarshaler{}
+	return ck
 }
 
 // SendPacket callback will not supported since the contract can run custom logic before send packet is called.

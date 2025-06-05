@@ -17,6 +17,7 @@ import (
 )
 
 var _ porttypes.IBCModule = &IBCMiddleware{}
+var _ porttypes.PacketDataUnmarshaler = &IBCMiddleware{}
 
 // IBCMiddleware implements the ICS26 callbacks for the transfer middleware given
 // the erc20 keeper and the underlying application.
@@ -108,4 +109,13 @@ func (im IBCMiddleware) OnTimeoutPacket(
 	}
 
 	return im.keeper.OnTimeoutPacket(ctx, packet, data)
+}
+
+// UnmarshalPacketa implements the PacketDataUnmarshaler interface.
+func (im IBCMiddleware) UnmarshalPacketData(
+	ctx sdk.Context,
+	portID, channelID string,
+	data []byte,
+) (any, string, error) {
+	return im.Module.UnmarshalPacketData(ctx, portID, channelID, data)
 }

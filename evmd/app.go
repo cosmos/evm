@@ -33,6 +33,7 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
+
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -548,15 +549,15 @@ func NewExampleApp(
 		Create Transfer Stack
 
 		transfer stack contains (from bottom to top):
-			- ERC-20 Middleware
 			- IBC Callbacks Middleware (with EVM ContractKeeper)
+			- ERC-20 Middleware
 			- IBC Transfer
 
 		SendPacket, since it is originating from the application to core IBC:
-		 	transferKeeper.SendPacket -> callbacks.SendPacket -> erc20.SendPacket -> channel.SendPacket
+		 	transferKeeper.SendPacket ->  erc20.SendPacket -> callbacks.SendPacket -> channel.SendPacket
 
 		RecvPacket, message that originates from core IBC and goes down to app, the flow is the other way
-			channel.RecvPacket -> erc20.OnRecvPacket -> callbacks.OnRecvPacket -> transfer.OnRecvPacket
+			channel.RecvPacket -> callbacks.OnRecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
 	*/
 
 	// create IBC module from top to bottom of stack
@@ -564,14 +565,13 @@ func NewExampleApp(
 
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
 	maxCallbackGas := uint64(1_000_000)
+	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
 	app.CallbackKeeper = ibccallbackskeeper.NewKeeper(
 		app.AccountKeeper,
-		transferStack.(transfer.IBCModule),
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
 	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
-	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
