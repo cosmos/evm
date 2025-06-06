@@ -3,6 +3,10 @@ package ibc
 import (
 	"errors"
 	"fmt"
+	"github.com/cosmos/evm/ibc"
+	"github.com/cosmos/evm/x/erc20"
+	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
+	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	"math/big"
 	"testing"
 
@@ -148,7 +152,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				  "gas_limit": "%d",
 				  "calldata": "%x"
 				}
-        	}`, contractAddr, 1_000_000, packedBytes) // todo: temporarily high callback gas
+        	}`, contractAddr, 1_000_000, packedBytes)
 
 			packetData.Memo = destCallback
 
@@ -217,53 +221,53 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 	}
 }
 
-//// TestNewIBCMiddleware verifies the middleware instantiation logic.
-// func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
-//	testCases := []struct {
-//		name          string
-//		instantiateFn func()
-//		expError      error
-//	}{
-//		{
-//			"success",
-//			func() {
-//				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibctransfer.IBCModule{}, )
-//			},
-//			nil,
-//		},
-//		{
-//			"panics with nil underlying app",
-//			func() {
-//				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, nil)
-//			},
-//			errors.New("underlying application cannot be nil"),
-//		},
-//		{
-//			"panics with nil erc20 keeper",
-//			func() {
-//				_ = erc20.NewIBCMiddleware(nil, ibc.Module{})
-//			},
-//			errors.New("erc20 keeper cannot be nil"),
-//		},
-//	}
-//
-//	for _, tc := range testCases {
-//		suite.Run(tc.name, func() {
-//			if tc.expError == nil {
-//				suite.Require().NotPanics(
-//					tc.instantiateFn,
-//					"unexpected panic: NewIBCMiddleware",
-//				)
-//			} else {
-//				suite.Require().PanicsWithError(
-//					tc.expError.Error(),
-//					tc.instantiateFn,
-//					"expected panic with error: ", tc.expError.Error(),
-//				)
-//			}
-//		})
-//	}
-//}
+// TestNewIBCMiddleware verifies the middleware instantiation logic.
+func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
+	testCases := []struct {
+		name          string
+		instantiateFn func()
+		expError      error
+	}{
+		{
+			"success",
+			func() {
+				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibctransfer.IBCModule{})
+			},
+			nil,
+		},
+		{
+			"panics with nil underlying app",
+			func() {
+				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, nil)
+			},
+			errors.New("underlying application cannot be nil"),
+		},
+		{
+			"panics with nil erc20 keeper",
+			func() {
+				_ = erc20.NewIBCMiddleware(nil, ibc.Module{})
+			},
+			errors.New("erc20 keeper cannot be nil"),
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			if tc.expError == nil {
+				suite.Require().NotPanics(
+					tc.instantiateFn,
+					"unexpected panic: NewIBCMiddleware",
+				)
+			} else {
+				suite.Require().PanicsWithError(
+					tc.expError.Error(),
+					tc.instantiateFn,
+					"expected panic with error: ", tc.expError.Error(),
+				)
+			}
+		})
+	}
+}
 
 // TestOnRecvPacket checks the OnRecvPacket logic for ICS-20.
 func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
