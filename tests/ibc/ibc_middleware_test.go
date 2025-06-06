@@ -541,39 +541,15 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			receiver := suite.chainB.SenderAccount.GetAddress()
 			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
-			// get callback tester contract and deploy it
-			contractData, err := testutil2.LoadCounterWithCallbacksContract()
-			suite.Require().NoError(err)
-
-			deploymentData := factory.ContractDeploymentData{
-				Contract:        contractData,
-				ConstructorArgs: nil,
-			}
-
-			contractAddr, err := DeployContract(suite.T(), suite.evmChainA, deploymentData)
-			if err != nil {
-				return
-			}
-
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
 				sendAmt.String(),
-				utils.Bech32StringFromHexAddress(contractAddr.String()),
+				sender.String(),
 				receiver.String(),
 				"",
 			)
 
 			path := suite.path
-
-			srcCallback := fmt.Sprintf(`{
-			   "src_callback": {
-				  "address": "%s",
-				  "gas_limit": "%d"
-				}
-        	}`, contractAddr, 10_000_000) //todo: temporarily high callback gas
-
-			packetData.Memo = srcCallback
-
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointA.ChannelConfig.PortID,

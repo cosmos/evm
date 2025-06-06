@@ -101,7 +101,11 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
-	coin := ibc.GetReceivedCoin(packet.(channeltypes.Packet), data.Token)
+	token := transfertypes.Token{
+		Denom:  transfertypes.ExtractDenomFromPath(data.Token.Denom.IBCDenom()),
+		Amount: data.Token.Amount,
+	}
+	coin := ibc.GetReceivedCoin(packet.(channeltypes.Packet), token)
 
 	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, coin.Denom)
 	tokenPair, found := k.erc20Keeper.GetTokenPair(cachedCtx, tokenPairID)
@@ -135,7 +139,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	}
 
 	// todo: using temporarily high callback gas for testing
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, nil)
+	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, big.NewInt(10_000_000))
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}

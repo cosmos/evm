@@ -229,8 +229,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomsMethod,
 				nil,
+				ics20.DenomsMethod,
 				query.PageRequest{
 					Key:        []byte{},
 					Offset:     0,
@@ -252,8 +252,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomMethod,
 				nil,
+				ics20.DenomMethod,
 				chainBDenom.Hash().String(),
 			)
 			suite.Require().NoError(err)
@@ -269,8 +269,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomMethod,
 				nil,
+				ics20.DenomMethod,
 				"0000000000000000000000000000000000000000000000000000000000000000",
 			)
 			suite.Require().NoError(err)
@@ -286,8 +286,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomMethod,
 				nil,
+				ics20.DenomMethod,
 				"INVALID-DENOM-HASH",
 			)
 			suite.Require().ErrorContains(err, "invalid denom trace hash")
@@ -299,8 +299,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomHashMethod,
 				nil,
+				ics20.DenomHashMethod,
 				chainBDenom.Path(),
 			)
 			suite.Require().NoError(err)
@@ -316,8 +316,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomHashMethod,
 				nil,
+				ics20.DenomHashMethod,
 				"transfer/channel-0/erc20:not-exists-case",
 			)
 			suite.Require().NoError(err)
@@ -332,8 +332,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
-				ics20.DenomHashMethod,
 				nil,
+				ics20.DenomHashMethod,
 				"",
 			)
 			suite.Require().ErrorContains(err, "invalid denomination for cross-chain transfer")
