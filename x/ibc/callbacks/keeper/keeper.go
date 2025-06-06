@@ -1,8 +1,11 @@
 package keeper
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+	"fmt"
+	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/ibc"
 	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
@@ -12,9 +15,8 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -102,7 +104,13 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
-	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, data.Token.Denom.IBCDenom())
+	token := transfertypes.Token{
+		Denom:  transfertypes.ExtractDenomFromPath(data.Token.Denom.IBCDenom()),
+		Amount: data.Token.Amount,
+	}
+	coin := ibc.GetReceivedCoin(packet.(channeltypes.Packet), token)
+
+	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, coin.Denom)
 	tokenPair, found := k.erc20Keeper.GetTokenPair(cachedCtx, tokenPairID)
 	if !found {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
@@ -112,13 +120,29 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "amount overflow")
 	}
 
-	err = k.erc20Keeper.SetAllowance(cachedCtx, tokenPair.GetERC20Contract(), isolatedAddrHex, contractAddr, amountInt.BigInt())
+	erc20 := contracts.ERC20MinterBurnerDecimalsContract
+
+	receiverBalance := k.erc20Keeper.BalanceOf(cachedCtx, erc20.ABI, tokenPair.GetERC20Contract(), receiverHex)
+	fmt.Println(receiverBalance.String())
+
+	// todo: using temporarily high callback gas for testing
+	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, "approve", big.NewInt(10_000_000), contractAddr, amountInt.BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance: %v", err)
 	}
 
-	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt())
+	var allowance *big.Int
+	err = erc20.ABI.UnpackIntoInterface(&allowance, "allowance", res.Ret)
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to unpack allowance: %v", err)
+	}
+
+	if allowance.Cmp(amountInt.BigInt()) != 0 {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "allowance %d does not equal received amount %d", allowance, amountInt.BigInt())
+	}
+
+	// todo: using temporarily high callback gas for testing
+	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, big.NewInt(10_000_000))
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}

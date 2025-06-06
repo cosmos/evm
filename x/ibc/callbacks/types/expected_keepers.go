@@ -31,4 +31,5 @@ type ERC20Keeper interface {
 	GetTokenPairID(ctx sdk.Context, token string) []byte
 	GetTokenPair(ctx sdk.Context, id []byte) (types.TokenPair, bool)
 	SetAllowance(ctx sdk.Context, erc20 common.Address, owner common.Address, spender common.Address, value *big.Int) error
+	BalanceOf(ctx sdk.Context, abi abi.ABI, contract, account common.Address) *big.Int
 }

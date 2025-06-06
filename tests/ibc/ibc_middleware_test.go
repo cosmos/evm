@@ -36,8 +36,7 @@ type MiddlewareTestSuite struct {
 	evmChainA *evmibctesting.TestChain
 	chainB    *evmibctesting.TestChain
 
-	pathAToB *evmibctesting.Path
-	pathBToA *evmibctesting.Path
+	path *evmibctesting.Path
 }
 
 // SetupTest initializes the coordinator and test chains before each test.
@@ -55,12 +54,15 @@ func (suite *MiddlewareTestSuite) SetupTest() {
 	//suite.pathAToB.Setup()
 
 	// Setup path for B->A
-	suite.pathBToA = evmibctesting.NewPath(suite.chainB, suite.evmChainA)
-	suite.pathBToA.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathBToA.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathBToA.EndpointA.ChannelConfig.Version = transfertypes.V1
-	suite.pathBToA.EndpointB.ChannelConfig.Version = transfertypes.V1
-	suite.pathBToA.Setup()
+	suite.path = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
+	suite.path.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
+	suite.path.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
+	suite.path.EndpointA.ChannelConfig.Version = transfertypes.V1
+	suite.path.EndpointB.ChannelConfig.Version = transfertypes.V1
+	suite.path.Setup()
+
+	_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), suite.path.EndpointA.ChannelConfig.PortID, suite.path.EndpointA.ChannelID)
+	suite.Require().True(found)
 }
 
 func TestMiddlewareTestSuite(t *testing.T) {
@@ -85,55 +87,22 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 			},
 			expError: "",
 		},
-		//{
-		//	name:     "fail: callback to evm revert",
-		//	malleate: nil,
-		//	memo: func() string {
-		//		return ""
-		//	},
-		//	expError: "TODO",
-		//},
-		//{
-		//	name:     "fail: callback to incorrect abi call",
-		//	malleate: nil,
-		//	memo: func() string {
-		//		return ""
-		//	},
-		//	expError: "TODO",
-		//},
-		//{
-		//	name:     "fail: callback to non-contract",
-		//	malleate: nil,
-		//	memo: func() string {
-		//		return ""
-		//	},
-		//	expError: "TODO",
-		//},
-		//{
-		//	name:     "fail: recipient != isolated address",
-		//	malleate: nil,
-		//	memo: func() string {
-		//		return ""
-		//	},
-		//	expError: "TODO",
-		//},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			//suite.SetupTest()
+			path := suite.path
 
 			ctxB := suite.chainB.GetContext()
 			bondDenom, err := suite.chainB.GetSimApp().StakingKeeper.BondDenom(ctxB)
 			suite.Require().NoError(err)
 
+			// generate the isolated address for the sender
 			sendAmt := ibctesting.DefaultCoinAmount
-			//receiver := suite.evmChainA.SenderAccount.GetAddress()
-
-			isolatedAddr := types2.GenerateIsolatedAddress(packet.GetDestChannel(), suite.chainB.SenderAccount.GetAddress().String())
-			//isolatedAddrHex, err := utils.HexAddressFromBech32String(isolatedAddr.String())
+			isolatedAddr := types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
 			suite.Require().NoError(err)
 
+			// get callback tester contract and deploy it
 			contractData, err := testutil2.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
@@ -147,8 +116,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				return
 			}
 
-			//transferICS4Wrapper := suite.evmChainA.App.(*evmd.EVMD).TransferKeeper.GetICS4Wrapper()
-
+			// generate packet to execute the tester contract using callbacks
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
 				sendAmt.String(),
@@ -157,8 +125,6 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				tc.memo(),
 			)
 
-			path := suite.pathBToA
-			ctxA := suite.evmChainA.GetContext()
 			_ = path.EndpointA.GetChannel()
 			sourceChan := path.EndpointB.GetChannel()
 
@@ -167,23 +133,24 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 
 			voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 
-			// Make sure token pair is registered
+			// ensure token pair is registered
 			singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
+			erc20Contract := singleTokenRepresentation.GetERC20Contract()
 			suite.Require().NoError(err)
 
 			amountInt, ok := math.NewIntFromString(packetData.Amount)
 			suite.Require().True(ok)
 
-			packedBytes, err := contractData.ABI.Pack("add", singleTokenRepresentation.GetERC20Contract(), amountInt.BigInt())
+			packedBytes, err := contractData.ABI.Pack("add", erc20Contract, amountInt.BigInt())
 			suite.Require().NoError(err)
 
 			destCallback := fmt.Sprintf(`{
 			   "dest_callback": {
 				  "address": "%s",
 				  "gas_limit": "%d",
-				  "calldata": "%x",
+				  "calldata": "%x"
 				}
-        	}`, contractAddr, 1_000_000, packedBytes)
+        	}`, contractAddr, 10_000_000, packedBytes) //todo: temporarily high callback gas
 
 			packetData.Memo = destCallback
 
@@ -202,11 +169,16 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				tc.malleate()
 			}
 
+			//  transfer stack
 			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
+			channel, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			suite.Require().True(found)
+			fmt.Println(channel)
+
 			ack := transferStack.OnRecvPacket(
-				ctxA,
+				suite.evmChainA.GetContext(),
 				sourceChan.Version,
 				packet,
 				suite.evmChainA.SenderAccount.GetAddress(),
@@ -216,23 +188,20 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				suite.Require().True(ack.Success())
 
 				// Ensure ibc transfer from chainB to evmChainA is successful.
-				data, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
+				_, ackErr = transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
 				suite.Require().Nil(ackErr)
 
-				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, packet.GetDestPort(), packet.GetDestChannel())
-
+				// check that the tester contract received the full token amount
 				evmApp := suite.evmChainA.App.(*evmd.EVMD)
-				voucherCoin := evmApp.BankKeeper.GetBalance(ctxA, sdk.AccAddress(utils.Bech32StringFromHexAddress(contractAddr.String())), voucherDenom)
+				voucherCoin := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), sdk.AccAddress(utils.Bech32StringFromHexAddress(contractAddr.String())), voucherDenom)
 				suite.Require().Equal(sendAmt.String(), voucherCoin.Amount.String())
 
-				// Make sure token pair is registered
-				singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
 				suite.Require().NoError(err)
-				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(ctxA, singleTokenRepresentation.GetID())
+				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(suite.evmChainA.GetContext(), singleTokenRepresentation.GetID())
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(ctxA)
+				params := evmApp.Erc20Keeper.GetParams(suite.evmChainA.GetContext())
 				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
 			} else {
 				suite.Require().False(ack.Success())
@@ -336,7 +305,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 				receiver.String(),
 				"",
 			)
-			path := suite.pathBToA
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointB.ChannelConfig.PortID,
@@ -410,7 +379,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 
 	// Scenario: Native ERC20 token transfer from evmChainA to chainB
 	timeoutHeight := clienttypes.NewHeight(1, 110)
-	path := suite.pathAToB
+	path := suite.path
 	chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -441,8 +410,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	chainBNativeErc20Denom := transfertypes.NewDenom(
 		nativeErc20.Denom,
 		transfertypes.NewHop(
-			suite.pathAToB.EndpointB.ChannelConfig.PortID,
-			suite.pathAToB.EndpointB.ChannelID,
+			suite.path.EndpointB.ChannelConfig.PortID,
+			suite.path.EndpointB.ChannelID,
 		),
 	)
 	receiver := sender // the receiver is the sender on evmChainA
@@ -555,7 +524,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				"",
 			)
 
-			path := suite.pathAToB
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointA.ChannelConfig.PortID,
@@ -575,7 +544,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			sourceChan := suite.pathAToB.EndpointA.GetChannel()
+			sourceChan := suite.path.EndpointA.GetChannel()
 			onAck := func() error {
 				return transferStack.OnAcknowledgementPacket(
 					ctxA,
@@ -682,7 +651,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-			path := suite.pathAToB
+			path := suite.path
 			chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -825,7 +794,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				"",
 			)
 
-			path := suite.pathAToB
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointA.ChannelConfig.PortID,
@@ -844,7 +813,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			sourceChan := suite.pathAToB.EndpointA.GetChannel()
+			sourceChan := suite.path.EndpointA.GetChannel()
 			onTimeout := func() error {
 				return transferStack.OnTimeoutPacket(
 					ctxA,
@@ -931,7 +900,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketNativeErc20() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-			path := suite.pathAToB
+			path := suite.path
 			chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
