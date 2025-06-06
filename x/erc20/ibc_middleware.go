@@ -16,8 +16,10 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-var _ porttypes.IBCModule = &IBCMiddleware{}
-var _ porttypes.PacketDataUnmarshaler = &IBCMiddleware{}
+var (
+	_ porttypes.IBCModule             = &IBCMiddleware{}
+	_ porttypes.PacketDataUnmarshaler = &IBCMiddleware{}
+)
 
 // IBCMiddleware implements the ICS26 callbacks for the transfer middleware given
 // the erc20 keeper and the underlying application.

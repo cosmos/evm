@@ -3,19 +3,19 @@ package ibc
 import (
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/cosmos/evm/utils"
-	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
-	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
 	"math/big"
 	"testing"
 
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/testutil"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/x/erc20/types"
+	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
+	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
@@ -46,8 +46,8 @@ func (suite *MiddlewareTestSuite) SetupTest() {
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	//
 	//// Setup path for A->B
-	//suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
-	//suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
+	// suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
+	// suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
 	//suite.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
 	//suite.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
 	//suite.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
@@ -94,6 +94,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 			path := suite.path
 
 			ctxB := suite.chainB.GetContext()
+			evmCtx := suite.evmChainA.GetContext()
 			bondDenom, err := suite.chainB.GetSimApp().StakingKeeper.BondDenom(ctxB)
 			suite.Require().NoError(err)
 
@@ -147,7 +148,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				  "gas_limit": "%d",
 				  "calldata": "%x"
 				}
-        	}`, contractAddr, 10_000_000, packedBytes) //todo: temporarily high callback gas
+        	}`, contractAddr, 1_000_000, packedBytes) // todo: temporarily high callback gas
 
 			packetData.Memo = destCallback
 
@@ -170,12 +171,11 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			channel, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(evmCtx, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 			suite.Require().True(found)
-			fmt.Println(channel)
 
 			ack := transferStack.OnRecvPacket(
-				suite.evmChainA.GetContext(),
+				evmCtx,
 				sourceChan.Version,
 				packet,
 				suite.evmChainA.SenderAccount.GetAddress(),
@@ -190,15 +190,19 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 
 				// check that the tester contract received the full token amount
 				evmApp := suite.evmChainA.App.(*evmd.EVMD)
-				voucherCoin := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), sdk.AccAddress(utils.Bech32StringFromHexAddress(contractAddr.String())), voucherDenom)
+				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, contracts.ERC20MinterBurnerDecimalsContract.ABI, erc20Contract, contractAddr)
+				contractAccAddr, err := sdk.AccAddressFromHexUnsafe(contractAddr.String()[2:])
+				suite.Require().NoError(err)
+				voucherCoin := evmApp.BankKeeper.GetBalance(evmCtx, contractAccAddr, voucherDenom)
+				suite.Require().Equal(sendAmt.String(), balAfterUnescrow.String())
 				suite.Require().Equal(sendAmt.String(), voucherCoin.Amount.String())
 
 				suite.Require().NoError(err)
-				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(suite.evmChainA.GetContext(), singleTokenRepresentation.GetID())
+				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(evmCtx, singleTokenRepresentation.GetID())
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(suite.evmChainA.GetContext())
+				params := evmApp.Erc20Keeper.GetParams(evmCtx)
 				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
 			} else {
 				suite.Require().False(ack.Success())
@@ -214,7 +218,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 }
 
 //// TestNewIBCMiddleware verifies the middleware instantiation logic.
-//func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
+// func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
 //	testCases := []struct {
 //		name          string
 //		instantiateFn func()
@@ -411,7 +415,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 			suite.path.EndpointB.ChannelID,
 		),
 	)
-	//receiver := sender // the receiver is the sender on evmChainA
+	// receiver := sender // the receiver is the sender on evmChainA
 	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
 	// Note that ChainB didn't receive the native erc20 token. We just assume that.
 	packetData := transfertypes.NewFungibleTokenPacketData(
@@ -445,7 +449,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 				  "gas_limit": "%d",
 				  "calldata": "%x"
 				}
-        	}`, contractAddr, 10_000_000, packedBytes) //todo: temporarily high callback gas
+        	}`, contractAddr, 1_000_000, packedBytes)
 
 	packetData.Memo = destCallback
 
@@ -463,6 +467,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 	suite.Require().True(ok)
 
+	suite.evmChainA.NextBlock()
+
 	sourceChan := path.EndpointB.GetChannel()
 	ack := transferStack.OnRecvPacket(
 		evmCtx,
@@ -475,7 +481,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	// Check un-escrowed balance on evmChainA after receiving the packet.
 	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
-	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, contractAddr)
 	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
 	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
 	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")

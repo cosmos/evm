@@ -1,22 +1,22 @@
 package ibc
 
 import (
-	errorsmod "cosmossdk.io/errors"
 	"errors"
-	"fmt"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
+	errorsmod "cosmossdk.io/errors"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -66,9 +66,6 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain) *NativeErc20
 	nativeDenom := erc20types.CreateDenom(contractAddr.String())
 	sendAmt := ibctesting.DefaultCoinAmount
 	senderAcc := chain.SenderAccount.GetAddress()
-
-	account := evmApp.EVMKeeper.GetAccount(evmCtx, erc20types.ModuleAddress)
-	fmt.Println(account.Nonce)
 
 	_, err = evmApp.EVMKeeper.CallEVM(
 		evmCtx,
