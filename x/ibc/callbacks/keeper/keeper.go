@@ -36,6 +36,7 @@ type ContractKeeper struct {
 	packetDataUnmarshaler porttypes.PacketDataUnmarshaler
 }
 
+// todo: comments
 func NewKeeper(authKeeper types.AccountKeeper, evmKeeper types.EVMKeeper, erc20Keeper types.ERC20Keeper) ContractKeeper {
 	ck := ContractKeeper{
 		authKeeper:  authKeeper,
@@ -47,6 +48,7 @@ func NewKeeper(authKeeper types.AccountKeeper, evmKeeper types.EVMKeeper, erc20K
 }
 
 // SendPacket callback will not supported since the contract can run custom logic before send packet is called.
+// todo: comments
 func (k ContractKeeper) IBCSendPacketCallback(
 	cachedCtx sdk.Context,
 	sourcePort string,
@@ -61,6 +63,7 @@ func (k ContractKeeper) IBCSendPacketCallback(
 	return nil
 }
 
+// todo: comments
 func (k ContractKeeper) IBCReceivePacketCallback(
 	ctx sdk.Context,
 	packet ibcexported.PacketI,
@@ -81,34 +84,45 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return nil
 	}
 
+	// `ProcessCallback` in IBC-Go overrides the infinite gas meter with a basic gas meter,
+	// so we need to generate a new infinite gas meter to run the EVM executions on.
+	// Skipping this causes the EVM gas estimation function to deplete all Cosmos gas.
+	// We re-add the actual EVM call gas used to the original context after the call is complete
+	// with the gas retrieved from the EVM message result.
 	cachedCtx := evmante.BuildEvmExecutionCtx(ctx).
 		WithGasMeter(types2.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
 
-	// can only call callback if the receiver is the isolated address for the packet sender on this chain
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
 	receiverHex, err := utils.HexAddressFromBech32String(receiver.String())
 	if err != nil {
 		return errorsmod.Wrapf(err, "address conversion failed for receiver address: %s", receiver)
 	}
 
+	// Generate secure isolated address from sender.
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
 	isolatedAddrHex := common.BytesToAddress(isolatedAddr.Bytes())
 
 	acc := k.authKeeper.NewAccountWithAddress(cachedCtx, receiver)
 	k.authKeeper.SetAccount(cachedCtx, acc)
 
+	// Ensure receiver address is equal to the isolated address.
 	if receiverHex.Cmp(isolatedAddrHex) != 0 {
 		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "expected %s, got %s", isolatedAddrHex.String(), receiverHex.String())
 	}
 
 	contractAddr := common.HexToAddress(contractAddress)
 	contractAccount := k.evmKeeper.GetAccountOrEmpty(cachedCtx, contractAddr)
-	// this check is required because if there is no code, the call will still pass on the EVM side, but it will ignore the calldata
-	// and funds may get stuck
+
+	// Check if the contract address contains code.
+	// This check is required because if there is no code, the call will still pass on the EVM side,
+	// but it will ignore the calldata and funds may get stuck.
 	if !contractAccount.IsContract() {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
+	// Check if the token pair exists and get the ERC20 contract address
+	// for the native ERC20 or the precompile.
+	// This call fails if the token does not exist or is not registered.
 	token := transfertypes.Token{
 		Denom:  data.Token.Denom,
 		Amount: data.Token.Amount,
@@ -127,13 +141,14 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract
 
-	remainingGas := math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt()
-
-	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, remainingGas, "approve", contractAddr, amountInt.BigInt())
+	// Call the EVM with the remaining gas as the maximum gas limit.
+	// Up to now, the remaining gas is equal to the callback gas limit set by the user.
+	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "approve", contractAddr, amountInt.BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance: %v", err)
 	}
 
+	// Consume the actual used gas on the original callback context.
 	ctx.GasMeter().ConsumeGas(res.GasUsed, "callback allowance")
 
 	var allowance *big.Int
@@ -151,9 +166,15 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
 
+	// Consume the actual gas used on the original callback context.
 	ctx.GasMeter().ConsumeGas(res.GasUsed, "callback function")
 
-	contractTokenBalance := k.erc20Keeper.BalanceOf(ctx, erc20.ABI, tokenPair.GetERC20Contract(), contractAddr)
+	// Check that the contract has received all the tokens.
+	// NOTE: contracts must implement an IERC20(token).transferFrom(msg.sender, address(this), amount)
+	// for the total amount, or the callback will fail.
+	// This check is here to prevent funds from getting stuck in the isolated address,
+	// since they would become irretrievable.
+	contractTokenBalance := k.erc20Keeper.BalanceOf(ctx, erc20.ABI, tokenPair.GetERC20Contract(), contractAddr) // here, we can use the original ctx and skip manually adding the gas
 	if contractTokenBalance.Cmp(amountInt.BigInt()) != 0 {
 		return errorsmod.Wrapf(erc20types.ErrEVMCall, "contract balance %d does not equal sent amount %d", contractTokenBalance, amountInt.BigInt())
 	}
@@ -161,6 +182,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	return nil
 }
 
+// todo: comments and gas calculation
 func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	cachedCtx sdk.Context,
 	packet channeltypes.Packet,
@@ -211,6 +233,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	return nil
 }
 
+// todo: comments and gas calculation
 func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	cachedCtx sdk.Context,
 	packet channeltypes.Packet,

@@ -3,10 +3,6 @@ package ibc
 import (
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/ibc"
-	"github.com/cosmos/evm/x/erc20"
-	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
-	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	"math/big"
 	"testing"
 
@@ -14,12 +10,16 @@ import (
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
+	"github.com/cosmos/evm/x/erc20"
+	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
 	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
+	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
@@ -48,16 +48,8 @@ func (suite *MiddlewareTestSuite) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
-	//
-	//// Setup path for A->B
-	// suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
-	// suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	//suite.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-	//suite.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
-	//suite.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
-	//suite.pathAToB.Setup()
 
-	// Setup path for B->A
+	// Setup path
 	suite.path = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
 	suite.path.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
 	suite.path.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
@@ -65,6 +57,7 @@ func (suite *MiddlewareTestSuite) SetupTest() {
 	suite.path.EndpointB.ChannelConfig.Version = transfertypes.V1
 	suite.path.Setup()
 
+	// ensure the channel is found to verify proper setup
 	_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), suite.path.EndpointA.ChannelConfig.PortID, suite.path.EndpointA.ChannelID)
 	suite.Require().True(found)
 }
@@ -83,10 +76,11 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 		memo     func() string
 		expError string
 	}{
+		// todo: more cases
 		{
 			name:     "pass - callback to function",
 			malleate: nil,
-			memo: func() string {
+			memo: func() string { // todo: actually malleate the memo
 				return ""
 			},
 			expError: "",
