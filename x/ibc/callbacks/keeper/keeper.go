@@ -1,8 +1,11 @@
 package keeper
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
+	"fmt"
+	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/ibc"
 	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
@@ -12,9 +15,8 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -82,10 +84,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	}
 
 	isolatedAddr := types.GenerateIsolatedAddress(packet.GetDestChannel(), data.Sender)
-	isolatedAddrHex, err := utils.HexAddressFromBech32String(isolatedAddr.String())
-	if err != nil {
-		return errorsmod.Wrapf(err, "address conversion failed for isolated address: %s", isolatedAddr)
-	}
+	isolatedAddrHex := common.BytesToAddress(isolatedAddr.Bytes())
 
 	acc := k.authKeeper.NewAccountWithAddress(cachedCtx, receiver)
 	k.authKeeper.SetAccount(cachedCtx, acc)
@@ -102,7 +101,9 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
-	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, data.Token.Denom.IBCDenom())
+	coin := ibc.GetReceivedCoin(packet.(channeltypes.Packet), data.Token)
+
+	tokenPairID := k.erc20Keeper.GetTokenPairID(cachedCtx, coin.Denom)
 	tokenPair, found := k.erc20Keeper.GetTokenPair(cachedCtx, tokenPairID)
 	if !found {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
@@ -112,13 +113,29 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "amount overflow")
 	}
 
-	err = k.erc20Keeper.SetAllowance(cachedCtx, tokenPair.GetERC20Contract(), isolatedAddrHex, contractAddr, amountInt.BigInt())
+	erc20 := contracts.ERC20MinterBurnerDecimalsContract
+
+	receiverBalance := k.erc20Keeper.BalanceOf(cachedCtx, erc20.ABI, tokenPair.GetERC20Contract(), receiverHex)
+	fmt.Println(receiverBalance.String())
+
+	// todo: using temporarily high callback gas for testing
+	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, nil, "approve", contractAddr, amountInt.BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance: %v", err)
 	}
 
-	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt())
+	var allowance *big.Int
+	err = erc20.ABI.UnpackIntoInterface(&allowance, "allowance", res.Ret)
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to unpack allowance: %v", err)
+	}
+
+	if allowance.Cmp(amountInt.BigInt()) != 0 {
+		return errorsmod.Wrapf(types.ErrCallbackFailed, "allowance %d does not equal received amount %d", allowance, amountInt.BigInt())
+	}
+
+	// todo: using temporarily high callback gas for testing
+	_, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, nil)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
@@ -167,8 +184,9 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	// TODO: Do something with the response
 	// Call the onPacketAcknowledgement function in the contract
-	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketAcknowledgement", nil,
+	res, err := k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, nil, "onPacketAcknowledgement",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
+	fmt.Println(res.Hash)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
@@ -215,7 +233,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	}
 
 	// TODO: Do something with the response
-	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, "onPacketTimeout", math.NewIntFromUint64(cbData.CommitGasLimit).BigInt(),
+	_, err = k.evmKeeper.CallEVM(cachedCtx, *abi, sender, contractAddr, true, nil, "onPacketTimeout",
 		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())

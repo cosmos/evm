@@ -3,6 +3,7 @@ package ibc
 import (
 	errorsmod "cosmossdk.io/errors"
 	"errors"
+	"fmt"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
@@ -66,14 +67,17 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain) *NativeErc20
 	sendAmt := ibctesting.DefaultCoinAmount
 	senderAcc := chain.SenderAccount.GetAddress()
 
+	account := evmApp.EVMKeeper.GetAccount(evmCtx, erc20types.ModuleAddress)
+	fmt.Println(account.Nonce)
+
 	_, err = evmApp.EVMKeeper.CallEVM(
 		evmCtx,
 		contractAbi,
 		erc20types.ModuleAddress,
 		contractAddr,
 		true,
-		"mint",
 		nil,
+		"mint",
 		common.BytesToAddress(senderAcc),
 		big.NewInt(sendAmt.Int64()),
 	)
