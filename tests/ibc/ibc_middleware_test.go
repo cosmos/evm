@@ -379,15 +379,15 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				suite.evmChainA.SenderAccount.GetAddress(),
 			)
 
+			// Validate successful callback
+			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
+			suite.Require().NoError(err)
+			erc20Contract := singleTokenRepresentation.GetERC20Contract()
+
 			// Validate results
 			if tc.expError == "" {
 				suite.Require().True(ack.Success(), "Expected success but got failure")
-
-				// Validate successful callback
-				evmApp := suite.evmChainA.App.(*evmd.EVMD)
-				singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
-				suite.Require().NoError(err)
-				erc20Contract := singleTokenRepresentation.GetERC20Contract()
 
 				balAfterCallback := evmApp.Erc20Keeper.BalanceOf(evmCtx, contracts.ERC20MinterBurnerDecimalsContract.ABI, erc20Contract, contractAddr)
 				suite.Require().Equal(sendAmt.String(), balAfterCallback.String())
@@ -400,6 +400,9 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
 			} else {
 				suite.Require().False(ack.Success(), "Expected failure but got success")
+
+				balAfterCallback := evmApp.Erc20Keeper.BalanceOf(evmCtx, contracts.ERC20MinterBurnerDecimalsContract.ABI, erc20Contract, contractAddr)
+				suite.Require().Equal("0", balAfterCallback.String())
 
 				ackObj, ok := ack.(channeltypes.Acknowledgement)
 				suite.Require().True(ok)

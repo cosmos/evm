@@ -59,7 +59,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			cbtypes.ErrInvalidCallbackData,
+			types.ErrContractHasNoCode,
 		},
 	}
 
