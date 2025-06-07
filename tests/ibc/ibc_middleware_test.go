@@ -3,15 +3,14 @@ package ibc
 import (
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/contracts"
-	types3 "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
 	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
+	types3 "github.com/cosmos/evm/x/vm/types"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -1075,25 +1075,24 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after refund")
 					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded")
 				}
-			} else {
+			} else if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
 				// For ack failures, verify that counter was NOT incremented
-				if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
-					counterRes, err := evmApp.EVMKeeper.CallEVM(
-						ctxA,
-						contractData.ABI,
-						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
-						contractAddr,
-						false,
-						big.NewInt(100000),
-						"getCounter",
-					)
-					// Counter should remain 0 if callback failed
+
+				counterRes, err := evmApp.EVMKeeper.CallEVM(
+					ctxA,
+					contractData.ABI,
+					common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
+					contractAddr,
+					false,
+					big.NewInt(100000),
+					"getCounter",
+				)
+				// Counter should remain 0 if callback failed
+				if err == nil {
+					var counter *big.Int
+					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
 					if err == nil {
-						var counter *big.Int
-						err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
-						if err == nil {
-							suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should not be incremented on callback failure")
-						}
+						suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should not be incremented on callback failure")
 					}
 				}
 			}
