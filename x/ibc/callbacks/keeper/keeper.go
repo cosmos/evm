@@ -133,7 +133,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
 	receiverHex, err := utils.HexAddressFromBech32String(receiver.String())
 	if err != nil {
-		return errorsmod.Wrapf(err, "address conversion failed for receiver address: %s", receiver)
+		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "address conversion failed for receiver address: %s", receiver)
 	}
 
 	// Generate secure isolated address from sender.
@@ -155,7 +155,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// This check is required because if there is no code, the call will still pass on the EVM side,
 	// but it will ignore the calldata and funds may get stuck.
 	if !contractAccount.IsContract() {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
+		return errorsmod.Wrapf(types.ErrContractHasNoCode, "provided contract address is not a contract: %s", contractAddr)
 	}
 
 	// Check if the token pair exists and get the ERC20 contract address
@@ -170,11 +170,11 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	tokenPairID := k.erc20Keeper.GetTokenPairID(ctx, coin.Denom)
 	tokenPair, found := k.erc20Keeper.GetTokenPair(ctx, tokenPairID)
 	if !found {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
+		return errorsmod.Wrapf(types.ErrTokenPairNotFound, "token pair for denom %s not found", data.Token.Denom.IBCDenom())
 	}
 	amountInt, ok := math.NewIntFromString(data.Token.Amount)
 	if !ok {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "amount overflow")
+		return errorsmod.Wrapf(types.ErrNumberOverflow, "amount overflow")
 	}
 
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract
@@ -186,37 +186,40 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// NOTE: use the cached ctx for the EVM calls.
 	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, remainingGas, "approve", contractAddr, amountInt.BigInt())
 	if err != nil {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance: %v", err)
+		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to set allowance: %v", err)
 	}
 
 	// Consume the actual used gas on the original callback context.
 	ctx.GasMeter().ConsumeGas(res.GasUsed, "callback allowance")
 	remainingGas = remainingGas.Sub(remainingGas, math.NewIntFromUint64(res.GasUsed).BigInt())
 	if ctx.GasMeter().IsOutOfGas() || remainingGas.Cmp(big.NewInt(0)) < 0 {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "out of gas")
+		return errorsmod.Wrapf(types.ErrOutOfGas, "out of gas")
 	}
 
 	var allowance *big.Int
 	err = erc20.ABI.UnpackIntoInterface(&allowance, "allowance", res.Ret)
 	if err != nil {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to unpack allowance: %v", err)
+		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to unpack allowance: %v", err)
 	}
 
 	if allowance.Cmp(big.NewInt(1)) != 0 {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "failed to set allowance")
+		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to set allowance")
 	}
 
 	// NOTE: use the cached ctx for the EVM calls.
 	res, err = k.evmKeeper.CallEVMWithData(cachedCtx, receiverHex, &contractAddr, cbData.Calldata, true, remainingGas)
 	if err != nil {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
+		return errorsmod.Wrapf(types.ErrEVMCallFailed, "EVM returned error: %s", err.Error())
 	}
 
 	// Consume the actual gas used on the original callback context.
 	ctx.GasMeter().ConsumeGas(res.GasUsed, "callback function")
 	if ctx.GasMeter().IsOutOfGas() {
-		return errorsmod.Wrapf(types.ErrCallbackFailed, "out of gas")
+		return errorsmod.Wrapf(types.ErrOutOfGas, "out of gas")
 	}
+
+	// Write cachedCtx events back to ctx.
+	writeFn()
 
 	// Check that the contract has received all the tokens.
 	// NOTE: contracts must implement an IERC20(token).transferFrom(msg.sender, address(this), amount)
@@ -227,9 +230,6 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	if contractTokenBalance.Cmp(amountInt.BigInt()) != 0 {
 		return errorsmod.Wrapf(erc20types.ErrEVMCall, "contract balance %d does not equal sent amount %d", contractTokenBalance, amountInt.BigInt())
 	}
-
-	// Write cachedCtx events back to ctx.
-	writeFn()
 
 	return nil
 }
@@ -350,13 +350,13 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 //
 // Returns:
 //   - error: Returns nil on success, or an error if any step fails including:
-//     * Packet data unmarshaling errors
-//     * Invalid callback data or unexpected calldata presence
-//     * Address parsing failures
-//     * Contract validation failures (non-existent or no code)
-//     * ABI loading errors
-//     * EVM execution errors
-//     * Gas limit exceeded errors
+//   - Packet data unmarshaling errors
+//   - Invalid callback data or unexpected calldata presence
+//   - Address parsing failures
+//   - Contract validation failures (non-existent or no code)
+//   - ABI loading errors
+//   - EVM execution errors
+//   - Gas limit exceeded errors
 //
 // Contract Requirements:
 //   - Must implement onPacketTimeout(string calldata sourceChannel, string calldata sourcePort,

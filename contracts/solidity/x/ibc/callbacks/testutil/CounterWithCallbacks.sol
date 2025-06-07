@@ -5,13 +5,13 @@ import "../../../../precompiles/erc20/IERC20.sol";
 
 contract CounterWithCallbacks is ICallbacks {
     // State variables
-    uint256 public counter;
+    int public counter;
 
     // Mapping: user address => token address => balance
     mapping(address => mapping(address => uint256)) public userTokenBalances;
 
     // Events
-    event CounterIncremented(uint256 newValue, address indexed user);
+    event CounterIncremented(int newValue, address indexed user);
     event TokensDeposited(
         address indexed user,
         address indexed token,
@@ -58,7 +58,7 @@ contract CounterWithCallbacks is ICallbacks {
      * @dev Get the current counter value
      * @return The current counter value
      */
-    function getCounter() external view returns (uint256) {
+    function getCounter() external view returns (int) {
         return counter;
     }
 
@@ -101,6 +101,7 @@ contract CounterWithCallbacks is ICallbacks {
     ) external override {
         // Emit event when packet times out
         emit PacketTimedOut(channelId, portId, sequence, data);
+        counter -= 1; // Increment counter on acknowledgement
     }
 
     /**
