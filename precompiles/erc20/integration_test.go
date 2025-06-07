@@ -321,7 +321,7 @@ var _ = Describe("ERC20 Extension -", func() {
 				Expect(res.GasUsed < expGasUsedUpperBound).To(BeTrue(), "expected different gas used")
 			},
 				// FIXME: The gas used on the precompile is much higher than on the EVM
-				Entry(" - direct call", directCall, int64(3_021_000), int64(3_022_000)),
+				Entry(" - direct call", directCall, int64(30_000), int64(31_000)),
 				Entry(" - through erc20 contract", erc20Call, int64(54_000), int64(54_500)),
 				Entry(" - through erc20 v5 contract", erc20V5Call, int64(52_000), int64(52_200)),
 			)

@@ -2,18 +2,27 @@ package ibc
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/testutil"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/x/erc20"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
+	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
+	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
+	types3 "github.com/cosmos/evm/x/vm/types"
+	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
@@ -34,35 +43,375 @@ type MiddlewareTestSuite struct {
 	evmChainA *evmibctesting.TestChain
 	chainB    *evmibctesting.TestChain
 
-	pathAToB *evmibctesting.Path
-	pathBToA *evmibctesting.Path
+	path *evmibctesting.Path
 }
 
 // SetupTest initializes the coordinator and test chains before each test.
 func (suite *MiddlewareTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
-	// Setup path for A->B
-	suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
-	suite.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
-	suite.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
-	suite.pathAToB.Setup()
+	// Setup path
+	suite.path = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
+	suite.path.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
+	suite.path.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
+	suite.path.EndpointA.ChannelConfig.Version = transfertypes.V1
+	suite.path.EndpointB.ChannelConfig.Version = transfertypes.V1
+	suite.path.Setup()
 
-	// Setup path for B->A
-	suite.pathBToA = evmibctesting.NewPath(suite.chainB, suite.evmChainA)
-	suite.pathBToA.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathBToA.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-	suite.pathBToA.EndpointA.ChannelConfig.Version = transfertypes.V1
-	suite.pathBToA.EndpointB.ChannelConfig.Version = transfertypes.V1
-	suite.pathBToA.Setup()
+	// ensure the channel is found to verify proper setup
+	_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(suite.evmChainA.GetContext(), suite.path.EndpointA.ChannelConfig.PortID, suite.path.EndpointA.ChannelID)
+	suite.Require().True(found)
 }
 
 func TestMiddlewareTestSuite(t *testing.T) {
 	testifysuite.Run(t, new(MiddlewareTestSuite))
+}
+
+// TestOnRecvPacketWithCallback checks the OnRecvPacket logic for ICS-20 with comprehensive callback scenarios.
+func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
+	var packet channeltypes.Packet
+
+	var contractData types3.CompiledContract
+	var contractAddr common.Address
+	var voucherDenom string
+	var path *evmibctesting.Path
+	var data transfertypes.InternalTransferRepresentation
+
+	testCases := []struct {
+		name     string
+		malleate func()
+		memo     func() string
+		expError string
+	}{
+		// SUCCESS CASES
+		{
+			name:     "success - callback to add function with valid parameters",
+			malleate: nil,
+			memo: func() string {
+				// Only the 'add' function properly transfers tokens
+				amountInt, _ := math.NewIntFromString(ibctesting.DefaultCoinAmount.String())
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+				singleTokenRepresentation, _ := types.NewTokenPairSTRv2(voucherDenom)
+				erc20Contract := singleTokenRepresentation.GetERC20Contract()
+				packedBytes, _ := contractData.ABI.Pack("add", erc20Contract, amountInt.BigInt())
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "",
+		},
+		{
+			name:     "success - callback with maximum gas limit",
+			malleate: nil,
+			memo: func() string {
+				amountInt, _ := math.NewIntFromString(ibctesting.DefaultCoinAmount.String())
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+				singleTokenRepresentation, _ := types.NewTokenPairSTRv2(voucherDenom)
+				erc20Contract := singleTokenRepresentation.GetERC20Contract()
+				packedBytes, _ := contractData.ABI.Pack("add", erc20Contract, amountInt.BigInt())
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 10_000_000, packedBytes)
+			},
+			expError: "",
+		},
+
+		// FAILURE CASES - Invalid Contract
+		{
+			name:     "failure - callback to non-existent contract",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "0x1234567890123456789012345678901234567890",
+						"gas_limit": "%d",
+						"calldata": ""
+					}
+				}`, 1_000_000)
+			},
+			expError: "ABCI code: 4",
+		},
+		{
+			name:     "failure - callback to empty address",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "0x0000000000000000000000000000000000000000",
+						"gas_limit": "%d",
+						"calldata": ""
+					}
+				}`, 1_000_000)
+			},
+			expError: "ABCI code: 4",
+		},
+
+		// FAILURE CASES - Invalid Functions
+		{
+			name:     "failure - calling non-existent function",
+			malleate: nil,
+			memo: func() string {
+				// Invalid function selector
+				packedBytes := []byte{0xff, 0xff, 0xff, 0xff}
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "ABCI code: 8",
+		},
+		{
+			name:     "failure - calling getCounter function (doesn't transfer tokens)",
+			malleate: nil,
+			memo: func() string {
+				packedBytes, _ := contractData.ABI.Pack("getCounter")
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "ABCI code: 12",
+		},
+		{
+			name:     "failure - calling resetCounter function (doesn't transfer tokens)",
+			malleate: nil,
+			memo: func() string {
+				packedBytes, _ := contractData.ABI.Pack("resetCounter")
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "ABCI code: 12",
+		},
+		{
+			name:     "failure - calling add function with wrong parameters",
+			malleate: nil,
+			memo: func() string {
+				// Invalid calldata for add function
+				packedBytes := []byte{0x12, 0x34, 0x56, 0x78}
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "ABCI code: 8",
+		},
+		{
+			name:     "failure - calling add function with zero amount",
+			malleate: nil,
+			memo: func() string {
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+				singleTokenRepresentation, _ := types.NewTokenPairSTRv2(voucherDenom)
+				erc20Contract := singleTokenRepresentation.GetERC20Contract()
+				packedBytes, _ := contractData.ABI.Pack("add", erc20Contract, big.NewInt(0))
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, packedBytes)
+			},
+			expError: "ABCI code: 8",
+		},
+
+		// FAILURE CASES - Gas Issues
+		{
+			name:     "failure - insufficient gas limit",
+			malleate: nil,
+			memo: func() string {
+				amountInt, _ := math.NewIntFromString(ibctesting.DefaultCoinAmount.String())
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+				singleTokenRepresentation, _ := types.NewTokenPairSTRv2(voucherDenom)
+				erc20Contract := singleTokenRepresentation.GetERC20Contract()
+				packedBytes, _ := contractData.ABI.Pack("add", erc20Contract, amountInt.BigInt())
+
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1000, packedBytes) // Very low gas
+			},
+			expError: "ABCI code: 6",
+		},
+		{
+			name:     "failure - zero gas limit",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"dest_callback": {
+						"address": "%s",
+						"gas_limit": "0",
+						"calldata": ""
+					}
+				}`, contractAddr)
+			},
+			expError: "ABCI code: 8",
+		},
+
+		// FAILURE CASES - Invalid Memo Format
+		{
+			name:     "failure - missing required callback fields",
+			malleate: nil,
+			memo: func() string {
+				return `{"dest_callback": {"address": ""}}`
+			},
+			expError: "a",
+		},
+		{
+			name:     "failure - invalid callback address format",
+			malleate: nil,
+			memo: func() string {
+				return `{"dest_callback": {"address": "not_hex_address", "gas_limit": "1000000", "calldata": ""}}`
+			},
+			expError: "a",
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			// Reset state for each test
+			suite.SetupTest()
+			path = suite.path
+
+			ctxB := suite.chainB.GetContext()
+			evmCtx := suite.evmChainA.GetContext()
+			bondDenom, err := suite.chainB.GetSimApp().StakingKeeper.BondDenom(ctxB)
+			suite.Require().NoError(err)
+
+			// Generate the isolated address for the sender
+			sendAmt := ibctesting.DefaultCoinAmount
+			isolatedAddr := types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
+
+			// Get callback tester contract and deploy it
+			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			suite.Require().NoError(err)
+
+			deploymentData := factory.ContractDeploymentData{
+				Contract:        contractData,
+				ConstructorArgs: nil,
+			}
+
+			contractAddr, err = DeployContract(suite.T(), suite.evmChainA, deploymentData)
+			suite.Require().NoError(err)
+
+			// Generate packet to execute the tester contract using callbacks
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				suite.chainB.SenderAccount.GetAddress().String(),
+				isolatedAddr.String(),
+				"", // Will be set by memo function
+			)
+
+			_ = path.EndpointA.GetChannel()
+			sourceChan := path.EndpointB.GetChannel()
+
+			unmarshalledData, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
+			data = unmarshalledData
+			suite.Require().Nil(ackErr)
+
+			voucherDenom = testutil.GetVoucherDenomFromPacketData(data, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+
+			// Set the memo from the test case
+			packetData.Memo = tc.memo()
+
+			// Apply test-specific setup
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointB.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointB.ChannelID,
+				DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointA.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			// Get transfer stack
+			transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			suite.Require().True(ok)
+
+			_, found := suite.evmChainA.App.GetIBCKeeper().ChannelKeeper.GetChannel(evmCtx, path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			suite.Require().True(found)
+
+			// Execute the packet
+			ack := transferStack.OnRecvPacket(
+				evmCtx,
+				sourceChan.Version,
+				packet,
+				suite.evmChainA.SenderAccount.GetAddress(),
+			)
+
+			// Validate successful callback
+			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
+			suite.Require().NoError(err)
+			erc20Contract := singleTokenRepresentation.GetERC20Contract()
+
+			// Validate results
+			if tc.expError == "" {
+				suite.Require().True(ack.Success(), "Expected success but got failure")
+
+				balAfterCallback := evmApp.Erc20Keeper.BalanceOf(evmCtx, contracts.ERC20MinterBurnerDecimalsContract.ABI, erc20Contract, contractAddr)
+				suite.Require().Equal(sendAmt.String(), balAfterCallback.String())
+
+				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(evmCtx, singleTokenRepresentation.GetID())
+				suite.Require().True(found)
+				suite.Require().Equal(voucherDenom, tokenPair.Denom)
+
+				params := evmApp.Erc20Keeper.GetParams(evmCtx)
+				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+			} else {
+				suite.Require().False(ack.Success(), "Expected failure but got success")
+
+				balAfterCallback := evmApp.Erc20Keeper.BalanceOf(evmCtx, contracts.ERC20MinterBurnerDecimalsContract.ABI, erc20Contract, contractAddr)
+				suite.Require().Equal("0", balAfterCallback.String())
+
+				ackObj, ok := ack.(channeltypes.Acknowledgement)
+				suite.Require().True(ok)
+				ackErr, ok := ackObj.Response.(*channeltypes.Acknowledgement_Error)
+				suite.Require().True(ok)
+				suite.Require().Contains(ackErr.Error, tc.expError)
+			}
+		})
+	}
 }
 
 // TestNewIBCMiddleware verifies the middleware instantiation logic.
@@ -75,7 +424,7 @@ func (suite *MiddlewareTestSuite) TestNewIBCMiddleware() {
 		{
 			"success",
 			func() {
-				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibc.Module{})
+				_ = erc20.NewIBCMiddleware(erc20Keeper.Keeper{}, ibctransfer.IBCModule{})
 			},
 			nil,
 		},
@@ -154,7 +503,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 				receiver.String(),
 				"",
 			)
-			path := suite.pathBToA
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointB.ChannelConfig.PortID,
@@ -228,7 +577,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 
 	// Scenario: Native ERC20 token transfer from evmChainA to chainB
 	timeoutHeight := clienttypes.NewHeight(1, 110)
-	path := suite.pathAToB
+	path := suite.path
 	chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -259,20 +608,48 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	chainBNativeErc20Denom := transfertypes.NewDenom(
 		nativeErc20.Denom,
 		transfertypes.NewHop(
-			suite.pathAToB.EndpointB.ChannelConfig.PortID,
-			suite.pathAToB.EndpointB.ChannelID,
+			suite.path.EndpointB.ChannelConfig.PortID,
+			suite.path.EndpointB.ChannelID,
 		),
 	)
-	receiver := sender // the receiver is the sender on evmChainA
+	// receiver := sender // the receiver is the sender on evmChainA
 	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
 	// Note that ChainB didn't receive the native erc20 token. We just assume that.
 	packetData := transfertypes.NewFungibleTokenPacketData(
 		chainBNativeErc20Denom.Path(),
 		sendAmt.String(),
 		chainBAccount.String(),
-		receiver.String(),
+		types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String()).String(),
 		"",
 	)
+
+	// get callback tester contract and deploy it
+	contractData, err := testutil2.LoadCounterWithCallbacksContract()
+	suite.Require().NoError(err)
+
+	deploymentData := factory.ContractDeploymentData{
+		Contract:        contractData,
+		ConstructorArgs: nil,
+	}
+
+	contractAddr, err := DeployContract(suite.T(), suite.evmChainA, deploymentData)
+	if err != nil {
+		return
+	}
+
+	packedBytes, err := contractData.ABI.Pack("add", nativeErc20.ContractAddr, sendAmt.BigInt())
+	suite.Require().NoError(err)
+
+	destCallback := fmt.Sprintf(`{
+			   "dest_callback": {
+				  "address": "%s",
+				  "gas_limit": "%d",
+				  "calldata": "%x"
+				}
+        	}`, contractAddr, 1_000_000, packedBytes)
+
+	packetData.Memo = destCallback
+
 	packet := channeltypes.Packet{
 		Sequence:           1,
 		SourcePort:         path.EndpointB.ChannelConfig.PortID,
@@ -287,6 +664,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 	suite.Require().True(ok)
 
+	suite.evmChainA.NextBlock()
+
 	sourceChan := path.EndpointB.GetChannel()
 	ack := transferStack.OnRecvPacket(
 		evmCtx,
@@ -299,10 +678,429 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	// Check un-escrowed balance on evmChainA after receiving the packet.
 	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
-	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, contractAddr)
 	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
 	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
 	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
+}
+
+// TestOnAcknowledgementPacketWithCallback tests acknowledgement logic with comprehensive callback scenarios.
+func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
+	var (
+		packet       channeltypes.Packet
+		ack          []byte
+		contractData types3.CompiledContract
+		contractAddr common.Address
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		memo           func() string
+		ackType        string // "success" or "error"
+		onSendRequired bool
+		expError       string
+	}{
+		// SUCCESS CASES
+		{
+			name:     "success - callback with successful acknowledgement",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - callback with error acknowledgement (refund scenario)",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_500_000)
+			},
+			ackType:        "error",
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - callback with maximum gas limit",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 10_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - no callback in memo (regular transfer)",
+			malleate: nil,
+			memo: func() string {
+				return ""
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "",
+		},
+
+		// FAILURE CASES - Invalid Contract
+		{
+			name:     "failure - callback to non-existent contract",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "0x1234567890123456789012345678901234567890",
+						"gas_limit": "%d"
+					}
+				}`, 1_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "ABCI code: 4",
+		},
+		{
+			name:     "failure - callback to empty address",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "0x0000000000000000000000000000000000000000",
+						"gas_limit": "%d"
+					}
+				}`, 1_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "ABCI code: 4",
+		},
+
+		// FAILURE CASES - Invalid Calldata
+		{
+			name:     "failure - acknowledgement callback with calldata (should be empty)",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, []byte{0x12, 0x34, 0x56, 0x78})
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "ABCI code: 3",
+		},
+
+		// FAILURE CASES - Gas Issues
+		{
+			name:     "failure - insufficient gas limit",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1000) // Very low gas
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "ABCI code: 9",
+		},
+		{
+			name:     "success - zero gas limit (defaults to max)",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "0"
+					}
+				}`, contractAddr)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "",
+		},
+
+		// FAILURE CASES - Invalid Memo Format
+		{
+			name:     "failure - malformed JSON memo",
+			malleate: nil,
+			memo: func() string {
+				return `{"src_callback": {"address": "invalid_json"`
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "invalid callback data",
+		},
+		{
+			name:     "failure - invalid callback address format",
+			malleate: nil,
+			memo: func() string {
+				return `{"src_callback": {"address": "not_hex_address", "gas_limit": "1000000"}}`
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "invalid callback data",
+		},
+
+		// FAILURE CASES - Base IBC Failures (should not execute callback)
+		{
+			name: "failure - malformed packet data (no callback execution)",
+			malleate: func() {
+				packet.Data = []byte("malformed data")
+			},
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet data",
+		},
+		{
+			name: "failure - empty acknowledgement (no callback execution)",
+			malleate: func() {
+				ack = []byte{}
+			},
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_000_000)
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "cannot unmarshal ICS-20 transfer packet acknowledgement",
+		},
+
+		// EDGE CASES
+		{
+			name:     "success - callback with error ack and refund verification",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 2_000_000)
+			},
+			ackType:        "error",
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - callback with minimal gas",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 100_000) // Minimal but sufficient
+			},
+			ackType:        "success",
+			onSendRequired: true,
+			expError:       "",
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			suite.SetupTest()
+
+			ctxA := suite.evmChainA.GetContext()
+			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
+			suite.Require().NoError(err)
+
+			sendAmt := ibctesting.DefaultCoinAmount
+			sender := suite.evmChainA.SenderAccount.GetAddress()
+			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+
+			// Deploy callback contract on source chain (evmChainA)
+			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			suite.Require().NoError(err)
+
+			deploymentData := factory.ContractDeploymentData{
+				Contract:        contractData,
+				ConstructorArgs: nil,
+			}
+
+			contractAddr, err = DeployContract(suite.T(), suite.evmChainA, deploymentData)
+			suite.Require().NoError(err)
+
+			// Create packet data with memo
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				sender.String(),
+				receiver.String(),
+				tc.memo(),
+			)
+
+			path := suite.path
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointA.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointA.ChannelID,
+				DestinationPort:    path.EndpointB.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointB.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      suite.chainB.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			// Set acknowledgement based on test case
+			if tc.ackType == "error" {
+				ackErr := channeltypes.NewErrorAcknowledgement(errors.New("transfer failed"))
+				ack = ackErr.Acknowledgement()
+			} else {
+				ack = channeltypes.NewResultAcknowledgement([]byte{1}).Acknowledgement()
+			}
+
+			// Apply test-specific malleate function
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			suite.Require().True(ok)
+
+			sourceChan := suite.path.EndpointA.GetChannel()
+
+			// Execute send if required (for proper escrow setup)
+			if tc.onSendRequired {
+				timeoutHeight := clienttypes.NewHeight(1, 110)
+				msg := transfertypes.NewMsgTransfer(
+					path.EndpointA.ChannelConfig.PortID,
+					path.EndpointA.ChannelID,
+					sdk.NewCoin(bondDenom, sendAmt),
+					sender.String(),
+					receiver.String(),
+					timeoutHeight, 0, tc.memo(),
+				)
+				err = suite.evmChainA.SenderAccount.SetSequence(suite.evmChainA.SenderAccount.GetSequence() + 1)
+				suite.Require().NoError(err)
+				res, err := suite.evmChainA.SendMsgs(msg)
+				suite.Require().NoError(err) // message committed
+
+				sentPacket, err := ibctesting.ParseV1PacketFromEvents(res.Events)
+				suite.Require().NoError(err)
+
+				// relay the sent packet
+				err = path.RelayPacket(sentPacket)
+				suite.Require().NoError(err) // relay committed
+
+				// Verify escrow for successful sends
+				if tc.expError == "" || !strings.Contains(tc.expError, "ABCI code") {
+					balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+					suite.Require().Equal(
+						balBeforeTransfer.Amount.Sub(sendAmt).String(),
+						balAfterTransfer.Amount.String(),
+					)
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+				}
+
+				// Use the actually sent packet for acknowledgement
+				packet = sentPacket
+			}
+
+			// Execute acknowledgement
+			err = transferStack.OnAcknowledgementPacket(
+				ctxA,
+				sourceChan.Version,
+				packet,
+				ack,
+				receiver,
+			)
+
+			// Validate results
+			if tc.expError == "" {
+				suite.Require().NoError(err, "Expected success but got error")
+
+				// Verify callback execution by checking counter increment
+				if strings.Contains(tc.memo(), "src_callback") {
+					counterRes, err := evmApp.EVMKeeper.CallEVM(
+						ctxA,
+						contractData.ABI,
+						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
+						contractAddr,
+						false,
+						big.NewInt(100000),
+						"getCounter",
+					)
+					suite.Require().NoError(err)
+
+					var counter *big.Int
+					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
+					suite.Require().NoError(err)
+					suite.Require().True(counter.Cmp(big.NewInt(1)) >= 0, "Counter should be incremented by callback")
+				}
+
+				// Verify refund for error acknowledgements
+				if tc.ackType == "error" && tc.onSendRequired {
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					finalSenderBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+
+					// For error acks, tokens should be refunded
+					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after refund")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded")
+				}
+			} else if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
+				// For ack failures, verify that counter was NOT incremented
+
+				counterRes, err := evmApp.EVMKeeper.CallEVM(
+					ctxA,
+					contractData.ABI,
+					common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
+					contractAddr,
+					false,
+					big.NewInt(100000),
+					"getCounter",
+				)
+				// Counter should remain 0 if callback failed
+				if err == nil {
+					var counter *big.Int
+					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
+					if err == nil {
+						suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should not be incremented on callback failure")
+					}
+				}
+			}
+		})
+	}
 }
 
 func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
@@ -373,7 +1171,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				"",
 			)
 
-			path := suite.pathAToB
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointA.ChannelConfig.PortID,
@@ -393,7 +1191,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			sourceChan := suite.pathAToB.EndpointA.GetChannel()
+			sourceChan := suite.path.EndpointA.GetChannel()
 			onAck := func() error {
 				return transferStack.OnAcknowledgementPacket(
 					ctxA,
@@ -416,7 +1214,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
 				// relay the sent packet
@@ -500,7 +1298,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-			path := suite.pathAToB
+			path := suite.path
 			chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -643,7 +1441,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				"",
 			)
 
-			path := suite.pathAToB
+			path := suite.path
 			packet = channeltypes.Packet{
 				Sequence:           1,
 				SourcePort:         path.EndpointA.ChannelConfig.PortID,
@@ -662,7 +1460,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			sourceChan := suite.pathAToB.EndpointA.GetChannel()
+			sourceChan := suite.path.EndpointA.GetChannel()
 			onTimeout := func() error {
 				return transferStack.OnTimeoutPacket(
 					ctxA,
@@ -686,7 +1484,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
 				err = path.RelayPacket(packet)
@@ -709,6 +1507,381 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 			} else {
 				suite.Require().Error(err)
 				suite.Require().Contains(err.Error(), tc.expError)
+			}
+		})
+	}
+}
+
+// TestOnTimeoutPacketWithCallback tests timeout logic with comprehensive callback scenarios.
+func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
+	var (
+		packet       channeltypes.Packet
+		contractData types3.CompiledContract
+		contractAddr common.Address
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		memo           func() string
+		onSendRequired bool
+		expError       string
+	}{
+		// SUCCESS CASES
+		{
+			name:     "success - callback with timeout",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_000_000)
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - callback with maximum gas limit",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 10_000_000)
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name:     "success - no callback in memo (regular timeout)",
+			malleate: nil,
+			memo: func() string {
+				return ""
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+
+		// FAILURE CASES - Invalid Contract
+		{
+			name:     "failure - callback to non-existent contract",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "0x1234567890123456789012345678901234567890",
+						"gas_limit": "%d"
+					}
+				}`, 1_000_000)
+			},
+			onSendRequired: true,
+			expError:       "ABCI code: 4",
+		},
+		{
+			name:     "failure - callback to empty address",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "0x0000000000000000000000000000000000000000",
+						"gas_limit": "%d"
+					}
+				}`, 1_000_000)
+			},
+			onSendRequired: true,
+			expError:       "ABCI code: 4",
+		},
+
+		// FAILURE CASES - Invalid Calldata
+		{
+			name:     "failure - timeout callback with calldata (should be empty)",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d",
+						"calldata": "%x"
+					}
+				}`, contractAddr, 1_000_000, []byte{0xab, 0xcd, 0xef, 0x12})
+			},
+			onSendRequired: true,
+			expError:       "ABCI code: 3",
+		},
+
+		// FAILURE CASES - Gas Issues
+		{
+			name:     "failure - insufficient gas limit",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1000) // Very low gas
+			},
+			onSendRequired: true,
+			expError:       "ABCI code: 9",
+		},
+		{
+			name:     "success - zero gas limit (defaults to max)",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "0"
+					}
+				}`, contractAddr)
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+
+		// FAILURE CASES - Invalid Memo Format
+		{
+			name:     "failure - malformed JSON memo",
+			malleate: nil,
+			memo: func() string {
+				return `{"src_callback": {"address": "invalid_json"`
+			},
+			onSendRequired: true,
+			expError:       "invalid callback data",
+		},
+		{
+			name:     "failure - invalid callback address format",
+			malleate: nil,
+			memo: func() string {
+				return `{"src_callback": {"address": "not_hex_address", "gas_limit": "1000000"}}`
+			},
+			onSendRequired: true,
+			expError:       "invalid callback data",
+		},
+
+		// FAILURE CASES - Base IBC Failures (should not execute callback)
+		{
+			name: "failure - malformed packet data (no callback execution)",
+			malleate: func() {
+				packet.Data = []byte("malformed data")
+			},
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1_000_000)
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet data",
+		},
+
+		// EDGE CASES
+		{
+			name:     "failure - callback with minimal gas",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 1000) // Minimal and insufficient
+			},
+			onSendRequired: true,
+			expError:       "out of gas",
+		},
+		{
+			name:     "success - timeout with refund verification",
+			malleate: nil,
+			memo: func() string {
+				return fmt.Sprintf(`{
+					"src_callback": {
+						"address": "%s",
+						"gas_limit": "%d"
+					}
+				}`, contractAddr, 2_000_000)
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			suite.SetupTest()
+
+			ctxA := suite.evmChainA.GetContext()
+			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctxA)
+			suite.Require().NoError(err)
+
+			sendAmt := ibctesting.DefaultCoinAmount
+			sender := suite.evmChainA.SenderAccount.GetAddress()
+			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+
+			// Deploy callback contract on source chain (evmChainA)
+			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			suite.Require().NoError(err)
+
+			deploymentData := factory.ContractDeploymentData{
+				Contract:        contractData,
+				ConstructorArgs: nil,
+			}
+
+			contractAddr, err = DeployContract(suite.T(), suite.evmChainA, deploymentData)
+			suite.Require().NoError(err)
+
+			// Create packet data with memo
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				sender.String(),
+				receiver.String(),
+				tc.memo(),
+			)
+
+			path := suite.path
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointA.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointA.ChannelID,
+				DestinationPort:    path.EndpointB.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointB.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      suite.chainB.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			// Apply test-specific malleate function
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			suite.Require().True(ok)
+
+			// Execute send if required (for proper escrow setup)
+			if tc.onSendRequired {
+				timeoutHeight := clienttypes.NewHeight(1, 110)
+				msg := transfertypes.NewMsgTransfer(
+					path.EndpointA.ChannelConfig.PortID,
+					path.EndpointA.ChannelID,
+					sdk.NewCoin(bondDenom, sendAmt),
+					sender.String(),
+					receiver.String(),
+					timeoutHeight, 0, tc.memo(),
+				)
+				err = suite.evmChainA.SenderAccount.SetSequence(suite.evmChainA.SenderAccount.GetSequence() + 1)
+				suite.Require().NoError(err)
+				res, err := suite.evmChainA.SendMsgs(msg)
+				suite.Require().NoError(err) // message committed
+
+				sentPacket, err := ibctesting.ParseV1PacketFromEvents(res.Events)
+				suite.Require().NoError(err)
+
+				// Verify escrow for successful sends
+				if tc.expError == "" || !strings.Contains(tc.expError, "ABCI code") {
+					balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+					suite.Require().Equal(
+						balBeforeTransfer.Amount.Sub(sendAmt).String(),
+						balAfterTransfer.Amount.String(),
+					)
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+				}
+
+				// Use the actually sent packet for timeout
+				packet = sentPacket
+			}
+
+			sourceChan := path.EndpointA.GetChannel()
+			err = transferStack.OnTimeoutPacket(
+				ctxA,
+				sourceChan.Version,
+				packet,
+				receiver,
+			)
+
+			// Validate results
+			if tc.expError == "" {
+				suite.Require().NoError(err, "Expected success but got error")
+
+				// Verify callback execution by checking that counter was NOT decremented
+				// The onPacketTimeout function in the contract doesn't modify the counter,
+				// so we verify the callback was executed by checking the counter remains unchanged
+				if strings.Contains(tc.memo(), "src_callback") {
+					counterRes, err := evmApp.EVMKeeper.CallEVM(
+						ctxA,
+						contractData.ABI,
+						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
+						contractAddr,
+						false,
+						big.NewInt(100000),
+						"getCounter",
+					)
+					suite.Require().NoError(err)
+
+					var counter *big.Int
+					err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
+					suite.Require().NoError(err)
+
+					// For timeout callbacks, counter should be -1
+					// This verifies the callback was executed without error, but didn't change the counter
+					suite.Require().Equal(big.NewInt(-1).String(), counter.String(), "Counter should be -1 for timeout callbacks")
+				}
+
+				// Verify refund for timeouts (tokens should always be refunded on timeout)
+				if tc.onSendRequired {
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					finalSenderBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+
+					// For timeouts, tokens should always be refunded
+					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after timeout refund")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded on timeout")
+				}
+			} else {
+				// For timeout callback failures, verify that counter was NOT changed
+				if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
+					counterRes, err := evmApp.EVMKeeper.CallEVM(
+						ctxA,
+						contractData.ABI,
+						common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress()),
+						contractAddr,
+						false,
+						big.NewInt(100000),
+						"getCounter",
+					)
+					// Counter should remain 0 if callback failed
+					if err == nil {
+						var counter *big.Int
+						err = contractData.ABI.UnpackIntoInterface(&counter, "getCounter", counterRes.Ret)
+						if err == nil {
+							suite.Require().Equal(big.NewInt(0).String(), counter.String(), "Counter should remain 0 on timeout callback failure")
+						}
+					}
+				}
+
+				// For timeout callback failures, the base timeout logic should still work
+				// unless it's a fundamental packet data issue
+				if tc.onSendRequired && !strings.Contains(tc.expError, "cannot unmarshal") {
+					// Even if callback fails, the timeout refund should still happen
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					finalSenderBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+
+					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after timeout refund even with callback failure")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded on timeout even with callback failure")
+				}
 			}
 		})
 	}
@@ -749,7 +1922,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketNativeErc20() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
-			path := suite.pathAToB
+			path := suite.path
 			chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)

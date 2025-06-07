@@ -125,3 +125,11 @@ func (im Module) OnTimeoutPacket(
 ) error {
 	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
 }
+
+func (im Module) UnmarshalPacketData(ctx sdk.Context, portID string, channelID string, bz []byte) (any, string, error) {
+	pd, ok := im.app.(porttypes.PacketDataUnmarshaler)
+	if !ok {
+		panic("app does not implement porttypes.PacketDataUnmarshaler")
+	}
+	return pd.UnmarshalPacketData(ctx, portID, channelID, bz)
+}

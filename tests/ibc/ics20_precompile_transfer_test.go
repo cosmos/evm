@@ -224,6 +224,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomsMethod,
 				query.PageRequest{
 					Key:        []byte{},
@@ -246,6 +247,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomMethod,
 				chainBDenom.Hash().String(),
 			)
@@ -262,6 +264,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomMethod,
 				"0000000000000000000000000000000000000000000000000000000000000000",
 			)
@@ -278,6 +281,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomMethod,
 				"INVALID-DENOM-HASH",
 			)
@@ -290,6 +294,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomHashMethod,
 				chainBDenom.Path(),
 			)
@@ -306,6 +311,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomHashMethod,
 				"transfer/channel-0/erc20:not-exists-case",
 			)
@@ -321,6 +327,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
+				nil,
 				ics20.DenomHashMethod,
 				"",
 			)

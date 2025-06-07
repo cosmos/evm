@@ -52,8 +52,8 @@ func (suite *MiddlewareV2TestSuite) SetupTest() {
 	// pathAToB.EndpointB = endpoint on chainB
 	suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
 	// setup between chainB and evmChainA
-	// pathBToA.EndpointA = endpoint on chainB
-	// pathBToA.EndpointB = endpoint on evmChainA
+	// path.EndpointA = endpoint on chainB
+	// path.EndpointB = endpoint on evmChainA
 	suite.pathBToA = evmibctesting.NewPath(suite.chainB, suite.evmChainA)
 
 	// setup IBC v2 paths between the chains
