@@ -31,9 +31,9 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 		expErr   error
 	}{
 		{
-			"success",
+			"contract code does not exist",
 			func() {},
-			types.ErrCallbackFailed,
+			types.ErrContractHasNoCode,
 		},
 		{
 			"packet data is not transfer",
@@ -59,7 +59,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 				transferDataBz := transferData.GetBytes()
 				packet.Data = transferDataBz
 			},
-			types.ErrContractHasNoCode,
+			cbtypes.ErrInvalidCallbackData,
 		},
 	}
 
