@@ -174,11 +174,11 @@ func TestKVIndexer(t *testing.T) {
 			} else {
 				first, err := idxer.FirstIndexedBlock()
 				require.NoError(t, err)
-				require.Equal(t, tc.block.Header.Height, first)
+				require.Equal(t, tc.block.Height, first)
 
 				last, err := idxer.LastIndexedBlock()
 				require.NoError(t, err)
-				require.Equal(t, tc.block.Header.Height, last)
+				require.Equal(t, tc.block.Height, last)
 
 				res1, err := idxer.GetByTxHash(txHash)
 				require.NoError(t, err)

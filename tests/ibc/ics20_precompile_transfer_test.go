@@ -151,7 +151,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
 
-			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
+			data, err := suite.chainAPrecompile.Pack("transfer",
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,

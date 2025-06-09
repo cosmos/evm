@@ -66,7 +66,7 @@ func NewPrecompile(
 	}
 
 	// use the IWERC20 ABI
-	erc20Precompile.Precompile.ABI = newABI
+	erc20Precompile.ABI = newABI
 
 	return &Precompile{
 		Precompile: erc20Precompile,
@@ -127,7 +127,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 			bz, err = p.Withdraw(ctx, contract, stateDB, args)
 		default:
 			// ERC20 transactions and queries
-			bz, err = p.Precompile.HandleMethod(ctx, contract, stateDB, method, args)
+			bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
 		}
 
 		if err != nil {

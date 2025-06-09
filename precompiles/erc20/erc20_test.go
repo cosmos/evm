@@ -45,7 +45,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.BalanceOfMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.BalanceOfMethod, s.keyring.GetAddr(0))
+				bz, err := s.precompile.Pack(erc20.BalanceOfMethod, s.keyring.GetAddr(0))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -54,7 +54,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.DecimalsMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.DecimalsMethod)
+				bz, err := s.precompile.Pack(erc20.DecimalsMethod)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -63,7 +63,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.NameMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.NameMethod)
+				bz, err := s.precompile.Pack(erc20.NameMethod)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -72,7 +72,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.SymbolMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.SymbolMethod)
+				bz, err := s.precompile.Pack(erc20.SymbolMethod)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -81,7 +81,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TotalSupplyMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.TotalSupplyMethod)
+				bz, err := s.precompile.Pack(erc20.TotalSupplyMethod)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -90,7 +90,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.ApproveMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.ApproveMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.Pack(erc20.ApproveMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -99,7 +99,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.IncreaseAllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.IncreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.Pack(erc20.IncreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -108,7 +108,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.DecreaseAllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.DecreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.Pack(erc20.DecreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -117,7 +117,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TransferMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.TransferMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.Pack(erc20.TransferMethod, s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -126,7 +126,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TransferFromMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.TransferFromMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0), big.NewInt(1))
+				bz, err := s.precompile.Pack(erc20.TransferFromMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0), big.NewInt(1))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -135,7 +135,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.AllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.ABI.Pack(erc20.AllowanceMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0))
+				bz, err := s.precompile.Pack(erc20.AllowanceMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0))
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},

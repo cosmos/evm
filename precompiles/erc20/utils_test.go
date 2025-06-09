@@ -66,12 +66,12 @@ func (is *IntegrationTestSuite) setAllowanceForContract(
 ) {
 	// NOTE: When using the caller contract, erc20 contract must be called instead of caller contract.
 	// This is because caller of erc20 contract becomes the owner of allowance.
-	switch {
-	case callType == erc20V5CallerCall:
+	switch callType {
+	case erc20V5CallerCall:
 		callType = erc20V5Call
-	case callType == contractCall:
+	case contractCall:
 		callType = directCall
-	case callType == contractCallToken2:
+	case contractCallToken2:
 		callType = directCallToken2
 	}
 

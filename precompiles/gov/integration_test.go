@@ -84,7 +84,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 			ContractABI: s.precompile.ABI,
 		}
 		defaultLogCheck = testutil.LogCheckArgs{
-			ABIEvents: s.precompile.ABI.Events,
+			ABIEvents: s.precompile.Events,
 		}
 		passCheck = defaultLogCheck.WithExpPass(true)
 		outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())

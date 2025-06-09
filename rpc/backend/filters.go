@@ -15,7 +15,7 @@ func (b *Backend) GetLogs(hash common.Hash) ([][]*ethtypes.Log, error) {
 	if resBlock == nil {
 		return nil, errors.Errorf("block not found for hash %s", hash)
 	}
-	return b.GetLogsByHeight(&resBlock.Block.Header.Height)
+	return b.GetLogsByHeight(&resBlock.Block.Height)
 }
 
 // GetLogsByHeight returns all the logs from all the ethereum transactions in a block.
