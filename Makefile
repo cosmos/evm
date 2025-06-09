@@ -167,13 +167,13 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v1.64.8
+golangci_version=v2.1.6
 
 lint: lint-go lint-python lint-contracts
 
 lint-go:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run --timeout=10m
 
 lint-python:
@@ -184,7 +184,7 @@ lint-contracts:
 	solhint contracts/**/*.sol
 
 lint-fix:
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run --timeout=10m --fix
 
 lint-fix-contracts:
