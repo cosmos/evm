@@ -89,38 +89,36 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		switch method.Name {
-		// slashing transactions
-		case UnjailMethod:
-			bz, err = p.Unjail(ctx, method, stateDB, contract, args)
-		// slashing queries
-		case GetSigningInfoMethod:
-			bz, err = p.GetSigningInfo(ctx, method, contract, args)
-		case GetSigningInfosMethod:
-			bz, err = p.GetSigningInfos(ctx, method, contract, args)
-		default:
-			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-		}
+	switch method.Name {
+	// slashing transactions
+	case UnjailMethod:
+		bz, err = p.Unjail(ctx, method, stateDB, contract, args)
+	// slashing queries
+	case GetSigningInfoMethod:
+		bz, err = p.GetSigningInfo(ctx, method, contract, args)
+	case GetSigningInfosMethod:
+		bz, err = p.GetSigningInfos(ctx, method, contract, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-		if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-			return nil, vm.ErrOutOfGas
-		}
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
 
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
+	if err = p.AddJournalEntries(stateDB, snapshot); err != nil {
+		return nil, err
+	}
 
-		return bz, nil
-	})
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
