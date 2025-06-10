@@ -221,14 +221,16 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// Write cachedCtx events back to ctx.
 	writeFn()
 
-	// Check that the contract has received all the tokens.
+	// Check that the sender no longer has tokens after the callback.
 	// NOTE: contracts must implement an IERC20(token).transferFrom(msg.sender, address(this), amount)
 	// for the total amount, or the callback will fail.
 	// This check is here to prevent funds from getting stuck in the isolated address,
 	// since they would become irretrievable.
-	contractTokenBalance := k.erc20Keeper.BalanceOf(ctx, erc20.ABI, tokenPair.GetERC20Contract(), contractAddr) // here, we can use the original ctx and skip manually adding the gas
-	if contractTokenBalance.Cmp(amountInt.BigInt()) != 0 {
-		return errorsmod.Wrapf(erc20types.ErrEVMCall, "contract balance %d does not equal sent amount %d", contractTokenBalance, amountInt.BigInt())
+	receiverTokenBalance := k.erc20Keeper.BalanceOf(ctx, erc20.ABI, tokenPair.GetERC20Contract(), receiverHex) // here,
+	// we can use the original ctx and skip manually adding the gas
+	if receiverTokenBalance.Cmp(big.NewInt(0)) != 0 {
+		return errorsmod.Wrapf(erc20types.ErrEVMCall,
+			"receiver has %d unrecoverable tokens after callback", receiverTokenBalance)
 	}
 
 	return nil
