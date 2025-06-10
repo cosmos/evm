@@ -45,14 +45,6 @@ func NewBalanceChangeEntry(acc common.Address, amt *uint256.Int, op Operation) B
 	return BalanceChangeEntry{acc, amt, op}
 }
 
-// Snapshot contains all state and events previous to the precompile call
-// This is needed to allow us to revert the changes
-// during the EVM execution
-type Snapshot struct {
-	MultiStore storetypes.CacheMultiStore
-	Events     sdk.Events
-}
-
 // RequiredGas calculates the base minimum required gas for a transaction or a query.
 // It uses the method ID to determine if the input is a transaction or a query and
 // uses the Cosmos SDK gas config flat cost and the flat per byte cost * len(argBz) to calculate the gas.
@@ -73,34 +65,34 @@ func (p Precompile) RunSetup(
 	contract *vm.Contract,
 	readOnly bool,
 	isTransaction func(name *abi.Method) bool,
-) (ctx sdk.Context, stateDB *statedb.StateDB, s Snapshot, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) {
+) (ctx sdk.Context, stateDB *statedb.StateDB, method *abi.Method, gasConfig storetypes.Gas, args []interface{}, err error) {
 	stateDB, ok := evm.StateDB.(*statedb.StateDB)
 	if !ok {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, errors.New(ErrNotRunInEvm)
+		return sdk.Context{}, nil, nil, uint64(0), nil, errors.New(ErrNotRunInEvm)
 	}
 
 	// get the stateDB cache ctx
 	ctx, err = stateDB.GetCacheContext()
 	if err != nil {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, err
+		return sdk.Context{}, nil, nil, uint64(0), nil, err
 	}
 
 	// take a snapshot of the current state before any changes
 	// to be able to revert the changes
-	s.MultiStore = stateDB.MultiStoreSnapshot()
-	s.Events = ctx.EventManager().Events()
+	snapshot := stateDB.MultiStoreSnapshot()
+	events := ctx.EventManager().Events()
 
 	// add precompileCall entry on the stateDB journal
 	// this allows to revert the changes within an evm txAdd commentMore actions
-	err = stateDB.AddPrecompileFn(p.Address(), s.MultiStore, s.Events)
+	err = stateDB.AddPrecompileFn(p.Address(), snapshot, events)
 	if err != nil {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, err
+		return sdk.Context{}, nil, nil, uint64(0), nil, err
 	}
 
 	// commit the current changes in the cache ctx
 	// to get the updated state for the precompile call
 	if err := stateDB.CommitWithCacheCtx(); err != nil {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, err
+		return sdk.Context{}, nil, nil, uint64(0), nil, err
 	}
 
 	// NOTE: This is a special case where the calling transaction does not specify a function name.
@@ -126,12 +118,12 @@ func (p Precompile) RunSetup(
 	}
 
 	if err != nil {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, err
+		return sdk.Context{}, nil, nil, uint64(0), nil, err
 	}
 
 	// return error if trying to write to state during a read-only call
 	if readOnly && isTransaction(method) {
-		return sdk.Context{}, nil, s, nil, uint64(0), nil, vm.ErrWriteProtection
+		return sdk.Context{}, nil, nil, uint64(0), nil, vm.ErrWriteProtection
 	}
 
 	// if the method type is `function` continue looking for arguments
@@ -139,7 +131,7 @@ func (p Precompile) RunSetup(
 		argsBz := contract.Input[4:]
 		args, err = method.Inputs.Unpack(argsBz)
 		if err != nil {
-			return sdk.Context{}, nil, s, nil, uint64(0), nil, err
+			return sdk.Context{}, nil, nil, uint64(0), nil, err
 		}
 	}
 
@@ -155,7 +147,7 @@ func (p Precompile) RunSetup(
 	// we need to consume the gas that was already used by the EVM
 	ctx.GasMeter().ConsumeGas(initialGas, "creating a new gas meter")
 
-	return ctx, stateDB, s, method, initialGas, args, nil
+	return ctx, stateDB, method, initialGas, args, nil
 }
 
 // HandleGasError handles the out of gas panic by resetting the gas meter and returning an error.
@@ -181,7 +173,7 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 }
 
 // AddJournalEntries adds the balanceChange (if corresponds)
-func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s Snapshot) error {
+func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB) error {
 	for _, entry := range p.journalEntries {
 		switch entry.Op {
 		case Sub:

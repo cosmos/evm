@@ -136,7 +136,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
 	}
 
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 		return nil, vm.ErrOutOfGas
 	}
-	if err = p.AddJournalEntries(stateDB, snapshot); err != nil {
+	if err = p.AddJournalEntries(stateDB); err != nil {
 		return nil, err
 	}
 	return bz, nil
