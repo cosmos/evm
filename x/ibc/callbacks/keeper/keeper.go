@@ -130,10 +130,16 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
 		WithGasMeter(types2.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
 
-	receiver := sdk.MustAccAddressFromBech32(data.Receiver)
+	// receiver := sdk.MustAccAddressFromBech32(data.Receiver)
+	receiver, err := sdk.AccAddressFromBech32(data.Receiver)
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress,
+			"acc addr from bech32 conversion failed for receiver address: %s", data.Receiver)
+	}
 	receiverHex, err := utils.HexAddressFromBech32String(receiver.String())
 	if err != nil {
-		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress, "address conversion failed for receiver address: %s", receiver)
+		return errorsmod.Wrapf(types.ErrInvalidReceiverAddress,
+			"hex address conversion failed for receiver address: %s", receiver)
 	}
 
 	// Generate secure isolated address from sender.
@@ -398,7 +404,11 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 		return errorsmod.Wrap(types.ErrInvalidCalldata, "timeout callback data should not contain calldata")
 	}
 
-	sender := common.BytesToAddress(sdk.MustAccAddressFromBech32(packetSenderAddress))
+	senderAccount, err := sdk.AccAddressFromBech32(packetSenderAddress)
+	if err != nil {
+		return errorsmod.Wrapf(err, "unable to parse packet sender address %s", packetSenderAddress)
+	}
+	sender := common.BytesToAddress(senderAccount.Bytes())
 	contractAddr := common.HexToAddress(contractAddress)
 	contractAccount := k.evmKeeper.GetAccountOrEmpty(ctx, contractAddr)
 
