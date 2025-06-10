@@ -196,13 +196,13 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrOutOfGas, "out of gas")
 	}
 
-	var allowance *big.Int
-	err = erc20.ABI.UnpackIntoInterface(&allowance, "allowance", res.Ret)
+	var approveSuccess bool
+	err = erc20.ABI.UnpackIntoInterface(&approveSuccess, "approve", res.Ret)
 	if err != nil {
-		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to unpack allowance: %v", err)
+		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to unpack approve return: %v", err)
 	}
 
-	if allowance.Cmp(big.NewInt(1)) != 0 {
+	if !approveSuccess {
 		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to set allowance")
 	}
 
