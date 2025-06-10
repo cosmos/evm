@@ -44,7 +44,7 @@ For use with EVM `recvPacket callbacks, the message fields above can be derived 
 
 - `Sender`: IBC packet senders cannot be explicitly trusted, as they can be deceitful. Chains cannot
 risk the sender being confused with a particular local user or module address. To prevent this, the
-`sender` is replaced with an account that represents the sender prefixed by the channel and a Wasm module
+`sender` is replaced with an account that represents the sender prefixed by the channel and a VM module
 prefix. This is done by setting the sender to `address.Module(ModuleName, channelId, sender)`, where the
 `channelId` is the channel id on the destination chain.
 - `Contract`: This field should be directly obtained from the ICS-20 packet metadata
@@ -85,8 +85,8 @@ An ICS-20 packet is formatted correctly for EVM callbacks on destination chain i
 
 - The `memo` is not blank.
 - The`memo` is valid JSON.
-- The `memo` has at least one key, with the value `"dest_callbacks"`.
-- The `memo["dest_callbacks"]` has these two entries, `"contract"` and `"calldata"`.
+- The `memo` has at least one key, with the value `"dest_callback"`.
+- The `memo["dest_callback"]` has these three entries, `"address"`, `"gas_limit"` and `"calldata"`.
 - The `receiver == "isolated_receiver_address"` as defined:
 `sdkaddress.Module("ibc-callbacks", packet.destChannelId, packet.sender)`
 
