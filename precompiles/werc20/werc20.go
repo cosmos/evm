@@ -66,7 +66,7 @@ func NewPrecompile(
 	}
 
 	// use the IWERC20 ABI
-	erc20Precompile.Precompile.ABI = newABI
+	erc20Precompile.ABI = newABI
 
 	return &Precompile{
 		Precompile: erc20Precompile,

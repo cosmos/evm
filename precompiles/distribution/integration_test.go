@@ -1355,7 +1355,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 		// make a delegation with contract as delegator
 		logCheck := testutil.LogCheckArgs{
 			ExpPass:   true,
-			ABIEvents: stkPrecompile.ABI.Events,
+			ABIEvents: stkPrecompile.Events,
 			ExpEvents: []string{staking.EventTypeDelegate},
 		}
 		delegateAmt := big.NewInt(1e18)
@@ -1873,7 +1873,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2060,7 +2060,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2321,7 +2321,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			txArgs.GasLimit = 500_000

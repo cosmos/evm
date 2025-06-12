@@ -50,7 +50,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeSetWithdrawAddress]
+				event := s.precompile.Events[distribution.EventTypeSetWithdrawAddress]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -124,7 +124,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeWithdrawDelegatorReward]
+				event := s.precompile.Events[distribution.EventTypeWithdrawDelegatorReward]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -206,7 +206,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeWithdrawValidatorCommission]
+				event := s.precompile.Events[distribution.EventTypeWithdrawValidatorCommission]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -265,7 +265,7 @@ func (s *PrecompileTestSuite) TestClaimRewardsEvent() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeClaimRewards]
+				event := s.precompile.Events[distribution.EventTypeClaimRewards]
 				s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -307,7 +307,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeFundCommunityPool]
+				event := s.precompile.Events[distribution.EventTypeFundCommunityPool]
 				s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -345,7 +345,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 					s.Require().Equal(log.Address, s.precompile.Address(), "log address must match the precompile address")
 
 					// Check event signature
-					event := s.precompile.ABI.Events[distribution.EventTypeFundCommunityPool]
+					event := s.precompile.Events[distribution.EventTypeFundCommunityPool]
 					s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 					s.Require().Equal(uint64(ctx.BlockHeight()), log.BlockNumber) //nolint:gosec // G115
 
@@ -415,7 +415,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 				s.Require().NoError(err)
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[distribution.EventTypeDepositValidatorRewardsPool]
+				event := s.precompile.Events[distribution.EventTypeDepositValidatorRewardsPool]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -466,7 +466,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 					s.Require().NoError(err)
 
 					// Check event signature matches the one emitted
-					event := s.precompile.ABI.Events[distribution.EventTypeDepositValidatorRewardsPool]
+					event := s.precompile.Events[distribution.EventTypeDepositValidatorRewardsPool]
 					s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 					s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 

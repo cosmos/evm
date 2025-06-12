@@ -54,7 +54,7 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[slashing.EventTypeValidatorUnjailed]
+				event := s.precompile.Events[slashing.EventTypeValidatorUnjailed]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 

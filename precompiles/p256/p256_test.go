@@ -43,8 +43,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				copy(input[0:32], hash)
 				copy(input[32:64], rInt.Bytes())
 				copy(input[64:96], sInt.Bytes())
-				copy(input[96:128], s.p256Priv.PublicKey.X.Bytes())
-				copy(input[128:160], s.p256Priv.PublicKey.Y.Bytes())
+				copy(input[96:128], s.p256Priv.X.Bytes())
+				copy(input[128:160], s.p256Priv.Y.Bytes())
 
 				return input
 			},
@@ -66,8 +66,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				copy(input[0:32], hash)
 				copy(input[32:64], rBz)
 				copy(input[64:96], sBz)
-				copy(input[96:128], s.p256Priv.PublicKey.X.Bytes())
-				copy(input[128:160], s.p256Priv.PublicKey.Y.Bytes())
+				copy(input[96:128], s.p256Priv.X.Bytes())
+				copy(input[128:160], s.p256Priv.Y.Bytes())
 
 				return input
 			},
@@ -92,8 +92,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				copy(input[0:32], hash)
 				copy(input[32:64], rInt.Bytes())
 				copy(input[64:96], sInt.Bytes())
-				copy(input[96:128], privB.PublicKey.X.Bytes())
-				copy(input[128:160], privB.PublicKey.Y.Bytes())
+				copy(input[96:128], privB.X.Bytes())
+				copy(input[128:160], privB.Y.Bytes())
 
 				return input
 			},

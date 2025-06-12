@@ -23,7 +23,7 @@ type EventValidatorUnjailed struct {
 // EmitValidatorUnjailedEvent emits the ValidatorUnjailed event
 func (p Precompile) EmitValidatorUnjailedEvent(ctx sdk.Context, stateDB vm.StateDB, validator common.Address) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeValidatorUnjailed]
+	event := p.Events[EventTypeValidatorUnjailed]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event

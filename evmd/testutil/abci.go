@@ -46,7 +46,7 @@ func CommitAndCreateNewCtx(ctx sdk.Context, app *app.EVMD, t time.Duration, vs *
 	// NewContext function keeps the multistore
 	// but resets other context fields
 	// GasMeter is set as InfiniteGasMeter
-	newCtx := app.BaseApp.NewContextLegacy(false, header)
+	newCtx := app.NewContextLegacy(false, header)
 	// set the reseted fields to keep the current ctx settings
 	newCtx = newCtx.WithMinGasPrices(ctx.MinGasPrices())
 	newCtx = newCtx.WithEventManager(ctx.EventManager())
@@ -248,7 +248,7 @@ func checkTxBytes(app *app.EVMD, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.Respo
 	}
 
 	req := abci.RequestCheckTx{Tx: bz}
-	res, err := app.BaseApp.CheckTx(&req)
+	res, err := app.CheckTx(&req)
 	if err != nil {
 		return abci.ResponseCheckTx{}, err
 	}
