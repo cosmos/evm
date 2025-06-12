@@ -126,7 +126,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		bz, err = p.Withdraw(ctx, contract, stateDB, args)
 	default:
 		// ERC20 transactions and queries
-		bz, err = p.Precompile.HandleMethod(ctx, contract, stateDB, method, args)
+		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
 	}
 
 	if err != nil {
