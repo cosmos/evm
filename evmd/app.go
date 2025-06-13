@@ -1046,6 +1046,82 @@ func (app *EVMD) GetIBCKeeper() *ibckeeper.Keeper {
 	return app.IBCKeeper
 }
 
+func (app *EVMD) GetEVMKeeper() *evmkeeper.Keeper {
+	return app.EVMKeeper
+}
+
+func (app *EVMD) GetErc20Keeper() *erc20keeper.Keeper {
+	return &app.Erc20Keeper
+}
+
+func (app *EVMD) SetErc20Keeper(erc20Keeper erc20keeper.Keeper) {
+	app.Erc20Keeper = erc20Keeper
+}
+
+func (app *EVMD) GetGovKeeper() govkeeper.Keeper {
+	return app.GovKeeper
+}
+
+func (app *EVMD) GetEvidenceKeeper() *evidencekeeper.Keeper {
+	return &app.EvidenceKeeper
+}
+
+func (app *EVMD) GetSlashingKeeper() slashingkeeper.Keeper {
+	return app.SlashingKeeper
+}
+
+func (app *EVMD) GetBankKeeper() bankkeeper.Keeper {
+	return app.BankKeeper
+}
+
+func (app *EVMD) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
+	return &app.FeeMarketKeeper
+}
+
+func (app *EVMD) GetFeeGrantKeeper() feegrantkeeper.Keeper {
+	return app.FeeGrantKeeper
+}
+
+func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
+	return app.AccountKeeper
+}
+
+func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
+	return app.AuthzKeeper
+}
+
+func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
+	return app.DistrKeeper
+}
+
+func (app *EVMD) GetStakingKeeper() *stakingkeeper.Keeper {
+	return app.StakingKeeper
+}
+
+func (app *EVMD) GetMintKeeper() mintkeeper.Keeper {
+	return app.MintKeeper
+}
+
+func (app *EVMD) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
+	return &app.PreciseBankKeeper
+}
+
+func (app *EVMD) GetCallbackKeeper() ibccallbackskeeper.ContractKeeper {
+	return app.CallbackKeeper
+}
+
+func (app *EVMD) GetTransferKeeper() transferkeeper.Keeper {
+	return app.TransferKeeper
+}
+
+func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
+	app.TransferKeeper = transferKeeper
+}
+
+func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
+	return app.BaseApp.AnteHandler()
+}
+
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig

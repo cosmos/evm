@@ -51,7 +51,7 @@ type EVMKeeper interface {
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
 }
 
-type ERC20Keeper interface {
+type Erc20Keeper interface {
 	OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, ack exported.Acknowledgement) exported.Acknowledgement
 	OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData, ack channeltypes.Acknowledgement) error
 	OnTimeoutPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData) error

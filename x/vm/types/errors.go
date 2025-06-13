@@ -43,7 +43,7 @@ var (
 	ErrZeroAddress = errorsmod.Register(ModuleName, codeErrZeroAddress, "invalid zero address")
 
 	// ErrCreateDisabled returns an error if the EnableCreate parameter is false.
-	ErrCreateDisabled = errorsmod.Register(ModuleName, codeErrCreateDisabled, "EVM Create operation is disabled")
+	ErrCreateDisabled = errorsmod.Register(ModuleName, codeErrCreateDisabled, "EVM create operation is disabled")
 
 	// ErrCallDisabled returns an error if the EnableCall parameter is false.
 	ErrCallDisabled = errorsmod.Register(ModuleName, codeErrCallDisabled, "EVM Call operation is disabled")
