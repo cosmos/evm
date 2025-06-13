@@ -325,7 +325,7 @@ func (s *TestSuite) TestFeeHistory() {
 	testCases := []struct {
 		name           string
 		registerMock   func(validator sdk.AccAddress)
-		userBlockCount uint64
+		userBlockCount ethrpc.BlockNumber
 		latestBlock    ethrpc.BlockNumber
 		expFeeHistory  *rpc.FeeHistoryResult
 		validator      sdk.AccAddress

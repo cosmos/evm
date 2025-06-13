@@ -91,7 +91,7 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount uint64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
