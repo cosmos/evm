@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -48,13 +47,6 @@ func (p Precompile) Deposit(
 	); err != nil {
 		return nil, err
 	}
-
-	// Add the entries to the statedb journal since the function signature of
-	// the associated Solidity interface payable.
-	p.SetBalanceChangeEntries(
-		cmn.NewBalanceChangeEntry(caller, depositedAmount, cmn.Add),
-		cmn.NewBalanceChangeEntry(p.Address(), depositedAmount, cmn.Sub),
-	)
 
 	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
 		return nil, err
