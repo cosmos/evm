@@ -45,7 +45,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 
 	signer := ethtypes.LatestSigner(cfg)
 
-	matchTx := args.ToTransaction().AsTransaction()
+	matchTx := args.ToTransaction(ethtypes.LegacyTxType)
 
 	// Before replacing the old transaction, ensure the _new_ transaction fee is reasonable.
 	price := matchTx.GasPrice()

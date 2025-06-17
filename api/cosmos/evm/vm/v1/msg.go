@@ -37,21 +37,5 @@ func GetSigners(msg protov2.Message) ([][]byte, error) {
 		return nil, fmt.Errorf("invalid type, expected MsgEthereumTx and got %T", msg)
 	}
 
-	txDataFn, found := supportedTxs[msgEthTx.Data.TypeUrl]
-	if !found {
-		return nil, fmt.Errorf("invalid TypeUrl %s", msgEthTx.Data.TypeUrl)
-	}
-	txData := txDataFn()
-
-	// msgEthTx.Data is a message (DynamicFeeTx, LegacyTx or AccessListTx)
-	if err := msgEthTx.Data.UnmarshalTo(txData); err != nil {
-		return nil, err
-	}
-
-	sender, err := getSender(txData)
-	if err != nil {
-		return nil, err
-	}
-
-	return [][]byte{sender.Bytes()}, nil
+	return [][]byte{msgEthTx.From}, nil
 }

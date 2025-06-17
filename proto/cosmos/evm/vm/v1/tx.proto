@@ -32,18 +32,14 @@ message MsgEthereumTx {
 
   option (gogoproto.goproto_getters) = false;
 
-  // data is inner transaction data of the Ethereum transaction
-  google.protobuf.Any data = 1;
+  reserved 1,2,3,4;
 
-  // size is the encoded storage size of the transaction (DEPRECATED)
-  double size = 2 [ (gogoproto.jsontag) = "-", (amino.dont_omitempty) = true ];
-  // hash of the transaction in hex format
-  string hash = 3
-      [ (gogoproto.moretags) = "rlp:\"-\"", (amino.dont_omitempty) = true ];
-  // from is the ethereum signer address in hex format. This address value is
-  // checked against the address derived from the signature (V, R, S) using the
+  // from is the bytes of ethereum signer address. This address value is checked
+  // against the address derived from the signature (V, R, S) using the
   // secp256k1 elliptic curve
-  string from = 4;
+  bytes from = 5;
+  // raw is the raw ethereum transaction
+  bytes raw = 6 [(gogoproto.customtype) = "EthereumTx", (gogoproto.nullable) = false];
 }
 
 // LegacyTx is the transaction data of regular Ethereum transactions.

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -92,7 +93,12 @@ func SignatureVerification(
 		)
 	}
 
-	// set up the sender to the transaction field if not already
-	msg.From = sender.Hex()
+	if !bytes.Equal(msg.From, sender.Bytes()) {
+		return errorsmod.Wrapf(
+			errortypes.ErrorInvalidSigner,
+			"rejected ethereum transaction with invalid sender address; expected %s, got %s",
+			evmtypes.HexAddress(msg.From), sender.String(),
+		)
+	}
 	return nil
 }
