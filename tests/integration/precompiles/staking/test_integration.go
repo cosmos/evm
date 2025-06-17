@@ -1481,7 +1481,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					txArgs, callArgs,
 					execRevertedCheck,
 				)
-				Expect(err).To(BeNil(), "fails for other reason, I think general message like ")
+				Expect(err).To(BeNil(), "error while funding the smart contract: %v", err)
 			})
 		})
 
