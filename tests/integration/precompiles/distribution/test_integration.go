@@ -2274,7 +2274,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// set gas such that the internal keeper function called by the precompile fails out mid-execution
 				txArgs.GasLimit = 80_000
-				_, _, err = s.factory.CallContractAndCheckLogs(
+				txRes, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
@@ -2286,7 +2286,54 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 				Expect(err).To(BeNil())
 				finalBalance := balRes.Balance
-				expectedGasCost := math.NewInt(79_416_000_000_000)
+				// expectedGasCost := math.NewInt(79_416_000_000_000)
+				expectedGasCost := math.NewIntFromBigInt(new(big.Int).Mul(big.NewInt(txRes.GasUsed), txArgs.GasPrice))
+				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
+
+				res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
+				Expect(err).To(BeNil())
+
+				// accrued rewards should still be increasing
+				secondAccruedRewardsAmt := res.Total.AmountOf(s.bondDenom).TruncateInt()
+				Expect(secondAccruedRewardsAmt.IsPositive()).To(BeTrue())
+				Expect(secondAccruedRewardsAmt.GTE(accruedRewardsAmt)).To(BeTrue())
+			})
+
+			It("should fail to claim rewards with exact precompile error returned", func() {
+				callArgs.MethodName = "testClaimRewards"
+				callArgs.Args = []interface{}{s.keyring.GetAddr(0), uint32(10)}
+
+				// NOTE: This is the part where we deliberately configure the check arguments so that the test fails,
+				// in order to demonstrate that the reason for ErrExecutionReverted is being output correctly.
+				// When the PR is merged, you should uncomment the section that’s currently commented out below.
+				logCheckArgs := passCheck
+				// logCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
+				// 	cmn.ErrRequesterIsNotMsgSender,
+				// 	txArgs.To,
+				// 	s.keyring.GetAddr(0),
+				// ).Error())
+
+				res, err := s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
+				Expect(err).To(BeNil())
+
+				accruedRewardsAmt = res.Total.AmountOf(s.bondDenom).TruncateInt()
+				Expect(accruedRewardsAmt.IsPositive()).To(BeTrue())
+
+				// set gas such that the internal keeper function called by the precompile fails out mid-execution
+				txArgs.GasLimit = 80_000
+				txRes, _, err := s.factory.CallContractAndCheckLogs(
+					s.keyring.GetPrivKey(0),
+					txArgs,
+					callArgs,
+					logCheckArgs,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+				Expect(err).To(BeNil())
+				finalBalance := balRes.Balance
+				expectedGasCost := math.NewIntFromBigInt(new(big.Int).Mul(big.NewInt(txRes.GasUsed), txArgs.GasPrice))
 				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
 				res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
