@@ -5,9 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var (
-	revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
-)
+var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 
 // RevertReasonBytes converts a message to ABI-encoded revert bytes.
 func RevertReasonBytes(reason string) ([]byte, error) {
