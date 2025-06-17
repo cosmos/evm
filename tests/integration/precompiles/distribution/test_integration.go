@@ -2095,7 +2095,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not claim rewards when sending from a different address", func() {
 				callArgs.Args = []interface{}{differentAddr, uint32(1)}
 
-				logCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
+				errCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
 					cmn.ErrRequesterIsNotMsgSender,
 					txArgs.To,
 					differentAddr,
@@ -2105,7 +2105,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					logCheckArgs,
+					errCheckArgs,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())

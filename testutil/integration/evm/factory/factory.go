@@ -211,8 +211,8 @@ func (tf *IntegrationTxFactory) checkEthTxResponse(res *abcitypes.ExecTxResult) 
 	}
 
 	if evmRes.Failed() {
-		reason := evmtypes.NewExecErrorWithReason(evmRes.Ret)
-		return fmt.Errorf("tx failed with VmError: %v, Reason: %s", evmRes.VmError, reason)
+		revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
+		return fmt.Errorf("tx failed with VmError: %v, Reason: %s", evmRes.VmError, revertErr.ErrorData())
 	}
 	return nil
 }
