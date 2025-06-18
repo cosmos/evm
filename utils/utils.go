@@ -30,7 +30,7 @@ func EthHexToCosmosAddr(hexAddr string) sdk.AccAddress {
 
 // EthToCosmosAddr converts a given Ethereum style address to an SDK address.
 func EthToCosmosAddr(addr common.Address) sdk.AccAddress {
-	return sdk.AccAddress(addr.Bytes())
+	return addr.Bytes()
 }
 
 // Bech32ToHexAddr converts a given Bech32 address string and converts it to
