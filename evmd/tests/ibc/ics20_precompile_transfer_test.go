@@ -10,12 +10,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -275,7 +277,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(denomResponse.Denom, transfertypes.Denom{Base: "", Trace: []transfertypes.Hop{}})
 
 			// denom query method invalid error case
-			_, err = evmAppB.EVMKeeper.CallEVM(
+			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
 				suite.chainBPrecompile.ABI,
 				chainBAddr,
@@ -285,7 +287,9 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomMethod,
 				"INVALID-DENOM-HASH",
 			)
-			suite.Require().ErrorContains(err, "invalid denom trace hash")
+			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
+			revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
+			suite.Require().Contains(revertErr.ErrorData(), "invalid denom trace hash")
 
 			// denomHash query method
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
@@ -321,7 +325,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(denomHashResponse.Hash, "")
 
 			// denomHash query method invalid error case
-			_, err = evmAppB.EVMKeeper.CallEVM(
+			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
 				suite.chainBPrecompile.ABI,
 				chainBAddr,
@@ -331,7 +335,9 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				ics20.DenomHashMethod,
 				"",
 			)
-			suite.Require().ErrorContains(err, "invalid denomination for cross-chain transfer")
+			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
+			revertErr = evmtypes.NewExecErrorWithReason(evmRes.Ret)
+			suite.Require().Contains(revertErr.ErrorData(), "invalid denomination for cross-chain transfer")
 		})
 	}
 }
