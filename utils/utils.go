@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"cmp"
 	"fmt"
 	"math/big"
 	"sort"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
-	"golang.org/x/exp/constraints"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -165,7 +165,7 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 }
 
 // SortSlice sorts a slice of any ordered type.
-func SortSlice[T constraints.Ordered](slice []T) {
+func SortSlice[T cmp.Ordered](slice []T) {
 	sort.Slice(slice, func(i, j int) bool {
 		return slice[i] < slice[j]
 	})
