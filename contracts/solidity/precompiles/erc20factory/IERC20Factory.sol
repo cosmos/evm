@@ -13,6 +13,24 @@ IERC20Factory constant ERC20_FACTORY_CONTRACT = IERC20Factory(ERC20_FACTORY_PREC
 
 interface IERC20Factory {
     /**
+     * @dev Emitted when a new ERC20 token is created.
+     * @param tokenAddress The address of the ERC20 token.
+     * @param tokenPairType The type of token pair.
+     * @param salt The salt used for deployment.
+     * @param name The name of the token.
+     * @param symbol The symbol of the token.
+     * @param decimals The decimals of the token.
+     */
+    event Create(
+        address indexed tokenAddress,
+        uint8 tokenPairType,
+        bytes32 salt,
+        string name,
+        string symbol,
+        uint8 decimals
+    );
+    
+    /**
      * @dev Defines a method for creating an ERC20 token.
      * @param tokenPairType Token Pair type
      * @param salt Salt used for deployment
