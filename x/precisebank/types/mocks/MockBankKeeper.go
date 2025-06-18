@@ -777,6 +777,40 @@ func (_c *MockBankKeeper_SpendableCoin_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+
+// SetDenomMetaData provides a mock function with given fields: ctx, denomMetaData
+func (_m *MockBankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData types.Metadata) {
+	_m.Called(ctx, denomMetaData)
+}
+
+// GetDenomMetaData provides a mock function with given fields: ctx, denom
+func (_m *MockBankKeeper) GetDenomMetaData(ctx context.Context, denom string) (types.Metadata, bool) {
+	ret := _m.Called(ctx, denom)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDenomMetaData")
+	}
+
+	var r0 types.Metadata
+	var r1 bool
+	if rf, ok := ret.Get(0).(func(context.Context, string) (types.Metadata, bool)); ok {
+		return rf(ctx, denom)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) types.Metadata); ok {
+		r0 = rf(ctx, denom)
+	} else {
+		r0 = ret.Get(0).(types.Metadata)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = rf(ctx, denom)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // NewMockBankKeeper creates a new instance of MockBankKeeper. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockBankKeeper(t interface {

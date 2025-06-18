@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
+	"github.com/cosmos/evm/precompiles/erc20factory"
 	evidenceprecompile "github.com/cosmos/evm/precompiles/evidence"
 	govprecompile "github.com/cosmos/evm/precompiles/gov"
 	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
@@ -104,6 +105,11 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate evidence precompile: %w", err))
 	}
 
+	erc20FactoryPrecompile, err := erc20factory.NewPrecompile(erc20Keeper, bankKeeper)
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate erc20 factory precompile: %w", err))
+	}
+
 	// Stateless precompiles
 	precompiles[bech32Precompile.Address()] = bech32Precompile
 	precompiles[p256Precompile.Address()] = p256Precompile
@@ -116,6 +122,7 @@ func NewAvailableStaticPrecompiles(
 	precompiles[govPrecompile.Address()] = govPrecompile
 	precompiles[slashingPrecompile.Address()] = slashingPrecompile
 	precompiles[evidencePrecompile.Address()] = evidencePrecompile
+	precompiles[erc20FactoryPrecompile.Address()] = erc20FactoryPrecompile
 
 	return precompiles
 }
