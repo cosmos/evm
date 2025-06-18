@@ -32,6 +32,9 @@ jobs:
             **/**.go
             go.mod
             go.sum
+            evmd/go.mod
+            evmd/go.sum
+            evmd/**/**.go
             *.toml
       - name: Test and Create Coverage Report
         run: |

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/server/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -92,7 +92,7 @@ func PrepareEthTx(
 // Should this not be the case, just pass in zero.
 func CreateEthTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	privKey cryptotypes.PrivKey,
 	dest []byte,
 	amount *big.Int,
@@ -103,14 +103,14 @@ func CreateEthTx(
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID
 
-	baseFeeRes, err := exampleApp.EVMKeeper.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
+	baseFeeRes, err := evmApp.GetEVMKeeper().BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil {
 		return nil, err
 	}
 	baseFee := baseFeeRes.BaseFee.BigInt()
 
 	// When we send multiple Ethereum Tx's in one Cosmos Tx, we need to increment the nonce for each one.
-	nonce := exampleApp.EVMKeeper.GetNonce(ctx, fromAddr) + uint64(nonceIncrement) //#nosec G115 -- will not exceed uint64
+	nonce := evmApp.GetEVMKeeper().GetNonce(ctx, fromAddr) + uint64(nonceIncrement) //#nosec G115 -- will not exceed uint64
 	evmTxParams := &evmtypes.EvmTxArgs{
 		ChainID:   chainID,
 		Nonce:     nonce,

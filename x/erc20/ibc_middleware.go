@@ -25,11 +25,11 @@ var (
 // the erc20 keeper and the underlying application.
 type IBCMiddleware struct {
 	*ibc.Module
-	keeper erc20types.ERC20Keeper
+	keeper erc20types.Erc20Keeper
 }
 
 // NewIBCMiddleware creates a new IBCMiddleware given the keeper and underlying application
-func NewIBCMiddleware(k erc20types.ERC20Keeper, app porttypes.IBCModule) IBCMiddleware {
+func NewIBCMiddleware(k erc20types.Erc20Keeper, app porttypes.IBCModule) IBCMiddleware {
 	if app == nil {
 		panic(errors.New("underlying application cannot be nil"))
 	}
