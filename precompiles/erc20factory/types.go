@@ -3,8 +3,20 @@ package erc20factory
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 )
+
+// EventCreate defines the event data for the ERC20 Factory Create event.
+type EventCreate struct {
+	TokenAddress  common.Address
+	TokenPairType uint8
+	Salt          [32]uint8
+	Name          string
+	Symbol        string
+	Decimals      uint8
+}
 
 // ParseCreateArgs parses the arguments from the create method and returns
 // the token type, salt, name, symbol and decimals.

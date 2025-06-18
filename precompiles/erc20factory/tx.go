@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -26,6 +27,7 @@ const (
 // Create CreateERC20Precompile creates a new ERC20 TokenPair
 func (p Precompile) Create(
 	ctx sdk.Context,
+	stateDB vm.StateDB,
 	method *abi.Method,
 	caller common.Address,
 	args []interface{},
@@ -58,6 +60,10 @@ func (p Precompile) Create(
 
 	err = p.erc20Keeper.EnableDynamicPrecompiles(ctx, pair.GetERC20Contract())
 	if err != nil {
+		return nil, err
+	}
+
+	if err = p.EmitCreateEvent(ctx, stateDB, address, tokenType, salt, name, symbol, decimals); err != nil {
 		return nil, err
 	}
 

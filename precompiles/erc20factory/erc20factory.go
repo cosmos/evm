@@ -142,7 +142,7 @@ func (p *Precompile) HandleMethod(
 	switch method.Name {
 	// ERC-20 Factory transactions
 	case CreateMethod:
-		bz, err = p.Create(ctx, method, contract.Caller(), args)
+		bz, err = p.Create(ctx, stateDB, method, contract.Caller(), args)
 	// ERC-20 Factory queries
 	case CalculateAddressMethod:
 		bz, err = p.CalculateAddress(method, contract.Caller(), args)

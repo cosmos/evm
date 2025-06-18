@@ -72,6 +72,7 @@ func (s *PrecompileTestSuite) TestCreate() {
 
 			bz, err := precompile.Create(
 				s.network.GetContext(),
+				s.network.GetStateDB(),
 				&method,
 				common.HexToAddress("0x0000000000000000000000000000000000000000"),
 				tc.args,
