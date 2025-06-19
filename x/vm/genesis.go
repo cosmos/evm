@@ -57,6 +57,10 @@ func InitGenesis(
 		}
 	}
 
+	if err := k.AddPreinstalls(ctx, types.DefaultPreinstalls); err != nil {
+		panic(fmt.Errorf("error adding preinstalls: %s", err))
+	}
+
 	return []abci.ValidatorUpdate{}
 }
 
