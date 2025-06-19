@@ -101,7 +101,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	switch method.Name {
 	// ICS20 transactions
 	case TransferMethod:
-		bz, err = p.Transfer(ctx, contract, stateDB, method, args)
+		bz, err = p.Transfer(ctx, evm.Origin, contract, stateDB, method, args)
 	// ICS20 queries
 	case DenomMethod:
 		bz, err = p.Denom(ctx, contract, method, args)

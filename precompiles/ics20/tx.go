@@ -28,6 +28,7 @@ const (
 // Transfer implements the ICS20 transfer transactions.
 func (p *Precompile) Transfer(
 	ctx sdk.Context,
+	origin common.Address,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
 	method *abi.Method,
@@ -59,9 +60,12 @@ func (p *Precompile) Transfer(
 		)
 	}
 
-	msgSender := contract.Caller()
-	if msgSender != sender {
-		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), sender.String())
+	// isCallerSender is true when the contract caller is the same as the sender
+	isCallerSender := contract.Caller() == sender
+
+	// If the contract caller is not the same as the sender, the sender must be the origin
+	if !isCallerSender && origin != sender {
+		return nil, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
 	}
 
 	res, err := p.transferKeeper.Transfer(ctx, msg)
