@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/binary"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -27,6 +29,7 @@ const (
 	prefixStorage
 	prefixParams
 	prefixCodeHash
+	prefixHeaderHash
 )
 
 // prefix bytes for the EVM transient store
@@ -39,10 +42,11 @@ const (
 
 // KVStore key prefixes
 var (
-	KeyPrefixCode     = []byte{prefixCode}
-	KeyPrefixStorage  = []byte{prefixStorage}
-	KeyPrefixParams   = []byte{prefixParams}
-	KeyPrefixCodeHash = []byte{prefixCodeHash}
+	KeyPrefixCode       = []byte{prefixCode}
+	KeyPrefixStorage    = []byte{prefixStorage}
+	KeyPrefixParams     = []byte{prefixParams}
+	KeyPrefixCodeHash   = []byte{prefixCodeHash}
+	KeyPrefixHeaderHash = []byte{prefixHeaderHash}
 )
 
 // Transient Store key prefixes
@@ -61,4 +65,11 @@ func AddressStoragePrefix(address common.Address) []byte {
 // StateKey defines the full key under which an account state is stored.
 func StateKey(address common.Address, key []byte) []byte {
 	return append(AddressStoragePrefix(address), key...)
+}
+
+func GetHeaderHashKey(height int64) []byte {
+	var key [1 + 8]byte
+	key[0] = prefixHeaderHash
+	binary.BigEndian.PutUint64(key[1:], uint64(height))
+	return key[:]
 }
