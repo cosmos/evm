@@ -29,7 +29,6 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/indexer"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
@@ -68,7 +67,7 @@ func NewDefaultStartOptions(appCreator types.AppCreator, defaultNodeHome string)
 	return StartOptions{
 		AppCreator:      appCreator,
 		DefaultNodeHome: defaultNodeHome,
-		DBOpener:        config.OpenDB,
+		DBOpener:        openDB,
 	}
 }
 
@@ -673,4 +672,17 @@ func GenDocProvider(cfg *cmtcfg.Config) func() (*cmttypes.GenesisDoc, error) {
 
 		return appGenesis.ToGenesisDoc()
 	}
+}
+
+// openDB opens a database based on the specified backend type.
+// It takes the home directory where the database data will be stored, along with the backend type.
+// It opens a database named "application" using the specified backend type and the data directory.
+// It returns the opened database and an error (if any). If the database opens successfully, the error will be nil.
+//
+// NOTE: this is included in builds without rocksdb.
+// When building the binary with rocksdb, the code in 'rocksdb.go' will be included
+// instead of this
+func openDB(_ types.AppOptions, home string, backendType dbm.BackendType) (dbm.DB, error) {
+	dataDir := filepath.Join(home, "data")
+	return dbm.NewDB("application", backendType, dataDir)
 }

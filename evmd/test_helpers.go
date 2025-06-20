@@ -11,7 +11,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/evm/cmd/evmd/config"
+	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -51,10 +51,10 @@ func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uin
 	db := dbm.NewMemDB()
 
 	appOptions := make(simtestutil.AppOptionsMap, 0)
-	appOptions[flags.FlagHome] = DefaultNodeHome
+	appOptions[flags.FlagHome] = defaultNodeHome
 	appOptions[server.FlagInvCheckPeriod] = invCheckPeriod
 
-	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, evmChainID, EvmAppOptions, baseapp.SetChainID(chainID))
+	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, evmChainID, config.EvmAppOptions, baseapp.SetChainID(chainID))
 	if withGenesis {
 		return app, app.DefaultGenesis()
 	}
@@ -129,9 +129,9 @@ func SetupTestingApp(chainID string, evmChainID uint64) func() (ibctesting.Testi
 		app := NewExampleApp(
 			log.NewNopLogger(),
 			db, nil, true,
-			simtestutil.NewAppOptionsWithFlagHome(DefaultNodeHome),
+			simtestutil.NewAppOptionsWithFlagHome(defaultNodeHome),
 			evmChainID,
-			EvmAppOptions,
+			config.EvmAppOptions,
 			baseapp.SetChainID(chainID),
 		)
 		return app, app.DefaultGenesis()

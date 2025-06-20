@@ -3,7 +3,7 @@ package erc20
 import (
 	"fmt"
 
-	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -174,7 +174,7 @@ func (s *KeeperTestSuite) TestTokenPair() {
 func (s *KeeperTestSuite) TestQueryParams() {
 	s.SetupTest()
 	ctx := s.network.GetContext()
-	expParams := exampleapp.NewErc20GenesisState().Params
+	expParams := config.NewErc20GenesisState().Params
 
 	res, err := s.queryClient.Params(ctx, &types.QueryParamsRequest{})
 	s.Require().NoError(err)

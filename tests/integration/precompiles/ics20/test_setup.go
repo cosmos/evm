@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -42,22 +42,22 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.chainA = s.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	s.chainB = s.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
-	evmAppA := s.chainA.App.(*evmd.EVMD)
+	evmAppA := s.chainA.App.(evm.EvmApp)
 	s.chainAPrecompile, _ = ics20.NewPrecompile(
-		evmAppA.BankKeeper,
-		*evmAppA.StakingKeeper,
-		evmAppA.TransferKeeper,
-		evmAppA.IBCKeeper.ChannelKeeper,
-		evmAppA.EVMKeeper,
+		evmAppA.GetBankKeeper(),
+		*evmAppA.GetStakingKeeper(),
+		evmAppA.GetTransferKeeper(),
+		evmAppA.GetIBCKeeper().ChannelKeeper,
+		evmAppA.GetEVMKeeper(),
 	)
-	s.chainABondDenom, _ = evmAppA.StakingKeeper.BondDenom(s.chainA.GetContext())
-	evmAppB := s.chainB.App.(*evmd.EVMD)
+	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
+	evmAppB := s.chainB.App.(evm.EvmApp)
 	s.chainBPrecompile, _ = ics20.NewPrecompile(
-		evmAppB.BankKeeper,
-		*evmAppB.StakingKeeper,
-		evmAppB.TransferKeeper,
-		evmAppB.IBCKeeper.ChannelKeeper,
-		evmAppB.EVMKeeper,
+		evmAppB.GetBankKeeper(),
+		*evmAppB.GetStakingKeeper(),
+		evmAppB.GetTransferKeeper(),
+		evmAppB.GetIBCKeeper().ChannelKeeper,
+		evmAppB.GetEVMKeeper(),
 	)
-	s.chainBBondDenom, _ = evmAppB.StakingKeeper.BondDenom(s.chainB.GetContext())
+	s.chainBBondDenom, _ = evmAppB.GetStakingKeeper().BondDenom(s.chainB.GetContext())
 }

@@ -5,11 +5,12 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -20,11 +21,15 @@ import (
 
 // CreateEvmd creates an evmos app
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
+	if err != nil {
+		panic(err)
+	}
 	// create evmos app
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
-	appOptions := simutils.NewAppOptionsWithFlagHome(evmd.DefaultNodeHome)
+	appOptions := simutils.NewAppOptionsWithFlagHome(defaultNodeHome)
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID)) //nolint:gocritic
 
 	return evmd.NewExampleApp(
@@ -34,7 +39,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		loadLatest,
 		appOptions,
 		evmChainID,
-		evmd.EvmAppOptions,
+		config.EvmAppOptions,
 		baseAppOptions...,
 	)
 }
@@ -49,7 +54,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		true,
 		simutils.EmptyAppOptions{},
 		9001,
-		evmd.EvmAppOptions,
+		config.EvmAppOptions,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

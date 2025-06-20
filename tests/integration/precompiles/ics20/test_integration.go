@@ -13,7 +13,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/ics20"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
@@ -30,9 +30,9 @@ import (
 )
 
 func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.AppCreator) {
-	isContractDeployed := func(ctx sdk.Context, evmApp *evmd.EVMD, contractAddr common.Address) bool {
-		codeHash := evmApp.EVMKeeper.GetCodeHash(ctx, contractAddr)
-		code := evmApp.EVMKeeper.GetCode(ctx, codeHash)
+	isContractDeployed := func(ctx sdk.Context, evmApp evm.EvmApp, contractAddr common.Address) bool {
+		codeHash := evmApp.GetEVMKeeper().GetCodeHash(ctx, contractAddr)
+		code := evmApp.GetEVMKeeper().GetCode(ctx, codeHash)
 		return len(code) > 0
 	}
 
@@ -74,7 +74,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(res.Code).To(BeZero(), "Failed to deploy ICS20 caller contract: %s", res.Log)
 
 			ics20CallerAddr = crypto.CreateAddress(common.Address(sender.Bytes()), sentEthTx.AsTransaction().Nonce())
-			evmAppA := s.chainA.App.(*evmd.EVMD)
+			evmAppA := s.chainA.App.(evm.EvmApp)
 			Expect(isContractDeployed(s.chainA.GetContext(), evmAppA, ics20CallerAddr)).To(BeTrue(), "Contract was not deployed successfully")
 
 			randomAddr = tx.GenerateAddress()
@@ -229,13 +229,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 		It("should successfully call the ICS20 precompile to transfer tokens", func() {
 			path := evmibctesting.NewTransferPath(s.chainA, s.chainB)
 			path.Setup()
-			evmAppA := s.chainA.App.(*evmd.EVMD)
+			evmAppA := s.chainA.App.(evm.EvmApp)
 
 			sourcePortID := path.EndpointA.ChannelConfig.PortID
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
 			escrowAddr := types.GetEscrowAddress(sourcePortID, sourceChannelID)
-			escrowBalance := evmAppA.BankKeeper.GetBalance(
+			escrowBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
@@ -244,7 +244,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the contract address
 			sendAmt := math.NewInt(1)
-			err = evmAppA.BankKeeper.SendCoins(
+			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
 				(ics20CallerAddr.Bytes()),
@@ -279,13 +279,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			)
 			Expect(err).To(BeNil(), "Failed to testTransfer")
 			// balance after transfer should be 0
-			contractBalance := evmAppA.BankKeeper.GetBalance(
+			contractBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				ics20CallerAddr.Bytes(),
 				sourceBondDenom,
 			)
 			Expect(contractBalance.Amount).To(Equal(math.ZeroInt()), "Contract balance should be 0 after transfer")
-			escrowBalance = evmAppA.BankKeeper.GetBalance(
+			escrowBalance = evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
@@ -296,13 +296,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 		DescribeTable("ICS20 transfer with transfer", func(tc testCase) {
 			path := evmibctesting.NewTransferPath(s.chainA, s.chainB)
 			path.Setup()
-			evmAppA := s.chainA.App.(*evmd.EVMD)
+			evmAppA := s.chainA.App.(evm.EvmApp)
 
 			sourcePortID := path.EndpointA.ChannelConfig.PortID
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
 			escrowAddr := types.GetEscrowAddress(sourcePortID, sourceChannelID)
-			escrowBalance := evmAppA.BankKeeper.GetBalance(
+			escrowBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
@@ -311,7 +311,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the conoract address
 			fundAmt := math.NewInt(100)
-			err = evmAppA.BankKeeper.SendCoins(
+			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
 				ics20CallerAddr.Bytes(),
@@ -319,7 +319,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			)
 			Expect(err).To(BeNil(), "Failed to send tokens to contract address")
 			// check contract balance
-			contractBalance := evmAppA.BankKeeper.GetBalance(
+			contractBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				ics20CallerAddr.Bytes(),
 				sourceBondDenom,
@@ -363,13 +363,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				expectedContractBalance = expectedContractBalance.Sub(math.NewInt(15))
 			}
 			// balance after transfer should be 0
-			contractBalance = evmAppA.BankKeeper.GetBalance(
+			contractBalance = evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				ics20CallerAddr.Bytes(),
 				sourceBondDenom,
 			)
 			Expect(contractBalance.Amount).To(Equal(expectedContractBalance), "Contract balance should be equal to the expected amount after transfer")
-			escrowBalance = evmAppA.BankKeeper.GetBalance(
+			escrowBalance = evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
@@ -393,13 +393,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 		It("should revert the transfer but continue execution after try catch", func() {
 			path := evmibctesting.NewTransferPath(s.chainA, s.chainB)
 			path.Setup()
-			evmAppA := s.chainA.App.(*evmd.EVMD)
+			evmAppA := s.chainA.App.(evm.EvmApp)
 
 			sourcePortID := path.EndpointA.ChannelConfig.PortID
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
 			escrowAddr := types.GetEscrowAddress(sourcePortID, sourceChannelID)
-			escrowBalance := evmAppA.BankKeeper.GetBalance(
+			escrowBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
@@ -408,14 +408,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
-			err = evmAppA.BankKeeper.SendCoins(
+			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
 				ics20CallerAddr.Bytes(),
 				sdk.NewCoins(sdk.NewCoin(sourceBondDenom, fundAmt)),
 			)
 			Expect(err).To(BeNil(), "Failed to send tokens to contract address")
-			contractBalance := evmAppA.BankKeeper.GetBalance(
+			contractBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				ics20CallerAddr.Bytes(),
 				sourceBondDenom,
@@ -452,19 +452,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).To(BeNil(), "Failed to testTransfer")
-			contractBalanceAfter := evmAppA.BankKeeper.GetBalance(
+			contractBalanceAfter := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				ics20CallerAddr.Bytes(),
 				sourceBondDenom,
 			)
 			Expect(contractBalanceAfter.Amount).To(Equal(contractBalance.Amount.Sub(math.NewInt(15))))
-			escrowBalance = evmAppA.BankKeeper.GetBalance(
+			escrowBalance = evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
 				sourceBondDenom,
 			)
 			Expect(escrowBalance.Amount).To(Equal(math.ZeroInt()))
-			randomAccBalance := evmAppA.BankKeeper.GetBalance(
+			randomAccBalance := evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				randomAccAddr,
 				sourceBondDenom,

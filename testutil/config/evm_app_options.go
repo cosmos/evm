@@ -1,12 +1,11 @@
 //go:build !test
 // +build !test
 
-package evmd
+package config
 
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/cmd/evmd/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -28,7 +27,7 @@ func EvmAppOptions(chainID uint64) error {
 		return nil
 	}
 
-	coinInfo, found := config.ChainsCoinInfo[chainID]
+	coinInfo, found := ChainsCoinInfo[chainID]
 	if !found {
 		return fmt.Errorf("unknown chain id: %d", chainID)
 	}

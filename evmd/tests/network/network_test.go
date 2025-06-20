@@ -11,15 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/suite"
 
+	cosmosevmnetwork "github.com/cosmos/evm/evmd/tests/network"
 	"github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/testutil/network"
-	cosmosevmnetwork "github.com/cosmos/evm/testutil/network"
 )
 
 type IntegrationTestSuite struct {
 	suite.Suite
 
-	network *network.Network
+	network *cosmosevmnetwork.Network
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -30,7 +29,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	cfg.JSONRPCAddress = config.DefaultJSONRPCAddress
 	cfg.NumValidators = 1
 
-	s.network, err = network.New(s.T(), s.T().TempDir(), cfg)
+	s.network, err = cosmosevmnetwork.New(s.T(), s.T().TempDir(), cfg)
 	s.Require().NoError(err)
 	s.Require().NotNil(s.network)
 

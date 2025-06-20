@@ -1,4 +1,4 @@
-package eips
+package eips_test
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/cosmos/evm/evmd/eips"
 	"github.com/cosmos/evm/evmd/eips/testdata"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -33,7 +34,7 @@ import (
 //  3. Deploy and interact with contracts to compute the gas used AFTER enabling
 //     the EIP.
 
-func TestEIPs(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
+func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	_ = Describe("EIP-0000 - ", Ordered, func() {
 		var (
 			in network.Network
@@ -130,6 +131,8 @@ func TestEIPs(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 		})
 
 		It("should change CREATE opcode constant gas after enabling EIP", func() {
+			qRes, err := gh.GetEvmParams()
+			_ = qRes.Params
 			gasCostPre := params.CreateGas
 
 			deploymentTxArgs, err := tf.GenerateDeployContractArgs(senderAddr2, evmtypes.EvmTxArgs{}, deploymentData)
@@ -442,4 +445,8 @@ func TestEIPs(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "EIPs Suite")
+}
+
+func TestEIPs(t *testing.T) {
+	RunTests(t, integration.CreateEvmd)
 }
