@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 
+	vmcachemulti "github.com/cosmos/evm/x/vm/store/cachemulti"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -74,6 +75,8 @@ type StateDB struct {
 
 	// The count of calls to precompiles
 	precompileCallsCounter uint8
+
+	cacheStack *vmcachemulti.CacheMultiStack
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -164,29 +167,33 @@ func (s *StateDB) GetCacheContext() (sdk.Context, error) {
 }
 
 // MultiStoreSnapshot returns a copy of the stateDB CacheMultiStore.
-func (s *StateDB) MultiStoreSnapshot() storetypes.CacheMultiStore {
-	if s.writeCache == nil {
-		err := s.cache()
-		if err != nil {
-			return s.ctx.MultiStore().CacheMultiStore()
-		}
-	}
-	// the cacheCtx multi store is already a CacheMultiStore
-	// so we need to pass a copy of the current state of it
+func (s *StateDB) MultiStoreSnapshot() int {
 	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
-	snapshot := cms.CacheMultiStore()
+	stores := cms.GetStores()
+	s.cacheStack = vmcachemulti.NewCacheMultiStack(stores)
+	s.cacheCtx.WithMultiStore(s.cacheStack)
+	snapshot := s.cacheStack.Snapshot()
 
+	s.writeCache = func() {
+		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
+		s.cacheStack.Commit()
+	}
 	return snapshot
 }
 
-func (s *StateDB) RevertMultiStore(cms storetypes.CacheMultiStore, events sdk.Events) {
-	s.cacheCtx = s.cacheCtx.WithMultiStore(cms)
+func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
+	// s.cacheCtx = s.cacheCtx.WithMultiStore(snapshot)
+	s.cacheStack.RevertToSnapshot(snapshot)
 	s.writeCache = func() {
-		// rollback the events to the ones
-		// on the snapshot
 		s.ctx.EventManager().EmitEvents(events)
-		cms.Write()
+		s.cacheStack.Commit()
 	}
+	// s.writeCache = func() {
+	// 	// rollback the events to the ones
+	// 	// on the snapshot
+	// 	s.ctx.EventManager().EmitEvents(events)
+	// 	// cms.Write()
+	// }
 }
 
 // cache creates the stateDB cache context
@@ -194,7 +201,18 @@ func (s *StateDB) cache() error {
 	if s.ctx.MultiStore() == nil {
 		return errors.New("ctx has no multi store")
 	}
-	s.cacheCtx, s.writeCache = s.ctx.CacheContext()
+
+	s.cacheCtx, _ = s.ctx.CacheContext()
+	stores := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).GetStores()
+	s.cacheStack = vmcachemulti.NewCacheMultiStack(stores)
+	s.cacheCtx.WithMultiStore(s.cacheStack)
+
+	s.writeCache = func() {
+		s.cacheCtx.WithEventManager(sdk.NewEventManager())
+		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
+		s.cacheStack.Commit()
+	}
+
 	return nil
 }
 
@@ -409,12 +427,12 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(addr common.Address, cms storetypes.CacheMultiStore, events sdk.Events) error {
+func (s *StateDB) AddPrecompileFn(addr common.Address, snapshot int, events sdk.Events) error {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject == nil {
 		return fmt.Errorf("could not add precompile call to address %s. State object not found", addr)
 	}
-	stateObject.AddPrecompileFn(cms, events)
+	stateObject.AddPrecompileFn(snapshot, events)
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)

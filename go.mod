@@ -271,6 +271,7 @@ require (
 )
 
 replace (
+	cosmossdk.io/store => /Users/kyuhyeonchoi/workspace/cloudgray/cosmos-sdk/store
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// Pin this pebble version to avoid breaking compilation of geth
