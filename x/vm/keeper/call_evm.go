@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
@@ -25,6 +26,7 @@ func (k Keeper) CallEVM(
 	abi abi.ABI,
 	from, contract common.Address,
 	commit bool,
+	gasCap *big.Int,
 	method string,
 	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
@@ -36,7 +38,7 @@ func (k Keeper) CallEVM(
 		)
 	}
 
-	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit)
+	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
@@ -50,13 +52,16 @@ func (k Keeper) CallEVMWithData(
 	contract *common.Address,
 	data []byte,
 	commit bool,
+	gasCap *big.Int,
 ) (*types.MsgEthereumTxResponse, error) {
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	gasCap := config.DefaultGasCap
+	if gasCap == nil {
+		gasCap = math.NewIntFromUint64(config.DefaultGasCap).BigInt()
+	}
 	if commit {
 		args, err := json.Marshal(types.TransactionArgs{
 			From: &from,
@@ -69,12 +74,12 @@ func (k Keeper) CallEVMWithData(
 
 		gasRes, err := k.EstimateGasInternal(ctx, &types.EthCallRequest{
 			Args:   args,
-			GasCap: config.DefaultGasCap,
+			GasCap: gasCap.Uint64(),
 		}, types.Internal)
 		if err != nil {
 			return nil, err
 		}
-		gasCap = gasRes.Gas
+		gasCap = math.NewIntFromUint64(gasRes.Gas).BigInt()
 	}
 
 	msg := core.Message{
@@ -82,7 +87,7 @@ func (k Keeper) CallEVMWithData(
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   gasCap,
+		GasLimit:   gasCap.Uint64(),
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),

@@ -32,6 +32,7 @@ var f embed.FS
 
 type Precompile struct {
 	cmn.Precompile
+	bankKeeper     cmn.BankKeeper
 	stakingKeeper  stakingkeeper.Keeper
 	transferKeeper transferkeeper.Keeper
 	channelKeeper  *channelkeeper.Keeper
@@ -41,6 +42,7 @@ type Precompile struct {
 // NewPrecompile creates a new ICS-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
+	bankKeeper cmn.BankKeeper,
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
@@ -57,6 +59,7 @@ func NewPrecompile(
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
+		bankKeeper:     bankKeeper,
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
 		stakingKeeper:  stakingKeeper,
@@ -89,47 +92,45 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract IBC transfer methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		switch method.Name {
-		// ICS20 transactions
-		case TransferMethod:
-			bz, err = p.Transfer(ctx, contract, stateDB, method, args)
-		// ICS20 queries
-		case DenomMethod:
-			bz, err = p.Denom(ctx, contract, method, args)
-		case DenomsMethod:
-			bz, err = p.Denoms(ctx, contract, method, args)
-		case DenomHashMethod:
-			bz, err = p.DenomHash(ctx, contract, method, args)
-		default:
-			return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-		}
+	switch method.Name {
+	// ICS20 transactions
+	case TransferMethod:
+		bz, err = p.Transfer(ctx, contract, stateDB, method, args)
+	// ICS20 queries
+	case DenomMethod:
+		bz, err = p.Denom(ctx, contract, method, args)
+	case DenomsMethod:
+		bz, err = p.Denoms(ctx, contract, method, args)
+	case DenomHashMethod:
+		bz, err = p.DenomHash(ctx, contract, method, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-		if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-			return nil, vm.ErrOutOfGas
-		}
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
 
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
+	if err = p.AddJournalEntries(stateDB); err != nil {
+		return nil, err
+	}
 
-		return bz, nil
-	})
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
