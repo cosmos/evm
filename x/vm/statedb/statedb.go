@@ -188,9 +188,17 @@ func (s *StateDB) cache() error {
 	}
 	s.cacheCtx, _ = s.ctx.CacheContext()
 
-	stores := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).GetStores()
-	snapshotStore := snapshotmulti.NewStore(stores)
+	// Get KVStores for modules wired to app
+	keys := s.keeper.KVStoreKeys()
+	stores := make(map[storetypes.StoreKey]storetypes.CacheWrap, len(keys))
+	for _, key := range keys {
+		if store := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).GetKVStore(key); store != nil {
+			stores[key] = store.(storetypes.CacheWrap)
+		}
+	}
 
+	// Create and set snapshot store to stateDB
+	snapshotStore := snapshotmulti.NewStore(stores)
 	s.snapshotter = snapshotStore
 	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
 	s.writeCache = func() {
