@@ -497,7 +497,9 @@ func (s *PrecompileTestSuite) TestCMS() {
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(resp.Ret, "expected returned bytes not to be nil")
-				testutil.ValidateWrites(s.T(), cms, 2)
+				// NOTES: After stack-based snapshot mechanism is added for precopile call,
+				// CacheMultiStore.Write() is always called once.
+				testutil.ValidateWrites(s.T(), cms, 1)
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(resp.Ret, "expected returned bytes to be nil")

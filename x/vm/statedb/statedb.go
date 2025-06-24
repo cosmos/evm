@@ -18,7 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 
-	vmcachemulti "github.com/cosmos/evm/x/vm/store/cachemulti"
+	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
+	vmstoretypes "github.com/cosmos/evm/x/vm/store/types"
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -50,6 +51,9 @@ type StateDB struct {
 	cacheCtx sdk.Context
 	// writeCache function contains all the changes related to precompile calls.
 	writeCache func()
+	// snapshotter is used for snapshot creation and revert
+	// this snapshot is used for precompile call
+	snapshotter vmstoretypes.Snapshotter
 
 	// Transient storage
 	transientStorage transientStorage
@@ -75,8 +79,6 @@ type StateDB struct {
 
 	// The count of calls to precompiles
 	precompileCallsCounter uint8
-
-	cacheStack *vmcachemulti.CacheMultiStack
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -168,32 +170,15 @@ func (s *StateDB) GetCacheContext() (sdk.Context, error) {
 
 // MultiStoreSnapshot returns a copy of the stateDB CacheMultiStore.
 func (s *StateDB) MultiStoreSnapshot() int {
-	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
-	stores := cms.GetStores()
-	s.cacheStack = vmcachemulti.NewCacheMultiStack(stores)
-	s.cacheCtx.WithMultiStore(s.cacheStack)
-	snapshot := s.cacheStack.Snapshot()
-
-	s.writeCache = func() {
-		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
-		s.cacheStack.Commit()
-	}
-	return snapshot
+	return s.snapshotter.Snapshot()
 }
 
 func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
-	// s.cacheCtx = s.cacheCtx.WithMultiStore(snapshot)
-	s.cacheStack.RevertToSnapshot(snapshot)
+	s.snapshotter.RevertToSnapshot(snapshot)
 	s.writeCache = func() {
 		s.ctx.EventManager().EmitEvents(events)
-		s.cacheStack.Commit()
+		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
-	// s.writeCache = func() {
-	// 	// rollback the events to the ones
-	// 	// on the snapshot
-	// 	s.ctx.EventManager().EmitEvents(events)
-	// 	// cms.Write()
-	// }
 }
 
 // cache creates the stateDB cache context
@@ -201,16 +186,16 @@ func (s *StateDB) cache() error {
 	if s.ctx.MultiStore() == nil {
 		return errors.New("ctx has no multi store")
 	}
-
 	s.cacheCtx, _ = s.ctx.CacheContext()
-	stores := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).GetStores()
-	s.cacheStack = vmcachemulti.NewCacheMultiStack(stores)
-	s.cacheCtx.WithMultiStore(s.cacheStack)
 
+	stores := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).GetStores()
+	snapshotStore := snapshotmulti.NewStore(stores)
+
+	s.snapshotter = snapshotStore
+	s.cacheCtx = s.cacheCtx.WithMultiStore(snapshotStore)
 	s.writeCache = func() {
-		s.cacheCtx.WithEventManager(sdk.NewEventManager())
 		s.ctx.EventManager().EmitEvents(s.cacheCtx.EventManager().Events())
-		s.cacheStack.Commit()
+		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}
 
 	return nil
