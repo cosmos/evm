@@ -8473,7 +8473,8 @@ type ChainConfig struct {
 	PragueTime string `protobuf:"bytes,29,opt,name=prague_time,json=pragueTime,proto3" json:"prague_time,omitempty"`
 	// verkle_time: Verkle switch time (nil = no fork, 0 = already on verkle)
 	VerkleTime string `protobuf:"bytes,30,opt,name=verkle_time,json=verkleTime,proto3" json:"verkle_time,omitempty"`
-	OsakaTime  string `protobuf:"bytes,31,opt,name=osaka_time,json=osakaTime,proto3" json:"osaka_time,omitempty"`
+	// osaka_time: Osaka switch time (nil = no fork, 0 = already on osaka)
+	OsakaTime string `protobuf:"bytes,31,opt,name=osaka_time,json=osakaTime,proto3" json:"osaka_time,omitempty"`
 }
 
 func (x *ChainConfig) Reset() {

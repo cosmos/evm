@@ -2,11 +2,11 @@ package evm
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/statedb"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -25,7 +25,7 @@ func VerifyAccountBalance(
 	accountKeeper anteinterfaces.AccountKeeper,
 	account *statedb.Account,
 	from common.Address,
-	txData evmtypes.TxData,
+	txData *ethtypes.Transaction,
 ) error {
 	// Only EOA are allowed to send transactions.
 	if account != nil && account.IsContract() {
