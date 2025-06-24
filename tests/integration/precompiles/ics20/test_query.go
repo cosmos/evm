@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
 	precompiletestutil "github.com/cosmos/evm/precompiles/testutil"
@@ -46,8 +46,8 @@ func (s *PrecompileTestSuite) TestDenoms() {
 			name: "success",
 			args: []interface{}{query.PageRequest{Limit: 10, CountTotal: true}},
 			malleate: func(ctx sdk.Context) {
-				evmApp := s.chainA.App.(*evmd.EVMD)
-				evmApp.TransferKeeper.SetDenom(ctx, denom)
+				evmApp := s.chainA.App.(evm.EvmApp)
+				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
 			},
 			expDenom: denom,
 		},
@@ -107,8 +107,8 @@ func (s *PrecompileTestSuite) TestDenom() {
 			name: "success - denom found",
 			arg:  denom.Hash().String(),
 			malleate: func(ctx sdk.Context) {
-				evmApp := s.chainA.App.(*evmd.EVMD)
-				evmApp.TransferKeeper.SetDenom(ctx, denom)
+				evmApp := s.chainA.App.(evm.EvmApp)
+				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
 			},
 			expDenom: denom,
 		},
@@ -188,8 +188,8 @@ func (s *PrecompileTestSuite) TestDenomHash() {
 			name: "success",
 			arg:  denom.Path(),
 			malleate: func(ctx sdk.Context) {
-				evmApp := s.chainA.App.(*evmd.EVMD)
-				evmApp.TransferKeeper.SetDenom(ctx, denom)
+				evmApp := s.chainA.App.(evm.EvmApp)
+				evmApp.GetTransferKeeper().SetDenom(ctx, denom)
 			},
 			expHash: denom.Hash().String(),
 		},
