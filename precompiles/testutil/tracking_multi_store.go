@@ -79,14 +79,6 @@ func (t *TrackingMultiStore) CacheMultiStore() storetypes.CacheMultiStore {
 	return tms
 }
 
-func (t *TrackingMultiStore) Copy() storetypes.CacheMultiStore {
-	return t
-}
-
-func (t *TrackingMultiStore) GetStores() map[storetypes.StoreKey]storetypes.CacheWrap {
-	return t.Store.GetStores()
-}
-
 // ValidateWrites tests the number of writes to a tree of tracking multi stores,
 // and that all the writes in a branching cache multistore/cascade upwards
 func ValidateWrites(t *testing.T, ms *TrackingMultiStore, expWrites int) {
