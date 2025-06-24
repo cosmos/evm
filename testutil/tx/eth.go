@@ -98,8 +98,18 @@ func CreateEthTx(
 	amount *big.Int,
 	data []byte,
 	nonceIncrement int,
+	gasLimit uint64,
 ) (*evmtypes.MsgEthereumTx, error) {
-	toAddr := common.BytesToAddress(dest)
+	var toAddr *common.Address
+	if len(dest) == 0 {
+		toAddr = nil // nil address means contract creation
+	} else {
+		toAddr = new(common.Address)
+		if len(dest) != common.AddressLength {
+			return nil, errorsmod.Wrapf(errorsmod.Error{}, "destination address must be %d bytes long", common.AddressLength)
+		}
+		copy(toAddr[:], dest)
+	}
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID
 
@@ -111,12 +121,15 @@ func CreateEthTx(
 
 	// When we send multiple Ethereum Tx's in one Cosmos Tx, we need to increment the nonce for each one.
 	nonce := evmApp.GetEVMKeeper().GetNonce(ctx, fromAddr) + uint64(nonceIncrement) //#nosec G115 -- will not exceed uint64
+	if gasLimit == 0 {
+		gasLimit = 5_000_000
+	}
 	evmTxParams := &evmtypes.EvmTxArgs{
 		ChainID:   chainID,
 		Nonce:     nonce,
-		To:        &toAddr,
+		To:        toAddr,
 		Amount:    amount,
-		GasLimit:  100000,
+		GasLimit:  gasLimit,
 		GasFeeCap: baseFee,
 		GasPrice:  big.NewInt(0),
 		GasTipCap: big.NewInt(0),

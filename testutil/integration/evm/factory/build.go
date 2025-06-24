@@ -153,16 +153,14 @@ func (tf *IntegrationTxFactory) GenerateGethCoreMsg(
 }
 
 // GenerateContractCallArgs generates the txArgs for a contract call.
-func (tf *IntegrationTxFactory) GenerateContractCallArgs(
-	txArgs evmtypes.EvmTxArgs,
+func GenerateContractCallArgs(
 	callArgs testutiltypes.CallArgs,
-) (evmtypes.EvmTxArgs, error) {
+) ([]byte, error) {
 	input, err := callArgs.ContractABI.Pack(callArgs.MethodName, callArgs.Args...)
 	if err != nil {
-		return evmtypes.EvmTxArgs{}, errorsmod.Wrap(err, "failed to pack contract arguments")
+		return nil, errorsmod.Wrap(err, "failed to pack contract arguments")
 	}
-	txArgs.Input = input
-	return txArgs, nil
+	return input, nil
 }
 
 // GenerateDeployContractArgs generates the txArgs for a contract deployment.
