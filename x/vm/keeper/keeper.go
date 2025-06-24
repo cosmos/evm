@@ -351,3 +351,21 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 	k.SetTransientGasUsed(ctx, result)
 	return result, nil
 }
+
+// SetHeaderHash stores the hash of the current block header in the store.
+func (k Keeper) SetHeaderHash(ctx sdk.Context) {
+	store := ctx.KVStore(k.storeKey)
+	store.Set(types.GetHeaderHashKey(ctx.BlockHeight()), ctx.HeaderHash())
+}
+
+// GetHeaderHash retrieves the hash of a block header from the store by height.
+func (k Keeper) GetHeaderHash(ctx sdk.Context, height int64) []byte {
+	store := ctx.KVStore(k.storeKey)
+	return store.Get(types.GetHeaderHashKey(height))
+}
+
+// DeleteHeaderHash removes the hash of a block header from the store by height
+func (k Keeper) DeleteHeaderHash(ctx sdk.Context, height int64) {
+	store := ctx.KVStore(k.storeKey)
+	store.Delete(types.GetHeaderHashKey(height))
+}

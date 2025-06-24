@@ -35,6 +35,10 @@ message Params {
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
+  // header_hash_history_size defines how many historical block header hashes to keep
+  int64 header_hash_history_size = 10 [
+    (gogoproto.moretags) = "yaml:\"header_hash_history_size\""
+  ];
 }
 
 // AccessControl defines the permission policy of the EVM

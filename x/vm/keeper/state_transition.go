@@ -11,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
-	cmttypes "github.com/cometbft/cometbft/types"
-
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -86,47 +84,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.Hash{}
 		}
 
-		switch {
-		case ctx.BlockHeight() == h:
-			// Case 1: The requested height matches the one from the context so we can retrieve the header
-			// hash directly from the context.
-			// Note: The headerHash is only set at begin block, it will be nil in case of a query context
-			headerHash := ctx.HeaderHash()
-			if len(headerHash) != 0 {
-				return common.BytesToHash(headerHash)
-			}
-
-			// only recompute the hash if not set (eg: checkTxState)
-			contextBlockHeader := ctx.BlockHeader()
-			header, err := cmttypes.HeaderFromProto(&contextBlockHeader)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			headerHash = header.Hash()
-			return common.BytesToHash(headerHash)
-
-		case ctx.BlockHeight() > h:
-			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
-			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, err := k.stakingKeeper.GetHistoricalInfo(ctx, h)
-			if err != nil {
-				k.Logger(ctx).Debug("error while getting historical info", "height", h, "error", err.Error())
-				return common.Hash{}
-			}
-
-			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			return common.BytesToHash(header.Hash())
-		default:
-			// Case 3: heights greater than the current one returns an empty hash.
-			return common.Hash{}
-		}
+		return common.BytesToHash(k.GetHeaderHash(ctx, h))
 	}
 }
 
