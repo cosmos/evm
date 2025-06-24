@@ -4,6 +4,8 @@ import (
 	storetypes "cosmossdk.io/store/types"
 )
 
+const EmptyStackIndex = -1
+
 type Snapshotter interface {
 	Snapshot() int
 	RevertToSnapshot(int)

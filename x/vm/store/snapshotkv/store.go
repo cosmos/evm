@@ -18,8 +18,9 @@ type Store struct {
 	cacheStores []storetypes.CacheKVStore
 }
 
-var _ types.SnapshotStack = &Store{}
+var _ types.SnapshotStack = (*Store)(nil)
 
+// NewStore creates a new Store object
 func NewStore(store storetypes.CacheKVStore) *Store {
 	return &Store{
 		initialStore: store,
