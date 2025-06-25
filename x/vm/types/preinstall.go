@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var DefaultPreinstalls = []Preinstall{
@@ -53,6 +54,11 @@ func (p Preinstall) Validate() error {
 	}
 	if _, err := hex.DecodeString(codeStr); err != nil {
 		return fmt.Errorf("preinstall code %q is not a valid hex string", p.Code)
+	}
+
+	codeHash := crypto.Keccak256Hash(common.FromHex(p.Code)).Bytes()
+	if IsEmptyCodeHash(codeHash) {
+		return fmt.Errorf("preinstall code %q has empty code hash", p.Code)
 	}
 
 	return nil

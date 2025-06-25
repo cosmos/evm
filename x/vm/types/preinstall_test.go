@@ -112,6 +112,15 @@ func TestPreinstall_Validate(t *testing.T) {
 			errorMsg: "preinstall code \"60806040523480156100057600080fd5b50\" is not a valid hex string",
 		},
 		{
+			name: "invalid code - empty code hash",
+			preinstall: Preinstall{
+				Name:    "Test Contract",
+				Address: "0x1234567890123456789012345678901234567890",
+				Code:    "0x",
+			},
+			errorMsg: "preinstall code \"0x\" has empty code hash",
+		},
+		{
 			name: "valid preinstall with empty name (name not validated)",
 			preinstall: Preinstall{
 				Name:    "",
