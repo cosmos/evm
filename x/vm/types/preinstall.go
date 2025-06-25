@@ -56,6 +56,7 @@ func (p Preinstall) Validate() error {
 		return fmt.Errorf("preinstall code %q is not a valid hex string", p.Code)
 	}
 
+	// Check if Code has Empty Code Hash
 	codeHash := crypto.Keccak256Hash(common.FromHex(p.Code)).Bytes()
 	if IsEmptyCodeHash(codeHash) {
 		return fmt.Errorf("preinstall code %q has empty code hash", p.Code)
