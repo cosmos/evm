@@ -173,19 +173,22 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				}
 
 				// verify preinstalls
-				for _, preinstall := range types.DefaultPreinstalls {
-					accAddress := sdk.AccAddress(preinstall.Address.Bytes())
+				for _, preinstall := range tc.genState.Preinstalls {
+					preinstallAddr := common.HexToAddress(preinstall.Address)
+					accAddress := sdk.AccAddress(preinstallAddr.Bytes())
 					s.Require().NotNil(
 						s.network.App.GetAccountKeeper().GetAccount(ctx, accAddress),
 					)
+					preinstallCode := common.Hex2Bytes(preinstall.Code)
+					expectedCodeHash := crypto.Keccak256Hash(preinstallCode)
 					s.Require().Equal(
-						preinstall.Code,
-						s.network.App.GetEVMKeeper().GetCode(ctx, crypto.Keccak256Hash(preinstall.Code)),
+						preinstallCode,
+						s.network.App.GetEVMKeeper().GetCode(ctx, expectedCodeHash),
 					)
 
 					s.Require().Equal(
-						crypto.Keccak256Hash(preinstall.Code),
-						s.network.App.GetEVMKeeper().GetCodeHash(ctx, preinstall.Address),
+						expectedCodeHash,
+						s.network.App.GetEVMKeeper().GetCodeHash(ctx, preinstallAddr),
 					)
 				}
 			}
