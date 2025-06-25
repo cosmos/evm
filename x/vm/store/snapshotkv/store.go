@@ -18,7 +18,7 @@ type Store struct {
 	cacheStores []storetypes.CacheKVStore
 }
 
-var _ types.SnapshotStack = (*Store)(nil)
+var _ types.SnapshotKVStore = (*Store)(nil)
 
 // NewStore creates a new Store object
 func NewStore(store storetypes.CacheKVStore) *Store {
@@ -44,6 +44,7 @@ func (cs *Store) Commit() {
 	for i := len(cs.cacheStores) - 1; i >= 0; i-- {
 		cs.cacheStores[i].Write()
 	}
+	cs.initialStore.Write()
 	cs.cacheStores = nil
 }
 

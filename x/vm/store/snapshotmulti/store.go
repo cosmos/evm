@@ -7,16 +7,12 @@ import (
 	"github.com/cosmos/evm/x/vm/store/snapshotkv"
 	"github.com/cosmos/evm/x/vm/store/types"
 
-	storecachekv "cosmossdk.io/store/cachekv"
 	storetypes "cosmossdk.io/store/types"
 )
 
 type Store struct {
-	stacks   map[storetypes.StoreKey]types.SnapshotStack
-	stackIdx int
-
-	// traceWriter  io.Writer
-	// traceContext storetypes.TraceContext
+	snapshots map[storetypes.StoreKey]types.SnapshotKVStore
+	head      int
 }
 
 var _ types.SnapshotMultiStore = (*Store)(nil)
@@ -24,12 +20,12 @@ var _ types.SnapshotMultiStore = (*Store)(nil)
 // NewStore creates a new Store object
 func NewStore(stores map[storetypes.StoreKey]storetypes.CacheWrap) *Store {
 	cms := &Store{
-		stacks:   make(map[storetypes.StoreKey]types.SnapshotStack),
-		stackIdx: types.EmptyStackIndex,
+		snapshots: make(map[storetypes.StoreKey]types.SnapshotKVStore),
+		head:      types.InitialHead,
 	}
 
 	for key, store := range stores {
-		cms.stacks[key] = snapshotkv.NewStore(store.(*storecachekv.Store))
+		cms.snapshots[key] = snapshotkv.NewStore(store.(storetypes.CacheKVStore))
 	}
 
 	return cms
@@ -38,22 +34,22 @@ func NewStore(stores map[storetypes.StoreKey]storetypes.CacheWrap) *Store {
 // Snapshot pushes a new cached context to the stack,
 // and returns the index of it.
 func (cms *Store) Snapshot() int {
-	for k := range cms.stacks {
-		cms.stacks[k].Snapshot()
+	for k := range cms.snapshots {
+		cms.snapshots[k].Snapshot()
 	}
-	cms.stackIdx++
+	cms.head++
 
-	return cms.stackIdx
+	return cms.head
 }
 
 // RevertToSnapshot pops all the cached contexts after the target index (inclusive).
 // the target should be snapshot index returned by `Snapshot`.
 // This function panics if the index is out of bounds.
 func (cms *Store) RevertToSnapshot(target int) {
-	for _, cacheStack := range cms.stacks {
+	for _, cacheStack := range cms.snapshots {
 		cacheStack.RevertToSnapshot(target)
 	}
-	cms.stackIdx = target - 1
+	cms.head = target - 1
 }
 
 // GetStoreType returns the type of the store.
@@ -88,7 +84,7 @@ func (cms *Store) CacheMultiStoreWithVersion(_ int64) (storetypes.CacheMultiStor
 
 // GetStore returns an underlying Store by key.
 func (cms *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
-	stack := cms.stacks[key]
+	stack := cms.snapshots[key]
 	if key == nil || stack == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
@@ -97,7 +93,7 @@ func (cms *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 
 // GetKVStore returns an underlying KVStore by key.
 func (cms *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
-	stack := cms.stacks[key]
+	stack := cms.snapshots[key]
 	if key == nil || stack == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
@@ -136,9 +132,8 @@ func (cms *Store) LatestVersion() int64 {
 
 // Write calls Write on each underlying store.
 func (cms *Store) Write() {
-	for k := range cms.stacks {
-		cms.stacks[k].Commit()
-		cms.stacks[k].CurrentStore().Write()
+	for k := range cms.snapshots {
+		cms.snapshots[k].Commit()
 	}
-	cms.stackIdx = types.EmptyStackIndex
+	cms.head = types.InitialHead
 }
