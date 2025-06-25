@@ -13,8 +13,10 @@ import (
 	"cosmossdk.io/store/types"
 )
 
-var benchSink interface{}
-var benchTxCount = flag.Int("bench.numtx", 256, "number of transactions per benchmark run")
+var (
+	benchSink    interface{}
+	benchTxCount = flag.Int("bench.numtx", 256, "number of transactions per benchmark run")
+)
 
 // genBytes returns a byte slice of the given length filled with random bytes.
 func genBytes(n int) []byte {

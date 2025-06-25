@@ -3,10 +3,10 @@ package snapshotkv
 import (
 	"fmt"
 
+	"github.com/cosmos/evm/x/vm/store/types"
+
 	"cosmossdk.io/store/cachekv"
 	storetypes "cosmossdk.io/store/types"
-
-	"github.com/cosmos/evm/x/vm/store/types"
 )
 
 // Store manages a stack of nested cache store to

@@ -4,9 +4,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // ExtStateDB defines an extension to the interface provided by the go-ethereum
@@ -37,6 +37,6 @@ type Keeper interface {
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
 
 	// Getter for injected KVStore keys
-	// It is used for snapshot store creation of StateDB.
+	// It is used for StateDB.snapshotter creation
 	KVStoreKeys() map[string]*storetypes.KVStoreKey
 }
