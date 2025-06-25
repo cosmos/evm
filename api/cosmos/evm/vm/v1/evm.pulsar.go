@@ -9682,17 +9682,18 @@ func (x *TraceConfig) GetTracerJsonConfig() string {
 	return ""
 }
 
-// Preinstall defines a contract that is preinstalled on-chain with a specific contract address and bytecode
+// Preinstall defines a contract that is preinstalled on-chain with a specific
+// contract address and bytecode
 type Preinstall struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of the preinstall contract, only used to identify preinstalls easier and is not stored in state
+	// name of the preinstall contract
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Address in hex format of the preinstall contract
+	// address in hex format of the preinstall contract
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	// Bytecode in hex format for the preinstall contract
+	// code in hex format for the preinstall contract
 	Code string `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`
 }
 
