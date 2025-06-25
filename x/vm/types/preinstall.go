@@ -1,5 +1,13 @@
 package types
 
+import (
+	"encoding/hex"
+	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+)
+
 var DefaultPreinstalls = []Preinstall{
 	{
 		Name:    "Create2",
@@ -21,4 +29,31 @@ var DefaultPreinstalls = []Preinstall{
 		Address: "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
 		Code:    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
 	},
+}
+
+// Validate performs basic validation checks on the Preinstall
+func (p Preinstall) Validate() error {
+	if p.Address == "" {
+		return fmt.Errorf("preinstall address cannot be empty")
+	}
+
+	// Check if Address is a valid hex string that can be converted to common.Address
+	if !common.IsHexAddress(p.Address) {
+		return fmt.Errorf("preinstall address %q is not a valid hex address", p.Address)
+	}
+
+	if p.Code == "" {
+		return fmt.Errorf("preinstall code cannot be empty")
+	}
+
+	// Check if Code is a valid hex string that can be converted to bytes
+	codeStr := p.Code
+	if strings.HasPrefix(codeStr, "0x") || strings.HasPrefix(codeStr, "0X") {
+		codeStr = codeStr[2:]
+	}
+	if _, err := hex.DecodeString(codeStr); err != nil {
+		return fmt.Errorf("preinstall code %q is not a valid hex string", p.Code)
+	}
+
+	return nil
 }
