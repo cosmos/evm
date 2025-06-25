@@ -97,36 +97,32 @@ func (s *Store) CacheMultiStore() storetypes.CacheMultiStore {
 	return s
 }
 
-// CacheMultiStoreWithVersion implements the MultiStore interface. It will panic
-// as an already cached multi-store cannot load previous versions.
+// CacheMultiStoreWithVersion load stores at a snapshot version.
 //
-// TODO: The store implementation can possibly be modified to support this as it
-// seems safe to load previous versions (heights).
+// NOTE: CacheMultiStoreWithVersion is no-op function.
 func (s *Store) CacheMultiStoreWithVersion(_ int64) (storetypes.CacheMultiStore, error) {
-	panic("cannot branch cache snapshot multi store with a version")
+	return s, nil
 }
 
 // GetStore returns an underlying Store by key.
 func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
-	stack := s.stores[key]
-	if key == nil || stack == nil {
+	store := s.stores[key]
+	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return stack.CurrentStore()
+	return store.CurrentStore()
 }
 
 // GetKVStore returns an underlying KVStore by key.
 func (s *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
-	stack := s.stores[key]
-	if key == nil || stack == nil {
+	store := s.stores[key]
+	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return stack.CurrentStore()
+	return store.CurrentStore()
 }
 
 // TracingEnabled returns if tracing is enabled for the MultiStore.
-//
-// TODO: The store implementation can possibly be modified to support this method.
 func (s *Store) TracingEnabled() bool {
 	return false
 }
@@ -134,7 +130,7 @@ func (s *Store) TracingEnabled() bool {
 // SetTracer sets the tracer for the MultiStore that the underlying
 // stores will utilize to trace operations. A MultiStore is returned.
 //
-// TODO: The store implementation can possibly be modified to support this method.
+// NOTE: SetTracer no-op function.
 func (s *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
 	return s
 }
@@ -144,14 +140,14 @@ func (s *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
 // be overwritten. It is implied that the caller should update the context when
 // necessary between tracing operations. It returns a modified MultiStore.
 //
-// TODO: The store implementation can possibly be modified to support this method.
+// NOTE: SetTracingContext no-op function
 func (s *Store) SetTracingContext(_ storetypes.TraceContext) storetypes.MultiStore {
 	return s
 }
 
 // LatestVersion returns the branch version of the store
 func (s *Store) LatestVersion() int64 {
-	panic("cannot get latest version from branch cached multi-store")
+	return int64(s.head)
 }
 
 // Write calls Write on each underlying store.

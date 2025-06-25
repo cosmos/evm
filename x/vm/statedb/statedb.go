@@ -168,7 +168,8 @@ func (s *StateDB) GetCacheContext() (sdk.Context, error) {
 	return s.cacheCtx, nil
 }
 
-// MultiStoreSnapshot returns a copy of the stateDB CacheMultiStore.
+// MultiStoreSnapshot snapshots stateDB CacheMultiStore
+// and returns snapshot index
 func (s *StateDB) MultiStoreSnapshot() int {
 	return s.snapshotter.Snapshot()
 }
