@@ -156,7 +156,6 @@ func (s *Store) LatestVersion() int64 {
 func (s *Store) Write() {
 	for _, key := range s.storeKeys {
 		s.stores[key].Commit()
-		s.stores[key].CurrentStore().Write()
 	}
 	s.head = types.InitialHead
 }
