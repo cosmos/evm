@@ -17,7 +17,7 @@ message GenesisState {
   Params params = 2
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
   // preinstalls defines a set of predefined contracts
-  repeated Preinstall preinstalls = 3 
+  repeated Preinstall preinstalls = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 

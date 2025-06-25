@@ -334,12 +334,14 @@ message TraceConfig {
   string tracer_json_config = 13 [ (gogoproto.jsontag) = "tracerConfig" ];
 }
 
-// Preinstall defines a contract that is preinstalled on-chain with a specific contract address and bytecode
+// Preinstall defines a contract that is preinstalled on-chain with a specific
+// contract address and bytecode
 message Preinstall {
-  // Name of the preinstall contract, only used to identify preinstalls easier and is not stored in state
+  // Name of the preinstall contract, only used to identify preinstalls easier
+  // and is not stored in state
   string name = 1;
   // Address in hex format of the preinstall contract
   string address = 2;
   // Bytecode in hex format for the preinstall contract
-  string code = 3; 
+  string code = 3;
 }
