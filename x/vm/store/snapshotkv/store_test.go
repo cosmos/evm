@@ -3,13 +3,13 @@ package snapshotkv_test
 import (
 	"testing"
 
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/x/vm/store/snapshotkv"
 
 	"cosmossdk.io/store/cachekv"
 	"cosmossdk.io/store/dbadapter"
-
-	"github.com/cosmos/evm/x/vm/store/snapshotkv"
 )
 
 func newSnapshotKV() *snapshotkv.Store {

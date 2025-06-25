@@ -3,14 +3,14 @@ package snapshotmulti_test
 import (
 	"testing"
 
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
 
 	"cosmossdk.io/store/cachekv"
 	"cosmossdk.io/store/dbadapter"
 	storetypes "cosmossdk.io/store/types"
-
-	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
 )
 
 func setupStore() (*snapshotmulti.Store, *storetypes.KVStoreKey) {
