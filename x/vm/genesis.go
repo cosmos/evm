@@ -57,7 +57,7 @@ func InitGenesis(
 		}
 	}
 
-	if err := k.AddPreinstalls(ctx, types.DefaultPreinstalls); err != nil {
+	if err := k.AddPreinstalls(ctx, data.Preinstalls); err != nil {
 		panic(fmt.Errorf("error adding preinstalls: %s", err))
 	}
 

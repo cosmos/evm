@@ -2,8 +2,8 @@ package keeper
 
 import (
 	"bytes"
-	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/x/vm/types"
@@ -15,21 +15,21 @@ import (
 
 func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall) error {
 	for _, preinstall := range preinstalls {
-		fmt.Printf("Adding preinstall with address %s and code length %d\n", preinstall.Address.String(), len(preinstall.Code))
-		accAddress := sdk.AccAddress(preinstall.Address.Bytes())
+		address := common.HexToAddress(preinstall.Address)
+		accAddress := sdk.AccAddress(address.Bytes())
 
 		if len(preinstall.Code) == 0 {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has no code", preinstall.Address.String())
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has no code", preinstall.Address)
 		}
 
-		codeHash := crypto.Keccak256Hash(preinstall.Code).Bytes()
+		codeHash := crypto.Keccak256Hash(common.FromHex(preinstall.Code)).Bytes()
 		if types.IsEmptyCodeHash(codeHash) {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address.String())
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s has empty code hash", preinstall.Address)
 		}
 
-		existingCodeHash := k.GetCodeHash(ctx, preinstall.Address)
+		existingCodeHash := k.GetCodeHash(ctx, address)
 		if !types.IsEmptyCodeHash(existingCodeHash.Bytes()) && !bytes.Equal(existingCodeHash.Bytes(), codeHash) {
-			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address.String())
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has a code hash with a different code hash", preinstall.Address)
 		}
 
 		// check that the account is not already set
@@ -40,9 +40,9 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 			k.accountKeeper.SetAccount(ctx, account)
 		}
 
-		k.SetCodeHash(ctx, preinstall.Address.Bytes(), codeHash)
+		k.SetCodeHash(ctx, address.Bytes(), codeHash)
 
-		k.SetCode(ctx, codeHash, preinstall.Code)
+		k.SetCode(ctx, codeHash, common.FromHex(preinstall.Code))
 
 		// We are not setting any storage for preinstalls, so we skip that step.
 	}

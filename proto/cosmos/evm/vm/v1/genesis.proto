@@ -16,6 +16,9 @@ message GenesisState {
   // params defines all the parameters of the module.
   Params params = 2
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // preinstalls defines a set of predefined contracts
+  repeated Preinstall preinstalls = 3 
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
 // GenesisAccount defines an account to be initialized in the genesis state.
