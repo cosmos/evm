@@ -25,9 +25,9 @@ func genBytes(n int) []byte {
 	return bz
 }
 
-func setupCacheMultiStoreWithKeys(numStores, numEntries int) (*Store, []types.StoreKey) {
-	storeMap := make(map[types.StoreKey]types.CacheWrap, numStores)
-	keys := make([]types.StoreKey, numStores)
+func setupCacheMultiStoreWithKeys(numStores, numEntries int) (*Store, []*types.KVStoreKey) {
+	storeMap := make(map[*types.KVStoreKey]types.CacheWrap, numStores)
+	keys := make([]*types.KVStoreKey, numStores)
 	for i := 0; i < numStores; i++ {
 		key := types.NewKVStoreKey(fmt.Sprintf("store%d", i))
 		kv := cachekv.NewStore(dbadapter.Store{DB: dbm.NewMemDB()})
@@ -37,7 +37,7 @@ func setupCacheMultiStoreWithKeys(numStores, numEntries int) (*Store, []types.St
 		storeMap[key] = kv
 		keys[i] = key
 	}
-	return NewStore(storeMap), keys
+	return NewStoreWithKVStores(storeMap), keys
 }
 
 func benchmarkSequential(b *testing.B) {

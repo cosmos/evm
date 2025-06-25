@@ -40,8 +40,8 @@ type Keeper struct {
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
 
-	// keys to create snapshots for precompile call.
-	keys map[string]*storetypes.KVStoreKey
+	// KVStore Keys for modules wired to app
+	storeKeys map[string]*storetypes.KVStoreKey
 
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
@@ -110,7 +110,7 @@ func NewKeeper(
 		transientKey:     transientKey,
 		tracer:           tracer,
 		erc20Keeper:      erc20Keeper,
-		keys:             keys,
+		storeKeys:        keys,
 	}
 }
 
@@ -359,5 +359,5 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
-	return k.keys
+	return k.storeKeys
 }

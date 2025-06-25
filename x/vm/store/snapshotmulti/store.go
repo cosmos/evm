@@ -3,74 +3,98 @@ package snapshotmulti
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/cosmos/evm/x/vm/store/snapshotkv"
 	"github.com/cosmos/evm/x/vm/store/types"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
 )
 
 type Store struct {
-	snapshots map[storetypes.StoreKey]types.SnapshotKVStore
+	stores    map[storetypes.StoreKey]types.SnapshotKVStore
+	storeKeys []*storetypes.KVStoreKey // ordered keys
 	head      int
 }
 
 var _ types.SnapshotMultiStore = (*Store)(nil)
 
-// NewStore creates a new Store object
-func NewStore(stores map[storetypes.StoreKey]storetypes.CacheWrap) *Store {
-	cms := &Store{
-		snapshots: make(map[storetypes.StoreKey]types.SnapshotKVStore),
+// NewStore creates a new Store objectwith CacheMultiStore and KVStoreKeys
+func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStoreKey) *Store {
+	s := &Store{
+		stores:    make(map[storetypes.StoreKey]types.SnapshotKVStore),
+		storeKeys: vmtypes.SortedKVStoreKeys(keys),
 		head:      types.InitialHead,
 	}
 
-	for key, store := range stores {
-		cms.snapshots[key] = snapshotkv.NewStore(store.(storetypes.CacheKVStore))
+	for _, key := range s.storeKeys {
+		store := cms.GetKVStore(key).(storetypes.CacheKVStore)
+		s.stores[key] = snapshotkv.NewStore(store)
 	}
 
-	return cms
+	return s
+}
+
+// NewStore creates a new Store object with KVStores
+func NewStoreWithKVStores(stores map[*storetypes.KVStoreKey]storetypes.CacheWrap) *Store {
+	s := &Store{
+		stores: make(map[storetypes.StoreKey]types.SnapshotKVStore),
+		head:   types.InitialHead,
+	}
+
+	for key, store := range stores {
+		s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheKVStore))
+		s.storeKeys = append(s.storeKeys, key)
+	}
+
+	sort.Slice(s.storeKeys, func(i, j int) bool {
+		return s.storeKeys[i].Name() < s.storeKeys[j].Name()
+	})
+
+	return s
 }
 
 // Snapshot pushes a new cached context to the stack,
 // and returns the index of it.
-func (cms *Store) Snapshot() int {
-	for k := range cms.snapshots {
-		cms.snapshots[k].Snapshot()
+func (s *Store) Snapshot() int {
+	for _, key := range s.storeKeys {
+		s.stores[key].Snapshot()
 	}
-	cms.head++
+	s.head++
 
-	return cms.head
+	return s.head
 }
 
 // RevertToSnapshot pops all the cached contexts after the target index (inclusive).
 // the target should be snapshot index returned by `Snapshot`.
 // This function panics if the index is out of bounds.
-func (cms *Store) RevertToSnapshot(target int) {
-	for _, cacheStack := range cms.snapshots {
-		cacheStack.RevertToSnapshot(target)
+func (s *Store) RevertToSnapshot(target int) {
+	for _, key := range s.storeKeys {
+		s.stores[key].RevertToSnapshot(target)
 	}
-	cms.head = target - 1
+	s.head = target - 1
 }
 
 // GetStoreType returns the type of the store.
-func (cms *Store) GetStoreType() storetypes.StoreType {
+func (s *Store) GetStoreType() storetypes.StoreType {
 	return storetypes.StoreTypeMulti
 }
 
 // Implements CacheWrapper.
-func (cms *Store) CacheWrap() storetypes.CacheWrap {
-	return cms.CacheMultiStore().(storetypes.CacheWrap)
+func (s *Store) CacheWrap() storetypes.CacheWrap {
+	return s.CacheMultiStore().(storetypes.CacheWrap)
 }
 
 // CacheWrapWithTrace implements the CacheWrapper interface.
-func (cms *Store) CacheWrapWithTrace(_ io.Writer, _ storetypes.TraceContext) storetypes.CacheWrap {
-	return cms.CacheWrap()
+func (s *Store) CacheWrapWithTrace(_ io.Writer, _ storetypes.TraceContext) storetypes.CacheWrap {
+	return s.CacheWrap()
 }
 
 // CacheMultiStore create cache
-func (cms *Store) CacheMultiStore() storetypes.CacheMultiStore {
-	cms.Snapshot()
-	return cms
+func (s *Store) CacheMultiStore() storetypes.CacheMultiStore {
+	s.Snapshot()
+	return s
 }
 
 // CacheMultiStoreWithVersion implements the MultiStore interface. It will panic
@@ -78,13 +102,13 @@ func (cms *Store) CacheMultiStore() storetypes.CacheMultiStore {
 //
 // TODO: The store implementation can possibly be modified to support this as it
 // seems safe to load previous versions (heights).
-func (cms *Store) CacheMultiStoreWithVersion(_ int64) (storetypes.CacheMultiStore, error) {
+func (s *Store) CacheMultiStoreWithVersion(_ int64) (storetypes.CacheMultiStore, error) {
 	panic("cannot branch cache snapshot multi store with a version")
 }
 
 // GetStore returns an underlying Store by key.
-func (cms *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
-	stack := cms.snapshots[key]
+func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
+	stack := s.stores[key]
 	if key == nil || stack == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
@@ -92,8 +116,8 @@ func (cms *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 }
 
 // GetKVStore returns an underlying KVStore by key.
-func (cms *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
-	stack := cms.snapshots[key]
+func (s *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
+	stack := s.stores[key]
 	if key == nil || stack == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
@@ -103,7 +127,7 @@ func (cms *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
 // TracingEnabled returns if tracing is enabled for the MultiStore.
 //
 // TODO: The store implementation can possibly be modified to support this method.
-func (cms *Store) TracingEnabled() bool {
+func (s *Store) TracingEnabled() bool {
 	return false
 }
 
@@ -111,8 +135,8 @@ func (cms *Store) TracingEnabled() bool {
 // stores will utilize to trace operations. A MultiStore is returned.
 //
 // TODO: The store implementation can possibly be modified to support this method.
-func (cms *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
-	return cms
+func (s *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
+	return s
 }
 
 // SetTracingContext updates the tracing context for the MultiStore by merging
@@ -121,19 +145,20 @@ func (cms *Store) SetTracer(_ io.Writer) storetypes.MultiStore {
 // necessary between tracing operations. It returns a modified MultiStore.
 //
 // TODO: The store implementation can possibly be modified to support this method.
-func (cms *Store) SetTracingContext(_ storetypes.TraceContext) storetypes.MultiStore {
-	return cms
+func (s *Store) SetTracingContext(_ storetypes.TraceContext) storetypes.MultiStore {
+	return s
 }
 
 // LatestVersion returns the branch version of the store
-func (cms *Store) LatestVersion() int64 {
+func (s *Store) LatestVersion() int64 {
 	panic("cannot get latest version from branch cached multi-store")
 }
 
 // Write calls Write on each underlying store.
-func (cms *Store) Write() {
-	for k := range cms.snapshots {
-		cms.snapshots[k].Commit()
+func (s *Store) Write() {
+	for _, key := range s.storeKeys {
+		s.stores[key].Commit()
+		s.stores[key].CurrentStore().Write()
 	}
-	cms.head = types.InitialHead
+	s.head = types.InitialHead
 }
