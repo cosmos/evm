@@ -56,13 +56,13 @@ func (gs GenesisState) Validate() error {
 		if err := preinstall.Validate(); err != nil {
 			return fmt.Errorf("invalid preinstall %s: %w", preinstall.Address, err)
 		}
-		
+
 		// Check that preinstall address doesn't conflict with any genesis account
 		// Both genesis accounts and preinstalls use Ethereum hex addresses
 		if seenAccounts[preinstall.Address] {
 			return fmt.Errorf("preinstall address %s conflicts with genesis account %s", preinstall.Address, preinstall.Address)
 		}
-		
+
 		seenPreinstalls[preinstall.Address] = true
 	}
 
