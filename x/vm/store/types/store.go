@@ -4,7 +4,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 )
 
-const InitialHead = -1
+const InitialHead = 0
 
 // Snapshotter defines behavior for taking and reverting to state snapshots.
 type Snapshotter interface {
@@ -21,7 +21,6 @@ type Snapshotter interface {
 //
 // It allows you to take/revert snapshots around KV-store operations,
 // inspect the current active store, and commit changes.
-
 type SnapshotKVStore interface {
 	Snapshotter
 

@@ -1,0 +1,79 @@
+package snapshotkv_test
+
+import (
+	"testing"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/store/cachekv"
+	"cosmossdk.io/store/dbadapter"
+
+	"github.com/cosmos/evm/x/vm/store/snapshotkv"
+)
+
+func newSnapshotKV() *snapshotkv.Store {
+	base := cachekv.NewStore(dbadapter.Store{DB: dbm.NewMemDB()})
+	return snapshotkv.NewStore(base)
+}
+
+func TestSnapshotIndexing(t *testing.T) {
+	store := newSnapshotKV()
+
+	idx0 := store.Snapshot()
+	require.Equal(t, 0, idx0)
+
+	idx1 := store.Snapshot()
+	require.Equal(t, 1, idx1)
+
+	idx2 := store.Snapshot()
+	require.Equal(t, 2, idx2)
+}
+
+func TestSnapshotRevertAndCommit(t *testing.T) {
+	store := newSnapshotKV()
+
+	// set in base store
+	base := store.CurrentStore()
+	base.Set([]byte("a"), []byte("1"))
+
+	idx0 := store.Snapshot()
+	store.CurrentStore().Set([]byte("b"), []byte("2"))
+
+	idx1 := store.Snapshot()
+	store.CurrentStore().Set([]byte("c"), []byte("3"))
+
+	// revert latest snapshot (idx1)
+	store.RevertToSnapshot(idx1)
+	require.Nil(t, store.CurrentStore().Get([]byte("c")))
+	require.Equal(t, []byte("2"), store.CurrentStore().Get([]byte("b")))
+
+	// revert the first snapshot
+	store.RevertToSnapshot(idx0)
+	require.Nil(t, store.CurrentStore().Get([]byte("b")))
+	require.Equal(t, []byte("1"), store.CurrentStore().Get([]byte("a")))
+
+	// take new snapshot and commit
+	store.Snapshot()
+	store.CurrentStore().Set([]byte("d"), []byte("4"))
+	store.Commit()
+
+	require.Equal(t, []byte("4"), base.Get([]byte("d")))
+
+	// commit clears the snapshot stack
+	idx := store.Snapshot()
+	require.Equal(t, 0, idx)
+}
+
+func TestSnapshotInvalidIndex(t *testing.T) {
+	store := newSnapshotKV()
+	store.Snapshot()
+
+	require.PanicsWithError(t, "snapshot index 1 out of bound [0..1)", func() {
+		store.RevertToSnapshot(1)
+	})
+
+	require.PanicsWithError(t, "snapshot index -1 out of bound [0..1)", func() {
+		store.RevertToSnapshot(-1)
+	})
+}

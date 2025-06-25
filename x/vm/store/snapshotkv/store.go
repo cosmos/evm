@@ -57,8 +57,8 @@ func (cs *Store) Snapshot() int {
 	return len(cs.cacheStores) - 1
 }
 
-// RevertToSnapshot pops all the cached stores whose index is greator than
-// or equal to target.
+// RevertToSnapshot pops all the cached stores
+// whose index is greator than or equal to target.
 // The target should be snapshot index returned by `Snapshot`.
 // This function panics if the index is out of bounds.
 func (cs *Store) RevertToSnapshot(target int) {

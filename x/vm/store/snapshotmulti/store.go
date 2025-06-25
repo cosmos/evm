@@ -63,17 +63,19 @@ func (s *Store) Snapshot() int {
 	}
 	s.head++
 
-	return s.head
+	// latest snapshot is just before head
+	return s.head - 1
 }
 
-// RevertToSnapshot pops all the cached contexts after the target index (inclusive).
-// the target should be snapshot index returned by `Snapshot`.
+// RevertToSnapshot pops all the cached stores
+// whose index is greator than or equal to target.
+// The target should be snapshot index returned by `Snapshot`.
 // This function panics if the index is out of bounds.
 func (s *Store) RevertToSnapshot(target int) {
 	for _, key := range s.storeKeys {
 		s.stores[key].RevertToSnapshot(target)
 	}
-	s.head = target - 1
+	s.head = target
 }
 
 // GetStoreType returns the type of the store.
@@ -91,7 +93,7 @@ func (s *Store) CacheWrapWithTrace(_ io.Writer, _ storetypes.TraceContext) store
 	return s.CacheWrap()
 }
 
-// CacheMultiStore create cache
+// CacheMultiStore snapshots store and return current store.
 func (s *Store) CacheMultiStore() storetypes.CacheMultiStore {
 	s.Snapshot()
 	return s
