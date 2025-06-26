@@ -5,8 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
-	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/precompiles/bech32"
+	"github.com/cosmos/evm/testutil/config"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -111,7 +111,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					chainconfig.Bech32Prefix,
+					config.Bech32Prefix,
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -137,7 +137,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					common.BytesToAddress(valAddrBz),
-					chainconfig.Bech32PrefixValAddr,
+					config.Bech32PrefixValAddr,
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -160,7 +160,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					chainconfig.Bech32PrefixConsAddr,
+					config.Bech32PrefixConsAddr,
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input

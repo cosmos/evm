@@ -1825,10 +1825,11 @@ func executeTransferCall(
 		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
 	}
 
-	transferArgs, err = txFactory.GenerateContractCallArgs(transferArgs, callArgs)
+	input, err := factory.GenerateContractCallArgs(callArgs)
 	if err != nil {
 		return nil, err
 	}
+	transferArgs.Input = input
 
 	// We need to get access to the message
 	firstSignedTX, err := txFactory.GenerateSignedEthTx(transferParams.senderKey.Priv, transferArgs)

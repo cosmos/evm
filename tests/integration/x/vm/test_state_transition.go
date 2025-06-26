@@ -14,7 +14,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -542,7 +542,7 @@ func (s *KeeperTestSuite) TestResetGasMeterAndConsumeGas() {
 func (s *KeeperTestSuite) TestEVMConfig() {
 	s.SetupTest()
 
-	defaultChainEVMParams := exampleapp.NewEVMGenesisState().Params
+	defaultChainEVMParams := config.NewEVMGenesisState().Params
 
 	proposerAddress := s.Network.GetContext().BlockHeader().ProposerAddress
 	cfg, err := s.Network.App.GetEVMKeeper().EVMConfig(

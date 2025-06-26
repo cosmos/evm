@@ -75,6 +75,7 @@ func NewAvailableStaticPrecompiles(
 	}
 
 	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
+		bankKeeper,
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,

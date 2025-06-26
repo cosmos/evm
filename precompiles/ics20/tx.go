@@ -64,12 +64,17 @@ func (p *Precompile) Transfer(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), sender.String())
 	}
 
+	evmDenom := evmtypes.GetEVMCoinDenom()
+	sendAmt := msg.Token.Amount
+	if sendAmt.GTE(transfertypes.UnboundedSpendLimit()) {
+		spendable := p.bankKeeper.SpendableCoin(ctx, sender.Bytes(), evmDenom)
+		sendAmt = spendable.Amount
+	}
 	res, err := p.transferKeeper.Transfer(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
 
-	evmDenom := evmtypes.GetEVMCoinDenom()
 	if msg.Token.Denom == evmDenom {
 		// escrow address is also changed on this tx, and it is not a module account
 		// so we need to account for this on the UpdateDirties
@@ -78,7 +83,7 @@ func (p *Precompile) Transfer(
 		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
 		// when calling the precompile from another smart contract.
 		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
-		amt, err := utils.Uint256FromBigInt(msg.Token.Amount.BigInt())
+		amt, err := utils.Uint256FromBigInt(sendAmt.BigInt())
 		if err != nil {
 			return nil, err
 		}

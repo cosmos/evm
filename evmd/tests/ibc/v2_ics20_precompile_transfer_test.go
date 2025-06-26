@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
@@ -41,12 +42,13 @@ type ICS20TransferV2TestSuite struct {
 }
 
 func (suite *ICS20TransferV2TestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0, integration.SetupEvmd)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
 	evmAppA := suite.chainA.App.(*evmd.EVMD)
 	suite.chainAPrecompile, _ = ics20.NewPrecompile(
+		evmAppA.BankKeeper,
 		*evmAppA.StakingKeeper,
 		evmAppA.TransferKeeper,
 		evmAppA.IBCKeeper.ChannelKeeper,
@@ -54,6 +56,7 @@ func (suite *ICS20TransferV2TestSuite) SetupTest() {
 	)
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
 	suite.chainBPrecompile, _ = ics20.NewPrecompile(
+		evmAppB.BankKeeper,
 		*evmAppB.StakingKeeper,
 		evmAppB.TransferKeeper,
 		evmAppB.IBCKeeper.ChannelKeeper,
@@ -75,11 +78,11 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 	// it still works properly when invoked through the ics20 precompile with ibc v2 packet.
 	testCases := []struct {
 		name     string
-		malleate func()
+		malleate func(senderAcc evmibctesting.SenderAccount)
 	}{
 		{
 			"transfer single denom",
-			func() {
+			func(_ evmibctesting.SenderAccount) {
 				evmAppA := suite.chainA.App.(*evmd.EVMD)
 				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				msgAmount = evmibctesting.DefaultCoinAmount
@@ -87,7 +90,7 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 		},
 		{
 			"transfer amount larger than int64",
-			func() {
+			func(_ evmibctesting.SenderAccount) {
 				var ok bool
 				evmAppA := suite.chainA.App.(*evmd.EVMD)
 				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
@@ -97,7 +100,7 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 		},
 		{
 			"transfer entire balance",
-			func() {
+			func(_ evmibctesting.SenderAccount) {
 				evmAppA := suite.chainA.App.(*evmd.EVMD)
 				sourceDenomToTransfer, err = evmAppA.StakingKeeper.BondDenom(suite.chainA.GetContext())
 				msgAmount = transfertypes.UnboundedSpendLimit()
@@ -105,8 +108,8 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 		},
 		{
 			"native erc20 case",
-			func() {
-				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA)
+			func(senderAcc evmibctesting.SenderAccount) {
+				nativeErc20 = SetupNativeErc20(suite.T(), suite.chainA, senderAcc)
 				sourceDenomToTransfer = nativeErc20.Denom
 				msgAmount = sdkmath.NewIntFromBigInt(nativeErc20.InitialBal)
 				erc20 = true
@@ -127,11 +130,15 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 			pathAToB.SetupV2()
 			traceAToB := transfertypes.NewHop(transfertypes.PortID, pathAToB.EndpointB.ClientID)
 
-			tc.malleate()
+			senderIdx := 1
+			senderAccount := suite.chainA.SenderAccounts[senderIdx]
+			senderAddr := senderAccount.SenderAccount.GetAddress()
+
+			tc.malleate(senderAccount)
 
 			evmAppA := suite.chainA.App.(*evmd.EVMD)
 
-			GetBalance := func() sdk.Coin {
+			GetBalance := func(addr sdk.AccAddress) sdk.Coin {
 				ctx := suite.chainA.GetContext()
 				if erc20 {
 					balanceAmt := evmAppA.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, nativeErc20.Account)
@@ -140,27 +147,22 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 						Amount: sdkmath.NewIntFromBigInt(balanceAmt),
 					}
 				}
-				return evmAppA.BankKeeper.GetBalance(
-					ctx,
-					suite.chainA.SenderAccount.GetAddress(),
-					sourceDenomToTransfer,
-				)
+				return evmAppA.BankKeeper.GetBalance(ctx, addr, sourceDenomToTransfer)
 			}
 
-			originalBalance := GetBalance()
+			senderBalance := GetBalance(senderAddr)
 			suite.Require().NoError(err)
 
 			timeoutHeight := clienttypes.NewHeight(1, 110)
 			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
-			sourceAddr := common.BytesToAddress(suite.chainA.SenderAccount.GetAddress().Bytes())
 
 			data, err := suite.chainAPrecompile.Pack("transfer",
 				transfertypes.PortID,
 				pathAToB.EndpointA.ClientID, // Note: should be client id on v2 packet
 				originalCoin.Denom,
 				originalCoin.Amount.BigInt(),
-				sourceAddr,                                       // Note: source addr should be evm hex addr
+				common.BytesToAddress(senderAddr.Bytes()),        // Note: source addr should be evm hex addr
 				suite.chainB.SenderAccount.GetAddress().String(), // Note: receiver should be cosmos bech32 addr
 				timeoutHeight,
 				timeoutTimestamp,
@@ -168,38 +170,48 @@ func (suite *ICS20TransferV2TestSuite) TestHandleMsgTransfer() {
 			)
 			suite.Require().NoError(err)
 
-			res, err := suite.chainA.SendEvmTx(
-				suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
+			res, _, _, err := suite.chainA.SendEvmTx(senderAccount, senderIdx, suite.chainAPrecompile.Address(), big.NewInt(0), data, 0)
 			suite.Require().NoError(err) // message committed
 			packets, err := pathAToB.EndpointA.ParseV2PacketFromEvent(res.Events)
 			suite.Require().NoError(err)
-
-			chainABalanceBeforeRelay := GetBalance()
-
 			transferAmount := msgAmount
 
+			// check that the balance for chainA is updated
+			afterSenderBalance := evmAppA.BankKeeper.GetBalance(suite.chainA.GetContext(), senderAddr, originalCoin.Denom)
 			// Note: When an UnboundedSpendLimit value is sent, the spendable amount is used.
 			if msgAmount.Equal(transfertypes.UnboundedSpendLimit()) {
-				transferAmount = originalBalance.Amount
+				transferAmount = senderBalance.Amount
 			}
+			suite.Require().Equal(
+				senderBalance.Amount.Sub(transferAmount).String(),
+				afterSenderBalance.Amount.String(),
+			)
+			if msgAmount.Equal(transfertypes.UnboundedSpendLimit()) {
+				suite.Require().True(afterSenderBalance.IsZero())
+			}
+
+			relayerAddr := suite.chainA.SenderAccounts[0].SenderAccount.GetAddress()
+			relayerBalance := GetBalance(relayerAddr)
 
 			// relay send
 			err = pathAToB.RelayPacketV2(packets[0])
 			suite.Require().NoError(err) // relay committed
 
+			// There are two msgs that are sent in the relay:
+			// 1. MsgAcknowledgePacket to acknowledge the packet
+			// 2. Counterparty.UpdateClient to update the client
+			// Both of these msgs incur a fee, so we need to account for that.
+			relayPacketV2Fee := evmibctesting.FeeCoins().AmountOf(originalCoin.Denom).Mul(sdkmath.NewInt(2))
+			afterRelayerBalance := GetBalance(relayerAddr)
+			suite.Require().Equal(
+				relayerBalance.Amount.Sub(relayPacketV2Fee).String(),
+				afterRelayerBalance.Amount.String(),
+			)
+
 			escrowAddress := transfertypes.GetEscrowAddress(
 				transfertypes.PortID,
 				pathAToB.EndpointA.ClientID,
 			)
-			// check that the balance for chainA is updated
-			chainABalance := evmAppA.BankKeeper.GetBalance(
-				suite.chainA.GetContext(),
-				suite.chainA.SenderAccount.GetAddress(),
-				originalCoin.Denom,
-			)
-
-			suite.Require().True(chainABalanceBeforeRelay.Amount.Equal(chainABalance.Amount))
-			suite.Require().True(originalBalance.Amount.Sub(transferAmount).Equal(chainABalance.Amount))
 
 			// check that module account escrow address has locked the tokens
 			chainAEscrowBalance := evmAppA.BankKeeper.GetBalance(
