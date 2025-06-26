@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	streamSubscriberName = "ethermint-json-rpc"
+	streamSubscriberName = "evm-json-rpc"
 	subscribBufferSize   = 1024
 
 	headerStreamSegmentSize = 128
@@ -124,8 +124,8 @@ func (s *RPCStream) LogStream() *Stream[*ethtypes.Log] {
 }
 
 // ListenPendingTx is a callback passed to application to listen for pending transactions in CheckTx.
-func (s *RPCStream) ListenPendingTx(hash common.Hash) {
-	s.PendingTxStream().Add(hash)
+func (s *RPCStream) ListenPendingTx(hash string) {
+	s.PendingTxStream().Add(common.HexToHash(hash))
 }
 
 func (s *RPCStream) start(

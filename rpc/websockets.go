@@ -549,7 +549,7 @@ func (api *pubSubAPI) subscribeLogs(wsConn *wsConn, subID rpc.ID, extra interfac
 func (api *pubSubAPI) subscribePendingTransactions(wsConn *wsConn, subID rpc.ID) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	//nolint: errcheck
-	go api.events.TxStream().Subscribe(ctx, func(items []common.Hash, _ int) error {
+	go api.events.PendingTxStream().Subscribe(ctx, func(items []common.Hash, _ int) error {
 		for _, hash := range items {
 			// write to ws conn
 			res := &SubscriptionNotification{

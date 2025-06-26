@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
+	"github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/rpc"
 	serverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -21,11 +22,16 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
+type AppWithPendingTxStream interface {
+	RegisterPendingTxListener(listener ante.PendingTxListener)
+}
+
 // StartJSONRPC starts the JSON-RPC server
 func StartJSONRPC(ctx *server.Context,
 	clientCtx client.Context,
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
+	app AppWithPendingTxStream,
 ) (*http.Server, chan struct{}, error) {
 	logger := ctx.Logger.With("module", "geth")
 
@@ -35,6 +41,7 @@ func StartJSONRPC(ctx *server.Context,
 	}
 
 	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
+	app.RegisterPendingTxListener(stream.ListenPendingTx)
 
 	// Set Geth's global logger to use this handler
 	handler := &CustomSlogHandler{logger: logger}
