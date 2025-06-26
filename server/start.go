@@ -462,7 +462,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		defer apiSrv.Close()
 	}
 
-	clientCtx, httpSrv, httpSrvDone, err := startJSONRPCServer(svrCtx, clientCtx, g, config, genDocProvider, cfg.RPC.ListenAddress, idxer)
+	clientCtx, httpSrv, httpSrvDone, err := startJSONRPCServer(svrCtx, clientCtx, g, config, genDocProvider, idxer)
 	if httpSrv != nil {
 		defer func() {
 			shutdownCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
@@ -640,7 +640,6 @@ func startJSONRPCServer(
 	g *errgroup.Group,
 	config cosmosevmserverconfig.Config,
 	genDocProvider node.GenesisDocProvider,
-	cmtRPCAddr string,
 	idxer cosmosevmtypes.EVMTxIndexer,
 ) (ctx client.Context, httpSrv *http.Server, httpSrvDone chan struct{}, err error) {
 	ctx = clientCtx
@@ -654,9 +653,8 @@ func startJSONRPCServer(
 	}
 
 	ctx = clientCtx.WithChainID(genDoc.ChainID)
-	cmtEndpoint := "/websocket"
 	g.Go(func() error {
-		httpSrv, httpSrvDone, err = StartJSONRPC(svrCtx, clientCtx, cmtRPCAddr, cmtEndpoint, &config, idxer)
+		httpSrv, httpSrvDone, err = StartJSONRPC(svrCtx, clientCtx, &config, idxer)
 		return err
 	})
 	return
