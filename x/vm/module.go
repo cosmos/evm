@@ -27,7 +27,7 @@ import (
 )
 
 // consensusVersion defines the current x/evm module consensus version.
-const consensusVersion = 10
+const consensusVersion = 9
 
 var (
 	_ module.AppModuleBasic = AppModuleBasic{}
