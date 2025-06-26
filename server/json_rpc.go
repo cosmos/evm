@@ -7,7 +7,9 @@ import (
 	"time"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	"github.com/cosmos/evm/rpc/stream"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
@@ -25,11 +27,15 @@ func StartJSONRPC(ctx *server.Context,
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
 ) (*http.Server, chan struct{}, error) {
+	logger := ctx.Logger.With("module", "geth")
+
 	evtClient, ok := clientCtx.Client.(rpcclient.EventsClient)
 	if !ok {
 		return nil, nil, fmt.Errorf("client %T does not implement EventsClient", clientCtx.Client)
 	}
-	logger := ctx.Logger.With("module", "geth")
+
+	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
+
 	// Set Geth's global logger to use this handler
 	handler := &CustomSlogHandler{logger: logger}
 	slog.SetDefault(slog.New(handler))
@@ -39,7 +45,7 @@ func StartJSONRPC(ctx *server.Context,
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(ctx, clientCtx, evtClient, allowUnprotectedTxs, indexer, rpcAPIArr)
+	apis := rpc.GetRPCAPIs(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
@@ -98,7 +104,7 @@ func StartJSONRPC(ctx *server.Context,
 
 	ctx.Logger.Info("Starting JSON WebSocket server", "address", config.JSONRPC.WsAddress)
 
-	wsSrv := rpc.NewWebsocketsServer(clientCtx, ctx.Logger, evtClient, config)
+	wsSrv := rpc.NewWebsocketsServer(clientCtx, ctx.Logger, stream, config)
 	wsSrv.Start()
 	return httpSrv, httpSrvDone, nil
 }
