@@ -208,3 +208,20 @@ message MsgUpdateParams {
 // MsgUpdateParamsResponse defines the response structure for executing a
 // MsgUpdateParams message.
 message MsgUpdateParamsResponse {}
+
+// MsgRegisterPreinstalls defines a Msg for creating preinstalls in evm state.
+message MsgRegisterPreinstalls {
+  option (amino.name) = "cosmos/evm/x/vm/MsgRegisterPreinstalls";
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // preinstalls defines the preinstalls to create.
+  repeated Preinstall preinstalls = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+// MsgRegisterPreinstallsResponse defines the response structure for executing a
+// MsgRegisterPreinstalls message.
+message MsgRegisterPreinstallsResponse {}

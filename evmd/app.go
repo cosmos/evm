@@ -140,10 +140,8 @@ func init() {
 
 const appName = "evmd"
 
-var (
-	// defaultNodeHome default home directories for the application daemon
-	defaultNodeHome string
-)
+// defaultNodeHome default home directories for the application daemon
+var defaultNodeHome string
 
 var (
 	_ runtime.AppI            = (*EVMD)(nil)
