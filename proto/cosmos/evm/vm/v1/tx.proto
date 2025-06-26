@@ -24,6 +24,12 @@ service Msg {
   // parameters. The authority is hard-coded to the Cosmos SDK x/gov module
   // account
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // RegisterPreinstalls defines a governance operation for directly registering
+  // preinstalled contracts in the EVM. The authority is the same as is used for
+  // Params updates.
+  rpc RegisterPreinstalls(MsgRegisterPreinstalls)
+      returns (MsgRegisterPreinstallsResponse);
 }
 
 // MsgEthereumTx encapsulates an Ethereum transaction as an SDK message.
