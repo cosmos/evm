@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
-	"github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/rpc"
 	serverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -23,7 +22,7 @@ import (
 )
 
 type AppWithPendingTxStream interface {
-	RegisterPendingTxListener(listener ante.PendingTxListener)
+	RegisterPendingTxListener(listener func(string))
 }
 
 // StartJSONRPC starts the JSON-RPC server

@@ -838,7 +838,7 @@ func (app *EVMD) onPendingTx(hash string) {
 }
 
 // RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
-func (app *EVMD) RegisterPendingTxListener(listener ante.PendingTxListener) {
+func (app *EVMD) RegisterPendingTxListener(listener func(string)) {
 	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
