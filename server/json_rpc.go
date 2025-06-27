@@ -1,11 +1,15 @@
 package server
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	"github.com/cosmos/evm/rpc/stream"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
@@ -17,17 +21,27 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
+type AppWithPendingTxStream interface {
+	RegisterPendingTxListener(listener func(string))
+}
+
 // StartJSONRPC starts the JSON-RPC server
 func StartJSONRPC(ctx *server.Context,
 	clientCtx client.Context,
-	tmRPCAddr,
-	tmEndpoint string,
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
+	app AppWithPendingTxStream,
 ) (*http.Server, chan struct{}, error) {
-	tmWsClient := ConnectTmWS(tmRPCAddr, tmEndpoint, ctx.Logger)
-
 	logger := ctx.Logger.With("module", "geth")
+
+	evtClient, ok := clientCtx.Client.(rpcclient.EventsClient)
+	if !ok {
+		return nil, nil, fmt.Errorf("client %T does not implement EventsClient", clientCtx.Client)
+	}
+
+	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
+	app.RegisterPendingTxListener(stream.ListenPendingTx)
+
 	// Set Geth's global logger to use this handler
 	handler := &CustomSlogHandler{logger: logger}
 	slog.SetDefault(slog.New(handler))
@@ -37,7 +51,7 @@ func StartJSONRPC(ctx *server.Context,
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(ctx, clientCtx, tmWsClient, allowUnprotectedTxs, indexer, rpcAPIArr)
+	apis := rpc.GetRPCAPIs(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
@@ -96,9 +110,7 @@ func StartJSONRPC(ctx *server.Context,
 
 	ctx.Logger.Info("Starting JSON WebSocket server", "address", config.JSONRPC.WsAddress)
 
-	// allocate separate WS connection to Tendermint
-	tmWsClient = ConnectTmWS(tmRPCAddr, tmEndpoint, ctx.Logger)
-	wsSrv := rpc.NewWebsocketsServer(clientCtx, ctx.Logger, tmWsClient, config)
+	wsSrv := rpc.NewWebsocketsServer(clientCtx, ctx.Logger, stream, config)
 	wsSrv.Start()
 	return httpSrv, httpSrvDone, nil
 }
