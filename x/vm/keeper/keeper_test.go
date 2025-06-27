@@ -3,18 +3,22 @@ package keeper_test
 import (
 	"testing"
 
-	storetypes "cosmossdk.io/store/types"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttime "github.com/cometbft/cometbft/types/time"
+
+	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/evm/x/vm/types/mocks"
+
+	storetypes "cosmossdk.io/store/types"
+
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	vmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/evm/x/vm/types/mocks"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/suite"
 )
 
 type KeeperTestSuite struct {
@@ -27,8 +31,6 @@ type KeeperTestSuite struct {
 	fmKeeper      *mocks.FeeMarketKeeper
 	erc20Keeper   *mocks.Erc20Keeper
 	vmKeeper      *vmkeeper.Keeper
-
-	encCfg moduletestutil.TestEncodingConfig
 }
 
 func TestKeeperTestSuite(t *testing.T) {
