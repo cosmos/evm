@@ -105,7 +105,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	}
 
 	if err != nil {
-		return nil, err
+		return cmn.ReturnRevertError(evm, err)
 	}
 
 	cost := ctx.GasMeter().GasConsumed() - initialGas

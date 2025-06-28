@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -2094,11 +2095,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not claim rewards when sending from a different address", func() {
 				callArgs.Args = []interface{}{differentAddr, uint32(1)}
 
+				errCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
+					cmn.ErrRequesterIsNotMsgSender,
+					txArgs.To,
+					differentAddr,
+				).Error())
+
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					errCheckArgs,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2274,7 +2281,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// set gas such that the internal keeper function called by the precompile fails out mid-execution
 				txArgs.GasLimit = 80_000
-				_, _, err = s.factory.CallContractAndCheckLogs(
+				txRes, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
@@ -2286,7 +2293,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 				Expect(err).To(BeNil())
 				finalBalance := balRes.Balance
-				expectedGasCost := math.NewInt(79_416_000_000_000)
+				// expectedGasCost := math.NewInt(79_416_000_000_000)
+				expectedGasCost := math.NewIntFromBigInt(new(big.Int).Mul(big.NewInt(txRes.GasUsed), txArgs.GasPrice))
 				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
 				res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
