@@ -369,7 +369,6 @@ func (b *Backend) DoCall(
 	if err != nil {
 		return nil, err
 	}
-
 	if err = handleRevertError(res.VmError, res.Ret); err != nil {
 		return nil, err
 	}
