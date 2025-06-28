@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -91,7 +92,7 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
@@ -124,6 +125,14 @@ type EVMBackend interface {
 
 var _ BackendI = (*Backend)(nil)
 
+type ProcessBlocker func(
+	tendermintBlock *tmrpctypes.ResultBlock,
+	ethBlock *map[string]interface{},
+	rewardPercentiles []float64,
+	tendermintBlockResult *tmrpctypes.ResultBlockResults,
+	targetOneFeeHistory *rpctypes.OneFeeHistory,
+) error
+
 // Backend implements the BackendI interface
 type Backend struct {
 	Ctx                 context.Context
@@ -135,6 +144,7 @@ type Backend struct {
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
 	Indexer             cosmosevmtypes.EVMTxIndexer
+	ProcessBlocker      ProcessBlocker
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
@@ -155,7 +165,7 @@ func NewBackend(
 		panic(fmt.Sprintf("invalid rpc client, expected: tmrpcclient.SignClient, got: %T", clientCtx.Client))
 	}
 
-	return &Backend{
+	b := &Backend{
 		Ctx:                 context.Background(),
 		ClientCtx:           clientCtx,
 		RPCClient:           rpcClient,
@@ -166,4 +176,6 @@ func NewBackend(
 		AllowUnprotectedTxs: allowUnprotectedTxs,
 		Indexer:             indexer,
 	}
+	b.ProcessBlocker = b.ProcessBlock
+	return b
 }
