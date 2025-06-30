@@ -33,12 +33,12 @@ func (k *Keeper) AddPreinstalls(ctx sdk.Context, preinstalls []types.Preinstall)
 		}
 
 		// check that the account is not already set
-		if exists := k.accountKeeper.HasAccount(ctx, accAddress); !exists {
-			// return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address.String())
-			// create account with the account keeper
-			account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
-			k.accountKeeper.SetAccount(ctx, account)
+		if acc := k.accountKeeper.GetAccount(ctx, accAddress); acc != nil {
+			return errorsmod.Wrapf(types.ErrInvalidPreinstall, "preinstall %s already has an account in account keeper", preinstall.Address)
 		}
+		// create account with the account keeper
+		account := k.accountKeeper.NewAccountWithAddress(ctx, accAddress)
+		k.accountKeeper.SetAccount(ctx, account)
 
 		k.SetCodeHash(ctx, address.Bytes(), codeHash)
 
