@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -11,6 +12,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
@@ -134,4 +136,19 @@ func EffectiveGasPrice(baseFee, feeCap, tipCap *big.Int) *big.Int {
 		return calcVal
 	}
 	return feeCap
+}
+
+// SortedKVStoreKeys returns a slice of *KVStoreKey sorted by their map key.
+func SortedKVStoreKeys(keys map[string]*storetypes.KVStoreKey) []*storetypes.KVStoreKey {
+	names := make([]string, 0, len(keys))
+	for name := range keys {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	sorted := make([]*storetypes.KVStoreKey, 0, len(keys))
+	for _, name := range names {
+		sorted = append(sorted, keys[name])
+	}
+	return sorted
 }

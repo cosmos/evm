@@ -23,8 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 
-	storetypes "cosmossdk.io/store/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -146,8 +144,8 @@ type (
 		slot    *common.Hash
 	}
 	precompileCallChange struct {
-		multiStore storetypes.CacheMultiStore
-		events     sdk.Events
+		snapshot int
+		events   sdk.Events
 	}
 	createContractChange struct {
 		account *common.Address
@@ -182,7 +180,7 @@ func (ch createContractChange) Dirtied() *common.Address {
 func (pc precompileCallChange) Revert(s *StateDB) {
 	// rollback multi store from cache ctx to the previous
 	// state stored in the snapshot
-	s.RevertMultiStore(pc.multiStore, pc.events)
+	s.RevertMultiStore(pc.snapshot, pc.events)
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {
