@@ -15,7 +15,6 @@ import (
 	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
-
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
