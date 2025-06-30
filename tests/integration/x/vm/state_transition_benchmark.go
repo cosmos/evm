@@ -50,7 +50,7 @@ func newSignedEthTx(
 	addr sdk.Address,
 	krSigner keyring.Signer,
 	ethSigner ethtypes.Signer,
-) (*ethtypes.Transaction, error) {
+) (*evmtypes.MsgEthereumTx, error) {
 	var ethTx *ethtypes.Transaction
 	switch txData := txData.(type) {
 	case *ethtypes.AccessListTx:
@@ -76,7 +76,11 @@ func newSignedEthTx(
 		return nil, err
 	}
 
-	return ethTx, nil
+	var msg evmtypes.MsgEthereumTx
+	if err := msg.FromEthereumTx(ethTx); err != nil {
+		return nil, err
+	}
+	return &msg, nil
 }
 
 func newEthMsgTx(
@@ -130,7 +134,7 @@ func newEthMsgTx(
 		return nil, nil, err
 	}
 
-	msg.From = address.Hex()
+	msg.From = address.Bytes()
 
 	return msg, baseFee, msg.Sign(ethSigner, krSigner)
 }
@@ -146,14 +150,12 @@ func newNativeMessage(
 	data []byte,
 	accessList ethtypes.AccessList,
 ) (*core.Message, error) {
-	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight), 10000000)
-
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := msg.AsMessage(msgSigner, baseFee)
+	m, err := msg.AsMessage(baseFee)
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ const (
 	ExampleBech32Prefix = "cosmos"
 
 	// ExampleEIP155ChainID provides an example EIP-155 chain ID for use in tests
-	ExampleEIP155ChainID = 9001
+	ExampleEIP155ChainID = 4221
 
 	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
 	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"

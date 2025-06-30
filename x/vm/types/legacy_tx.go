@@ -10,8 +10,6 @@ import (
 	ethutils "github.com/cosmos/evm/utils/eth"
 
 	errorsmod "cosmossdk.io/errors"
-
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func NewLegacyTx(tx *ethtypes.Transaction) (*LegacyTx, error) {
@@ -191,13 +189,6 @@ func (tx LegacyTx) Validate() error {
 		if err := types.ValidateAddress(tx.To); err != nil {
 			return errorsmod.Wrap(err, "invalid to address")
 		}
-	}
-
-	if tx.GetChainID() == nil {
-		return errorsmod.Wrap(
-			errortypes.ErrInvalidChainID,
-			"chain ID must be derived from LegacyTx txs",
-		)
 	}
 
 	return nil
