@@ -21,129 +21,129 @@ func setupStore() (*snapshotmulti.Store, *storetypes.KVStoreKey) {
 }
 
 func TestSnapshotMultiIndexing(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	idx0 := cms.Snapshot()
+	idx0 := snapshotStore.Snapshot()
 	require.Equal(t, 0, idx0)
 
-	idx1 := cms.Snapshot()
+	idx1 := snapshotStore.Snapshot()
 	require.Equal(t, 1, idx1)
 
-	idx2 := cms.Snapshot()
+	idx2 := snapshotStore.Snapshot()
 	require.Equal(t, 2, idx2)
 }
 
 func TestSnapshotMultiRevertAndWrite(t *testing.T) {
-	cms, key := setupStore()
-	kv := cms.GetKVStore(key)
+	snapshotStore, key := setupStore()
+	kv := snapshotStore.GetKVStore(key)
 	kv.Set([]byte("a"), []byte("1"))
 
-	idx0 := cms.Snapshot()
-	cms.GetKVStore(key).Set([]byte("b"), []byte("2"))
+	idx0 := snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("b"), []byte("2"))
 
-	idx1 := cms.Snapshot()
-	cms.GetKVStore(key).Set([]byte("c"), []byte("3"))
+	idx1 := snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("c"), []byte("3"))
 
-	cms.RevertToSnapshot(idx1)
-	require.Nil(t, cms.GetKVStore(key).Get([]byte("c")))
-	require.Equal(t, []byte("2"), cms.GetKVStore(key).Get([]byte("b")))
+	snapshotStore.RevertToSnapshot(idx1)
+	require.Nil(t, snapshotStore.GetKVStore(key).Get([]byte("c")))
+	require.Equal(t, []byte("2"), snapshotStore.GetKVStore(key).Get([]byte("b")))
 
-	cms.RevertToSnapshot(idx0)
-	require.Nil(t, cms.GetKVStore(key).Get([]byte("b")))
-	require.Equal(t, []byte("1"), cms.GetKVStore(key).Get([]byte("a")))
+	snapshotStore.RevertToSnapshot(idx0)
+	require.Nil(t, snapshotStore.GetKVStore(key).Get([]byte("b")))
+	require.Equal(t, []byte("1"), snapshotStore.GetKVStore(key).Get([]byte("a")))
 
-	cms.Snapshot()
-	cms.GetKVStore(key).Set([]byte("d"), []byte("4"))
-	cms.Write()
+	snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("d"), []byte("4"))
+	snapshotStore.Write()
 
 	require.Equal(t, []byte("4"), kv.Get([]byte("d")))
-	idx := cms.Snapshot()
+	idx := snapshotStore.Snapshot()
 	require.Equal(t, 0, idx)
 }
 
 func TestSnapshotMultiInvalidIndex(t *testing.T) {
-	cms, _ := setupStore()
-	cms.Snapshot()
+	snapshotStore, _ := setupStore()
+	snapshotStore.Snapshot()
 
 	require.PanicsWithError(t, "snapshot index 1 out of bound [0..1)", func() {
-		cms.RevertToSnapshot(1)
+		snapshotStore.RevertToSnapshot(1)
 	})
 
 	require.PanicsWithError(t, "snapshot index -1 out of bound [0..1)", func() {
-		cms.RevertToSnapshot(-1)
+		snapshotStore.RevertToSnapshot(-1)
 	})
 }
 
 func TestSnapshotMultiGetStore(t *testing.T) {
-	cms, key := setupStore()
+	snapshotStore, key := setupStore()
 
-	s := cms.GetStore(key)
+	s := snapshotStore.GetStore(key)
 	require.NotNil(t, s)
-	require.Equal(t, cms.GetKVStore(key), s)
+	require.Equal(t, snapshotStore.GetKVStore(key), s)
 
 	badKey := storetypes.NewKVStoreKey("bad")
-	require.Panics(t, func() { cms.GetStore(badKey) })
-	require.Panics(t, func() { cms.GetKVStore(badKey) })
+	require.Panics(t, func() { snapshotStore.GetStore(badKey) })
+	require.Panics(t, func() { snapshotStore.GetKVStore(badKey) })
 }
 
 func TestSnapshotMultiCacheWrap(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	wrap := cms.CacheWrap()
-	require.Equal(t, cms, wrap)
+	wrap := snapshotStore.CacheWrap()
+	require.Equal(t, snapshotStore, wrap)
 
-	idx := cms.Snapshot()
+	idx := snapshotStore.Snapshot()
 	require.Equal(t, 1, idx)
 }
 
 func TestSnapshotMultiCacheWrapWithTrace(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	wrap := cms.CacheWrapWithTrace(nil, nil)
-	require.Equal(t, cms, wrap)
+	wrap := snapshotStore.CacheWrapWithTrace(nil, nil)
+	require.Equal(t, snapshotStore, wrap)
 
-	idx := cms.Snapshot()
+	idx := snapshotStore.Snapshot()
 	require.Equal(t, 1, idx)
 }
 
 func TestSnapshotMultiCacheMultiStore(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	m := cms.CacheMultiStore()
-	require.Equal(t, cms, m)
+	m := snapshotStore.CacheMultiStore()
+	require.Equal(t, snapshotStore, m)
 
-	idx := cms.Snapshot()
+	idx := snapshotStore.Snapshot()
 	require.Equal(t, 1, idx)
 }
 
 func TestSnapshotMultiCacheMultiStoreWithVersion(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	m, _ := cms.CacheMultiStoreWithVersion(1)
-	require.Equal(t, cms, m)
+	m, _ := snapshotStore.CacheMultiStoreWithVersion(1)
+	require.Equal(t, snapshotStore, m)
 }
 
 func TestSnapshotMultiMetadata(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
-	require.Equal(t, storetypes.StoreTypeMulti, cms.GetStoreType())
-	require.False(t, cms.TracingEnabled())
-	require.Equal(t, cms, cms.SetTracer(nil))
-	require.Equal(t, cms, cms.SetTracingContext(nil))
+	require.Equal(t, storetypes.StoreTypeMulti, snapshotStore.GetStoreType())
+	require.False(t, snapshotStore.TracingEnabled())
+	require.Equal(t, snapshotStore, snapshotStore.SetTracer(nil))
+	require.Equal(t, snapshotStore, snapshotStore.SetTracingContext(nil))
 }
 
 func TestSnapshotMultiLatestVersion(t *testing.T) {
-	cms, _ := setupStore()
+	snapshotStore, _ := setupStore()
 
 	initialVersion := int64(0)
-	ver0 := cms.LatestVersion()
+	ver0 := snapshotStore.LatestVersion()
 	require.Equal(t, ver0, initialVersion)
 
-	idx0 := cms.Snapshot()
-	ver1 := cms.LatestVersion()
+	idx0 := snapshotStore.Snapshot()
+	ver1 := snapshotStore.LatestVersion()
 	require.Equal(t, ver1, int64(idx0+1))
 
-	idx1 := cms.Snapshot()
-	ver2 := cms.LatestVersion()
+	idx1 := snapshotStore.Snapshot()
+	ver2 := snapshotStore.LatestVersion()
 	require.Equal(t, ver2, int64(idx1+1))
 }
