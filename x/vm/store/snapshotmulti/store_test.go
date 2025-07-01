@@ -1,6 +1,7 @@
 package snapshotmulti_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -61,6 +62,45 @@ func TestSnapshotMultiRevertAndWrite(t *testing.T) {
 	require.Equal(t, 0, idx)
 }
 
+func TestSnapshotMultiRevertOverwriteSameKey(t *testing.T) {
+	// Setup a fresh SnapshotMultiStore and a key
+	snapshotStore, key := setupStore()
+	kv := snapshotStore.GetKVStore(key)
+
+	// Initial write under key "a"
+	kv.Set([]byte("a"), []byte("1"))
+
+	// Overwrite "a" with "2"
+	idx0 := snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("a"), []byte("2"))
+
+	// Overwrite "a" with "3"
+	idx1 := snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("a"), []byte("3"))
+
+	// Revert to idx1: expect value "2"
+	snapshotStore.RevertToSnapshot(idx1)
+	require.Equal(t, []byte("2"), snapshotStore.GetKVStore(key).Get([]byte("a")))
+
+	// Revert to idx0: expect value "1"
+	snapshotStore.RevertToSnapshot(idx0)
+	require.Equal(t, []byte("1"), snapshotStore.GetKVStore(key).Get([]byte("a")))
+
+	// Overwrite "a" with "4"
+	idx2 := snapshotStore.Snapshot()
+	snapshotStore.GetKVStore(key).Set([]byte("a"), []byte("4"))
+	snapshotStore.Write()
+
+	// After write, the base store should have "4"
+	require.Equal(t, []byte("4"), kv.Get([]byte("a")))
+
+	// Write clears the snapshot stack, so reverting to idx2 should panic
+	expectedErr := fmt.Sprintf("snapshot index %d out of bound [%d..%d)", idx2, 0, 0)
+	require.PanicsWithErrorf(t, expectedErr, func() {
+		snapshotStore.RevertToSnapshot(idx2)
+	}, "RevertToSnapshot should panic when idx out of bounds")
+}
+
 func TestSnapshotMultiInvalidIndex(t *testing.T) {
 	snapshotStore, _ := setupStore()
 	snapshotStore.Snapshot()
@@ -99,6 +139,8 @@ func TestSnapshotMultiCacheWrap(t *testing.T) {
 func TestSnapshotMultiCacheWrapWithTrace(t *testing.T) {
 	snapshotStore, _ := setupStore()
 
+	// NOTES: CacheWrapWithTrace of snapshotmulti.Store is same with regualr CacheWrap,
+	// and arguments are not actually used.
 	wrap := snapshotStore.CacheWrapWithTrace(nil, nil)
 	require.Equal(t, snapshotStore, wrap)
 
