@@ -27,9 +27,11 @@ import (
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -1950,12 +1952,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							s.keyring.GetAddr(0), valAddr.String(), true, true,
 						}
 
-						txArgs.Amount = delAmt.BigInt()
+						txArgs.To = &contractTwoAddr
+
+						reverReasonCheck := execRevertedCheck.WithErrContains(
+							errorsmod.Wrapf(
+								sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", bondedTokensPoolAccAddr.String(),
+							).Error(),
+						)
+
 						_, _, err := s.factory.CallContractAndCheckLogs(
 							s.keyring.GetPrivKey(0),
 							txArgs,
 							args,
-							execRevertedCheck,
+							reverReasonCheck,
 						)
 						Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 						Expect(s.network.NextBlock()).To(BeNil())
@@ -1983,10 +1992,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						nonExistingVal.String(),
 					}
 
+					reverReasonCheck := execRevertedCheck.WithErrContains(
+						stakingtypes.ErrNoValidatorFound.Error(),
+					)
+
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
 						txArgs, callArgs,
-						execRevertedCheck,
+						reverReasonCheck,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 					Expect(s.network.NextBlock()).To(BeNil())
@@ -2064,10 +2077,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingVal.String(), big.NewInt(1e18),
 				}
 
+				revertReasonCheck := execRevertedCheck.WithErrNested(stakingtypes.ErrNoValidatorFound.Error())
+
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, callArgs,
-					execRevertedCheck,
+					revertReasonCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2084,11 +2099,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					valAddr.String(), big.NewInt(1e18),
 				}
 
-				_, _, err = s.factory.CallContractAndCheckLogs(
+				_, result, err := s.factory.CallContractAndCheckLogs(
 					differentSender.Priv,
 					txArgs, callArgs,
 					execRevertedCheck,
 				)
+				fmt.Println("CHOI - result: ", result)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
 				res, err := s.grpcHandler.GetDelegatorUnbondingDelegations(delegator.AccAddr.String())

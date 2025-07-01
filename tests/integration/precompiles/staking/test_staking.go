@@ -460,8 +460,9 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NotNil(bz, "expected returned bytes not to be nil")
 			} else {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
-				s.Require().Nil(bz, "expected returned bytes to be nil")
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().NotNil(bz, "expected returned bytes to be nil")
+				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
+				s.Require().ErrorContains(execRevertErr, tc.errContains)
 				consumed := ctx.GasMeter().GasConsumed()
 				// LessThanOrEqual because the gas is consumed before the error is returned
 				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
@@ -780,12 +781,16 @@ func (s *PrecompileTestSuite) TestCMS() {
 				testutil.ValidateWrites(s.T(), cms, 2)
 			} else {
 				if tc.expKeeperPass {
-					s.Require().Contains(resp.VmError, tc.errContains,
+					s.Require().Contains(resp.VmError, vm.ErrExecutionReverted.Error(),
 						"expected error to be returned when running the precompile")
-					s.Require().Nil(resp.Ret, "expected returned bytes to be nil")
+					s.Require().NotNil(resp.Ret, "expected returned bytes to be encoded error reason")
+					execRevertErr := evmtypes.NewExecErrorWithReason(resp.Ret)
+					s.Require().Contains(execRevertErr.Error(), tc.errContains)
+
 					consumed := ctx.GasMeter().GasConsumed()
-					// LessThanOrEqual because the gas is consumed before the error is returned
-					s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+					// Because opCall (for calling precompile) return ErrExecutionReverted, leftOverGas is refunded.
+					// So, consumed gas is less than gasLimit
+					s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
 					// Writes once because of gas usage
 					testutil.ValidateWrites(s.T(), cms, 1)
 				} else {
@@ -795,8 +800,9 @@ func (s *PrecompileTestSuite) TestCMS() {
 					testutil.ValidateWrites(s.T(), cms, 0)
 				}
 				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+				// Because opCall (for calling precompile) return ErrExecutionReverted, leftOverGas is refunded.
+				// So, consumed gas is less than gasLimit
+				s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
 
 			}
 		})

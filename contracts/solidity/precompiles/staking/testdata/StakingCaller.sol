@@ -111,7 +111,7 @@ contract StakingCaller {
     ) public {
         _dequeueUnbondingEntry();
 
-        require(delegation[msg.sender][_validatorAddr] >= _amount, "Insufficient delegation");
+        require(delegation[msg.sender][_validatorAddr] >= _amount, "Delegation not exists or insufficient delegation amount");
         
         int64 completionTime = staking.STAKING_CONTRACT.undelegate(address(this), _validatorAddr, _amount);
         require(completionTime > 0, "Failed to undelegate");
