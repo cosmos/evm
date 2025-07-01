@@ -497,7 +497,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(resp.Ret, "expected returned bytes not to be nil")
-				// NOTES: After stack-based snapshot mechanism is added for precopile call,
+				// NOTES: After stack-based snapshot mechanism is added for precompile call,
 				// CacheMultiStore.Write() is always called once when tx succeeds.
 				// It is because CacheMultiStore() is not called when creating snapshot for MultiStore,
 				// Count of Write() is not accumulated.
@@ -506,7 +506,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				s.Require().Error(err, "expected error to be returned when running the precompile")
 				s.Require().Nil(resp.Ret, "expected returned bytes to be nil")
 				s.Require().ErrorContains(err, tc.errContains)
-				// NOTES: After stack-based snapshot mechanism is added for precopile call,
+				// NOTES: After stack-based snapshot mechanism is added for precompile call,
 				// CacheMultiStore.Write() is not called when tx fails.
 				testutil.ValidateWrites(s.T(), cms, 0)
 			}
