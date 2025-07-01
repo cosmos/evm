@@ -217,7 +217,7 @@ func (suite *BackendTestSuite) TestGetTxByEthHash() {
 			suite.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := suite.backend.GetTxByEthHash(common.HexToHash(tc.tx.Hash))
+			rpcTx, _, err := suite.backend.GetTxByEthHash(common.HexToHash(tc.tx.Hash))
 
 			if tc.expPass {
 				suite.Require().NoError(err)
@@ -307,6 +307,7 @@ func (suite *BackendTestSuite) TestGetTransactionByBlockAndIndex() {
 		0,
 		big.NewInt(1),
 		suite.backend.chainID,
+		nil,
 	)
 	testCases := []struct {
 		name         string
@@ -405,6 +406,7 @@ func (suite *BackendTestSuite) TestGetTransactionByBlockNumberAndIndex() {
 		0,
 		big.NewInt(1),
 		suite.backend.chainID,
+		nil,
 	)
 	testCases := []struct {
 		name         string
@@ -489,7 +491,7 @@ func (suite *BackendTestSuite) TestGetTransactionByTxIndex() {
 			suite.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := suite.backend.GetTxByTxIndex(tc.height, tc.index)
+			txResults, _, err := suite.backend.GetTxByTxIndex(tc.height, tc.index)
 
 			if tc.expPass {
 				suite.Require().NoError(err)
@@ -530,7 +532,7 @@ func (suite *BackendTestSuite) TestQueryTendermintTxIndexer() {
 			suite.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := suite.backend.queryTendermintTxIndexer(tc.query, tc.txGetter)
+			txResults, _, err := suite.backend.queryTendermintTxIndexer(tc.query, tc.txGetter)
 
 			if tc.expPass {
 				suite.Require().NoError(err)

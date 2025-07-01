@@ -1188,7 +1188,7 @@ func (suite *BackendTestSuite) TestEthMsgsFromTendermintBlock() {
 		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			suite.SetupTest() // reset test and queries
 
-			msgs := suite.backend.EthMsgsFromTendermintBlock(tc.resBlock, tc.blockRes)
+			msgs, _ := suite.backend.EthMsgsFromTendermintBlock(tc.resBlock, tc.blockRes)
 			suite.Require().Equal(tc.expMsgs, msgs)
 		})
 	}

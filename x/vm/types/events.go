@@ -16,6 +16,8 @@ const (
 	AttributeKeyTxGasUsed       = "txGasUsed"
 	AttributeKeyTxType          = "txType"
 	AttributeKeyTxLog           = "txLog"
+	AttributeKeyTxNonce         = "txNonce"
+	AttributeKeyTxData          = "txData"
 
 	// tx failed in eth vm execution
 	AttributeKeyEthereumTxFailed = "ethereumTxFailed"
@@ -24,4 +26,9 @@ const (
 
 	MetricKeyTransitionDB = "transition_db"
 	MetricKeyStaticCall   = "static_call"
+)
+
+const (
+	DerivedTxIndex = 9999
+	DerivedTxType  = 99
 )

@@ -18,6 +18,9 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 )
 
 // BlockNumber returns the current block number in abci app state. Because abci
@@ -148,7 +151,7 @@ func (b *Backend) GetBlockTransactionCount(block *tmrpctypes.ResultBlock) *hexut
 		return nil
 	}
 
-	ethMsgs := b.EthMsgsFromTendermintBlock(block, blockRes)
+	ethMsgs, _ := b.EthMsgsFromTendermintBlock(block, blockRes)
 	n := hexutil.Uint(len(ethMsgs))
 	return &n
 }
@@ -239,8 +242,9 @@ func (b *Backend) BlockNumberFromTendermintByHash(blockHash common.Hash) (*big.I
 func (b *Backend) EthMsgsFromTendermintBlock(
 	resBlock *tmrpctypes.ResultBlock,
 	blockRes *tmrpctypes.ResultBlockResults,
-) []*evmtypes.MsgEthereumTx {
+) ([]*evmtypes.MsgEthereumTx, []*rpctypes.TxResultAdditionalFields) {
 	var result []*evmtypes.MsgEthereumTx
+	var txsAdditional []*rpctypes.TxResultAdditionalFields
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
@@ -256,23 +260,80 @@ func (b *Backend) EthMsgsFromTendermintBlock(
 		}
 
 		tx, err := b.clientCtx.TxConfig.TxDecoder()(tx)
-		if err != nil {
+		// assumption is that if regular evmos msgEthereumTx msg is found in tx
+		// there should not be derived one as well
+		shouldCheckForDerivedCosmosEVMTx := true
+		// if tx can be decoded, try to find MsgEthereumTx inside
+		if err == nil {
+			for _, msg := range tx.GetMsgs() {
+				ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
+				if ok {
+					shouldCheckForDerivedCosmosEVMTx = false
+					ethMsg.Hash = ethMsg.AsTransaction().Hash().Hex()
+					result = append(result, ethMsg)
+					txsAdditional = append(txsAdditional, nil)
+				}
+			}
+		} else {
 			b.logger.Debug("failed to decode transaction in block", "height", block.Height, "error", err.Error())
-			continue
 		}
 
-		for _, msg := range tx.GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
-			if !ok {
-				continue
+		// if tx can not be decoded or MsgEthereumTx was not found, try to parse it from block results
+		if shouldCheckForDerivedCosmosEVMTx {
+			ethMsg, additional := b.parseDerivedTxFromBlockResults(txResults, i, tx, block)
+			if ethMsg != nil {
+				result = append(result, ethMsg)
+				txsAdditional = append(txsAdditional, additional)
 			}
-
-			ethMsg.Hash = ethMsg.AsTransaction().Hash().Hex()
-			result = append(result, ethMsg)
 		}
 	}
 
-	return result
+	return result, txsAdditional
+}
+
+func (b *Backend) parseDerivedTxFromBlockResults(
+	txResults []*abci.ExecTxResult,
+	i int,
+	tx sdk.Tx,
+	block *tmtypes.Block,
+) (*evmtypes.MsgEthereumTx, *rpctypes.TxResultAdditionalFields) {
+	res, additional, err := rpctypes.ParseTxBlockResult(txResults[i], tx, i, block.Height)
+	// just skip tx if it can not be parsed, so remaining txs from the block are parsed
+	if err != nil {
+		b.logger.Error(err.Error())
+		return nil, nil
+	}
+	if additional == nil || res == nil {
+		b.logger.Debug("derived ethereum tx not found in msgs: block %d, index %d", block.Height, i)
+		return nil, nil
+	}
+	return b.parseDerivedTxFromAdditionalFields(additional), additional
+}
+
+func (b *Backend) parseDerivedTxFromAdditionalFields(
+	additional *rpctypes.TxResultAdditionalFields,
+) *evmtypes.MsgEthereumTx {
+	recipient := additional.Recipient
+	t := ethtypes.NewTx(&ethtypes.LegacyTx{
+		Nonce:    additional.Nonce,
+		Data:     additional.Data,
+		Gas:      additional.GasUsed,
+		To:       &recipient,
+		GasPrice: nil,
+		Value:    additional.Value,
+		V:        big.NewInt(0),
+		R:        big.NewInt(0),
+		S:        big.NewInt(0),
+	})
+	ethMsg := &evmtypes.MsgEthereumTx{}
+	err := ethMsg.FromEthereumTx(t)
+	if err != nil {
+		b.logger.Error("can not create eth msg", err.Error())
+		return nil
+	}
+	ethMsg.Hash = additional.Hash.Hex()
+	ethMsg.From = additional.Sender.Hex()
+	return ethMsg
 }
 
 // HeaderByNumber returns the block header identified by height.
@@ -371,7 +432,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
 	}
 
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	msgs, txsAdditional := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
 	for txIndex, ethMsg := range msgs {
 		if !fullTx {
 			hash := common.HexToHash(ethMsg.Hash)
@@ -379,19 +440,25 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			continue
 		}
 
-		tx := ethMsg.AsTransaction()
-		height := uint64(block.Height) //#nosec G115 -- checked for int overflow already
-		index := uint64(txIndex)       //#nosec G115 -- checked for int overflow already
-		rpcTx, err := rpctypes.NewRPCTransaction(
-			tx,
-			common.BytesToHash(block.Hash()),
-			height,
-			index,
-			baseFee,
-			b.chainID,
-		)
+		var rpcTx *rpctypes.RPCTransaction
+		if txsAdditional[txIndex] == nil {
+			tx := ethMsg.AsTransaction()
+			height := uint64(block.Height) //#nosec G115 -- checked for int overflow already
+			index := uint64(txIndex)       //#nosec G115 -- checked for int overflow already
+			rpcTx, err = rpctypes.NewRPCTransaction(
+				tx,
+				common.BytesToHash(block.Hash()),
+				height,
+				index,
+				baseFee,
+				b.chainID,
+			)
+		} else {
+			// #nosec G115 non negative value
+			rpcTx, err = rpctypes.NewRPCTransactionFromIncompleteMsg(ethMsg, common.BytesToHash(block.Hash()), uint64(block.Height), uint64(txIndex), baseFee, b.chainID, txsAdditional[txIndex])
+		}
 		if err != nil {
-			b.logger.Debug("NewTransactionFromData for receipt failed", "hash", tx.Hash().Hex(), "error", err.Error())
+			b.logger.Debug("NewTransactionFromData for receipt failed", "hash", ethMsg.Hash, "error", err.Error())
 			continue
 		}
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
@@ -492,11 +559,13 @@ func (b *Backend) EthBlockFromTendermintBlock(
 	}
 
 	ethHeader := rpctypes.EthHeaderFromTendermint(block.Header, bloom, baseFee)
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	msgs, additionals := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
 
-	txs := make([]*ethtypes.Transaction, len(msgs))
+	txs := []*ethtypes.Transaction{}
 	for i, ethMsg := range msgs {
-		txs[i] = ethMsg.AsTransaction()
+		if additionals[i] == nil {
+			txs = append(txs, ethMsg.AsTransaction())
+		}
 	}
 
 	// TODO: add tx receipts

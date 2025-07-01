@@ -147,16 +147,51 @@ func FormatBlock(
 }
 
 // NewTransactionFromMsg returns a transaction that will serialize to the RPC
-// representation, with the given location metadata set (if available).
+// from incomplete message for derived cosmos EVM transactions.
 func NewTransactionFromMsg(
 	msg *evmtypes.MsgEthereumTx,
 	blockHash common.Hash,
 	blockNumber, index uint64,
 	baseFee *big.Int,
 	chainID *big.Int,
+	txAdditional *TxResultAdditionalFields,
 ) (*RPCTransaction, error) {
+	if txAdditional != nil {
+		return NewRPCTransactionFromIncompleteMsg(msg, blockHash, blockNumber, index, baseFee, chainID, txAdditional)
+	}
 	tx := msg.AsTransaction()
 	return NewRPCTransaction(tx, blockHash, blockNumber, index, baseFee, chainID)
+}
+
+// NewRPCTransactionFromIncompleteMsg returns a transaction that will serialize to the RPC
+// representation, with the given location metadata set (if available).
+func NewRPCTransactionFromIncompleteMsg(
+	msg *evmtypes.MsgEthereumTx, blockHash common.Hash, blockNumber, index uint64, baseFee *big.Int,
+	chainID *big.Int, txAdditional *TxResultAdditionalFields,
+) (*RPCTransaction, error) {
+	to := &common.Address{}
+	*to = txAdditional.Recipient
+	result := &RPCTransaction{
+		Type:     hexutil.Uint64(txAdditional.Type),
+		From:     common.HexToAddress(msg.From),
+		Gas:      hexutil.Uint64(txAdditional.GasUsed),
+		GasPrice: (*hexutil.Big)(baseFee),
+		Hash:     common.HexToHash(msg.Hash),
+		Input:    txAdditional.Data,
+		Nonce:    hexutil.Uint64(txAdditional.Nonce), // TODO: get nonce for "from" from evmos
+		To:       to,
+		Value:    (*hexutil.Big)(txAdditional.Value),
+		V:        (*hexutil.Big)(big.NewInt(0)),
+		R:        (*hexutil.Big)(big.NewInt(0)),
+		S:        (*hexutil.Big)(big.NewInt(0)),
+		ChainID:  (*hexutil.Big)(chainID),
+	}
+	if blockHash != (common.Hash{}) {
+		result.BlockHash = &blockHash
+		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
+		result.TransactionIndex = (*hexutil.Uint64)(&index)
+	}
+	return result, nil
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC

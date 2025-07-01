@@ -2,14 +2,18 @@ package types
 
 import (
 	"fmt"
+	"math"
+	"math/big"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // EventFormat is the format version of the events.
@@ -19,6 +23,9 @@ import (
 type EventFormat int
 
 const (
+	MessageType                    = "message"
+	AmountType                     = "amount"
+	SenderType                     = "sender"
 	eventFormatUnknown EventFormat = iota
 
 	// Event Format 1 (the format used before PR #1062):
@@ -57,6 +64,15 @@ type ParsedTx struct {
 	EthTxIndex int32
 	GasUsed    uint64
 	Failed     bool
+
+	// Additional derived cosmos EVM tx fields
+	TxHash    string
+	Type      uint64
+	Amount    *big.Int
+	Recipient common.Address
+	Sender    common.Address
+	Nonce     uint64
+	Data      []byte
 }
 
 // NewParsedTx initialize a ParsedTx
@@ -76,14 +92,27 @@ type ParsedTxs struct {
 // It supports two event formats, the formats are described in the comments of the format constants.
 func ParseTxResult(result *abci.ExecTxResult, tx sdk.Tx) (*ParsedTxs, error) {
 	format := eventFormatUnknown
-	// the index of current ethereum_tx event in format 1 or the second part of format 2
 	eventIndex := -1
 
 	p := &ParsedTxs{
 		TxHashes: make(map[common.Hash]int),
 	}
+
+	prevEventType := ""
 	for _, event := range result.Events {
-		if event.Type != evmtypes.EventTypeEthereumTx {
+		if event.Type != evmtypes.EventTypeEthereumTx &&
+			(prevEventType != evmtypes.EventTypeEthereumTx || event.Type != MessageType) {
+			continue
+		}
+
+		if prevEventType == evmtypes.EventTypeEthereumTx && event.Type == MessageType && eventIndex != -1 {
+			if err := fillTxAttributes(&p.Txs[eventIndex], event.Attributes); err != nil {
+				return nil, err
+			}
+		}
+
+		if event.Type == MessageType {
+			prevEventType = MessageType
 			continue
 		}
 
@@ -116,51 +145,159 @@ func ParseTxResult(result *abci.ExecTxResult, tx sdk.Tx) (*ParsedTxs, error) {
 				}
 			}
 		}
+
+		prevEventType = evmtypes.EventTypeEthereumTx
 	}
 
-	// some old versions miss some events, fill it with tx result
-	gasUsed := uint64(result.GasUsed) // #nosec G115
-	if len(p.Txs) == 1 {
-		p.Txs[0].GasUsed = gasUsed
+	// Handle fallback GasUsed
+	if len(p.Txs) == 1 && p.Txs[0].Type != evmtypes.DerivedTxType {
+		p.Txs[0].GasUsed = uint64(result.GasUsed)
 	}
 
-	// this could only happen if tx exceeds block gas limit
+	// Handle failure fallback
 	if result.Code != 0 && tx != nil {
 		for i := 0; i < len(p.Txs); i++ {
 			p.Txs[i].Failed = true
+			msgs := tx.GetMsgs()
+			if i >= len(msgs) {
+				continue
+			}
 
-			// replace gasUsed with gasLimit because that's what's actually deducted.
-			gasLimit := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx).GetGas()
+			msg, ok := msgs[i].(*evmtypes.MsgEthereumTx)
+			if !ok {
+				continue
+			}
+
+			gasLimit := msg.GetGas()
 			p.Txs[i].GasUsed = gasLimit
 		}
 	}
+
+	// Fix MsgIndexes
+	currMsgIndex := 0
+	for _, tx := range p.Txs {
+		if tx.Type == evmtypes.DerivedTxType {
+			tx.MsgIndex = math.MaxUint32
+		} else {
+			tx.MsgIndex = currMsgIndex
+			currMsgIndex++
+		}
+	}
+
 	return p, nil
 }
 
 // ParseTxIndexerResult parse tm tx result to a format compatible with the custom tx indexer.
-func ParseTxIndexerResult(txResult *tmrpctypes.ResultTx, tx sdk.Tx, getter func(*ParsedTxs) *ParsedTx) (*types.TxResult, error) {
+func ParseTxIndexerResult(
+	txResult *tmrpctypes.ResultTx,
+	tx sdk.Tx,
+	getter func(*ParsedTxs) *ParsedTx,
+) (*types.TxResult, *TxResultAdditionalFields, error) {
 	txs, err := ParseTxResult(&txResult.TxResult, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse tx events: block %d, index %d, %v", txResult.Height, txResult.Index, err)
+		return nil, nil, fmt.Errorf(
+			"failed to parse tx events: block %d, index %d, %v",
+			txResult.Height,
+			txResult.Index,
+			err,
+		)
 	}
 
 	parsedTx := getter(txs)
 	if parsedTx == nil {
-		return nil, fmt.Errorf("ethereum tx not found in msgs: block %d, index %d", txResult.Height, txResult.Index)
+		return nil, nil, fmt.Errorf(
+			"ethereum tx not found in msgs: block %d, index %d",
+			txResult.Height,
+			txResult.Index,
+		)
 	}
-	index := uint32(parsedTx.MsgIndex) // #nosec G115
+	if parsedTx.Type == evmtypes.DerivedTxType {
+		return &types.TxResult{
+				Height:  txResult.Height,
+				TxIndex: txResult.Index,
+				// #nosec G115 always in range
+				MsgIndex:          uint32(parsedTx.MsgIndex),
+				EthTxIndex:        parsedTx.EthTxIndex,
+				Failed:            parsedTx.Failed,
+				GasUsed:           parsedTx.GasUsed,
+				CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
+			}, &TxResultAdditionalFields{
+				Value:     parsedTx.Amount,
+				Hash:      parsedTx.Hash,
+				TxHash:    parsedTx.TxHash,
+				Type:      parsedTx.Type,
+				Recipient: parsedTx.Recipient,
+				Sender:    parsedTx.Sender,
+				GasUsed:   parsedTx.GasUsed,
+				Data:      parsedTx.Data,
+				Nonce:     parsedTx.Nonce,
+			}, nil
+	}
 	return &types.TxResult{
-		Height:            txResult.Height,
-		TxIndex:           txResult.Index,
-		MsgIndex:          index,
+		Height:  txResult.Height,
+		TxIndex: txResult.Index,
+		// #nosec G115 always in range
+		MsgIndex:          uint32(parsedTx.MsgIndex),
 		EthTxIndex:        parsedTx.EthTxIndex,
 		Failed:            parsedTx.Failed,
 		GasUsed:           parsedTx.GasUsed,
 		CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
-	}, nil
+	}, nil, nil
 }
 
-// newTx parse a new tx from events, called during parsing.
+// ParseTxBlockResult converts an ABCI tx result into indexable EVM-compatible tx metadata, including internal Cosmos EVM txs.
+func ParseTxBlockResult(
+	txResult *abci.ExecTxResult,
+	tx sdk.Tx,
+	txIndex int,
+	height int64,
+) (*types.TxResult, *TxResultAdditionalFields, error) {
+	txs, err := ParseTxResult(txResult, tx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse tx events: block %d, index %d, %v", height, txIndex, err)
+	}
+
+	if len(txs.Txs) == 0 {
+		return nil, nil, nil
+	}
+	// TODO: check why when there are multiple derived txs events are in reversed order
+	parsedTx := txs.Txs[len(txs.Txs)-1]
+	if parsedTx.Type == evmtypes.DerivedTxType {
+		return &types.TxResult{
+				Height: height,
+				// #nosec G115 always in range
+				TxIndex: uint32(txIndex),
+				// #nosec G115 always in range
+				MsgIndex:          uint32(parsedTx.MsgIndex),
+				EthTxIndex:        parsedTx.EthTxIndex,
+				Failed:            parsedTx.Failed,
+				GasUsed:           parsedTx.GasUsed,
+				CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
+			}, &TxResultAdditionalFields{
+				Value:     parsedTx.Amount,
+				Hash:      parsedTx.Hash,
+				TxHash:    parsedTx.TxHash,
+				Type:      parsedTx.Type,
+				Recipient: parsedTx.Recipient,
+				Sender:    parsedTx.Sender,
+				GasUsed:   parsedTx.GasUsed,
+				Data:      parsedTx.Data,
+				Nonce:     parsedTx.Nonce,
+			}, nil
+	}
+	return &types.TxResult{
+		Height: height,
+		// #nosec G115 always in range
+		TxIndex: uint32(txIndex),
+		// #nosec G115 always in range
+		MsgIndex:          uint32(parsedTx.MsgIndex),
+		EthTxIndex:        parsedTx.EthTxIndex,
+		Failed:            parsedTx.Failed,
+		GasUsed:           parsedTx.GasUsed,
+		CumulativeGasUsed: txs.AccumulativeGasUsed(parsedTx.MsgIndex),
+	}, nil, nil
+}
+
 func (p *ParsedTxs) newTx(attrs []abci.EventAttribute) error {
 	msgIndex := len(p.Txs)
 	tx := NewParsedTx(msgIndex)
@@ -228,16 +365,17 @@ func (p *ParsedTxs) AccumulativeGasUsed(msgIndex int) (result uint64) {
 
 // fillTxAttribute parse attributes by name, less efficient than hardcode the index, but more stable against event
 // format changes.
-func fillTxAttribute(tx *ParsedTx, key string, value string) error {
+func fillTxAttribute(tx *ParsedTx, key, value string) error {
 	switch key {
 	case evmtypes.AttributeKeyEthereumTxHash:
 		tx.Hash = common.HexToHash(value)
 	case evmtypes.AttributeKeyTxIndex:
-		txIndex, err := strconv.ParseUint(value, 10, 31) // #nosec G115
+		txIndex, err := strconv.ParseUint(value, 10, 31)
 		if err != nil {
 			return err
 		}
-		tx.EthTxIndex = int32(txIndex) // #nosec G115
+		// #nosec G115 always in range
+		tx.EthTxIndex = int32(txIndex)
 	case evmtypes.AttributeKeyTxGasUsed:
 		gasUsed, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
@@ -246,6 +384,37 @@ func fillTxAttribute(tx *ParsedTx, key string, value string) error {
 		tx.GasUsed = gasUsed
 	case evmtypes.AttributeKeyEthereumTxFailed:
 		tx.Failed = len(value) > 0
+	case SenderType:
+		tx.Sender = common.HexToAddress(value)
+	case evmtypes.AttributeKeyRecipient:
+		tx.Recipient = common.HexToAddress(value)
+	case evmtypes.AttributeKeyTxHash:
+		tx.TxHash = value
+	case evmtypes.AttributeKeyTxType:
+		txType, err := strconv.ParseUint(value, 10, 31)
+		if err != nil {
+			return err
+		}
+		tx.Type = txType
+	case AmountType:
+		var success bool
+		tx.Amount, success = big.NewInt(0).SetString(value, 10)
+		if !success {
+			return nil
+		}
+	case evmtypes.AttributeKeyTxNonce:
+		nonce, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		tx.Nonce = nonce
+
+	case evmtypes.AttributeKeyTxData:
+		hexBytes, err := hexutil.Decode(value)
+		if err != nil {
+			return err
+		}
+		tx.Data = hexBytes
 	}
 	return nil
 }
