@@ -89,6 +89,11 @@ func (s *Store) CacheWrap() storetypes.CacheWrap {
 }
 
 // CacheWrapWithTrace implements the CacheWrapper interface.
+//
+// NOTE: CacheWrapWithTrace is a method that enables a Store to satisfy the CacheWrapper interface.
+// Although it accepts an io.Writer and tracingContext as inputs, these are not used in the implementation.
+// Instead, it simply adds an additional cache layer on top of the existing KVStores.
+// As a result, while the return value differs, the behavior is effectively the same as the Snapshot() method.
 func (s *Store) CacheWrapWithTrace(_ io.Writer, _ storetypes.TraceContext) storetypes.CacheWrap {
 	return s.CacheWrap()
 }
