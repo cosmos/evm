@@ -1,37 +1,27 @@
 package common
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
-
-// ReturnRevertError returns a mocked error that should align with the
-// behavior of go-ethereum implementation for revert reasons.
+// ReturnRevertError returns a ExecutionReverted error with revert reason
+// that should align with the behavior of go-ethereum implementation.
+//
+// In the EVM interpreter, an opCall error is reported as ExecutionReverted,
+// and its revert reason is stored in EVM memory and then returned by opRevert.
+// Since precompiles are also invoked via opCall, they should be handled the same way.
+// Therefore, the returned error must be ABI-encoded and returned,
+// and the error type changed to ErrExecutionReverted.
+//
+// related issue: https://github.com/cosmos/evm/issues/223
 func ReturnRevertError(evm *vm.EVM, err error) ([]byte, error) {
-	revertReasonBz, encErr := RevertReasonBytes(err.Error())
+	revertReasonBz, encErr := evmtypes.RevertReasonBytes(err.Error())
 	if encErr != nil {
 		return nil, vm.ErrExecutionReverted
 	}
 	evm.Interpreter().SetReturnData(revertReasonBz)
 
 	return revertReasonBz, vm.ErrExecutionReverted
-}
-
-// RevertReasonBytes converts a message to ABI-encoded revert bytes.
-func RevertReasonBytes(reason string) ([]byte, error) {
-	typ, err := abi.NewType("string", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	packed, err := (abi.Arguments{{Type: typ}}).Pack(reason)
-	if err != nil {
-		return nil, err
-	}
-	bz := make([]byte, 0, len(revertSelector)+len(packed))
-	bz = append(bz, revertSelector...)
-	bz = append(bz, packed...)
-	return bz, nil
 }
