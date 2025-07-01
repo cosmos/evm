@@ -1848,7 +1848,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						}
 
 						delegateCheck := passCheck.WithExpEvents(staking.EventTypeDelegate, staking.EventTypeDelegate)
-						// Tx should be successful, but no state changes happened
+
+						// The transaction should succeed with delegations occurring both before and after the intended revert.
+						// The revert itself is not propagated because it occurs within the scope of a try-catch statement,
+						// but is not caught by the catch block.
 						res, _, err := s.factory.CallContractAndCheckLogs(
 							s.keyring.GetPrivKey(0),
 							evmtypes.EvmTxArgs{
