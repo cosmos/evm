@@ -1,9 +1,9 @@
 package common
 
 import (
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // ReturnRevertError returns a ExecutionReverted error with revert reason
