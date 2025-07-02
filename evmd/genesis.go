@@ -23,11 +23,12 @@ type GenesisState map[string]json.RawMessage
 
 // NewEVMGenesisState returns the default genesis state for the EVM module.
 //
-// NOTE: for the example chain implementation we need to set the default EVM denomination
-// and enable ALL precompiles.
+// NOTE: for the example chain implementation we need to set the default EVM denomination,
+// enable ALL precompiles, and include default preinstalls.
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
 
 	return evmGenState
 }
