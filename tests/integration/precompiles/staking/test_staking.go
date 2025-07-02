@@ -777,6 +777,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 			// Check results
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
+				s.Require().Empty(resp.VmError, "expected returned VmError to be empty string")
 				s.Require().NotNil(resp.Ret, "expected returned bytes not to be nil")
 				// NOTES: After stack-based snapshot mechanism is added for precompile call,
 				// CacheMultiStore.Write() is always called once when tx succeeds.
@@ -785,6 +786,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				testutil.ValidateWrites(s.T(), cms, 1)
 			} else {
 				if tc.expKeeperPass {
+					s.Require().NoError(err, "expected no error when running the precompile")
 					s.Require().Contains(resp.VmError, vm.ErrExecutionReverted.Error(),
 						"expected error to be returned when running the precompile")
 					s.Require().NotNil(resp.Ret, "expected returned bytes to be encoded error reason")
@@ -797,18 +799,17 @@ func (s *PrecompileTestSuite) TestCMS() {
 					s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
 					// NOTES: After stack-based snapshot mechanism is added for precompile call,
 					// CacheMultiStore.Write() is not called when tx fails.
-					testutil.ValidateWrites(s.T(), cms, 1)
+					testutil.ValidateWrites(s.T(), cms, 0)
 				} else {
 					s.Require().Error(err, "expected error to be returned when running the precompile")
 					s.Require().Nil(resp, "expected returned response to be nil")
 					s.Require().ErrorContains(err, tc.errContains)
 					testutil.ValidateWrites(s.T(), cms, 0)
-				}
-				consumed := ctx.GasMeter().GasConsumed()
-				// Because opCall (for calling precompile) return ErrExecutionReverted, leftOverGas is refunded.
-				// So, consumed gas is less than gasLimit
-				s.Require().LessOrEqual(consumed, tc.gas, "expected gas consumed to be equal to gas limit")
 
+					// If a keeper method fails, the gas in the gasMeter is fully consumed.
+					consumed := ctx.GasMeter().GasConsumed()
+					s.Require().Equal(consumed, ctx.GasMeter().Limit(), "expected gas consumed to be equal to gas limit")
+				}
 			}
 		})
 	}
