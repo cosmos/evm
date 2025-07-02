@@ -141,7 +141,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 			})
 		})
-
 	})
 
 	// Run Ginkgo integration tests
