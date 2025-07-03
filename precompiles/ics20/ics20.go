@@ -3,10 +3,11 @@ package ics20
 import (
 	"embed"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -91,50 +92,26 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 // Run executes the precompiled contract IBC transfer methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
-	if err != nil {
-		return nil, err
-	}
-
-	// Start the balance change handler before executing the precompile.
-	p.GetBalanceHandler().BeforeBalanceChange(ctx)
-
-	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
-
-	switch method.Name {
-	// ICS20 transactions
-	case TransferMethod:
-		bz, err = p.Transfer(ctx, contract, stateDB, method, args)
-	// ICS20 queries
-	case DenomMethod:
-		bz, err = p.Denom(ctx, contract, method, args)
-	case DenomsMethod:
-		bz, err = p.Denoms(ctx, contract, method, args)
-	case DenomHashMethod:
-		bz, err = p.DenomHash(ctx, contract, method, args)
-	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	// Process the native balance changes after the method execution.
-	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
-		return nil, err
-	}
-
-	return bz, nil
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+	return p.ExecuteWithBalanceHandling(
+		evm, contract, readOnly, p.IsTransaction,
+		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+			switch method.Name {
+			// ICS20 transactions
+			case TransferMethod:
+				return p.Transfer(ctx, contract, stateDB, method, args)
+			// ICS20 queries
+			case DenomMethod:
+				return p.Denom(ctx, contract, method, args)
+			case DenomsMethod:
+				return p.Denoms(ctx, contract, method, args)
+			case DenomHashMethod:
+				return p.DenomHash(ctx, contract, method, args)
+			default:
+				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+			}
+		},
+	)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
