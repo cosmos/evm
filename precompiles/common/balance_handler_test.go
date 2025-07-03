@@ -31,47 +31,108 @@ func setupBalanceHandlerTest(t *testing.T) {
 }
 
 func TestParseHexAddress(t *testing.T) {
-	setupBalanceHandlerTest(t)
+	var accAddr sdk.AccAddress
 
-	_, addrs, err := testutil.GeneratePrivKeyAddressPairs(1)
-	require.NoError(t, err)
-	accAddr := addrs[0]
+	testCases := []struct {
+		name     string
+		maleate  func() sdk.Event
+		key      string
+		expAddr  common.Address
+		expError bool
+	}{
+		{
+			name: "valid address",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, accAddr.String()))
+			},
+			key:      banktypes.AttributeKeySpender,
+			expError: false,
+		},
+		{
+			name: "missing attribute",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank")
+			},
+			key:      banktypes.AttributeKeySpender,
+			expError: true,
+		},
+		{
+			name: "invalid address",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, "invalid"))
+			},
+			key:      banktypes.AttributeKeySpender,
+			expError: true,
+		},
+	}
 
-	// valid address
-	ev := sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, accAddr.String()))
-	addr, err := parseHexAddress(ev, banktypes.AttributeKeySpender)
-	require.NoError(t, err)
-	require.Equal(t, common.Address(accAddr.Bytes()), addr)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupBalanceHandlerTest(t)
 
-	// missing attribute
-	ev = sdk.NewEvent("bank")
-	_, err = parseHexAddress(ev, banktypes.AttributeKeySpender)
-	require.Error(t, err)
+			_, addrs, err := testutil.GeneratePrivKeyAddressPairs(1)
+			require.NoError(t, err)
+			accAddr = addrs[0]
 
-	// invalid address
-	ev = sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, "invalid"))
-	_, err = parseHexAddress(ev, banktypes.AttributeKeySpender)
-	require.Error(t, err)
+			event := tc.maleate()
+
+			addr, err := parseHexAddress(event, tc.key)
+			if tc.expError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, common.Address(accAddr.Bytes()), addr)
+		})
+	}
 }
 
 func TestParseAmount(t *testing.T) {
-	setupBalanceHandlerTest(t)
+	testCases := []struct {
+		name     string
+		maleate  func() sdk.Event
+		expAmt   *uint256.Int
+		expError bool
+	}{
+		{
+			name: "valid amount",
+			maleate: func() sdk.Event {
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 5)).String()
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
+			},
+			expAmt: uint256.NewInt(5),
+		},
+		{
+			name: "missing amount",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank")
+			},
+			expError: true,
+		},
+		{
+			name: "invalid coins",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, "invalid"))
+			},
+			expError: true,
+		},
+	}
 
-	coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 5)).String()
-	ev := sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
-	amt, err := parseAmount(ev)
-	require.NoError(t, err)
-	require.True(t, amt.Eq(uint256.NewInt(5)))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupBalanceHandlerTest(t)
 
-	// missing amount
-	ev = sdk.NewEvent("bank")
-	_, err = parseAmount(ev)
-	require.Error(t, err)
+			amt, err := parseAmount(tc.maleate())
+			if tc.expError {
+				require.Error(t, err)
+				return
+			}
 
-	// invalid coins
-	ev = sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, "invalid"))
-	_, err = parseAmount(ev)
-	require.Error(t, err)
+			require.NoError(t, err)
+			require.True(t, amt.Eq(tc.expAmt))
+		})
+	}
 }
 
 func TestAfterBalanceChange(t *testing.T) {
