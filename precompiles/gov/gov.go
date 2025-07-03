@@ -3,10 +3,10 @@ package gov
 import (
 	"embed"
 	"fmt"
-	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -85,47 +85,72 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 // Run executes the precompiled contract gov methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch method.Name {
-			// gov transactions
-			case VoteMethod:
-				return p.Vote(ctx, contract, stateDB, method, args)
-			case VoteWeightedMethod:
-				return p.VoteWeighted(ctx, contract, stateDB, method, args)
-			case SubmitProposalMethod:
-				return p.SubmitProposal(ctx, contract, stateDB, method, args)
-			case DepositMethod:
-				return p.Deposit(ctx, contract, stateDB, method, args)
-			case CancelProposalMethod:
-				return p.CancelProposal(ctx, contract, stateDB, method, args)
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	if err != nil {
+		return nil, err
+	}
 
-			// gov queries
-			case GetVoteMethod:
-				return p.GetVote(ctx, method, contract, args)
-			case GetVotesMethod:
-				return p.GetVotes(ctx, method, contract, args)
-			case GetDepositMethod:
-				return p.GetDeposit(ctx, method, contract, args)
-			case GetDepositsMethod:
-				return p.GetDeposits(ctx, method, contract, args)
-			case GetTallyResultMethod:
-				return p.GetTallyResult(ctx, method, contract, args)
-			case GetProposalMethod:
-				return p.GetProposal(ctx, method, contract, args)
-			case GetProposalsMethod:
-				return p.GetProposals(ctx, method, contract, args)
-			case GetParamsMethod:
-				return p.GetParams(ctx, method, contract, args)
-			case GetConstitutionMethod:
-				return p.GetConstitution(ctx, method, contract, args)
-			default:
-				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-			}
-		},
-	)
+	// Start the balance change handler before executing the precompile.
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
+	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
+	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+
+	switch method.Name {
+	// gov transactions
+	case VoteMethod:
+		bz, err = p.Vote(ctx, contract, stateDB, method, args)
+	case VoteWeightedMethod:
+		bz, err = p.VoteWeighted(ctx, contract, stateDB, method, args)
+	case SubmitProposalMethod:
+		bz, err = p.SubmitProposal(ctx, contract, stateDB, method, args)
+	case DepositMethod:
+		bz, err = p.Deposit(ctx, contract, stateDB, method, args)
+	case CancelProposalMethod:
+		bz, err = p.CancelProposal(ctx, contract, stateDB, method, args)
+
+	// gov queries
+	case GetVoteMethod:
+		bz, err = p.GetVote(ctx, method, contract, args)
+	case GetVotesMethod:
+		bz, err = p.GetVotes(ctx, method, contract, args)
+	case GetDepositMethod:
+		bz, err = p.GetDeposit(ctx, method, contract, args)
+	case GetDepositsMethod:
+		bz, err = p.GetDeposits(ctx, method, contract, args)
+	case GetTallyResultMethod:
+		bz, err = p.GetTallyResult(ctx, method, contract, args)
+	case GetProposalMethod:
+		bz, err = p.GetProposal(ctx, method, contract, args)
+	case GetProposalsMethod:
+		bz, err = p.GetProposals(ctx, method, contract, args)
+	case GetParamsMethod:
+		bz, err = p.GetParams(ctx, method, contract, args)
+	case GetConstitutionMethod:
+		bz, err = p.GetConstitution(ctx, method, contract, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB)
+	if err != nil {
+		return nil, err
+	}
+
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

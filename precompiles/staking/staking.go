@@ -2,10 +2,10 @@ package staking
 
 import (
 	"embed"
-	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -80,41 +80,64 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 // Run executes the precompiled contract staking methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch method.Name {
-			// Staking transactions
-			case CreateValidatorMethod:
-				return p.CreateValidator(ctx, contract, stateDB, method, args)
-			case EditValidatorMethod:
-				return p.EditValidator(ctx, contract, stateDB, method, args)
-			case DelegateMethod:
-				return p.Delegate(ctx, contract, stateDB, method, args)
-			case UndelegateMethod:
-				return p.Undelegate(ctx, contract, stateDB, method, args)
-			case RedelegateMethod:
-				return p.Redelegate(ctx, contract, stateDB, method, args)
-			case CancelUnbondingDelegationMethod:
-				return p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
-			// Staking queries
-			case DelegationMethod:
-				return p.Delegation(ctx, contract, method, args)
-			case UnbondingDelegationMethod:
-				return p.UnbondingDelegation(ctx, contract, method, args)
-			case ValidatorMethod:
-				return p.Validator(ctx, method, contract, args)
-			case ValidatorsMethod:
-				return p.Validators(ctx, method, contract, args)
-			case RedelegationMethod:
-				return p.Redelegation(ctx, method, contract, args)
-			case RedelegationsMethod:
-				return p.Redelegations(ctx, method, contract, args)
-			}
-			return nil, nil
-		},
-	)
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start the balance change handler before executing the precompile.
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
+	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
+	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+
+	switch method.Name {
+	// Staking transactions
+	case CreateValidatorMethod:
+		bz, err = p.CreateValidator(ctx, contract, stateDB, method, args)
+	case EditValidatorMethod:
+		bz, err = p.EditValidator(ctx, contract, stateDB, method, args)
+	case DelegateMethod:
+		bz, err = p.Delegate(ctx, contract, stateDB, method, args)
+	case UndelegateMethod:
+		bz, err = p.Undelegate(ctx, contract, stateDB, method, args)
+	case RedelegateMethod:
+		bz, err = p.Redelegate(ctx, contract, stateDB, method, args)
+	case CancelUnbondingDelegationMethod:
+		bz, err = p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
+	// Staking queries
+	case DelegationMethod:
+		bz, err = p.Delegation(ctx, contract, method, args)
+	case UnbondingDelegationMethod:
+		bz, err = p.UnbondingDelegation(ctx, contract, method, args)
+	case ValidatorMethod:
+		bz, err = p.Validator(ctx, method, contract, args)
+	case ValidatorsMethod:
+		bz, err = p.Validators(ctx, method, contract, args)
+	case RedelegationMethod:
+		bz, err = p.Redelegation(ctx, method, contract, args)
+	case RedelegationsMethod:
+		bz, err = p.Redelegations(ctx, method, contract, args)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
+	}
+
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

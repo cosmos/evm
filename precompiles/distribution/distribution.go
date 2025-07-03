@@ -3,11 +3,10 @@ package distribution
 import (
 	"embed"
 	"fmt"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -85,48 +84,71 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 // Run executes the precompiled contract distribution methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch method.Name {
-			// Custom transactions
-			case ClaimRewardsMethod:
-				return p.ClaimRewards(ctx, contract, stateDB, method, args)
-			// Distribution transactions
-			case SetWithdrawAddressMethod:
-				return p.SetWithdrawAddress(ctx, contract, stateDB, method, args)
-			case WithdrawDelegatorRewardMethod:
-				return p.WithdrawDelegatorReward(ctx, contract, stateDB, method, args)
-			case WithdrawValidatorCommissionMethod:
-				return p.WithdrawValidatorCommission(ctx, contract, stateDB, method, args)
-			case FundCommunityPoolMethod:
-				return p.FundCommunityPool(ctx, contract, stateDB, method, args)
-			case DepositValidatorRewardsPoolMethod:
-				return p.DepositValidatorRewardsPool(ctx, contract, stateDB, method, args)
-			// Distribution queries
-			case ValidatorDistributionInfoMethod:
-				return p.ValidatorDistributionInfo(ctx, contract, method, args)
-			case ValidatorOutstandingRewardsMethod:
-				return p.ValidatorOutstandingRewards(ctx, contract, method, args)
-			case ValidatorCommissionMethod:
-				return p.ValidatorCommission(ctx, contract, method, args)
-			case ValidatorSlashesMethod:
-				return p.ValidatorSlashes(ctx, contract, method, args)
-			case DelegationRewardsMethod:
-				return p.DelegationRewards(ctx, contract, method, args)
-			case DelegationTotalRewardsMethod:
-				return p.DelegationTotalRewards(ctx, contract, method, args)
-			case DelegatorValidatorsMethod:
-				return p.DelegatorValidators(ctx, contract, method, args)
-			case DelegatorWithdrawAddressMethod:
-				return p.DelegatorWithdrawAddress(ctx, contract, method, args)
-			case CommunityPoolMethod:
-				return p.CommunityPool(ctx, contract, method, args)
-			}
-			return nil, nil
-		},
-	)
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start the balance change handler before executing the precompile.
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
+	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
+	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+
+	switch method.Name {
+	// Custom transactions
+	case ClaimRewardsMethod:
+		bz, err = p.ClaimRewards(ctx, contract, stateDB, method, args)
+	// Distribution transactions
+	case SetWithdrawAddressMethod:
+		bz, err = p.SetWithdrawAddress(ctx, contract, stateDB, method, args)
+	case WithdrawDelegatorRewardMethod:
+		bz, err = p.WithdrawDelegatorReward(ctx, contract, stateDB, method, args)
+	case WithdrawValidatorCommissionMethod:
+		bz, err = p.WithdrawValidatorCommission(ctx, contract, stateDB, method, args)
+	case FundCommunityPoolMethod:
+		bz, err = p.FundCommunityPool(ctx, contract, stateDB, method, args)
+	case DepositValidatorRewardsPoolMethod:
+		bz, err = p.DepositValidatorRewardsPool(ctx, contract, stateDB, method, args)
+	// Distribution queries
+	case ValidatorDistributionInfoMethod:
+		bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)
+	case ValidatorOutstandingRewardsMethod:
+		bz, err = p.ValidatorOutstandingRewards(ctx, contract, method, args)
+	case ValidatorCommissionMethod:
+		bz, err = p.ValidatorCommission(ctx, contract, method, args)
+	case ValidatorSlashesMethod:
+		bz, err = p.ValidatorSlashes(ctx, contract, method, args)
+	case DelegationRewardsMethod:
+		bz, err = p.DelegationRewards(ctx, contract, method, args)
+	case DelegationTotalRewardsMethod:
+		bz, err = p.DelegationTotalRewards(ctx, contract, method, args)
+	case DelegatorValidatorsMethod:
+		bz, err = p.DelegatorValidators(ctx, contract, method, args)
+	case DelegatorWithdrawAddressMethod:
+		bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
+	case CommunityPoolMethod:
+		bz, err = p.CommunityPool(ctx, contract, method, args)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
+	}
+
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
