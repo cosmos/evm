@@ -3,9 +3,9 @@ package werc20
 import (
 	"embed"
 	"fmt"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/statedb"
 	"slices"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -108,22 +108,22 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract WERC20 methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch {
-			case method.Type == abi.Fallback,
-				method.Type == abi.Receive,
-				method.Name == DepositMethod:
-				return p.Deposit(ctx, contract, stateDB)
-			case method.Name == WithdrawMethod:
-				return p.Withdraw(ctx, contract, stateDB, args)
-			default:
-				// ERC20 transactions and queries
-				return p.HandleMethod(ctx, contract, stateDB, method, args)
-			}
-		},
-	)
+	return p.SetupAndRun(evm, contract, readOnly, p.IsTransaction, p.HandleMethod)
+}
+
+// HandleMethod handles the execution of each method
+func (p Precompile) HandleMethod(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+	switch {
+	case method.Type == abi.Fallback,
+		method.Type == abi.Receive,
+		method.Name == DepositMethod:
+		return p.Deposit(ctx, contract, stateDB)
+	case method.Name == WithdrawMethod:
+		return p.Withdraw(ctx, contract, stateDB, args)
+	default:
+		// ERC20 transactions and queries
+		return p.HandleMethod(ctx, contract, stateDB, method, args)
+	}
 }
 
 // IsTransaction returns true if the given method name correspond to a

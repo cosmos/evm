@@ -58,6 +58,49 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 	return p.KvGasConfig.ReadCostFlat + (p.KvGasConfig.ReadCostPerByte * uint64(len(argsBz)))
 }
 
+// SetupAndRun wraps the execution of a precompile method with
+// the necessary setup, balance handling and gas accounting logic.
+// Precompile implementations can use this helper to avoid repetitive boilerplate
+// in their `Run` methods.
+func (p Precompile) SetupAndRun(
+	evm *vm.EVM,
+	contract *vm.Contract,
+	readOnly bool,
+	isTransaction func(*abi.Method) bool,
+	handleMethod HandleMethodFunc,
+) (bz []byte, err error) {
+	// Setup precompile method execution
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, isTransaction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handles the out of gas panic by resetting the gas meter and returning an error
+	defer HandleGasError(ctx, contract, initialGas, &err)()
+
+	// Record the length of events emitted before precompile method execution
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
+	// Executes precompile method
+	bz, err = handleMethod(ctx, contract, stateDB, method, args)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handles native balance changes parsed from sdk.Events
+	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
+	}
+
+	// Consume Gas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	return bz, nil
+}
+
 // RunSetup runs the initial setup required to run a transaction or a query.
 // It returns the sdk Context, EVM stateDB, ABI method, initial gas and calling arguments.
 func (p Precompile) RunSetup(
@@ -230,42 +273,4 @@ func (p *Precompile) GetBalanceHandler() *BalanceHandler {
 		p.balanceHandler = NewBalanceHandler()
 	}
 	return p.balanceHandler
-}
-
-// ExecuteWithBalanceHandling wraps the execution of a precompile method with
-// the necessary balance handling and gas accounting logic. Precompile
-// implementations can use this helper to avoid repetitive boilerplate in their
-// `Run` methods.
-func (p Precompile) ExecuteWithBalanceHandling(
-	evm *vm.EVM,
-	contract *vm.Contract,
-	readOnly bool,
-	isTransaction func(*abi.Method) bool,
-	handle func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error),
-) (bz []byte, err error) {
-	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, isTransaction)
-	if err != nil {
-		return nil, err
-	}
-
-	p.GetBalanceHandler().BeforeBalanceChange(ctx)
-
-	defer HandleGasError(ctx, contract, initialGas, &err)()
-
-	bz, err = handle(ctx, contract, stateDB, method, args)
-	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
-		return nil, err
-	}
-
-	return bz, nil
 }

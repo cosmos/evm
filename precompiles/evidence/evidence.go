@@ -3,7 +3,6 @@ package evidence
 import (
 	"embed"
 	"fmt"
-	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -82,23 +81,23 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract evidence methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch method.Name {
-			// evidence transactions
-			case SubmitEvidenceMethod:
-				return p.SubmitEvidence(ctx, contract, stateDB, method, args)
-			// evidence queries
-			case EvidenceMethod:
-				return p.Evidence(ctx, method, args)
-			case GetAllEvidenceMethod:
-				return p.GetAllEvidence(ctx, method, args)
-			default:
-				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-			}
-		},
-	)
+	return p.SetupAndRun(evm, contract, readOnly, p.IsTransaction, p.HandleMethod)
+}
+
+// HandleMethod handles the execution of each method
+func (p Precompile) HandleMethod(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+	switch method.Name {
+	// evidence transactions
+	case SubmitEvidenceMethod:
+		return p.SubmitEvidence(ctx, contract, stateDB, method, args)
+	// evidence queries
+	case EvidenceMethod:
+		return p.Evidence(ctx, method, args)
+	case GetAllEvidenceMethod:
+		return p.GetAllEvidence(ctx, method, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

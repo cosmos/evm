@@ -3,7 +3,6 @@ package gov
 import (
 	"embed"
 	"fmt"
-	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -86,46 +85,46 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract gov methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.ExecuteWithBalanceHandling(
-		evm, contract, readOnly, p.IsTransaction,
-		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-			switch method.Name {
-			// gov transactions
-			case VoteMethod:
-				return p.Vote(ctx, contract, stateDB, method, args)
-			case VoteWeightedMethod:
-				return p.VoteWeighted(ctx, contract, stateDB, method, args)
-			case SubmitProposalMethod:
-				return p.SubmitProposal(ctx, contract, stateDB, method, args)
-			case DepositMethod:
-				return p.Deposit(ctx, contract, stateDB, method, args)
-			case CancelProposalMethod:
-				return p.CancelProposal(ctx, contract, stateDB, method, args)
+	return p.SetupAndRun(evm, contract, readOnly, p.IsTransaction, p.HandleMethod)
+}
 
-			// gov queries
-			case GetVoteMethod:
-				return p.GetVote(ctx, method, contract, args)
-			case GetVotesMethod:
-				return p.GetVotes(ctx, method, contract, args)
-			case GetDepositMethod:
-				return p.GetDeposit(ctx, method, contract, args)
-			case GetDepositsMethod:
-				return p.GetDeposits(ctx, method, contract, args)
-			case GetTallyResultMethod:
-				return p.GetTallyResult(ctx, method, contract, args)
-			case GetProposalMethod:
-				return p.GetProposal(ctx, method, contract, args)
-			case GetProposalsMethod:
-				return p.GetProposals(ctx, method, contract, args)
-			case GetParamsMethod:
-				return p.GetParams(ctx, method, contract, args)
-			case GetConstitutionMethod:
-				return p.GetConstitution(ctx, method, contract, args)
-			default:
-				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-			}
-		},
-	)
+// HandleMethod handles the execution of each method
+func (p Precompile) HandleMethod(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+	switch method.Name {
+	// gov transactions
+	case VoteMethod:
+		return p.Vote(ctx, contract, stateDB, method, args)
+	case VoteWeightedMethod:
+		return p.VoteWeighted(ctx, contract, stateDB, method, args)
+	case SubmitProposalMethod:
+		return p.SubmitProposal(ctx, contract, stateDB, method, args)
+	case DepositMethod:
+		return p.Deposit(ctx, contract, stateDB, method, args)
+	case CancelProposalMethod:
+		return p.CancelProposal(ctx, contract, stateDB, method, args)
+
+	// gov queries
+	case GetVoteMethod:
+		return p.GetVote(ctx, method, contract, args)
+	case GetVotesMethod:
+		return p.GetVotes(ctx, method, contract, args)
+	case GetDepositMethod:
+		return p.GetDeposit(ctx, method, contract, args)
+	case GetDepositsMethod:
+		return p.GetDeposits(ctx, method, contract, args)
+	case GetTallyResultMethod:
+		return p.GetTallyResult(ctx, method, contract, args)
+	case GetProposalMethod:
+		return p.GetProposal(ctx, method, contract, args)
+	case GetProposalsMethod:
+		return p.GetProposals(ctx, method, contract, args)
+	case GetParamsMethod:
+		return p.GetParams(ctx, method, contract, args)
+	case GetConstitutionMethod:
+		return p.GetConstitution(ctx, method, contract, args)
+	default:
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+	}
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
