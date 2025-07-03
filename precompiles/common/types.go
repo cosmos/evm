@@ -8,21 +8,10 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // TrueValue is the byte array representing a true value in solidity.
 var TrueValue = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}
-
-// HandleMethodFunc defines precompile method handler fuction type.
-type HandleMethodFunc func(
-	ctx sdk.Context,
-	contract *vm.Contract,
-	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error)
 
 // ICS20Allocation defines the spend limit for a particular port and channel.
 // We need this to be able to unpack to big.Int instead of math.Int.

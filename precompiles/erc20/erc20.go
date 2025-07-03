@@ -3,6 +3,7 @@ package erc20
 import (
 	"embed"
 	"fmt"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -143,7 +144,12 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]by
 		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
 	}
 
-	return p.SetupAndRun(evm, contract, readOnly, p.IsTransaction, p.HandleMethod)
+	return p.ExecuteWithBalanceHandling(
+		evm, contract, readOnly, p.IsTransaction,
+		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+			return p.HandleMethod(ctx, contract, stateDB, method, args)
+		},
+	)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

@@ -2,7 +2,7 @@ package staking
 
 import (
 	"embed"
-	"fmt"
+	"github.com/cosmos/evm/x/vm/statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -81,41 +81,40 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract staking methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	return p.SetupAndRun(evm, contract, readOnly, p.IsTransaction, p.HandleMethod)
-}
-
-// HandleMethod handles the execution of each method
-func (p Precompile) HandleMethod(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
-	switch method.Name {
-	// Staking transactions
-	case CreateValidatorMethod:
-		return p.CreateValidator(ctx, contract, stateDB, method, args)
-	case EditValidatorMethod:
-		return p.EditValidator(ctx, contract, stateDB, method, args)
-	case DelegateMethod:
-		return p.Delegate(ctx, contract, stateDB, method, args)
-	case UndelegateMethod:
-		return p.Undelegate(ctx, contract, stateDB, method, args)
-	case RedelegateMethod:
-		return p.Redelegate(ctx, contract, stateDB, method, args)
-	case CancelUnbondingDelegationMethod:
-		return p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
-	// Staking queries
-	case DelegationMethod:
-		return p.Delegation(ctx, contract, method, args)
-	case UnbondingDelegationMethod:
-		return p.UnbondingDelegation(ctx, contract, method, args)
-	case ValidatorMethod:
-		return p.Validator(ctx, method, contract, args)
-	case ValidatorsMethod:
-		return p.Validators(ctx, method, contract, args)
-	case RedelegationMethod:
-		return p.Redelegation(ctx, method, contract, args)
-	case RedelegationsMethod:
-		return p.Redelegations(ctx, method, contract, args)
-	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-	}
+	return p.ExecuteWithBalanceHandling(
+		evm, contract, readOnly, p.IsTransaction,
+		func(ctx sdk.Context, contract *vm.Contract, stateDB *statedb.StateDB, method *abi.Method, args []interface{}) ([]byte, error) {
+			switch method.Name {
+			// Staking transactions
+			case CreateValidatorMethod:
+				return p.CreateValidator(ctx, contract, stateDB, method, args)
+			case EditValidatorMethod:
+				return p.EditValidator(ctx, contract, stateDB, method, args)
+			case DelegateMethod:
+				return p.Delegate(ctx, contract, stateDB, method, args)
+			case UndelegateMethod:
+				return p.Undelegate(ctx, contract, stateDB, method, args)
+			case RedelegateMethod:
+				return p.Redelegate(ctx, contract, stateDB, method, args)
+			case CancelUnbondingDelegationMethod:
+				return p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
+			// Staking queries
+			case DelegationMethod:
+				return p.Delegation(ctx, contract, method, args)
+			case UnbondingDelegationMethod:
+				return p.UnbondingDelegation(ctx, contract, method, args)
+			case ValidatorMethod:
+				return p.Validator(ctx, method, contract, args)
+			case ValidatorsMethod:
+				return p.Validators(ctx, method, contract, args)
+			case RedelegationMethod:
+				return p.Redelegation(ctx, method, contract, args)
+			case RedelegationsMethod:
+				return p.Redelegations(ctx, method, contract, args)
+			}
+			return nil, nil
+		},
+	)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
