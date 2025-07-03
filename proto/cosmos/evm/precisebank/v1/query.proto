@@ -18,8 +18,10 @@ service Query {
 
   // FractionalBalance returns only the fractional balance of an address. This
   // does not include any integer balance.
-  rpc FractionalBalance(QueryFractionalBalanceRequest) returns (QueryFractionalBalanceResponse) {
-    option (google.api.http).get = "/cosmos/evm/precisebank/v1/fractional_balance/{address}";
+  rpc FractionalBalance(QueryFractionalBalanceRequest)
+      returns (QueryFractionalBalanceResponse) {
+    option (google.api.http).get =
+        "/cosmos/evm/precisebank/v1/fractional_balance/{address}";
   }
 }
 
@@ -30,17 +32,20 @@ message QueryRemainderRequest {}
 message QueryRemainderResponse {
   // remainder is the amount backed by the reserve, but not yet owned by any
   // account, i.e. not in circulation.
-  cosmos.base.v1beta1.Coin remainder = 1 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin remainder = 1 [ (gogoproto.nullable) = false ];
 }
 
-// QueryFractionalBalanceRequest defines the request type for Query/FractionalBalance method.
+// QueryFractionalBalanceRequest defines the request type for
+// Query/FractionalBalance method.
 message QueryFractionalBalanceRequest {
   // address is the account address to query  fractional balance for.
   string address = 1;
 }
 
-// QueryFractionalBalanceResponse defines the response type for Query/FractionalBalance method.
+// QueryFractionalBalanceResponse defines the response type for
+// Query/FractionalBalance method.
 message QueryFractionalBalanceResponse {
   // fractional_balance is the fractional balance of the address.
-  cosmos.base.v1beta1.Coin fractional_balance = 1 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin fractional_balance = 1
+      [ (gogoproto.nullable) = false ];
 }

@@ -777,7 +777,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 			if tc.expPass {
 				s.Require().NoError(err, "expected no error when running the precompile")
 				s.Require().NotNil(resp.Ret, "expected returned bytes not to be nil")
-				testutil.ValidateWrites(s.T(), cms, 2)
+				// NOTES: After stack-based snapshot mechanism is added for precompile call,
+				// CacheMultiStore.Write() is always called once when tx succeeds.
+				// It is because CacheMultiStore() is not called when creating snapshot for MultiStore,
+				// Count of Write() is not accumulated.
+				testutil.ValidateWrites(s.T(), cms, 1)
 			} else {
 				if tc.expKeeperPass {
 					s.Require().Contains(resp.VmError, tc.errContains,
@@ -786,8 +790,9 @@ func (s *PrecompileTestSuite) TestCMS() {
 					consumed := ctx.GasMeter().GasConsumed()
 					// LessThanOrEqual because the gas is consumed before the error is returned
 					s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
-					// Writes once because of gas usage
-					testutil.ValidateWrites(s.T(), cms, 1)
+					// NOTES: After stack-based snapshot mechanism is added for precompile call,
+					// CacheMultiStore.Write() is not called when tx fails.
+					testutil.ValidateWrites(s.T(), cms, 0)
 				} else {
 					s.Require().Error(err, "expected error to be returned when running the precompile")
 					s.Require().Nil(resp, "expected returned response to be nil")
