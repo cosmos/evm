@@ -136,6 +136,15 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract ERC-20 methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	bz, err = p.run(evm, contract, readOnly)
+	if err != nil {
+		return cmn.ReturnRevertError(evm, err)
+	}
+
+	return bz, nil
+}
+
+func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
 	// ERC20 precompiles cannot receive funds because they are not managed by an
 	// EOA and will not be possible to recover funds sent to an instance of
 	// them.This check is a safety measure because currently funds cannot be

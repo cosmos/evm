@@ -4,10 +4,12 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/evm/testutil/tx"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -99,7 +101,7 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 			)
 			s.Require().NoError(err)
 
-			_, _, _, err = s.chainA.SendEvmTx(
+			_, _, res, err := s.chainA.SendEvmTx(
 				s.chainA.SenderAccounts[0],
 				0,
 				s.chainAPrecompile.Address(),
@@ -108,7 +110,8 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 				0,
 			)
 			s.Require().Error(err)
-			s.Require().Contains(err.Error(), tc.expectErrSubstring)
+			s.Require().Contains(err.Error(), vm.ErrExecutionReverted.Error())
+			s.Require().Contains(evmtypes.NewExecErrorWithReason(res.Ret).Error(), tc.expectErrSubstring)
 		})
 	}
 }

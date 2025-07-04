@@ -100,7 +100,7 @@ func (p *Precompile) transfer(
 
 		newAllowance := new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
-			return nil, ConvertErrToERC20Error(ErrInsufficientAllowance)
+			return nil, ErrInsufficientAllowance
 		}
 
 		if newAllowance.Sign() == 0 {
