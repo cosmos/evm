@@ -159,6 +159,8 @@ type EVMD struct {
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
 
+	pendingTxListeners []ante.PendingTxListener
+
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
 	tkeys   map[string]*storetypes.TransientStoreKey
@@ -818,12 +820,24 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
 		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)
 	}
 
 	app.SetAnteHandler(ante.NewAnteHandler(options))
+}
+
+func (app *EVMD) onPendingTx(hash string) {
+	for _, listener := range app.pendingTxListeners {
+		listener(hash)
+	}
+}
+
+// RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
+func (app *EVMD) RegisterPendingTxListener(listener func(string)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
 func (app *EVMD) setPostHandler() {

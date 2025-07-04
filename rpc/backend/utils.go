@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -217,7 +216,7 @@ func AllTxLogsFromEvents(events []abci.Event) ([][]*ethtypes.Log, error) {
 			continue
 		}
 
-		logs, err := ParseTxLogsFromEvent(event)
+		logs, err := evmtypes.ParseTxLogsFromEvent(event)
 		if err != nil {
 			return nil, err
 		}
@@ -225,42 +224,6 @@ func AllTxLogsFromEvents(events []abci.Event) ([][]*ethtypes.Log, error) {
 		allLogs = append(allLogs, logs)
 	}
 	return allLogs, nil
-}
-
-// TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
-func TxLogsFromEvents(events []abci.Event, msgIndex int) ([]*ethtypes.Log, error) {
-	for _, event := range events {
-		if event.Type != evmtypes.EventTypeTxLog {
-			continue
-		}
-
-		if msgIndex > 0 {
-			// not the eth tx we want
-			msgIndex--
-			continue
-		}
-
-		return ParseTxLogsFromEvent(event)
-	}
-	return nil, fmt.Errorf("eth tx logs not found for message index %d", msgIndex)
-}
-
-// ParseTxLogsFromEvent parse tx logs from one event
-func ParseTxLogsFromEvent(event abci.Event) ([]*ethtypes.Log, error) {
-	logs := make([]*evmtypes.Log, 0, len(event.Attributes))
-	for _, attr := range event.Attributes {
-		if attr.Key != evmtypes.AttributeKeyTxLog {
-			continue
-		}
-
-		var txLog evmtypes.Log
-		if err := json.Unmarshal([]byte(attr.Value), &txLog); err != nil {
-			return nil, err
-		}
-
-		logs = append(logs, &txLog)
-	}
-	return evmtypes.LogsToEthereum(logs), nil
 }
 
 // ShouldIgnoreGasUsed returns true if the gasUsed in result should be ignored
