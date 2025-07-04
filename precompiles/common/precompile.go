@@ -23,7 +23,7 @@ type Precompile struct {
 	KvGasConfig          storetypes.GasConfig
 	TransientKVGasConfig storetypes.GasConfig
 	address              common.Address
-	journalEntries       []BalanceChangeEntry
+	balanceHandler       *BalanceHandler
 }
 
 // Operation is a type that defines if the precompile call
@@ -172,30 +172,6 @@ func HandleGasError(ctx sdk.Context, contract *vm.Contract, initialGas storetype
 	}
 }
 
-// AddJournalEntries adds the balanceChange (if corresponds)
-func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB) error {
-	for _, entry := range p.journalEntries {
-		switch entry.Op {
-		case Sub:
-			// add the corresponding balance change to the journal
-			stateDB.SubBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
-		case Add:
-			// add the corresponding balance change to the journal
-			stateDB.AddBalance(entry.Account, entry.Amount, tracing.BalanceChangeUnspecified)
-		}
-	}
-
-	return nil
-}
-
-// SetBalanceChangeEntries sets the balanceChange entries
-// as the journalEntries field of the precompile.
-// These entries will be added to the stateDB's journal
-// when calling the AddJournalEntries function
-func (p *Precompile) SetBalanceChangeEntries(entries ...BalanceChangeEntry) {
-	p.journalEntries = entries
-}
-
 func (p Precompile) Address() common.Address {
 	return p.address
 }
@@ -247,4 +223,11 @@ func (p Precompile) standardCallData(contract *vm.Contract) (method *abi.Method,
 	}
 
 	return method, nil
+}
+
+func (p *Precompile) GetBalanceHandler() *BalanceHandler {
+	if p.balanceHandler == nil {
+		p.balanceHandler = NewBalanceHandler()
+	}
+	return p.balanceHandler
 }
