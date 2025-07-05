@@ -104,6 +104,14 @@ const (
 
 	// DefaultGasAdjustment value to use as default in gas-adjustment flag
 	DefaultGasAdjustment = 1.2
+
+	// DefaultBatchRequestLimit is the maximum number of requests in a batch.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L67
+	DefaultBatchRequestLimit = 1000
+
+	// DefaultBatchResponseMaxSize is the maximum number of bytes returned from a batched rpc call.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L68
+	DefaultBatchResponseMaxSize = 25 * 1000 * 1000
 )
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
@@ -173,6 +181,10 @@ type JSONRPCConfig struct {
 	MetricsAddress string `mapstructure:"metrics-address"`
 	// FixRevertGasRefundHeight defines the upgrade height for fix of revert gas refund logic when transaction reverted
 	FixRevertGasRefundHeight int64 `mapstructure:"fix-revert-gas-refund-height"`
+	// BatchRequestLimit defines maximum number of requests in a batch
+	BatchRequestLimit int `mapstructure:"batch-request-limit"`
+	// BatchResponseMaxSize defines maximum number of bytes returned from a batched call
+	BatchResponseMaxSize int `mapstructure:"batch-response-max-size"`
 }
 
 // TLSConfig defines the certificate and matching private key for the server.
@@ -234,6 +246,8 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		EnableIndexer:            false,
 		MetricsAddress:           DefaultJSONRPCMetricsAddress,
 		FixRevertGasRefundHeight: DefaultFixRevertGasRefundHeight,
+		BatchRequestLimit:        DefaultBatchRequestLimit,
+		BatchResponseMaxSize:     DefaultBatchResponseMaxSize,
 	}
 }
 
