@@ -583,7 +583,7 @@ func (b *Backend) formatTxReceipt(ethMsg *evmtypes.MsgEthereumTx, blockMsgs []*e
 		return nil, err
 	}
 
-	from, err := ethMsg.GetSender(chainID.ToInt())
+	from, err := ethMsg.GetSenderLegacy(chainID.ToInt())
 	if err != nil {
 		return nil, err
 	}

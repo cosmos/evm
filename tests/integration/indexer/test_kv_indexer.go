@@ -39,7 +39,7 @@ func TestKVIndexer(t *testing.T, create network.CreateEvmApp, options ...network
 		GasLimit: 21000,
 	}
 	tx := types.NewTx(&ethTxParams)
-	tx.From = from.Hex()
+	tx.From = from.Bytes()
 	require.NoError(t, tx.Sign(ethSigner, signer))
 	txHash := tx.AsTransaction().Hash()
 

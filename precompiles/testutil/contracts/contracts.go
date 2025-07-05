@@ -82,7 +82,7 @@ func Call(ctx sdk.Context, app evm.EvmApp, args CallArgs) (res abci.ExecTxResult
 		Input:     input,
 		Accesses:  args.AccessList,
 	})
-	msg.From = addr.Hex()
+	msg.From = addr.Bytes()
 
 	res, err = integration.DeliverEthTx(app, args.PrivKey, msg)
 	if err != nil {
