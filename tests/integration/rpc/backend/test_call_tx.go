@@ -334,7 +334,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 			func() []byte {
 				from, priv := utiltx.NewAddrKey()
 				signer := utiltx.NewSigner(priv)
-				invalidEvmChainIDTx.From = from.String()
+				invalidEvmChainIDTx.From = from.Bytes()
 				err := invalidEvmChainIDTx.Sign(ethSigner, signer)
 				s.Require().NoError(err)
 				bytes, _ := rlp.EncodeToBytes(invalidEvmChainIDTx.AsTransaction())
@@ -348,6 +348,8 @@ func (s *TestSuite) TestSendRawTransaction() {
 			"fail - unprotected tx",
 			func() {
 				s.backend.AllowUnprotectedTxs = false
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterParamsWithoutHeaderError(queryClient, 1)
 			},
 			func() []byte {
 				bytes, _ := rlp.EncodeToBytes(emptyEvmChainIDTx.AsTransaction())
