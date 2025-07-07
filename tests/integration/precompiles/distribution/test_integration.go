@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -1512,11 +1513,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr, s.network.GetValidators()[0].OperatorAddress,
 				}
 
+				revertReasonCheck := execRevertedCheck.WithErrNested(
+					cmn.ErrRequesterIsNotMsgSender,
+					contractAddr,
+					differentAddr.String(),
+				)
+
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					revertReasonCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
@@ -2094,11 +2101,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not claim rewards when sending from a different address", func() {
 				callArgs.Args = []interface{}{differentAddr, uint32(1)}
 
+				errCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
+					cmn.ErrRequesterIsNotMsgSender,
+					txArgs.To,
+					differentAddr,
+				).Error())
+
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					errCheckArgs,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2286,7 +2299,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 				Expect(err).To(BeNil())
 				finalBalance := balRes.Balance
-
 				expectedGasCost := math.NewIntFromUint64(txRes.GasUsed).Mul(math.NewIntFromBigInt(txArgs.GasPrice))
 				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
@@ -2653,11 +2665,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr.String(), differentAddr, s.network.GetValidators()[0].OperatorAddress,
 				}
 
+				revertReasonCheck := execRevertedCheck.WithErrNested(
+					cmn.ErrRequesterIsNotMsgSender,
+					contractAddr,
+					s.keyring.GetAddr(0),
+				)
+
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					revertReasonCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2682,11 +2700,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.MethodName = "delegateCallSetWithdrawAddress"
 				callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
 
+				revertReasonCheck := execRevertedCheck.WithErrNested("failed delegateCall to precompile")
+
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					revertReasonCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2701,11 +2721,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.MethodName = "staticCallSetWithdrawAddress"
 				callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
 
+				revertReasonCheck := execRevertedCheck.WithErrNested("failed staticCall to precompile")
+
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
 					callArgs,
-					execRevertedCheck,
+					revertReasonCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -3093,6 +3115,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 							ContractABI: reverterContract.ABI,
 							MethodName:  "run",
 						}
+
 						_, _, err = s.factory.CallContractAndCheckLogs(
 							s.keyring.GetPrivKey(0),
 							evmtypes.EvmTxArgs{

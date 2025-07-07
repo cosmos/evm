@@ -444,6 +444,11 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// reset leftoverGas, to be used by the tracer
 	leftoverGas = msg.GasLimit - gasUsed
 
+	// if the execution reverted, we return the revert reason as the return data
+	if vmError == vm.ErrExecutionReverted.Error() {
+		ret = evm.Interpreter().ReturnData()
+	}
+
 	return &types.MsgEthereumTxResponse{
 		GasUsed: gasUsed,
 		VmError: vmError,

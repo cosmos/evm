@@ -31,6 +31,10 @@ contract StakingReverter {
         }
     }
 
+    /// @dev callPrecompileBeforeAndAfterRevert tests whether precompile calls that occur 
+    /// before and after an intentionally ignored revert correctly modify the state.
+    /// This method assumes that the StakingReverter.sol contract holds a native balance. 
+    /// Therefore, in order to call this method, the contract must be funded with a balance in advance.
     function callPrecompileBeforeAndAfterRevert(uint numTimes, string calldata validatorAddress) external {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
 
