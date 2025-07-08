@@ -33,3 +33,4 @@ contracts/@openzeppelin/*
 evmd/build/
 
 build/
+.aider*

@@ -43,6 +43,7 @@ var (
 			AccessControlList: DefaultCallAllowlistAddresses,
 		},
 	}
+	DefaultHeaderHashHistorySize = int64(10000)
 )
 
 // NewParams creates a new Params instance
@@ -71,6 +72,7 @@ func DefaultParams() Params {
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
+		HeaderHashHistorySize:   DefaultHeaderHashHistorySize,
 	}
 }
 
