@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,7 +31,6 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
-
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -62,6 +62,7 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/evidence"
+	"cosmossdk.io/x/evidence/exported"
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
 	evidencetypes "cosmossdk.io/x/evidence/types"
 	"cosmossdk.io/x/feegrant"
@@ -447,6 +448,13 @@ func NewExampleApp(
 		app.AccountKeeper.AddressCodec(),
 		runtime.ProvideCometInfoService(),
 	)
+	// Initialize a router for the evidence keeper.
+	// This prevents nil panic when submitEvidence is called.
+	// See precompiles/evidence/tx.go for more details.
+	router := evidencetypes.NewRouter()
+	router = router.AddRoute(evidencetypes.RouteEquivocation, noOpEquivocationHandler(evidenceKeeper))
+	evidenceKeeper.SetRouter(router)
+
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
@@ -1132,4 +1140,24 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	// TODO: do we need a keytable? copied from Evmos repo
 
 	return paramsKeeper
+}
+
+// testEquivocationHandler is a no-op equivocation handler for testing purposes.
+// You should not use this in production code, as it does not handle equivocation properly.
+func noOpEquivocationHandler(_ interface{}) evidencetypes.Handler {
+	return func(_ context.Context, e exported.Evidence) error {
+		if err := e.ValidateBasic(); err != nil {
+			return err
+		}
+
+		ee, ok := e.(*evidencetypes.Equivocation)
+		if !ok {
+			return fmt.Errorf("unexpected evidence type: %T", e)
+		}
+		if ee.Height%2 == 0 {
+			return fmt.Errorf("unexpected even evidence height: %d", ee.Height)
+		}
+
+		return nil
+	}
 }

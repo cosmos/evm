@@ -33,7 +33,7 @@ interface IEvidence {
     /// @dev Submit evidence of misbehavior (equivocation)
     /// @param evidence The evidence of misbehavior
     /// @return success True if the evidence was submitted successfully
-    function submitEvidence(Equivocation calldata evidence) external returns (bool success);
+    function submitEvidence(address submitter, Equivocation calldata evidence) external returns (bool success);
 
     /// @dev Query evidence by hash
     /// @param evidenceHash The hash of the evidence to query
