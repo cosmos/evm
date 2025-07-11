@@ -73,23 +73,32 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 	}, nil
 }
 
-func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) *SigningInfoOutput {
+func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) (*SigningInfoOutput, error) {
+	consAddr, err := types.ConsAddressFromBech32(res.ValSigningInfo.Address)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing consensus address: %w", err)
+	}
+
 	sio.SigningInfo = SigningInfo{
-		ValidatorAddress:    common.BytesToAddress([]byte(res.ValSigningInfo.Address)),
+		ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
 		StartHeight:         res.ValSigningInfo.StartHeight,
 		IndexOffset:         res.ValSigningInfo.IndexOffset,
 		JailedUntil:         res.ValSigningInfo.JailedUntil.Unix(),
 		Tombstoned:          res.ValSigningInfo.Tombstoned,
 		MissedBlocksCounter: res.ValSigningInfo.MissedBlocksCounter,
 	}
-	return sio
+	return sio, nil
 }
 
-func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) *SigningInfosOutput {
+func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) (*SigningInfosOutput, error) {
 	sio.SigningInfos = make([]SigningInfo, len(res.Info))
 	for i, info := range res.Info {
+		consAddr, err := types.ConsAddressFromBech32(info.Address)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing consensus address: %w", err)
+		}
 		sio.SigningInfos[i] = SigningInfo{
-			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
+			ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
 			StartHeight:         info.StartHeight,
 			IndexOffset:         info.IndexOffset,
 			JailedUntil:         info.JailedUntil.Unix(),
@@ -103,7 +112,7 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 			Total:   res.Pagination.Total,
 		}
 	}
-	return sio
+	return sio, nil
 }
 
 // ValidatorUnjailed defines the data structure for the ValidatorUnjailed event.
