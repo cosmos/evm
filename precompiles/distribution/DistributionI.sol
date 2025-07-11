@@ -234,4 +234,15 @@ interface DistributionI {
     /// @dev Queries the coins in the community pool.
     /// @return coins The coins in the community pool
     function communityPool() external view returns (DecCoin[] calldata coins);
+
+    /// @dev Queries the distribution module parameters.
+    /// @return communityTax The percentage of fees going to the community pool
+    /// @return withdrawAddrEnabled Whether delegators can set custom withdraw addresses
+    function getParams()
+        external
+        view
+        returns (
+            Dec memory communityTax,
+            bool withdrawAddrEnabled
+        );
 }

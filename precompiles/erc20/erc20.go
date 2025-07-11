@@ -20,7 +20,7 @@ import (
 
 const (
 	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
-	abiPath = "abi.json"
+	abiPath = "IERC20Precompile.json"
 
 	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which
 	// is not being merged to the main branch. The reason for this was to not clutter the repository with the
@@ -44,7 +44,7 @@ const (
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
 //
-//go:embed abi.json
+//go:embed IERC20Precompile.json
 var f embed.FS
 
 var _ vm.PrecompiledContract = &Precompile{}

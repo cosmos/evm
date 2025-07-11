@@ -33,6 +33,9 @@ const (
 	// RedelegationsMethod defines the ABI method name for the staking
 	// Redelegations query.
 	RedelegationsMethod = "redelegations"
+	// GetParamsMethod defines the ABI method name for the staking
+	// GetParams query.
+	GetParamsMethod = "getParams"
 )
 
 // Delegation returns the delegation that a delegator has with a specific validator.
@@ -193,6 +196,30 @@ func (p Precompile) Redelegations(
 	}
 
 	out := new(RedelegationsOutput).FromResponse(res)
+
+	return out.Pack(method.Outputs)
+}
+
+// GetParams returns the staking module parameters.
+func (p Precompile) GetParams(
+	ctx sdk.Context,
+	_ *vm.Contract,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	req, err := NewGetParamsRequest(args)
+	if err != nil {
+		return nil, err
+	}
+
+	queryServer := stakingkeeper.Querier{Keeper: &p.stakingKeeper}
+
+	res, err := queryServer.Params(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(GetParamsOutput).FromResponse(res)
 
 	return out.Pack(method.Outputs)
 }

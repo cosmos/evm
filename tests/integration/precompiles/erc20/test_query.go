@@ -555,3 +555,64 @@ func (s *PrecompileTestSuite) TestAllowance() {
 		})
 	}
 }
+
+func (s *PrecompileTestSuite) TestGetParams() {
+	method := s.precompile.Methods[erc20.GetParamsMethod]
+
+	testCases := []struct {
+		name        string
+		malleate    func() []interface{}
+		expPass     bool
+		errContains string
+	}{
+		{
+			"fail - not empty input args",
+			func() []interface{} {
+				return []interface{}{""}
+			},
+			false,
+			"invalid number of arguments",
+		},
+		{
+			"success - get all params",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			true,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			bz, err := s.precompile.GetParams(
+				s.network.GetContext(),
+				nil,
+				nil,
+				&method,
+				tc.malleate(),
+			)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().NotEmpty(bz)
+
+				var out erc20.GetParamsOutput
+				err = s.precompile.UnpackIntoInterface(&out, erc20.GetParamsMethod, bz)
+				s.Require().NoError(err, "failed to unpack output")
+
+				// Verify the parameters have expected structure
+				// EnableErc20 can be true or false
+				// Arrays can be empty or contain addresses
+				s.Require().NotNil(out.NativePrecompiles)
+				s.Require().NotNil(out.DynamicPrecompiles)
+				// PermissionlessRegistration can be true or false
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			}
+		})
+	}
+}

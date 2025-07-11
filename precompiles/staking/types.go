@@ -5,10 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -865,4 +864,49 @@ func FormatConsensusPubkey(consensusPubkey *codectypes.Any) string {
 		return base64.StdEncoding.EncodeToString(ed25519pk.Bytes())
 	}
 	return consensusPubkey.String()
+}
+
+// NewGetParamsRequest creates a new QueryParamsRequest instance and does sanity
+// checks on the provided arguments.
+func NewGetParamsRequest(args []interface{}) (*stakingtypes.QueryParamsRequest, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	return &stakingtypes.QueryParamsRequest{}, nil
+}
+
+// GetParamsOutput contains the output data for the staking parameters query
+type GetParamsOutput struct {
+	UnbondingTime     uint64  `abi:"unbondingTime"`
+	MaxValidators     uint32  `abi:"maxValidators"`
+	MaxEntries        uint32  `abi:"maxEntries"`
+	HistoricalEntries uint32  `abi:"historicalEntries"`
+	BondDenom         string  `abi:"bondDenom"`
+	MinCommissionRate cmn.Dec `abi:"minCommissionRate"`
+}
+
+// FromResponse populates the GetParamsOutput from a QueryParamsResponse
+func (o *GetParamsOutput) FromResponse(res *stakingtypes.QueryParamsResponse) *GetParamsOutput {
+	// Safely convert int64 to uint64, protecting against negative values
+	unbondingTimeNanos := res.Params.UnbondingTime.Nanoseconds()
+	if unbondingTimeNanos < 0 {
+		o.UnbondingTime = 0
+	} else {
+		o.UnbondingTime = uint64(unbondingTimeNanos)
+	}
+	o.MaxValidators = res.Params.MaxValidators
+	o.MaxEntries = res.Params.MaxEntries
+	o.HistoricalEntries = res.Params.HistoricalEntries
+	o.BondDenom = res.Params.BondDenom
+	o.MinCommissionRate = cmn.Dec{
+		Value:     res.Params.MinCommissionRate.BigInt(),
+		Precision: math.LegacyPrecision,
+	}
+	return o
+}
+
+// Pack packs a given slice of abi arguments into a byte array.
+func (o *GetParamsOutput) Pack(args abi.Arguments) ([]byte, error) {
+	return args.Pack(o.UnbondingTime, o.MaxValidators, o.MaxEntries, o.HistoricalEntries, o.BondDenom, o.MinCommissionRate)
 }

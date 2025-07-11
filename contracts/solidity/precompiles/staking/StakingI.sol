@@ -295,6 +295,25 @@ interface StakingI {
             PageResponse calldata pageResponse
         );
 
+    /// @dev Queries the staking module parameters.
+    /// @return unbondingTime The time duration for unbonding
+    /// @return maxValidators The maximum number of validators
+    /// @return maxEntries The maximum number of unbonding/redelegation entries
+    /// @return historicalEntries The number of historical entries to persist
+    /// @return bondDenom The denomination of the staking token
+    /// @return minCommissionRate The minimum commission rate for validators
+    function getParams()
+        external
+        view
+        returns (
+            uint64 unbondingTime,
+            uint32 maxValidators,
+            uint32 maxEntries,
+            uint32 historicalEntries,
+            string memory bondDenom,
+            Dec memory minCommissionRate
+        );
+
     /// @dev CreateValidator defines an Event emitted when a create a new validator.
     /// @param validatorAddress The address of the validator
     /// @param value The amount of coin being self delegated

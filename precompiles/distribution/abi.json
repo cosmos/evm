@@ -422,6 +422,36 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "getParams",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint8",
+              "name": "precision",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct Dec",
+          "name": "communityTax",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bool",
+          "name": "withdrawAddrEnabled",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
