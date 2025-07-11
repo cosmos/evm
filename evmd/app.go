@@ -17,9 +17,9 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
+	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -32,6 +32,7 @@ import (
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -209,7 +210,7 @@ func NewExampleApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	evmChainID uint64,
-	evmAppOptions evmdconfig.EVMOptionsFn,
+	evmAppOptions evmconfig.EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	encodingConfig := evmosencoding.MakeConfig(evmChainID)
