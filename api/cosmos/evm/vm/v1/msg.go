@@ -2,7 +2,6 @@ package vmv1
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -25,7 +24,7 @@ func getSender(txData TxDataV2) (common.Address, error) {
 	chainID := txData.GetChainID()
 	// legacy tx returns `0` as chainID when EIP-155 is not used
 	// see: https://github.com/cosmos/evm/issues/280
-	if chainID == new(big.Int) {
+	if chainID.Sign() == 0 {
 		chainID = nil
 	}
 	signer := ethtypes.LatestSignerForChainID(chainID)
