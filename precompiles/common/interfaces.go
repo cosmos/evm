@@ -13,4 +13,5 @@ type BankKeeper interface {
 	GetSupply(ctx context.Context, denom string) sdk.Coin
 	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
+	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }
