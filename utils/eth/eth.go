@@ -7,7 +7,7 @@ import "math/big"
 // CONTRACT: v value is either:
 //
 //   - {0,1} + CHAIN_ID * 2 + 35, if EIP155 is used
-//   - {0,1} + 27, otherwise
+//   - {0,1} + 27, otherwise, return `nil`
 //
 // Ref: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
 func DeriveChainID(v *big.Int) *big.Int {
@@ -18,7 +18,7 @@ func DeriveChainID(v *big.Int) *big.Int {
 	if v.BitLen() <= 64 {
 		v := v.Uint64()
 		if v == 27 || v == 28 {
-			return new(big.Int)
+			return nil
 		}
 
 		if v < 35 {
