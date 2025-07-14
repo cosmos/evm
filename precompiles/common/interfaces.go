@@ -10,4 +10,5 @@ type BankKeeper interface {
 	IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool)
 	IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool)
 	GetSupply(ctx context.Context, denom string) sdk.Coin
+	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }

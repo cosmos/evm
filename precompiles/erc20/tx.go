@@ -7,10 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/utils"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -104,7 +100,7 @@ func (p *Precompile) transfer(
 
 		newAllowance := new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
-			return nil, ConvertErrToERC20Error(ErrInsufficientAllowance)
+			return nil, ErrInsufficientAllowance
 		}
 
 		if newAllowance.Sign() == 0 {
@@ -123,16 +119,6 @@ func (p *Precompile) transfer(
 	if _, err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
-	}
-
-	evmDenom := evmtypes.GetEVMCoinDenom()
-	if p.tokenPair.Denom == evmDenom {
-		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
-		if err != nil {
-			return nil, err
-		}
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
-			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {

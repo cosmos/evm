@@ -4,13 +4,9 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/utils"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -82,20 +78,6 @@ func (p *Precompile) ClaimRewards(
 		totalCoins = totalCoins.Add(coins...)
 	}
 
-	withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, delegatorAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(totalCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
-	if err != nil {
-		return nil, err
-	}
-	// check if converted amount is greater than zero
-	if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
-	}
-
 	if err := p.EmitClaimRewardsEvent(ctx, stateDB, delegatorAddr, totalCoins); err != nil {
 		return nil, err
 	}
@@ -157,21 +139,6 @@ func (p *Precompile) WithdrawDelegatorReward(
 		return nil, err
 	}
 
-	// rewards go to the withdrawer address
-	withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, delegatorHexAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
-	if err != nil {
-		return nil, err
-	}
-	// check if converted amount is greater than zero
-	if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
-	}
-
 	if err = p.EmitWithdrawDelegatorRewardEvent(ctx, stateDB, delegatorHexAddr, msg.ValidatorAddress, res.Amount); err != nil {
 		return nil, err
 	}
@@ -201,21 +168,6 @@ func (p *Precompile) WithdrawValidatorCommission(
 	res, err := msgSrv.WithdrawValidatorCommission(ctx, msg)
 	if err != nil {
 		return nil, err
-	}
-
-	// commissions go to the withdrawer address
-	withdrawerHexAddr, err := p.getWithdrawerHexAddr(ctx, validatorHexAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(res.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
-	if err != nil {
-		return nil, err
-	}
-	// check if converted amount is greater than zero
-	if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(withdrawerHexAddr, convertedAmount, cmn.Add))
 	}
 
 	if err = p.EmitWithdrawValidatorCommissionEvent(ctx, stateDB, msg.ValidatorAddress, res.Amount); err != nil {
@@ -249,15 +201,6 @@ func (p *Precompile) FundCommunityPool(
 		return nil, err
 	}
 
-	convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()))
-	if err != nil {
-		return nil, err
-	}
-	// check if converted amount is greater than zero
-	if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
-	}
-
 	if err = p.EmitFundCommunityPoolEvent(ctx, stateDB, depositorHexAddr, msg.Amount); err != nil {
 		return nil, err
 	}
@@ -289,31 +232,10 @@ func (p *Precompile) DepositValidatorRewardsPool(
 	if err != nil {
 		return nil, err
 	}
-	if found, evmCoinAmount := msg.Amount.Find(evmtypes.GetEVMCoinDenom()); found {
-		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(evmCoinAmount.Amount.BigInt()))
-		if err != nil {
-			return nil, err
-		}
-		// check if converted amount is greater than zero
-		if convertedAmount.Cmp(uint256.NewInt(0)) == 1 {
-			p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(depositorHexAddr, convertedAmount, cmn.Sub))
-		}
-	}
 
 	if err = p.EmitDepositValidatorRewardsPoolEvent(ctx, stateDB, depositorHexAddr, msg.ValidatorAddress, msg.Amount); err != nil {
 		return nil, err
 	}
 
 	return method.Outputs.Pack(true)
-}
-
-// getWithdrawerHexAddr is a helper function to get the hex address
-// of the withdrawer for the specified account address
-func (p Precompile) getWithdrawerHexAddr(ctx sdk.Context, delegatorAddr common.Address) (common.Address, error) {
-	withdrawerAccAddr, err := p.distributionKeeper.GetDelegatorWithdrawAddr(ctx, delegatorAddr.Bytes())
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	return common.BytesToAddress(withdrawerAccAddr), nil
 }

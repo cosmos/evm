@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	errorsmod "cosmossdk.io/errors"
 )
@@ -30,6 +30,7 @@ const (
 	codeErrInactivePrecompile
 	codeErrABIPack
 	codeErrABIUnpack
+	codeErrInvalidPreinstall
 )
 
 var (
@@ -86,7 +87,29 @@ var (
 
 	// ErrABIUnpack returns an error if the contract ABI unpacking fails
 	ErrABIUnpack = errorsmod.Register(ModuleName, codeErrABIUnpack, "contract ABI unpack failed")
+
+	// ErrInvalidPreinstall returns an error if a preinstall is invalid
+	ErrInvalidPreinstall = errorsmod.Register(ModuleName, codeErrInvalidPreinstall, "invalid preinstall")
+
+	// RevertSelector is selector of ErrExecutionReverted
+	RevertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 )
+
+// RevertReasonBytes converts a message to ABI-encoded revert bytes.
+func RevertReasonBytes(reason string) ([]byte, error) {
+	typ, err := abi.NewType("string", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	packed, err := (abi.Arguments{{Type: typ}}).Pack(reason)
+	if err != nil {
+		return nil, err
+	}
+	bz := make([]byte, 0, len(RevertSelector)+len(packed))
+	bz = append(bz, RevertSelector...)
+	bz = append(bz, packed...)
+	return bz, nil
+}
 
 // NewExecErrorWithReason unpacks the revert return bytes and returns a wrapped error
 // with the return reason.
@@ -99,7 +122,7 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 	}
 	return &RevertError{
 		error:  err,
-		reason: hexutil.Encode(result),
+		reason: reason,
 	}
 }
 
