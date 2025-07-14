@@ -2,6 +2,7 @@ package vmv1
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -21,7 +22,13 @@ var supportedTxs = map[string]func() TxDataV2{
 
 // getSender extracts the sender address from the signature values using the latest signer for the given chainID.
 func getSender(txData TxDataV2) (common.Address, error) {
-	signer := ethtypes.LatestSignerForChainID(txData.GetChainID())
+	chainID := txData.GetChainID()
+	// legacy tx returns `0` as chainID when EIP-155 is not used
+	// see: https://github.com/cosmos/evm/issues/280
+	if chainID == new(big.Int) {
+		chainID = nil
+	}
+	signer := ethtypes.LatestSignerForChainID(chainID)
 	from, err := signer.Sender(ethtypes.NewTx(txData.AsEthereumData()))
 	if err != nil {
 		return common.Address{}, err
