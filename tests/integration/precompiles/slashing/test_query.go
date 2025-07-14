@@ -17,6 +17,10 @@ import (
 func (s *PrecompileTestSuite) TestGetSigningInfo() {
 	method := s.precompile.Methods[slashing.GetSigningInfoMethod]
 
+	valSigners := s.network.GetValidators()
+	val0ConsAddr, _ := valSigners[0].GetConsAddr()
+
+	consAddr := types.ConsAddress(val0ConsAddr)
 	testCases := []struct {
 		name        string
 		malleate    func() []interface{}
@@ -52,8 +56,9 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 			func() []interface{} {
 				err := s.network.App.GetSlashingKeeper().SetValidatorSigningInfo(
 					s.network.GetContext(),
-					types.ConsAddress(s.keyring.GetAddr(0).Bytes()),
+					consAddr,
 					slashingtypes.ValidatorSigningInfo{
+						Address:             consAddr.String(),
 						StartHeight:         1,
 						IndexOffset:         2,
 						MissedBlocksCounter: 1,
@@ -62,10 +67,11 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 				)
 				s.Require().NoError(err)
 				return []interface{}{
-					s.keyring.GetAddr(0),
+					common.BytesToAddress(consAddr.Bytes()),
 				}
 			},
 			func(signingInfo *slashing.SigningInfo) {
+				s.Require().Equal(consAddr.Bytes(), signingInfo.ValidatorAddress.Bytes())
 				s.Require().Equal(int64(1), signingInfo.StartHeight)
 				s.Require().Equal(int64(2), signingInfo.IndexOffset)
 				s.Require().Equal(int64(1), signingInfo.MissedBlocksCounter)
@@ -134,19 +140,26 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().Len(signingInfos, 3)
 				s.Require().Equal(uint64(3), pageResponse.Total)
 
+				valSigners := s.network.GetValidators()
+				val0ConsAddr, _ := valSigners[0].GetConsAddr()
+				val1ConsAddr, _ := valSigners[1].GetConsAddr()
+				val2ConsAddr, _ := valSigners[2].GetConsAddr()
 				// Check first validator's signing info
+				s.Require().Equal(val0ConsAddr, signingInfos[0].ValidatorAddress.Bytes())
 				s.Require().Equal(int64(0), signingInfos[0].StartHeight)
 				s.Require().Equal(int64(1), signingInfos[0].IndexOffset)
 				s.Require().Equal(int64(0), signingInfos[0].JailedUntil)
 				s.Require().False(signingInfos[0].Tombstoned)
 
 				// Check second validator's signing info
+				s.Require().Equal(val1ConsAddr, signingInfos[1].ValidatorAddress.Bytes())
 				s.Require().Equal(int64(0), signingInfos[1].StartHeight)
 				s.Require().Equal(int64(1), signingInfos[1].IndexOffset)
 				s.Require().Equal(int64(0), signingInfos[1].JailedUntil)
 				s.Require().False(signingInfos[1].Tombstoned)
 
 				// Check third validator's signing info
+				s.Require().Equal(val2ConsAddr, signingInfos[2].ValidatorAddress.Bytes())
 				s.Require().Equal(int64(0), signingInfos[2].StartHeight)
 				s.Require().Equal(int64(1), signingInfos[2].IndexOffset)
 				s.Require().Equal(int64(0), signingInfos[2].JailedUntil)
@@ -172,6 +185,9 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().NotNil(pageResponse.NextKey)
 
 				// Check first validator's signing info
+				valSigners := s.network.GetValidators()
+				val0ConsAddr, _ := valSigners[0].GetConsAddr()
+				s.Require().Equal(val0ConsAddr, signingInfos[0].ValidatorAddress.Bytes())
 				s.Require().Equal(int64(0), signingInfos[0].StartHeight)
 				s.Require().Equal(int64(1), signingInfos[0].IndexOffset)
 				s.Require().Equal(int64(0), signingInfos[0].JailedUntil)
