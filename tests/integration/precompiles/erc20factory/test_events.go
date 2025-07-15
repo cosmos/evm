@@ -1,6 +1,8 @@
 package erc20factory
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -11,22 +13,26 @@ import (
 
 func (s *PrecompileTestSuite) TestEmitCreateEvent() {
 	testcases := []struct {
-		testName     string
-		tokenAddress common.Address
-		tokenType    uint8
-		salt         [32]uint8
-		name         string
-		symbol       string
-		decimals     uint8
+		testName        string
+		tokenAddress    common.Address
+		tokenType       uint8
+		salt            [32]uint8
+		name            string
+		symbol          string
+		decimals        uint8
+		minter          common.Address
+		premintedSupply *big.Int
 	}{
 		{
-			testName:     "pass",
-			tokenAddress: utiltx.GenerateAddress(),
-			tokenType:    0,
-			salt:         [32]uint8{0},
-			name:         "Test",
-			symbol:       "TEST",
-			decimals:     18,
+			testName:        "pass",
+			tokenAddress:    utiltx.GenerateAddress(),
+			tokenType:       0,
+			salt:            [32]uint8{0},
+			name:            "Test",
+			symbol:          "TEST",
+			decimals:        18,
+			minter:          utiltx.GenerateAddress(),
+			premintedSupply: big.NewInt(1000000),
 		},
 	}
 
@@ -35,7 +41,7 @@ func (s *PrecompileTestSuite) TestEmitCreateEvent() {
 			s.SetupTest()
 			stateDB := s.network.GetStateDB()
 
-			err := s.precompile.EmitCreateEvent(s.network.GetContext(), stateDB, tc.tokenAddress, tc.tokenType, tc.salt, tc.name, tc.symbol, tc.decimals)
+			err := s.precompile.EmitCreateEvent(s.network.GetContext(), stateDB, tc.tokenAddress, tc.tokenType, tc.salt, tc.name, tc.symbol, tc.decimals, tc.minter, tc.premintedSupply)
 			s.Require().NoError(err, "expected create event to be emitted successfully")
 
 			log := stateDB.Logs()[0]
@@ -55,6 +61,10 @@ func (s *PrecompileTestSuite) TestEmitCreateEvent() {
 			s.Require().Equal(tc.tokenType, createEvent.TokenPairType, "expected different token type")
 			s.Require().Equal(tc.salt, createEvent.Salt, "expected different salt")
 			s.Require().Equal(tc.name, createEvent.Name, "expected different name")
+			s.Require().Equal(tc.symbol, createEvent.Symbol, "expected different symbol")
+			s.Require().Equal(tc.decimals, createEvent.Decimals, "expected different decimals")
+			s.Require().Equal(tc.minter, createEvent.Minter, "expected different minter")
+			s.Require().Equal(tc.premintedSupply, createEvent.PremintedSupply, "expected different preminted supply")
 		})
 	}
 }

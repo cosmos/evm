@@ -1,12 +1,20 @@
 package erc20factory
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/precompiles/erc20factory"
+	utiltx "github.com/cosmos/evm/testutil/tx"
 )
 
 func (s *PrecompileTestSuite) TestCreate() {
+	mintAddr := utiltx.GenerateAddress()
+	minter := sdk.AccAddress(mintAddr.Bytes())
+	amount := big.NewInt(1000000)
+
 	method := s.precompile.Methods[erc20factory.CreateMethod]
 
 	testcases := []struct {
@@ -54,6 +62,60 @@ func (s *PrecompileTestSuite) TestCreate() {
 			errContains: "invalid salt",
 		},
 		{
+			name: "fail - invalid name",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"",
+			},
+			errContains: "invalid name",
+		},
+		{
+			name: "fail - invalid symbol",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"",
+			},
+			errContains: "invalid symbol",
+		},
+		{
+			name: "fail - invalid decimals",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				"invalid decimals",
+			},
+			errContains: "invalid decimals",
+		},
+		{
+			name: "fail - invalid minter",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				uint8(18),
+				"invalid address",
+			},
+			errContains: "invalid minter",
+		},
+		{
+			name: "fail - invalid preminted supply",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				mintAddr,
+				amount,
+			},
+			errContains: "invalid preminted supply",
+		},
+		{
 			name: "fail - invalid number of arguments",
 			args: []interface{}{
 				1, 2, 3,
@@ -77,6 +139,9 @@ func (s *PrecompileTestSuite) TestCreate() {
 				common.HexToAddress("0x0000000000000000000000000000000000000000"),
 				tc.args,
 			)
+
+			balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), minter, s.bondDenom)
+			s.Require().Equal(balance.Amount.BigInt(), amount, "expected balance to be 1000000")
 
 			// NOTE: all output and error checking happens in here
 			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expAddress)

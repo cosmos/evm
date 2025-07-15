@@ -53,6 +53,16 @@
           "internalType": "uint8",
           "name": "decimals",
           "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "minter",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "premintedSupply",
+          "type": "uint256"
         }
       ],
       "name": "create",
@@ -104,6 +114,18 @@
           "internalType": "uint8",
           "name": "decimals",
           "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "minter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "premintedSupply",
+          "type": "uint256"
         }
       ],
       "name": "Create",

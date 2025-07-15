@@ -1,6 +1,11 @@
 package erc20factory
 
-import "github.com/cosmos/evm/precompiles/erc20factory"
+import (
+	"math/big"
+
+	"github.com/cosmos/evm/precompiles/erc20factory"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+)
 
 func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
 	s.SetupTest()
@@ -59,6 +64,7 @@ func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
 }
 
 func (s *PrecompileTestSuite) TestParseCreateArgs() {
+	addr := utiltx.GenerateAddress()
 	s.SetupTest()
 
 	testcases := []struct {
@@ -75,6 +81,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				"Test",
 				"TEST",
 				uint8(18),
+				addr,
+				big.NewInt(1000000),
 			},
 			expPass: true,
 		},
@@ -86,6 +94,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				"Test",
 				"TEST",
 				uint8(18),
+				addr,
+				big.NewInt(1000000),
 			},
 		},
 		{
@@ -96,6 +106,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				"Test",
 				"TEST",
 				uint8(18),
+				addr,
+				big.NewInt(1000000),
 			},
 		},
 		{
@@ -106,6 +118,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				uint8(0),
 				"TEST",
 				uint8(18),
+				addr,
+				big.NewInt(1000000),
 			},
 			errContains: "invalid name",
 		},
@@ -117,6 +131,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				"Test",
 				"is",
 				uint8(18),
+				addr,
+				big.NewInt(1000000),
 			},
 			errContains: "invalid symbol",
 		},
@@ -128,8 +144,35 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				"Test",
 				"TEST",
 				"invalid decimals",
+				addr,
+				big.NewInt(1000000),
 			},
 			errContains: "invalid decimals",
+		},
+		{
+			name: "fail - invalid minter",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				uint8(18),
+				"invalid address",
+				big.NewInt(1000000),
+			},
+			errContains: "invalid minter",
+		},
+		{
+			name: "fail - invalid preminted supply",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				addr,
+				big.NewInt(-1),
+			},
+			errContains: "invalid preminted supply",
 		},
 		{
 			name: "fail - invalid number of arguments",
@@ -141,7 +184,7 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			tokenType, salt, name, symbol, decimals, err := erc20factory.ParseCreateArgs(tc.args)
+			tokenType, salt, name, symbol, decimals, minter, premintedSupply, err := erc20factory.ParseCreateArgs(tc.args)
 			if tc.expPass {
 				s.Require().NoError(err, "unexpected error parsing the create arguments")
 				s.Require().Equal(tokenType, tc.args[0], "expected different token type")
@@ -149,6 +192,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				s.Require().Equal(name, tc.args[2], "expected different name")
 				s.Require().Equal(symbol, tc.args[3], "expected different symbol")
 				s.Require().Equal(decimals, tc.args[4], "expected different decimals")
+				s.Require().Equal(minter, tc.args[5], "expected different minter")
+				s.Require().Equal(premintedSupply, tc.args[6], "expected different preminted supply")
 			} else {
 				s.Require().Error(err, "expected an error parsing the create arguments")
 				s.Require().ErrorContains(err, tc.errContains, "expected different error message")

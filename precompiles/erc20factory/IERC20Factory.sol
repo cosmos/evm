@@ -26,7 +26,9 @@ interface IERC20Factory {
         bytes32 salt,
         string memory name,
         string memory symbol,
-        uint8 decimals
+        uint8 decimals,
+        address minter,
+        uint256 premintedSupply
     ) external returns (address tokenAddress);
 
     /**

@@ -14,6 +14,7 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/errors"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -32,7 +33,7 @@ func (p Precompile) Create(
 	caller common.Address,
 	args []interface{},
 ) ([]byte, error) {
-	tokenType, salt, name, symbol, decimals, err := ParseCreateArgs(args)
+	tokenType, salt, name, symbol, decimals, minter, premintedSupply, err := ParseCreateArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +64,15 @@ func (p Precompile) Create(
 		return nil, err
 	}
 
-	if err = p.EmitCreateEvent(ctx, stateDB, address, tokenType, salt, name, symbol, decimals); err != nil {
+	coins := sdk.NewCoins(sdk.NewCoin(metadata.Base, math.NewIntFromBigInt(premintedSupply)))
+	if err := p.bankKeeper.MintCoins(ctx, erc20types.ModuleName, coins); err != nil {
+		return nil, err
+	}
+	if err := p.bankKeeper.SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, sdk.AccAddress(minter.Bytes()), coins); err != nil {
+		return nil, err
+	}
+
+	if err = p.EmitCreateEvent(ctx, stateDB, address, tokenType, salt, name, symbol, decimals, minter, premintedSupply); err != nil {
 		return nil, err
 	}
 
