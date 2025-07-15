@@ -34,10 +34,13 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
+// Optionals define some optional params that can be applied to _some_ precompiles.
+// Extend this struct, add a sane default to DefaultOptionals, and an Option function to provide users with a non-breaking
+// way to provide custom args to certain precompiles.
 type Optionals struct {
-	AddressCodec       address.Codec
-	ValidatorAddrCodec address.Codec
-	ConsensusAddrCodec address.Codec
+	AddressCodec       address.Codec // used by gov/staking
+	ValidatorAddrCodec address.Codec // used by slashing
+	ConsensusAddrCodec address.Codec // used by slashing
 }
 
 func DefaultOptionals() Optionals {
