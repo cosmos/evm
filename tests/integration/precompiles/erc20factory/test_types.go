@@ -5,6 +5,7 @@ import (
 
 	"github.com/cosmos/evm/precompiles/erc20factory"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
@@ -161,6 +162,19 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				big.NewInt(1000000),
 			},
 			errContains: "invalid minter",
+		},
+		{
+			name: "fail - zero address minter",
+			args: []interface{}{
+				uint8(0),
+				[32]uint8{},
+				"Test",
+				"TEST",
+				uint8(18),
+				common.Address{}, // Zero address
+				big.NewInt(1000000),
+			},
+			errContains: "invalid minter: cannot be zero address",
 		},
 		{
 			name: "fail - invalid preminted supply",

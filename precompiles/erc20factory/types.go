@@ -58,6 +58,11 @@ func ParseCreateArgs(args []interface{}) (tokenType uint8, salt [32]uint8, name 
 		return uint8(0), [32]uint8{}, "", "", uint8(0), common.Address{}, nil, fmt.Errorf("invalid minter")
 	}
 
+	// Validate that minter is not the zero address
+	if minter == (common.Address{}) {
+		return uint8(0), [32]uint8{}, "", "", uint8(0), common.Address{}, nil, fmt.Errorf("invalid minter: cannot be zero address")
+	}
+
 	premintedSupply, ok = args[6].(*big.Int)
 	if !ok {
 		return uint8(0), [32]uint8{}, "", "", uint8(0), common.Address{}, nil, fmt.Errorf("invalid premintedSupply: expected *big.Int")

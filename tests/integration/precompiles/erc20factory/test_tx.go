@@ -11,6 +11,7 @@ import (
 )
 
 func (s *PrecompileTestSuite) TestCreate() {
+	caller := utiltx.GenerateAddress()
 	mintAddr := utiltx.GenerateAddress()
 	minter := sdk.AccAddress(mintAddr.Bytes())
 	amount := big.NewInt(1000000)
@@ -136,12 +137,14 @@ func (s *PrecompileTestSuite) TestCreate() {
 				s.network.GetContext(),
 				s.network.GetStateDB(),
 				&method,
-				common.HexToAddress("0x0000000000000000000000000000000000000000"),
+				caller,
 				tc.args,
 			)
 
-			balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), minter, s.bondDenom)
-			s.Require().Equal(balance.Amount.BigInt(), amount, "expected balance to be 1000000")
+			if tc.expPass {
+				balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), minter, s.bondDenom)
+				s.Require().Equal(balance.Amount.BigInt(), amount, "expected balance to be %d", amount)
+			}
 
 			// NOTE: all output and error checking happens in here
 			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expAddress)
