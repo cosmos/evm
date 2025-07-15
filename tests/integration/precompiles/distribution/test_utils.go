@@ -1,12 +1,12 @@
 package distribution
 
 import (
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/testutil/keyring"
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
