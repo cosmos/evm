@@ -12,12 +12,12 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
 
@@ -46,6 +46,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	slashingKeeper slashingkeeper.Keeper,
+	valCdc, consCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -59,8 +60,8 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		slashingKeeper: slashingKeeper,
-		valCodec:       authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		consCodec:      authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		valCodec:       valCdc,
+		consCodec:      consCdc,
 	}
 
 	// SetAddress defines the address of the slashing precompiled contract.

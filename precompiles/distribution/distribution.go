@@ -16,8 +16,6 @@ import (
 	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
@@ -44,6 +42,7 @@ func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
 	stakingKeeper stakingkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
+	addrCdc address.Codec,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
@@ -59,7 +58,7 @@ func NewPrecompile(
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
 		evmKeeper:          evmKeeper,
-		addrCdc:            addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		addrCdc:            addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.

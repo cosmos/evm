@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/staking"
@@ -79,6 +80,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	); err != nil {
 		panic(err)
 	}

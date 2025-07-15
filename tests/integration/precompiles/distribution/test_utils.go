@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/testutil/keyring"
 
@@ -83,6 +84,7 @@ func (s *PrecompileTestSuite) fundAccountWithBaseDenom(ctx sdk.Context, addr sdk
 func (s *PrecompileTestSuite) getStakingPrecompile() (*staking.Precompile, error) {
 	return staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }
 

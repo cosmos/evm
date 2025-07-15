@@ -17,7 +17,6 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
@@ -48,6 +47,7 @@ func LoadABI() (abi.ABI, error) {
 func NewPrecompile(
 	govKeeper govkeeper.Keeper,
 	codec codec.Codec,
+	addrCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -62,7 +62,7 @@ func NewPrecompile(
 		},
 		govKeeper: govKeeper,
 		codec:     codec,
-		addrCdc:   addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		addrCdc:   addrCdc,
 	}
 
 	// SetAddress defines the address of the gov precompiled contract.

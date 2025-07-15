@@ -1,6 +1,7 @@
 package slashing
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/slashing"
@@ -55,6 +56,8 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = slashing.NewPrecompile(
 		s.network.App.GetSlashingKeeper(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	); err != nil {
 		panic(err)
 	}

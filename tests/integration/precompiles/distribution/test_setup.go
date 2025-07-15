@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/distribution"
@@ -117,6 +118,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		s.network.App.GetDistrKeeper(),
 		*s.network.App.GetStakingKeeper(),
 		s.network.App.GetEVMKeeper(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 	if err != nil {
 		panic(err)

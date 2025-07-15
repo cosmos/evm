@@ -3,6 +3,7 @@ package gov
 import (
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/gov"
@@ -137,6 +138,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	if s.precompile, err = gov.NewPrecompile(
 		s.network.App.GetGovKeeper(),
 		s.network.App.AppCodec(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	); err != nil {
 		panic(err)
 	}
