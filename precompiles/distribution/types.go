@@ -101,7 +101,7 @@ func NewMsgSetWithdrawAddress(args []interface{}, addrCdc address.Codec) (*distr
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, [20]byte{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
 	}
 	msg := &distributiontypes.MsgSetWithdrawAddress{
 		DelegatorAddress: delAddr,
@@ -126,7 +126,7 @@ func NewMsgWithdrawDelegatorReward(args []interface{}, addrCdc address.Codec) (*
 
 	delAddr, err := addrCdc.BytesToString(delegatorAddress.Bytes())
 	if err != nil {
-		return nil, [20]byte{}, fmt.Errorf("failed to decode delegator address: %w", err)
+		return nil, common.Address{}, fmt.Errorf("failed to decode delegator address: %w", err)
 	}
 	msg := &distributiontypes.MsgWithdrawDelegatorReward{
 		DelegatorAddress: delAddr,
@@ -180,7 +180,7 @@ func NewMsgFundCommunityPool(args []interface{}, addrCdc address.Codec) (*distri
 
 	depAddr, err := addrCdc.BytesToString(depositorAddress.Bytes())
 	if err != nil {
-		return nil, [20]byte{}, fmt.Errorf("failed to decode depositor address: %w", err)
+		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
 	}
 	msg := &distributiontypes.MsgFundCommunityPool{
 		Depositor: depAddr,
