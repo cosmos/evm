@@ -104,13 +104,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						rInt, sInt, err := ecdsa.Sign(rand.Reader, s.p256Priv, hash)
 						Expect(err).To(BeNil())
+						pub := privB.PublicKey
 
 						input = make([]byte, p256.VerifyInputLength)
 						copy(input[0:32], hash)
-						copy(input[32:64], rInt.Bytes())
-						copy(input[64:96], sInt.Bytes())
-						copy(input[96:128], privB.PublicKey.X.Bytes())
-						copy(input[128:160], privB.PublicKey.Y.Bytes())
+
+						// ALWAYS left-pad to 32 bytes:
+						copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
+						copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
+						copy(input[96:128], common.LeftPadBytes(pub.X.Bytes(), 32))
+						copy(input[128:160], common.LeftPadBytes(pub.Y.Bytes(), 32))
 						return input, nil, ""
 					},
 				),
