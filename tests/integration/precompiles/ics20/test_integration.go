@@ -73,7 +73,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(err).To(BeNil())
 			Expect(res.Code).To(BeZero(), "Failed to deploy ICS20 caller contract: %s", res.Log)
 
-			ics20CallerAddr = crypto.CreateAddress(common.Address(sender.Bytes()), sentEthTx.AsTransaction().Nonce())
+			ics20CallerAddr = crypto.CreateAddress(common.BytesToAddress(sender), sentEthTx.AsTransaction().Nonce())
 			evmAppA := s.chainA.App.(evm.EvmApp)
 			Expect(isContractDeployed(s.chainA.GetContext(), evmAppA, ics20CallerAddr)).To(BeTrue(), "Contract was not deployed successfully")
 
@@ -124,7 +124,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			sourcePortID := path.EndpointA.ChannelConfig.PortID
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
-			sender := common.Address(s.chainA.SenderAccount.GetAddress().Bytes())
+			sender := common.BytesToAddress(s.chainA.SenderAccount.GetAddress())
 
 			callArgs := testutiltypes.CallArgs{
 				ContractABI: ics20CallerContract.ABI,
