@@ -3,18 +3,21 @@ package erc20factory
 import (
 	"math/big"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/precompiles/erc20factory"
-	utiltx "github.com/cosmos/evm/testutil/tx"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 )
 
 func (s *PrecompileTestSuite) TestCreate() {
-	caller := utiltx.GenerateAddress()
-	mintAddr := utiltx.GenerateAddress()
-	minter := sdk.AccAddress(mintAddr.Bytes())
+	caller := common.HexToAddress("0x2c7882f69Cd115F470aAEde121f57F932936a56f")
+	mintAddr := common.HexToAddress("0x73657398D483143AF7db7899757e5E7037fB713d")
+	expectedAddress := common.HexToAddress("0x30E56567F73403eD713dA0b0419e4A5330A16896")
 	amount := big.NewInt(1000000)
+	decimals := uint8(18)
+	name := "Test"
+	symbol := "TEST"
 
 	method := s.precompile.Methods[erc20factory.CreateMethod]
 
@@ -28,7 +31,7 @@ func (s *PrecompileTestSuite) TestCreate() {
 	}{
 		{
 			name:    "pass - correct arguments",
-			args:    []interface{}{uint8(0), [32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()), "AAA", "aaa", uint8(3)},
+			args:    []interface{}{uint8(0), [32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()), name, symbol, decimals, mintAddr, amount},
 			expPass: true,
 			postExpPass: func(output []byte) {
 				res, err := method.Outputs.Unpack(output)
@@ -36,18 +39,26 @@ func (s *PrecompileTestSuite) TestCreate() {
 				s.Require().Len(res, 1, "expected one output")
 				address, ok := res[0].(common.Address)
 				s.Require().True(ok, "expected address type")
-				s.Require().Equal(address.String(), "0x737F1dD6B32Bd863251F88a25489D8e18999F74a", "expected address to match")
+
+				// Check the balance of the token for the mintAddr
+				balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), sdk.AccAddress(mintAddr.Bytes()), erc20types.CreateDenom(address.String()))
+				s.Require().Equal(amount, balance.Amount.BigInt(), "expected balance to match preminted amount")
+
+				s.Require().Equal(address.String(), expectedAddress, "expected address to match")
+
 			},
-			expAddress: common.HexToAddress("0x737F1dD6B32Bd863251F88a25489D8e18999F74a"),
+			expAddress: expectedAddress,
 		},
 		{
 			name: "fail - invalid tokenType",
 			args: []interface{}{
 				"invalid tokenType",
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
+				mintAddr,
+				amount,
 			},
 			errContains: "invalid tokenType",
 		},
@@ -56,9 +67,11 @@ func (s *PrecompileTestSuite) TestCreate() {
 			args: []interface{}{
 				uint8(0),
 				"invalid salt",
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
+				mintAddr,
+				amount,
 			},
 			errContains: "invalid salt",
 		},
@@ -68,6 +81,10 @@ func (s *PrecompileTestSuite) TestCreate() {
 				uint8(0),
 				[32]uint8{},
 				"",
+				symbol,
+				decimals,
+				mintAddr,
+				amount,
 			},
 			errContains: "invalid name",
 		},
@@ -76,8 +93,11 @@ func (s *PrecompileTestSuite) TestCreate() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"",
+				name,
+				"is",
+				decimals,
+				mintAddr,
+				amount,
 			},
 			errContains: "invalid symbol",
 		},
@@ -86,9 +106,11 @@ func (s *PrecompileTestSuite) TestCreate() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
+				name,
+				symbol,
 				"invalid decimals",
+				mintAddr,
+				amount,
 			},
 			errContains: "invalid decimals",
 		},
@@ -97,10 +119,11 @@ func (s *PrecompileTestSuite) TestCreate() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				"invalid address",
+				amount,
 			},
 			errContains: "invalid minter",
 		},
@@ -109,12 +132,13 @@ func (s *PrecompileTestSuite) TestCreate() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
+				name,
+				symbol,
+				decimals,
 				mintAddr,
-				amount,
+				"invalid amount",
 			},
-			errContains: "invalid preminted supply",
+			errContains: "invalid premintedSupply",
 		},
 		{
 			name: "fail - invalid number of arguments",
@@ -140,11 +164,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 				caller,
 				tc.args,
 			)
-
-			if tc.expPass {
-				balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), minter, s.bondDenom)
-				s.Require().Equal(balance.Amount.BigInt(), amount, "expected balance to be %d", amount)
-			}
 
 			// NOTE: all output and error checking happens in here
 			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expAddress)

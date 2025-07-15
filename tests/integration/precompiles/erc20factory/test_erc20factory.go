@@ -1,6 +1,11 @@
 package erc20factory
 
-import "github.com/cosmos/evm/precompiles/erc20factory"
+import (
+	"math/big"
+
+	"github.com/cosmos/evm/precompiles/erc20factory"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+)
 
 func (s *PrecompileTestSuite) TestIsTransaction() {
 	s.SetupTest()
@@ -16,6 +21,12 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 
 func (s *PrecompileTestSuite) TestRequiredGas() {
 	s.SetupTest()
+
+	mintAddr := utiltx.GenerateAddress()
+	decimals := uint8(18)
+	amount := big.NewInt(1000000)
+	name := "Test"
+	symbol := "TEST"
 
 	testcases := []struct {
 		name     string
@@ -34,7 +45,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20factory.CreateMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20factory.CreateMethod, uint8(0), [32]uint8{}, "Test", "TEST", uint8(18))
+				bz, err := s.precompile.Pack(erc20factory.CreateMethod, uint8(0), [32]uint8{}, name, symbol, decimals, mintAddr, amount)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},

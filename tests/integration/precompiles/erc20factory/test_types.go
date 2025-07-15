@@ -66,6 +66,11 @@ func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
 
 func (s *PrecompileTestSuite) TestParseCreateArgs() {
 	addr := utiltx.GenerateAddress()
+	decimals := uint8(18)
+	amount := big.NewInt(1000000)
+	name := "Test"
+	symbol := "TEST"
+
 	s.SetupTest()
 
 	testcases := []struct {
@@ -79,11 +84,11 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				addr,
-				big.NewInt(1000000),
+				amount,
 			},
 			expPass: true,
 		},
@@ -92,9 +97,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				"invalid tokenType",
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				addr,
 				big.NewInt(1000000),
 			},
@@ -104,9 +109,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				"invalid salt",
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				addr,
 				big.NewInt(1000000),
 			},
@@ -117,8 +122,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 				uint8(0),
 				[32]uint8{},
 				uint8(0),
-				"TEST",
-				uint8(18),
+				symbol,
+				decimals,
 				addr,
 				big.NewInt(1000000),
 			},
@@ -129,9 +134,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
+				name,
 				"is",
-				uint8(18),
+				decimals,
 				addr,
 				big.NewInt(1000000),
 			},
@@ -142,8 +147,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
+				name,
+				symbol,
 				"invalid decimals",
 				addr,
 				big.NewInt(1000000),
@@ -155,9 +160,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				"invalid address",
 				big.NewInt(1000000),
 			},
@@ -168,9 +173,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
-				uint8(18),
+				name,
+				symbol,
+				decimals,
 				common.Address{}, // Zero address
 				big.NewInt(1000000),
 			},
@@ -181,12 +186,13 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			args: []interface{}{
 				uint8(0),
 				[32]uint8{},
-				"Test",
-				"TEST",
+				name,
+				symbol,
+				decimals,
 				addr,
 				big.NewInt(-1),
 			},
-			errContains: "invalid preminted supply",
+			errContains: "invalid premintedSupply: cannot be negative",
 		},
 		{
 			name: "fail - invalid number of arguments",
