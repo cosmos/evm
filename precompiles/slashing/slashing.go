@@ -4,6 +4,8 @@ import (
 	"embed"
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/runtime"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -30,6 +32,8 @@ var f embed.FS
 type Precompile struct {
 	cmn.Precompile
 	slashingKeeper slashingkeeper.Keeper
+	consCodec      runtime.ConsensusAddressCodec
+	valCodec       runtime.ValidatorAddressCodec
 }
 
 // LoadABI loads the slashing ABI from the embedded abi.json file
@@ -55,6 +59,8 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		slashingKeeper: slashingKeeper,
+		valCodec:       authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		consCodec:      authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 
 	// SetAddress defines the address of the slashing precompiled contract.
