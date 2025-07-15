@@ -4,6 +4,8 @@ import (
 	"embed"
 	"fmt"
 
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -13,6 +15,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -32,6 +35,7 @@ type Precompile struct {
 	distributionKeeper distributionkeeper.Keeper
 	stakingKeeper      stakingkeeper.Keeper
 	evmKeeper          *evmkeeper.Keeper
+	addrCdc            address.Codec
 }
 
 // NewPrecompile creates a new distribution Precompile instance as a
@@ -55,6 +59,7 @@ func NewPrecompile(
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
 		evmKeeper:          evmKeeper,
+		addrCdc:            addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
