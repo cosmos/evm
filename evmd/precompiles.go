@@ -35,7 +35,7 @@ import (
 )
 
 // Optionals define some optional params that can be applied to _some_ precompiles.
-// Extend this struct, add a sane default to DefaultOptionals, and an Option function to provide users with a non-breaking
+// Extend this struct, add a sane default to defaultOptionals, and an Option function to provide users with a non-breaking
 // way to provide custom args to certain precompiles.
 type Optionals struct {
 	AddressCodec       address.Codec // used by gov/staking
@@ -43,7 +43,7 @@ type Optionals struct {
 	ConsensusAddrCodec address.Codec // used by slashing
 }
 
-func DefaultOptionals() Optionals {
+func defaultOptionals() Optionals {
 	return Optionals{
 		AddressCodec:       addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		ValidatorAddrCodec: addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
@@ -90,7 +90,7 @@ func NewAvailableStaticPrecompiles(
 	codec codec.Codec,
 	opts ...Option,
 ) map[common.Address]vm.PrecompiledContract {
-	options := DefaultOptionals()
+	options := defaultOptionals()
 	for _, opt := range opts {
 		opt(&options)
 	}
