@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // AccountKeeper defines the expected account keeper interface
@@ -34,4 +35,7 @@ type BankKeeper interface {
 	IterateAllBalances(ctx context.Context, cb func(address sdk.AccAddress, coin sdk.Coin) (stop bool))
 	IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool)
 	IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool)
+
+	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
+	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
 }
