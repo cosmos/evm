@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -18,6 +17,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
 
 func TestParseSigningInfoArgs(t *testing.T) {

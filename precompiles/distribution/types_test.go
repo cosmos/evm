@@ -5,12 +5,16 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
+
+const validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 func TestNewMsgSetWithdrawAddress(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
@@ -99,7 +103,6 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -229,7 +232,6 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	depositorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 	validCoins := []cmn.Coin{{Denom: "stake", Amount: big.NewInt(1000)}}
 
 	expectedDepositorAddr, err := addrCodec.BytesToString(depositorAddr.Bytes())
@@ -300,7 +302,6 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)

@@ -5,11 +5,13 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
 
 func TestNewMsgDeposit(t *testing.T) {
@@ -23,18 +25,18 @@ func TestNewMsgDeposit(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name          string
-		args          []interface{}
-		wantErr       bool
-		errMsg        string
-		wantDepositor string
+		name           string
+		args           []interface{}
+		wantErr        bool
+		errMsg         string
+		wantDepositor  string
 		wantProposalID uint64
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{depositorAddr, proposalID, validCoins},
-			wantErr:       false,
-			wantDepositor: expectedDepositorAddr,
+			name:           "valid",
+			args:           []interface{}{depositorAddr, proposalID, validCoins},
+			wantErr:        false,
+			wantDepositor:  expectedDepositorAddr,
 			wantProposalID: proposalID,
 		},
 		{
@@ -258,7 +260,7 @@ func TestNewMsgVote(t *testing.T) {
 				require.Equal(t, voterAddr, returnAddr)
 				require.Equal(t, tt.wantVoter, msg.Voter)
 				require.Equal(t, tt.wantProposalID, msg.ProposalId)
-				require.Equal(t, tt.wantOption, uint8(msg.Option))
+				require.Equal(t, tt.wantOption, uint8(msg.Option)) //nolint:gosec // doesn't matter here
 				require.Equal(t, tt.wantMetadata, msg.Metadata)
 			}
 		})

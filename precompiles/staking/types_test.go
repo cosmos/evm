@@ -5,17 +5,24 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
+)
+
+const (
+	denom         = "stake"
+	validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 )
 
 func TestNewMsgCreateValidator(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
-	validatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	validatorHexAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	description := Description{
 		Moniker:         "test-validator",
 		Identity:        "test-identity",
@@ -31,29 +38,28 @@ func TestNewMsgCreateValidator(t *testing.T) {
 	minSelfDelegation := big.NewInt(1000000)
 	pubkey := "rOQZYCGGhzjKUOUlM3MfOWFxGKX8L5z5B+/J9NqfLmw="
 	value := big.NewInt(1000000000)
-	denom := "stake"
 
-	expectedValidatorAddr, err := addrCodec.BytesToString(validatorAddr.Bytes())
+	expectedValidatorAddr, err := addrCodec.BytesToString(validatorHexAddr.Bytes())
 	require.NoError(t, err)
 
 	tests := []struct {
-		name               string
-		args               []interface{}
-		wantErr            bool
-		errMsg             string
-		wantDelegatorAddr  string
-		wantValidatorAddr  string
-		wantMinSelfDel     *big.Int
-		wantValue          *big.Int
+		name              string
+		args              []interface{}
+		wantErr           bool
+		errMsg            string
+		wantDelegatorAddr string
+		wantValidatorAddr string
+		wantMinSelfDel    *big.Int
+		wantValue         *big.Int
 	}{
 		{
-			name: "valid",
-			args: []interface{}{description, commission, minSelfDelegation, validatorAddr, pubkey, value},
-			wantErr:            false,
-			wantDelegatorAddr:  expectedValidatorAddr,
-			wantValidatorAddr:  sdk.ValAddress(validatorAddr.Bytes()).String(),
-			wantMinSelfDel:     minSelfDelegation,
-			wantValue:          value,
+			name:              "valid",
+			args:              []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value},
+			wantErr:           false,
+			wantDelegatorAddr: expectedValidatorAddr,
+			wantValidatorAddr: sdk.ValAddress(validatorHexAddr.Bytes()).String(),
+			wantMinSelfDel:    minSelfDelegation,
+			wantValue:         value,
 		},
 		{
 			name:    "no arguments",
@@ -63,25 +69,25 @@ func TestNewMsgCreateValidator(t *testing.T) {
 		},
 		{
 			name:    "too many arguments",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorAddr, pubkey, value, "extra"},
+			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value, "extra"},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 7),
 		},
 		{
 			name:    "invalid description type",
-			args:    []interface{}{"not-a-description", commission, minSelfDelegation, validatorAddr, pubkey, value},
+			args:    []interface{}{"not-a-description", commission, minSelfDelegation, validatorHexAddr, pubkey, value},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidDescription, "not-a-description"),
 		},
 		{
 			name:    "invalid commission type",
-			args:    []interface{}{description, "not-a-commission", minSelfDelegation, validatorAddr, pubkey, value},
+			args:    []interface{}{description, "not-a-commission", minSelfDelegation, validatorHexAddr, pubkey, value},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidCommission, "not-a-commission"),
 		},
 		{
 			name:    "invalid min self delegation type",
-			args:    []interface{}{description, commission, "not-a-big-int", validatorAddr, pubkey, value},
+			args:    []interface{}{description, commission, "not-a-big-int", validatorHexAddr, pubkey, value},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
@@ -99,13 +105,13 @@ func TestNewMsgCreateValidator(t *testing.T) {
 		},
 		{
 			name:    "invalid pubkey type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorAddr, 123, value},
+			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, 123, value},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "pubkey", "string", 123),
 		},
 		{
 			name:    "invalid value type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorAddr, pubkey, "not-a-big-int"},
+			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, "not-a-big-int"},
 			wantErr: true,
 			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
@@ -122,7 +128,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, msg)
-				require.Equal(t, validatorAddr, returnAddr)
+				require.Equal(t, validatorHexAddr, returnAddr)
 				require.Equal(t, tt.wantDelegatorAddr, msg.DelegatorAddress)
 				require.Equal(t, tt.wantValidatorAddr, msg.ValidatorAddress)
 				require.Equal(t, tt.wantMinSelfDel, msg.MinSelfDelegation.BigInt())
@@ -137,9 +143,7 @@ func TestNewMsgDelegate(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 	amount := big.NewInt(1000000000)
-	denom := "stake"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -224,9 +228,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 	amount := big.NewInt(1000000000)
-	denom := "stake"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -314,7 +316,6 @@ func TestNewMsgRedelegate(t *testing.T) {
 	validatorSrcAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 	validatorDstAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaay"
 	amount := big.NewInt(1000000000)
-	denom := "stake"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -408,10 +409,8 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 	amount := big.NewInt(1000000000)
 	creationHeight := big.NewInt(100)
-	denom := "stake"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -505,7 +504,6 @@ func TestNewDelegationRequest(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
@@ -579,7 +577,6 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorAddr := "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)

@@ -4,8 +4,6 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/runtime"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -17,7 +15,9 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
 
