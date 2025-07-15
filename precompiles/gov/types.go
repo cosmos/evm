@@ -205,8 +205,8 @@ func NewMsgDeposit(args []interface{}, addrCdc address.Codec) (*govv1.MsgDeposit
 		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
 	}
 
-	depositor := args[0].(common.Address)
-	if depositor == emptyAddr {
+	depositor, ok := args[0].(common.Address)
+	if !ok || depositor == emptyAddr {
 		return nil, emptyAddr, fmt.Errorf(ErrInvalidDepositor, args[0])
 	}
 
