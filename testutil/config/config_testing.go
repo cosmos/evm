@@ -48,6 +48,12 @@ var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		DisplayDenom:  ExampleChainDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
+	EVMChainID: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
 }
 
 // EvmAppOptions allows to setup the global configuration

@@ -14,7 +14,7 @@ import (
 // buildMsgEthereumTx builds an Ethereum transaction from the given arguments and populates the From field.
 func buildMsgEthereumTx(txArgs evmtypes.EvmTxArgs, fromAddr common.Address) evmtypes.MsgEthereumTx {
 	msgEthereumTx := evmtypes.NewTx(&txArgs)
-	msgEthereumTx.From = fromAddr.String()
+	msgEthereumTx.From = fromAddr.Bytes()
 	return *msgEthereumTx
 }
 

@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
@@ -136,6 +137,14 @@ func EffectiveGasPrice(baseFee, feeCap, tipCap *big.Int) *big.Int {
 		return calcVal
 	}
 	return feeCap
+}
+
+// HexAddress encode ethereum address without checksum, faster to run for state machine
+func HexAddress(a []byte) string {
+	var buf [common.AddressLength*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a)
+	return string(buf[:])
 }
 
 // SortedKVStoreKeys returns a slice of *KVStoreKey sorted by their map key.

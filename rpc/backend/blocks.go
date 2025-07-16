@@ -383,11 +383,10 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			continue
 		}
 
-		tx := ethMsg.AsTransaction()
 		height := uint64(block.Height) //#nosec G115 -- checked for int overflow already
 		index := uint64(txIndex)       //#nosec G115 -- checked for int overflow already
 		rpcTx, err := rpctypes.NewRPCTransaction(
-			tx,
+			ethMsg,
 			common.BytesToHash(block.Hash()),
 			height,
 			index,
@@ -395,7 +394,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			b.EvmChainID,
 		)
 		if err != nil {
-			b.Logger.Debug("NewTransactionFromData for receipt failed", "hash", tx.Hash().Hex(), "error", err.Error())
+			b.Logger.Debug("NewTransactionFromData for receipt failed", "hash", ethMsg.Hash, "error", err.Error())
 			continue
 		}
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
@@ -583,7 +582,7 @@ func (b *Backend) formatTxReceipt(ethMsg *evmtypes.MsgEthereumTx, blockMsgs []*e
 		return nil, err
 	}
 
-	from, err := ethMsg.GetSender(chainID.ToInt())
+	from, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(chainID.ToInt()))
 	if err != nil {
 		return nil, err
 	}

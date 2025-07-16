@@ -1099,7 +1099,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 			if tc.expTxs {
 				if tc.fullTx {
 					rpcTx, err := ethrpc.NewRPCTransaction(
-						msgEthereumTx.AsTransaction(),
+						msgEthereumTx,
 						common.BytesToHash(header.Hash()),
 						uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
 						uint64(0),

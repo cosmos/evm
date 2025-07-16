@@ -274,9 +274,7 @@ func (s *KeeperTestSuite) TestGetEthIntrinsicGas() {
 			nonce := s.Network.App.GetEVMKeeper().GetNonce(ctx, addr)
 			m, err := newNativeMessage(
 				nonce,
-				ctx.BlockHeight(),
 				addr,
-				ethCfg,
 				krSigner,
 				signer,
 				gethtypes.AccessListTxType,
@@ -595,8 +593,8 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 			s.Require().NoError(err)
 			initialBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
 
-			ethTx := tx.GetMsgs()[0].(*types.MsgEthereumTx).AsTransaction()
-			res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(ctx, ethTx)
+			ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+			res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(ctx, ethMsg)
 			s.Require().NoError(err)
 			s.Require().Equal(res.GasUsed, uint64(3e6))
 			// Half of the gas should be refunded based on the protocol refund cap.
