@@ -81,8 +81,9 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	if len(msgs) != 1 {
 		return ctx, errorsmod.Wrapf(errortypes.ErrInvalidRequest, "expected 1 message, got %d", len(msgs))
 	}
+	msgIndex := 0
 
-	ethMsg, txData, err := evmtypes.UnpackEthMsg(msgs[0])
+	ethMsg, txData, err := evmtypes.UnpackEthMsg(msgs[msgIndex])
 	if err != nil {
 		return ctx, err
 	}
@@ -242,7 +243,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 11. emit events
-	txIdx := uint64(i) //nolint:gosec // G115
+	txIdx := uint64(msgIndex) //nolint:gosec // G115
 	EmitTxHashEvent(ctx, ethMsg, decUtils.BlockTxIndex, txIdx)
 
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
