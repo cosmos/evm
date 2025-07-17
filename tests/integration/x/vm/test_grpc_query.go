@@ -962,10 +962,10 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 	}
 }
 
-func getDefaultTraceTxRequest(unitNetwork network.Network) types.QueryTraceTxRequest {
+func getDefaultTraceTxRequest(unitNetwork network.Network) *types.QueryTraceTxRequest {
 	ctx := unitNetwork.GetContext()
 	chainID := unitNetwork.GetEIP155ChainID().Int64()
-	return types.QueryTraceTxRequest{
+	return &types.QueryTraceTxRequest{
 		BlockMaxGas: ctx.ConsensusParams().Block.MaxGas,
 		ChainId:     chainID,
 		BlockTime:   ctx.BlockTime(),
@@ -987,14 +987,14 @@ func (s *KeeperTestSuite) TestTraceTx() {
 	testCases := []struct {
 		msg             string
 		malleate        func()
-		getRequest      func() types.QueryTraceTxRequest
+		getRequest      func() *types.QueryTraceTxRequest
 		getPredecessors func() []*types.MsgEthereumTx
 		expPass         bool
 		expectedTrace   string
 	}{
 		{
 			msg: "default trace",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				return getDefaultTraceTxRequest(s.Network)
 			},
 			getPredecessors: func() []*types.MsgEthereumTx {
@@ -1007,7 +1007,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "default trace with filtered response",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				defaultRequest := getDefaultTraceTxRequest(s.Network)
 				defaultRequest.TraceConfig = &types.TraceConfig{
 					DisableStack:   true,
@@ -1026,7 +1026,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "javascript tracer",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				traceConfig := &types.TraceConfig{
 					Tracer: "{data: [], fault: function(log) {}, step: function(log) { if(log.op.toString() == \"CALL\") this.data.push(log.stack.peek(0)); }, result: function() { return this.data; }}",
 				}
@@ -1042,7 +1042,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "default tracer with predecessors",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				return getDefaultTraceTxRequest(s.Network)
 			},
 			getPredecessors: func() []*types.MsgEthereumTx {
@@ -1074,7 +1074,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "invalid trace config - Negative Limit",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				defaultRequest := getDefaultTraceTxRequest(s.Network)
 				defaultRequest.TraceConfig = &types.TraceConfig{
 					DisableStack:   true,
@@ -1091,7 +1091,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "invalid trace config - Invalid Tracer",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				defaultRequest := getDefaultTraceTxRequest(s.Network)
 				defaultRequest.TraceConfig = &types.TraceConfig{
 					Tracer: "invalid_tracer",
@@ -1105,7 +1105,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "invalid trace config - Invalid Timeout",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				defaultRequest := getDefaultTraceTxRequest(s.Network)
 				defaultRequest.TraceConfig = &types.TraceConfig{
 					DisableStack:   true,
@@ -1122,7 +1122,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		},
 		{
 			msg: "default tracer with contract creation tx as predecessor but 'create' param disabled",
-			getRequest: func() types.QueryTraceTxRequest {
+			getRequest: func() *types.QueryTraceTxRequest {
 				return getDefaultTraceTxRequest(s.Network)
 			},
 			getPredecessors: func() []*types.MsgEthereumTx {
@@ -1166,6 +1166,16 @@ func (s *KeeperTestSuite) TestTraceTx() {
 				"" + "\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
 				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 			// expFinalGas:   26744, // gas consumed in traceTx setup (GetProposerAddr + CalculateBaseFee) + gas consumed in malleate func
+		},
+		{
+			msg: "Empty request",
+			getRequest: func() *types.QueryTraceTxRequest {
+				return nil
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				return nil
+			},
+			expPass: true,
 		},
 	}
 
@@ -1212,7 +1222,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 			// Function under test
 			res, err := s.Network.GetEvmClient().TraceTx(
 				s.Network.GetContext(),
-				&traceReq,
+				traceReq,
 			)
 
 			if tc.expPass {
