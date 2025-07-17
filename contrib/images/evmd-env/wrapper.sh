@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-set -euo pipefail
 set -x
 
 BINARY=/evmd/${BINARY:-evmd}

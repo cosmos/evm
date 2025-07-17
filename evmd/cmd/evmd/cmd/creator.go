@@ -136,7 +136,7 @@ func (a appCreator) appExport(
 		db,
 		traceStore,
 		loadLatest,
-		simtestutil.EmptyAppOptions{},
+		appOpts,
 		evmdconfig.EVMChainID,
 		evmdconfig.EvmAppOptions,
 	)
