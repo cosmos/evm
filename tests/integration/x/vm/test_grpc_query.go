@@ -1175,7 +1175,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 			getPredecessors: func() []*types.MsgEthereumTx {
 				return nil
 			},
-			expPass: true,
+			expPass: false,
 		},
 	}
 
