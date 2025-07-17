@@ -94,7 +94,7 @@ func Setup(t *testing.T, chainID string, evmChainID uint64) *EVMD {
 // account. A Nop logger is set in EVMD.
 func SetupWithGenesisValSet(t *testing.T, chainID string, evmChainID uint64, valSet *cmttypes.ValidatorSet, genAccs []authtypes.GenesisAccount, balances ...banktypes.Balance) *EVMD {
 	t.Helper()
-	
+
 	app, genesisState := setup(true, 5, chainID, evmChainID)
 	genesisState, err := simtestutil.GenesisStateWithValSet(app.AppCodec(), genesisState, valSet, genAccs, balances...)
 	require.NoError(t, err)
