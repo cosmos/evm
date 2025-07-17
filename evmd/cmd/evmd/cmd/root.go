@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -73,7 +74,6 @@ func NewRootCmd() *cobra.Command {
 		TxConfig:          tempApp.GetTxConfig(),
 		Amino:             tempApp.LegacyAmino(),
 	}
-
 	initClientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
@@ -169,19 +169,20 @@ func initTendermintConfig() *tmcfg.Config {
 	return cfg
 }
 
-func initRootCmd(rootCmd *cobra.Command, osApp *evmd.EVMD) {
+func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 	cfg := sdk.GetConfig()
 	cfg.Seal()
 
 	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
 	rootCmd.AddCommand(
-		genutilcli.InitCmd(osApp.BasicModuleManager, defaultNodeHome),
-		genutilcli.Commands(osApp.TxConfig(), osApp.BasicModuleManager, defaultNodeHome),
+		genutilcli.InitCmd(evmApp.BasicModuleManager, defaultNodeHome),
+		genutilcli.Commands(evmApp.TxConfig(), evmApp.BasicModuleManager, defaultNodeHome),
 		cmtcli.NewCompletionCmd(rootCmd, true),
 		debug.Cmd(),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(newApp, defaultNodeHome),
 		snapshot.Cmd(newApp),
+		NewTestnetCmd(evmApp.BasicModuleManager, banktypes.GenesisBalancesIterator{}, appCreator{}),
 	)
 
 	// add Cosmos EVM' flavored TM commands to start server, etc.
