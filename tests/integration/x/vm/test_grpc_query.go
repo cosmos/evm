@@ -1215,9 +1215,11 @@ func (s *KeeperTestSuite) TestTraceTx() {
 
 			// Get the trace request
 			traceReq := tc.getRequest()
-			// Add predecessor to trace request
-			traceReq.Predecessors = predecessors
-			traceReq.Msg = msgToTrace
+			if traceReq != nil {
+				// Add predecessor to trace request
+				traceReq.Predecessors = predecessors
+				traceReq.Msg = msgToTrace
+			}
 
 			// Function under test
 			res, err := s.Network.GetEvmClient().TraceTx(
