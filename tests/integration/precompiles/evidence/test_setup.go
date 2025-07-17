@@ -1,9 +1,6 @@
 package evidence
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/evidence"
@@ -11,9 +8,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-
-	"cosmossdk.io/x/evidence/exported"
-	"cosmossdk.io/x/evidence/types"
 )
 
 type PrecompileTestSuite struct {
@@ -45,10 +39,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 
-	router := types.NewRouter()
-	router = router.AddRoute(types.RouteEquivocation, testEquivocationHandler(nw.App.GetEvidenceKeeper()))
-	nw.App.GetEvidenceKeeper().SetRouter(router)
-
 	s.network = nw
 	s.factory = txFactory
 	s.grpcHandler = grpcHandler
@@ -58,23 +48,5 @@ func (s *PrecompileTestSuite) SetupTest() {
 		*s.network.App.GetEvidenceKeeper(),
 	); err != nil {
 		panic(err)
-	}
-}
-
-func testEquivocationHandler(_ interface{}) types.Handler {
-	return func(_ context.Context, e exported.Evidence) error {
-		if err := e.ValidateBasic(); err != nil {
-			return err
-		}
-
-		ee, ok := e.(*types.Equivocation)
-		if !ok {
-			return fmt.Errorf("unexpected evidence type: %T", e)
-		}
-		if ee.Height%2 == 0 {
-			return fmt.Errorf("unexpected even evidence height: %d", ee.Height)
-		}
-
-		return nil
 	}
 }

@@ -21,9 +21,17 @@ func (p Precompile) SubmitEvidence(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, submitterHexAddr, err := NewMsgSubmitEvidence(args)
+	msg, submitterHexAddr, err := NewMsgSubmitEvidence(method, args)
 	if err != nil {
 		return nil, err
+	}
+
+	handler, err := p.evidenceKeeper.GetEvidenceHandler(msg.GetEvidence().Route())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get evidence handler: %w", err)
+	}
+	if handler == nil {
+		return nil, fmt.Errorf("no evidence handler found for route: %s", msg.GetEvidence().Route())
 	}
 
 	msgSender := contract.Caller()

@@ -27,7 +27,7 @@ func (p *Precompile) GetSigningInfo(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := ParseSigningInfoArgs(args)
+	req, err := ParseSigningInfoArgs(args, p.consCodec)
 	if err != nil {
 		return nil, err
 	}
