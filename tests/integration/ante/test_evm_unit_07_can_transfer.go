@@ -86,7 +86,7 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			tc.malleate(&txArgs)
 
 			msg := evmtypes.NewTx(&txArgs)
-			msg.From = senderKey.Addr.String()
+			msg.From = senderKey.Addr.Bytes()
 			signMsg, err := txFactory.SignMsgEthereumTx(senderKey.Priv, *msg)
 			s.Require().NoError(err)
 			coreMsg, err := signMsg.AsMessage(signer, baseFeeResp.BaseFee.BigInt())

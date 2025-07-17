@@ -6,6 +6,7 @@ import (
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -17,17 +18,11 @@ import (
 
 // ValidateMsg validates an Ethereum specific message type and returns an error
 // if invalid. It checks the following requirements:
-// - nil MUST be passed as the from address
 // - If the transaction is a contract creation or call, the corresponding operation must be enabled in the EVM parameters
 func ValidateMsg(
 	evmParams evmtypes.Params,
-	txData evmtypes.TxData,
-	from sdktypes.AccAddress,
+	txData *ethtypes.Transaction,
 ) error {
-	if from != nil {
-		return errorsmod.Wrapf(errortypes.ErrInvalidRequest, "invalid from address; expected nil; got: %q", from.String())
-	}
-
 	return checkDisabledCreateCall(
 		txData,
 		&evmParams.AccessControl,
@@ -37,10 +32,10 @@ func ValidateMsg(
 // checkDisabledCreateCall checks if the transaction is a contract creation or call,
 // and if those actions are disabled through governance.
 func checkDisabledCreateCall(
-	txData evmtypes.TxData,
+	txData *ethtypes.Transaction,
 	permissions *evmtypes.AccessControl,
 ) error {
-	to := txData.GetTo()
+	to := txData.To()
 	blockCreate := permissions.Create.AccessType == evmtypes.AccessTypeRestricted
 	blockCall := permissions.Call.AccessType == evmtypes.AccessTypeRestricted
 

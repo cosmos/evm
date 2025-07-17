@@ -112,11 +112,10 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 		s.Run(fmt.Sprintf("%v_%v_%v", evmtypes.GetTxTypeName(s.EthTxType), s.ChainID, tc.name), func() {
 			// Perform test logic
 			statedbAccount, txArgs := tc.generateAccountAndArgs()
-			txData, err := txArgs.ToTxData()
-			s.Require().NoError(err)
+			txData := txArgs.ToTx()
 
 			//  Function to be tested
-			err = evm.VerifyAccountBalance(
+			err := evm.VerifyAccountBalance(
 				unitNetwork.GetContext(),
 				unitNetwork.App.GetAccountKeeper(),
 				statedbAccount,

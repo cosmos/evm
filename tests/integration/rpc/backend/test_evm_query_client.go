@@ -1,12 +1,14 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"testing"
 
+	proto "github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -28,6 +30,21 @@ import (
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
 
+func MatchByProto(exp proto.Message) any {
+	return mock.MatchedBy(func(req proto.Message) bool {
+		// compare protobuf encooded value, workaround for *ethtypes.Transaction
+		expBz, err := proto.Marshal(exp)
+		if err != nil {
+			panic(err)
+		}
+		bz, err := proto.Marshal(req)
+		if err != nil {
+			panic(err)
+		}
+		return bytes.Equal(expBz, bz)
+	})
+}
+
 // QueryClient defines a mocked object that implements the Cosmos EVM GRPC
 // QueryClient interface. It allows for performing QueryClient queries without having
 // to run a Cosmos EVM GRPC server.
@@ -38,19 +55,18 @@ var _ evmtypes.QueryClient = &mocks.EVMQueryClient{}
 // TraceTransaction
 func RegisterTraceTransactionWithPredecessors(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx, predecessors []*evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
-	queryClient.On("TraceTx", rpc.ContextWithHeight(1),
-		&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, Predecessors: predecessors, ChainId: config.EVMChainID, BlockMaxGas: -1}).
+	queryClient.On("TraceTx", rpc.ContextWithHeight(1), MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, Predecessors: predecessors, ChainId: config.EVMChainID, BlockMaxGas: -1})).
 		Return(&evmtypes.QueryTraceTxResponse{Data: data}, nil)
 }
 
 func RegisterTraceTransaction(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
-	queryClient.On("TraceTx", rpc.ContextWithHeight(1), &evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID, BlockMaxGas: -1}).
+	queryClient.On("TraceTx", rpc.ContextWithHeight(1), MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID, BlockMaxGas: -1})).
 		Return(&evmtypes.QueryTraceTxResponse{Data: data}, nil)
 }
 
 func RegisterTraceTransactionError(queryClient *mocks.EVMQueryClient, msgEthTx *evmtypes.MsgEthereumTx) {
-	queryClient.On("TraceTx", rpc.ContextWithHeight(1), &evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID}).
+	queryClient.On("TraceTx", rpc.ContextWithHeight(1), MatchByProto(&evmtypes.QueryTraceTxRequest{Msg: msgEthTx, BlockNumber: 1, ChainId: config.EVMChainID})).
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
@@ -58,7 +74,7 @@ func RegisterTraceTransactionError(queryClient *mocks.EVMQueryClient, msgEthTx *
 func RegisterTraceBlock(queryClient *mocks.EVMQueryClient, txs []*evmtypes.MsgEthereumTx) {
 	data := []byte{0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3a, 0x20, 0x22, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x7d}
 	queryClient.On("TraceBlock", rpc.ContextWithHeight(1),
-		&evmtypes.QueryTraceBlockRequest{Txs: txs, BlockNumber: 1, TraceConfig: &evmtypes.TraceConfig{}, ChainId: config.EVMChainID, BlockMaxGas: -1}).
+		MatchByProto(&evmtypes.QueryTraceBlockRequest{Txs: txs, BlockNumber: 1, TraceConfig: &evmtypes.TraceConfig{}, ChainId: config.EVMChainID, BlockMaxGas: -1})).
 		Return(&evmtypes.QueryTraceBlockResponse{Data: data}, nil)
 }
 

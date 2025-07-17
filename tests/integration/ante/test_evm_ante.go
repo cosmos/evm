@@ -621,7 +621,7 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 				tx, err := s.GetTxFactory().GenerateSignedEthTx(privKey, ethContractCreationTxParams)
 				s.Require().NoError(err)
 				msg := tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
-				msg.From = addr.Hex()
+				msg.From = addr.Bytes()
 				return tx
 			}, true, false, false,
 		},
@@ -1248,7 +1248,7 @@ func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 		GasPrice: big.NewInt(1),
 	}
 	signedTx := evmtypes.NewTx(ethContractCreationTxParams)
-	signedTx.From = addr.Hex()
+	signedTx.From = addr.Bytes()
 	err := signedTx.Sign(ethSigner, utiltx.NewSigner(privKey))
 	s.Require().NoError(err)
 
@@ -1259,7 +1259,7 @@ func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 		GasPrice: big.NewInt(1),
 	}
 	unprotectedTx := evmtypes.NewTx(unprotectedEthTxParams)
-	unprotectedTx.From = addr.Hex()
+	unprotectedTx.From = addr.Bytes()
 	err = unprotectedTx.Sign(types.HomesteadSigner{}, utiltx.NewSigner(privKey))
 	s.Require().NoError(err)
 
@@ -1336,10 +1336,10 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 	msg := tx.GetMsgs()[0]
 	msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
 	s.Require().True(ok)
-	txData, err := evmtypes.UnpackTxData(msgEthTx.Data)
-	s.Require().NoError(err)
+	txData := msgEthTx.AsTransaction()
+	s.Require().NotNil(txData)
 
-	msgV, msgR, msgS := txData.GetRawSignatureValues()
+	msgV, msgR, msgS := txData.RawSignatureValues()
 
 	ethTx := msgEthTx.AsTransaction()
 	ethV, ethR, ethS := ethTx.RawSignatureValues()

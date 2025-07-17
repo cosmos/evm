@@ -130,7 +130,7 @@ func newEthMsgTx(
 		return nil, nil, err
 	}
 
-	msg.From = address.Hex()
+	msg.From = address.Bytes()
 
 	return msg, baseFee, msg.Sign(ethSigner, krSigner)
 }
