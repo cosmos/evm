@@ -72,11 +72,12 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 // properly the FinalizeBlock request
 func buildFinalizeBlockReq(header cmtproto.Header, validators []*cmttypes.Validator, txs ...[]byte) *abcitypes.RequestFinalizeBlock {
 	// add validator's commit info to allocate corresponding tokens to validators
+	cmtHeader, _ := cmttypes.HeaderFromProto(&header)
 	ci := getCommitInfo(validators)
 	return &abcitypes.RequestFinalizeBlock{
 		Height:             header.Height,
 		DecidedLastCommit:  ci,
-		Hash:               header.AppHash,
+		Hash:               cmtHeader.Hash(),
 		NextValidatorsHash: header.ValidatorsHash,
 		ProposerAddress:    header.ProposerAddress,
 		Time:               header.Time,

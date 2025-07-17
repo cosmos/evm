@@ -31,6 +31,15 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 			),
 		})
 	}
+
+	// store block header hash and rotate the old ones.
+	k.SetHeaderHash(ctx)
+	historySize := k.GetParams(ctx).HeaderHashHistorySize
+	if historySize > 0 && ctx.BlockHeight() > historySize {
+		i := ctx.BlockHeight() - historySize
+		k.DeleteHeaderHash(ctx, i)
+	}
+
 	return nil
 }
 
