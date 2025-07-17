@@ -60,7 +60,7 @@ func ConsumeFeesAndEmitEvent(
 	return nil
 }
 
-// deductFee checks if the fee payer has enough funds to pay for the fees and deducts them.
+// deductFees checks if the fee payer has enough funds to pay for the fees and deducts them.
 func deductFees(
 	ctx sdktypes.Context,
 	evmKeeper anteinterfaces.EVMKeeper,
