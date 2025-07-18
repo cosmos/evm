@@ -313,15 +313,20 @@ function setupNetwork ({ runConfig, timeout }) {
     const serverStartedLog = 'Starting JSON-RPC server'
     const serverStartedMsg = 'evmd started'
 
-    const osdProc = spawn('./init-node.sh', {
-      cwd: __dirname,
-      stdio: ['ignore', 'pipe', 'pipe']
+    const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
+    const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
+
+    const osdProc = spawn(scriptPath, ['-y'], {
+      cwd: rootDir,
+      stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })
 
     logger.info(`Starting evmd process... timeout: ${timeout}ms`)
     if (runConfig.verboseLog) {
       osdProc.stdout.pipe(process.stdout)
+      osdProc.stderr.pipe(process.stderr)
     }
+
 
     osdProc.stdout.on('data', (d) => {
       const oLine = d.toString()
@@ -366,7 +371,7 @@ async function main () {
 
     console.log(`Running Tests: ${allTests.join()}`)
 
-    proc = await setupNetwork({ runConfig, timeout: 50000 })
+    proc = await setupNetwork({ runConfig, timeout: 200000 })
 
     // sleep for 20s to wait blocks being produced
     //
