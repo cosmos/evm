@@ -1,5 +1,6 @@
 name: Solidity Test
 on:
+  merge_group:
   pull_request:
     branches:
       - main
