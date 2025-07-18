@@ -17,6 +17,7 @@ services:
       - "1317:1317"
       - "9090:9090"
       - "2345:2345"
+      - "8545-8546:8545-8546"
     volumes:
       - ./.testnets:/data:Z
     networks:
@@ -39,6 +40,7 @@ services:
       - "1318:1317"
       - "9091:9090"
       - "2346:2345"
+      - "8555-8556:8545-8546"
     volumes:
       - ./.testnets:/data:Z
     networks:
@@ -61,6 +63,7 @@ services:
       - "1319:1317"
       - "9092:9090"
       - "2347:2345"
+      - "8565-8566:8545-8546"
     volumes:
       - ./.testnets:/data:Z
     networks:
@@ -83,6 +86,7 @@ services:
       - "1320:1317"
       - "9093:9090"
       - "2348:2345"
+      - "8575-8576:8545-8546"
     volumes:
       - ./.testnets:/data:Z
     networks:
