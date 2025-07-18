@@ -8,6 +8,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/types"
@@ -42,7 +43,7 @@ type SigningInfosInput struct {
 }
 
 // ParseSigningInfoArgs parses the arguments for the signing info query
-func ParseSigningInfoArgs(args []interface{}) (*slashingtypes.QuerySigningInfoRequest, error) {
+func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashingtypes.QuerySigningInfoRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -52,8 +53,13 @@ func ParseSigningInfoArgs(args []interface{}) (*slashingtypes.QuerySigningInfoRe
 		return nil, fmt.Errorf("invalid consensus address")
 	}
 
+	consAddr, err := consCodec.BytesToString(hexAddr.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert consensus address: %w", err)
+	}
+
 	return &slashingtypes.QuerySigningInfoRequest{
-		ConsAddress: types.ConsAddress(hexAddr.Bytes()).String(),
+		ConsAddress: consAddr,
 	}, nil
 }
 
