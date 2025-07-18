@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
@@ -49,7 +50,7 @@ import (
 
 var (
 	flagNodeDirPrefix      = "node-dir-prefix"
-	flagNumValidators      = "v"
+	flagNumValidators      = "validator-count"
 	flagOutputDir          = "output-dir"
 	flagNodeDaemonHome     = "node-daemon-home"
 	flagStartingIPAddress  = "starting-ip-address"
@@ -59,6 +60,8 @@ var (
 	flagRPCAddress         = "rpc.address"
 	flagAPIAddress         = "api.address"
 	flagPrintMnemonic      = "print-mnemonic"
+	flagSingleHost         = "single-host"
+	flagCommitTimeout      = "commit-timeout"
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
 
@@ -74,6 +77,7 @@ type initArgs struct {
 	numValidators     int
 	outputDir         string
 	startingIPAddress string
+	singleMachine     bool
 	useDocker         bool
 }
 
@@ -88,6 +92,7 @@ type startArgs struct {
 	outputDir     string
 	printMnemonic bool
 	rpcAddress    string
+	timeoutCommit time.Duration
 }
 
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
@@ -168,6 +173,11 @@ Example:
 			args.nodeDaemonHome, _ = cmd.Flags().GetString(flagNodeDaemonHome)
 			args.startingIPAddress, _ = cmd.Flags().GetString(flagStartingIPAddress)
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
+			args.singleMachine, _ = cmd.Flags().GetBool(flagSingleHost)
+			config.Consensus.TimeoutCommit, err = cmd.Flags().GetDuration(flagCommitTimeout)
+			if err != nil {
+				return err
+			}
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 
 			return initTestnetFiles(clientCtx, cmd, config, mbm, genBalIterator, args)
@@ -175,6 +185,8 @@ Example:
 	}
 
 	addTestnetFlagsToCmd(cmd)
+	cmd.Flags().Duration(flagCommitTimeout, 5*time.Second, "Time to wait after a block commit before starting on the new height")
+	cmd.Flags().Bool(flagSingleHost, false, "Cluster runs on a single host machine with different ports")
 	cmd.Flags().String(flagNodeDirPrefix, "node", "Prefix the directory name for each node with (node results in node0, node1, ...)")
 	cmd.Flags().String(flagNodeDaemonHome, "evmd", "Home directory of the node's daemon configuration")
 	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...)")
@@ -239,17 +251,17 @@ func initTestnetFiles(
 	nodeIDs := make([]string, args.numValidators)
 	valPubKeys := make([]cryptotypes.PubKey, args.numValidators)
 
-	serverCfg := srvconfig.DefaultConfig()
-	serverCfg.MinGasPrices = args.minGasPrices
-	serverCfg.API.Enable = true
-	serverCfg.Telemetry.Enabled = true
-	serverCfg.Telemetry.PrometheusRetentionTime = 60
-	serverCfg.Telemetry.EnableHostnameLabel = false
-	serverCfg.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
+	appConfig := srvconfig.DefaultConfig()
+	appConfig.MinGasPrices = args.minGasPrices
+	appConfig.API.Enable = true
+	appConfig.Telemetry.Enabled = true
+	appConfig.Telemetry.PrometheusRetentionTime = 60
+	appConfig.Telemetry.EnableHostnameLabel = false
+	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
 	evm.EVMChainID = evmdconfig.EVMChainID
 	evmCfg := evmdconfig.EVMAppConfig{
-		Config:  *serverCfg,
+		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
@@ -261,26 +273,61 @@ func initTestnetFiles(
 		genFiles    []string
 	)
 
+	const (
+		sdkRPCPort  = 26657
+		sdkAPIPort  = 1317
+		sdkGRPCPort = 9090
+
+		// evmGRPC           = 9900 // TODO: maybe need this? idk.
+		evmJSONRPC        = 8545
+		evmJSONRPCWS      = 8546
+		evmJSONRPCMetrics = 6065
+	)
+	p2pPortStart := 26656
+
 	inBuf := bufio.NewReader(cmd.InOrStdin())
 	// generate private keys, node IDs, and initial transactions
 	for i := 0; i < args.numValidators; i++ {
+		var portOffset int
+		var evmPortOffset int
+		if args.singleMachine {
+			portOffset = i
+			evmPortOffset = i * 10
+			p2pPortStart = 16656
+			nodeConfig.P2P.AddrBookStrict = false
+			nodeConfig.P2P.PexReactor = false
+			nodeConfig.P2P.AllowDuplicateIP = true
+			evmCfg.Config.API.Address = fmt.Sprintf("tcp://0.0.0.0:%d", sdkAPIPort+portOffset)
+			evmCfg.Config.GRPC.Address = fmt.Sprintf("0.0.0.0:%d", sdkGRPCPort+portOffset)
+			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
+			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
+			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
+		}
 		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
 		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
 		gentxsDir := filepath.Join(args.outputDir, "gentxs")
 
 		nodeConfig.SetRoot(nodeDir)
 		nodeConfig.Moniker = nodeDirName
-		nodeConfig.RPC.ListenAddress = "tcp://0.0.0.0:26657"
+		nodeConfig.RPC.ListenAddress = fmt.Sprintf("tcp://0.0.0.0:%d", sdkRPCPort+portOffset)
 
 		if err := os.MkdirAll(filepath.Join(nodeDir, "config"), nodeDirPerm); err != nil {
 			_ = os.RemoveAll(args.outputDir)
 			return err
 		}
 
-		ip, err := getIP(i, args.startingIPAddress)
-		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
-			return err
+		var (
+			err error
+			ip  string
+		)
+		if args.singleMachine {
+			ip = "0.0.0.0"
+		} else {
+			ip, err = getIP(i, args.startingIPAddress)
+			if err != nil {
+				_ = os.RemoveAll(args.outputDir)
+				return err
+			}
 		}
 
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)
@@ -289,7 +336,7 @@ func initTestnetFiles(
 			return err
 		}
 
-		memo := fmt.Sprintf("%s@%s:26656", nodeIDs[i], ip)
+		memo := fmt.Sprintf("%s@%s:%d", nodeIDs[i], ip, p2pPortStart+portOffset)
 		genFiles = append(genFiles, nodeConfig.GenesisFile())
 
 		kb, err := keyring.New(sdk.KeyringServiceName(), args.keyringBackend, nodeDir, inBuf, clientCtx.Codec, cosmosevmkeyring.Option())
@@ -381,6 +428,7 @@ func initTestnetFiles(
 	err := collectGenFiles(
 		clientCtx, nodeConfig, args.chainID, nodeIDs, valPubKeys, args.numValidators,
 		args.outputDir, args.nodeDirPrefix, args.nodeDaemonHome, genBalIterator, clientCtx.TxConfig.SigningContext().ValidatorAddressCodec(),
+		sdkRPCPort, p2pPortStart, args.singleMachine,
 	)
 	if err != nil {
 		return err
@@ -443,11 +491,18 @@ func collectGenFiles(
 	clientCtx client.Context, nodeConfig *cmtconfig.Config, chainID string,
 	nodeIDs []string, valPubKeys []cryptotypes.PubKey, numValidators int,
 	outputDir, nodeDirPrefix, nodeDaemonHome string, genBalIterator banktypes.GenesisBalancesIterator, valAddrCodec runtime.ValidatorAddressCodec,
+	rpcPortStart, p2pPortStart int,
+	singleMachine bool,
 ) error {
 	var appState json.RawMessage
 	genTime := tmtime.Now()
 
 	for i := 0; i < numValidators; i++ {
+		if singleMachine {
+			portOffset := i
+			nodeConfig.RPC.ListenAddress = fmt.Sprintf("tcp://0.0.0.0:%d", rpcPortStart+portOffset)
+			nodeConfig.P2P.ListenAddress = fmt.Sprintf("tcp://0.0.0.0:%d", p2pPortStart+portOffset)
+		}
 		nodeDirName := fmt.Sprintf("%s%d", nodeDirPrefix, i)
 		nodeDir := filepath.Join(outputDir, nodeDirName, nodeDaemonHome)
 		gentxsDir := filepath.Join(outputDir, "gentxs")

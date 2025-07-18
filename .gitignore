@@ -35,4 +35,5 @@ evmd/build/
 build/
 
 tests/systemtests/binaries
+tests/systemtests/testnet
 .testnets
