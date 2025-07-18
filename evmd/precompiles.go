@@ -13,7 +13,6 @@ import (
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
-	evidenceprecompile "github.com/cosmos/evm/precompiles/evidence"
 	govprecompile "github.com/cosmos/evm/precompiles/gov"
 	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
 	"github.com/cosmos/evm/precompiles/p256"
@@ -25,8 +24,6 @@ import (
 	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 
 	"cosmossdk.io/core/address"
-	evidencekeeper "cosmossdk.io/x/evidence/keeper"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
@@ -86,7 +83,6 @@ func NewAvailableStaticPrecompiles(
 	evmKeeper *evmkeeper.Keeper,
 	govKeeper govkeeper.Keeper,
 	slashingKeeper slashingkeeper.Keeper,
-	evidenceKeeper evidencekeeper.Keeper,
 	codec codec.Codec,
 	opts ...Option,
 ) map[common.Address]vm.PrecompiledContract {
@@ -146,11 +142,6 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}
 
-	evidencePrecompile, err := evidenceprecompile.NewPrecompile(evidenceKeeper)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate evidence precompile: %w", err))
-	}
-
 	// Stateless precompiles
 	precompiles[bech32Precompile.Address()] = bech32Precompile
 	precompiles[p256Precompile.Address()] = p256Precompile
@@ -162,7 +153,6 @@ func NewAvailableStaticPrecompiles(
 	precompiles[bankPrecompile.Address()] = bankPrecompile
 	precompiles[govPrecompile.Address()] = govPrecompile
 	precompiles[slashingPrecompile.Address()] = slashingPrecompile
-	precompiles[evidencePrecompile.Address()] = evidencePrecompile
 
 	return precompiles
 }
