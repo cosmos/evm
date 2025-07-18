@@ -96,9 +96,9 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-  ethTx := ethMsg.AsTransaction()
+	ethTx := ethMsg.AsTransaction()
 
-  // call go-ethereum transaction validation
+	// call go-ethereum transaction validation
 	header := ethtypes.Header{
 		GasLimit: ctx.BlockGasMeter().Limit(),
 		BaseFee:  decUtils.BaseFee,
@@ -113,7 +113,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}); err != nil {
 		return ctx, err
 	}
-  
+
 	feeAmt := txData.Fee()
 	gas := txData.GetGas()
 	fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
@@ -157,7 +157,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// 5. signature verification
 	if err := SignatureVerification(
 		ethMsg,
-    ethTx,
+		ethTx,
 		decUtils.Signer,
 		decUtils.EvmParams.AllowUnprotectedTxs,
 	); err != nil {
