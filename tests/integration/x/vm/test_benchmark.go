@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/types"
@@ -19,9 +20,9 @@ import (
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 )
 
-func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {
+func SetupContract(b *testing.B, create network.CreateEvmApp) (*KeeperTestSuite, common.Address) {
 	b.Helper()
-	suite := KeeperTestSuite{}
+	suite := KeeperTestSuite{Create: create}
 	suite.SetupTest()
 
 	amt := sdk.Coins{sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 1000000000000000000)}
@@ -37,9 +38,9 @@ func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {
 	return &suite, contractAddr
 }
 
-func SetupTestMessageCall(b *testing.B) (*KeeperTestSuite, common.Address) {
+func SetupTestMessageCall(b *testing.B, create network.CreateEvmApp) (*KeeperTestSuite, common.Address) {
 	b.Helper()
-	suite := KeeperTestSuite{}
+	suite := KeeperTestSuite{Create: create}
 	suite.SetupTest()
 
 	amt := sdk.Coins{sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 1000000000000000000)}
@@ -57,9 +58,9 @@ func SetupTestMessageCall(b *testing.B) (*KeeperTestSuite, common.Address) {
 
 type TxBuilder func(suite *KeeperTestSuite, contract common.Address) *types.MsgEthereumTx
 
-func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
+func DoBenchmark(b *testing.B, txBuilder TxBuilder, create network.CreateEvmApp) {
 	b.Helper()
-	suite, contractAddr := SetupContract(b)
+	suite, contractAddr := SetupContract(b, create)
 
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	msg := txBuilder(suite, contractAddr)
@@ -86,7 +87,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 	}
 }
 
-func BenchmarkTokenTransfer(b *testing.B) {
+func BenchmarkTokenTransfer(b *testing.B, create network.CreateEvmApp) {
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(b, err, "failed to load erc20 contract")
 
@@ -104,10 +105,10 @@ func BenchmarkTokenTransfer(b *testing.B) {
 			Input:    input,
 		}
 		return types.NewTx(ethTxParams)
-	})
+	}, create)
 }
 
-func BenchmarkEmitLogs(b *testing.B) {
+func BenchmarkEmitLogs(b *testing.B, create network.CreateEvmApp) {
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(b, err, "failed to load erc20 contract")
 
@@ -125,10 +126,10 @@ func BenchmarkEmitLogs(b *testing.B) {
 			Input:    input,
 		}
 		return types.NewTx(ethTxParams)
-	})
+	}, create)
 }
 
-func BenchmarkTokenTransferFrom(b *testing.B) {
+func BenchmarkTokenTransferFrom(b *testing.B, create network.CreateEvmApp) {
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(b, err)
 
@@ -146,10 +147,10 @@ func BenchmarkTokenTransferFrom(b *testing.B) {
 			Input:    input,
 		}
 		return types.NewTx(ethTxParams)
-	})
+	}, create)
 }
 
-func BenchmarkTokenMint(b *testing.B) {
+func BenchmarkTokenMint(b *testing.B, create network.CreateEvmApp) {
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(b, err, "failed to load erc20 contract")
 
@@ -167,11 +168,11 @@ func BenchmarkTokenMint(b *testing.B) {
 			Input:    input,
 		}
 		return types.NewTx(ethTxParams)
-	})
+	}, create)
 }
 
-func BenchmarkMessageCall(b *testing.B) {
-	suite, contract := SetupTestMessageCall(b)
+func BenchmarkMessageCall(b *testing.B, create network.CreateEvmApp) {
+	suite, contract := SetupTestMessageCall(b, create)
 
 	messageCallContract, err := testdata.LoadMessageCallContract()
 	require.NoError(b, err, "failed to load message call contract")
