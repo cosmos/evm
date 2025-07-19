@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 )
 
 // EventTransfer defines the event data for the ERC20 Transfer events.
@@ -126,4 +129,54 @@ func ParseBalanceOfArgs(args []interface{}) (common.Address, error) {
 	}
 
 	return account, nil
+}
+
+// NewGetParamsRequest creates a new request for the ERC20 parameters query.
+func NewGetParamsRequest(args []interface{}) (*erc20types.QueryParamsRequest, error) {
+	return &erc20types.QueryParamsRequest{}, nil
+}
+
+func ConvertStringsToAddresses(strings []string) ([]common.Address, error) {
+	addresses := make([]common.Address, len(strings))
+	for i, str := range strings {
+		addr := common.HexToAddress(str)
+		if addr == (common.Address{}) {
+			return nil, fmt.Errorf("invalid address: %s", str)
+		}
+		addresses[i] = addr
+	}
+	return addresses, nil
+}
+
+// GetParamsOutput contains the output data for the ERC20 parameters query
+type GetParamsOutput struct {
+	EnableErc20                bool             `abi:"enableErc20"`
+	NativePrecompiles          []common.Address `abi:"nativePrecompiles"`
+	DynamicPrecompiles         []common.Address `abi:"dynamicPrecompiles"`
+	PermissionlessRegistration bool             `abi:"permissionlessRegistration"`
+}
+
+// FromResponse populates the GetParamsOutput from the ERC20 Params
+func (o *GetParamsOutput) FromResponse(params erc20types.Params) (*GetParamsOutput, error) {
+	o.EnableErc20 = params.EnableErc20
+
+	nativePrecompiles, err := ConvertStringsToAddresses(params.NativePrecompiles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert native precompiles: %w", err)
+	}
+	o.NativePrecompiles = nativePrecompiles
+
+	dynamicPrecompiles, err := ConvertStringsToAddresses(params.DynamicPrecompiles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert dynamic precompiles: %w", err)
+	}
+	o.DynamicPrecompiles = dynamicPrecompiles
+
+	o.PermissionlessRegistration = params.PermissionlessRegistration
+	return o, nil
+}
+
+// Pack packs a given slice of abi arguments into a byte array.
+func (o *GetParamsOutput) Pack(args abi.Arguments) ([]byte, error) {
+	return args.Pack(o.EnableErc20, o.NativePrecompiles, o.DynamicPrecompiles, o.PermissionlessRegistration)
 }

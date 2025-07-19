@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/ibc"
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -33,6 +34,9 @@ const (
 	// AllowanceMethod defines the ABI method name for the Allowance
 	// query.
 	AllowanceMethod = "allowance"
+	// GetParamsMethod defines the ABI method name for the ERC20
+	// GetParams query.
+	GetParamsMethod = "getParams"
 )
 
 // Name returns the name of the token. If the token metadata is registered in the
@@ -209,4 +213,26 @@ func (p Precompile) getBaseDenomFromIBCVoucher(ctx sdk.Context, voucherDenom str
 	}
 
 	return denom.Base, nil
+}
+
+// GetParams returns the ERC20 module parameters.
+func (p Precompile) GetParams(
+	ctx sdk.Context,
+	_ *vm.Contract,
+	_ vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	params := p.erc20Keeper.GetParams(ctx)
+
+	out, err := new(GetParamsOutput).FromResponse(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert params: %w", err)
+	}
+
+	return out.Pack(method.Outputs)
 }

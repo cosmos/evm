@@ -38,6 +38,9 @@ const (
 	// CommunityPoolMethod defines the ABI method name for the
 	// CommunityPool query.
 	CommunityPoolMethod = "communityPool"
+	// GetParmsMethod defines the ABI method name for the
+	// GetParams query.
+	GetParamsMethod = "getParams"
 )
 
 // ValidatorDistributionInfo returns the distribution info for a validator.
@@ -241,6 +244,30 @@ func (p Precompile) CommunityPool(
 	}
 
 	out := new(CommunityPoolOutput).FromResponse(res)
+
+	return out.Pack(method.Outputs)
+}
+
+// GetParams returns the distribution module parameters.
+func (p Precompile) GetParams(
+	ctx sdk.Context,
+	_ *vm.Contract,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	req, err := NewGetParamsRequest(args)
+	if err != nil {
+		return nil, err
+	}
+
+	querier := distributionkeeper.Querier{Keeper: p.distributionKeeper}
+
+	res, err := querier.Params(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(GetParamsOutput).FromResponse(res)
 
 	return out.Pack(method.Outputs)
 }

@@ -970,3 +970,59 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 		})
 	}
 }
+
+func (s *PrecompileTestSuite) TestGetParams() {
+	method := s.precompile.Methods[distribution.GetParamsMethod]
+
+	testCases := []struct {
+		name        string
+		malleate    func() []interface{}
+		expPass     bool
+		errContains string
+	}{
+		{
+			"fail - not empty input args",
+			func() []interface{} {
+				return []interface{}{""}
+			},
+			false,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+		},
+		{
+			"success - get all params",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			true,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx := s.network.GetContext()
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), 100000, nil)
+
+			bz, err := s.precompile.GetParams(ctx, contract, &method, tc.malleate())
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().NotEmpty(bz)
+
+				var out distribution.GetParamsOutput
+				err = s.precompile.UnpackIntoInterface(&out, distribution.GetParamsMethod, bz)
+				s.Require().NoError(err, "failed to unpack output")
+
+				// Verify the parameters are valid Dec/bool values
+				s.Require().NotNil(out.CommunityTax.Value)
+				s.Require().Equal(uint8(18), out.CommunityTax.Precision)
+				// WithdrawAddrEnabled can be true or false, both are valid
+				s.Require().IsType(false, out.WithdrawAddrEnabled, "WithdrawAddrEnabled should be a boolean")
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			}
+		})
+	}
+}
