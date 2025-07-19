@@ -86,7 +86,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		height,
 		index,
 		baseFee,
-		b.EvmChainID,
+		b.EvmChainID(),
 	)
 }
 
@@ -115,7 +115,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 				uint64(0),
 				uint64(0),
 				nil,
-				b.EvmChainID,
+				b.EvmChainID(),
 			)
 			if err != nil {
 				return nil, err
@@ -462,6 +462,6 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 		height,
 		index,
 		baseFee,
-		b.EvmChainID,
+		b.EvmChainID(),
 	)
 }

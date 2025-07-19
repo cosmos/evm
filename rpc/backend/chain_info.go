@@ -26,20 +26,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+func (b *Backend) EvmChainID() *big.Int {
+	return b.ChainConfig().ChainID
+}
+
 // ChainID is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (b *Backend) ChainID() (*hexutil.Big, error) {
-	// if current block is at or past the EIP-155 replay-protection fork block, return EvmChainID from config
-	bn, err := b.BlockNumber()
-	if err != nil {
-		b.Logger.Debug("failed to fetch latest block number", "error", err.Error())
-		return (*hexutil.Big)(b.EvmChainID), nil
-	}
-
-	if config := b.ChainConfig(); config.IsEIP155(new(big.Int).SetUint64(uint64(bn))) {
-		return (*hexutil.Big)(config.ChainID), nil
-	}
-
-	return nil, fmt.Errorf("chain not synced beyond EIP-155 replay-protection fork block")
+	return (*hexutil.Big)(b.EvmChainID()), nil
 }
 
 // ChainConfig returns the latest ethereum chain configuration

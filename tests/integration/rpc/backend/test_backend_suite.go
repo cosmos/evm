@@ -108,7 +108,7 @@ func (s *TestSuite) SetupTest() {
 // buildEthereumTx returns an example legacy Ethereum transaction
 func (s *TestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byte) {
 	ethTxParams := evmtypes.EvmTxArgs{
-		ChainID:  s.backend.EvmChainID,
+		ChainID:  s.backend.EvmChainID(),
 		Nonce:    uint64(0),
 		To:       &common.Address{},
 		Amount:   big.NewInt(0),
@@ -177,7 +177,7 @@ func (s *TestSuite) buildFormattedBlock(
 				uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
 				uint64(0),
 				baseFee,
-				s.backend.EvmChainID,
+				s.backend.EvmChainID(),
 			)
 			s.Require().NoError(err)
 			ethRPCTxs = []interface{}{rpcTx}
