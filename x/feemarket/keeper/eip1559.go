@@ -3,6 +3,8 @@ package keeper
 import (
 	"math"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -75,7 +77,7 @@ func (k Keeper) CalculateBaseFee(ctx sdk.Context) sdkmath.LegacyDec {
 		y := x.QuoInt(parentGasTargetInt)
 		baseFeeDelta := sdkmath.LegacyMaxDec(
 			y.QuoInt(baseFeeChangeDenominator),
-			sdkmath.LegacyOneDec(),
+			sdkmath.LegacyNewDec(1).QuoInt(evmtypes.GetEVMCoinDecimals().ConversionFactor()),
 		)
 
 		return parentBaseFee.Add(baseFeeDelta)

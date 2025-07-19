@@ -24,6 +24,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -150,7 +151,8 @@ func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p feemarke
 	num.Div(num, denom.SetUint64(parentGasTarget))
 	num.Div(num, denom.SetUint64(uint64(p.BaseFeeChangeDenominator)))
 	baseFee := num.Sub(parent.BaseFee, num)
-	minGasPrice := p.MinGasPrice.TruncateInt().BigInt()
+	factor := sdkmath.LegacyNewDecFromInt(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+	minGasPrice := p.MinGasPrice.Mul(factor).TruncateInt().BigInt()
 	return bigMax(baseFee, minGasPrice), nil
 }
 
