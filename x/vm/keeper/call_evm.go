@@ -117,7 +117,7 @@ func (k Keeper) DerivedEVMCall(
 	ctx sdk.Context,
 	abi abi.ABI,
 	from, contract common.Address,
-	value, gasLimit *big.Int,
+	value *big.Int,
 	commit, gasless bool,
 	method string,
 	args ...interface{},
@@ -130,7 +130,7 @@ func (k Keeper) DerivedEVMCall(
 		)
 	}
 
-	resp, err := k.DerivedEVMCallWithData(ctx, from, &contract, data, commit, gasless, value, gasLimit)
+	resp, err := k.DerivedEVMCallWithData(ctx, from, &contract, data, commit, gasless, value)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
@@ -160,7 +160,7 @@ func (k Keeper) DerivedEVMCallWithData(
 	contract *common.Address,
 	data []byte,
 	commit, gasless bool,
-	value, gasLimit *big.Int,
+	value *big.Int,
 ) (*types.MsgEthereumTxResponse, error) {
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
@@ -168,7 +168,7 @@ func (k Keeper) DerivedEVMCallWithData(
 	}
 
 	gasCap := config.DefaultGasCap
-	if commit && gasLimit == nil {
+	if commit {
 		args, err := json.Marshal(types.TransactionArgs{
 			From: &from,
 			To:   contract,
@@ -186,9 +186,6 @@ func (k Keeper) DerivedEVMCallWithData(
 			return nil, err
 		}
 		gasCap = gasRes.Gas
-	}
-	if gasLimit != nil {
-		gasCap = gasLimit.Uint64()
 	}
 
 	msg := ethtypes.NewMessage(
