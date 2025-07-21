@@ -89,7 +89,7 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 		return nil, err
 	}
 
-	res, err := k.evmKeeper.CallEVMWithData(ctx, sender, &contract, transferData, true)
+	res, err := k.evmKeeper.CallEVMWithData(ctx, sender, &contract, transferData, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func (k Keeper) ConvertCoinNativeERC20(
 	}
 
 	// Unescrow Tokens and send to receiver
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, "transfer", receiver, amount.BigInt())
+	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, nil, "transfer", receiver, amount.BigInt())
 	if err != nil {
 		return err
 	}
@@ -319,6 +319,15 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 // register a native ERC20 contract to map to a Cosmos Coin.
 func (k *Keeper) RegisterERC20(goCtx context.Context, req *types.MsgRegisterERC20) (*types.MsgRegisterERC20Response, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	params := k.GetParams(ctx)
+
+	if !params.PermissionlessRegistration {
+		if err := k.validateAuthority(req.Signer); err != nil {
+			return nil, err
+		}
+	}
+
 	// Check if the conversion is globally enabled
 	if !k.IsERC20Enabled(ctx) {
 		return nil, types.ErrERC20Disabled.Wrap("registration is currently disabled by governance")

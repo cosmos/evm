@@ -12,9 +12,10 @@ import (
 
 // Parameter store key
 var (
-	ParamStoreKeyEnableErc20        = []byte("EnableErc20")
-	ParamStoreKeyDynamicPrecompiles = []byte("DynamicPrecompiles")
-	ParamStoreKeyNativePrecompiles  = []byte("NativePrecompiles")
+	ParamStoreKeyEnableErc20                = []byte("EnableErc20")
+	ParamStoreKeyDynamicPrecompiles         = []byte("DynamicPrecompiles")
+	ParamStoreKeyNativePrecompiles          = []byte("NativePrecompiles")
+	ParamStoreKeyPermissionlessRegistration = []byte("PermissionlessRegistration")
 )
 
 var (
@@ -32,21 +33,24 @@ func NewParams(
 	enableErc20 bool,
 	nativePrecompiles []string,
 	dynamicPrecompiles []string,
+	permissionlessRegistration bool,
 ) Params {
 	slices.Sort(nativePrecompiles)
 	slices.Sort(dynamicPrecompiles)
 	return Params{
-		EnableErc20:        enableErc20,
-		NativePrecompiles:  nativePrecompiles,
-		DynamicPrecompiles: dynamicPrecompiles,
+		EnableErc20:                enableErc20,
+		NativePrecompiles:          nativePrecompiles,
+		DynamicPrecompiles:         dynamicPrecompiles,
+		PermissionlessRegistration: permissionlessRegistration,
 	}
 }
 
 func DefaultParams() Params {
 	return Params{
-		EnableErc20:        true,
-		NativePrecompiles:  DefaultNativePrecompiles,
-		DynamicPrecompiles: DefaultDynamicPrecompiles,
+		EnableErc20:                true,
+		NativePrecompiles:          DefaultNativePrecompiles,
+		DynamicPrecompiles:         DefaultDynamicPrecompiles,
+		PermissionlessRegistration: true,
 	}
 }
 
@@ -71,6 +75,10 @@ func (p Params) Validate() error {
 
 	dpAddrs, err := ValidatePrecompiles(p.DynamicPrecompiles)
 	if err != nil {
+		return err
+	}
+
+	if err := ValidateBool(p.PermissionlessRegistration); err != nil {
 		return err
 	}
 
@@ -122,12 +130,12 @@ func validatePrecompilesUniqueness(i interface{}) error {
 }
 
 // IsNativePrecompile checks if the provided address is within the native precompiles
-func (p Params) IsNativePrecompile(addr common.Address) bool {
+func (p *Params) IsNativePrecompile(addr common.Address) bool {
 	return isAddrIncluded(addr, p.NativePrecompiles)
 }
 
 // IsDynamicPrecompile checks if the provided address is within the dynamic precompiles
-func (p Params) IsDynamicPrecompile(addr common.Address) bool {
+func (p *Params) IsDynamicPrecompile(addr common.Address) bool {
 	return isAddrIncluded(addr, p.DynamicPrecompiles)
 }
 

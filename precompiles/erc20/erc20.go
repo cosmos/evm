@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -21,16 +22,24 @@ const (
 	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
 	abiPath = "abi.json"
 
-	GasTransfer          = 3_000_000
-	GasApprove           = 30_956
-	GasIncreaseAllowance = 34_605
-	GasDecreaseAllowance = 34_519
+	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which
+	// is not being merged to the main branch. The reason for this was to not clutter the repository with the
+	// necessary tests for this use case.
+	//
+	// The results can be inspected here:
+	// https://github.com/evmos/evmos/blob/malte/erc20-gas-tests/precompiles/erc20/plot_gas_values.ipynb
+
+	GasTransfer          = 9_000
+	GasTransferFrom      = 30_500
+	GasApprove           = 8_100
+	GasIncreaseAllowance = 8_580
+	GasDecreaseAllowance = 3_620
 	GasName              = 3_421
 	GasSymbol            = 3_464
 	GasDecimals          = 427
-	GasTotalSupply       = 2_477
-	GasBalanceOf         = 2_851
-	GasAllowance         = 3_246
+	GasTotalSupply       = 2_480
+	GasBalanceOf         = 2_870
+	GasAllowance         = 3_225
 )
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -100,7 +109,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	case TransferMethod:
 		return GasTransfer
 	case TransferFromMethod:
-		return GasTransfer
+		return GasTransferFrom
 	case ApproveMethod:
 		return GasApprove
 	case IncreaseAllowanceMethod:
@@ -127,6 +136,15 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract ERC-20 methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	bz, err = p.run(evm, contract, readOnly)
+	if err != nil {
+		return cmn.ReturnRevertError(evm, err)
+	}
+
+	return bz, nil
+}
+
+func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
 	// ERC20 precompiles cannot receive funds because they are not managed by an
 	// EOA and will not be possible to recover funds sent to an instance of
 	// them.This check is a safety measure because currently funds cannot be
@@ -135,31 +153,36 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
 	}
 
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
+	// Start the balance change handler before executing the precompile.
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
-		if err != nil {
-			return nil, err
-		}
+	bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
+	if err != nil {
+		return nil, err
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-		if !contract.UseGas(cost) {
-			return nil, vm.ErrOutOfGas
-		}
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
-		return bz, nil
-	})
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB)
+	if err != nil {
+		return nil, err
+	}
+
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

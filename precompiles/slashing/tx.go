@@ -26,7 +26,7 @@ func (p Precompile) Unjail(
 	ctx sdk.Context,
 	method *abi.Method,
 	stateDB vm.StateDB,
-	_ *vm.Contract,
+	contract *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
 	if len(args) != 1 {
@@ -38,8 +38,18 @@ func (p Precompile) Unjail(
 		return nil, fmt.Errorf("invalid validator hex address")
 	}
 
+	msgSender := contract.Caller()
+	if msgSender != validatorAddress {
+		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorAddress.String())
+	}
+
+	valAddr, err := p.valCodec.BytesToString(validatorAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert validator address: %w", err)
+	}
+
 	msg := &types.MsgUnjail{
-		ValidatorAddr: sdk.ValAddress(validatorAddress.Bytes()).String(),
+		ValidatorAddr: valAddr,
 	}
 
 	msgSrv := slashingkeeper.NewMsgServerImpl(p.slashingKeeper)

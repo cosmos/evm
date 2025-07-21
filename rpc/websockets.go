@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -78,10 +77,8 @@ type websocketsServer struct {
 
 func NewWebsocketsServer(clientCtx client.Context, logger log.Logger, tmWSClient *rpcclient.WSClient, cfg *config.Config) WebsocketsServer {
 	logger = logger.With("api", "websocket-server")
-	_, port, _ := net.SplitHostPort(cfg.JSONRPC.Address) // #nosec G703
-
 	return &websocketsServer{
-		rpcAddr:  "localhost:" + port, // FIXME: this shouldn't be hardcoded to localhost
+		rpcAddr:  cfg.JSONRPC.Address,
 		wsAddr:   cfg.JSONRPC.WsAddress,
 		certFile: cfg.TLS.CertificatePath,
 		keyFile:  cfg.TLS.KeyPath,
@@ -476,7 +473,7 @@ func (api *pubSubAPI) subscribeLogs(wsConn *wsConn, subID rpc.ID, extra interfac
 				return nil, err
 			}
 
-			if ok {
+			if isString {
 				crit.Addresses = []common.Address{common.HexToAddress(address)}
 			}
 
@@ -578,7 +575,7 @@ func (api *pubSubAPI) subscribeLogs(wsConn *wsConn, subID rpc.ID, extra interfac
 					continue
 				}
 
-				txResponse, err := evmtypes.DecodeTxResponse(dataTx.TxResult.Result.Data)
+				txResponse, err := evmtypes.DecodeTxResponse(dataTx.Result.Data)
 				if err != nil {
 					api.logger.Error("failed to decode tx response", "error", err.Error())
 					return

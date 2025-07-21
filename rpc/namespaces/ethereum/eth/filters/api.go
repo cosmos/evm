@@ -10,6 +10,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
@@ -21,6 +22,11 @@ import (
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client"
+)
+
+var (
+	errInvalidBlockRange      = errors.New("invalid block range params")
+	errPendingLogsUnsupported = errors.New("pending logs are not supported")
 )
 
 // FilterAPI gathers
@@ -244,9 +250,6 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe(api.events)
 				return
-			case <-notifier.Closed():
-				pendingTxSub.Unsubscribe(api.events)
-				return
 			}
 		}
 	}(pendingTxSub.eventCh)
@@ -350,9 +353,6 @@ func (api *PublicFilterAPI) NewHeads(ctx context.Context) (*rpc.Subscription, er
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe(api.events)
 				return
-			case <-notifier.Closed():
-				headersSub.Unsubscribe(api.events)
-				return
 			}
 		}
 	}(headersSub.eventCh)
@@ -401,7 +401,7 @@ func (api *PublicFilterAPI) Logs(ctx context.Context, crit filters.FilterCriteri
 					continue
 				}
 
-				txResponse, err := evmtypes.DecodeTxResponse(dataTx.TxResult.Result.Data)
+				txResponse, err := evmtypes.DecodeTxResponse(dataTx.Result.Data)
 				if err != nil {
 					api.logger.Error("fail to decode tx response", "error", err)
 					return
@@ -413,9 +413,6 @@ func (api *PublicFilterAPI) Logs(ctx context.Context, crit filters.FilterCriteri
 					_ = notifier.Notify(rpcSub.ID, log) // #nosec G703
 				}
 			case <-rpcSub.Err(): // client send an unsubscribe request
-				logsSub.Unsubscribe(api.events)
-				return
-			case <-notifier.Closed(): // connection dropped
 				logsSub.Unsubscribe(api.events)
 				return
 			}
@@ -484,7 +481,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 					continue
 				}
 
-				txResponse, err := evmtypes.DecodeTxResponse(dataTx.TxResult.Result.Data)
+				txResponse, err := evmtypes.DecodeTxResponse(dataTx.Result.Data)
 				if err != nil {
 					api.logger.Error("fail to decode tx response", "error", err)
 					return
@@ -526,6 +523,11 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit filters.FilterCrit
 		end := rpc.LatestBlockNumber.Int64()
 		if crit.ToBlock != nil {
 			end = crit.ToBlock.Int64()
+		}
+		// Block numbers below 0 are special cases.
+		// for more info, https://github.com/ethereum/go-ethereum/blob/v1.15.11/eth/filters/api.go#L360
+		if begin > 0 && end > 0 && begin > end {
+			return nil, errInvalidBlockRange
 		}
 		// Construct the range filter
 		filter = NewRangeFilter(api.logger, api.backend, begin, end, crit.Addresses, crit.Topics)
@@ -628,7 +630,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		hashes := f.hashes
 		f.hashes = nil
 		return returnHashes(hashes), nil
-	case filters.LogsSubscription, filters.MinedAndPendingLogsSubscription:
+	case filters.LogsSubscription:
 		logs := make([]*ethtypes.Log, len(f.logs))
 		copy(logs, f.logs)
 		f.logs = []*ethtypes.Log{}

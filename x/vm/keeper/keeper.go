@@ -5,10 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -36,6 +39,9 @@ type Keeper struct {
 
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
+
+	// KVStore Keys for modules wired to app
+	storeKeys map[string]*storetypes.KVStoreKey
 
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
@@ -70,6 +76,7 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, transientKey storetypes.StoreKey,
+	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -103,6 +110,7 @@ func NewKeeper(
 		transientKey:     transientKey,
 		tracer:           tracer,
 		erc20Keeper:      erc20Keeper,
+		storeKeys:        keys,
 	}
 }
 
@@ -184,7 +192,9 @@ func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 
 // PostTxProcessing delegates the call to the hooks.
 // If no hook has been registered, this function returns with a `nil` error
-func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message,
+	receipt *ethtypes.Receipt,
+) error {
 	if k.hooks == nil {
 		return nil
 	}
@@ -229,8 +239,8 @@ func (k Keeper) GetAccountStorage(ctx sdk.Context, address common.Address) types
 // ----------------------------------------------------------------------------
 
 // Tracer return a default vm.Tracer based on current keeper state
-func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) vm.EVMLogger {
-	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight())
+func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) *tracing.Hooks {
+	return types.NewTracer(k.tracer, msg, ethCfg, ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 }
 
 // GetAccountWithoutBalance load nonce and codehash without balance,
@@ -259,7 +269,7 @@ func (k *Keeper) GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb
 
 	// empty account
 	return statedb.Account{
-		Balance:  new(big.Int),
+		Balance:  new(uint256.Int),
 		CodeHash: types.EmptyCodeHash,
 	}
 }
@@ -276,13 +286,18 @@ func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
 }
 
 // GetBalance load account's balance of gas token.
-func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *big.Int {
+func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
-	return coin.Amount.BigInt()
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBaseFee returns current base fee, return values:
@@ -340,4 +355,9 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 	}
 	k.SetTransientGasUsed(ctx, result)
 	return result, nil
+}
+
+// KVStoreKeys returns KVStore keys injected to keeper
+func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+	return k.storeKeys
 }

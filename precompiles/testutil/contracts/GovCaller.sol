@@ -63,7 +63,6 @@ contract GovCaller {
     }
 
     function testSubmitProposalWithTransfer(
-        address payable _proposerAddr,
         bytes calldata _jsonProposal,
         types.Coin[] calldata _deposit,
         bool _before,
@@ -71,17 +70,17 @@ contract GovCaller {
     ) public payable returns (uint64) {
         if (_before) {
             counter++;
-            (bool sent, ) = _proposerAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
         uint64 proposalId = gov.GOV_CONTRACT.submitProposal(
-            _proposerAddr,
+            address(this),
             _jsonProposal,
             _deposit
         );
         if (_after) {
             counter++;
-            (bool sent, ) = _proposerAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
         return proposalId;
@@ -119,7 +118,6 @@ contract GovCaller {
     }
 
     function testDepositWithTransfer(
-        address payable _depositorAddr,
         uint64 _proposalId,
         types.Coin[] calldata _deposit,
         bool _before,
@@ -127,17 +125,17 @@ contract GovCaller {
     ) public payable returns (bool success) {
         if (_before) {
             counter++;
-            (bool sent, ) = _depositorAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
         success = gov.GOV_CONTRACT.deposit(
-            _depositorAddr,
+            address(this),
             _proposalId,
             _deposit
         );
         if (_after) {
             counter++;
-            (bool sent, ) = _depositorAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
     }
@@ -167,23 +165,22 @@ contract GovCaller {
     }
 
     function testCancelWithTransfer(
-        address payable _cancellerAddr,
         uint64 _proposalId,
         bool _before,
         bool _after
     ) public payable returns (bool success) {
         if (_before) {
             counter++;
-            (bool sent, ) = _cancellerAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
         success = gov.GOV_CONTRACT.cancelProposal(
-            _cancellerAddr,
+            address(this),
             _proposalId
         );
         if (_after) {
             counter++;
-            (bool sent, ) = _cancellerAddr.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to proposer");
         }
     }

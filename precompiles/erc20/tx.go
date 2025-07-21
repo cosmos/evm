@@ -7,9 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -44,7 +41,7 @@ func (p *Precompile) Transfer(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	from := contract.CallerAddress
+	from := contract.Caller()
 	to, amount, err := ParseTransferArgs(args)
 	if err != nil {
 		return nil, err
@@ -90,11 +87,11 @@ func (p *Precompile) transfer(
 	}
 
 	isTransferFrom := method.Name == TransferFromMethod
-	spenderAddr := contract.CallerAddress
+	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
 
 	if isTransferFrom {
-		spenderAddr := contract.CallerAddress
+		spenderAddr := contract.Caller()
 
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
@@ -103,7 +100,7 @@ func (p *Precompile) transfer(
 
 		newAllowance := new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
-			return nil, ConvertErrToERC20Error(ErrInsufficientAllowance)
+			return nil, ErrInsufficientAllowance
 		}
 
 		if newAllowance.Sign() == 0 {
@@ -122,13 +119,6 @@ func (p *Precompile) transfer(
 	if _, err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
-	}
-
-	evmDenom := evmtypes.GetEVMCoinDenom()
-	if p.tokenPair.Denom == evmDenom {
-		convertedAmount := evmtypes.ConvertAmountTo18DecimalsBigInt(amount)
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
-			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
