@@ -262,7 +262,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 			false,
 		},
 		{
-			"noop - tendermint blockres not found",
+			"fail - tendermint blockres not found",
 			common.BytesToHash(block.Hash()),
 			true,
 			math.NewInt(1).BigInt(),
@@ -273,8 +273,8 @@ func (s *TestSuite) TestGetBlockByHash() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterBlockByHashNotFound(client, hash, txBz)
 			},
-			true,
-			true,
+			false,
+			false,
 		},
 		{
 			"noop - tendermint failed to fetch block result",
