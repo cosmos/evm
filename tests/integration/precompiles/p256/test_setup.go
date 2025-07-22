@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/evm/precompiles/p256"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type PrecompileTestSuite struct {
@@ -48,10 +49,10 @@ func signMsg(msg []byte, priv *ecdsa.PrivateKey) ([]byte, error) {
 
 	input := make([]byte, p256.VerifyInputLength)
 	copy(input[0:32], hash)
-	copy(input[32:64], rInt.Bytes())
-	copy(input[64:96], sInt.Bytes())
-	copy(input[96:128], priv.X.Bytes())
-	copy(input[128:160], priv.Y.Bytes())
+	copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
+	copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
+	copy(input[96:128], common.LeftPadBytes(priv.X.Bytes(), 32))
+	copy(input[128:160], common.LeftPadBytes(priv.Y.Bytes(), 32))
 
 	return input, nil
 }

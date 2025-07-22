@@ -41,10 +41,10 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				input := make([]byte, p256.VerifyInputLength)
 				copy(input[0:32], hash)
-				copy(input[32:64], rInt.Bytes())
-				copy(input[64:96], sInt.Bytes())
-				copy(input[96:128], s.p256Priv.X.Bytes())
-				copy(input[128:160], s.p256Priv.Y.Bytes())
+				copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
+				copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
+				copy(input[96:128], common.LeftPadBytes(s.p256Priv.X.Bytes(), 32))
+				copy(input[128:160], common.LeftPadBytes(s.p256Priv.Y.Bytes(), 32))
 
 				return input
 			},
@@ -64,10 +64,10 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				input := make([]byte, p256.VerifyInputLength)
 				copy(input[0:32], hash)
-				copy(input[32:64], rBz)
-				copy(input[64:96], sBz)
-				copy(input[96:128], s.p256Priv.X.Bytes())
-				copy(input[128:160], s.p256Priv.Y.Bytes())
+				copy(input[32:64], common.LeftPadBytes(rBz, 32))
+				copy(input[64:96], common.LeftPadBytes(sBz, 32))
+				copy(input[96:128], common.LeftPadBytes(s.p256Priv.X.Bytes(), 32))
+				copy(input[128:160], common.LeftPadBytes(s.p256Priv.Y.Bytes(), 32))
 
 				return input
 			},
@@ -90,10 +90,10 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				input := make([]byte, p256.VerifyInputLength)
 				copy(input[0:32], hash)
-				copy(input[32:64], rInt.Bytes())
-				copy(input[64:96], sInt.Bytes())
-				copy(input[96:128], privB.X.Bytes())
-				copy(input[128:160], privB.Y.Bytes())
+				copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
+				copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
+				copy(input[96:128], common.LeftPadBytes(privB.X.Bytes(), 32))
+				copy(input[128:160], common.LeftPadBytes(privB.Y.Bytes(), 32))
 
 				return input
 			},
