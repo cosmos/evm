@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/cosmos/evm/precompiles/p256"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type PrecompileTestSuite struct {
