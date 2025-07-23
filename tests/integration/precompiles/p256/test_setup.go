@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -49,10 +48,10 @@ func signMsg(msg []byte, priv *ecdsa.PrivateKey) ([]byte, error) {
 
 	input := make([]byte, p256.VerifyInputLength)
 	copy(input[0:32], hash)
-	copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
-	copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
-	copy(input[96:128], common.LeftPadBytes(priv.X.Bytes(), 32))
-	copy(input[128:160], common.LeftPadBytes(priv.Y.Bytes(), 32))
+	rInt.FillBytes(input[32:64])
+	sInt.FillBytes(input[64:96])
+	priv.X.FillBytes(input[96:128])
+	priv.Y.FillBytes(input[128:160])
 
 	return input, nil
 }
