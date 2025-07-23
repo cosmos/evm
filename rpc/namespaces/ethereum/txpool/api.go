@@ -4,7 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/types"
 
@@ -14,15 +13,13 @@ import (
 // PublicAPI offers and API for the transaction pool. It only operates on data that is non-confidential.
 // NOTE: For more info about the current status of this endpoints see https://github.com/evmos/ethermint/issues/124
 type PublicAPI struct {
-	ctx     *server.Context
 	logger  log.Logger
 	backend backend.EVMBackend
 }
 
 // NewPublicAPI creates a new tx pool service that gives information about the transaction pool.
-func NewPublicAPI(ctx *server.Context, logger log.Logger, backend backend.EVMBackend) *PublicAPI {
+func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	return &PublicAPI{
-		ctx:     ctx,
 		logger:  logger.With("module", "txpool"),
 		backend: backend,
 	}

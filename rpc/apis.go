@@ -115,7 +115,7 @@ func init() {
 		},
 		TxPoolNamespace: func(ctx *server.Context,
 			clientCtx client.Context,
-			tmWSClient *rpcclient.WSClient,
+			_ *rpcclient.WSClient,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
 		) []rpc.API {
@@ -124,7 +124,7 @@ func init() {
 				{
 					Namespace: TxPoolNamespace,
 					Version:   apiVersion,
-					Service:   txpool.NewPublicAPI(ctx, ctx.Logger, evmBackend),
+					Service:   txpool.NewPublicAPI(ctx.Logger, evmBackend),
 					Public:    true,
 				},
 			}

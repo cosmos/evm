@@ -1,14 +1,14 @@
 package backend
 
 import (
-	"github.com/cosmos/evm/rpc/types"
-	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	"github.com/cosmos/evm/rpc/types"
 )
 
 // Content returns the transactions contained within the transaction pool
-func (b *Backend) Content() (map[string]map[string]map[string]*rpctypes.RPCTransaction, error) {
+func (b *Backend) Content() (map[string]map[string]map[string]*types.RPCTransaction, error) {
 	content := map[string]map[string]map[string]*types.RPCTransaction{
 		"pending": make(map[string]map[string]*types.RPCTransaction),
 		"queued":  make(map[string]map[string]*types.RPCTransaction),
@@ -17,7 +17,7 @@ func (b *Backend) Content() (map[string]map[string]map[string]*rpctypes.RPCTrans
 }
 
 // ContentFrom returns the transactions contained within the transaction pool
-func (b *Backend) ContentFrom(_ common.Address) (map[string]map[string]map[string]*rpctypes.RPCTransaction, error) {
+func (b *Backend) ContentFrom(_ common.Address) (map[string]map[string]map[string]*types.RPCTransaction, error) {
 	content := map[string]map[string]map[string]*types.RPCTransaction{
 		"pending": make(map[string]map[string]*types.RPCTransaction),
 		"queued":  make(map[string]map[string]*types.RPCTransaction),
