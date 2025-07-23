@@ -120,7 +120,7 @@ type EVMBackend interface {
 
 	// TxPool API
 	Content() (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
-	ContentFrom() (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
+	ContentFrom(address common.Address) (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
 	Inspect() (map[string]map[string]map[string]string, error)
 	Status() (map[string]hexutil.Uint, error)
 
