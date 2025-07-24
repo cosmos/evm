@@ -65,8 +65,9 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				input := make([]byte, p256.VerifyInputLength)
 				copy(input[0:32], hash)
-				copy(input[32:64], rBz)
-				copy(input[64:96], sBz)
+				// ALWAYS left-pad to 32 bytes:
+				copy(input[32:64], common.LeftPadBytes(rBz, 32))
+				copy(input[64:96], common.LeftPadBytes(sBz, 32))
 				s.p256Priv.X.FillBytes(input[96:128])
 				s.p256Priv.Y.FillBytes(input[128:160])
 
