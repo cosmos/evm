@@ -500,9 +500,63 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		return nil, nil, err
 	}
 
+	// Determine if this is a prospective transaction or an executed transaction
+	// by checking if the transaction hash exists in the block
+	var predecessors []*evmtypes.MsgEthereumTx
+	txHash := msg.AsTransaction().Hash()
+
+	// Try to find the transaction in the block to determine if it's executed
+	var isExecuted bool
+	for _, txBz := range header.Block.Txs {
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+		if err != nil {
+			continue
+		}
+		for _, txMsg := range tx.GetMsgs() {
+			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+			if !ok {
+				continue
+			}
+			if ethMsg.AsTransaction().Hash() == txHash {
+				isExecuted = true
+				break
+			}
+		}
+		if isExecuted {
+			break
+		}
+	}
+
+	// If it's an executed transaction, we need to get the predecessor transactions
+	if isExecuted {
+		// Get all transactions in the block up to the target transaction
+		// For simplicity, we'll get all transactions in the block as predecessors
+		// In a more sophisticated implementation, you'd want to find the exact position
+		for _, txBz := range header.Block.Txs {
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+			if err != nil {
+				continue
+			}
+			for _, txMsg := range tx.GetMsgs() {
+				ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+				if !ok {
+					continue
+				}
+				// Don't include the target transaction itself as a predecessor
+				if ethMsg.AsTransaction().Hash() != txHash {
+					predecessors = append(predecessors, ethMsg)
+				}
+			}
+		}
+	} else {
+		// For prospective transactions, use empty predecessors
+		predecessors = []*evmtypes.MsgEthereumTx{}
+	}
+
 	// Create the trace request
 	traceTxRequest := evmtypes.QueryTraceTxRequest{
 		Msg:             msg,
+		Predecessors:    predecessors,
 		BlockNumber:     header.Block.Height,
 		BlockTime:       header.Block.Time,
 		BlockHash:       common.Bytes2Hex(header.BlockID.Hash),
@@ -539,82 +593,14 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		return nil, nil, err
 	}
 
-	// Parse the trace result to extract the access list
-	var traceResult map[string]interface{}
-	if err := json.Unmarshal(res.Data, &traceResult); err != nil {
-		return nil, nil, err
-	}
-
-	// Extract the access list from the trace result
-	accessListData, ok := traceResult["accessList"]
-	if !ok {
-		return nil, nil, errors.New("access list not found in trace result")
-	}
-
-	// Convert the access list data to ethereum format
-	accessListBytes, err := json.Marshal(accessListData)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	// The access list tracer returns the access list directly as the result
+	// not wrapped in an "accessList" field
 	var ethAccessList ethtypes.AccessList
-	if err := json.Unmarshal(accessListBytes, &ethAccessList); err != nil {
+	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
 		return nil, nil, err
 	}
 
 	// Estimate gas usage with the access list
-	// Create a new transaction with the access list
-	ethTx := msg.AsTransaction()
-	if ethTx == nil {
-		return nil, nil, errors.New("failed to convert message to transaction")
-	}
-
-	// Create a new transaction with the access list
-	var newTx *ethtypes.Transaction
-	switch ethTx.Type() {
-	case ethtypes.LegacyTxType:
-		newTx = ethtypes.NewTx(&ethtypes.LegacyTx{
-			Nonce:    ethTx.Nonce(),
-			GasPrice: ethTx.GasPrice(),
-			Gas:      ethTx.Gas(),
-			To:       ethTx.To(),
-			Value:    ethTx.Value(),
-			Data:     ethTx.Data(),
-		})
-	case ethtypes.AccessListTxType:
-		newTx = ethtypes.NewTx(&ethtypes.AccessListTx{
-			ChainID:    ethTx.ChainId(),
-			Nonce:      ethTx.Nonce(),
-			GasPrice:   ethTx.GasPrice(),
-			Gas:        ethTx.Gas(),
-			To:         ethTx.To(),
-			Value:      ethTx.Value(),
-			Data:       ethTx.Data(),
-			AccessList: ethAccessList,
-		})
-	case ethtypes.DynamicFeeTxType:
-		newTx = ethtypes.NewTx(&ethtypes.DynamicFeeTx{
-			ChainID:    ethTx.ChainId(),
-			Nonce:      ethTx.Nonce(),
-			GasTipCap:  ethTx.GasTipCap(),
-			GasFeeCap:  ethTx.GasFeeCap(),
-			Gas:        ethTx.Gas(),
-			To:         ethTx.To(),
-			Value:      ethTx.Value(),
-			Data:       ethTx.Data(),
-			AccessList: ethAccessList,
-		})
-	default:
-		return nil, nil, errors.New("unsupported transaction type")
-	}
-
-	// Convert the new transaction back to a message for gas estimation
-	newMsg := &evmtypes.MsgEthereumTx{}
-	if err := newMsg.FromEthereumTx(newTx); err != nil {
-		return nil, nil, err
-	}
-
-	// Estimate gas for the transaction with access list
 	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
 		From:       args.From,
 		To:         args.To,
