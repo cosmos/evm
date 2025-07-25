@@ -52,7 +52,7 @@ func (k Keeper) IterateAccountBalances(ctx context.Context, account sdk.AccAddre
 	k.bk.IterateAccountBalances(ctx, account, cb)
 }
 
-// SpendableCoins returns the total balances of spendable coins for an account
+// SpendableCoin returns the total balances of spendable coins for an account
 // by address. If the account has no spendable coins, an empty Coins slice is
 // returned.
 func (k Keeper) SpendableCoin(

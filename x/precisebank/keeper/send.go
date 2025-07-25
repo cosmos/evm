@@ -288,7 +288,7 @@ func addToFractionalBalance(currentFractionalBalance sdkmath.Int, amountToAdd sd
 	return newFractionalBalance, carryRequired
 }
 
-// SendCoinsFromModuleToModule transfers coins from a ModuleAccount to another.
+// SendCoinsFromAccountToModule transfers coins from a ModuleAccount to another.
 // It will panic if either module account does not exist. An error is returned
 // if the recipient module is the x/precisebank module account or if sending the
 // tokens fails.
