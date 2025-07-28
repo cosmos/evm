@@ -86,7 +86,7 @@ func DeployContract(
 		Input:     data,
 		Accesses:  &ethtypes.AccessList{},
 	})
-	msgEthereumTx.From = from.String()
+	msgEthereumTx.From = from.Bytes()
 
 	res, err := DeliverEthTx(app, priv, msgEthereumTx)
 	if err != nil {
@@ -120,7 +120,7 @@ func DeployContractWithFactory(
 		GasLimit: uint64(100000),
 		GasPrice: big.NewInt(1000000000),
 	})
-	msgEthereumTx.From = from.String()
+	msgEthereumTx.From = from.Bytes()
 
 	res, err := DeliverEthTx(exampleApp, priv, msgEthereumTx)
 	if err != nil {

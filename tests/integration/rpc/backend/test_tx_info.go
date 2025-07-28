@@ -45,7 +45,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 		},
 	}
 
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
 
 	testCases := []struct {
 		name         string
@@ -132,7 +132,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 func (s *TestSuite) TestGetTransactionsByHashPending() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
 
 	testCases := []struct {
 		name         string
@@ -192,7 +192,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 
 func (s *TestSuite) TestGetTxByEthHash() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
 
 	testCases := []struct {
 		name         string
