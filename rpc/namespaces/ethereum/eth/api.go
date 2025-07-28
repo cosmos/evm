@@ -114,7 +114,6 @@ var _ EthereumAPI = (*PublicAPI)(nil)
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PublicAPI struct {
-	ctx     context.Context
 	logger  log.Logger
 	backend backend.EVMBackend
 }
@@ -122,7 +121,6 @@ type PublicAPI struct {
 // NewPublicAPI creates an instance of the public ETH Web3 API.
 func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	api := &PublicAPI{
-		ctx:     context.Background(),
 		logger:  logger.With("client", "json-rpc"),
 		backend: backend,
 	}
