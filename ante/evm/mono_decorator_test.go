@@ -117,10 +117,9 @@ func signMsgEthereumTx(t *testing.T, privKey *ethsecp256k1.PrivKey, args *evmsdk
 	t.Helper()
 	msg := evmsdktypes.NewTx(args)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
-	msg.From = fromAddr.Hex()
+	msg.From = fromAddr.Bytes()
 	ethSigner := ethtypes.LatestSignerForChainID(evmsdktypes.GetEthChainConfig().ChainID)
 	require.NoError(t, msg.Sign(ethSigner, utiltx.NewSigner(privKey)))
-	msg.From = ""
 	return msg
 }
 

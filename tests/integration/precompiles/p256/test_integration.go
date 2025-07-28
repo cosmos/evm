@@ -110,10 +110,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						copy(input[0:32], hash)
 
 						// ALWAYS left-pad to 32 bytes:
-						copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
-						copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
-						copy(input[96:128], common.LeftPadBytes(pub.X.Bytes(), 32))
-						copy(input[128:160], common.LeftPadBytes(pub.Y.Bytes(), 32))
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						pub.X.FillBytes(input[96:128])
+						pub.Y.FillBytes(input[128:160])
 						return input, nil, ""
 					},
 				),
@@ -170,11 +170,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						input = make([]byte, p256.VerifyInputLength)
 						copy(input[0:32], hash)
-						// ALWAYS left-pad to 32 bytes:
-						copy(input[32:64], common.LeftPadBytes(rInt.Bytes(), 32))
-						copy(input[64:96], common.LeftPadBytes(sInt.Bytes(), 32))
-						copy(input[96:128], common.LeftPadBytes(privB.PublicKey.X.Bytes(), 32))
-						copy(input[128:160], common.LeftPadBytes(privB.PublicKey.Y.Bytes(), 32))
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						privB.PublicKey.X.FillBytes(input[96:128])
+						privB.PublicKey.Y.FillBytes(input[128:160])
 						return input
 					},
 				),

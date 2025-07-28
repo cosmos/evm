@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -54,7 +55,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		nil,
 		true,
 		simutils.EmptyAppOptions{},
-		9001,
+		constants.ExampleEIP155ChainID,
 		testconfig.EvmAppOptions,
 	)
 	// disable base fee for testing
