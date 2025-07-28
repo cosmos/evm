@@ -22,3 +22,4 @@ jobs:
               "release_url": "${{ github.event.release.html_url }}",
               "repository": "${{ github.repository }}"
             }
+            
