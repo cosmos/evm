@@ -240,7 +240,17 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, false, false)
+	// Enforce the gas limit cap
+	gasCap := req.GasCap
+	if k.queryGasLimit != GasNoLimit {
+		if gasCap == 0 {
+			gasCap = k.queryGasLimit
+		} else if k.queryGasLimit < gasCap {
+			gasCap = k.queryGasLimit
+		}
+	}
+
+	msg, err := args.ToMessage(gasCap, cfg.BaseFee, false, false)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -283,11 +293,20 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// Enforce the gas limit cap
+	gasCap := req.GasCap
+	if k.queryGasLimit != GasNoLimit {
+		if gasCap == 0 {
+			gasCap = k.queryGasLimit
+		} else if k.queryGasLimit < gasCap {
+			gasCap = k.queryGasLimit
+		}
+	}
+
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo     = ethparams.TxGas - 1
-		hi     uint64
-		gasCap uint64
+		lo = ethparams.TxGas - 1
+		hi uint64
 	)
 
 	// Determine the highest gas limit can be used during the estimation.
@@ -304,11 +323,12 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	}
 
 	// Recap the highest gas allowance with specified gascap.
-	if req.GasCap != 0 && hi > req.GasCap {
-		hi = req.GasCap
+	if gasCap != 0 && hi > gasCap {
+		hi = gasCap
+	} else {
+		gasCap = hi
 	}
 
-	gasCap = hi
 	cfg, err := k.EVMConfig(ctx, GetProposerAddress(ctx, req.ProposerAddress))
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to load evm config")
@@ -321,7 +341,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// convert the tx args to an ethereum message
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, true, true)
+	msg, err := args.ToMessage(gasCap, cfg.BaseFee, true, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -481,6 +481,7 @@ func NewExampleApp(
 		app.FeeMarketKeeper,
 		&app.Erc20Keeper,
 		tracer,
+		cast.ToUint64(appOpts.Get(server.FlagQueryGasLimit)),
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(

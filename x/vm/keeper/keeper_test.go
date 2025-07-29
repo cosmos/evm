@@ -94,6 +94,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.fmKeeper,
 		suite.erc20Keeper,
 		"",
+		vmkeeper.GasNoLimit,
 	)
 }
 
