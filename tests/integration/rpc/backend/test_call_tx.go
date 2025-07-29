@@ -474,7 +474,7 @@ func (s *TestSuite) TestDoCall() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			msgEthTx, err := s.backend.DoCall(tc.callArgs, tc.blockNum)
+			msgEthTx, err := s.backend.DoCall(tc.callArgs, tc.blockNum, nil)
 
 			if tc.expPass {
 				s.Require().Equal(tc.expEthTx, msgEthTx)

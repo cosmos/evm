@@ -21,6 +21,7 @@ import (
 
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -223,6 +224,13 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
+	var overrides rpctypes.StateOverride
+	if len(req.Overrides) > 0 {
+		if err := json.Unmarshal(req.Overrides, &overrides); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state overrides format: %s", err.Error()))
+		}
+	}
+
 	ctx := sdk.UnwrapSDKContext(c)
 
 	var args types.TransactionArgs
@@ -248,7 +256,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// pass false to not commit StateDB
-	res, err := k.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig, &overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -385,7 +393,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			tmpCtx = evmante.BuildEvmExecutionCtx(tmpCtx).WithGasMeter(gasMeter)
 		}
 		// pass false to not commit StateDB
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, msg, nil, false, cfg, txConfig)
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, msg, nil, false, cfg, txConfig, nil)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -484,7 +492,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		// reset gas meter for each transaction
 		ctx = evmante.BuildEvmExecutionCtx(ctx).
 			WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
-		rsp, err := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig)
+		rsp, err := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig, nil)
 		if err != nil {
 			continue
 		}
@@ -671,7 +679,7 @@ func (k *Keeper) traceTx(
 	// Build EVM execution context
 	ctx = evmante.BuildEvmExecutionCtx(ctx).
 		WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(msg.GasLimit))
-	res, err := k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig, nil)
 	if err != nil {
 		return nil, 0, status.Error(codes.Internal, err.Error())
 	}
