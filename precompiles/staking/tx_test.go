@@ -268,7 +268,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeCreateValidator]
+				event := s.precompile.Events[staking.EventTypeCreateValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 
@@ -561,7 +561,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeEditValidator]
+				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -599,7 +599,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeEditValidator]
+				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -635,7 +635,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeEditValidator]
+				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -816,7 +816,7 @@ func (s *PrecompileTestSuite) TestDelegate() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeDelegate]
+				event := s.precompile.Events[staking.EventTypeDelegate]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 			},

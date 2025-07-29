@@ -23,6 +23,13 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.EighteenDecimals,
 	},
+	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
+	SixDecimalsChainID: {
+		Denom:         "utest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.SixDecimals,
+	},
 }
 
 const (

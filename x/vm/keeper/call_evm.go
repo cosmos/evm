@@ -1,12 +1,10 @@
 package keeper
 
 import (
-	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
@@ -16,7 +14,6 @@ import (
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // CallEVM performs a smart contract method call using given args.
@@ -38,7 +35,7 @@ func (k Keeper) CallEVM(
 
 	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit)
 	if err != nil {
-		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
+		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
 	return resp, nil
 }
@@ -56,33 +53,12 @@ func (k Keeper) CallEVMWithData(
 		return nil, err
 	}
 
-	gasCap := config.DefaultGasCap
-	if commit {
-		args, err := json.Marshal(types.TransactionArgs{
-			From: &from,
-			To:   contract,
-			Data: (*hexutil.Bytes)(&data),
-		})
-		if err != nil {
-			return nil, errorsmod.Wrapf(errortypes.ErrJSONMarshal, "failed to marshal tx args: %s", err.Error())
-		}
-
-		gasRes, err := k.EstimateGasInternal(ctx, &types.EthCallRequest{
-			Args:   args,
-			GasCap: config.DefaultGasCap,
-		}, types.Internal)
-		if err != nil {
-			return nil, err
-		}
-		gasCap = gasRes.Gas
-	}
-
 	msg := core.Message{
 		From:       from,
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   gasCap,
+		GasLimit:   config.DefaultGasCap,
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),
@@ -90,14 +66,17 @@ func (k Keeper) CallEVMWithData(
 		AccessList: ethtypes.AccessList{},
 	}
 
-	res, err := k.ApplyMessage(ctx, msg, nil, commit)
+	res, err := k.ApplyMessage(ctx, msg, nil, commit, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if res.Failed() {
-		return nil, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
+		k.ResetGasMeterAndConsumeGas(ctx, ctx.GasMeter().Limit())
+		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
 	}
+
+	ctx.GasMeter().ConsumeGas(res.GasUsed, "apply evm message")
 
 	return res, nil
 }

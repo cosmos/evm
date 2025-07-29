@@ -102,13 +102,13 @@ func (suite *KeeperTestSuite) TestConvertERC20NativeERC20() {
 			false,
 		},
 		{
-			"fail - delayed malicious contract",
+			"pass - delayed malicious contract",
 			10,
 			10,
 			func(common.Address) {},
 			func() {},
 			contractMaliciousDelayed,
-			false,
+			true,
 			false,
 		},
 		{

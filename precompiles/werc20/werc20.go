@@ -14,8 +14,6 @@ import (
 	erc20 "github.com/cosmos/evm/precompiles/erc20"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
 // abiPath defines the path to the WERC-20 precompile ABI JSON file.
@@ -51,7 +49,7 @@ func LoadABI() (abi.ABI, error) {
 // instance to provide additional methods.
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
-	bankKeeper bankkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
@@ -66,7 +64,7 @@ func NewPrecompile(
 	}
 
 	// use the IWERC20 ABI
-	erc20Precompile.Precompile.ABI = newABI
+	erc20Precompile.ABI = newABI
 
 	return &Precompile{
 		Precompile: erc20Precompile,
@@ -107,7 +105,16 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract WERC20 methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	bz, err = p.run(evm, contract, readOnly)
+	if err != nil {
+		return cmn.ReturnRevertError(evm, err)
+	}
+
+	return bz, nil
+}
+
+func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -115,36 +122,31 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// This handles any out of gas errors that may occur during the execution of
 	// a precompile tx or query. It avoids panics and returns the out of gas error so
 	// the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		switch {
-		case method.Type == abi.Fallback,
-			method.Type == abi.Receive,
-			method.Name == DepositMethod:
-			bz, err = p.Deposit(ctx, contract, stateDB)
-		case method.Name == WithdrawMethod:
-			bz, err = p.Withdraw(ctx, contract, stateDB, args)
-		default:
-			// ERC20 transactions and queries
-			bz, err = p.Precompile.HandleMethod(ctx, contract, stateDB, method, args)
-		}
+	switch {
+	case method.Type == abi.Fallback,
+		method.Type == abi.Receive,
+		method.Name == DepositMethod:
+		bz, err = p.Deposit(ctx, contract, stateDB)
+	case method.Name == WithdrawMethod:
+		bz, err = p.Withdraw(ctx, contract, stateDB, args)
+	default:
+		// ERC20 transactions and queries
+		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
+	}
 
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-		if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-			return nil, vm.ErrOutOfGas
-		}
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
 
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
-		return bz, nil
-	})
+	return bz, nil
 }
 
 // IsTransaction returns true if the given method name correspond to a

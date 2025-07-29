@@ -1355,7 +1355,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 		// make a delegation with contract as delegator
 		logCheck := testutil.LogCheckArgs{
 			ExpPass:   true,
-			ABIEvents: stkPrecompile.ABI.Events,
+			ABIEvents: stkPrecompile.Events,
 			ExpEvents: []string{staking.EventTypeDelegate},
 		}
 		delegateAmt := big.NewInt(1e18)
@@ -1517,11 +1517,17 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 				differentAddr, s.network.GetValidators()[0].OperatorAddress,
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(
+				cmn.ErrRequesterIsNotMsgSender,
+				contractAddr,
+				differentAddr.String(),
+			)
+
 			res, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
@@ -1873,7 +1879,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2060,7 +2066,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2279,7 +2285,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 
 			// set gas such that the internal keeper function called by the precompile fails out mid-execution
 			txArgs.GasLimit = 80_000
-			_, _, err = s.factory.CallContractAndCheckLogs(
+			_, txRes, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
@@ -2291,7 +2297,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 			Expect(err).To(BeNil())
 			finalBalance := balRes.Balance
-			expectedGasCost := math.NewInt(79_416_000_000_000)
+			expectedGasCost := math.NewIntFromUint64(txRes.GasUsed).Mul(math.NewIntFromBigInt(txArgs.GasPrice))
 			Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
 
 			res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
@@ -2321,7 +2327,7 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			txArgs.GasLimit = 500_000
@@ -2657,11 +2663,17 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 				differentAddr.String(), differentAddr, s.network.GetValidators()[0].OperatorAddress,
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(
+				cmn.ErrRequesterIsNotMsgSender,
+				contractAddr,
+				s.keyring.GetAddr(0),
+			)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil())
@@ -2686,11 +2698,13 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			callArgs.MethodName = "delegateCallSetWithdrawAddress"
 			callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested("failed delegateCall to precompile")
+
 			_, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil())
@@ -2705,11 +2719,13 @@ var _ = Describe("Calling distribution precompile from contract", Ordered, func(
 			callArgs.MethodName = "staticCallSetWithdrawAddress"
 			callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested("failed staticCall to precompile")
+
 			_, _, err := s.factory.CallContractAndCheckLogs(
 				s.keyring.GetPrivKey(0),
 				txArgs,
 				callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil())

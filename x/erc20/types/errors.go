@@ -24,4 +24,5 @@ var (
 	ErrAllowanceNotFound        = errorsmod.Register(ModuleName, 17, "allowance not found")
 	ErrInvalidAllowance         = errorsmod.Register(ModuleName, 18, "invalid allowance")
 	ErrNegativeToken            = errorsmod.Register(ModuleName, 19, "token amount is negative")
+	ErrExpectedEvent            = errorsmod.Register(ModuleName, 20, "expected event")
 )

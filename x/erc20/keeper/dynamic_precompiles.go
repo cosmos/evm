@@ -1,13 +1,9 @@
 package keeper
 
 import (
-	"fmt"
-	"slices"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -27,8 +23,7 @@ func (k Keeper) RegisterERC20Extension(ctx sdk.Context, denom string) (*types.To
 	}
 
 	// Add to existing EVM extensions
-	err = k.EnableDynamicPrecompiles(ctx, pair.GetERC20Contract())
-	if err != nil {
+	if err := k.EnableDynamicPrecompile(ctx, pair.GetERC20Contract()); err != nil {
 		return nil, err
 	}
 
@@ -86,45 +81,4 @@ func (k Keeper) UnRegisterERC20CodeHash(ctx sdk.Context, erc20Addr common.Addres
 		Nonce:    nonce,
 		Balance:  balance,
 	})
-}
-
-// EnableDynamicPrecompiles appends the addresses of the given Precompiles to the list
-// of active dynamic precompiles.
-func (k Keeper) EnableDynamicPrecompiles(ctx sdk.Context, addresses ...common.Address) error {
-	// Get the current params and append the new precompiles
-	params := k.GetParams(ctx)
-	activePrecompiles := params.DynamicPrecompiles
-
-	// Append and sort the new precompiles
-	updatedPrecompiles, err := appendPrecompiles(activePrecompiles, addresses...)
-	if err != nil {
-		return err
-	}
-
-	// Update params
-	params.DynamicPrecompiles = updatedPrecompiles
-	k.Logger(ctx).Info("Added new precompiles", "addresses", addresses)
-	return k.SetParams(ctx, params)
-}
-
-// appendPrecompiles append addresses to the existingPrecompiles and sort the resulting slice.
-// The function returns an error is the two sets are overlapping.
-func appendPrecompiles(existingPrecompiles []string, addresses ...common.Address) ([]string, error) {
-	// check for duplicates
-	hexAddresses := make([]string, len(addresses))
-	for i := range addresses {
-		addrHex := addresses[i].Hex()
-		if slices.Contains(existingPrecompiles, addrHex) {
-			return nil, fmt.Errorf("attempted to register a duplicate precompile address: %s", addrHex)
-		}
-		hexAddresses[i] = addrHex
-	}
-
-	existingLength := len(existingPrecompiles)
-	updatedPrecompiles := make([]string, existingLength+len(hexAddresses))
-	copy(updatedPrecompiles, existingPrecompiles)
-	copy(updatedPrecompiles[existingLength:], hexAddresses)
-
-	utils.SortSlice(updatedPrecompiles)
-	return updatedPrecompiles, nil
 }

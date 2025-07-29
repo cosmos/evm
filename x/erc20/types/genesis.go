@@ -46,17 +46,12 @@ func (gs GenesisState) Validate() error {
 		seenDenom[b.Denom] = true
 	}
 
-	// Check if params are valid
-	if err := gs.Params.Validate(); err != nil {
-		return fmt.Errorf("invalid params on genesis: %w", err)
-	}
-
 	// Check if active precompiles have a corresponding token pair
-	if err := validatePrecompiles(gs.TokenPairs, gs.Params.DynamicPrecompiles); err != nil {
+	if err := validatePrecompiles(gs.TokenPairs, gs.DynamicPrecompiles); err != nil {
 		return fmt.Errorf("invalid dynamic precompiles on genesis: %w", err)
 	}
 
-	if err := validatePrecompiles(gs.TokenPairs, gs.Params.NativePrecompiles); err != nil {
+	if err := validatePrecompiles(gs.TokenPairs, gs.NativePrecompiles); err != nil {
 		return fmt.Errorf("invalid native precompiles on genesis: %w", err)
 	}
 

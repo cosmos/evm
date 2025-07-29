@@ -31,8 +31,53 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
+
+func (suite *KeeperTestSuite) TestContextSetConsensusParams() {
+	// set new value of max gas in consensus params
+	maxGas := int64(123456789)
+	res, err := s.network.App.ConsensusParamsKeeper.Params(s.network.GetContext(), &consensustypes.QueryParamsRequest{})
+	s.Require().NoError(err)
+	consParams := res.Params
+	consParams.Block.MaxGas = maxGas
+	_, err = s.network.App.ConsensusParamsKeeper.UpdateParams(s.network.GetContext(), &consensustypes.MsgUpdateParams{
+		Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Block:     consParams.Block,
+		Evidence:  consParams.Evidence,
+		Validator: consParams.Validator,
+		Abci:      consParams.Abci,
+	})
+	s.Require().NoError(err)
+
+	queryContext := s.network.GetQueryContext()
+	proposerAddress := queryContext.BlockHeader().ProposerAddress
+	cfg, err := s.network.App.EVMKeeper.EVMConfig(queryContext, proposerAddress)
+	s.Require().NoError(err)
+
+	sender := suite.keyring.GetKey(0)
+	recipient := suite.keyring.GetAddr(1)
+	msg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+		To:     &recipient,
+		Amount: big.NewInt(100),
+	})
+	suite.Require().NoError(err)
+
+	// evm should query the max gas from consensus keeper, yielding the number set above.
+	vm := s.network.App.EVMKeeper.NewEVM(queryContext, *msg, cfg, nil, s.network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(maxGas))
+
+	// if we explicitly set the consensus params in context, like when Cosmos builds a transaction context,
+	// we should use that value, and not query the consensus params from the keeper.
+	consParams.Block.MaxGas = 54321
+	queryContext = queryContext.WithConsensusParams(*consParams)
+	vm = s.network.App.EVMKeeper.NewEVM(queryContext, *msg, cfg, nil, s.network.GetStateDB())
+	//nolint:gosec
+	s.Require().Equal(vm.Context.GasLimit, uint64(consParams.Block.MaxGas))
+}
 
 func (suite *KeeperTestSuite) TestGetHashFn() {
 	suite.SetupTest()
@@ -632,12 +677,7 @@ func (suite *KeeperTestSuite) TestApplyMessage() {
 		*coreMsg,
 		types.GetEthChainConfig(),
 	)
-	res, err := suite.network.App.EVMKeeper.ApplyMessage(
-		suite.network.GetContext(),
-		*coreMsg,
-		tracer,
-		true,
-	)
+	res, err := suite.network.App.EVMKeeper.ApplyMessage(suite.network.GetContext(), *coreMsg, tracer, true, false)
 	suite.Require().NoError(err)
 	suite.Require().False(res.Failed())
 
@@ -783,14 +823,7 @@ func (suite *KeeperTestSuite) TestApplyMessageWithConfig() {
 			suite.Require().NoError(err)
 
 			// Function being tested
-			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(
-				suite.network.GetContext(),
-				msg,
-				nil,
-				true,
-				config,
-				txConfig,
-			)
+			res, err := suite.network.App.EVMKeeper.ApplyMessageWithConfig(suite.network.GetContext(), msg, nil, true, config, txConfig, false)
 
 			if tc.expErr {
 				suite.Require().Error(err)
@@ -849,4 +882,49 @@ func (suite *KeeperTestSuite) TestGetProposerAddress() {
 			)
 		})
 	}
+}
+
+func (suite *KeeperTestSuite) TestApplyMessageWithNegativeAmount() {
+	suite.enableFeemarket = true
+	defer func() { suite.enableFeemarket = false }()
+	suite.SetupTest()
+
+	// Generate a transfer tx message
+	sender := suite.keyring.GetKey(0)
+	recipient := suite.keyring.GetAddr(1)
+	amt, _ := big.NewInt(0).SetString("-115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	transferArgs := types.EvmTxArgs{
+		To:     &recipient,
+		Amount: amt,
+	}
+	coreMsg, err := suite.factory.GenerateGethCoreMsg(
+		sender.Priv,
+		transferArgs,
+	)
+	suite.Require().NoError(err)
+
+	tracer := suite.network.App.EVMKeeper.Tracer(
+		suite.network.GetContext(),
+		*coreMsg,
+		types.GetEthChainConfig(),
+	)
+
+	ctx := suite.network.GetContext()
+	balance0Before := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+	balance1Before := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(1), "aatom")
+	res, err := suite.network.App.EVMKeeper.ApplyMessage(
+		suite.network.GetContext(),
+		*coreMsg,
+		tracer,
+		true,
+		false,
+	)
+	suite.Require().Nil(res)
+	suite.Require().Error(err)
+
+	balance0After := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(0), "aatom")
+	balance1After := suite.network.App.BankKeeper.GetBalance(ctx, suite.keyring.GetAccAddr(1), "aatom")
+
+	suite.Require().Equal(balance0Before, balance0After)
+	suite.Require().Equal(balance1Before, balance1After)
 }

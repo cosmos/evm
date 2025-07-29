@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
@@ -203,8 +204,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(ctxA)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(ctxA, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			} else {
 				suite.Require().False(ack.Success())
 
@@ -231,7 +232,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	path := suite.pathAToB
 	chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
-	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
+	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal).Quo(math.NewInt(2))
 	senderEthAddr := nativeErc20.Account
 	sender := sdk.AccAddress(senderEthAddr.Bytes())
 
@@ -241,6 +242,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		sender.String(), chainBAccount.String(),
 		timeoutHeight, 0, "",
 	)
+
 	_, err := suite.evmChainA.SendMsgs(msg)
 	suite.Require().NoError(err) // message committed
 
@@ -249,6 +251,16 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 		balAfterTransfer.String(),
 	)
+
+	convertMsg := types.MsgConvertERC20{
+		ContractAddress: nativeErc20.ContractAddr.String(),
+		Amount:          sendAmt,
+		Receiver:        sender.String(),
+		Sender:          senderEthAddr.String(),
+	}
+
+	_, err = suite.evmChainA.SendMsgs(&convertMsg)
+	suite.Require().NoError(err) // message committed
 
 	// Check native erc20 token is escrowed on evmChainA for sending to chainB.
 	escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
@@ -264,11 +276,14 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		),
 	)
 	receiver := sender // the receiver is the sender on evmChainA
+
+	// half the send amount should be received
+	recvAmt := sendAmt.Quo(math.NewInt(2))
 	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
 	// Note that ChainB didn't receive the native erc20 token. We just assume that.
 	packetData := transfertypes.NewFungibleTokenPacketData(
 		chainBNativeErc20Denom.Path(),
-		sendAmt.String(),
+		recvAmt.String(),
 		chainBAccount.String(),
 		receiver.String(),
 		"",
@@ -288,10 +303,40 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	suite.Require().True(ok)
 
 	sourceChan := path.EndpointB.GetChannel()
-	ack := transferStack.OnRecvPacket(
+
+	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, false)
+	isSendEnabled := evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+	suite.Require().False(isSendEnabled)
+
+	errAck := transferStack.OnRecvPacket(
 		evmCtx,
 		sourceChan.Version,
 		packet,
+		suite.evmChainA.SenderAccount.GetAddress(),
+	)
+	suite.Require().False(errAck.Success())
+
+	evmCtx = suite.evmChainA.GetContext()
+
+	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, true)
+	isSendEnabled = evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+	suite.Require().True(isSendEnabled)
+
+	packet2 := channeltypes.Packet{
+		Sequence:           2,
+		SourcePort:         path.EndpointB.ChannelConfig.PortID,
+		SourceChannel:      path.EndpointB.ChannelID,
+		DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+		DestinationChannel: path.EndpointA.ChannelID,
+		Data:               packetData.GetBytes(),
+		TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+		TimeoutTimestamp:   0,
+	}
+
+	ack := transferStack.OnRecvPacket(
+		evmCtx,
+		sourceChan.Version,
+		packet2,
 		suite.evmChainA.SenderAccount.GetAddress(),
 	)
 	suite.Require().True(ack.Success())
@@ -300,9 +345,11 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
 	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
-	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
+	suite.Require().Equal(recvAmt.String(), balAfterUnescrow.String())
 	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
-	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
+	// the packet that failed conversion due to the minting restriction should instead remain as the bank token
+	// additionally, we need to add the InitialBalance half which was converted but not sent
+	suite.Require().Equal(recvAmt.Add(sendAmt).String(), bankBalAfterUnescrow.Amount.String())
 }
 
 func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {

@@ -54,6 +54,7 @@ var (
 )
 
 const (
+	testDepositFromContract        = "testDepositFromContract"
 	testSubmitProposalFromContract = "testSubmitProposalFromContract"
 )
 
@@ -84,7 +85,7 @@ var _ = Describe("Calling governance precompile from EOA", func() {
 			ContractABI: s.precompile.ABI,
 		}
 		defaultLogCheck = testutil.LogCheckArgs{
-			ABIEvents: s.precompile.ABI.Events,
+			ABIEvents: s.precompile.Events,
 		}
 		passCheck = defaultLogCheck.WithExpPass(true)
 		outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
@@ -1007,12 +1008,14 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 	}
 
 	var (
-		govCallerContract evmtypes.CompiledContract
-		contractAddr      common.Address
-		contractAccAddr   sdk.AccAddress
-		txSenderKey       types.PrivKey
-		txSenderAddr      common.Address
-		err               error
+		govCallerContract   evmtypes.CompiledContract
+		contractAddr        common.Address
+		contractAccAddr     sdk.AccAddress
+		contractAddrDupe    common.Address
+		contractAccAddrDupe sdk.AccAddress
+		txSenderKey         types.PrivKey
+		txSenderAddr        common.Address
+		err                 error
 
 		proposalID         uint64 // proposal id submitted by eoa
 		contractProposalID uint64 // proposal id submitted by contract account
@@ -1055,6 +1058,21 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 		cAcc := s.network.App.EVMKeeper.GetAccount(s.network.GetContext(), contractAddr)
 		Expect(cAcc).ToNot(BeNil(), "failed to get contract account")
 		Expect(cAcc.IsContract()).To(BeTrue(), "expected contract account")
+
+		contractAddrDupe, err = s.factory.DeployContract(
+			txSenderKey,
+			evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
+			factory.ContractDeploymentData{
+				Contract: govCallerContract,
+			},
+		)
+		Expect(err).ToNot(HaveOccurred(), "failed to deploy dupe gov caller contract")
+		Expect(s.network.NextBlock()).ToNot(HaveOccurred(), "error on NextBlock")
+		contractAccAddrDupe = sdk.AccAddress(contractAddrDupe.Bytes())
+
+		cAccDupe := s.network.App.EVMKeeper.GetAccount(s.network.GetContext(), contractAddrDupe)
+		Expect(cAccDupe).ToNot(BeNil(), "failed to get dupe contract account")
+		Expect(cAccDupe.IsContract()).To(BeTrue(), "expected dupe contract account")
 
 		callArgs = factory.CallArgs{
 			ContractABI: govCallerContract.ABI,
@@ -1178,7 +1196,8 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 	})
 
 	Context("deposit as contract proposer", func() {
-		BeforeEach(func() { callArgs.MethodName = "testDepositFromContract" })
+		BeforeEach(func() { callArgs.MethodName = testDepositFromContract })
+
 		It("should deposit successfully", func() {
 			// submit a proposal
 			toAddr := s.keyring.GetAccAddr(1)
@@ -1208,7 +1227,7 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 			Expect(err).To(BeNil())
 
 			// Deposit it
-			callArgs.MethodName = "testDepositFromContract"
+			callArgs.MethodName = testDepositFromContract
 			callArgs.Args = []interface{}{
 				proposal.Id,
 				minimalDeposit(s.network.GetBaseDenom(), big.NewInt(100)),
@@ -1749,6 +1768,8 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 	})
 
 	Context("testCancel with transfer (multiple deposits & refund)", func() {
+		var cancelDest sdk.AccAddress
+
 		BeforeEach(func() {
 			// Submit a proposal with deposit from depositor0
 			denom := s.network.GetBaseDenom()
@@ -1796,6 +1817,7 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 			params, err := s.network.App.GovKeeper.Params.Get(s.network.GetContext())
 			Expect(err).To(BeNil())
 			rate := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+			cancelDest = sdk.MustAccAddressFromBech32(params.ProposalCancelDest)
 			proposalDeposits, err := s.network.App.GovKeeper.GetDeposits(s.network.GetContext(), proposalID)
 			Expect(err).To(BeNil())
 			Expect(proposalDeposits).To(HaveLen(2))
@@ -1840,6 +1862,7 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 				contractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 				depositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
 				txSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+				cancelDestBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 
 				res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 				Expect(err).To(BeNil())
@@ -1853,6 +1876,7 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 				afterContractBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 				afterDepositor1Bal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), depositor1, baseDenom)
 				afterTxSenderBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+				afterCancelDestBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 				amtFromContract := math.ZeroInt()
 				for _, transferred := range []bool{tc.before, tc.after} {
 					if transferred {
@@ -1869,6 +1893,11 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 				Expect(afterDepositor1Bal.Amount).To(Equal(
 					depositor1Bal.Amount.
 						Add(remainingFees[depositor1.String()]),
+				))
+				Expect(afterCancelDestBal.Amount).To(Equal(
+					cancelDestBal.Amount.
+						Add(cancelFees[depositor1.String()]).
+						Add(cancelFees[contractAccAddr.String()]),
 				))
 				Expect(afterContractBal.Amount).To(Equal(
 					contractBal.Amount.
@@ -1889,6 +1918,89 @@ var _ = Describe("Calling governance precompile from contract", Ordered, func() 
 				before: false,
 				after:  true,
 			}),
+		)
+	})
+
+	Context("testRefunds security issue", func() {
+		var minDepositAmt math.Int
+
+		BeforeEach(func() {
+			toAddr := s.keyring.GetAccAddr(1)
+			denom := s.network.GetBaseDenom()
+			amount := "100"
+			jsonBlob := minimalBankSendProposalJSON(toAddr, denom, amount)
+			minDepositAmt = math.NewInt(100)
+			callArgs.MethodName = testSubmitProposalFromContract
+			callArgs.Args = []interface{}{
+				jsonBlob,
+				minimalDeposit(s.network.GetBaseDenom(), minDepositAmt.BigInt()),
+			}
+			txArgs.Amount = minDepositAmt.BigInt()
+			eventCheck := passCheck.WithExpEvents(gov.EventTypeSubmitProposal)
+			txArgs.To = &contractAddr
+
+			// 1. Submit gov prop for contract 1
+			_, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			err = s.precompile.UnpackIntoInterface(&contractProposalID, gov.SubmitProposalMethod, evmRes.Ret)
+			Expect(err).To(BeNil())
+
+			// 2. Deposit to gov prop from contract 2
+			txArgs.To = &contractAddrDupe
+			txArgs.GasLimit = 1_000_000_000
+			callArgs.MethodName = testDepositFromContract
+			callArgs.Args = []interface{}{
+				contractProposalID,
+				minimalDeposit(s.network.GetBaseDenom(), big.NewInt(100)),
+			}
+			eventCheck = passCheck.WithExpEvents(gov.EventTypeDeposit)
+			_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
+			Expect(err).To(BeNil())
+			Expect(s.network.NextBlock()).To(BeNil())
+
+			// Check that the deposit is found
+			deposits, err := s.network.App.GovKeeper.GetDeposits(s.network.GetContext(), contractProposalID)
+			Expect(err).To(BeNil())
+			Expect(deposits).To(HaveLen(2))
+			Expect(deposits[0].Amount[0].Amount).To(Equal(math.NewInt(100)))
+			Expect(deposits[1].Amount[0].Amount).To(Equal(math.NewInt(100)))
+		})
+
+		Describe("test transferCancelFund", func() {
+			It("should cancel proposal and fund to communityPool", func() {
+				baseDenom := s.network.GetBaseDenom()
+				txArgs.To = &contractAddr
+				txArgs.GasLimit = 1_000_000_000
+				callArgs.MethodName = "testTransferCancelFund"
+				callArgs.Args = []interface{}{
+					contractAddrDupe,
+					contractProposalID,
+					[]byte(baseDenom),
+					s.network.GetValidators()[0].OperatorAddress,
+				}
+				// Call the contract
+				_, err := s.factory.ExecuteContractCall(txSenderKey, txArgs, callArgs)
+				Expect(err).To(BeNil())
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				params, err := s.network.App.GovKeeper.Params.Get(s.network.GetContext())
+				Expect(err).To(BeNil())
+
+				cancelRatio := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+				cancelFee := minDepositAmt.ToLegacyDec().Mul(cancelRatio).TruncateInt()
+				transferAmount := math.NewInt(1)
+				fundCommunityPoolAmount := math.NewInt(2)
+				expectedDepositorBal := minDepositAmt.
+					Sub(cancelFee).
+					Add(transferAmount).
+					Sub(fundCommunityPoolAmount)
+
+				afterDepositorBal := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), contractAccAddrDupe, baseDenom)
+				Expect(afterDepositorBal.Amount).To(Equal(expectedDepositorBal))
+			})
+		},
 		)
 	})
 

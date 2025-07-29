@@ -27,7 +27,7 @@ const (
 // EmitSubmitProposalEvent creates a new event emitted on a SubmitProposal transaction.
 func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB, proposerAddress common.Address, proposalID uint64) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeSubmitProposal]
+	event := p.Events[EventTypeSubmitProposal]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -59,7 +59,7 @@ func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 // EmitCancelProposalEvent creates a new event emitted on a CancelProposal transaction.
 func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB, proposerAddress common.Address, proposalID uint64) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeCancelProposal]
+	event := p.Events[EventTypeCancelProposal]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -91,7 +91,7 @@ func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 // EmitDepositEvent creates a new event emitted on a Deposit transaction.
 func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, depositorAddress common.Address, proposalID uint64, amount []sdk.Coin) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeDeposit]
+	event := p.Events[EventTypeDeposit]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -122,7 +122,7 @@ func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, deposi
 // EmitVoteEvent creates a new event emitted on a Vote transaction.
 func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddress common.Address, proposalID uint64, option int32) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeVote]
+	event := p.Events[EventTypeVote]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -154,7 +154,7 @@ func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddr
 // EmitVoteWeightedEvent creates a new event emitted on a VoteWeighted transaction.
 func (p Precompile) EmitVoteWeightedEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddress common.Address, proposalID uint64, options WeightedVoteOptions) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeVoteWeighted]
+	event := p.Events[EventTypeVoteWeighted]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"google.golang.org/grpc/codes"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
@@ -82,7 +83,7 @@ var _ = Describe("Calling staking precompile directly", func() {
 			To: &precompileAddr,
 		}
 
-		defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.ABI.Events}
+		defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
 		passCheck = defaultLogCheck.WithExpPass(true)
 		outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
 	})
@@ -1346,6 +1347,14 @@ var _ = Describe("Calling staking precompile directly", func() {
 })
 
 var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
+	// We cannot check staking precompile returns appropriate error in precompile call via caller contract.
+	// It is because, caller contract call precompile with its own address for delegatorAddr
+	// So, many expected error is filtered by `require` statement of caller contract that returns err message below.
+	const (
+		CallerErrDelegationNotExist          = "Delegation does not exist or insufficient delegation amount"
+		CallerErrUnbondingDelegationNotExist = "Unbonding delegation does not exist"
+	)
+
 	var (
 		// s is the precompile test suite to use for the tests
 		s *PrecompileTestSuite
@@ -1840,6 +1849,57 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 					Expect(err).NotTo(BeNil())
 					Expect(err.Error()).To(ContainSubstring("not found"), "expected NO delegation created")
 				})
+
+				It("should delegate before and after intentionaly ignored delegation revert - successful tx", func() {
+					delegationAmount := math.NewInt(10)
+					expectedDelegationAmount := delegationAmount.Add(delegationAmount)
+
+					callArgs := factory.CallArgs{
+						ContractABI: stakingReverterContract.ABI,
+						MethodName:  "callPrecompileBeforeAndAfterRevert",
+						Args: []interface{}{
+							big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
+						},
+					}
+
+					delegateCheck := passCheck.WithExpEvents(staking.EventTypeDelegate, staking.EventTypeDelegate)
+
+					// The transaction should succeed with delegations occurring both before and after the intended revert.
+					// The revert itself is not propagated because it occurs within the scope of a try-catch statement,
+					// but is not caught by the catch block.
+					res, _, err := s.factory.CallContractAndCheckLogs(
+						s.keyring.GetPrivKey(0),
+						evmtypes.EvmTxArgs{
+							To:       &stkReverterAddr,
+							GasPrice: gasPrice.BigInt(),
+						},
+						callArgs,
+						delegateCheck,
+					)
+					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+					Expect(s.network.NextBlock()).To(BeNil())
+
+					fees := gasPrice.MulRaw(res.GasUsed)
+
+					// delegation should have been created
+					qRes, err := s.grpcHandler.GetDelegation(sdk.AccAddress(stkReverterAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
+					Expect(err).To(BeNil())
+					Expect(qRes.DelegationResponse.Delegation.GetDelegatorAddr()).To(Equal(sdk.AccAddress(stkReverterAddr.Bytes()).String()), "expected delegator address is equal to contract address")
+					Expect(qRes.DelegationResponse.Delegation.GetShares().BigInt()).To(Equal(expectedDelegationAmount.BigInt()), "expected different delegation shares")
+
+					// contract balance should be deducted by delegation amount
+					balRes, err := s.grpcHandler.GetBalanceFromBank(stkReverterAddr.Bytes(), s.bondDenom)
+					Expect(err).To(BeNil())
+					contractFinalBalance := balRes.Balance
+					Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(expectedDelegationAmount)))
+
+					// fees deducted on tx sender.
+					// delegation amount is deducted on contract balance that is previously funded.
+					balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+					Expect(err).To(BeNil())
+					txSenderFinalBal := balRes.Balance
+					Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)), "expected tx sender balance to be deducted by fees")
+				})
 			})
 
 			Context("Table-driven tests for Delegate method", func() {
@@ -2070,10 +2130,12 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				nonExistingVal.String(), big.NewInt(1e18),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2090,10 +2152,12 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				valAddr.String(), big.NewInt(1e18),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				differentSender.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2170,10 +2234,12 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				nonExistingVal.String(), valAddr2.String(), big.NewInt(1e18),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2190,10 +2256,12 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				valAddr.String(), valAddr2.String(), big.NewInt(1e18),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				differentSender.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2210,10 +2278,12 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				valAddr.String(), nonExistingVal.String(), big.NewInt(1e18),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(stakingtypes.ErrBadRedelegationDst.Error())
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2321,11 +2391,13 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				big.NewInt(expCreationHeight),
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrUnbondingDelegationNotExist)
+
 			_, _, err = s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
 				txArgs,
 				callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
@@ -2483,10 +2555,14 @@ var _ = Describe("Calling staking precompile via Solidity", Ordered, func() {
 				query.PageRequest{},
 			}
 
+			revertReasonCheck := execRevertedCheck.WithErrNested(
+				fmt.Sprintf("rpc error: code = %s desc = invalid validator status %s", codes.InvalidArgument, "15"),
+			)
+
 			_, _, err := s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
 				txArgs, callArgs,
-				execRevertedCheck,
+				revertReasonCheck,
 			)
 			Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 		})

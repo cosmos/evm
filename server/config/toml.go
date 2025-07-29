@@ -34,6 +34,10 @@ address = "{{ .JSONRPC.Address }}"
 # Address defines the EVM WebSocket server address to bind to.
 ws-address = "{{ .JSONRPC.WsAddress }}"
 
+# WSOrigins defines the allowed origins for WebSocket connections.
+# Example: ["localhost", "127.0.0.1", "myapp.example.com"]
+ws-origins = [{{range $index, $elmt := .JSONRPC.WSOrigins}}{{if $index}}, {{end}}"{{$elmt}}"{{end}}]
+
 # API defines a list of JSON-RPC namespaces that should be enabled
 # Example: "eth,txpool,personal,net,debug,web3"
 api = "{{range $index, $elmt := .JSONRPC.API}}{{if $index}},{{$elmt}}{{else}}{{$elmt}}{{end}}{{end}}"
@@ -85,6 +89,9 @@ metrics-address = "{{ .JSONRPC.MetricsAddress }}"
 
 # Upgrade height for fix of revert gas refund logic when transaction reverted.
 fix-revert-gas-refund-height = {{ .JSONRPC.FixRevertGasRefundHeight }}
+
+# Enabled profiling in the debug namespace
+enable-profiling = {{ .JSONRPC.EnableProfiling }}
 
 ###############################################################################
 ###                             TLS Configuration                           ###

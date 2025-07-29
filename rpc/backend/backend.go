@@ -32,6 +32,8 @@ import (
 // BackendI implements the Cosmos and EVM backend.
 type BackendI interface { //nolint: revive
 	EVMBackend
+
+	GetConfig() config.Config
 }
 
 // EVMBackend implements the functionality shared within ethereum namespaces
@@ -91,7 +93,7 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount uint64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
@@ -135,6 +137,10 @@ type Backend struct {
 	cfg                 config.Config
 	allowUnprotectedTxs bool
 	indexer             cosmosevmtypes.EVMTxIndexer
+}
+
+func (b *Backend) GetConfig() config.Config {
+	return b.cfg
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces

@@ -15,23 +15,20 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
 const (
 	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
 	abiPath = "abi.json"
 
-	GasTransfer          = 3_000_000
-	GasApprove           = 30_956
-	GasIncreaseAllowance = 34_605
-	GasDecreaseAllowance = 34_519
-	GasName              = 3_421
-	GasSymbol            = 3_464
-	GasDecimals          = 427
-	GasTotalSupply       = 2_477
-	GasBalanceOf         = 2_851
-	GasAllowance         = 3_246
+	GasTransfer    = 3_000_000
+	GasApprove     = 30_956
+	GasName        = 3_421
+	GasSymbol      = 3_464
+	GasDecimals    = 427
+	GasTotalSupply = 2_477
+	GasBalanceOf   = 2_851
+	GasAllowance   = 3_246
 )
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -48,14 +45,14 @@ type Precompile struct {
 	transferKeeper transferkeeper.Keeper
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
-	BankKeeper bankkeeper.Keeper
+	BankKeeper cmn.BankKeeper
 }
 
 // NewPrecompile creates a new ERC-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
-	bankKeeper bankkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
@@ -104,10 +101,6 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return GasTransfer
 	case ApproveMethod:
 		return GasApprove
-	case IncreaseAllowanceMethod:
-		return GasIncreaseAllowance
-	case DecreaseAllowanceMethod:
-		return GasDecreaseAllowance
 	// ERC-20 queries
 	case NameMethod:
 		return GasName
@@ -128,6 +121,15 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 // Run executes the precompiled contract ERC-20 methods defined in the ABI.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+	bz, err = p.run(evm, contract, readOnly)
+	if err != nil {
+		return cmn.ReturnRevertError(evm, err)
+	}
+
+	return bz, nil
+}
+
+func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
 	// ERC20 precompiles cannot receive funds because they are not managed by an
 	// EOA and will not be possible to recover funds sent to an instance of
 	// them.This check is a safety measure because currently funds cannot be
@@ -136,31 +138,27 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(ErrCannotReceiveFunds, contract.Value().String())
 	}
 
-	ctx, stateDB, snapshot, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
 
-	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
-		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
-		if err != nil {
-			return nil, err
-		}
+	bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
+	if err != nil {
+		return nil, err
+	}
 
-		cost := ctx.GasMeter().GasConsumed() - initialGas
+	cost := ctx.GasMeter().GasConsumed() - initialGas
 
-		if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-			return nil, vm.ErrOutOfGas
-		}
-		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-			return nil, err
-		}
-		return bz, nil
-	})
+	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
+		return nil, vm.ErrOutOfGas
+	}
+
+	return bz, nil
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
@@ -168,9 +166,7 @@ func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case TransferMethod,
 		TransferFromMethod,
-		ApproveMethod,
-		IncreaseAllowanceMethod,
-		DecreaseAllowanceMethod:
+		ApproveMethod:
 		return true
 	default:
 		return false
@@ -193,10 +189,6 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.TransferFrom(ctx, contract, stateDB, method, args)
 	case ApproveMethod:
 		bz, err = p.Approve(ctx, contract, stateDB, method, args)
-	case IncreaseAllowanceMethod:
-		bz, err = p.IncreaseAllowance(ctx, contract, stateDB, method, args)
-	case DecreaseAllowanceMethod:
-		bz, err = p.DecreaseAllowance(ctx, contract, stateDB, method, args)
 	// ERC-20 queries
 	case NameMethod:
 		bz, err = p.Name(ctx, contract, stateDB, method, args)

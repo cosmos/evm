@@ -5,16 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -104,7 +103,7 @@ func (p *Precompile) transfer(
 
 		newAllowance := new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
-			return nil, ConvertErrToERC20Error(ErrInsufficientAllowance)
+			return nil, ErrInsufficientAllowance
 		}
 
 		if newAllowance.Sign() == 0 {
@@ -119,20 +118,24 @@ func (p *Precompile) transfer(
 		}
 	}
 
-	msgSrv := bankkeeper.NewMsgServerImpl(p.BankKeeper)
-	if _, err = msgSrv.Send(ctx, msg); err != nil {
+	msgSrv := NewMsgServerImpl(p.BankKeeper)
+	if err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
 	}
 
+	// TODO: Properly handle native balance changes via the balance handler.
+	// Currently, decimal conversion issues exist with the precisebank module.
+	// As a temporary workaround, balances are adjusted directly using add/sub operations.
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	if p.tokenPair.Denom == evmDenom {
 		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
 		if err != nil {
 			return nil, err
 		}
-		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(from, convertedAmount, cmn.Sub),
-			cmn.NewBalanceChangeEntry(to, convertedAmount, cmn.Add))
+
+		stateDB.SubBalance(from, convertedAmount, tracing.BalanceChangeUnspecified)
+		stateDB.AddBalance(to, convertedAmount, tracing.BalanceChangeUnspecified)
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
