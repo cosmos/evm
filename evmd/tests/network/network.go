@@ -190,15 +190,14 @@ type (
 		RPCClient     cmtclient.Client
 		JSONRPCClient *ethclient.Client
 
-		app         servertypes.Application
-		tmNode      *node.Node
-		api         *api.Server
-		grpc        *grpc.Server
-		grpcWeb     *http.Server
-		jsonrpc     *http.Server
-		jsonrpcDone chan struct{}
-		errGroup    *errgroup.Group
-		cancelFn    context.CancelFunc
+		app      servertypes.Application
+		tmNode   *node.Node
+		api      *api.Server
+		grpc     *grpc.Server
+		grpcWeb  *http.Server
+		jsonrpc  *http.Server
+		errGroup *errgroup.Group
+		cancelFn context.CancelFunc
 	}
 )
 
@@ -638,18 +637,7 @@ func (n *Network) Cleanup() {
 		}
 
 		if v.jsonrpc != nil {
-			shutdownCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelFn()
-
-			if err := v.jsonrpc.Shutdown(shutdownCtx); err != nil {
-				v.tmNode.Logger.Error("HTTP server shutdown produced a warning", "error", err.Error())
-			} else {
-				v.tmNode.Logger.Info("HTTP server shut down, waiting 5 sec")
-				select {
-				case <-time.Tick(5 * time.Second):
-				case <-v.jsonrpcDone:
-				}
-			}
+			_ = v.jsonrpc.Close()
 		}
 	}
 
