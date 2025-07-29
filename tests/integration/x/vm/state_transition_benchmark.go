@@ -165,7 +165,7 @@ func newNativeMessage(
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
-	authorizationList []ethtypes.SetCodeAuthorization,
+	authorizationList []ethtypes.SetCodeAuthorization, //nolint:unparam
 ) (*core.Message, error) {
 	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList, authorizationList)
 	if err != nil {

@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
@@ -149,7 +148,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int, sk
 		value = args.Value.ToInt()
 	}
 	data := args.GetData()
-	var accessList ethtypes.AccessList
+	var accessList types.AccessList
 	if args.AccessList != nil {
 		accessList = *args.AccessList
 	}

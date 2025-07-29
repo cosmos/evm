@@ -231,7 +231,7 @@ func NewRPCTransaction(
 
 	case ethtypes.BlobTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign())
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
@@ -248,7 +248,7 @@ func NewRPCTransaction(
 
 	case ethtypes.SetCodeTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign())
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity

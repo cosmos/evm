@@ -288,13 +288,6 @@ func (msg MsgEthereumTx) AsMessage(baseFee *big.Int) *core.Message {
 	return ethMsg
 }
 
-func bigMin(x, y *big.Int) *big.Int {
-	if x.Cmp(y) > 0 {
-		return y
-	}
-	return x
-}
-
 // VerifySender verify the sender address against the signature values using the latest signer for the given chainID.
 func (msg *MsgEthereumTx) VerifySender(signer ethtypes.Signer) error {
 	from, err := msg.recoverSender(signer)
