@@ -179,6 +179,7 @@ func (s *websocketsServer) readLoop(wsConn *wsConn) {
 		}
 	}()
 
+readLoop:
 	for {
 		_, mb, err := wsConn.ReadMessage()
 		if err != nil {
@@ -250,7 +251,8 @@ func (s *websocketsServer) readLoop(wsConn *wsConn) {
 			}
 
 			if err := wsConn.WriteJSON(res); err != nil {
-				break
+				s.logger.Error("error writing subscription response", "error", err.Error())
+				break readLoop
 			}
 		case "eth_unsubscribe":
 			params, ok := s.getParamsAndCheckValid(msg, wsConn)
@@ -278,7 +280,8 @@ func (s *websocketsServer) readLoop(wsConn *wsConn) {
 			}
 
 			if err := wsConn.WriteJSON(res); err != nil {
-				break
+				s.logger.Error("error writing unsubscribe response", "error", err.Error())
+				break readLoop
 			}
 		default:
 			// otherwise, call the usual rpc server to respond

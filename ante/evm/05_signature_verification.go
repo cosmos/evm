@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"bytes"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -84,21 +83,9 @@ func SignatureVerification(
 		}
 	}
 
-	sender, err := signer.Sender(ethTx)
-	if err != nil {
-		return errorsmod.Wrapf(
-			errortypes.ErrorInvalidSigner,
-			"couldn't retrieve sender address from the ethereum transaction: %s",
-			err.Error(),
-		)
+	if err := msg.VerifySender(signer); err != nil {
+		return errorsmod.Wrapf(errortypes.ErrorInvalidSigner, "signature verification failed: %s", err.Error())
 	}
 
-	if !bytes.Equal(msg.From, sender.Bytes()) {
-		return errorsmod.Wrapf(
-			errortypes.ErrorInvalidSigner,
-			"rejected ethereum transaction with invalid sender address; expected %s, got %s",
-			evmtypes.HexAddress(msg.From), sender.String(),
-		)
-	}
 	return nil
 }

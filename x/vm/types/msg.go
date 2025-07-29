@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -101,6 +102,10 @@ func (msg MsgEthereumTx) ValidateBasic() error {
 		return errorsmod.Wrapf(errortypes.ErrInvalidRequest, "raw transaction is required")
 	}
 
+	if len(msg.From) == 0 {
+		return errorsmod.Wrapf(errortypes.ErrInvalidRequest, "sender address is missing")
+	}
+
 	tx := msg.Raw.Transaction
 
 	// validate the transaction
@@ -147,6 +152,39 @@ func (msg *MsgEthereumTx) GetMsgs() []sdk.Msg {
 
 func (msg *MsgEthereumTx) GetMsgsV2() ([]protov2.Message, error) {
 	return nil, errors.New("not implemented")
+}
+
+// GetSigners returns the expected signers for an Ethereum transaction message.
+// For such a message, there should exist only a single 'signer'.
+func (msg *MsgEthereumTx) GetSigners() []sdk.AccAddress {
+	if len(msg.From) == 0 {
+		return nil
+	}
+	return []sdk.AccAddress{msg.GetFrom()}
+}
+
+// GetSender convert the From field to common.Address
+// From should always be set, which is validated in ValidateBasic
+func (msg *MsgEthereumTx) GetSender() common.Address {
+	return common.BytesToAddress(msg.From)
+}
+
+// GetSenderLegacy fallbacks to old behavior if From is empty, should be used by json-rpc
+func (msg *MsgEthereumTx) GetSenderLegacy(signer ethtypes.Signer) (common.Address, error) {
+	if len(msg.From) > 0 {
+		return msg.GetSender(), nil
+	}
+	sender, err := msg.recoverSender(signer)
+	if err != nil {
+		return common.Address{}, err
+	}
+	msg.From = sender.Bytes()
+	return sender, nil
+}
+
+// recoverSender recovers the sender address from the transaction signature.
+func (msg *MsgEthereumTx) recoverSender(signer ethtypes.Signer) (common.Address, error) {
+	return ethtypes.Sender(signer, msg.AsTransaction())
 }
 
 // GetSignBytes returns the Amino bytes of an Ethereum transaction message used
@@ -218,32 +256,44 @@ func (msg MsgEthereumTx) AsTransaction() *ethtypes.Transaction {
 	return msg.Raw.Transaction
 }
 
-// AsMessage creates an Ethereum core.Message from the msg fields
-func (msg MsgEthereumTx) AsMessage(signer ethtypes.Signer, baseFee *big.Int) (*core.Message, error) {
-	tx := msg.AsTransaction()
-	return core.TransactionToMessage(tx, signer, baseFee)
+func bigMin(x, y *big.Int) *big.Int {
+	if x.Cmp(y) > 0 {
+		return y
+	}
+	return x
 }
 
-// GetSender extracts the sender address from the signature values using the latest signer for the given chainID.
-func (msg *MsgEthereumTx) GetSender(chainID *big.Int) (common.Address, error) {
-	signer := ethtypes.LatestSignerForChainID(chainID)
-	from, err := signer.Sender(msg.AsTransaction())
+// AsMessage creates an Ethereum core.Message from the msg fields
+func (msg MsgEthereumTx) AsMessage(baseFee *big.Int) (*core.Message, error) {
+	txData, err := UnpackTxData(msg.Data)
 	if err != nil {
-		return common.Address{}, err
+		return nil, err
 	}
 
 	msg.From = from.Bytes()
 	return from, nil
 }
 
+// VerifySender verify the sender address against the signature values using the latest signer for the given chainID.
+func (msg *MsgEthereumTx) VerifySender(signer ethtypes.Signer) error {
+	from, err := msg.recoverSender(signer)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(msg.From, from.Bytes()) {
+		return fmt.Errorf("sender verification failed. got %s, expected %s", from.String(), HexAddress(msg.From))
+	}
+	return nil
+}
+
 // UnmarshalBinary decodes the canonical encoding of transactions.
-func (msg *MsgEthereumTx) UnmarshalBinary(b []byte) error {
+func (msg *MsgEthereumTx) UnmarshalBinary(b []byte, signer ethtypes.Signer) error {
 	tx := &ethtypes.Transaction{}
 	if err := tx.UnmarshalBinary(b); err != nil {
 		return err
 	}
-	msg.FromEthereumTx(tx)
-	return nil
+	return msg.FromSignedEthereumTx(tx, signer)
 }
 
 func (msg *MsgEthereumTx) Hash() common.Hash {

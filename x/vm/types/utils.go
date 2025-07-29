@@ -134,6 +134,14 @@ func EffectiveGasPrice(baseFee, feeCap, tipCap *big.Int) *big.Int {
 	return feeCap
 }
 
+// HexAddress encode ethereum address without checksum, faster to run for state machine
+func HexAddress(a []byte) string {
+	var buf [common.AddressLength*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a)
+	return string(buf[:])
+}
+
 // SortedKVStoreKeys returns a slice of *KVStoreKey sorted by their map key.
 func SortedKVStoreKeys(keys map[string]*storetypes.KVStoreKey) []*storetypes.KVStoreKey {
 	names := make([]string, 0, len(keys))
@@ -147,12 +155,4 @@ func SortedKVStoreKeys(keys map[string]*storetypes.KVStoreKey) []*storetypes.KVS
 		sorted = append(sorted, keys[name])
 	}
 	return sorted
-}
-
-// HexAddress encode ethereum address without checksum, faster to run for state machine
-func HexAddress(a []byte) string {
-	var buf [common.AddressLength*2 + 2]byte
-	copy(buf[:2], "0x")
-	hex.Encode(buf[2:], a)
-	return string(buf[:])
 }

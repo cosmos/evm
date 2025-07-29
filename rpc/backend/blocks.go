@@ -187,7 +187,12 @@ func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpc
 // TendermintBlockResultByNumber returns a Tendermint-formatted block result
 // by block number
 func (b *Backend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
-	return b.RPCClient.BlockResults(b.Ctx, height)
+	res, err := b.RPCClient.BlockResults(b.Ctx, height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch block result from Tendermint %d: %w", *height, err)
+	}
+
+	return res, nil
 }
 
 // TendermintBlockByHash returns a Tendermint-formatted block by block number
@@ -200,7 +205,7 @@ func (b *Backend) TendermintBlockByHash(blockHash common.Hash) (*tmrpctypes.Resu
 
 	if resBlock == nil || resBlock.Block == nil {
 		b.Logger.Debug("TendermintBlockByHash block not found", "blockHash", blockHash.Hex())
-		return nil, nil
+		return nil, fmt.Errorf("block not found for hash %s", blockHash.Hex())
 	}
 
 	return resBlock, nil
@@ -383,11 +388,10 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			continue
 		}
 
-		tx := ethMsg.AsTransaction()
 		height := uint64(block.Height) //#nosec G115 -- checked for int overflow already
 		index := uint64(txIndex)       //#nosec G115 -- checked for int overflow already
 		rpcTx, err := rpctypes.NewRPCTransaction(
-			tx,
+			ethMsg,
 			common.BytesToHash(block.Hash()),
 			height,
 			index,
@@ -395,7 +399,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			b.EvmChainID,
 		)
 		if err != nil {
-			b.Logger.Debug("NewTransactionFromData for receipt failed", "hash", tx.Hash().Hex(), "error", err.Error())
+			b.Logger.Debug("NewTransactionFromData for receipt failed", "hash", ethMsg.Hash, "error", err.Error())
 			continue
 		}
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
@@ -584,7 +588,7 @@ func (b *Backend) formatTxReceipt(
 		return nil, err
 	}
 
-	from, err := ethMsg.GetSender(chainID.ToInt())
+	from, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(chainID.ToInt()))
 	if err != nil {
 		return nil, err
 	}
