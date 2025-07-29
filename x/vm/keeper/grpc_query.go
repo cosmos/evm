@@ -240,11 +240,14 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, false, false)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// pass false to not commit StateDB
@@ -320,10 +323,17 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
+	if args.Gas == nil {
+		args.Gas = new(hexutil.Uint64)
+	}
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	// convert the tx args to an ethereum message
 	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, true, true)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	// Recap the highest gas limit with account's available balance.

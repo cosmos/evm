@@ -1336,10 +1336,10 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 	msg := tx.GetMsgs()[0]
 	msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
 	s.Require().True(ok)
-	txData, err := evmtypes.UnpackTxData(msgEthTx.Data)
-	s.Require().NoError(err)
+	txData := msgEthTx.AsTransaction()
+	s.Require().NotNil(txData)
 
-	msgV, msgR, msgS := txData.GetRawSignatureValues()
+	msgV, msgR, msgS := txData.RawSignatureValues()
 
 	ethTx := msgEthTx.AsTransaction()
 	ethV, ethR, ethS := ethTx.RawSignatureValues()

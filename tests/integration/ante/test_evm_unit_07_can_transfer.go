@@ -42,6 +42,7 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			expectedError: errortypes.ErrInsufficientFee,
 			isLondon:      true,
 			malleate: func(txArgs *evmtypes.EvmTxArgs) {
+				txArgs.GasPrice = nil // make sure it's not legacy tx
 				txArgs.GasFeeCap = big.NewInt(0)
 			},
 		},
@@ -84,8 +85,7 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			msg.From = senderKey.Addr.Bytes()
 			signMsg, err := txFactory.SignMsgEthereumTx(senderKey.Priv, *msg)
 			s.Require().NoError(err)
-			coreMsg, err := signMsg.AsMessage(baseFeeResp.BaseFee.BigInt())
-			s.Require().NoError(err)
+			coreMsg := signMsg.AsMessage(baseFeeResp.BaseFee.BigInt())
 
 			// Function under test
 			err = evm.CanTransfer(

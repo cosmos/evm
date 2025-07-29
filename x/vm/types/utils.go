@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -80,7 +81,6 @@ func UnwrapEthereumMsg(tx *sdk.Tx, ethHash common.Hash) (*MsgEthereumTx, error) 
 			return nil, fmt.Errorf("invalid tx type: %T", tx)
 		}
 		txHash := ethMsg.AsTransaction().Hash()
-		ethMsg.Hash = txHash.Hex()
 		if txHash == ethHash {
 			return ethMsg, nil
 		}
@@ -92,7 +92,7 @@ func UnwrapEthereumMsg(tx *sdk.Tx, ethHash common.Hash) (*MsgEthereumTx, error) 
 // UnpackEthMsg unpacks an Ethereum message from a Cosmos SDK message
 func UnpackEthMsg(msg sdk.Msg) (
 	ethMsg *MsgEthereumTx,
-	txData TxData,
+	txData *ethtypes.Transaction,
 	err error,
 ) {
 	msgEthTx, ok := msg.(*MsgEthereumTx)
@@ -100,13 +100,8 @@ func UnpackEthMsg(msg sdk.Msg) (
 		return nil, nil, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*MsgEthereumTx)(nil))
 	}
 
-	txData, err = UnpackTxData(msgEthTx.Data)
-	if err != nil {
-		return nil, nil, errorsmod.Wrap(err, "failed to unpack tx data any for tx")
-	}
-
 	// sender address should be in the tx cache from the previous AnteHandle call
-	return msgEthTx, txData, nil
+	return msgEthTx, msgEthTx.Raw.Transaction, nil
 }
 
 // BinSearch executes the binary search and hone in on an executable gas limit

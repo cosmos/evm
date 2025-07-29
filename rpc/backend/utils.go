@@ -259,7 +259,10 @@ func (b *Backend) ProcessBlock(
 				continue
 			}
 			tx := ethMsg.AsTransaction()
-			reward := tx.EffectiveGasTipValue(blockBaseFee)
+			reward, err := tx.EffectiveGasTip(blockBaseFee)
+			if err != nil {
+				b.Logger.Error("failed to calculate effective gas tip", "height", blockHeight, "error", err.Error())
+			}
 			if reward == nil {
 				reward = big.NewInt(0)
 			}
