@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
@@ -156,7 +157,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 7. can transfer
-	coreMsg, err := ethMsg.AsMessage(decUtils.BaseFee)
+	coreMsg, err := core.TransactionToMessage(txData, decUtils.Signer, decUtils.BaseFee)
 	if err != nil {
 		return ctx, errorsmod.Wrapf(
 			err,

@@ -498,7 +498,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 				Accesses:  tc.accessList,
 			}
 			tx := evmtypes.NewTx(ethTxParams)
-			tx.From = common.HexToAddress(tc.from).Bytes()
+			tx.From = tc.from
 
 			txData := tx.AsTransaction()
 

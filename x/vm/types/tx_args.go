@@ -249,62 +249,6 @@ func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int,
 	return nil
 }
 
-// ToMessage converts the transaction arguments to the Message type used by the
-// core evm. This method is used in calls and traces that do not require a real
-// live transaction.
-// Assumes that fields are not nil, i.e. setDefaults or CallDefaults has been called.
-func (args *TransactionArgs) ToMessage(baseFee *big.Int, skipNonceCheck, skipEoACheck bool) *core.Message {
-	var (
-		gasPrice  *big.Int
-		gasFeeCap *big.Int
-		gasTipCap *big.Int
-	)
-	if baseFee == nil {
-		gasPrice = args.GasPrice.ToInt()
-		gasFeeCap, gasTipCap = gasPrice, gasPrice
-	} else {
-		// A basefee is provided, necessitating 1559-type execution
-		if args.GasPrice != nil {
-			// User specified the legacy gas field, convert to 1559 gas typing
-			gasPrice = args.GasPrice.ToInt()
-			gasFeeCap, gasTipCap = gasPrice, gasPrice
-		} else {
-			// User specified 1559 gas fields (or none), use those
-			gasFeeCap = args.MaxFeePerGas.ToInt()
-			gasTipCap = args.MaxPriorityFeePerGas.ToInt()
-			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
-			gasPrice = new(big.Int)
-			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
-				gasPrice = gasPrice.Add(gasTipCap, baseFee)
-				if gasPrice.Cmp(gasFeeCap) > 0 {
-					gasPrice = gasFeeCap
-				}
-			}
-		}
-	}
-	var accessList types.AccessList
-	if args.AccessList != nil {
-		accessList = *args.AccessList
-	}
-	return &core.Message{
-		From:                  args.GetFrom(),
-		To:                    args.To,
-		Value:                 (*big.Int)(args.Value),
-		Nonce:                 uint64(*args.Nonce),
-		GasLimit:              uint64(*args.Gas),
-		GasPrice:              gasPrice,
-		GasFeeCap:             gasFeeCap,
-		GasTipCap:             gasTipCap,
-		Data:                  args.GetData(),
-		AccessList:            accessList,
-		BlobGasFeeCap:         (*big.Int)(args.BlobFeeCap),
-		BlobHashes:            args.BlobHashes,
-		SetCodeAuthorizations: args.AuthorizationList,
-		SkipNonceChecks:       skipNonceCheck,
-		SkipFromEOACheck:      skipEoACheck,
-	}
-}
-
 // ToTransaction converts the arguments to a transaction.
 // This assumes that setDefaults has been called.
 func (args *TransactionArgs) ToTransaction(defaultType int) *types.Transaction {

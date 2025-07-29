@@ -67,7 +67,9 @@ func newMsgEthereumTx(
 func NewTxFromTransactionArgs(args *TransactionArgs) *MsgEthereumTx {
 	var msg MsgEthereumTx
 	msg.FromEthereumTx(args.ToTransaction(ethtypes.LegacyTxType))
-	msg.From = args.GetFrom().Bytes()
+	if args.From != nil {
+		msg.From = args.From.Bytes()
+	}
 	return &msg
 }
 
@@ -222,8 +224,7 @@ func (msg *MsgEthereumTx) Sign(ethSigner ethtypes.Signer, keyringSigner keyring.
 		return err
 	}
 
-	msg.FromEthereumTx(tx)
-	return nil
+	return msg.FromSignedEthereumTx(tx, ethSigner)
 }
 
 // GetGas implements the GasTx interface. It returns the GasLimit of the transaction.
@@ -256,22 +257,42 @@ func (msg MsgEthereumTx) AsTransaction() *ethtypes.Transaction {
 	return msg.Raw.Transaction
 }
 
+// AsMessage vendors the core.TransactionToMessage function to avoid sender recovery,
+// assume the From field is set correctly in the MsgEthereumTx.
+func (msg MsgEthereumTx) AsMessage(baseFee *big.Int) *core.Message {
+	tx := msg.AsTransaction()
+	ethMsg := &core.Message{
+		Nonce:                 tx.Nonce(),
+		GasLimit:              tx.Gas(),
+		GasPrice:              new(big.Int).Set(tx.GasPrice()),
+		GasFeeCap:             new(big.Int).Set(tx.GasFeeCap()),
+		GasTipCap:             new(big.Int).Set(tx.GasTipCap()),
+		To:                    tx.To(),
+		Value:                 tx.Value(),
+		Data:                  tx.Data(),
+		AccessList:            tx.AccessList(),
+		SetCodeAuthorizations: tx.SetCodeAuthorizations(),
+		SkipNonceChecks:       false,
+		SkipFromEOACheck:      false,
+		BlobHashes:            tx.BlobHashes(),
+		BlobGasFeeCap:         tx.BlobGasFeeCap(),
+	}
+	// If baseFee provided, set gasPrice to effectiveGasPrice.
+	if baseFee != nil {
+		ethMsg.GasPrice = ethMsg.GasPrice.Add(ethMsg.GasTipCap, baseFee)
+		if ethMsg.GasPrice.Cmp(ethMsg.GasFeeCap) > 0 {
+			ethMsg.GasPrice = ethMsg.GasFeeCap
+		}
+	}
+	ethMsg.From = msg.GetSender()
+	return ethMsg
+}
+
 func bigMin(x, y *big.Int) *big.Int {
 	if x.Cmp(y) > 0 {
 		return y
 	}
 	return x
-}
-
-// AsMessage creates an Ethereum core.Message from the msg fields
-func (msg MsgEthereumTx) AsMessage(baseFee *big.Int) (*core.Message, error) {
-	txData, err := UnpackTxData(msg.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	msg.From = from.Bytes()
-	return from, nil
 }
 
 // VerifySender verify the sender address against the signature values using the latest signer for the given chainID.

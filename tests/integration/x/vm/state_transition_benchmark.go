@@ -87,7 +87,7 @@ func newSignedEthTx(
 	}
 
 	var msg evmtypes.MsgEthereumTx
-	if err := msg.FromEthereumTx(ethTx); err != nil {
+	if err := msg.FromSignedEthereumTx(ethTx, ethSigner); err != nil {
 		return nil, err
 	}
 	return &msg, nil
@@ -172,12 +172,7 @@ func newNativeMessage(
 		return nil, err
 	}
 
-	m, err := msg.AsMessage(baseFee)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return msg.AsMessage(baseFee), nil
 }
 
 func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
