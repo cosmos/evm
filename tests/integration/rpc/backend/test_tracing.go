@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -222,7 +223,7 @@ func (s *TestSuite) TestTraceBlock() {
 		registerMock    func()
 		expTraceResults []*evmtypes.TxTraceResult
 		resBlock        *tmrpctypes.ResultBlock
-		config          *evmtypes.TraceConfig
+		config          *rpctypes.TraceConfig
 		expPass         bool
 	}{
 		{
@@ -230,7 +231,7 @@ func (s *TestSuite) TestTraceBlock() {
 			func() {},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockEmpty,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			true,
 		},
 		{
@@ -243,7 +244,7 @@ func (s *TestSuite) TestTraceBlock() {
 			},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockFilled,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			false,
 		},
 	}

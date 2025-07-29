@@ -19,7 +19,7 @@ import (
 
 // TraceTransaction returns the structured logs created during the execution of EVM
 // and returns them as a JSON object.
-func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfig) (interface{}, error) {
+func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (interface{}, error) {
 	// Get transaction by hash
 	transaction, err := b.GetTxByEthHash(hash)
 	if err != nil {
@@ -109,7 +109,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	}
 
 	if config != nil {
-		traceTxRequest.TraceConfig = config
+		traceTxRequest.TraceConfig = b.convertConfig(config)
 	}
 
 	// minus one to get the context of block beginning
@@ -134,11 +134,20 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	return decodedResult, nil
 }
 
+func (b *Backend) convertConfig(config *rpctypes.TraceConfig) *evmtypes.TraceConfig {
+	if config == nil {
+		return &evmtypes.TraceConfig{}
+	}
+	cfg := config.TraceConfig
+	cfg.TracerJsonConfig = string(config.TracerConfig)
+	return &cfg
+}
+
 // TraceBlock configures a new tracer according to the provided configuration, and
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requested tracer.
 func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
-	config *evmtypes.TraceConfig,
+	config *rpctypes.TraceConfig,
 	block *tmrpctypes.ResultBlock,
 ) ([]*evmtypes.TxTraceResult, error) {
 	txs := block.Block.Txs
@@ -189,7 +198,7 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 
 	traceBlockRequest := &evmtypes.QueryTraceBlockRequest{
 		Txs:             txsMessages,
-		TraceConfig:     config,
+		TraceConfig:     b.convertConfig(config),
 		BlockNumber:     block.Block.Height,
 		BlockTime:       block.Block.Time,
 		BlockHash:       common.Bytes2Hex(block.BlockID.Hash),
