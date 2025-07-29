@@ -40,9 +40,6 @@ type Keeper struct {
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
 
-	// KVStore Keys for modules wired to app
-	storeKeys map[string]*storetypes.KVStoreKey
-
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
 
@@ -76,7 +73,6 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey, transientKey storetypes.StoreKey,
-	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -110,7 +106,6 @@ func NewKeeper(
 		transientKey:     transientKey,
 		tracer:           tracer,
 		erc20Keeper:      erc20Keeper,
-		storeKeys:        keys,
 	}
 }
 
@@ -355,9 +350,4 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 	}
 	k.SetTransientGasUsed(ctx, result)
 	return result, nil
-}
-
-// KVStoreKeys returns KVStore keys injected to keeper
-func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
-	return k.storeKeys
 }

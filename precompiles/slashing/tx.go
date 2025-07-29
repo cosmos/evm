@@ -43,13 +43,8 @@ func (p Precompile) Unjail(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorAddress.String())
 	}
 
-	valAddr, err := p.valCodec.BytesToString(validatorAddress.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert validator address: %w", err)
-	}
-
 	msg := &types.MsgUnjail{
-		ValidatorAddr: valAddr,
+		ValidatorAddr: sdk.ValAddress(validatorAddress.Bytes()).String(),
 	}
 
 	msgSrv := slashingkeeper.NewMsgServerImpl(p.slashingKeeper)

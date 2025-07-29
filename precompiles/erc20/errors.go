@@ -4,10 +4,13 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // Errors that have formatted information are defined here as a string.
@@ -21,6 +24,9 @@ const (
 )
 
 var (
+	// errorSignature are the prefix bytes for the hex-encoded reason string. See UnpackRevert in ABI implementation in Geth.
+	errorSignature = crypto.Keccak256([]byte("Error(string)"))
+
 	// Precompile errors
 	ErrDecreaseNonPositiveValue = errors.New("cannot decrease allowance with non-positive values")
 	ErrIncreaseNonPositiveValue = errors.New("cannot increase allowance with non-positive values")
@@ -32,6 +38,29 @@ var (
 	ErrInsufficientAllowance        = errors.New("ERC20: insufficient allowance")
 	ErrTransferAmountExceedsBalance = errors.New("ERC20: transfer amount exceeds balance")
 )
+
+// BuildExecRevertedErr returns a mocked error that should align with the
+// behavior of the original ERC20 Solidity implementation.
+//
+// FIXME: This is not yet producing the correct reason bytes. Will fix on a follow up PR.
+func BuildExecRevertedErr(reason string) (error, error) {
+	// This is reverse-engineering the ABI encoding of the revert reason.
+	typ, err := abi.NewType("string", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	packedReason, err := (abi.Arguments{{Type: typ}}).Pack(reason)
+	if err != nil {
+		return nil, errors.New("failed to pack revert reason")
+	}
+
+	var reasonBytes []byte
+	reasonBytes = append(reasonBytes, errorSignature...)
+	reasonBytes = append(reasonBytes, packedReason...)
+
+	return evmtypes.NewExecErrorWithReason(reasonBytes), nil
+}
 
 // ConvertErrToERC20Error is a helper function which maps errors raised by the Cosmos SDK stack
 // to the corresponding errors which are raised by an ERC20 contract.

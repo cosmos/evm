@@ -14,7 +14,6 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
@@ -26,7 +25,6 @@ func (k Keeper) CallEVM(
 	abi abi.ABI,
 	from, contract common.Address,
 	commit bool,
-	gasCap *big.Int,
 	method string,
 	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
@@ -38,9 +36,9 @@ func (k Keeper) CallEVM(
 		)
 	}
 
-	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
+	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit)
 	if err != nil {
-		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
+		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
 	return resp, nil
 }
@@ -52,16 +50,13 @@ func (k Keeper) CallEVMWithData(
 	contract *common.Address,
 	data []byte,
 	commit bool,
-	gasCap *big.Int,
 ) (*types.MsgEthereumTxResponse, error) {
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	if gasCap == nil {
-		gasCap = math.NewIntFromUint64(config.DefaultGasCap).BigInt()
-	}
+	gasCap := config.DefaultGasCap
 	if commit {
 		args, err := json.Marshal(types.TransactionArgs{
 			From: &from,
@@ -74,12 +69,12 @@ func (k Keeper) CallEVMWithData(
 
 		gasRes, err := k.EstimateGasInternal(ctx, &types.EthCallRequest{
 			Args:   args,
-			GasCap: gasCap.Uint64(),
+			GasCap: config.DefaultGasCap,
 		}, types.Internal)
 		if err != nil {
 			return nil, err
 		}
-		gasCap = math.NewIntFromUint64(gasRes.Gas).BigInt()
+		gasCap = gasRes.Gas
 	}
 
 	msg := core.Message{
@@ -87,7 +82,7 @@ func (k Keeper) CallEVMWithData(
 		To:         contract,
 		Nonce:      nonce,
 		Value:      big.NewInt(0),
-		GasLimit:   gasCap.Uint64(),
+		GasLimit:   gasCap,
 		GasPrice:   big.NewInt(0),
 		GasTipCap:  big.NewInt(0),
 		GasFeeCap:  big.NewInt(0),
@@ -101,7 +96,7 @@ func (k Keeper) CallEVMWithData(
 	}
 
 	if res.Failed() {
-		return res, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
+		return nil, errorsmod.Wrap(types.ErrVMExecution, res.VmError)
 	}
 
 	return res, nil

@@ -4,8 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	storetypes "cosmossdk.io/store/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -35,8 +33,4 @@ type Keeper interface {
 	DeleteCode(ctx sdk.Context, codeHash []byte)
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)
 	DeleteAccount(ctx sdk.Context, addr common.Address) error
-
-	// Getter for injected KVStore keys
-	// It is used for StateDB.snapshotter creation
-	KVStoreKeys() map[string]*storetypes.KVStoreKey
 }

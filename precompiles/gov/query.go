@@ -58,7 +58,7 @@ func (p *Precompile) GetVote(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	queryVotesReq, err := ParseVoteArgs(args, p.addrCdc)
+	queryVotesReq, err := ParseVoteArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (p *Precompile) GetDeposit(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	queryDepositReq, err := ParseDepositArgs(args, p.addrCdc)
+	queryDepositReq, err := ParseDepositArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (p *Precompile) GetProposals(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	queryProposalsReq, err := ParseProposalsArgs(method, args, p.addrCdc)
+	queryProposalsReq, err := ParseProposalsArgs(method, args)
 	if err != nil {
 		return nil, err
 	}

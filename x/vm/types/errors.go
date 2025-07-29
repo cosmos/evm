@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	errorsmod "cosmossdk.io/errors"
 )
@@ -31,7 +30,6 @@ const (
 	codeErrInactivePrecompile
 	codeErrABIPack
 	codeErrABIUnpack
-	codeErrInvalidPreinstall
 )
 
 var (
@@ -45,7 +43,7 @@ var (
 	ErrZeroAddress = errorsmod.Register(ModuleName, codeErrZeroAddress, "invalid zero address")
 
 	// ErrCreateDisabled returns an error if the EnableCreate parameter is false.
-	ErrCreateDisabled = errorsmod.Register(ModuleName, codeErrCreateDisabled, "EVM create operation is disabled")
+	ErrCreateDisabled = errorsmod.Register(ModuleName, codeErrCreateDisabled, "EVM Create operation is disabled")
 
 	// ErrCallDisabled returns an error if the EnableCall parameter is false.
 	ErrCallDisabled = errorsmod.Register(ModuleName, codeErrCallDisabled, "EVM Call operation is disabled")
@@ -88,29 +86,7 @@ var (
 
 	// ErrABIUnpack returns an error if the contract ABI unpacking fails
 	ErrABIUnpack = errorsmod.Register(ModuleName, codeErrABIUnpack, "contract ABI unpack failed")
-
-	// ErrInvalidPreinstall returns an error if a preinstall is invalid
-	ErrInvalidPreinstall = errorsmod.Register(ModuleName, codeErrInvalidPreinstall, "invalid preinstall")
-
-	// RevertSelector is selector of ErrExecutionReverted
-	RevertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 )
-
-// RevertReasonBytes converts a message to ABI-encoded revert bytes.
-func RevertReasonBytes(reason string) ([]byte, error) {
-	typ, err := abi.NewType("string", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	packed, err := (abi.Arguments{{Type: typ}}).Pack(reason)
-	if err != nil {
-		return nil, err
-	}
-	bz := make([]byte, 0, len(RevertSelector)+len(packed))
-	bz = append(bz, RevertSelector...)
-	bz = append(bz, packed...)
-	return bz, nil
-}
 
 // NewExecErrorWithReason unpacks the revert return bytes and returns a wrapped error
 // with the return reason.

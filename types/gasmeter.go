@@ -102,8 +102,5 @@ func (g *infiniteGasMeterWithLimit) String() string {
 
 // GasRemaining returns MaxUint64 since limit is not confined in infiniteGasMeter.
 func (g *infiniteGasMeterWithLimit) GasRemaining() storetypes.Gas {
-	if g.consumed > g.limit {
-		return 0
-	}
-	return g.limit - g.consumed
+	return math.MaxUint64
 }

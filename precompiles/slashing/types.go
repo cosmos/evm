@@ -8,7 +8,6 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
-	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/types"
@@ -43,7 +42,7 @@ type SigningInfosInput struct {
 }
 
 // ParseSigningInfoArgs parses the arguments for the signing info query
-func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashingtypes.QuerySigningInfoRequest, error) {
+func ParseSigningInfoArgs(args []interface{}) (*slashingtypes.QuerySigningInfoRequest, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
@@ -53,13 +52,8 @@ func ParseSigningInfoArgs(args []interface{}, consCodec address.Codec) (*slashin
 		return nil, fmt.Errorf("invalid consensus address")
 	}
 
-	consAddr, err := consCodec.BytesToString(hexAddr.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert consensus address: %w", err)
-	}
-
 	return &slashingtypes.QuerySigningInfoRequest{
-		ConsAddress: consAddr,
+		ConsAddress: types.ConsAddress(hexAddr.Bytes()).String(),
 	}, nil
 }
 
@@ -79,32 +73,23 @@ func ParseSigningInfosArgs(method *abi.Method, args []interface{}) (*slashingtyp
 	}, nil
 }
 
-func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) (*SigningInfoOutput, error) {
-	consAddr, err := types.ConsAddressFromBech32(res.ValSigningInfo.Address)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing consensus address: %w", err)
-	}
-
+func (sio *SigningInfoOutput) FromResponse(res *slashingtypes.QuerySigningInfoResponse) *SigningInfoOutput {
 	sio.SigningInfo = SigningInfo{
-		ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
+		ValidatorAddress:    common.BytesToAddress([]byte(res.ValSigningInfo.Address)),
 		StartHeight:         res.ValSigningInfo.StartHeight,
 		IndexOffset:         res.ValSigningInfo.IndexOffset,
 		JailedUntil:         res.ValSigningInfo.JailedUntil.Unix(),
 		Tombstoned:          res.ValSigningInfo.Tombstoned,
 		MissedBlocksCounter: res.ValSigningInfo.MissedBlocksCounter,
 	}
-	return sio, nil
+	return sio
 }
 
-func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) (*SigningInfosOutput, error) {
+func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfosResponse) *SigningInfosOutput {
 	sio.SigningInfos = make([]SigningInfo, len(res.Info))
 	for i, info := range res.Info {
-		consAddr, err := types.ConsAddressFromBech32(info.Address)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing consensus address: %w", err)
-		}
 		sio.SigningInfos[i] = SigningInfo{
-			ValidatorAddress:    common.BytesToAddress(consAddr.Bytes()),
+			ValidatorAddress:    common.BytesToAddress([]byte(info.Address)),
 			StartHeight:         info.StartHeight,
 			IndexOffset:         info.IndexOffset,
 			JailedUntil:         info.JailedUntil.Unix(),
@@ -118,7 +103,7 @@ func (sio *SigningInfosOutput) FromResponse(res *slashingtypes.QuerySigningInfos
 			Total:   res.Pagination.Total,
 		}
 	}
-	return sio, nil
+	return sio
 }
 
 // ValidatorUnjailed defines the data structure for the ValidatorUnjailed event.

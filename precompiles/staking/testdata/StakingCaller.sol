@@ -2,16 +2,35 @@
 pragma solidity >=0.8.17;
 
 import "../StakingI.sol" as staking;
-import "./DelegationManager.sol";
 
 /// @title StakingCaller
 /// @author Evmos Core Team
 /// @dev This contract is used to test external contract calls to the staking precompile.
-contract StakingCaller is DelegationManager{
+contract StakingCaller {
     /// counter is used to test the state persistence bug, when EVM and Cosmos state were both
     /// changed in the same function.
     uint256 public counter;
     string[] private delegateMethod = [staking.MSG_DELEGATE];
+
+    /// The delegation mapping is used to associate the EOA address that 
+    /// actually made the delegate request with its corresponding delegation information. 
+    mapping(address => mapping(string => uint256)) public delegation;
+
+    /// The unbonding entry struct represents an unbonding operation that is in progress. 
+    /// It contains information about the validator and the amount of tokens that are being unbonded.
+    struct UnbondingEntry {
+        /// @dev The validator address is the address of the validator that is being unbonded.
+        string validator;
+        /// @dev The amount of tokens that are being unbonded.
+        uint256 amount;
+        /// @dev The creation height is the height at which the unbonding operation was created.
+        uint256 creationHeight;
+        /// @dev The completion time is the time at which the unbonding operation will complete.
+        int64 completionTime;
+    }
+
+    /// The unbonding queue is used to store the unbonding operations that are in progress.
+    mapping(address => UnbondingEntry[]) public unbondingQueue;
 
     /// @dev This function calls the staking precompile's create validator method
     /// using the msg.sender as the validator's operator address.
@@ -72,14 +91,15 @@ contract StakingCaller is DelegationManager{
     function testDelegate(
         string memory _validatorAddr
     ) public payable {
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
         bool success = staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,
             msg.value
         );
         require(success, "delegate failed");
-        _increaseAmount(msg.sender, _validatorAddr, msg.value);
+        delegation[msg.sender][_validatorAddr] += msg.value;
     }
 
     /// @dev This function calls the staking precompile's undelegate method.
@@ -89,11 +109,20 @@ contract StakingCaller is DelegationManager{
         string memory _validatorAddr,
         uint256 _amount
     ) public {
-        _checkDelegation(_validatorAddr, _amount);
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
+        require(delegation[msg.sender][_validatorAddr] >= _amount, "Insufficient delegation");
+        
         int64 completionTime = staking.STAKING_CONTRACT.undelegate(address(this), _validatorAddr, _amount);
         require(completionTime > 0, "Failed to undelegate");
-        _undelegate(_validatorAddr, _amount, completionTime);
+
+        uint256 creationHeight = block.number;
+        unbondingQueue[msg.sender].push(UnbondingEntry({
+            validator: _validatorAddr,
+            amount: _amount,
+            creationHeight: creationHeight,
+            completionTime: completionTime
+        }));
     }
 
     /// @dev This function calls the staking precompile's redelegate method.
@@ -104,8 +133,7 @@ contract StakingCaller is DelegationManager{
         string memory _validatorSrcAddr,
         string memory _validatorDstAddr,
         uint256 _amount
-    ) public {
-        _checkDelegation(_validatorSrcAddr, _amount);
+    ) public {        
         int64 completionTime = staking.STAKING_CONTRACT.redelegate(
             address(this),
             _validatorSrcAddr,
@@ -113,8 +141,8 @@ contract StakingCaller is DelegationManager{
             _amount
         );
         require(completionTime > 0, "Failed to redelegate");
-        _decreaseAmount(msg.sender, _validatorSrcAddr, _amount);
-        _increaseAmount(msg.sender, _validatorDstAddr, _amount);
+        delegation[msg.sender][_validatorSrcAddr] -= _amount;
+        delegation[msg.sender][_validatorDstAddr] += _amount;
     }
 
     /// @dev This function calls the staking precompile's cancel unbonding delegation method.
@@ -126,8 +154,8 @@ contract StakingCaller is DelegationManager{
         uint256 _amount,
         uint256 _creationHeight
     ) public {
-        _dequeueUnbondingDelegation();
-        _checkUnbondingDelegation(msg.sender, _validatorAddr);        
+        _dequeueUnbondingEntry();
+
         bool success = staking.STAKING_CONTRACT.cancelUnbondingDelegation(
             address(this),
             _validatorAddr,
@@ -135,6 +163,7 @@ contract StakingCaller is DelegationManager{
             _creationHeight
         );
         require(success, "Failed to cancel unbonding");
+
         _cancelUnbonding(_creationHeight, _amount);
     }
 
@@ -251,7 +280,8 @@ contract StakingCaller is DelegationManager{
         uint256 _amount,
         string memory _calltype
     ) public {
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
         address calledContractAddress = staking.STAKING_PRECOMPILE_ADDRESS;
         bytes memory payload = abi.encodeWithSignature(
             "undelegate(address,string,uint256)",
@@ -301,7 +331,14 @@ contract StakingCaller is DelegationManager{
         } else {
             revert("invalid calltype");
         }
-        _undelegate(_validatorAddr, _amount, completionTime);
+
+        uint256 creationHeight = block.number;
+        unbondingQueue[msg.sender].push(UnbondingEntry({
+            validator: _validatorAddr,
+            amount: _amount,
+            creationHeight: creationHeight,
+            completionTime: completionTime
+        }));
     }
 
     /// @dev This function is used to test the behaviour when executing queries using special function calling opcodes,
@@ -415,14 +452,15 @@ contract StakingCaller is DelegationManager{
     function testDelegateIncrementCounter(
         string memory _validatorAddr
     ) public payable {
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
         bool success = staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,
             msg.value
         );
         require(success, "delegate failed");
-        _increaseAmount(msg.sender, _validatorAddr, msg.value);
+        delegation[msg.sender][_validatorAddr] += msg.value;
         counter += 1;
     }
 
@@ -431,14 +469,15 @@ contract StakingCaller is DelegationManager{
     function testDelegateAndFailCustomLogic(
         string memory _validatorAddr
     ) public payable {
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
         bool success = staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,
             msg.value
         );
         require(success, "delegate failed");
-        _increaseAmount(msg.sender, _validatorAddr, msg.value);
+        delegation[msg.sender][_validatorAddr] += msg.value;
 
         // This should fail since the balance is already spent in the previous call
         payable(msg.sender).transfer(msg.value);
@@ -457,7 +496,8 @@ contract StakingCaller is DelegationManager{
         string memory _validatorAddr,
         uint256 _amount
     ) public payable {
-        _dequeueUnbondingDelegation();
+        _dequeueUnbondingEntry();
+
         (bool success, ) = _contract.call(
             abi.encodeWithSignature(
                 "transfer(address,uint256)",
@@ -466,8 +506,53 @@ contract StakingCaller is DelegationManager{
             )
         );
         require(success, "transfer failed");
+
         success = staking.STAKING_CONTRACT.delegate(address(this), _validatorAddr, msg.value);
         require(success, "delegate failed");
-        _increaseAmount(msg.sender, _validatorAddr, msg.value);
+        delegation[msg.sender][_validatorAddr] += msg.value;
+    }
+
+    /// @dev This function is used to dequeue unbonding entries that have expired.
+    ///
+    /// @notice StakingCaller acts as the delegator and manages delegation/unbonding state per EoA.
+    /// Reflecting x/staking unbondingQueue changes in real-time would require event listening.
+    /// To simplify unbonding entry processing, this function is called during delegate/undelegate calls.
+    /// Although updating unbondingQueue state isn't tested in the staking precompile integration tests,
+    /// it is included for the completeness of the contract.
+    function _dequeueUnbondingEntry() private {
+        
+        for (uint256 i = 0; i < unbondingQueue[msg.sender].length; i++) {
+            UnbondingEntry storage entry = unbondingQueue[msg.sender][i];
+            if (uint256(int256(entry.completionTime)) <= block.timestamp) {
+                delete unbondingQueue[msg.sender][i];
+                delegation[msg.sender][entry.validator] -= entry.amount;
+            }
+        }
+    }
+
+    /// @dev This function is used to cancel unbonding entries that have been cancelled.
+    /// @param _creationHeight The creation height of the unbonding entry to cancel.
+    /// @param _amount The amount to cancel.
+    function _cancelUnbonding(uint256 _creationHeight, uint256 _amount) private {
+        UnbondingEntry[] storage entries = unbondingQueue[msg.sender];
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            UnbondingEntry storage entry = entries[i];
+
+            if (entry.creationHeight != _creationHeight) {
+                continue;
+            }
+
+            require(entry.amount >= _amount, "amount exceeds unbonding entry amount");
+            entry.amount -= _amount;
+
+            // If the amount is now 0, remove the entry
+            if (entry.amount == 0) {
+                delete entries[i];
+            }
+
+            // Only cancel one entry per call
+            break; 
+        }
     }
 }

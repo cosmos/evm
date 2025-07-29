@@ -66,7 +66,8 @@ func (p Precompile) Approve(
 		return nil, err
 	}
 
-	if err := p.EmitApprovalEvent(ctx, stateDB, owner, spender, amount); err != nil {
+	// TODO: check owner?
+	if err := p.EmitApprovalEvent(ctx, stateDB, p.Address(), spender, amount); err != nil {
 		return nil, err
 	}
 

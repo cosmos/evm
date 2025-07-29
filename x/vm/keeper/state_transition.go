@@ -147,7 +147,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 // returning.
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
-func (k *Keeper) ApplyTransaction(ctx sdk.Context, msgEth *types.MsgEthereumTx) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
 	var (
 		bloom        *big.Int
 		bloomReceipt ethtypes.Bloom
@@ -157,17 +157,16 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, msgEth *types.MsgEthereumTx) 
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
-	ethTx := msgEth.AsTransaction()
-	txConfig := k.TxConfig(ctx, ethTx.Hash())
+	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
 	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
-	msg, err := core.TransactionToMessage(ethTx, signer, cfg.BaseFee)
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
 	}
 
-	// create a cache context to revert state. The cache context is only committed when both tx and hooks executed successfully.
+	// Create a cache context to revert state. The cache context is only committed when both tx and hooks executed successfully.
 	// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
 	// thus restricted to be used only inside `ApplyMessage`.
 	tmpCtx, commit := ctx.CacheContext()
@@ -206,7 +205,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, msgEth *types.MsgEthereumTx) 
 		}
 
 		receipt := &ethtypes.Receipt{
-			Type:              ethTx.Type(),
+			Type:              tx.Type(),
 			PostState:         nil,
 			CumulativeGasUsed: cumulativeGasUsed,
 			Bloom:             bloomReceipt,
@@ -219,7 +218,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, msgEth *types.MsgEthereumTx) 
 			TransactionIndex:  txConfig.TxIndex,
 		}
 
-		signerAddr, err := signer.Sender(ethTx)
+		signerAddr, err := signer.Sender(tx)
 		if err != nil {
 			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
 		}
@@ -348,9 +347,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 			msg.From,
 		)
 		defer func() {
-			if vmCfg.Tracer.OnTxEnd != nil {
-				vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
-			}
+			vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
 		}()
 	}
 

@@ -23,7 +23,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	// Get transaction by hash
 	transaction, err := b.GetTxByEthHash(hash)
 	if err != nil {
-		b.Logger.Debug("tx not found", "hash", hash)
+		b.logger.Debug("tx not found", "hash", hash)
 		return nil, err
 	}
 
@@ -34,7 +34,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 
 	blk, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(transaction.Height))
 	if err != nil {
-		b.Logger.Debug("block not found", "height", transaction.Height)
+		b.logger.Debug("block not found", "height", transaction.Height)
 		return nil, err
 	}
 
@@ -44,15 +44,15 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 	}
 	txsLen := uint32(len(blk.Block.Txs)) // #nosec G115 -- checked for int overflow already
 	if txsLen < transaction.TxIndex {
-		b.Logger.Debug("tx index out of bounds", "index", transaction.TxIndex, "hash", hash.String(), "height", blk.Block.Height)
+		b.logger.Debug("tx index out of bounds", "index", transaction.TxIndex, "hash", hash.String(), "height", blk.Block.Height)
 		return nil, fmt.Errorf("transaction not included in block %v", blk.Block.Height)
 	}
 
 	var predecessors []*evmtypes.MsgEthereumTx
 	for _, txBz := range blk.Block.Txs[:transaction.TxIndex] {
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+		tx, err := b.clientCtx.TxConfig.TxDecoder()(txBz)
 		if err != nil {
-			b.Logger.Debug("failed to decode transaction in block", "height", blk.Block.Height, "error", err.Error())
+			b.logger.Debug("failed to decode transaction in block", "height", blk.Block.Height, "error", err.Error())
 			continue
 		}
 		for _, msg := range tx.GetMsgs() {
@@ -65,9 +65,9 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		}
 	}
 
-	tx, err := b.ClientCtx.TxConfig.TxDecoder()(blk.Block.Txs[transaction.TxIndex])
+	tx, err := b.clientCtx.TxConfig.TxDecoder()(blk.Block.Txs[transaction.TxIndex])
 	if err != nil {
-		b.Logger.Debug("tx not found", "hash", hash)
+		b.logger.Debug("tx not found", "hash", hash)
 		return nil, err
 	}
 
@@ -83,16 +83,16 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 
 	ethMessage, ok := tx.GetMsgs()[transaction.MsgIndex].(*evmtypes.MsgEthereumTx)
 	if !ok {
-		b.Logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx))
+		b.logger.Debug("invalid transaction type", "type", fmt.Sprintf("%T", tx))
 		return nil, fmt.Errorf("invalid transaction type %T", tx)
 	}
 
-	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
+	nc, ok := b.clientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	cp, err := nc.ConsensusParams(b.Ctx, &blk.Block.Height)
+	cp, err := nc.ConsensusParams(b.ctx, &blk.Block.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		BlockTime:       blk.Block.Time,
 		BlockHash:       common.Bytes2Hex(blk.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(blk.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.chainID.Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
@@ -118,7 +118,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		// 0 is a special value in `ContextWithHeight`
 		contextHeight = 1
 	}
-	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
+	traceResult, err := b.queryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -149,13 +149,13 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		return []*evmtypes.TxTraceResult{}, nil
 	}
 
-	txDecoder := b.ClientCtx.TxConfig.TxDecoder()
+	txDecoder := b.clientCtx.TxConfig.TxDecoder()
 
 	var txsMessages []*evmtypes.MsgEthereumTx
 	for i, tx := range txs {
 		decodedTx, err := txDecoder(tx)
 		if err != nil {
-			b.Logger.Error("failed to decode transaction", "hash", txs[i].Hash(), "error", err.Error())
+			b.logger.Error("failed to decode transaction", "hash", txs[i].Hash(), "error", err.Error())
 			continue
 		}
 
@@ -177,12 +177,12 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 	}
 	ctxWithHeight := rpctypes.ContextWithHeight(int64(contextHeight))
 
-	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
+	nc, ok := b.clientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
 		return nil, errors.New("invalid rpc client")
 	}
 
-	cp, err := nc.ConsensusParams(b.Ctx, &block.Block.Height)
+	cp, err := nc.ConsensusParams(b.ctx, &block.Block.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -194,11 +194,11 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		BlockTime:       block.Block.Time,
 		BlockHash:       common.Bytes2Hex(block.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(block.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.chainID.Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
-	res, err := b.QueryClient.TraceBlock(ctxWithHeight, traceBlockRequest)
+	res, err := b.queryClient.TraceBlock(ctxWithHeight, traceBlockRequest)
 	if err != nil {
 		return nil, err
 	}

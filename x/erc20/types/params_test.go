@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/testutil/config"
+	exampleapp "github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/erc20/types"
 )
@@ -162,7 +162,7 @@ func (suite *ParamsTestSuite) TestIsNativePrecompile() {
 	}{
 		{
 			"default",
-			func() types.Params { return config.NewErc20GenesisState().Params },
+			func() types.Params { return exampleapp.NewErc20GenesisState().Params },
 			common.HexToAddress(testconstants.WEVMOSContractMainnet),
 			true,
 		},

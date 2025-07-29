@@ -130,12 +130,12 @@ func validatePrecompilesUniqueness(i interface{}) error {
 }
 
 // IsNativePrecompile checks if the provided address is within the native precompiles
-func (p *Params) IsNativePrecompile(addr common.Address) bool {
+func (p Params) IsNativePrecompile(addr common.Address) bool {
 	return isAddrIncluded(addr, p.NativePrecompiles)
 }
 
 // IsDynamicPrecompile checks if the provided address is within the dynamic precompiles
-func (p *Params) IsDynamicPrecompile(addr common.Address) bool {
+func (p Params) IsDynamicPrecompile(addr common.Address) bool {
 	return isAddrIncluded(addr, p.DynamicPrecompiles)
 }
 

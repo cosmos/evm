@@ -1,7 +1,6 @@
 name: Tests
 on:
   pull_request:
-  merge_group:
   push:
     branches:
       - main
@@ -33,9 +32,6 @@ jobs:
             **/**.go
             go.mod
             go.sum
-            evmd/go.mod
-            evmd/go.sum
-            evmd/**/**.go
             *.toml
       - name: Test and Create Coverage Report
         run: |

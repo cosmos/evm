@@ -139,7 +139,7 @@ func (p Precompile) DelegationRewards(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegationRewardsRequest(args, p.addrCdc)
+	req, err := NewDelegationRewardsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (p Precompile) DelegationTotalRewards(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegationTotalRewardsRequest(args, p.addrCdc)
+	req, err := NewDelegationTotalRewardsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (p Precompile) DelegatorValidators(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegatorValidatorsRequest(args, p.addrCdc)
+	req, err := NewDelegatorValidatorsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (p Precompile) DelegatorWithdrawAddress(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegatorWithdrawAddressRequest(args, p.addrCdc)
+	req, err := NewDelegatorWithdrawAddressRequest(args)
 	if err != nil {
 		return nil, err
 	}

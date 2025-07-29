@@ -21,13 +21,7 @@ var supportedTxs = map[string]func() TxDataV2{
 
 // getSender extracts the sender address from the signature values using the latest signer for the given chainID.
 func getSender(txData TxDataV2) (common.Address, error) {
-	chainID := txData.GetChainID()
-	// legacy tx returns `0` as chainID when EIP-155 is not used
-	// seee: DeriveChainID
-	if chainID != nil && chainID.Sign() == 0 {
-		chainID = nil
-	}
-	signer := ethtypes.LatestSignerForChainID(chainID)
+	signer := ethtypes.LatestSignerForChainID(txData.GetChainID())
 	from, err := signer.Sender(ethtypes.NewTx(txData.AsEthereumData()))
 	if err != nil {
 		return common.Address{}, err

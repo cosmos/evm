@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"sort"
 
+	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -17,11 +20,11 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
-	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/evmd/ante"
+	chainante "github.com/cosmos/evm/evmd/ante"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
+	cosmosevmutils "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -29,10 +32,7 @@ import (
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
-	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
-	"github.com/cosmos/evm/x/ibc/transfer"
+	"github.com/cosmos/evm/x/ibc/transfer" // NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
 	"github.com/cosmos/evm/x/precisebank"
@@ -42,7 +42,6 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
@@ -58,6 +57,7 @@ import (
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
+	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
@@ -136,13 +136,37 @@ func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
 	sdk.DefaultPowerReduction = cosmosevmtypes.AttoPowerReduction
 
-	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
+	// get the user's home directory
+	var err error
+	DefaultNodeHome, err = clienthelpers.GetNodeHomeDirectory(".evmd")
+	if err != nil {
+		panic(err)
+	}
 }
 
 const appName = "evmd"
 
-// defaultNodeHome default home directories for the application daemon
-var defaultNodeHome string
+var (
+	// DefaultNodeHome default home directories for the application daemon
+	DefaultNodeHome string
+
+	// module account permissions
+	maccPerms = map[string][]string{
+		authtypes.FeeCollectorName:     nil,
+		distrtypes.ModuleName:          nil,
+		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		minttypes.ModuleName:           {authtypes.Minter},
+		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
+		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
+		govtypes.ModuleName:            {authtypes.Burner},
+
+		// Cosmos EVM modules
+		evmtypes.ModuleName:         {authtypes.Minter, authtypes.Burner},
+		feemarkettypes.ModuleName:   nil,
+		erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
+		precisebanktypes.ModuleName: {authtypes.Minter, authtypes.Burner},
+	}
+)
 
 var (
 	_ runtime.AppI            = (*EVMD)(nil)
@@ -182,7 +206,6 @@ type EVMD struct {
 	// IBC keepers
 	IBCKeeper      *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	TransferKeeper transferkeeper.Keeper
-	CallbackKeeper ibccallbackskeeper.ContractKeeper
 
 	// Cosmos EVM keepers
 	FeeMarketKeeper   feemarketkeeper.Keeper
@@ -209,7 +232,7 @@ func NewExampleApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	evmChainID uint64,
-	evmAppOptions evmconfig.EVMOptionsFn,
+	evmAppOptions EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	encodingConfig := evmosencoding.MakeConfig(evmChainID)
@@ -314,7 +337,7 @@ func NewExampleApp(
 	// add keepers
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-		authtypes.ProtoBaseAccount, evmdconfig.GetMaccPerms(),
+		authtypes.ProtoBaseAccount, maccPerms,
 		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
@@ -324,7 +347,7 @@ func NewExampleApp(
 		appCodec,
 		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
 		app.AccountKeeper,
-		evmdconfig.BlockedAddresses(),
+		BlockedAddresses(),
 		authAddr,
 		logger,
 	)
@@ -448,6 +471,15 @@ func NewExampleApp(
 		runtime.ProvideCometInfoService(),
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
+	// Note: The evidence precompile allows evidence to be submitted through an EVM transaction.
+	// If you implement a custom evidence handler in the router that changes token balances (e.g. penalizing
+	// addresses, deducting fees, etc.), be aware that the precompile logic (e.g. SetBalanceChangeEntries)
+	// must be properly integrated to reflect these balance changes in the EVM state. Otherwise, there is a risk
+	// of desynchronization between the Cosmos SDK state and the EVM state when evidence is submitted via the EVM.
+	//
+	// For example, if your custom evidence handler deducts tokens from a user’s account, ensure that the evidence
+	// precompile also applies these deductions through the EVM’s balance tracking. Failing to do so may cause
+	// inconsistencies in reported balances and break state synchronization.
 	app.EvidenceKeeper = *evidenceKeeper
 
 	// Cosmos EVM keepers
@@ -473,7 +505,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey],
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -512,29 +544,21 @@ func NewExampleApp(
 		Create Transfer Stack
 
 		transfer stack contains (from bottom to top):
-			- IBC Callbacks Middleware (with EVM ContractKeeper)
 			- ERC-20 Middleware
 			- IBC Transfer
 
 		SendPacket, since it is originating from the application to core IBC:
-		 	transferKeeper.SendPacket ->  erc20.SendPacket -> callbacks.SendPacket -> channel.SendPacket
+		 	transferKeeper.SendPacket -> erc20.SendPacket -> channel.SendPacket
 
 		RecvPacket, message that originates from core IBC and goes down to app, the flow is the other way
-			channel.RecvPacket -> callbacks.OnRecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
+			channel.RecvPacket -> erc20.OnRecvPacket -> transfer.OnRecvPacket
 	*/
 
 	// create IBC module from top to bottom of stack
 	var transferStack porttypes.IBCModule
 
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
-	maxCallbackGas := uint64(1_000_000)
 	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
-	app.CallbackKeeper = ibccallbackskeeper.NewKeeper(
-		app.AccountKeeper,
-		app.EVMKeeper,
-		app.Erc20Keeper,
-	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -570,6 +594,7 @@ func NewExampleApp(
 			app.EVMKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
+			app.EvidenceKeeper,
 			app.AppCodec(),
 		),
 	)
@@ -795,7 +820,7 @@ func NewExampleApp(
 }
 
 func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
-	options := ante.HandlerOptions{
+	options := chainante.HandlerOptions{
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
@@ -813,7 +838,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		panic(err)
 	}
 
-	app.SetAnteHandler(ante.NewAnteHandler(options))
+	app.SetAnteHandler(chainante.NewAnteHandler(options))
 }
 
 func (app *EVMD) setPostHandler() {
@@ -973,14 +998,14 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 
 // RegisterTxService implements the Application.RegisterTxService method.
 func (app *EVMD) RegisterTxService(clientCtx client.Context) {
-	authtx.RegisterTxService(app.GRPCQueryRouter(), clientCtx, app.Simulate, app.interfaceRegistry)
+	authtx.RegisterTxService(app.GRPCQueryRouter(), clientCtx, app.BaseApp.Simulate, app.interfaceRegistry)
 }
 
 // RegisterTendermintService implements the Application.RegisterTendermintService method.
 func (app *EVMD) RegisterTendermintService(clientCtx client.Context) {
 	cmtservice.RegisterTendermintService(
 		clientCtx,
-		app.GRPCQueryRouter(),
+		app.BaseApp.GRPCQueryRouter(),
 		app.interfaceRegistry,
 		app.Query,
 	)
@@ -1009,82 +1034,6 @@ func (app *EVMD) GetIBCKeeper() *ibckeeper.Keeper {
 	return app.IBCKeeper
 }
 
-func (app *EVMD) GetEVMKeeper() *evmkeeper.Keeper {
-	return app.EVMKeeper
-}
-
-func (app *EVMD) GetErc20Keeper() *erc20keeper.Keeper {
-	return &app.Erc20Keeper
-}
-
-func (app *EVMD) SetErc20Keeper(erc20Keeper erc20keeper.Keeper) {
-	app.Erc20Keeper = erc20Keeper
-}
-
-func (app *EVMD) GetGovKeeper() govkeeper.Keeper {
-	return app.GovKeeper
-}
-
-func (app *EVMD) GetEvidenceKeeper() *evidencekeeper.Keeper {
-	return &app.EvidenceKeeper
-}
-
-func (app *EVMD) GetSlashingKeeper() slashingkeeper.Keeper {
-	return app.SlashingKeeper
-}
-
-func (app *EVMD) GetBankKeeper() bankkeeper.Keeper {
-	return app.BankKeeper
-}
-
-func (app *EVMD) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
-	return &app.FeeMarketKeeper
-}
-
-func (app *EVMD) GetFeeGrantKeeper() feegrantkeeper.Keeper {
-	return app.FeeGrantKeeper
-}
-
-func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
-	return app.AccountKeeper
-}
-
-func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
-	return app.AuthzKeeper
-}
-
-func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
-	return app.DistrKeeper
-}
-
-func (app *EVMD) GetStakingKeeper() *stakingkeeper.Keeper {
-	return app.StakingKeeper
-}
-
-func (app *EVMD) GetMintKeeper() mintkeeper.Keeper {
-	return app.MintKeeper
-}
-
-func (app *EVMD) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
-	return &app.PreciseBankKeeper
-}
-
-func (app *EVMD) GetCallbackKeeper() ibccallbackskeeper.ContractKeeper {
-	return app.CallbackKeeper
-}
-
-func (app *EVMD) GetTransferKeeper() transferkeeper.Keeper {
-	return app.TransferKeeper
-}
-
-func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
-	app.TransferKeeper = transferKeeper
-}
-
-func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
-	return app.BaseApp.AnteHandler()
-}
-
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
@@ -1109,6 +1058,43 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 		ValidatorAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
+}
+
+// GetMaccPerms returns a copy of the module account permissions
+func GetMaccPerms() map[string][]string {
+	return maps.Clone(maccPerms)
+}
+
+// BlockedAddresses returns all the app's blocked account addresses.
+//
+// Note, this includes:
+//   - module accounts
+//   - Ethereum's native precompiled smart contracts
+//   - Cosmos EVM' available static precompiled contracts
+func BlockedAddresses() map[string]bool {
+	blockedAddrs := make(map[string]bool)
+
+	maccPerms := GetMaccPerms()
+	accs := make([]string, 0, len(maccPerms))
+	for acc := range maccPerms {
+		accs = append(accs, acc)
+	}
+	sort.Strings(accs)
+
+	for _, acc := range accs {
+		blockedAddrs[authtypes.NewModuleAddress(acc).String()] = true
+	}
+
+	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
+	for _, addr := range corevm.PrecompiledAddressesBerlin {
+		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
+	}
+
+	for _, precompile := range blockedPrecompilesHex {
+		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
+	}
+
+	return blockedAddrs
 }
 
 // initParamsKeeper init params keeper and its subspaces

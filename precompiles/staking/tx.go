@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
@@ -44,7 +46,7 @@ func (p Precompile) CreateValidator(
 	if err != nil {
 		return nil, err
 	}
-	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
+	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +143,7 @@ func (p *Precompile) Delegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +175,19 @@ func (p *Precompile) Delegate(
 		return nil, err
 	}
 
+	if msg.Amount.Denom == evmtypes.GetEVMCoinDenom() {
+		// NOTE: This ensures that the changes in the bank keeper are correctly mirrored to the EVM stateDB
+		// when calling the precompile from a smart contract
+		// This prevents the stateDB from overwriting the changed balance in the bank keeper when committing the EVM state.
+
+		// Need to scale the amount to 18 decimals for the EVM balance change entry
+		scaledAmt, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(msg.Amount.Amount.BigInt()))
+		if err != nil {
+			return nil, err
+		}
+		p.SetBalanceChangeEntries(cmn.NewBalanceChangeEntry(delegatorHexAddr, scaledAmt, cmn.Sub))
+	}
+
 	return method.Outputs.Pack(true)
 }
 
@@ -189,7 +204,7 @@ func (p Precompile) Undelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +254,7 @@ func (p Precompile) Redelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +303,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom)
 	if err != nil {
 		return nil, err
 	}

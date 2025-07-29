@@ -47,7 +47,7 @@ func (app *EVMD) ExportAppStateAndValidators(forZeroHeight bool, jailAllowedAddr
 		AppState:        appState,
 		Validators:      validators,
 		Height:          height,
-		ConsensusParams: app.GetConsensusParams(ctx),
+		ConsensusParams: app.BaseApp.GetConsensusParams(ctx),
 	}, err
 }
 
@@ -56,10 +56,15 @@ func (app *EVMD) ExportAppStateAndValidators(forZeroHeight bool, jailAllowedAddr
 //
 //	in favour of export at a block height
 func (app *EVMD) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []string) error {
-	applyAllowedAddrs := len(jailAllowedAddrs) > 0
+	applyAllowedAddrs := false
 
-	// check if there is an allowed address list
+	// check if there is a allowed address list
+	if len(jailAllowedAddrs) > 0 {
+		applyAllowedAddrs = true
+	}
+
 	allowedAddrsMap := make(map[string]bool)
+
 	for _, addr := range jailAllowedAddrs {
 		_, err := sdk.ValAddressFromBech32(addr)
 		if err != nil {
