@@ -8,13 +8,21 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+)
+
+var (
+	logTransferSig     = []byte("Transfer(address,address,uint256)")
+	logTransferSigHash = crypto.Keccak256Hash(logTransferSig)
+
+	logApprovalSig     = []byte("Approval(address,address,uint256)")
+	logApprovalSigHash = crypto.Keccak256Hash(logApprovalSig)
 )
 
 // DeployERC20Contract creates and deploys an ERC20 contract on the EVM with the
@@ -61,51 +69,69 @@ func (k Keeper) QueryERC20(
 	ctx sdk.Context,
 	contract common.Address,
 ) (types.ERC20Data, error) {
-	var (
-		nameRes    types.ERC20StringResponse
-		symbolRes  types.ERC20StringResponse
-		decimalRes types.ERC20Uint8Response
-	)
-
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
 
-	// Name
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, "name")
+	// Name - with fallback support for bytes32
+	name, err := k.queryERC20String(ctx, erc20, contract, "name")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
-	if err := erc20.UnpackIntoInterface(&nameRes, "name", res.Ret); err != nil {
-		return types.ERC20Data{}, errorsmod.Wrapf(
-			types.ErrABIUnpack, "failed to unpack name: %s", err.Error(),
-		)
-	}
-
-	// Symbol
-	res, err = k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, "symbol")
+	// Symbol - with fallback support for bytes32
+	symbol, err := k.queryERC20String(ctx, erc20, contract, "symbol")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
-	if err := erc20.UnpackIntoInterface(&symbolRes, "symbol", res.Ret); err != nil {
-		return types.ERC20Data{}, errorsmod.Wrapf(
-			types.ErrABIUnpack, "failed to unpack symbol: %s", err.Error(),
-		)
-	}
-
-	// Decimals
-	res, err = k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, "decimals")
+	// Decimals - standard uint8, no fallback needed
+	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, "decimals")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
+	var decimalRes types.ERC20Uint8Response
 	if err := erc20.UnpackIntoInterface(&decimalRes, "decimals", res.Ret); err != nil {
 		return types.ERC20Data{}, errorsmod.Wrapf(
 			types.ErrABIUnpack, "failed to unpack decimals: %s", err.Error(),
 		)
 	}
 
-	return types.NewERC20Data(nameRes.Value, symbolRes.Value, decimalRes.Value), nil
+	return types.NewERC20Data(name, symbol, decimalRes.Value), nil
+}
+
+// queryERC20String attempts to query an ERC20 string field with fallback to bytes32
+func (k Keeper) queryERC20String(
+	ctx sdk.Context,
+	erc20 abi.ABI,
+	contract common.Address,
+	method string,
+) (string, error) {
+	// 1) Call into the EVM
+	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, method)
+	if err != nil {
+		return "", err
+	}
+
+	// 2) First try to unpack as a normal ABI “string”
+	var strResp types.ERC20StringResponse
+	if err := erc20.UnpackIntoInterface(&strResp, method, res.Ret); err == nil {
+		return strResp.Value, nil
+	}
+
+	// 3) Fallback: if we got exactly 32 bytes back, treat it as bytes32
+	if len(res.Ret) == 32 {
+		var b [32]byte
+		copy(b[:], res.Ret)
+		return utils.Bytes32ToString(b), nil
+	}
+
+	// 4) Otherwise it really is neither a string nor a 32‐byte static, so error
+	return "", errorsmod.Wrapf(
+		types.ErrABIUnpack,
+		"failed to unpack %s as both string and raw bytes32 (len=%d)",
+		method,
+		len(res.Ret),
+	)
 }
 
 // BalanceOf queries an account's balance for a given ERC20 contract
@@ -130,25 +156,4 @@ func (k Keeper) BalanceOf(
 	}
 
 	return balance
-}
-
-// monitorApprovalEvent returns an error if the given transactions logs include
-// an unexpected `Approval` event
-func (k Keeper) monitorApprovalEvent(res *evmtypes.MsgEthereumTxResponse) error {
-	if res == nil || len(res.Logs) == 0 {
-		return nil
-	}
-
-	logApprovalSig := []byte("Approval(address,address,uint256)")
-	logApprovalSigHash := crypto.Keccak256Hash(logApprovalSig)
-
-	for _, log := range res.Logs {
-		if log.Topics[0] == logApprovalSigHash.Hex() {
-			return errorsmod.Wrapf(
-				types.ErrUnexpectedEvent, "unexpected Approval event",
-			)
-		}
-	}
-
-	return nil
 }

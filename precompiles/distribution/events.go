@@ -71,7 +71,7 @@ func (p Precompile) EmitClaimRewardsEvent(ctx sdk.Context, stateDB vm.StateDB, d
 // EmitSetWithdrawAddressEvent creates a new event emitted on a SetWithdrawAddressMethod transaction.
 func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.StateDB, caller common.Address, withdrawerAddress string) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeSetWithdrawAddress]
+	event := p.Events[EventTypeSetWithdrawAddress]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -108,7 +108,7 @@ func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeWithdrawDelegatorReward]
+	event := p.Events[EventTypeWithdrawDelegatorReward]
 	topics := make([]common.Hash, 3)
 
 	// The first topic is always the signature of the event.
@@ -141,7 +141,7 @@ func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm
 // EmitWithdrawValidatorCommissionEvent creates a new event emitted on a WithdrawValidatorCommission transaction.
 func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateDB vm.StateDB, validatorAddress string, coins sdk.Coins) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeWithdrawValidatorCommission]
+	event := p.Events[EventTypeWithdrawValidatorCommission]
 	topics := make([]common.Hash, 2)
 
 	// The first topic is always the signature of the event.
@@ -170,7 +170,7 @@ func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateD
 // EmitFundCommunityPoolEvent creates a new event emitted per Coin on a FundCommunityPool transaction.
 func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.StateDB, depositor common.Address, coins sdk.Coins) error {
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeFundCommunityPool]
+	event := p.Events[EventTypeFundCommunityPool]
 
 	for _, coin := range coins {
 		topics := make([]common.Hash, 2)
@@ -212,7 +212,7 @@ func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateD
 	}
 
 	// Prepare the event topics
-	event := p.ABI.Events[EventTypeDepositValidatorRewardsPool]
+	event := p.Events[EventTypeDepositValidatorRewardsPool]
 	for _, coin := range coins {
 		topics := make([]common.Hash, 3)
 

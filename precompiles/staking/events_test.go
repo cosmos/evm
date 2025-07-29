@@ -61,7 +61,7 @@ func (s *PrecompileTestSuite) TestCreateValidatorEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeCreateValidator]
+				event := s.precompile.Events[staking.EventTypeCreateValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -135,7 +135,7 @@ func (s *PrecompileTestSuite) TestEditValidatorEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeEditValidator]
+				event := s.precompile.Events[staking.EventTypeEditValidator]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -205,7 +205,7 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeDelegate]
+				event := s.precompile.Events[staking.EventTypeDelegate]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -275,7 +275,7 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 			func(delegator common.Address) {
 				log := stDB.Logs()[0]
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeUnbond]
+				event := s.precompile.Events[staking.EventTypeUnbond]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -345,7 +345,7 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 			func(delegator common.Address) {
 				log := stDB.Logs()[0]
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeRedelegate]
+				event := s.precompile.Events[staking.EventTypeRedelegate]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
@@ -429,7 +429,7 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 				log := stDB.Logs()[1]
 
 				// Check event signature matches the one emitted
-				event := s.precompile.ABI.Events[staking.EventTypeCancelUnbondingDelegation]
+				event := s.precompile.Events[staking.EventTypeCancelUnbondingDelegation]
 				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 

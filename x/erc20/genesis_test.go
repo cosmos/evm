@@ -45,7 +45,7 @@ func (suite *GenesisTestSuite) SetupTest() {
 
 	chainID := constants.ExampleChainID
 	suite.app = exampleapp.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
-	suite.ctx = suite.app.BaseApp.NewContextLegacy(false, tmproto.Header{
+	suite.ctx = suite.app.NewContextLegacy(false, tmproto.Header{
 		Height:          1,
 		ChainID:         chainID.ChainID,
 		Time:            time.Now().UTC(),

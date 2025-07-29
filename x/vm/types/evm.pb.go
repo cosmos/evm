@@ -327,7 +327,8 @@ type ChainConfig struct {
 	PragueTime *cosmossdk_io_math.Int `protobuf:"bytes,29,opt,name=prague_time,json=pragueTime,proto3,customtype=cosmossdk.io/math.Int" json:"prague_time,omitempty" yaml:"prague_time"`
 	// verkle_time: Verkle switch time (nil = no fork, 0 = already on verkle)
 	VerkleTime *cosmossdk_io_math.Int `protobuf:"bytes,30,opt,name=verkle_time,json=verkleTime,proto3,customtype=cosmossdk.io/math.Int" json:"verkle_time,omitempty" yaml:"verkle_time"`
-	OsakaTime  *cosmossdk_io_math.Int `protobuf:"bytes,31,opt,name=osaka_time,json=osakaTime,proto3,customtype=cosmossdk.io/math.Int" json:"osaka_time,omitempty" yaml:"osaka_time"`
+	// osaka_time: Osaka switch time (nil = no fork, 0 = already on osaka)
+	OsakaTime *cosmossdk_io_math.Int `protobuf:"bytes,31,opt,name=osaka_time,json=osakaTime,proto3,customtype=cosmossdk.io/math.Int" json:"osaka_time,omitempty" yaml:"osaka_time"`
 }
 
 func (m *ChainConfig) Reset()         { *m = ChainConfig{} }

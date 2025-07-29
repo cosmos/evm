@@ -53,7 +53,7 @@ type Backend interface {
 }
 
 // consider a filter inactive if it has not been polled for within deadline
-var deadline = 5 * time.Minute
+const defaultDeadline = 5 * time.Minute
 
 // filter is a helper struct that holds meta information over the filter type
 // and associated subscription in the event system.
@@ -75,10 +75,28 @@ type PublicFilterAPI struct {
 	events    *EventSystem
 	filtersMu sync.Mutex
 	filters   map[rpc.ID]*filter
+	deadline  time.Duration
 }
 
 // NewPublicAPI returns a new PublicFilterAPI instance.
-func NewPublicAPI(logger log.Logger, clientCtx client.Context, tmWSClient *rpcclient.WSClient, backend Backend) *PublicFilterAPI {
+func NewPublicAPI(
+	logger log.Logger,
+	clientCtx client.Context,
+	tmWSClient *rpcclient.WSClient,
+	backend Backend,
+) *PublicFilterAPI {
+	api := NewPublicAPIWithDeadline(logger, clientCtx, tmWSClient, backend, defaultDeadline)
+	return api
+}
+
+// NewPublicAPIWithDeadline returns a new PublicFilterAPI instance with the given deadline.
+func NewPublicAPIWithDeadline(
+	logger log.Logger,
+	clientCtx client.Context,
+	tmWSClient *rpcclient.WSClient,
+	backend Backend,
+	deadline time.Duration,
+) *PublicFilterAPI {
 	logger = logger.With("api", "filter")
 	api := &PublicFilterAPI{
 		logger:    logger,
@@ -86,6 +104,7 @@ func NewPublicAPI(logger log.Logger, clientCtx client.Context, tmWSClient *rpccl
 		backend:   backend,
 		filters:   make(map[rpc.ID]*filter),
 		events:    NewEventSystem(logger, tmWSClient),
+		deadline:  deadline,
 	}
 
 	go api.timeoutLoop()
@@ -96,7 +115,7 @@ func NewPublicAPI(logger log.Logger, clientCtx client.Context, tmWSClient *rpccl
 // timeoutLoop runs every 5 minutes and deletes filters that have not been recently used.
 // Tt is started when the api is created.
 func (api *PublicFilterAPI) timeoutLoop() {
-	ticker := time.NewTicker(deadline)
+	ticker := time.NewTicker(api.deadline)
 	defer ticker.Stop()
 
 	for {
@@ -139,7 +158,7 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 
 	api.filters[pendingTxSub.ID()] = &filter{
 		typ:      filters.PendingTransactionsSubscription,
-		deadline: time.NewTimer(deadline),
+		deadline: time.NewTimer(api.deadline),
 		hashes:   make([]common.Hash, 0),
 		s:        pendingTxSub,
 	}
@@ -200,7 +219,7 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 
 	rpcSub := notifier.CreateSubscription()
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), deadline)
+	ctx, cancelFn := context.WithTimeout(context.Background(), api.deadline)
 	defer cancelFn()
 
 	api.events.WithContext(ctx)
@@ -269,7 +288,12 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 		return rpc.ID(fmt.Sprintf("error creating block filter: %s", err.Error()))
 	}
 
-	api.filters[headerSub.ID()] = &filter{typ: filters.BlocksSubscription, deadline: time.NewTimer(deadline), hashes: []common.Hash{}, s: headerSub}
+	api.filters[headerSub.ID()] = &filter{
+		typ:      filters.BlocksSubscription,
+		deadline: time.NewTimer(api.deadline),
+		hashes:   []common.Hash{},
+		s:        headerSub,
+	}
 
 	go func(headersCh <-chan coretypes.ResultEvent, errCh <-chan error) {
 		defer cancelSubs()
@@ -395,7 +419,7 @@ func (api *PublicFilterAPI) Logs(ctx context.Context, crit filters.FilterCriteri
 					continue
 				}
 
-				txResponse, err := evmtypes.DecodeTxResponse(dataTx.TxResult.Result.Data)
+				txResponse, err := evmtypes.DecodeTxResponse(dataTx.Result.Data)
 				if err != nil {
 					api.logger.Error("fail to decode tx response", "error", err)
 					return
@@ -434,7 +458,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 	defer api.filtersMu.Unlock()
 
 	if len(api.filters) >= int(api.backend.RPCFilterCap()) {
-		return rpc.ID(""), fmt.Errorf("error creating filter: max limit reached")
+		return "", fmt.Errorf("error creating filter: max limit reached")
 	}
 
 	var (
@@ -444,7 +468,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 
 	logsSub, cancelSubs, err := api.events.SubscribeLogs(criteria)
 	if err != nil {
-		return rpc.ID(""), err
+		return "", err
 	}
 
 	filterID = logsSub.ID()
@@ -452,7 +476,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 	api.filters[filterID] = &filter{
 		typ:      filters.LogsSubscription,
 		crit:     criteria,
-		deadline: time.NewTimer(deadline),
+		deadline: time.NewTimer(api.deadline),
 		hashes:   []common.Hash{},
 		s:        logsSub,
 	}
@@ -475,7 +499,7 @@ func (api *PublicFilterAPI) NewFilter(criteria filters.FilterCriteria) (rpc.ID, 
 					continue
 				}
 
-				txResponse, err := evmtypes.DecodeTxResponse(dataTx.TxResult.Result.Data)
+				txResponse, err := evmtypes.DecodeTxResponse(dataTx.Result.Data)
 				if err != nil {
 					api.logger.Error("fail to decode tx response", "error", err)
 					return
@@ -612,7 +636,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		// receive timer value and reset timer
 		<-f.deadline.C
 	}
-	f.deadline.Reset(deadline)
+	f.deadline.Reset(api.deadline)
 
 	switch f.typ {
 	case filters.PendingTransactionsSubscription, filters.BlocksSubscription:

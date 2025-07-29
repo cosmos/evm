@@ -81,6 +81,7 @@ func (suite *BackendTestSuite) TestGetCode() {
 func (suite *BackendTestSuite) TestGetProof() {
 	blockNrInvalid := rpctypes.NewBlockNumber(big.NewInt(1))
 	blockNr := rpctypes.NewBlockNumber(big.NewInt(4))
+	blockNrZero := rpctypes.NewBlockNumber(big.NewInt(0))
 	address1 := utiltx.GenerateAddress()
 
 	testCases := []struct {
@@ -145,6 +146,56 @@ func (suite *BackendTestSuite) TestGetProof() {
 				RegisterABCIQueryWithOptions(
 					client,
 					bn.Int64(),
+					"store/acc/key",
+					bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address1.Bytes()...)),
+					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},
+				)
+			},
+			true,
+			&rpctypes.AccountResult{
+				Address:      address1,
+				AccountProof: []string{""},
+				Balance:      (*hexutil.Big)(big.NewInt(0)),
+				CodeHash:     common.HexToHash(""),
+				Nonce:        0x0,
+				StorageHash:  common.Hash{},
+				StorageProof: []rpctypes.StorageResult{
+					{
+						Key:   "0x0",
+						Value: (*hexutil.Big)(big.NewInt(2)),
+						Proof: []string{""},
+					},
+				},
+			},
+		},
+		{
+			"pass, 0 height",
+			address1,
+			[]string{"0x0"},
+			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrZero},
+			func(bn rpctypes.BlockNumber, addr common.Address) {
+				suite.backend.ctx = rpctypes.ContextWithHeight(4)
+
+				client := suite.backend.clientCtx.Client.(*mocks.Client)
+				_, err := RegisterBlock(client, 4, nil)
+				suite.Require().NoError(err)
+				queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterAccount(queryClient, addr, 4)
+				var header metadata.MD
+				RegisterParams(queryClient, &header, 4)
+
+				// Use the IAVL height if a valid tendermint height is passed in.
+				var iavlHeight int64 = 4
+				RegisterABCIQueryWithOptions(
+					client,
+					iavlHeight,
+					"store/evm/key",
+					evmtypes.StateKey(address1, common.HexToHash("0x0").Bytes()),
+					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},
+				)
+				RegisterABCIQueryWithOptions(
+					client,
+					iavlHeight,
 					"store/acc/key",
 					bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address1.Bytes()...)),
 					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},

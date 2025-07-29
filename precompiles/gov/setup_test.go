@@ -39,7 +39,7 @@ func TestPrecompileUnitTestSuite(t *testing.T) {
 }
 
 func (s *PrecompileTestSuite) SetupTest() {
-	keyring := testkeyring.New(2)
+	keyring := testkeyring.New(3)
 
 	// seed the db with one proposal
 	customGen := network.CustomGenesisState{}
@@ -111,6 +111,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		},
 	}
 	govGen.Params.MinDeposit = sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(100)))
+	govGen.Params.ProposalCancelDest = keyring.GetAccAddr(2).String()
 	govGen.Proposals = append(govGen.Proposals, prop)
 	govGen.Proposals = append(govGen.Proposals, prop2)
 	customGen[govtypes.ModuleName] = govGen

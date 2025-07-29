@@ -15,6 +15,7 @@ describe('Staking', function () {
     const tx = await staking
       .connect(signer)
       .delegate(signer, valAddr, stakeAmount)
+    await new Promise(r => setTimeout(r, 200));
     await tx.wait(1)
 
     // Query delegation

@@ -24,6 +24,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -226,7 +227,7 @@ func (n *IntegrationNetwork) configureAndInitChain() error {
 	}
 
 	// TODO - this might not be the best way to initilize the context
-	n.ctx = exampleApp.BaseApp.NewContextLegacy(false, header)
+	n.ctx = exampleApp.NewContextLegacy(false, header)
 
 	// Commit genesis changes
 	if _, err := exampleApp.Commit(); err != nil {
@@ -253,6 +254,19 @@ func (n *IntegrationNetwork) configureAndInitChain() error {
 // GetContext returns the network's context
 func (n *IntegrationNetwork) GetContext() sdktypes.Context {
 	return n.ctx
+}
+
+// GetQueryContext returns the network's context, but only set the fields that Cosmos SDK sets when it creates a query context.
+// ref: https://github.com/cosmos/cosmos-sdk/blob/fd170b51404b49bda767cf74727cd26329bfd115/baseapp/abci.go#L1298-L1314
+func (n *IntegrationNetwork) GetQueryContext() sdktypes.Context {
+	ctx := sdktypes.NewContext(n.ctx.MultiStore(), n.ctx.BlockHeader(), true, n.ctx.Logger()).
+		WithMinGasPrices(n.ctx.MinGasPrices()).
+		WithGasMeter(storetypes.NewGasMeter(n.ctx.GasMeter().Limit())).
+		WithBlockHeader(n.ctx.BlockHeader()).
+		WithBlockHeight(n.ctx.BlockHeight()).
+		WithBlockTime(n.ctx.BlockTime())
+
+	return ctx
 }
 
 // WithIsCheckTxCtx switches the network's checkTx property
@@ -337,7 +351,7 @@ func (n *IntegrationNetwork) BroadcastTxSync(txBytes []byte) (abcitypes.ExecTxRe
 // Simulate simulates the given txBytes to the network and returns the simulated response.
 // TODO - this should be change to gRPC
 func (n *IntegrationNetwork) Simulate(txBytes []byte) (*txtypes.SimulateResponse, error) {
-	gas, result, err := n.app.BaseApp.Simulate(txBytes)
+	gas, result, err := n.app.Simulate(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +364,7 @@ func (n *IntegrationNetwork) Simulate(txBytes []byte) (*txtypes.SimulateResponse
 // CheckTx calls the BaseApp's CheckTx method with the given txBytes to the network and returns the response.
 func (n *IntegrationNetwork) CheckTx(txBytes []byte) (*abcitypes.ResponseCheckTx, error) {
 	req := &abcitypes.RequestCheckTx{Tx: txBytes}
-	res, err := n.app.BaseApp.CheckTx(req)
+	res, err := n.app.CheckTx(req)
 	if err != nil {
 		return nil, err
 	}

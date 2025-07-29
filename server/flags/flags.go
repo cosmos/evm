@@ -15,6 +15,7 @@ const (
 	Transport    = "transport"
 	TraceStore   = "trace-store"
 	CPUProfile   = "cpu-profile"
+
 	// The type of database for application and snapshots databases
 	AppDBBackend = "app-db-backend"
 )
@@ -36,22 +37,26 @@ const (
 
 // JSON-RPC flags
 const (
-	JSONRPCEnable              = "json-rpc.enable"
-	JSONRPCAPI                 = "json-rpc.api"
-	JSONRPCAddress             = "json-rpc.address"
-	JSONWsAddress              = "json-rpc.ws-address"
-	JSONRPCGasCap              = "json-rpc.gas-cap"
-	JSONRPCAllowInsecureUnlock = "json-rpc.allow-insecure-unlock"
-	JSONRPCEVMTimeout          = "json-rpc.evm-timeout"
-	JSONRPCTxFeeCap            = "json-rpc.txfee-cap"
-	JSONRPCFilterCap           = "json-rpc.filter-cap"
-	JSONRPCLogsCap             = "json-rpc.logs-cap"
-	JSONRPCBlockRangeCap       = "json-rpc.block-range-cap"
-	JSONRPCHTTPTimeout         = "json-rpc.http-timeout"
-	JSONRPCHTTPIdleTimeout     = "json-rpc.http-idle-timeout"
-	JSONRPCAllowUnprotectedTxs = "json-rpc.allow-unprotected-txs"
-	JSONRPCMaxOpenConnections  = "json-rpc.max-open-connections"
-	JSONRPCEnableIndexer       = "json-rpc.enable-indexer"
+	JSONRPCEnable               = "json-rpc.enable"
+	JSONRPCAPI                  = "json-rpc.api"
+	JSONRPCAddress              = "json-rpc.address"
+	JSONWsAddress               = "json-rpc.ws-address"
+	JSONRPCWSOrigins            = "json-rpc.ws-origins"
+	JSONRPCGasCap               = "json-rpc.gas-cap"
+	JSONRPCAllowInsecureUnlock  = "json-rpc.allow-insecure-unlock"
+	JSONRPCEVMTimeout           = "json-rpc.evm-timeout"
+	JSONRPCTxFeeCap             = "json-rpc.txfee-cap"
+	JSONRPCFilterCap            = "json-rpc.filter-cap"
+	JSONRPCLogsCap              = "json-rpc.logs-cap"
+	JSONRPCBlockRangeCap        = "json-rpc.block-range-cap"
+	JSONRPCHTTPTimeout          = "json-rpc.http-timeout"
+	JSONRPCHTTPIdleTimeout      = "json-rpc.http-idle-timeout"
+	JSONRPCAllowUnprotectedTxs  = "json-rpc.allow-unprotected-txs"
+	JSONRPCMaxOpenConnections   = "json-rpc.max-open-connections"
+	JSONRPCEnableIndexer        = "json-rpc.enable-indexer"
+	JSONRPCBatchRequestLimit    = "json-rpc.batch-request-limit"
+	JSONRPCBatchResponseMaxSize = "json-rpc.batch-response-max-size"
+	JSONRPCEnableProfiling      = "json-rpc.enable-profiling"
 	// JSONRPCEnableMetrics enables EVM RPC metrics server.
 	// Set to `metrics` which is hardcoded flag from go-ethereum.
 	// https://github.com/ethereum/go-ethereum/blob/master/metrics/metrics.go#L35-L55

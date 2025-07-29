@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -12,13 +13,17 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
+	"github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	types2 "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -27,6 +32,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 // Not valid Ethereum address
@@ -989,6 +995,7 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 		getRequest      func() types.QueryTraceTxRequest
 		getPredecessors func() []*types.MsgEthereumTx
 		expPass         bool
+		expPanics       bool
 		expectedTrace   string
 	}{
 		{
@@ -1072,6 +1079,67 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
 		},
 		{
+			msg: "invalid too many predecessors",
+			getRequest: func() types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(suite.network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				pred := make([]*types.MsgEthereumTx, 10001)
+				for i := 0; i < 10001; i++ {
+					pred[i] = &types.MsgEthereumTx{}
+				}
+
+				return pred
+			},
+			expPass: false,
+		},
+		{
+			msg: "no panic when gas limit exceeded for predecessors",
+			getRequest: func() types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(suite.network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				// Create predecessor tx
+				// Use different address to avoid nonce collision
+				senderKey := suite.keyring.GetKey(1)
+				contractAddr, err := deployErc20Contract(senderKey, suite.factory)
+				suite.Require().NoError(err)
+				suite.Require().NoError(suite.network.NextBlock())
+				numTxs := 1500
+				txs := make([]*types.MsgEthereumTx, 0, numTxs)
+				for range numTxs {
+					txMsg := buildTransferTx(
+						suite.T(),
+						transferParams{
+							senderKey:     senderKey,
+							contractAddr:  contractAddr,
+							recipientAddr: hardcodedRecipient,
+						},
+						suite.factory,
+					)
+					txs = append(txs, txMsg)
+				}
+				return txs
+			},
+			expPanics: false,
+			expPass:   true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
+		},
+		{
+			msg: "error when requested block num greater than chain height",
+			getRequest: func() types.QueryTraceTxRequest {
+				req := getDefaultTraceTxRequest(suite.network)
+				req.BlockNumber = math.MaxInt64
+				return req
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				return nil
+			},
+			expPass: false,
+		},
+		{
 			msg: "invalid trace config - Negative Limit",
 			getRequest: func() types.QueryTraceTxRequest {
 				defaultRequest := getDefaultTraceTxRequest(suite.network)
@@ -1120,7 +1188,7 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 			expPass: false,
 		},
 		{
-			msg: "default tracer with contract creation tx as predecessor but 'create' param disabled",
+			msg: "trace should still pass even if predecessor tx fails",
 			getRequest: func() types.QueryTraceTxRequest {
 				return getDefaultTraceTxRequest(suite.network)
 			},
@@ -1208,12 +1276,22 @@ func (suite *KeeperTestSuite) TestTraceTx() {
 			traceReq.Predecessors = predecessors
 			traceReq.Msg = msgToTrace
 
+			if tc.expPanics {
+				suite.Require().Panics(func() {
+					//nolint:errcheck // we just want this to panic.
+					suite.network.GetEvmClient().TraceTx(
+						suite.network.GetContext(),
+						&traceReq,
+					)
+				})
+				return
+			}
+
 			// Function under test
 			res, err := suite.network.GetEvmClient().TraceTx(
 				suite.network.GetContext(),
 				&traceReq,
 			)
-
 			if tc.expPass {
 				suite.Require().NoError(err)
 
@@ -1687,6 +1765,147 @@ func (suite *KeeperTestSuite) TestEthCall() {
 	}
 }
 
+func (suite *KeeperTestSuite) TestBalance() {
+	testCases := []struct {
+		name        string
+		returnedBal func() *uint256.Int
+		expBalance  *uint256.Int
+	}{
+		{
+			"Account method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := suite.network.App.BankKeeper.MintCoins(suite.network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				err = suite.network.App.BankKeeper.SendCoinsFromModuleToAccount(suite.network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := suite.handler.GetBalanceFromEVM(accAddr)
+				suite.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				suite.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				suite.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := suite.network.GetContext()
+				baseAccount := suite.network.App.AccountKeeper.GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := suite.network.GetBaseDenom()
+				currTime := suite.network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), suite.network.GetContext().BlockTime().Unix(), currTime+100)
+				suite.Require().NoError(err)
+				suite.network.App.AccountKeeper.SetAccount(ctx, acc)
+
+				spendable := suite.network.App.BankKeeper.SpendableCoin(ctx, accAddr, baseDenom).Amount
+				suite.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := suite.handler.GetBalanceFromEVM(accAddr)
+				suite.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				suite.Require().Equal(evmBalance, "0")
+
+				totalBalance := suite.network.App.BankKeeper.GetBalance(ctx, accAddr, baseDenom)
+				suite.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := suite.network.App.EVMKeeper.Account(suite.network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				suite.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				suite.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Balance method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := suite.network.App.BankKeeper.MintCoins(suite.network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				err = suite.network.App.BankKeeper.SendCoinsFromModuleToAccount(suite.network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := suite.handler.GetBalanceFromEVM(accAddr)
+				suite.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				suite.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				suite.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := suite.network.GetContext()
+				baseAccount := suite.network.App.AccountKeeper.GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := suite.network.GetBaseDenom()
+				currTime := suite.network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), suite.network.GetContext().BlockTime().Unix(), currTime+100)
+				suite.Require().NoError(err)
+				suite.network.App.AccountKeeper.SetAccount(ctx, acc)
+
+				spendable := suite.network.App.BankKeeper.SpendableCoin(ctx, accAddr, baseDenom).Amount
+				suite.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := suite.handler.GetBalanceFromEVM(accAddr)
+				suite.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				suite.Require().Equal(evmBalance, "0")
+
+				totalBalance := suite.network.App.BankKeeper.GetBalance(ctx, accAddr, baseDenom)
+				suite.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := suite.network.App.EVMKeeper.Balance(suite.network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				suite.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				suite.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Account method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := suite.network.App.BankKeeper.MintCoins(suite.network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				err = suite.network.App.BankKeeper.SendCoinsFromModuleToAccount(suite.network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				res, err := suite.network.App.EVMKeeper.Account(suite.network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				suite.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				suite.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+		{
+			"Balance method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := suite.network.App.BankKeeper.MintCoins(suite.network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				err = suite.network.App.BankKeeper.SendCoinsFromModuleToAccount(suite.network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(suite.network.GetBaseDenom(), sdkmath.NewInt(100))))
+				suite.Require().NoError(err)
+				res, err := suite.network.App.EVMKeeper.Balance(suite.network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				suite.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				suite.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+	}
+	for _, tc := range testCases {
+		suite.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			suite.SetupTest()
+			suite.Require().Equal(tc.returnedBal(), tc.expBalance)
+		})
+	}
+}
+
 func (suite *KeeperTestSuite) TestEmptyRequest() {
 	suite.SetupTest()
 	k := suite.network.App.EVMKeeper
@@ -1844,4 +2063,33 @@ func executeTransferCall(
 		return nil, err
 	}
 	return txMsg, nil
+}
+
+func buildTransferTx(
+	t *testing.T,
+	transferParams transferParams,
+	txFactory factory.TxFactory,
+) (msgEthereumTx *types.MsgEthereumTx) {
+	t.Helper()
+	erc20Contract, err := testdata.LoadERC20Contract()
+	require.NoError(t, err)
+
+	transferArgs := types.EvmTxArgs{
+		To: &transferParams.contractAddr,
+	}
+	callArgs := factory.CallArgs{
+		ContractABI: erc20Contract.ABI,
+		MethodName:  "transfer",
+		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
+	}
+
+	transferArgs, err = txFactory.GenerateContractCallArgs(transferArgs, callArgs)
+	require.NoError(t, err)
+
+	// We need to get access to the message
+	firstSignedTX, err := txFactory.GenerateSignedEthTx(transferParams.senderKey.Priv, transferArgs)
+	require.NoError(t, err)
+	txMsg, ok := firstSignedTX.GetMsgs()[0].(*types.MsgEthereumTx)
+	require.True(t, ok, "expected MsgEthereumTx type, got type: %T", firstSignedTX.GetMsgs()[0])
+	return txMsg
 }

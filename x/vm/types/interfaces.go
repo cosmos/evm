@@ -17,6 +17,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/consensus/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -38,10 +40,16 @@ type AccountKeeper interface {
 // BankKeeper defines the expected interface needed to retrieve account balances.
 type BankKeeper interface {
 	authtypes.BankKeeper
+	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 	BurnCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
+	IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool)
+	IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool)
+	GetSupply(ctx context.Context, denom string) sdk.Coin
+	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
+	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
 }
 
 // StakingKeeper returns the historical headers kept in store.
@@ -77,4 +85,9 @@ type BankWrapper interface {
 
 	MintAmountToAccount(ctx context.Context, recipientAddr sdk.AccAddress, amt *big.Int) error
 	BurnAmountFromAccount(ctx context.Context, account sdk.AccAddress, amt *big.Int) error
+}
+
+// ConsensusParamsKeeper defines the expected consensus params keeper.
+type ConsensusParamsKeeper interface {
+	Params(context.Context, *types.QueryParamsRequest) (*types.QueryParamsResponse, error)
 }

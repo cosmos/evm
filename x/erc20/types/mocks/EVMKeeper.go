@@ -27,7 +27,7 @@ type EVMKeeper struct {
 }
 
 // ApplyMessage provides a mock function with given fields: ctx, msg, tracer, commit
-func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *tracing.Hooks, commit bool) (*vmtypes.MsgEthereumTxResponse, error) {
+func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *tracing.Hooks, commit bool, internal bool) (*vmtypes.MsgEthereumTxResponse, error) {
 	ret := _m.Called(ctx, msg, tracer, commit)
 
 	if len(ret) == 0 {

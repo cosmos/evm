@@ -121,7 +121,7 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check on the topics
-			event := s.precompile.ABI.Events[werc20.EventTypeDeposit]
+			event := s.precompile.Events[werc20.EventTypeDeposit]
 			s.Require().Equal(
 				crypto.Keccak256Hash([]byte(event.Sig)),
 				common.HexToHash(log.Topics[0].Hex()),
@@ -180,7 +180,7 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check on the topics
-			event := s.precompile.ABI.Events[werc20.EventTypeWithdrawal]
+			event := s.precompile.Events[werc20.EventTypeWithdrawal]
 			s.Require().Equal(
 				crypto.Keccak256Hash([]byte(event.Sig)),
 				common.HexToHash(log.Topics[0].Hex()),

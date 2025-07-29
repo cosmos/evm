@@ -1,7 +1,7 @@
 name: Lint
-# Lint runs golangci-lint over the entire Cosmos EVM repository This workflow is
-# run on every pull request and push to main The `golangci` will pass without
-# running if no *.{go, mod, sum} files have been changed.
+# Lint runs golangci-lint over the entire Cosmos EVM repository
+# This workflow runs on every pull request and push to main
+
 on:
   pull_request:
 
@@ -11,14 +11,26 @@ jobs:
   golangci:
     name: Run golangci-lint
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      # Required: setup-go, for all versions v3.0.0+ of golangci-lint
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
           check-latest: true
+
       - uses: actions/checkout@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Determine diff so we don't lint when no Go files are changed
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
@@ -26,14 +38,13 @@ jobs:
             go.mod
             go.sum
             *.toml
-      - uses: golangci/golangci-lint-action@v6.2.0
-        with:
-          # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: latest
-          args: --timeout 10m
-          github-token: ${{ secrets.github_token }}
-        # Check only if there are differences in the source code
+
+      - name: Run linting
         if: env.GIT_DIFF
+        id: lint_long
+        run: |
+          make lint-go
+
   markdown-lint:
     name: Run markdown-lint
     runs-on: ubuntu-latest

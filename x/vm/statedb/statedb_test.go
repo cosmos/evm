@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types/mocks"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -38,9 +39,9 @@ func (suite *StateDBTestSuite) TestAccount() {
 	value2 := common.BigToHash(big.NewInt(4))
 	testCases := []struct {
 		name     string
-		malleate func(*statedb.StateDB)
+		malleate func(sdk.Context, *statedb.StateDB)
 	}{
-		{"non-exist account", func(db *statedb.StateDB) {
+		{"non-exist account", func(_ sdk.Context, db *statedb.StateDB) {
 			suite.Require().Equal(false, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
 			suite.Require().Equal(common.U2560, db.GetBalance(address))
@@ -48,25 +49,25 @@ func (suite *StateDBTestSuite) TestAccount() {
 			suite.Require().Equal(common.Hash{}, db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
 		}},
-		{"empty account", func(db *statedb.StateDB) {
+		{"empty account", func(ctx sdk.Context, db *statedb.StateDB) {
 			db.CreateAccount(address)
 			suite.Require().NoError(db.Commit())
 
-			keeper := db.Keeper().(*MockKeeper)
-			acct := keeper.accounts[address]
-			suite.Require().Equal(statedb.NewEmptyAccount(), &acct.account)
-			suite.Require().Empty(acct.states)
-			suite.Require().False(acct.account.IsContract())
+			keeper := db.Keeper().(*mocks.EVMKeeper)
+			acct := keeper.GetAccount(ctx, address)
+			suite.Require().Equal(statedb.NewEmptyAccount(), acct)
+			suite.Require().Empty(acct.Balance)
+			suite.Require().False(acct.IsContract())
 
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
 			suite.Require().Equal(true, db.Empty(address))
 			suite.Require().Equal(common.U2560, db.GetBalance(address))
 			suite.Require().Equal([]byte(nil), db.GetCode(address))
-			suite.Require().Equal(common.BytesToHash(emptyCodeHash), db.GetCodeHash(address))
+			suite.Require().Equal(common.BytesToHash(mocks.EmptyCodeHash), db.GetCodeHash(address))
 			suite.Require().Equal(uint64(0), db.GetNonce(address))
 		}},
-		{"suicide", func(db *statedb.StateDB) {
+		{"self-destruct", func(ctx sdk.Context, db *statedb.StateDB) {
 			// non-exist account.
 			db.SelfDestruct(address)
 			suite.Require().False(db.HasSelfDestructed(address))
@@ -75,11 +76,12 @@ func (suite *StateDBTestSuite) TestAccount() {
 			db.CreateAccount(address)
 			db.SetCode(address, []byte("hello world"))
 			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+			db.CreateContract(address)
 			db.SetState(address, key1, value1)
 			db.SetState(address, key2, value2)
 			suite.Require().NoError(db.Commit())
 
-			// suicide
+			// SelfDestruct
 			db = statedb.New(sdk.Context{}, db.Keeper(), emptyTxConfig)
 			suite.Require().False(db.HasSelfDestructed(address))
 			db.SelfDestruct(address)
@@ -99,22 +101,107 @@ func (suite *StateDBTestSuite) TestAccount() {
 			suite.Require().False(db.Exist(address))
 
 			// and cleared in keeper too
-			keeper := db.Keeper().(*MockKeeper)
-			suite.Require().Empty(keeper.accounts)
-			suite.Require().Empty(keeper.codes)
+			keeper := db.Keeper().(*mocks.EVMKeeper)
+			keeper.ForEachStorage(ctx, address, func(key, value common.Hash) bool {
+				suite.Require().Equal(0, len(value.Bytes()))
+				return true
+			})
+		}},
+		{"self-destruct-6780 same tx", func(ctx sdk.Context, db *statedb.StateDB) {
+			// non-exist account.
+			db.SelfDestruct(address)
+			suite.Require().False(db.HasSelfDestructed(address))
+
+			// create a contract account
+			db.CreateAccount(address)
+			db.SetCode(address, []byte("hello world"))
+			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+			db.CreateContract(address)
+			db.SetState(address, key1, value1)
+			db.SetState(address, key2, value2)
+
+			// SelfDestruct
+			suite.Require().False(db.HasSelfDestructed(address))
+			_, _ = db.SelfDestruct6780(address)
+
+			// check dirty state
+			suite.Require().True(db.HasSelfDestructed(address))
+			// balance is cleared
+			suite.Require().Equal(common.U2560, db.GetBalance(address))
+			// but code and state are still accessible in dirty state
+			suite.Require().Equal(value1, db.GetState(address, key1))
+			suite.Require().Equal([]byte("hello world"), db.GetCode(address))
+
+			suite.Require().NoError(db.Commit())
+
+			// not accessible from StateDB anymore
+			db = statedb.New(sdk.Context{}, db.Keeper(), emptyTxConfig)
+			suite.Require().False(db.Exist(address))
+
+			// and cleared in keeper too
+			keeper := db.Keeper().(*mocks.EVMKeeper)
+			keeper.ForEachStorage(ctx, address, func(key, value common.Hash) bool {
+				suite.Require().Equal(0, len(value.Bytes()))
+				return true
+			})
+		}},
+		{"self-destruct-6780 different tx", func(ctx sdk.Context, db *statedb.StateDB) {
+			// non-exist account.
+			db.SelfDestruct(address)
+			suite.Require().False(db.HasSelfDestructed(address))
+
+			// create a contract account
+			db.CreateAccount(address)
+			db.SetCode(address, []byte("hello world"))
+			db.AddBalance(address, uint256.NewInt(100), tracing.BalanceChangeUnspecified)
+			db.CreateContract(address)
+			db.SetState(address, key1, value1)
+			db.SetState(address, key2, value2)
+			suite.Require().NoError(db.Commit())
+
+			// SelfDestruct
+			db = statedb.New(sdk.Context{}, db.Keeper(), emptyTxConfig)
+			suite.Require().False(db.HasSelfDestructed(address))
+			_, _ = db.SelfDestruct6780(address)
+
+			// Same-tx is not marked as self-destructed
+			suite.Require().False(db.HasSelfDestructed(address))
+			// code and state are still accessible in dirty state
+			suite.Require().Equal(value1, db.GetState(address, key1))
+			suite.Require().Equal([]byte("hello world"), db.GetCode(address))
+
+			suite.Require().NoError(db.Commit())
+
+			// Same-tx maintains state
+			db = statedb.New(sdk.Context{}, db.Keeper(), emptyTxConfig)
+			suite.Require().True(db.Exist(address))
+			suite.Require().False(db.HasSelfDestructed(address))
+			// but code and state are still accessible in dirty state
+			suite.Require().Equal(value1, db.GetState(address, key1))
+			suite.Require().Equal([]byte("hello world"), db.GetCode(address))
+
+			// and not cleared in keeper too
+			keeper := db.Keeper().(*mocks.EVMKeeper)
+			acc := keeper.GetAccount(ctx, address)
+			suite.Require().NotNil(acc)
+			keeper.ForEachStorage(ctx, address, func(key, value common.Hash) bool {
+				suite.Require().Greater(len(value.Bytes()), 0)
+				return true
+			})
 		}},
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			keeper := NewMockKeeper()
+			ctx := sdk.Context{}
+			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
-			tc.malleate(db)
+			tc.malleate(ctx, db)
 		})
 	}
 }
 
 func (suite *StateDBTestSuite) TestAccountOverride() {
-	keeper := NewMockKeeper()
+	keeper := mocks.NewEVMKeeper()
 	db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 	// test balance carry over when overwritten
 	amount := uint256.NewInt(1)
@@ -138,16 +225,16 @@ func (suite *StateDBTestSuite) TestDBError() {
 		malleate func(vm.StateDB)
 	}{
 		{"set account", func(db vm.StateDB) {
-			db.SetNonce(errAddress, 1, tracing.NonceChangeUnspecified)
+			db.SetNonce(mocks.ErrAddress, 1, tracing.NonceChangeUnspecified)
 		}},
 		{"delete account", func(db vm.StateDB) {
-			db.SetNonce(errAddress, 1, tracing.NonceChangeUnspecified)
-			db.SelfDestruct(errAddress)
-			suite.Require().True(db.HasSelfDestructed(errAddress))
+			db.SetNonce(mocks.ErrAddress, 1, tracing.NonceChangeUnspecified)
+			db.SelfDestruct(mocks.ErrAddress)
+			suite.Require().True(db.HasSelfDestructed(mocks.ErrAddress))
 		}},
 	}
 	for _, tc := range testCases {
-		db := statedb.New(sdk.Context{}, NewMockKeeper(), emptyTxConfig)
+		db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 		tc.malleate(db)
 		suite.Require().Error(db.Commit())
 	}
@@ -179,7 +266,8 @@ func (suite *StateDBTestSuite) TestBalance() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			keeper := NewMockKeeper()
+			ctx := sdk.Context{}
+			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
 
@@ -187,7 +275,7 @@ func (suite *StateDBTestSuite) TestBalance() {
 			suite.Require().Equal(tc.expBalance, db.GetBalance(address))
 			suite.Require().NoError(db.Commit())
 			// check committed balance too
-			suite.Require().Equal(tc.expBalance, keeper.accounts[address].account.Balance)
+			suite.Require().Equal(tc.expBalance, keeper.GetAccount(ctx, address).Balance)
 		})
 	}
 }
@@ -233,13 +321,16 @@ func (suite *StateDBTestSuite) TestState() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			keeper := NewMockKeeper()
+			ctx := sdk.Context{}
+			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
 			suite.Require().NoError(db.Commit())
 
 			// check committed states in keeper
-			suite.Require().Equal(tc.expStates, keeper.accounts[address].states)
+			for _, key := range tc.expStates.SortedKeys() {
+				suite.Require().Equal(tc.expStates[key], keeper.GetState(ctx, address, key))
+			}
 
 			// check ForEachStorage
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
@@ -266,7 +357,7 @@ func (suite *StateDBTestSuite) TestCode() {
 		{"non-exist account", func(vm.StateDB) {}, nil, common.Hash{}},
 		{"empty account", func(db vm.StateDB) {
 			db.CreateAccount(address)
-		}, nil, common.BytesToHash(emptyCodeHash)},
+		}, nil, common.BytesToHash(mocks.EmptyCodeHash)},
 		{"set code", func(db vm.StateDB) {
 			db.SetCode(address, code)
 		}, code, codeHash},
@@ -274,7 +365,7 @@ func (suite *StateDBTestSuite) TestCode() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			keeper := NewMockKeeper()
+			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
 
@@ -341,7 +432,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			ctx := sdk.Context{}
-			keeper := NewMockKeeper()
+			keeper := mocks.NewEVMKeeper()
 
 			{
 				// do some arbitrary changes to the storage
@@ -379,7 +470,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 	value1 := common.BigToHash(big.NewInt(1))
 	value2 := common.BigToHash(big.NewInt(2))
 
-	db := statedb.New(sdk.Context{}, NewMockKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 
 	rev1 := db.Snapshot()
 	db.SetState(address, key, value1)
@@ -396,7 +487,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 }
 
 func (suite *StateDBTestSuite) TestInvalidSnapshotId() {
-	db := statedb.New(sdk.Context{}, NewMockKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 	suite.Require().Panics(func() {
 		db.RevertToSnapshot(1)
 	})
@@ -466,8 +557,9 @@ func (suite *StateDBTestSuite) TestAccessList() {
 				IsShanghai:       true,
 				IsCancun:         true,
 				IsEIP2929:        true,
+				IsPrague:         true,
 			}
-			db.Prepare(rules, address, common.Address{}, &address2, vm.PrecompiledAddressesBerlin, al)
+			db.Prepare(rules, address, common.Address{}, &address2, vm.PrecompiledAddressesPrague, al)
 
 			// check sender and dst
 			suite.Require().True(db.AddressInAccessList(address))
@@ -486,7 +578,7 @@ func (suite *StateDBTestSuite) TestAccessList() {
 	}
 
 	for _, tc := range testCases {
-		db := statedb.New(sdk.Context{}, NewMockKeeper(), emptyTxConfig)
+		db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 		tc.malleate(db)
 	}
 }
@@ -499,7 +591,7 @@ func (suite *StateDBTestSuite) TestLog() {
 		txHash,
 		1, 1,
 	)
-	db := statedb.New(sdk.Context{}, NewMockKeeper(), txConfig)
+	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), txConfig)
 	data := []byte("hello world")
 	db.AddLog(&ethtypes.Log{
 		Address:     address,
@@ -551,7 +643,7 @@ func (suite *StateDBTestSuite) TestRefund() {
 		}, 0, true},
 	}
 	for _, tc := range testCases {
-		db := statedb.New(sdk.Context{}, NewMockKeeper(), emptyTxConfig)
+		db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 		if !tc.expPanic {
 			tc.malleate(db)
 			suite.Require().Equal(tc.expRefund, db.GetRefund())
@@ -564,12 +656,14 @@ func (suite *StateDBTestSuite) TestRefund() {
 }
 
 func (suite *StateDBTestSuite) TestIterateStorage() {
+	ctx := sdk.Context{}
+
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(2))
 	key2 := common.BigToHash(big.NewInt(3))
 	value2 := common.BigToHash(big.NewInt(4))
 
-	keeper := NewMockKeeper()
+	keeper := mocks.NewEVMKeeper()
 	db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 	db.SetState(address, key1, value1)
 	db.SetState(address, key2, value2)
@@ -581,7 +675,9 @@ func (suite *StateDBTestSuite) TestIterateStorage() {
 
 	storage := CollectContractStorage(db)
 	suite.Require().Equal(2, len(storage))
-	suite.Require().Equal(keeper.accounts[address].states, storage)
+	for _, key := range storage.SortedKeys() {
+		suite.Require().Equal(keeper.GetState(ctx, address, key), storage[key])
+	}
 
 	// break early iteration
 	storage = make(statedb.Storage)

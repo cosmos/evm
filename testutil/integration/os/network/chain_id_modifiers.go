@@ -5,8 +5,11 @@
 package network
 
 import (
+	"github.com/cosmos/evm/cmd/evmd/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	"github.com/cosmos/evm/x/precisebank/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
@@ -25,20 +28,24 @@ func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState) b
 func generateBankGenesisMetadata() banktypes.Metadata {
 	return banktypes.Metadata{
 		Description: "The native EVM, governance and staking token of the Cosmos EVM example chain",
-		Base:        "aatom",
+		Base:        evmtypes.GetEVMCoinDenom(),
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    testconstants.ExampleAttoDenom,
+				Denom:    evmtypes.GetEVMCoinDenom(),
+				Exponent: uint32(types.ConversionFactor().Int64()), //#nosec G115 -- int overflow is not a concern here -- the conversion factor shouldn't be anything higher than 18.
+			},
+			{
+				Denom:    types.ExtendedCoinDenom(),
 				Exponent: 0,
 			},
 			{
-				Denom:    testconstants.ExampleDisplayDenom,
-				Exponent: 18,
+				Denom:    config.DisplayDenom,
+				Exponent: uint32(evmtypes.GetEVMCoinDecimals()),
 			},
 		},
 		Name:    "Cosmos EVM",
 		Symbol:  "ATOM",
-		Display: testconstants.ExampleDisplayDenom,
+		Display: config.DisplayDenom,
 	}
 }
 
