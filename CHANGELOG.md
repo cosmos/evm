@@ -24,6 +24,8 @@
 
 ### STATE BREAKING
 
+- [\#381](https://github.com/cosmos/evm/pull/381) Remove MaxPrecompileCalls (was 7). A transaction can now make any number of precompiled contracts calls.
+
 ### API-BREAKING
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
