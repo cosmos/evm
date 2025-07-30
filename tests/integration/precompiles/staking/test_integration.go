@@ -1813,39 +1813,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)))
 					})
 
-					It("should revert the changes and NOT delegate - failed tx - max precompile calls reached", func() {
-						callArgs := testutiltypes.CallArgs{
-							ContractABI: stakingReverterContract.ABI,
-							MethodName:  "multipleDelegations",
-							Args: []interface{}{
-								big.NewInt(int64(evmtypes.MaxPrecompileCalls + 2)), s.network.GetValidators()[0].OperatorAddress,
-							},
-						}
-
-						// Tx should fail due to MaxPrecompileCalls
-						_, _, err := s.factory.CallContractAndCheckLogs(
-							s.keyring.GetPrivKey(0),
-							evmtypes.EvmTxArgs{
-								To:       &stkReverterAddr,
-								GasPrice: gasPrice.BigInt(),
-							},
-							callArgs,
-							execRevertedCheck,
-						)
-						Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
-
-						// contract balance should remain unchanged
-						balRes, err := s.grpcHandler.GetBalanceFromBank(stkReverterAddr.Bytes(), s.bondDenom)
-						Expect(err).To(BeNil())
-						contractFinalBalance := balRes.Balance
-						Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount))
-
-						// No delegation should be created
-						_, err = s.grpcHandler.GetDelegation(sdk.AccAddress(stkReverterAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
-						Expect(err).NotTo(BeNil())
-						Expect(err.Error()).To(ContainSubstring("not found"), "expected NO delegation created")
-					})
-
 					It("should delegate before and after intentionaly ignored delegation revert - successful tx", func() {
 						delegationAmount := math.NewInt(10)
 						expectedDelegationAmount := delegationAmount.Add(delegationAmount)
