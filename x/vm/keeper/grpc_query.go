@@ -241,15 +241,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
 	// Enforce the gas limit cap
-	gasCap := req.GasCap
-	if k.queryGasLimit != GasNoLimit {
-		if gasCap == 0 {
-			gasCap = k.queryGasLimit
-		} else if k.queryGasLimit < gasCap {
-			gasCap = k.queryGasLimit
-		}
-	}
-
+	gasCap := k.GlobalQueryGasLimit(req)
 	msg, err := args.ToMessage(gasCap, cfg.BaseFee, false, false)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -293,16 +285,6 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// Enforce the gas limit cap
-	gasCap := req.GasCap
-	if k.queryGasLimit != GasNoLimit {
-		if gasCap == 0 {
-			gasCap = k.queryGasLimit
-		} else if k.queryGasLimit < gasCap {
-			gasCap = k.queryGasLimit
-		}
-	}
-
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo = ethparams.TxGas - 1
@@ -323,6 +305,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	}
 
 	// Recap the highest gas allowance with specified gascap.
+	gasCap := k.GlobalQueryGasLimit(req)
 	if gasCap != 0 && hi > gasCap {
 		hi = gasCap
 	} else {
@@ -734,4 +717,16 @@ func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.Q
 	config.Decimals = uint64(types.GetEVMCoinDecimals())
 
 	return &types.QueryConfigResponse{Config: config}, nil
+}
+
+func (k Keeper) GlobalQueryGasLimit(req *types.EthCallRequest) uint64 {
+	gasCap := req.GasCap
+	if k.queryGasLimit != GasNoLimit {
+		if gasCap == 0 {
+			gasCap = k.queryGasLimit
+		} else if k.queryGasLimit < gasCap {
+			gasCap = k.queryGasLimit
+		}
+	}
+	return gasCap
 }
