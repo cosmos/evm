@@ -42,7 +42,7 @@ func (p Precompile) Delegation(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewDelegationRequest(args, p.addrCdc)
+	req, err := NewDelegationRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (p Precompile) UnbondingDelegation(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewUnbondingDelegationRequest(args, p.addrCdc)
+	req, err := NewUnbondingDelegationRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (p Precompile) Redelegations(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := NewRedelegationsRequest(method, args, p.addrCdc)
+	req, err := NewRedelegationsRequest(method, args)
 	if err != nil {
 		return nil, err
 	}

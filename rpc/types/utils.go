@@ -158,34 +158,31 @@ func NewTransactionFromMsg(
 	baseFee *big.Int,
 	chainID *big.Int,
 ) (*RPCTransaction, error) {
-	return NewRPCTransaction(msg, blockHash, blockNumber, index, baseFee, chainID)
+	tx := msg.AsTransaction()
+	return NewRPCTransaction(tx, blockHash, blockNumber, index, baseFee, chainID)
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func NewRPCTransaction(
-	msg *evmtypes.MsgEthereumTx,
+	tx *ethtypes.Transaction,
 	blockHash common.Hash,
 	blockNumber,
 	index uint64,
 	baseFee,
 	chainID *big.Int,
 ) (*RPCTransaction, error) {
-	tx := msg.AsTransaction()
 	// Determine the signer. For replay-protected transactions, use the most permissive
 	// signer, because we assume that signers are backwards-compatible with old
-	// transactions. For non-protected transactions, the frontier signer is used
-	// because the latest signer will reject the unprotected transactions.
+	// transactions. For non-protected transactions, the homestead signer signer is used
+	// because the return value of ChainId is zero for those transactions.
 	var signer ethtypes.Signer
 	if tx.Protected() {
 		signer = ethtypes.LatestSignerForChainID(tx.ChainId())
 	} else {
-		signer = ethtypes.FrontierSigner{}
+		signer = ethtypes.HomesteadSigner{}
 	}
-	from, err := msg.GetSenderLegacy(signer)
-	if err != nil {
-		return nil, err
-	}
+	from, _ := ethtypes.Sender(signer, tx) // #nosec G703
 	v, r, s := tx.RawSignatureValues()
 	result := &RPCTransaction{
 		Type:     hexutil.Uint64(tx.Type()),

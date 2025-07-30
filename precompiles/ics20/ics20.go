@@ -32,7 +32,6 @@ var f embed.FS
 
 type Precompile struct {
 	cmn.Precompile
-	bankKeeper     cmn.BankKeeper
 	stakingKeeper  stakingkeeper.Keeper
 	transferKeeper transferkeeper.Keeper
 	channelKeeper  *channelkeeper.Keeper
@@ -42,7 +41,6 @@ type Precompile struct {
 // NewPrecompile creates a new ICS-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
-	bankKeeper cmn.BankKeeper,
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
@@ -59,7 +57,6 @@ func NewPrecompile(
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
-		bankKeeper:     bankKeeper,
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
 		stakingKeeper:  stakingKeeper,

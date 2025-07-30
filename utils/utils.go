@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"cmp"
 	"fmt"
 	"math/big"
 	"sort"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
+	"golang.org/x/exp/constraints"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -21,34 +21,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
-
-// EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address
-// from it.
-func EthHexToCosmosAddr(hexAddr string) sdk.AccAddress {
-	return EthToCosmosAddr(common.HexToAddress(hexAddr))
-}
-
-// EthToCosmosAddr converts a given Ethereum style address to an SDK address.
-func EthToCosmosAddr(addr common.Address) sdk.AccAddress {
-	return addr.Bytes()
-}
-
-// Bech32ToHexAddr converts a given Bech32 address string and converts it to
-// an Ethereum address.
-func Bech32ToHexAddr(bech32Addr string) (common.Address, error) {
-	accAddr, err := sdk.AccAddressFromBech32(bech32Addr)
-	if err != nil {
-		return common.Address{}, errorsmod.Wrapf(err, "failed to convert bech32 string to address")
-	}
-
-	return CosmosToEthAddr(accAddr), nil
-}
-
-// CosmosToEthAddr converts a given SDK account address to
-// an Ethereum address.
-func CosmosToEthAddr(accAddr sdk.AccAddress) common.Address {
-	return common.BytesToAddress(accAddr.Bytes())
-}
 
 // Bech32StringFromHexAddress takes a given Hex string and derives a Cosmos SDK account address
 // from it.
@@ -165,16 +137,31 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 }
 
 // SortSlice sorts a slice of any ordered type.
-func SortSlice[T cmp.Ordered](slice []T) {
+func SortSlice[T constraints.Ordered](slice []T) {
 	sort.Slice(slice, func(i, j int) bool {
 		return slice[i] < slice[j]
 	})
 }
 
 func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
+	if i.Sign() < 0 {
+		return nil, fmt.Errorf("trying to convert negative *big.Int (%d) to uint256.Int", i)
+	}
 	result, overflow := uint256.FromBig(i)
 	if overflow {
 		return nil, fmt.Errorf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result)
 	}
 	return result, nil
+}
+
+// Bytes32ToString converts a bytes32 value to string by trimming null bytes
+func Bytes32ToString(data [32]byte) string {
+	// Find the first null byte
+	var i int
+	for i = 0; i < len(data); i++ {
+		if data[i] == 0 {
+			break
+		}
+	}
+	return string(data[:i])
 }

@@ -3,9 +3,8 @@ package keeper_test
 import (
 	"testing"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/testutil/integration/os/network"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
@@ -23,8 +22,8 @@ type testData struct {
 	ctx      sdk.Context
 	keeper   keeper.Keeper
 	storeKey *storetypes.KVStoreKey
-	bk       *mocks.MockBankKeeper
-	ak       *mocks.MockAccountKeeper
+	bk       *mocks.BankKeeper
+	ak       *mocks.AccountKeeper
 }
 
 // newMockedTestData creates a new testData instance with mocked bank and
@@ -37,17 +36,14 @@ func newMockedTestData(t *testing.T) testData {
 	tKey := storetypes.NewTransientStoreKey("transient_test")
 	ctx := testutil.DefaultContext(storeKey, tKey)
 
-	bk := mocks.NewMockBankKeeper(t)
-	ak := mocks.NewMockAccountKeeper(t)
+	bk := mocks.NewBankKeeper(t)
+	ak := mocks.NewAccountKeeper(t)
 
-	chainID := testconstants.SixDecimalsChainID.EVMChainID
-	cfg := evmosencoding.MakeConfig(chainID)
-	cdc := cfg.Codec
+	nw := network.NewUnitTestNetwork(
+		network.WithChainID(testconstants.SixDecimalsChainID),
+	)
+	cdc := nw.App.AppCodec()
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-	err := config.EvmAppOptions(chainID)
-	if err != nil {
-		return testData{}
-	}
 
 	return testData{
 		ctx:      ctx,

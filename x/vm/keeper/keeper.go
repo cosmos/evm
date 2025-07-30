@@ -62,6 +62,11 @@ type Keeper struct {
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
+	// consensusKeeper is used to get consensus params during query contexts.
+	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
+	// grpc query router. This query router builds a context WITHOUT consensus params, so we manually supply the context
+	// with consensus params when not set in context.
+	consensusKeeper types.ConsensusParamsKeeper
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
@@ -88,6 +93,7 @@ func NewKeeper(
 	bankKeeper types.BankKeeper,
 	sk types.StakingKeeper,
 	fmk types.FeeMarketKeeper,
+	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
 	queryGasLimit uint64,
@@ -116,6 +122,7 @@ func NewKeeper(
 		storeKey:         storeKey,
 		transientKey:     transientKey,
 		tracer:           tracer,
+		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        keys,
 		queryGasLimit:    queryGasLimit,
@@ -200,7 +207,10 @@ func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
 
 // PostTxProcessing delegates the call to the hooks.
 // If no hook has been registered, this function returns with a `nil` error
-func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message,
+func (k *Keeper) PostTxProcessing(
+	ctx sdk.Context,
+	sender common.Address,
+	msg core.Message,
 	receipt *ethtypes.Receipt,
 ) error {
 	if k.hooks == nil {
@@ -291,6 +301,21 @@ func (k *Keeper) GetNonce(ctx sdk.Context, addr common.Address) uint64 {
 	}
 
 	return acct.GetSequence()
+}
+
+// SpendableCoin load account's balance of gas token.
+func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+
+	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 // GetBalance load account's balance of gas token.

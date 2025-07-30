@@ -9,9 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,7 +19,6 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -50,7 +48,7 @@ func (s sortGasAndReward) Less(i, j int) bool {
 // txs in order to compute and return the pending tx sequence.
 // Todo: include the ability to specify a blockNumber
 func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height int64, logger log.Logger) (uint64, error) {
-	queryClient := authtypes.NewQueryClient(b.ClientCtx)
+	queryClient := authtypes.NewQueryClient(b.clientCtx)
 	adr := sdk.AccAddress(accAddr.Bytes()).String()
 	ctx := types.ContextWithHeight(height)
 	res, err := queryClient.Account(ctx, &authtypes.QueryAccountRequest{Address: adr})
@@ -63,7 +61,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 		return 0, err
 	}
 	var acc sdk.AccountI
-	if err := b.ClientCtx.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
+	if err := b.clientCtx.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
 		return 0, err
 	}
 
@@ -91,7 +89,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				break
 			}
 
-			sender, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(b.EvmChainID))
+			sender, err := ethMsg.GetSender(b.chainID)
 			if err != nil {
 				continue
 			}
@@ -104,73 +102,8 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 	return nonce, nil
 }
 
-func bigMax(x, y *big.Int) *big.Int {
-	if x.Cmp(y) < 0 {
-		return y
-	}
-	return x
-}
-
-// CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p feemarkettypes.Params) (*big.Int, error) {
-	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
-	if !config.IsLondon(parent.Number) {
-		return new(big.Int).SetUint64(params.InitialBaseFee), nil
-	}
-	if p.ElasticityMultiplier == 0 {
-		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")
-	}
-	parentGasTarget := parent.GasLimit / uint64(p.ElasticityMultiplier)
-	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
-	if parent.GasUsed == parentGasTarget {
-		return new(big.Int).Set(parent.BaseFee), nil
-	}
-
-	var (
-		num   = new(big.Int)
-		denom = new(big.Int)
-	)
-
-	if parent.GasUsed > parentGasTarget {
-		// If the parent block used more gas than its target, the baseFee should increase.
-		// max(1, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-		num.SetUint64(parent.GasUsed - parentGasTarget)
-		num.Mul(num, parent.BaseFee)
-		num.Div(num, denom.SetUint64(parentGasTarget))
-		num.Div(num, denom.SetUint64(uint64(p.BaseFeeChangeDenominator)))
-		baseFeeDelta := bigMax(num, common.Big1)
-
-		return num.Add(parent.BaseFee, baseFeeDelta), nil
-	}
-
-	// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
-	// max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-	num.SetUint64(parentGasTarget - parent.GasUsed)
-	num.Mul(num, parent.BaseFee)
-	num.Div(num, denom.SetUint64(parentGasTarget))
-	num.Div(num, denom.SetUint64(uint64(p.BaseFeeChangeDenominator)))
-	baseFee := num.Sub(parent.BaseFee, num)
-	minGasPrice := p.MinGasPrice.TruncateInt().BigInt()
-	return bigMax(baseFee, minGasPrice), nil
-}
-
-// ProcessBlock processes a Tendermint block and calculates fee history data for eth_feeHistory RPC.
-// It extracts gas usage, base fees, and transaction reward percentiles from the block data.
-//
-// The function calculates:
-//   - Current block's base fee and next block's base fee (for EIP-1559)
-//   - Gas used ratio (gasUsed / gasLimit)
-//   - Transaction reward percentiles based on effective gas tip values
-//
-// Parameters:
-//   - tendermintBlock: The raw Tendermint block containing transaction data
-//   - ethBlock: Ethereum-formatted block with gas limit and usage information
-//   - rewardPercentiles: Percentile values (0-100) for reward calculation
-//   - tendermintBlockResult: Block execution results containing gas usage per transaction
-//   - targetOneFeeHistory: Output parameter to populate with calculated fee history data
-//
-// Returns an error if block processing fails due to invalid data types or calculation errors.
-func (b *Backend) ProcessBlock(
+// output: targetOneFeeHistory
+func (b *Backend) processBlock(
 	tendermintBlock *cmtrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
@@ -179,12 +112,22 @@ func (b *Backend) ProcessBlock(
 ) error {
 	blockHeight := tendermintBlock.Block.Height
 	blockBaseFee, err := b.BaseFee(tendermintBlockResult)
-	if err != nil || blockBaseFee == nil {
-		targetOneFeeHistory.BaseFee = big.NewInt(0)
-	} else {
-		targetOneFeeHistory.BaseFee = blockBaseFee
+	if err != nil {
+		return err
 	}
+
+	// set basefee
+	targetOneFeeHistory.BaseFee = blockBaseFee
 	cfg := b.ChainConfig()
+	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
+		header, err := b.CurrentHeader()
+		if err != nil {
+			return err
+		}
+		targetOneFeeHistory.NextBaseFee = eip1559.CalcBaseFee(cfg, header)
+	} else {
+		targetOneFeeHistory.NextBaseFee = new(big.Int)
+	}
 	// set gas used ratio
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
@@ -196,30 +139,6 @@ func (b *Backend) ProcessBlock(
 		return fmt.Errorf("invalid gas used type: %T", (*ethBlock)["gasUsed"])
 	}
 
-	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		var header ethtypes.Header
-		header.Number = new(big.Int).SetInt64(blockHeight)
-		baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big)
-		if !ok || baseFee == nil {
-			header.BaseFee = big.NewInt(0)
-		} else {
-			header.BaseFee = baseFee.ToInt()
-		}
-		header.GasLimit = uint64(gasLimitUint64)
-		header.GasUsed = gasUsedBig.ToInt().Uint64()
-		ctx := types.ContextWithHeight(blockHeight)
-		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
-		if err != nil {
-			return err
-		}
-		nextBaseFee, err := CalcBaseFee(cfg, &header, params.Params)
-		if err != nil {
-			return err
-		}
-		targetOneFeeHistory.NextBaseFee = nextBaseFee
-	} else {
-		targetOneFeeHistory.NextBaseFee = new(big.Int)
-	}
 	gasusedfloat, _ := new(big.Float).SetInt(gasUsedBig.ToInt()).Float64()
 
 	if gasLimitUint64 <= 0 {
@@ -247,9 +166,9 @@ func (b *Backend) ProcessBlock(
 		eachTendermintTx := tendermintTxs[i]
 		eachTendermintTxResult := tendermintTxResults[i]
 
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(eachTendermintTx)
+		tx, err := b.clientCtx.TxConfig.TxDecoder()(eachTendermintTx)
 		if err != nil {
-			b.Logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())
+			b.logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())
 			continue
 		}
 		txGasUsed := uint64(eachTendermintTxResult.GasUsed) // #nosec G115
@@ -260,7 +179,8 @@ func (b *Backend) ProcessBlock(
 			}
 			tx := ethMsg.AsTransaction()
 			reward := tx.EffectiveGasTipValue(blockBaseFee)
-			if reward == nil {
+			if reward == nil || reward.Sign() < 0 {
+				b.logger.Debug("negative or nil reward found in transaction", "height", blockHeight, "txHash", tx.Hash().Hex(), "reward", reward)
 				reward = big.NewInt(0)
 			}
 			sorter = append(sorter, txGasAndReward{gasUsed: txGasUsed, reward: reward})
@@ -279,7 +199,7 @@ func (b *Backend) ProcessBlock(
 	sumGasUsed := sorter[0].gasUsed
 
 	for i, p := range rewardPercentiles {
-		thresholdGasUsed := uint64(blockGasUsed * p / 100)
+		thresholdGasUsed := uint64(blockGasUsed * p / 100) // #nosec G115
 		for sumGasUsed < thresholdGasUsed && txIndex < ethTxCount-1 {
 			txIndex++
 			sumGasUsed += sorter[txIndex].gasUsed

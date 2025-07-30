@@ -42,6 +42,6 @@ all precompiles (no more proxy calls)
 - Renamed x/evm to x/vm
 - Renamed protobuf files from evmos to cosmos org
 - [\#95](https://github.com/cosmos/evm/pull/95) Updated ics20 precompile to use Denom instead of DenomTrace for IBC v2
-- [\#305](https://github.com/cosmos/evm/pull/305) **evidence precompile**
-    - Remove evidence precompile because we haven't seen any use cases for it.
+- [\#183](https://github.com/cosmos/evm/pull/183) **evidence precompile**
+    - `SubmitEvidence` now takes the `submitter` address as its first argument (was previously implicit),
 and will revert if not called directly by that EOA.
