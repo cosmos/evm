@@ -42,49 +42,6 @@ func (suite *KeeperTestSuite) TestBaseFee() {
 	suite.enableLondonHF = true
 }
 
-func (suite *KeeperTestSuite) SetupTest() {
-	keys := storetypes.NewKVStoreKeys(
-		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
-		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
-		govtypes.StoreKey, paramstypes.StoreKey, consensusparamtypes.StoreKey,
-		upgradetypes.StoreKey, feegrant.StoreKey, evidencetypes.StoreKey, authzkeeper.StoreKey,
-		// ibc keys
-		ibcexported.StoreKey, ibctransfertypes.StoreKey,
-		// Cosmos EVM store keys
-		vmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
-	)
-	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
-	transientKey := storetypes.NewTransientStoreKey(vmtypes.TransientKey)
-	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
-	ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
-	encCfg := moduletestutil.MakeTestEncodingConfig()
-
-	// storeService := runtime.NewKVStoreService(key)
-	authority := sdk.AccAddress("foobar")
-
-	suite.bankKeeper = mocks.NewBankKeeper(suite.T())
-	suite.accKeeper = mocks.NewAccountKeeper(suite.T())
-	suite.stakingKeeper = mocks.NewStakingKeeper(suite.T())
-	suite.fmKeeper = mocks.NewFeeMarketKeeper(suite.T())
-	suite.erc20Keeper = mocks.NewErc20Keeper(suite.T())
-	suite.ctx = ctx
-
-	suite.accKeeper.On("GetModuleAddress", vmtypes.ModuleName).Return(sdk.AccAddress("evm"))
-	suite.vmKeeper = vmkeeper.NewKeeper(
-		encCfg.Codec,
-		key,
-		transientKey,
-		keys,
-		authority,
-		suite.accKeeper,
-		suite.bankKeeper,
-		suite.stakingKeeper,
-		suite.fmKeeper,
-		suite.erc20Keeper,
-		"",
-		vmkeeper.GasNoLimit,
-	)
-
 func (suite *KeeperTestSuite) TestGetAccountStorage() {
 	var ctx sdk.Context
 	testCases := []struct {
