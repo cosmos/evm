@@ -13,6 +13,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -117,6 +118,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		s.network.App.GetDistrKeeper(),
 		*s.network.App.GetStakingKeeper(),
 		s.network.App.GetEVMKeeper(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 	if err != nil {
 		panic(err)

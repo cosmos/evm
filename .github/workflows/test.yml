@@ -2,6 +2,7 @@ name: Tests
 on:
   merge_group:
   pull_request:
+  merge_group:
   push:
     branches:
       - main
