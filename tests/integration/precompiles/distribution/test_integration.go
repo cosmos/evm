@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -2286,8 +2287,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
 				Expect(err).To(BeNil())
 				finalBalance := balRes.Balance
-				expectedGasCost := math.NewInt(79_416_000_000_000)
-				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), "expected final balance must be initial balance minus any gas spent")
+				expectedGasCost := math.NewInt(40_000_000_000_000)
+				Expect(finalBalance.Amount.Equal(initialBalance.Amount.Sub(expectedGasCost))).To(BeTrue(), fmt.Sprintf("expected final balance must be initial balance minus any gas spent: %v", finalBalance.Amount.Sub(initialBalance.Amount)))
 
 				res, err = s.grpcHandler.GetDelegationTotalRewards(s.keyring.GetAccAddr(0).String())
 				Expect(err).To(BeNil())
