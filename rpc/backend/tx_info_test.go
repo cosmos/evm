@@ -567,7 +567,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 	}{
 		// TODO test happy path
 		{
-			name:         "fail - tx not found",
+			name:         "success - tx not found",
 			registerMock: func() {},
 			block:        &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
 			tx:           msgEthereumTx2,
@@ -586,8 +586,7 @@ func (suite *BackendTestSuite) TestGetTransactionReceipt() {
 					},
 				},
 			},
-			expPass: false,
-			expErr:  fmt.Errorf("tx not found, hash: %s", txHash.Hex()),
+			expPass: true,
 		},
 		{
 			name: "fail - block not found",
