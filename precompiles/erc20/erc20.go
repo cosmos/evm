@@ -15,7 +15,6 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
 const (
@@ -29,17 +28,15 @@ const (
 	// The results can be inspected here:
 	// https://github.com/evmos/evmos/blob/malte/erc20-gas-tests/precompiles/erc20/plot_gas_values.ipynb
 
-	GasTransfer          = 9_000
-	GasTransferFrom      = 30_500
-	GasApprove           = 8_100
-	GasIncreaseAllowance = 8_580
-	GasDecreaseAllowance = 3_620
-	GasName              = 3_421
-	GasSymbol            = 3_464
-	GasDecimals          = 427
-	GasTotalSupply       = 2_480
-	GasBalanceOf         = 2_870
-	GasAllowance         = 3_225
+	GasTransfer     = 9_000
+	GasTransferFrom = 30_500
+	GasApprove      = 8_100
+	GasName         = 3_421
+	GasSymbol       = 3_464
+	GasDecimals     = 427
+	GasTotalSupply  = 2_480
+	GasBalanceOf    = 2_870
+	GasAllowance    = 3_225
 )
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -56,14 +53,14 @@ type Precompile struct {
 	transferKeeper transferkeeper.Keeper
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
-	BankKeeper bankkeeper.Keeper
+	BankKeeper cmn.BankKeeper
 }
 
 // NewPrecompile creates a new ERC-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
-	bankKeeper bankkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
@@ -112,10 +109,6 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return GasTransferFrom
 	case ApproveMethod:
 		return GasApprove
-	case IncreaseAllowanceMethod:
-		return GasIncreaseAllowance
-	case DecreaseAllowanceMethod:
-		return GasDecreaseAllowance
 	// ERC-20 queries
 	case NameMethod:
 		return GasName
@@ -158,9 +151,6 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, err
 	}
 
-	// Start the balance change handler before executing the precompile.
-	p.GetBalanceHandler().BeforeBalanceChange(ctx)
-
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
@@ -175,13 +165,9 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 		return nil, vm.ErrOutOfGas
 	}
-
-	// Process the native balance changes after the method execution.
-	err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB)
-	if err != nil {
+	if err = p.AddJournalEntries(stateDB); err != nil {
 		return nil, err
 	}
-
 	return bz, nil
 }
 
@@ -190,9 +176,7 @@ func (Precompile) IsTransaction(method *abi.Method) bool {
 	switch method.Name {
 	case TransferMethod,
 		TransferFromMethod,
-		ApproveMethod,
-		IncreaseAllowanceMethod,
-		DecreaseAllowanceMethod:
+		ApproveMethod:
 		return true
 	default:
 		return false
@@ -215,10 +199,6 @@ func (p *Precompile) HandleMethod(
 		bz, err = p.TransferFrom(ctx, contract, stateDB, method, args)
 	case ApproveMethod:
 		bz, err = p.Approve(ctx, contract, stateDB, method, args)
-	case IncreaseAllowanceMethod:
-		bz, err = p.IncreaseAllowance(ctx, contract, stateDB, method, args)
-	case DecreaseAllowanceMethod:
-		bz, err = p.DecreaseAllowance(ctx, contract, stateDB, method, args)
 	// ERC-20 queries
 	case NameMethod:
 		bz, err = p.Name(ctx, contract, stateDB, method, args)

@@ -12,7 +12,6 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/precompiles/testutil"
-	chainutil "github.com/cosmos/evm/testutil"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -66,6 +65,8 @@ type TxFactory interface {
 	CallContractAndCheckLogs(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, logCheckArgs testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error)
 	// GenerateDeployContractArgs generates the txArgs for a contract deployment.
 	GenerateDeployContractArgs(from common.Address, txArgs evmtypes.EvmTxArgs, deploymentData types.ContractDeploymentData) (evmtypes.EvmTxArgs, error)
+	// GenerateContractCallArgs generates the txArgs for a contract call.
+	GenerateContractCallArgs(txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs) (evmtypes.EvmTxArgs, error)
 	// GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.
 	GenerateMsgEthereumTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (evmtypes.MsgEthereumTx, error)
 	// GenerateGethCoreMsg creates a new GethCoreMsg with the provided arguments.
@@ -210,7 +211,8 @@ func (tf *IntegrationTxFactory) checkEthTxResponse(res *abcitypes.ExecTxResult) 
 	}
 
 	if evmRes.Failed() {
-		return chainutil.DecodeRevertReason(evmRes)
+		revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
+		return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
 	}
 	return nil
 }

@@ -101,7 +101,7 @@ contract CounterWithCallbacks is ICallbacks {
     ) external override {
         // Emit event when packet times out
         emit PacketTimedOut(channelId, portId, sequence, data);
-        counter -= 1; // Decrement counter on timeout
+        counter -= 1; // Increment counter on acknowledgement
     }
 
     /**

@@ -12,7 +12,6 @@ import (
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
@@ -49,7 +48,7 @@ type MiddlewareTestSuite struct {
 
 // SetupTest initializes the coordinator and test chains before each test.
 func (suite *MiddlewareTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1, integration.SetupEvmd)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -397,8 +396,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 
-				params := evmApp.Erc20Keeper.GetParams(evmCtx)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(evmCtx, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			} else {
 				suite.Require().False(ack.Success(), "Expected failure but got success")
 
@@ -553,8 +552,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(ctxA)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(ctxA, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			} else {
 				suite.Require().False(ack.Success())
 
@@ -571,7 +570,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacket() {
 // TestOnRecvPacketNativeErc20 checks receiving a native ERC20 token.
 func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	suite.SetupTest()
-	nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+	nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 
 	evmCtx := suite.evmChainA.GetContext()
 	evmApp := suite.evmChainA.App.(*evmd.EVMD)
@@ -581,26 +580,42 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	path := suite.path
 	chainBAccount := suite.chainB.SenderAccount.GetAddress()
 
-	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
+	sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal).Quo(math.NewInt(2))
 	senderEthAddr := nativeErc20.Account
 	sender := sdk.AccAddress(senderEthAddr.Bytes())
 
+	// Transfer half the initial balance out
+	// Sender transfers 50 out (escrowed)
 	msg := transfertypes.NewMsgTransfer(
 		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
 		sdk.NewCoin(nativeErc20.Denom, sendAmt),
 		sender.String(), chainBAccount.String(),
 		timeoutHeight, 0, "",
 	)
+
 	_, err := suite.evmChainA.SendMsgs(msg)
 	suite.Require().NoError(err) // message committed
 
+	// Balance after transfer should be initial balance - sendAmt
 	balAfterTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 	suite.Require().Equal(
 		new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 		balAfterTransfer.String(),
 	)
 
+	// Now try to convert sendAmt to ERC20
+	convertMsg := types.MsgConvertERC20{
+		ContractAddress: nativeErc20.ContractAddr.String(),
+		Amount:          sendAmt,
+		Receiver:        sender.String(),
+		Sender:          senderEthAddr.String(),
+	}
+
+	_, err = suite.evmChainA.SendMsgs(&convertMsg)
+	suite.Require().NoError(err) // message committed
+
 	// Check native erc20 token is escrowed on evmChainA for sending to chainB.
+	// Conversion of remaining 50 tokens to Bank token
 	escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 	escrowedBal := evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 	suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
@@ -613,12 +628,15 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 			suite.path.EndpointB.ChannelID,
 		),
 	)
-	// receiver := sender // the receiver is the sender on evmChainA
+
+	// half the send amount should be received since our first call will fail due to send disabled,
+	// and the second will succeed
+	recvAmt := sendAmt.Quo(math.NewInt(2))
 	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
 	// Note that ChainB didn't receive the native erc20 token. We just assume that.
 	packetData := transfertypes.NewFungibleTokenPacketData(
 		chainBNativeErc20Denom.Path(),
-		sendAmt.String(),
+		recvAmt.String(),
 		chainBAccount.String(),
 		types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String()).String(),
 		"",
@@ -638,7 +656,8 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		return
 	}
 
-	packedBytes, err := contractData.ABI.Pack("add", nativeErc20.ContractAddr, sendAmt.BigInt())
+	// Each callback gets recvAmt
+	packedBytes, err := contractData.ABI.Pack("add", nativeErc20.ContractAddr, recvAmt.BigInt())
 	suite.Require().NoError(err)
 
 	destCallback := fmt.Sprintf(`{
@@ -668,10 +687,43 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	suite.evmChainA.NextBlock()
 
 	sourceChan := path.EndpointB.GetChannel()
-	ack := transferStack.OnRecvPacket(
+
+	// SendEnabled=false will cause the conversion of bank tokens to erc20 tokens to fail,
+	// but not send them back to escrow
+	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, false)
+	isSendEnabled := evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+	suite.Require().False(isSendEnabled)
+
+	errAck := transferStack.OnRecvPacket(
 		evmCtx,
 		sourceChan.Version,
 		packet,
+		suite.evmChainA.SenderAccount.GetAddress(),
+	)
+	suite.Require().False(errAck.Success())
+
+	evmCtx = suite.evmChainA.GetContext()
+
+	// SendEnabled=true causes our callback to succeed
+	evmApp.BankKeeper.SetSendEnabled(evmCtx, nativeErc20.Denom, true)
+	isSendEnabled = evmApp.BankKeeper.IsSendEnabledDenom(evmCtx, nativeErc20.Denom)
+	suite.Require().True(isSendEnabled)
+
+	packet2 := channeltypes.Packet{
+		Sequence:           2,
+		SourcePort:         path.EndpointB.ChannelConfig.PortID,
+		SourceChannel:      path.EndpointB.ChannelID,
+		DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+		DestinationChannel: path.EndpointA.ChannelID,
+		Data:               packetData.GetBytes(),
+		TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+		TimeoutTimestamp:   0,
+	}
+
+	ack := transferStack.OnRecvPacket(
+		evmCtx,
+		sourceChan.Version,
+		packet2,
 		suite.evmChainA.SenderAccount.GetAddress(),
 	)
 	suite.Require().True(ack.Success())
@@ -679,10 +731,18 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	// Check un-escrowed balance on evmChainA after receiving the packet.
 	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 	suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
+	// recvAmt should be in the contractAddr upon successful recv callback
 	balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, contractAddr)
-	suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
+	suite.Require().Equal(recvAmt.String(), balAfterUnescrow.String())
 	bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
-	suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
+	// InitialBalance half which was converted but not sent will be in the sending account's balance
+	suite.Require().Equal(sendAmt.String(), bankBalAfterUnescrow.Amount.String())
+
+	// the packet that failed conversion due to the minting restriction should instead remain as the bank token
+	// and will be in the isolated address used to invoke the callback
+	trappedBal := evmApp.BankKeeper.GetBalance(evmCtx, types2.GenerateIsolatedAddress(path.EndpointA.ChannelID,
+		suite.chainB.SenderAccount.GetAddress().String()), nativeErc20.Denom)
+	suite.Require().Equal(recvAmt.String(), trappedBal.Amount.String())
 }
 
 // TestOnAcknowledgementPacketWithCallback tests acknowledgement logic with comprehensive callback scenarios.
@@ -945,6 +1005,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			// Deploy callback contract on source chain (evmChainA)
 			contractData, err = testutil2.LoadCounterWithCallbacksContract()
@@ -997,7 +1058,6 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 
 			sourceChan := suite.path.EndpointA.GetChannel()
 
-			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 			// Execute send if required (for proper escrow setup)
 			if tc.onSendRequired {
 				timeoutHeight := clienttypes.NewHeight(1, 110)
@@ -1014,13 +1074,6 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				feeAmt := evmibctesting.FeeCoins().AmountOf(bondDenom)
-				balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-				suite.Require().Equal(
-					balBeforeTransfer.Amount.Sub(sendAmt).Sub(feeAmt).String(),
-					balAfterTransfer.Amount.String(),
-				)
-
 				sentPacket, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
@@ -1030,13 +1083,10 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 
 				// Verify escrow for successful sends
 				if tc.expError == "" || !strings.Contains(tc.expError, "ABCI code") {
-					// One for UpdateClient() and one for AcknowledgePacket()
-					relayPacketFeeAmt := feeAmt.Mul(math.NewInt(2))
-
-					balAfterRelayPacket := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+					balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 					suite.Require().Equal(
-						balAfterTransfer.Amount.Sub(relayPacketFeeAmt).String(),
-						balAfterRelayPacket.Amount.String(),
+						balBeforeTransfer.Amount.Sub(sendAmt).String(),
+						balAfterTransfer.Amount.String(),
 					)
 					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
@@ -1047,7 +1097,6 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 				packet = sentPacket
 			}
 
-			beforeAckBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 			// Execute acknowledgement
 			err = transferStack.OnAcknowledgementPacket(
 				ctxA,
@@ -1088,7 +1137,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 
 					// For error acks, tokens should be refunded
 					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after refund")
-					suite.Require().Equal(beforeAckBal.Amount.Add(sendAmt).String(), finalSenderBal.Amount.String(), "Sender balance should be refunded")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded")
 				}
 			} else if strings.Contains(tc.memo(), "src_callback") && strings.Contains(tc.expError, "ABCI code") {
 				// For ack failures, verify that counter was NOT incremented
@@ -1173,6 +1222,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
@@ -1222,16 +1272,8 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 					receiver.String(),
 					timeoutHeight, 0, "",
 				)
-				balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
-
-				feeAmt := evmibctesting.FeeCoins().AmountOf(bondDenom)
-				balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-				suite.Require().Equal(
-					balBeforeTransfer.Amount.Sub(sendAmt).Sub(feeAmt).String(),
-					balAfterTransfer.Amount.String(),
-				)
 
 				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
@@ -1240,14 +1282,11 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 				err = path.RelayPacket(packet)
 				suite.Require().NoError(err) // relay committed
 
-				// One for UpdateClient() and one for AcknowledgePacket()
-				relayPacketFeeAmt := feeAmt.Mul(math.NewInt(2))
-
 				// ensure the ibc token is escrowed.
-				balAfterRelayPacket := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+				balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 				suite.Require().Equal(
-					balAfterTransfer.Amount.Sub(relayPacketFeeAmt).String(),
-					balAfterRelayPacket.Amount.String(),
+					balBeforeTransfer.Amount.Sub(sendAmt).String(),
+					balAfterTransfer.Amount.String(),
 				)
 				escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 				escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
@@ -1314,7 +1353,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 
 			evmCtx := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
@@ -1453,6 +1492,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			packetData := transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
@@ -1491,9 +1531,6 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				)
 			}
 
-			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-			var balAfterRelayPacket sdk.Coin
-			feeAmt := evmibctesting.FeeCoins().AmountOf(bondDenom)
 			if tc.onSendRequired {
 				timeoutHeight := clienttypes.NewHeight(1, 110)
 				msg := transfertypes.NewMsgTransfer(
@@ -1508,45 +1545,22 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				res, err := suite.evmChainA.SendMsgs(msg)
 				suite.Require().NoError(err) // message committed
 
-				balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-				suite.Require().Equal(
-					balBeforeTransfer.Amount.Sub(sendAmt).Sub(feeAmt).String(),
-					balAfterTransfer.Amount.String(),
-				)
-
 				packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
 				err = path.RelayPacket(packet)
 				suite.Require().NoError(err) // relay committed
 
-				// One for UpdateClient() and one for AcknowledgePacket()
-				relayPacketFeeAmt := feeAmt.Mul(math.NewInt(2))
-
-				balAfterRelayPacket = evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-				suite.Require().Equal(
-					balAfterTransfer.Amount.Sub(relayPacketFeeAmt).String(),
-					balAfterRelayPacket.Amount.String(),
-				)
 			}
 			err = onTimeout()
-
-			balAfterTimeout := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-			if tc.onSendRequired {
-				suite.Require().Equal(
-					balAfterRelayPacket.Amount.Add(sendAmt).String(),
-					balAfterTimeout.Amount.String(),
-				)
-			} else {
-				suite.Require().Equal(
-					balBeforeTransfer.Amount.String(),
-					balAfterTimeout.Amount.String(),
-				)
-			}
-
 			// ensure that the escrowed coins were refunded on timeout.
+			balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 			escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 			escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+			suite.Require().Equal(
+				balBeforeTransfer.Amount.String(),
+				balAfterTransfer.Amount.String(),
+			)
 			suite.Require().Equal(escrowedBal.Amount.String(), math.ZeroInt().String())
 
 			if tc.expError == "" {
@@ -1772,6 +1786,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 			sendAmt := ibctesting.DefaultCoinAmount
 			sender := suite.evmChainA.SenderAccount.GetAddress()
 			receiver := suite.chainB.SenderAccount.GetAddress()
+			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			// Deploy callback contract on source chain (evmChainA)
 			contractData, err = testutil2.LoadCounterWithCallbacksContract()
@@ -1814,9 +1829,6 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			suite.Require().True(ok)
 
-			balBeforeTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-			balAfterTransfer := balBeforeTransfer
-			feeAmt := evmibctesting.FeeCoins().AmountOf(bondDenom)
 			// Execute send if required (for proper escrow setup)
 			if tc.onSendRequired {
 				timeoutHeight := clienttypes.NewHeight(1, 110)
@@ -1836,14 +1848,17 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				sentPacket, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 				suite.Require().NoError(err)
 
-				balAfterTransfer = evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
-				suite.Require().Equal(
-					balBeforeTransfer.Amount.Sub(sendAmt).Sub(feeAmt).String(),
-					balAfterTransfer.Amount.String(),
-				)
-				escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
-				escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
-				suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+				// Verify escrow for successful sends
+				if tc.expError == "" || !strings.Contains(tc.expError, "ABCI code") {
+					balAfterTransfer := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
+					suite.Require().Equal(
+						balBeforeTransfer.Amount.Sub(sendAmt).String(),
+						balAfterTransfer.Amount.String(),
+					)
+					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					suite.Require().Equal(sendAmt.String(), escrowedBal.Amount.String())
+				}
 
 				// Use the actually sent packet for timeout
 				packet = sentPacket
@@ -1856,7 +1871,6 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				packet,
 				receiver,
 			)
-			balAfterTimeout := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 			// Validate results
 			if tc.expError == "" {
@@ -1890,10 +1904,11 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 				if tc.onSendRequired {
 					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					finalSenderBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 					// For timeouts, tokens should always be refunded
 					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after timeout refund")
-					suite.Require().Equal(balAfterTransfer.Amount.Add(sendAmt).String(), balAfterTimeout.Amount.String(), "Sender balance should be refunded on timeout")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded on timeout")
 				}
 			} else {
 				// For timeout callback failures, verify that counter was NOT changed
@@ -1923,9 +1938,10 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 					// Even if callback fails, the timeout refund should still happen
 					escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
 					escrowedBal := evmApp.BankKeeper.GetBalance(ctxA, escrowAddr, bondDenom)
+					finalSenderBal := evmApp.BankKeeper.GetBalance(ctxA, sender, bondDenom)
 
 					suite.Require().True(escrowedBal.IsZero(), "Escrowed balance should be zero after timeout refund even with callback failure")
-					suite.Require().Equal(balAfterTransfer.Amount.Add(sendAmt).String(), balAfterTimeout.Amount.String(), "Sender balance should be refunded on timeout")
+					suite.Require().Equal(balBeforeTransfer.String(), finalSenderBal.String(), "Sender balance should be refunded on timeout even with callback failure")
 				}
 			}
 		})
@@ -1961,7 +1977,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 
 			evmCtx := suite.evmChainA.GetContext()
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)

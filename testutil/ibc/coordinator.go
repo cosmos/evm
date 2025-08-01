@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/evmd"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
@@ -29,7 +29,7 @@ type Coordinator struct {
 }
 
 // NewCoordinator initializes Coordinator with N EVM TestChain's (Cosmos EVM apps) and M Cosmos chains (Simulation Apps)
-func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int, evmAppCreator ibctesting.AppCreator) *Coordinator {
+func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *Coordinator {
 	t.Helper()
 	chains := make(map[string]*TestChain)
 	coord := &Coordinator{
@@ -37,12 +37,12 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int, evmAppCreator i
 		CurrentTime: globalStartTime,
 	}
 
-	ibctesting.DefaultTestingAppInit = evmAppCreator
+	ibctesting.DefaultTestingAppInit = SetupExampleApp
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := GetChainID(i)
 		evmChainID, err := strconv.ParseUint(GetEvmChainID(i), 10, 64)
 		require.NoError(t, err)
-		require.NoError(t, config.EvmAppOptions(evmChainID))
+		require.NoError(t, evmd.EvmAppOptions(evmChainID))
 		// setup EVM chains
 		chains[strconv.FormatUint(evmChainID, 10)] = NewTestChain(t, true, coord, chainID)
 	}

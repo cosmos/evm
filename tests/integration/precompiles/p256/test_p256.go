@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -61,13 +60,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err)
 
 				rBz, sBz, err := parseSignature(sig)
-				rInt, sInt := new(big.Int).SetBytes(rBz), new(big.Int).SetBytes(sBz)
 				s.Require().NoError(err)
 
 				input := make([]byte, p256.VerifyInputLength)
 				copy(input[0:32], hash)
-				rInt.FillBytes(input[32:64])
-				sInt.FillBytes(input[64:96])
+				copy(input[32:64], rBz)
+				copy(input[64:96], sBz)
 				s.p256Priv.X.FillBytes(input[96:128])
 				s.p256Priv.Y.FillBytes(input[128:160])
 

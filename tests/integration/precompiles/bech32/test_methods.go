@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	chainconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/testutil/config"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -63,7 +63,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					config.Bech32Prefix,
+					chainconfig.Bech32Prefix,
 				}
 			},
 			func(data []byte) {
@@ -135,18 +135,18 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			"fail - invalid bech32 address",
 			func() []interface{} {
 				return []interface{}{
-					config.Bech32Prefix,
+					chainconfig.Bech32Prefix,
 				}
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf("invalid bech32 address: %s", config.Bech32Prefix),
+			fmt.Sprintf("invalid bech32 address: %s", chainconfig.Bech32Prefix),
 		},
 		{
 			"fail - decoding bech32 failed",
 			func() []interface{} {
 				return []interface{}{
-					config.Bech32Prefix + "1",
+					chainconfig.Bech32Prefix + "1",
 				}
 			},
 			func([]byte) {},

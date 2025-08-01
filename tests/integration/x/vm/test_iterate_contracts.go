@@ -52,7 +52,6 @@ func TestIterateContracts(t *testing.T, create network.CreateEvmApp, options ...
 	var (
 		foundAddrs  []common.Address
 		foundHashes []common.Hash
-		addrToHash  = make(map[common.Address]common.Hash)
 	)
 
 	network.App.GetEVMKeeper().IterateContracts(network.GetContext(), func(addr common.Address, codeHash common.Hash) bool {
@@ -63,20 +62,12 @@ func TestIterateContracts(t *testing.T, create network.CreateEvmApp, options ...
 
 		foundAddrs = append(foundAddrs, addr)
 		foundHashes = append(foundHashes, codeHash)
-		addrToHash[addr] = codeHash
 		return false
 	})
 
-	require.Len(t, foundAddrs, 6, "expected 6 contracts to be found when iterating (4 preinstalled + 2 deployed)")
+	require.Len(t, foundAddrs, 2, "expected 2 contracts to be found when iterating")
 	require.Contains(t, foundAddrs, contractAddr, "expected contract 1 to be found when iterating")
 	require.Contains(t, foundAddrs, contractAddr2, "expected contract 2 to be found when iterating")
-
-	// Get the code hashes for our deployed contracts
-	hash1, exists1 := addrToHash[contractAddr]
-	require.True(t, exists1, "expected to find code hash for contract 1")
-	hash2, exists2 := addrToHash[contractAddr2]
-	require.True(t, exists2, "expected to find code hash for contract 2")
-
-	require.Equal(t, hash1, hash2, "expected both deployed contracts to have the same code hash")
-	require.NotEqual(t, types.EmptyCodeHash, hash1, "expected store code hash not to be the keccak256 of empty code")
+	require.Equal(t, foundHashes[0], foundHashes[1], "expected both contracts to have the same code hash")
+	require.NotEqual(t, types.EmptyCodeHash, foundHashes[0], "expected store code hash not to be the keccak256 of empty code")
 }

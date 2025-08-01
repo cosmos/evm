@@ -10,8 +10,9 @@ import (
 
 	"github.com/cosmos/evm/ante/evm"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -57,9 +58,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      with extension option
 	//      without extension option
 	//      london hardfork enableness
-	chainID := uint64(config.EighteenDecimalsChainID)
+	chainID := uint64(evmdconfig.EighteenDecimalsChainID)
 	encodingConfig := encoding.MakeConfig(chainID)
-	err := config.EvmAppOptions(chainID)
+	err := evmd.EvmAppOptions(chainID)
 	require.NoError(t, err)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()

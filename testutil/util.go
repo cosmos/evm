@@ -1,18 +1,10 @@
 package testutil
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -115,40 +107,4 @@ func CreateTx(ctx context.Context, txCfg client.TxConfig, priv cryptotypes.PrivK
 	}
 
 	return txBuilder.GetTx(), nil
-}
-
-// DecodeRevertReason extracts and decodes the human-readable revert reason from an EVM transaction response.
-// It processes the raw return data (Ret field) from a failed EVM transaction and attempts to decode
-// any ABI-encoded revert messages into readable error strings.
-//
-// Returns:
-//   - error: A formatted error containing either:
-//   - "tx failed with VmError: <vmError>: <decoded_reason>" for successfully decoded reverts
-//   - "tx failed with VmError: <vmError>: <hex_data>" for non-decodable data
-//   - "failed to decode revert data: <decode_error>" if decoding fails
-//
-// Example usage:
-//
-//	res, err := executeTransaction(...)
-//	if res.VmError != "" {
-//	    decodedErr := DecodeRevertReason(res)
-//	    // decodedErr might be: "tx failed with VmError: execution reverted: ERC20: insufficient allowance"
-//	}
-func DecodeRevertReason(evmRes evmtypes.MsgEthereumTxResponse) error {
-	revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
-	hexData, ok := revertErr.ErrorData().(string)
-	if ok {
-		decodedBytes, err := hexutil.Decode(hexData)
-		if err == nil {
-			if len(decodedBytes) >= 4 && bytes.Equal(decodedBytes[:4], evmtypes.RevertSelector) {
-				var reason string
-				reason, err = abi.UnpackRevert(decodedBytes)
-				if err == nil {
-					return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, reason)
-				}
-			}
-		}
-		return errorsmod.Wrap(err, "failed to decode revert data")
-	}
-	return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
 }

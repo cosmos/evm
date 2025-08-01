@@ -10,7 +10,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/cmd/evmd/config"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -18,15 +18,6 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-const FeeAmt = 10000000000
-
-func FeeCoins() sdk.Coins {
-	// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
-	// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
-	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
-	return sdk.Coins{sdk.NewInt64Coin(config.BaseDenom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
-}
 
 // SignAndDeliver signs and delivers a transaction. No simulation occurs as the
 // ibc testing package causes checkState and deliverState to diverge in block time.
@@ -37,13 +28,14 @@ func SignAndDeliver(
 	chainID string, accNums, accSeqs []uint64, expPass bool, blockTime time.Time, nextValHash []byte, priv ...cryptotypes.PrivKey,
 ) (*abci.ResponseFinalizeBlock, error) {
 	tb.Helper()
+	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
 	tx, err := simtestutil.GenSignedMockTx(
 		rand.New(rand.NewSource(time.Now().UnixNano())),
 		txCfg,
 		msgs,
 		// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
 		// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
-		FeeCoins(),
+		sdk.Coins{sdk.NewInt64Coin(config.BaseDenom, new(big.Int).Mul(big.NewInt(10000000000), sdkExp).Int64())},
 		simtestutil.DefaultGenTxGas,
 		chainID,
 		accNums,

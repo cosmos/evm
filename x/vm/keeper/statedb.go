@@ -14,6 +14,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 var _ statedb.Keeper = &Keeper{}
@@ -29,7 +30,7 @@ func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Accou
 		return nil
 	}
 
-	acct.Balance = k.GetBalance(ctx, addr)
+	acct.Balance = k.SpendableCoin(ctx, addr)
 	return acct
 }
 
@@ -113,8 +114,7 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-
-	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
 
 	balance := coin.Amount.BigInt()
 	delta := new(big.Int).Sub(amount.ToBig(), balance)
@@ -258,16 +258,26 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address) error {
 		return errors.New("only smart contracts can be self-destructed")
 	}
 
+	// set account to a base account to set the whole balance as spendable
+	baseAccount := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	k.accountKeeper.SetAccount(ctx, authtypes.NewBaseAccount(cosmosAddr, baseAccount.GetPubKey(), baseAccount.GetAccountNumber(), baseAccount.GetSequence()))
+
 	// clear balance
 	if err := k.SetBalance(ctx, addr, new(uint256.Int)); err != nil {
 		return err
 	}
 
+	var keys []common.Hash
+
 	// clear storage
 	k.ForEachStorage(ctx, addr, func(key, _ common.Hash) bool {
-		k.DeleteState(ctx, addr, key)
+		keys = append(keys, key)
 		return true
 	})
+
+	for _, key := range keys {
+		k.DeleteState(ctx, addr, key)
+	}
 
 	// clear code hash
 	k.DeleteCodeHash(ctx, addr)

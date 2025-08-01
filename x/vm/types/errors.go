@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -31,7 +30,6 @@ const (
 	codeErrInactivePrecompile
 	codeErrABIPack
 	codeErrABIUnpack
-	codeErrInvalidPreinstall
 )
 
 var (
@@ -89,9 +87,6 @@ var (
 	// ErrABIUnpack returns an error if the contract ABI unpacking fails
 	ErrABIUnpack = errorsmod.Register(ModuleName, codeErrABIUnpack, "contract ABI unpack failed")
 
-	// ErrInvalidPreinstall returns an error if a preinstall is invalid
-	ErrInvalidPreinstall = errorsmod.Register(ModuleName, codeErrInvalidPreinstall, "invalid preinstall")
-
 	// RevertSelector is selector of ErrExecutionReverted
 	RevertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 )
@@ -123,7 +118,7 @@ func NewExecErrorWithReason(revertReason []byte) *RevertError {
 	}
 	return &RevertError{
 		error:  err,
-		reason: hexutil.Encode(result),
+		reason: reason,
 	}
 }
 

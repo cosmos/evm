@@ -1,5 +1,4 @@
 # CODEOWNERS: https://help.github.com/articles/about-codeowners/
 
 # Primary repo maintainers
-*       @cosmos/interchain_inc_evm_write @cosmos/interchain_inc_evm_admin
-
+*       @cosmos/interchain_inc_gaia_write

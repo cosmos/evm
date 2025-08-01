@@ -1,25 +1,37 @@
 name: Lint
-# Lint runs golangci-lint over the entire Cosmos EVM repository This workflow is
-# run on every pull request and push to main The `golangci` will pass without
-# running if no *.{go, mod, sum} files have been changed.
-on:
-  pull_request:
-  merge_group:
+# Lint runs golangci-lint over the entire Cosmos EVM repository
+# This workflow runs on every pull request and push to main
 
+on:
+  merge_group:
+  pull_request:
 
 permissions: read-all
 
 jobs:
   golangci:
     name: Run golangci-lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: depot-ubuntu-24.04-8
+    timeout-minutes: 15
     steps:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           check-latest: true
+
       - uses: actions/checkout@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Determine diff so we don't lint when no Go files are changed
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
@@ -27,11 +39,13 @@ jobs:
             go.mod
             go.sum
             *.toml
-      - name: run linting
+
+      - name: Run linting
         if: env.GIT_DIFF
         id: lint_long
         run: |
           make lint-go
+
   markdown-lint:
     name: Run markdown-lint
     runs-on: ubuntu-latest

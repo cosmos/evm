@@ -12,7 +12,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
@@ -33,7 +32,6 @@ type Precompile struct {
 	cmn.Precompile
 	govKeeper govkeeper.Keeper
 	codec     codec.Codec
-	addrCdc   address.Codec
 }
 
 // LoadABI loads the gov ABI from the embedded abi.json file
@@ -47,7 +45,6 @@ func LoadABI() (abi.ABI, error) {
 func NewPrecompile(
 	govKeeper govkeeper.Keeper,
 	codec codec.Codec,
-	addrCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -62,7 +59,6 @@ func NewPrecompile(
 		},
 		govKeeper: govKeeper,
 		codec:     codec,
-		addrCdc:   addrCdc,
 	}
 
 	// SetAddress defines the address of the gov precompiled contract.
@@ -160,6 +156,10 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	// Process the native balance changes after the method execution.
 	err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = p.AddJournalEntries(stateDB); err != nil {
 		return nil, err
 	}
 

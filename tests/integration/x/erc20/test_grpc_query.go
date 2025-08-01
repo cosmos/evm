@@ -3,7 +3,7 @@ package erc20
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/testutil/config"
+	exampleapp "github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -129,7 +129,8 @@ func (s *KeeperTestSuite) TestTokenPair() {
 			func() {
 				addr := utiltx.GenerateAddress()
 				pair := types.NewTokenPair(addr, "coin", types.OWNER_MODULE)
-				s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+				err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+				s.Require().NoError(err)
 				req = &types.QueryTokenPairRequest{
 					Token: pair.Erc20Address,
 				}
@@ -174,7 +175,7 @@ func (s *KeeperTestSuite) TestTokenPair() {
 func (s *KeeperTestSuite) TestQueryParams() {
 	s.SetupTest()
 	ctx := s.network.GetContext()
-	expParams := config.NewErc20GenesisState().Params
+	expParams := exampleapp.NewErc20GenesisState().Params
 
 	res, err := s.queryClient.Params(ctx, &types.QueryParamsRequest{})
 	s.Require().NoError(err)

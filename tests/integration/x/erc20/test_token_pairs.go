@@ -120,11 +120,10 @@ func (s *KeeperTestSuite) TestGetTokenPair() {
 }
 
 func (s *KeeperTestSuite) TestDeleteTokenPair() {
-	baseDenom, err := sdk.GetBaseDenom()
-	s.Require().NoError(err, "failed to get base denom")
+	tokenDenom := "random"
 
 	var ctx sdk.Context
-	pair := types.NewTokenPair(utiltx.GenerateAddress(), baseDenom, types.OWNER_MODULE)
+	pair := types.NewTokenPair(utiltx.GenerateAddress(), tokenDenom, types.OWNER_MODULE)
 	id := pair.GetID()
 
 	testCases := []struct {
@@ -148,7 +147,8 @@ func (s *KeeperTestSuite) TestDeleteTokenPair() {
 	for _, tc := range testCases {
 		s.SetupTest()
 		ctx = s.network.GetContext()
-		s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		s.Require().NoError(err)
 
 		tc.malleate()
 		p, found := s.network.App.GetErc20Keeper().GetTokenPair(ctx, tc.id)
@@ -216,7 +216,8 @@ func (s *KeeperTestSuite) TestIsERC20Registered() {
 		s.SetupTest()
 		ctx = s.network.GetContext()
 
-		s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		s.Require().NoError(err)
 
 		tc.malleate()
 
@@ -256,7 +257,8 @@ func (s *KeeperTestSuite) TestIsDenomRegistered() {
 		s.SetupTest()
 		ctx = s.network.GetContext()
 
-		s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+		s.Require().NoError(err)
 
 		tc.malleate()
 
@@ -322,5 +324,32 @@ func (s *KeeperTestSuite) TestGetTokenDenom() {
 				s.Require().ErrorContains(err, tc.errContains)
 			}
 		})
+	}
+}
+
+func (s *KeeperTestSuite) TestSetToken() {
+	testCases := []struct {
+		name     string
+		pair1    types.TokenPair
+		pair2    types.TokenPair
+		expError bool
+	}{
+		{"same denom", types.NewTokenPair(common.HexToAddress("0x1"), "denom1", types.OWNER_MODULE), types.NewTokenPair(common.HexToAddress("0x2"), "denom1", types.OWNER_MODULE), true},
+		{"same erc20", types.NewTokenPair(common.HexToAddress("0x1"), "denom1", types.OWNER_MODULE), types.NewTokenPair(common.HexToAddress("0x1"), "denom2", types.OWNER_MODULE), true},
+		{"same pair", types.NewTokenPair(common.HexToAddress("0x1"), "denom1", types.OWNER_MODULE), types.NewTokenPair(common.HexToAddress("0x1"), "denom1", types.OWNER_MODULE), true},
+		{"two different pairs", types.NewTokenPair(common.HexToAddress("0x1"), "denom1", types.OWNER_MODULE), types.NewTokenPair(common.HexToAddress("0x2"), "denom2", types.OWNER_MODULE), false},
+	}
+	for _, tc := range testCases {
+		s.SetupTest()
+		ctx := s.network.GetContext()
+
+		err := s.network.App.GetErc20Keeper().SetToken(ctx, tc.pair1)
+		s.Require().NoError(err)
+		err = s.network.App.GetErc20Keeper().SetToken(ctx, tc.pair2)
+		if tc.expError {
+			s.Require().Error(err)
+		} else {
+			s.Require().NoError(err)
+		}
 	}
 }

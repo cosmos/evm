@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/erc20/v2"
+	v2 "github.com/cosmos/evm/x/erc20/v2"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
@@ -44,7 +44,7 @@ type MiddlewareV2TestSuite struct {
 }
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1, integration.SetupEvmd)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -278,9 +278,10 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacket() {
 				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(ctx, singleTokenRepresentation.GetID())
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
+
 				// Make sure dynamic precompile is registered
-				params := evmApp.Erc20Keeper.GetParams(ctx)
-				suite.Require().Contains(params.DynamicPrecompiles, tokenPair.Erc20Address)
+				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(ctx, common.HexToAddress(tokenPair.Erc20Address))
+				suite.Require().True(available)
 			}
 		})
 	}
@@ -315,7 +316,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -599,7 +600,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -833,7 +834,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)

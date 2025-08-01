@@ -186,7 +186,8 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 				tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), s.network.App.GetTransferKeeper())
 			}
 
-			precompile := s.setupERC20Precompile(tc.denom)
+			precompile, err := s.setupERC20Precompile(tc.denom)
+			s.Require().NoError(err)
 
 			s.Run("name", func() {
 				bz, err := precompile.Name(
@@ -328,7 +329,8 @@ func (s *PrecompileTestSuite) TestDecimals() {
 				tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), s.network.App.GetTransferKeeper())
 			}
 
-			precompile := s.setupERC20Precompile(tc.denom)
+			precompile, err := s.setupERC20Precompile(tc.denom)
+			s.Require().NoError(err)
 
 			bz, err := precompile.Decimals(
 				s.network.GetContext(),
@@ -379,7 +381,8 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 				tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), tc.expTotal)
 			}
 
-			precompile := s.setupERC20Precompile(validMetadataDenom)
+			precompile, err := s.setupERC20Precompile(validMetadataDenom)
+			s.Require().NoError(err)
 
 			bz, err := precompile.TotalSupply(
 				s.network.GetContext(),
@@ -458,9 +461,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 				balanceOfArgs = tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), tc.expBalance)
 			}
 
-			precompile := s.setupERC20Precompile(s.tokenDenom)
-
-			bz, err := precompile.BalanceOf(
+			bz, err := s.precompile.BalanceOf(
 				s.network.GetContext(),
 				nil,
 				nil,

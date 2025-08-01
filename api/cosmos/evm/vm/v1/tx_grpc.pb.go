@@ -19,9 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_EthereumTx_FullMethodName          = "/cosmos.evm.vm.v1.Msg/EthereumTx"
-	Msg_UpdateParams_FullMethodName        = "/cosmos.evm.vm.v1.Msg/UpdateParams"
-	Msg_RegisterPreinstalls_FullMethodName = "/cosmos.evm.vm.v1.Msg/RegisterPreinstalls"
+	Msg_EthereumTx_FullMethodName   = "/cosmos.evm.vm.v1.Msg/EthereumTx"
+	Msg_UpdateParams_FullMethodName = "/cosmos.evm.vm.v1.Msg/UpdateParams"
 )
 
 // MsgClient is the client API for Msg service.
@@ -34,10 +33,6 @@ type MsgClient interface {
 	// parameters. The authority is hard-coded to the Cosmos SDK x/gov module
 	// account
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// RegisterPreinstalls defines a governance operation for directly registering
-	// preinstalled contracts in the EVM. The authority is the same as is used for
-	// Params updates.
-	RegisterPreinstalls(ctx context.Context, in *MsgRegisterPreinstalls, opts ...grpc.CallOption) (*MsgRegisterPreinstallsResponse, error)
 }
 
 type msgClient struct {
@@ -66,15 +61,6 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
-func (c *msgClient) RegisterPreinstalls(ctx context.Context, in *MsgRegisterPreinstalls, opts ...grpc.CallOption) (*MsgRegisterPreinstallsResponse, error) {
-	out := new(MsgRegisterPreinstallsResponse)
-	err := c.cc.Invoke(ctx, Msg_RegisterPreinstalls_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -85,10 +71,6 @@ type MsgServer interface {
 	// parameters. The authority is hard-coded to the Cosmos SDK x/gov module
 	// account
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// RegisterPreinstalls defines a governance operation for directly registering
-	// preinstalled contracts in the EVM. The authority is the same as is used for
-	// Params updates.
-	RegisterPreinstalls(context.Context, *MsgRegisterPreinstalls) (*MsgRegisterPreinstallsResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -101,9 +83,6 @@ func (UnimplementedMsgServer) EthereumTx(context.Context, *MsgEthereumTx) (*MsgE
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
-}
-func (UnimplementedMsgServer) RegisterPreinstalls(context.Context, *MsgRegisterPreinstalls) (*MsgRegisterPreinstallsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterPreinstalls not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -154,24 +133,6 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_RegisterPreinstalls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgRegisterPreinstalls)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).RegisterPreinstalls(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_RegisterPreinstalls_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).RegisterPreinstalls(ctx, req.(*MsgRegisterPreinstalls))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,10 +147,6 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
-		},
-		{
-			MethodName: "RegisterPreinstalls",
-			Handler:    _Msg_RegisterPreinstalls_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -64,9 +64,6 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - revive
-        text: avoid meaningless package names
-      - linters:
           - gosec
         text: Use of weak random number generator
       - linters:

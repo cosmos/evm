@@ -33,7 +33,7 @@ func (p *Precompile) SubmitProposal(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, proposerHexAddr, err := NewMsgSubmitProposal(args, p.codec, p.addrCdc)
+	msg, proposerHexAddr, err := NewMsgSubmitProposal(args, p.codec)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (p *Precompile) Deposit(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, depositorHexAddr, err := NewMsgDeposit(args, p.addrCdc)
+	msg, depositorHexAddr, err := NewMsgDeposit(args)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (p *Precompile) CancelProposal(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, proposerHexAddr, err := NewMsgCancelProposal(args, p.addrCdc)
+	msg, proposerHexAddr, err := NewMsgCancelProposal(args)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (p Precompile) Vote(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, voterHexAddr, err := NewMsgVote(args, p.addrCdc)
+	msg, voterHexAddr, err := NewMsgVote(args)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (p Precompile) VoteWeighted(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	msg, voterHexAddr, options, err := NewMsgVoteWeighted(method, args, p.addrCdc)
+	msg, voterHexAddr, options, err := NewMsgVoteWeighted(method, args)
 	if err != nil {
 		return nil, err
 	}

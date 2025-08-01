@@ -13,6 +13,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
@@ -54,7 +55,7 @@ var ChainID = constants.ExampleChainID
 func (s *TestSuite) SetupTest() {
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
-	ctx.Viper.Set("evm.evm-chain-id", ChainID.EVMChainID)
+	ctx.Viper.Set("evm.evm-chain-id", evmdconfig.EVMChainID)
 
 	baseDir := s.T().TempDir()
 	nodeDirName := "node"
@@ -95,7 +96,7 @@ func (s *TestSuite) SetupTest() {
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true
-	s.backend.Cfg.EVM.EVMChainID = ChainID.EVMChainID
+	s.backend.Cfg.EVM.EVMChainID = 262144
 	s.backend.QueryClient.QueryClient = mocks.NewEVMQueryClient(s.T())
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
 	s.backend.Ctx = rpctypes.ContextWithHeight(1)
@@ -117,7 +118,7 @@ func (s *TestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byte) {
 	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
 
 	// A valid msg should have empty `From`
-	msgEthereumTx.From = s.from.Bytes()
+	msgEthereumTx.From = s.from.Hex()
 
 	txBuilder := s.backend.ClientCtx.TxConfig.NewTxBuilder()
 	err := txBuilder.SetMsgs(msgEthereumTx)
@@ -141,7 +142,7 @@ func (s *TestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int) *evmtypes
 	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
 
 	// A valid msg should have empty `From`
-	msgEthereumTx.From = s.from.Bytes()
+	msgEthereumTx.From = s.from.Hex()
 
 	txBuilder := s.backend.ClientCtx.TxConfig.NewTxBuilder()
 	err := txBuilder.SetMsgs(msgEthereumTx)
@@ -171,7 +172,7 @@ func (s *TestSuite) buildFormattedBlock(
 	if tx != nil {
 		if fullTx {
 			rpcTx, err := rpctypes.NewRPCTransaction(
-				tx,
+				tx.AsTransaction(),
 				common.BytesToHash(header.Hash()),
 				uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
 				uint64(0),
@@ -199,7 +200,7 @@ func (s *TestSuite) buildFormattedBlock(
 
 func (s *TestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig(ChainID.EVMChainID)
+	encCfg := encoding.MakeConfig(evmdconfig.EVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 
@@ -208,7 +209,7 @@ func (s *TestSuite) signAndEncodeEthTx(msgEthereumTx *evmtypes.MsgEthereumTx) []
 	signer := utiltx.NewSigner(priv)
 
 	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
-	msgEthereumTx.From = from.Bytes()
+	msgEthereumTx.From = from.String()
 	err := msgEthereumTx.Sign(ethSigner, signer)
 	s.Require().NoError(err)
 

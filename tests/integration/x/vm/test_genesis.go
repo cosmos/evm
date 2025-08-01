@@ -171,26 +171,6 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 						)
 					}
 				}
-
-				// verify preinstalls
-				for _, preinstall := range tc.genState.Preinstalls {
-					preinstallAddr := common.HexToAddress(preinstall.Address)
-					accAddress := sdk.AccAddress(preinstallAddr.Bytes())
-					s.Require().NotNil(
-						s.network.App.GetAccountKeeper().GetAccount(ctx, accAddress),
-					)
-					preinstallCode := common.Hex2Bytes(preinstall.Code)
-					expectedCodeHash := crypto.Keccak256Hash(preinstallCode)
-					s.Require().Equal(
-						preinstallCode,
-						s.network.App.GetEVMKeeper().GetCode(ctx, expectedCodeHash),
-					)
-
-					s.Require().Equal(
-						expectedCodeHash,
-						s.network.App.GetEVMKeeper().GetCodeHash(ctx, preinstallAddr),
-					)
-				}
 			}
 		})
 	}
@@ -221,8 +201,7 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 	s.Require().NoError(s.network.NextBlock())
 
 	genState := vm.ExportGenesis(s.network.GetContext(), s.network.App.GetEVMKeeper())
-	// Exported accounts 4 default preinstalls
-	s.Require().Len(genState.Accounts, 7)
+	s.Require().Len(genState.Accounts, 3)
 
 	addrs := make([]string, len(genState.Accounts))
 	for i, acct := range genState.Accounts {
@@ -230,7 +209,4 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 	}
 	s.Require().Contains(addrs, contractAddr.Hex())
 	s.Require().Contains(addrs, contractAddr2.Hex())
-
-	// Since preinstalls gets exported as normal contracts, it should be empty on export genesis
-	s.Require().Empty(genState.Preinstalls)
 }

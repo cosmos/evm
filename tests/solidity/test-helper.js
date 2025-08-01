@@ -116,7 +116,7 @@ function restoreHardhatConfig(hardhatConfigPath, backupPath) {
 // Function to sync configuration from Go to Hardhat
 function syncConfiguration() {
   // Adjust these paths based on your project structure
-  const goConfigPath = path.join(__dirname, '../../evmd/cmd/evmd/config/config.go')
+  const goConfigPath = path.join(__dirname, '../../cmd/evmd/config/config.go')
   const hardhatConfigPath = path.join(__dirname, './suites/precompiles/hardhat.config.js')
 
   logger.info('Syncing configuration from Go to Hardhat...')

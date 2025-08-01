@@ -12,7 +12,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -80,7 +79,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	); err != nil {
 		panic(err)
 	}
