@@ -349,3 +349,31 @@ contracts-compile:
 contracts-add:
 	@echo "Adding a new smart contract to be compiled..."
 	@python3 ./scripts/compile_smart_contracts/compile_smart_contracts.py --add $(CONTRACT)
+
+###############################################################################
+###                                Localnet                                 ###
+###############################################################################
+
+localnet-build-env:
+	$(MAKE) -C contrib/images evmd-env
+
+localnet-build-nodes:
+	$(DOCKER) run --rm -v $(CURDIR)/.testnets:/data cosmos/evmd \
+			  testnet init-files --validator-count 4 -o /data --starting-ip-address 192.168.10.2 --keyring-backend=test --chain-id=local-4221 --use-docker=true
+	docker compose up -d
+
+localnet-stop:
+	docker compose down
+
+# localnet-start will run a 4-node testnet locally. The nodes are
+# based off the docker images in: ./contrib/images/simd-env
+localnet-start: localnet-stop localnet-build-env localnet-build-nodes
+
+
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes
+
+test-system: build
+	ulimit -n 1300
+	mkdir -p ./tests/systemtests/binaries/
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
+	$(MAKE) -C tests/systemtests test

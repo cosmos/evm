@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -292,8 +293,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 	ethTx, bz := s.buildEthereumTx()
 
 	emptyEvmChainIDTx := s.buildEthereumTxWithChainID(nil)
-	invalidEvmChainIDTx := s.buildEthereumTxWithChainID(big.NewInt(1))
-
+	invalidChainID := big.NewInt(1)
 	// Sign the ethTx
 	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
 	err := ethTx.Sign(ethSigner, s.signer)
@@ -334,14 +334,15 @@ func (s *TestSuite) TestSendRawTransaction() {
 			func() []byte {
 				from, priv := utiltx.NewAddrKey()
 				signer := utiltx.NewSigner(priv)
-				invalidEvmChainIDTx.From = from.String()
-				err := invalidEvmChainIDTx.Sign(ethSigner, signer)
+				invalidEvmChainIDTx := s.buildEthereumTxWithChainID(invalidChainID)
+				invalidEvmChainIDTx.From = from.Bytes()
+				err := invalidEvmChainIDTx.Sign(ethtypes.LatestSignerForChainID(invalidChainID), signer)
 				s.Require().NoError(err)
 				bytes, _ := rlp.EncodeToBytes(invalidEvmChainIDTx.AsTransaction())
 				return bytes
 			},
 			common.Hash{},
-			fmt.Errorf("incorrect chain-id; expected %d, got %d", 262144, big.NewInt(1)).Error(),
+			fmt.Errorf("incorrect chain-id; expected %d, got %d", constants.ExampleChainID.EVMChainID, invalidChainID).Error(),
 			false,
 		},
 		{
@@ -402,7 +403,8 @@ func (s *TestSuite) TestSendRawTransaction() {
 			if tc.expPass {
 				s.Require().Equal(tc.expHash, hash)
 			} else {
-				s.Require().Errorf(err, tc.expError)
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.expError)
 			}
 		})
 	}

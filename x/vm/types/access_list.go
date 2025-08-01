@@ -16,7 +16,7 @@ func NewAccessList(ethAccessList *ethtypes.AccessList) AccessList {
 		return nil
 	}
 
-	al := AccessList{}
+	al := make(AccessList, 0, len(*ethAccessList))
 	for _, tuple := range *ethAccessList {
 		storageKeys := make([]string, len(tuple.StorageKeys))
 
@@ -36,7 +36,7 @@ func NewAccessList(ethAccessList *ethtypes.AccessList) AccessList {
 // ToEthAccessList is an utility function to convert the protobuf compatible
 // AccessList to eth core AccessList from go-ethereum
 func (al AccessList) ToEthAccessList() *ethtypes.AccessList {
-	var ethAccessList ethtypes.AccessList
+	ethAccessList := make(ethtypes.AccessList, 0, len(al))
 
 	for _, tuple := range al {
 		storageKeys := make([]common.Hash, len(tuple.StorageKeys))

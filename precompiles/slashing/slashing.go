@@ -119,6 +119,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		bz, err = p.GetSigningInfo(ctx, method, contract, args)
 	case GetSigningInfosMethod:
 		bz, err = p.GetSigningInfos(ctx, method, contract, args)
+	case GetParamsMethod:
+		bz, err = p.GetParams(ctx, method, contract, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}

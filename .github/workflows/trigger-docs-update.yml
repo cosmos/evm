@@ -1,0 +1,25 @@
+# .github/workflows/trigger-docs-update.yml
+name: Trigger Docs Changelog Update
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-docs-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger docs repository update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DOCS_REPO_TOKEN }}
+          repository: cosmos/docs
+          event-type: evm-release
+          client-payload: |
+            {
+              "tag_name": "${{ github.event.release.tag_name }}",
+              "release_name": "${{ github.event.release.name }}",
+              "release_url": "${{ github.event.release.html_url }}",
+              "repository": "${{ github.repository }}"
+            }
+            
