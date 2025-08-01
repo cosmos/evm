@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -464,4 +466,168 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 		baseFee,
 		b.EvmChainID,
 	)
+}
+
+// CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
+// sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
+func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*ethtypes.AccessList, *hexutil.Uint64, error) {
+	// Get the block number from the block number or hash
+	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get the block header to determine the proposer address
+	header, err := b.TendermintBlockByNumber(blockNum)
+	if err != nil {
+		return nil, nil, errors.New("header not found")
+	}
+
+	// Convert transaction args to MsgEthereumTx
+	msg := args.ToTransaction()
+	if msg == nil {
+		return nil, nil, errors.New("failed to convert transaction args to message")
+	}
+
+	// Get consensus params for block max gas
+	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
+	if !ok {
+		return nil, nil, errors.New("invalid rpc client")
+	}
+
+	cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create the trace request
+	traceTxRequest := evmtypes.QueryTraceTxRequest{
+		Msg:             msg,
+		BlockNumber:     header.Block.Height,
+		BlockTime:       header.Block.Time,
+		BlockHash:       common.Bytes2Hex(header.BlockID.Hash),
+		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
+		ChainId:         b.EvmChainID.Int64(),
+		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
+		TraceConfig: &evmtypes.TraceConfig{
+			Tracer: evmtypes.TracerAccessList,
+		},
+	}
+
+	// From ContextWithHeight: if the provided height is 0,
+	// it will return an empty context and the gRPC query will use
+	// the latest block height for querying.
+	ctx := rpctypes.ContextWithHeight(blockNum.Int64())
+	timeout := b.RPCEVMTimeout()
+
+	// Setup context so it may be canceled the call has completed
+	// or, in case of unmetered gas, setup a context with a timeout.
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+
+	// Make sure the context is canceled when the call has completed
+	// this makes sure resources are cleaned up.
+	defer cancel()
+
+	// Call the EVM keeper to create the access list using the access list tracer
+	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Parse the trace result to extract the access list
+	var traceResult map[string]interface{}
+	if err := json.Unmarshal(res.Data, &traceResult); err != nil {
+		return nil, nil, err
+	}
+
+	// Extract the access list from the trace result
+	accessListData, ok := traceResult["accessList"]
+	if !ok {
+		return nil, nil, errors.New("access list not found in trace result")
+	}
+
+	// Convert the access list data to ethereum format
+	accessListBytes, err := json.Marshal(accessListData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var ethAccessList ethtypes.AccessList
+	if err := json.Unmarshal(accessListBytes, &ethAccessList); err != nil {
+		return nil, nil, err
+	}
+
+	// Estimate gas usage with the access list
+	// Create a new transaction with the access list
+	ethTx := msg.AsTransaction()
+	if ethTx == nil {
+		return nil, nil, errors.New("failed to convert message to transaction")
+	}
+
+	// Create a new transaction with the access list
+	var newTx *ethtypes.Transaction
+	switch ethTx.Type() {
+	case ethtypes.LegacyTxType:
+		newTx = ethtypes.NewTx(&ethtypes.LegacyTx{
+			Nonce:    ethTx.Nonce(),
+			GasPrice: ethTx.GasPrice(),
+			Gas:      ethTx.Gas(),
+			To:       ethTx.To(),
+			Value:    ethTx.Value(),
+			Data:     ethTx.Data(),
+		})
+	case ethtypes.AccessListTxType:
+		newTx = ethtypes.NewTx(&ethtypes.AccessListTx{
+			ChainID:    ethTx.ChainId(),
+			Nonce:      ethTx.Nonce(),
+			GasPrice:   ethTx.GasPrice(),
+			Gas:        ethTx.Gas(),
+			To:         ethTx.To(),
+			Value:      ethTx.Value(),
+			Data:       ethTx.Data(),
+			AccessList: ethAccessList,
+		})
+	case ethtypes.DynamicFeeTxType:
+		newTx = ethtypes.NewTx(&ethtypes.DynamicFeeTx{
+			ChainID:    ethTx.ChainId(),
+			Nonce:      ethTx.Nonce(),
+			GasTipCap:  ethTx.GasTipCap(),
+			GasFeeCap:  ethTx.GasFeeCap(),
+			Gas:        ethTx.Gas(),
+			To:         ethTx.To(),
+			Value:      ethTx.Value(),
+			Data:       ethTx.Data(),
+			AccessList: ethAccessList,
+		})
+	default:
+		return nil, nil, errors.New("unsupported transaction type")
+	}
+
+	// Convert the new transaction back to a message for gas estimation
+	newMsg := &evmtypes.MsgEthereumTx{}
+	if err := newMsg.FromEthereumTx(newTx); err != nil {
+		return nil, nil, err
+	}
+
+	// Estimate gas for the transaction with access list
+	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
+		From:       args.From,
+		To:         args.To,
+		Gas:        args.Gas,
+		GasPrice:   args.GasPrice,
+		Value:      args.Value,
+		Data:       args.Data,
+		AccessList: &ethAccessList,
+		ChainID:    args.ChainID,
+	}, &blockNum)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &ethAccessList, &gasEstimate, nil
 }
