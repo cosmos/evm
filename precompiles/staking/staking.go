@@ -145,10 +145,6 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, err
 	}
 
-	if err = p.AddJournalEntries(stateDB); err != nil {
-		return nil, err
-	}
-
 	return bz, nil
 }
 

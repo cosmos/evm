@@ -20,6 +20,7 @@ import (
 	testifysuite "github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -53,7 +54,7 @@ type TransferTestSuiteV2 struct {
 const invalidPortID = "invalidportid"
 
 func (suite *TransferTestSuiteV2) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2, integration.SetupEvmd)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	suite.chainC = suite.coordinator.GetChain(evmibctesting.GetChainID(3))

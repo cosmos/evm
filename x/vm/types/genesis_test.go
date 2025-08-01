@@ -108,12 +108,18 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 					},
 				},
 				Params: DefaultParams(),
+				Preinstalls: []Preinstall{
+					{
+						Address: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+						Code:    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
+					},
+				},
 			},
 			expPass: true,
 		},
 		{
 			name:     "copied genesis",
-			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts),
+			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts, defaultGenesis.Preinstalls),
 			expPass:  true,
 		},
 		{
@@ -152,6 +158,60 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Storage: Storage{
 							NewState(suite.hash, suite.hash),
 						},
+					},
+				},
+			},
+			expPass: false,
+		},
+		{
+			name: "invalid preinstall",
+			genState: &GenesisState{
+				Accounts: []GenesisAccount{},
+				Params:   DefaultParams(),
+				Preinstalls: []Preinstall{
+					{
+						Address: "invalid-address",
+						Code:    "0x123",
+					},
+				},
+			},
+			expPass: false,
+		},
+		{
+			name: "duplicated preinstall address",
+			genState: &GenesisState{
+				Accounts: []GenesisAccount{},
+				Params:   DefaultParams(),
+				Preinstalls: []Preinstall{
+					{
+						Address: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+						Code:    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
+					},
+					{
+						Address: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+						Code:    "0x123456",
+					},
+				},
+			},
+			expPass: false,
+		},
+		{
+			name: "preinstall address conflicts with genesis account",
+			genState: &GenesisState{
+				Accounts: []GenesisAccount{
+					{
+						Address: suite.address,
+						Code:    suite.code,
+						Storage: Storage{
+							{Key: suite.hash.String()},
+						},
+					},
+				},
+				Params: DefaultParams(),
+				Preinstalls: []Preinstall{
+					{
+						Address: suite.address,
+						Code:    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
 					},
 				},
 			},

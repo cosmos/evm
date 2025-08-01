@@ -13,13 +13,13 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	dbm "github.com/cosmos/cosmos-db"
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/indexer"
 	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -55,7 +55,7 @@ var ChainID = constants.ExampleChainID
 func (s *TestSuite) SetupTest() {
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
-	ctx.Viper.Set("evm.evm-chain-id", evmdconfig.EVMChainID)
+	ctx.Viper.Set("evm.evm-chain-id", config.EVMChainID)
 
 	baseDir := s.T().TempDir()
 	nodeDirName := "node"
@@ -200,7 +200,7 @@ func (s *TestSuite) buildFormattedBlock(
 
 func (s *TestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig(evmdconfig.EVMChainID)
+	encCfg := encoding.MakeConfig(config.EVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 

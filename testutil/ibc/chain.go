@@ -18,9 +18,10 @@ import (
 	cmtversion "github.com/cometbft/cometbft/version"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/x/vm/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
@@ -362,11 +363,13 @@ func (chain *TestChain) sendMsgs(msgs ...sdk.Msg) error {
 
 // Helper function to create and broadcast a ethereum transaction
 func (chain *TestChain) SendEvmTx(
-	priv cryptotypes.PrivKey,
+	senderAcc SenderAccount,
+	senderAccIdx int,
 	to common.Address,
 	amount *big.Int,
 	data []byte,
-) (*abci.ExecTxResult, error) {
+	gasLimit uint64,
+) (*abci.ExecTxResult, *types.MsgEthereumTx, *types.MsgEthereumTxResponse, error) {
 	app, ok := chain.App.(evm.EvmApp)
 	require.True(chain.TB, ok)
 	ctx := chain.GetContext()
@@ -375,17 +378,27 @@ func (chain *TestChain) SendEvmTx(
 	chain.Coordinator.UpdateTimeForChain(chain)
 
 	defer func() {
-		err := chain.SenderAccount.SetSequence(chain.SenderAccount.GetSequence() + 1)
+		// update nonce
+		acc := senderAcc.SenderAccount
+		newNonce := acc.GetSequence() + 1
+		err := acc.SetSequence(newNonce)
 		if err != nil {
 			panic(err)
 		}
+		chain.SenderAccounts[senderAccIdx].SenderAccount = acc
 	}()
 
-	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
+	var dest []byte
+	if to == (common.Address{}) {
+		dest = nil
+	} else {
+		dest = to.Bytes()
+	}
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, senderAcc.SenderPrivKey, dest, amount, data, 0, gasLimit)
 	require.NoError(chain.TB, err)
 
 	txConfig := app.GetTxConfig()
-	tx, err := tx.PrepareEthTx(txConfig, priv, msgEthereumTx)
+	tx, err := tx.PrepareEthTx(txConfig, senderAcc.SenderPrivKey, msgEthereumTx)
 	require.NoError(chain.TB, err)
 
 	// bz are bytes to be broadcasted over the network
@@ -410,12 +423,19 @@ func (chain *TestChain) SendEvmTx(
 	txResult := res.TxResults[0]
 
 	if txResult.Code != 0 {
-		return txResult, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
+		return txResult, nil, nil, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
+	}
+	ethRes, err := types.DecodeTxResponse(txResult.Data)
+	if err != nil {
+		return txResult, nil, nil, err
+	}
+	if ethRes.VmError != "" {
+		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(types.ErrVMExecution, "vm error: %s", ethRes.VmError)
 	}
 
 	chain.Coordinator.IncrementTime()
 
-	return txResult, nil
+	return txResult, msgEthereumTx, ethRes, nil
 }
 
 // SendMsgs delivers a transaction through the application using a predefined sender.

@@ -146,3 +146,22 @@ func (k *Keeper) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams)
 
 	return &types.MsgUpdateParamsResponse{}, nil
 }
+
+// RegisterPreinstalls implements the gRPC MsgServer interface. When a RegisterPreinstalls
+// proposal passes, it creates the preinstalls. The registration can only be
+// performed if the requested authority is the Cosmos SDK governance module
+// account.
+func (k *Keeper) RegisterPreinstalls(goCtx context.Context, req *types.MsgRegisterPreinstalls) (*types.
+	MsgRegisterPreinstallsResponse, error,
+) {
+	if k.authority.String() != req.Authority {
+		return nil, errorsmod.Wrapf(govtypes.ErrInvalidSigner, "invalid authority, expected %s, got %s", k.authority.String(), req.Authority)
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := k.AddPreinstalls(ctx, req.Preinstalls); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgRegisterPreinstallsResponse{}, nil
+}

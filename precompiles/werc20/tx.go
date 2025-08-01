@@ -2,9 +2,9 @@ package werc20
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/x/precisebank/types"

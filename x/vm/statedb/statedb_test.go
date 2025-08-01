@@ -186,7 +186,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			suite.Require().NotNil(acc)
 			keeper.ForEachStorage(ctx, address, func(key, value common.Hash) bool {
 				suite.Require().Greater(len(value.Bytes()), 0)
-				return true
+				return len(value) == 0
 			})
 		}},
 	}

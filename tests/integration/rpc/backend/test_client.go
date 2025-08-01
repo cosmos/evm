@@ -142,6 +142,14 @@ func RegisterBlockNotFound(
 	return &cmtrpctypes.ResultBlock{Block: nil}, nil
 }
 
+// Block panic
+func RegisterBlockPanic(client *mocks.Client, height int64) {
+	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
+		Return(func(context.Context, *int64) *cmtrpctypes.ResultBlock {
+			panic("Block call panic")
+		}, nil)
+}
+
 func TestRegisterBlock(t *testing.T) {
 	client := mocks.NewClient(t)
 	height := rpc.BlockNumber(1).Int64()

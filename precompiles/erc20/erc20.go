@@ -165,9 +165,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 		return nil, vm.ErrOutOfGas
 	}
-	if err = p.AddJournalEntries(stateDB); err != nil {
-		return nil, err
-	}
+
 	return bz, nil
 }
 

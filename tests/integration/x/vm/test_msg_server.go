@@ -121,3 +121,60 @@ func (s *KeeperTestSuite) TestUpdateParams() {
 		s.Require().NoError(err)
 	}
 }
+
+func (s *KeeperTestSuite) TestRegisterPreinstalls() {
+	s.SetupTest()
+	testCases := []struct {
+		name        string
+		getMsg      func() *types.MsgRegisterPreinstalls
+		expectedErr error
+	}{
+		{
+			name: "fail - invalid authority",
+			getMsg: func() *types.MsgRegisterPreinstalls {
+				return &types.MsgRegisterPreinstalls{Authority: "foobar"}
+			},
+			expectedErr: govtypes.ErrInvalidSigner,
+		},
+		{
+			name: "pass - valid Update msg",
+			getMsg: func() *types.MsgRegisterPreinstalls {
+				return &types.MsgRegisterPreinstalls{
+					Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+					Preinstalls: []types.Preinstall{{
+						Name:    "Test1",
+						Address: "0xb364E75b1189DcbBF7f0C856456c1ba8e4d6481b",
+						Code:    "0x000000000",
+					}},
+				}
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "fail - double registration",
+			getMsg: func() *types.MsgRegisterPreinstalls {
+				return &types.MsgRegisterPreinstalls{
+					Authority:   authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+					Preinstalls: types.DefaultPreinstalls,
+				}
+			},
+			expectedErr: types.ErrInvalidPreinstall,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run("MsgRegisterPreinstalls_"+tc.name, func() {
+			msg := tc.getMsg()
+			_, err := s.Network.App.GetEVMKeeper().RegisterPreinstalls(s.Network.GetContext(), msg)
+			if tc.expectedErr != nil {
+				s.Require().Error(err)
+				s.Contains(err.Error(), tc.expectedErr.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+
+		err := s.Network.NextBlock()
+		s.Require().NoError(err)
+	}
+}

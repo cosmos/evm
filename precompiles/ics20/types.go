@@ -191,7 +191,7 @@ func NewDenomsRequest(method *abi.Method, args []interface{}) (*transfertypes.Qu
 	}
 
 	var pageRequest PageRequest
-	if err := method.Inputs.Copy(&pageRequest, args); err != nil {
+	if err := safeCopyInputs(method, args, &pageRequest); err != nil {
 		return nil, fmt.Errorf("error while unpacking args to PageRequest: %w", err)
 	}
 
@@ -228,4 +228,16 @@ func CheckOriginAndSender(contract *vm.Contract, origin common.Address, sender c
 		return common.Address{}, fmt.Errorf(ErrDifferentOriginFromSender, origin.String(), sender.String())
 	}
 	return sender, nil
+}
+
+// safeCopyInputs is a helper function to safely copy inputs from the method to the args.
+// It recovers from any panic that might occur during the copy operation and returns an error instead.
+func safeCopyInputs(method *abi.Method, args []interface{}, pageRequest *PageRequest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during method.Inputs.Copy: %v", r)
+		}
+	}()
+	err = method.Inputs.Copy(pageRequest, args)
+	return
 }

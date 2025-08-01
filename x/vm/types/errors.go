@@ -30,6 +30,7 @@ const (
 	codeErrInactivePrecompile
 	codeErrABIPack
 	codeErrABIUnpack
+	codeErrInvalidPreinstall
 )
 
 var (
@@ -86,6 +87,9 @@ var (
 
 	// ErrABIUnpack returns an error if the contract ABI unpacking fails
 	ErrABIUnpack = errorsmod.Register(ModuleName, codeErrABIUnpack, "contract ABI unpack failed")
+
+	// ErrInvalidPreinstall returns an error if a preinstall is invalid
+	ErrInvalidPreinstall = errorsmod.Register(ModuleName, codeErrInvalidPreinstall, "invalid preinstall")
 
 	// RevertSelector is selector of ErrExecutionReverted
 	RevertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]

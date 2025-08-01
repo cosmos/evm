@@ -1,4 +1,4 @@
-package common_test
+package common
 
 import (
 	"testing"
@@ -8,7 +8,6 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	testutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -77,14 +76,14 @@ func TestParseHexAddress(t *testing.T) {
 
 			event := tc.maleate()
 
-			addr, err := cmn.ParseHexAddress(event, tc.key)
+			addr, err := parseHexAddress(event, tc.key)
 			if tc.expError {
 				require.Error(t, err)
 				return
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, common.BytesToAddress(accAddr), addr)
+			require.Equal(t, common.Address(accAddr.Bytes()), addr)
 		})
 	}
 }
@@ -124,7 +123,7 @@ func TestParseAmount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			setupBalanceHandlerTest(t)
 
-			amt, err := cmn.ParseAmount(tc.maleate())
+			amt, err := parseAmount(tc.maleate())
 			if tc.expError {
 				require.Error(t, err)
 				return
@@ -149,13 +148,14 @@ func TestAfterBalanceChange(t *testing.T) {
 	require.NoError(t, err)
 	spenderAcc := addrs[0]
 	receiverAcc := addrs[1]
-	spender := common.BytesToAddress(spenderAcc)
-	receiver := common.BytesToAddress(receiverAcc)
+
+	spender := common.Address(spenderAcc.Bytes())
+	receiver := common.Address(receiverAcc.Bytes())
 
 	// initial balance for spender
 	stateDB.AddBalance(spender, uint256.NewInt(5), tracing.BalanceChangeUnspecified)
 
-	bh := cmn.NewBalanceHandler()
+	bh := NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	coins := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 3))
@@ -183,7 +183,7 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 	require.NoError(t, err)
 	addr := addrs[0]
 
-	bh := cmn.NewBalanceHandler()
+	bh := NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	// invalid address in event

@@ -463,6 +463,11 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		ret = evm.Interpreter().ReturnData()
 	}
 
+	// if the execution reverted, we return the revert reason as the return data
+	if vmError == vm.ErrExecutionReverted.Error() {
+		ret = evm.Interpreter().ReturnData()
+	}
+
 	return &types.MsgEthereumTxResponse{
 		GasUsed: gasUsed.TruncateInt().Uint64(),
 		VmError: vmError,

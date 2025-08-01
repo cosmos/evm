@@ -65,8 +65,6 @@ type TxFactory interface {
 	CallContractAndCheckLogs(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, logCheckArgs testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error)
 	// GenerateDeployContractArgs generates the txArgs for a contract deployment.
 	GenerateDeployContractArgs(from common.Address, txArgs evmtypes.EvmTxArgs, deploymentData types.ContractDeploymentData) (evmtypes.EvmTxArgs, error)
-	// GenerateContractCallArgs generates the txArgs for a contract call.
-	GenerateContractCallArgs(txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs) (evmtypes.EvmTxArgs, error)
 	// GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.
 	GenerateMsgEthereumTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (evmtypes.MsgEthereumTx, error)
 	// GenerateGethCoreMsg creates a new GethCoreMsg with the provided arguments.

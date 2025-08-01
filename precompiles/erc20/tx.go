@@ -1,15 +1,14 @@
 package erc20
 
 import (
+	"github.com/cosmos/evm/utils"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	"github.com/cosmos/evm/utils"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
@@ -70,6 +69,9 @@ func (p *Precompile) TransferFrom(
 	return p.transfer(ctx, contract, stateDB, method, from, to, amount)
 }
 
+// transfer is a common function that handles transfers for the ERC-20 Transfer
+// and TransferFrom methods. It executes a bank Send message. If the spender isn't
+// the sender of the transfer, it checks the allowance and updates it accordingly.
 // transfer is a common function that handles transfers for the ERC-20 Transfer
 // and TransferFrom methods. It executes a bank Send message. If the spender isn't
 // the sender of the transfer, it checks the allowance and updates it accordingly.
