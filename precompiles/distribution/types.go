@@ -480,3 +480,29 @@ func (cp *CommunityPoolOutput) FromResponse(res *distributiontypes.QueryCommunit
 func (cp *CommunityPoolOutput) Pack(args abi.Arguments) ([]byte, error) {
 	return args.Pack(cp.Pool)
 }
+
+// NewGetParamsRequest creates a new QueryParamsRequest instance and does sanity
+// checks on the provided arguments.
+func NewGetParamsRequest(args []interface{}) (*distributiontypes.QueryParamsRequest, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+	}
+
+	return &distributiontypes.QueryParamsRequest{}, nil
+}
+
+// GetParamsOutput contains the output data for the distribution parameters query
+type GetParamsOutput struct {
+	CommunityTax        cmn.Dec `abi:"communityTax"`
+	WithdrawAddrEnabled bool    `abi:"withdrawAddrEnabled"`
+}
+
+// FromResponse populates the GetParamsOutput from a QueryParamsResponse
+func (o *GetParamsOutput) FromResponse(res *distributiontypes.QueryParamsResponse) *GetParamsOutput {
+	o.CommunityTax = cmn.Dec{
+		Value:     res.Params.CommunityTax.BigInt(),
+		Precision: math.LegacyPrecision,
+	}
+	o.WithdrawAddrEnabled = res.Params.WithdrawAddrEnabled
+	return o
+}
