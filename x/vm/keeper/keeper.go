@@ -26,6 +26,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// GasNoLimit is the value for keeper.queryGasLimit in case there is no limit
+const GasNoLimit = 0
+
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
 type Keeper struct {
 	// Protobuf codec
@@ -75,6 +78,9 @@ type Keeper struct {
 	// Some of these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
+
+	// queryGasLimit max amount of gas allowed on queries, 0 means no limit
+	queryGasLimit uint64
 }
 
 // NewKeeper generates new evm module keeper
@@ -90,6 +96,7 @@ func NewKeeper(
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
+	queryGasLimit uint64,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -118,6 +125,7 @@ func NewKeeper(
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        keys,
+		queryGasLimit:    queryGasLimit,
 	}
 }
 

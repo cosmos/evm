@@ -13,6 +13,7 @@
 
 - Fixed example chain's cmd by adding NoOpEVMOptions to tmpApp in root.go
 - Added RPC support for `--legacy` transactions (Non EIP-1559)
+- [\#368](https://github.com/cosmos/evm/pull/368) Support query gas limit flag
 
 ### IMPROVEMENTS
 
