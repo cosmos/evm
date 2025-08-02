@@ -184,6 +184,10 @@ make test-solidity
 make benchmark
 ```
 
+## Contributing
+
+We welcome open source contributions and discussions! For more on contributing, read our [guide](./CONTRIBUTING.md).
+
 ## Open-source License & Credits
 
 Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS)
