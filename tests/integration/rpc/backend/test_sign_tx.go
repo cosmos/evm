@@ -40,7 +40,7 @@ func (s *TestSuite) TestSendTransaction() {
 	}
 
 	hash := common.Hash{}
-
+	height := int64(1)
 	testCases := []struct {
 		name         string
 		registerMock func()
@@ -64,8 +64,8 @@ func (s *TestSuite) TestSendTransaction() {
 				armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
-				RegisterParams(QueryClient, &header, 1)
-				RegisterBlockError(client, 1)
+				RegisterParams(QueryClient, &header, height)
+				RegisterHeaderError(client, &height)
 			},
 			callArgsDefault,
 			hash,
@@ -80,9 +80,8 @@ func (s *TestSuite) TestSendTransaction() {
 				armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
-				RegisterParams(QueryClient, &header, 1)
-				_, err = RegisterBlock(client, 1, nil)
-				s.Require().NoError(err)
+				RegisterParams(QueryClient, &header, height)
+				RegisterHeader(client, &height, nil)
 				_, err = RegisterBlockResults(client, 1)
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -247,10 +246,10 @@ func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int,
 	client = suite.backend.ClientCtx.Client.(*mocks.Client)
 	armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 	_ = suite.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
-	RegisterParams(QueryClient, &header, 1)
-	_, err := RegisterBlock(client, 1, nil)
-	suite.Require().NoError(err)
-	_, err = RegisterBlockResults(client, 1)
+	height := int64(1)
+	RegisterParams(QueryClient, &header, height)
+	RegisterHeader(client, &height, nil)
+	_, err := RegisterBlockResults(client, height)
 	suite.Require().NoError(err)
 	RegisterBaseFee(QueryClient, baseFee)
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
