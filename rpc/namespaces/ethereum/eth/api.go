@@ -101,6 +101,7 @@ type EthereumAPI interface {
 	FillTransaction(args evmtypes.TransactionArgs) (*rpctypes.SignTransactionResult, error)
 	Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
 	GetPendingTransactions() ([]*rpctypes.RPCTransaction, error)
+	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*ethtypes.AccessList, *hexutil.Uint64, error)
 	// eth_signTransaction (on Ethereum.org)
 	// eth_getCompilers (on Ethereum.org)
 	// eth_compileSolidity (on Ethereum.org)
@@ -510,4 +511,11 @@ func (e *PublicAPI) GetPendingTransactions() ([]*rpctypes.RPCTransaction, error)
 	}
 
 	return result, nil
+}
+
+// CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
+// sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
+func (e *PublicAPI) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*ethtypes.AccessList, *hexutil.Uint64, error) {
+	e.logger.Debug("eth_createAccessList", "args", args.String(), "block number or hash", blockNrOrHash)
+	return e.backend.CreateAccessList(args, blockNrOrHash)
 }
