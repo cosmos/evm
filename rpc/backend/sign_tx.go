@@ -35,8 +35,8 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		return common.Hash{}, fmt.Errorf("failed to find key in the node's keyring; %s; %s", keystore.ErrNoMatch, err.Error())
 	}
 
-	if args.ChainID != nil && (b.EvmChainID).Cmp((*big.Int)(args.ChainID)) != 0 {
-		return common.Hash{}, fmt.Errorf("chainId does not match node's (have=%v, want=%v)", args.ChainID, (*hexutil.Big)(b.EvmChainID))
+	if args.ChainID != nil && b.EvmChainID().Cmp((*big.Int)(args.ChainID)) != 0 {
+		return common.Hash{}, fmt.Errorf("chainId does not match node's (have=%v, want=%v)", args.ChainID, (*hexutil.Big)(b.EvmChainID()))
 	}
 
 	args, err = b.SetTxDefaults(args)

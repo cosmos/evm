@@ -1104,7 +1104,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 						uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
 						uint64(0),
 						tc.baseFee,
-						s.backend.EvmChainID,
+						s.backend.EvmChainID(),
 					)
 					s.Require().NoError(err)
 					ethRPCTxs = []interface{}{rpcTx}
