@@ -16,6 +16,10 @@ import (
 
 // ReportResults prints or saves the RPC results based on the verbosity flag and output format
 func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
+	summary := &types.TestSummary{}
+	for _, result := range results {
+		summary.AddResult(result)
+	}
 	if outputExcel {
 		f := excelize.NewFile()
 		name := fmt.Sprintf("geth%s", rpc.GethVersion)
@@ -148,18 +152,55 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 		fmt.Println("Results saved to " + fileName)
 	}
 
+	PrintHeader()
+	PrintCategorizedResults(results, verbose)
+	PrintSummary(summary)
+}
+
+func PrintHeader() {
 	fmt.Println(`
-██████╗ ██████╗  ██████╗    ██████╗ ███████╗███████╗██╗   ██╗██╗  ████████╗███████╗
-██╔══██╗██╔══██╗██╔════╝    ██╔══██╗██╔════╝██╔════╝██║   ██║██║  ╚══██╔══╝██╔════╝
-██████╔╝██████╔╝██║         ██████╔╝█████╗  ███████╗██║   ██║██║     ██║   ███████╗
-██╔══██╗██╔═══╝ ██║         ██╔══██╗██╔══╝  ╚════██║██║   ██║██║     ██║   ╚════██║
-██║  ██║██║     ╚██████╗    ██║  ██║███████╗███████║╚██████╔╝███████╗██║   ███████║
-╚═╝  ╚═╝╚═╝      ╚═════╝    ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚══════╝╚═╝   ╚══════╝
-------------------------------------------------------------------------------------
-                                                                                   `)
+══════════════════════════════════════════════
+    Cosmos EVM JSON-RPC Compatibility Test
+══════════════════════════════════════════════`)
+}
+
+func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
+	categories := make(map[string][]*types.RpcResult)
+
+	// Group results by category
 	for _, result := range results {
-		ColorPrint(result, verbose)
+		category := result.Category
+		if category == "" {
+			category = "Uncategorized"
+		}
+		categories[category] = append(categories[category], result)
 	}
+
+	// Print each category
+	categoryOrder := []string{"Web3", "Net", "Core Eth", "Account & State", "Block", "Transaction", "Filter", "Mining", "EIP-1559", "Personal", "TxPool", "Debug", "Cosmos Extensions", "Engine API", "Not Implemented", "Uncategorized"}
+
+	for _, categoryName := range categoryOrder {
+		if results, exists := categories[categoryName]; exists {
+			color.Cyan("\n=== %s Methods ===", categoryName)
+			for _, result := range results {
+				ColorPrint(result, verbose)
+			}
+		}
+	}
+}
+
+func PrintSummary(summary *types.TestSummary) {
+	fmt.Println(`
+═══════════════════════════════════════════════
+                   TEST SUMMARY
+═══════════════════════════════════════════════`)
+
+	color.Green("Passed:          %d", summary.Passed)
+	color.Red("Failed:          %d", summary.Failed)
+	color.Yellow("Warnings:        %d", summary.Warnings)
+	color.Yellow("Not Implemented: %d", summary.NotImplemented)
+	color.HiBlack("Skipped:         %d", summary.Skipped)
+	color.Cyan("Total:           %d", summary.Total)
 }
 
 func ColorPrint(result *types.RpcResult, verbose bool) {
@@ -171,10 +212,30 @@ func ColorPrint(result *types.RpcResult, verbose bool) {
 		if !verbose {
 			value = ""
 		}
-		color.Green("%-40s: %s (value: %v)", method, status, value)
+		color.Green("[%s] %s", status, method)
+		if verbose && value != nil {
+			fmt.Printf(" - %v", value)
+		}
+		fmt.Println()
 	case types.Warning:
-		color.Yellow("%-40s: %s (%v)", method, status, result.Warnings)
+		color.Yellow("[%s] %s", status, method)
+		if len(result.Warnings) > 0 {
+			fmt.Printf(" - %v", result.Warnings)
+		}
+		fmt.Println()
+	case types.NotImplemented:
+		color.Yellow("[%s] %s - Expected to be not implemented", status, method)
+	case types.Skipped:
+		color.HiBlack("[%s] %s", status, method)
+		if result.ErrMsg != "" {
+			fmt.Printf(" - %s", result.ErrMsg)
+		}
+		fmt.Println()
 	case types.Error:
-		color.Red("%-40s: %s (%v)", method, status, result.ErrMsg)
+		color.Red("[%s] %s", status, method)
+		if result.ErrMsg != "" {
+			fmt.Printf(" - %s", result.ErrMsg)
+		}
+		fmt.Println()
 	}
 }

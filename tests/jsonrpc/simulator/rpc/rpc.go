@@ -32,6 +32,7 @@ const GethVersion = "1.15.10"
 type CallRPC func(rCtx *RpcContext) (*types.RpcResult, error)
 
 const (
+	// Existing methods
 	SendRawTransaction                  types.RpcName = "eth_sendRawTransaction"
 	GetBlockNumber                      types.RpcName = "eth_blockNumber"
 	GetGasPrice                         types.RpcName = "eth_gasPrice"
@@ -58,6 +59,67 @@ const (
 	GetLogs                             types.RpcName = "eth_getLogs"
 	EstimateGas                         types.RpcName = "eth_estimateGas"
 	Call                                types.RpcName = "eth_call"
+
+	// Web3 methods
+	Web3ClientVersion types.RpcName = "web3_clientVersion"
+	Web3Sha3          types.RpcName = "web3_sha3"
+
+	// Net methods
+	NetVersion     types.RpcName = "net_version"
+	NetPeerCount   types.RpcName = "net_peerCount"
+	NetListening   types.RpcName = "net_listening"
+
+	// Additional Eth methods
+	EthProtocolVersion types.RpcName = "eth_protocolVersion"
+	EthSyncing         types.RpcName = "eth_syncing"
+	EthAccounts        types.RpcName = "eth_accounts"
+	EthMining          types.RpcName = "eth_mining"
+	EthHashrate        types.RpcName = "eth_hashrate"
+	EthCoinbase        types.RpcName = "eth_coinbase"
+	EthGetProof        types.RpcName = "eth_getProof"
+	EthFeeHistory      types.RpcName = "eth_feeHistory"
+
+	// Personal methods
+	PersonalListAccounts types.RpcName = "personal_listAccounts"
+	PersonalEcRecover    types.RpcName = "personal_ecRecover"
+	PersonalListWallets  types.RpcName = "personal_listWallets"
+
+	// TxPool methods
+	TxPoolContent types.RpcName = "txpool_content"
+	TxPoolInspect types.RpcName = "txpool_inspect"
+	TxPoolStatus  types.RpcName = "txpool_status"
+
+	// Debug methods
+	DebugTraceBlockByNumber types.RpcName = "debug_traceBlockByNumber"
+	DebugFreeOSMemory       types.RpcName = "debug_freeOSMemory"
+	DebugSetGCPercent       types.RpcName = "debug_setGCPercent"
+	DebugGetRawBlock        types.RpcName = "debug_getRawBlock"
+	DebugGetRawHeader       types.RpcName = "debug_getRawHeader"
+	DebugGetRawReceipts     types.RpcName = "debug_getRawReceipts"
+	DebugGetRawTransaction  types.RpcName = "debug_getRawTransaction"
+	DebugPrintBlock         types.RpcName = "debug_printBlock"
+
+	// Miner methods
+	MinerStart        types.RpcName = "miner_start"
+	MinerStop         types.RpcName = "miner_stop"
+	MinerSetEtherbase types.RpcName = "miner_setEtherbase"
+	MinerSetExtra     types.RpcName = "miner_setExtra"
+	MinerSetGasPrice  types.RpcName = "miner_setGasPrice"
+	MinerSetGasLimit  types.RpcName = "miner_setGasLimit"
+	MinerGetHashrate  types.RpcName = "miner_getHashrate"
+
+	// Engine API methods (expected to fail)
+	EngineNewPayloadV1        types.RpcName = "engine_newPayloadV1"
+	EngineForkchoiceUpdatedV1 types.RpcName = "engine_forkchoiceUpdatedV1"
+	EngineGetPayloadV1        types.RpcName = "engine_getPayloadV1"
+
+	// Not implemented methods
+	EthCreateAccessList types.RpcName = "eth_createAccessList"
+	TraceCall           types.RpcName = "trace_call"
+	TraceCallMany       types.RpcName = "trace_callMany"
+	TraceTransaction    types.RpcName = "trace_transaction"
+	AdminAddPeer        types.RpcName = "admin_addPeer"
+	AdminNodeInfo       types.RpcName = "admin_nodeInfo"
 )
 
 type RpcContext struct {
@@ -1175,4 +1237,238 @@ func WaitForTx(rCtx *RpcContext, txHash common.Hash, timeout time.Duration) erro
 			}
 		}
 	}
+}
+
+// Web3 method handlers
+func RpcWeb3ClientVersion(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "web3_clientVersion")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   Web3ClientVersion,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Web3",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   Web3ClientVersion,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Web3",
+	}, nil
+}
+
+func RpcWeb3Sha3(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "web3_sha3", "0x68656c6c6f20776f726c64")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   Web3Sha3,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Web3",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   Web3Sha3,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Web3",
+	}, nil
+}
+
+// Net method handlers
+func RpcNetVersion(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "net_version")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   NetVersion,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Net",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   NetVersion,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Net",
+	}, nil
+}
+
+func RpcNetPeerCount(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "net_peerCount")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   NetPeerCount,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Net",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   NetPeerCount,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Net",
+	}, nil
+}
+
+func RpcNetListening(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result bool
+	err := rCtx.EthCli.Client().Call(&result, "net_listening")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   NetListening,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Net",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   NetListening,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Net",
+	}, nil
+}
+
+// Additional Eth method handlers
+func RpcEthProtocolVersion(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "eth_protocolVersion")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EthProtocolVersion,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Core Eth",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   EthProtocolVersion,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Core Eth",
+	}, nil
+}
+
+func RpcEthSyncing(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "eth_syncing")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EthSyncing,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Core Eth",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   EthSyncing,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Core Eth",
+	}, nil
+}
+
+func RpcEthAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result []string
+	err := rCtx.EthCli.Client().Call(&result, "eth_accounts")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EthAccounts,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Core Eth",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   EthAccounts,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Core Eth",
+	}, nil
+}
+
+// Personal method handlers
+func RpcPersonalListAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result []string
+	err := rCtx.EthCli.Client().Call(&result, "personal_listAccounts")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   PersonalListAccounts,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   PersonalListAccounts,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Personal",
+	}, nil
+}
+
+// TxPool method handlers
+func RpcTxPoolStatus(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "txpool_status")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   TxPoolStatus,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "TxPool",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   TxPoolStatus,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "TxPool",
+	}, nil
+}
+
+// Mining method handlers
+func RpcEthMining(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result bool
+	err := rCtx.EthCli.Client().Call(&result, "eth_mining")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EthMining,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "Mining",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   EthMining,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "Mining",
+	}, nil
+}
+
+// Not implemented method handlers
+func RpcNotImplemented(methodName types.RpcName, category string) (*types.RpcResult, error) {
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.NotImplemented,
+		ErrMsg:   "Expected to be not implemented",
+		Category: category,
+	}, nil
+}
+
+func RpcSkipped(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Skipped,
+		ErrMsg:   reason,
+		Category: category,
+	}, nil
 }
