@@ -36,14 +36,14 @@ const (
 	Web3ClientVersion types.RpcName = "web3_clientVersion"
 	Web3Sha3          types.RpcName = "web3_sha3"
 
-	// Net namespace  
+	// Net namespace
 	NetVersion   types.RpcName = "net_version"
 	NetPeerCount types.RpcName = "net_peerCount"
 	NetListening types.RpcName = "net_listening"
 
 	// Eth namespace - client subcategory
 	EthChainId     types.RpcName = "eth_chainId"
-	EthSyncing     types.RpcName = "eth_syncing" 
+	EthSyncing     types.RpcName = "eth_syncing"
 	EthCoinbase    types.RpcName = "eth_coinbase"
 	EthAccounts    types.RpcName = "eth_accounts"
 	EthBlockNumber types.RpcName = "eth_blockNumber"
@@ -64,8 +64,8 @@ const (
 	EthGetProof            types.RpcName = "eth_getProof"
 
 	// Eth namespace - block subcategory
-	EthGetBlockByHash                types.RpcName = "eth_getBlockByHash"
-	EthGetBlockByNumber              types.RpcName = "eth_getBlockByNumber"
+	EthGetBlockByHash                   types.RpcName = "eth_getBlockByHash"
+	EthGetBlockByNumber                 types.RpcName = "eth_getBlockByNumber"
 	EthGetBlockTransactionCountByHash   types.RpcName = "eth_getBlockTransactionCountByHash"
 	EthGetBlockTransactionCountByNumber types.RpcName = "eth_getBlockTransactionCountByNumber"
 	EthGetUncleCountByBlockHash         types.RpcName = "eth_getUncleCountByBlockHash"
@@ -92,8 +92,8 @@ const (
 	EthGetLogs                     types.RpcName = "eth_getLogs"
 
 	// Eth namespace - execute subcategory
-	Call        types.RpcName = "eth_call"
-	EstimateGas types.RpcName = "eth_estimateGas"
+	EthCall        types.RpcName = "eth_call"
+	EthEstimateGas types.RpcName = "eth_estimateGas"
 
 	// Eth namespace - submit subcategory
 	EthSendTransaction    types.RpcName = "eth_sendTransaction"
@@ -112,16 +112,22 @@ const (
 	EthSubmitHashrate   types.RpcName = "eth_submitHashrate"
 	EthCreateAccessList types.RpcName = "eth_createAccessList"
 
-	// Personal namespace (deprecated)
-	PersonalListAccounts  types.RpcName = "personal_listAccounts"
-	PersonalEcRecover     types.RpcName = "personal_ecRecover"
-	PersonalListWallets   types.RpcName = "personal_listWallets"
-	PersonalNewAccount    types.RpcName = "personal_newAccount"
-	PersonalImportRawKey  types.RpcName = "personal_importRawKey"
-	PersonalUnlockAccount types.RpcName = "personal_unlockAccount"
-	PersonalLockAccount   types.RpcName = "personal_lockAccount"
-	PersonalSign          types.RpcName = "personal_sign"
-	PersonalSignTypedData types.RpcName = "personal_signTypedData"
+	// Personal namespace (deprecated in favor of Clef)
+	PersonalListAccounts     types.RpcName = "personal_listAccounts"
+	PersonalDeriveAccount    types.RpcName = "personal_deriveAccount"
+	PersonalEcRecover        types.RpcName = "personal_ecRecover"
+	PersonalImportRawKey     types.RpcName = "personal_importRawKey"
+	PersonalListWallets      types.RpcName = "personal_listWallets"
+	PersonalNewAccount       types.RpcName = "personal_newAccount"
+	PersonalOpenWallet       types.RpcName = "personal_openWallet"
+	PersonalSendTransaction  types.RpcName = "personal_sendTransaction"
+	PersonalSign             types.RpcName = "personal_sign"
+	PersonalSignTransaction  types.RpcName = "personal_signTransaction"
+	PersonalSignTypedData    types.RpcName = "personal_signTypedData"
+	PersonalUnlockAccount    types.RpcName = "personal_unlockAccount"
+	PersonalLockAccount      types.RpcName = "personal_lockAccount"
+	PersonalUnpair           types.RpcName = "personal_unpair"
+	PersonalInitializeWallet types.RpcName = "personal_initializeWallet"
 
 	// Miner namespace (deprecated)
 	MinerStart        types.RpcName = "miner_start"
@@ -138,34 +144,50 @@ const (
 	TxPoolStatus  types.RpcName = "txpool_status"
 
 	// Debug namespace - tracing subcategory
-	DebugTraceTransaction types.RpcName = "debug_traceTransaction"
-	DebugTraceBlock       types.RpcName = "debug_traceBlock"
-	DebugTraceCall        types.RpcName = "debug_traceCall"
+	DebugTraceTransaction  types.RpcName = "debug_traceTransaction"
+	DebugTraceBlock        types.RpcName = "debug_traceBlock"
+	DebugTraceCall         types.RpcName = "debug_traceCall"
 	DebugIntermediateRoots types.RpcName = "debug_intermediateRoots"
 
 	// Debug namespace - database subcategory
-	DebugDbGet             types.RpcName = "debug_dbGet"
-	DebugDbAncient         types.RpcName = "debug_dbAncient"
-	DebugChaindbCompact    types.RpcName = "debug_chaindbCompact"
+	DebugDbGet               types.RpcName = "debug_dbGet"
+	DebugDbAncient           types.RpcName = "debug_dbAncient"
+	DebugChaindbCompact      types.RpcName = "debug_chaindbCompact"
 	DebugGetModifiedAccounts types.RpcName = "debug_getModifiedAccounts"
-	DebugDumpBlock         types.RpcName = "debug_dumpBlock"
+	DebugDumpBlock           types.RpcName = "debug_dumpBlock"
 
 	// Debug namespace - profiling subcategory
-	DebugBlockProfile         types.RpcName = "debug_blockProfile"
-	DebugCpuProfile           types.RpcName = "debug_cpuProfile"
-	DebugGoTrace              types.RpcName = "debug_goTrace"
-	DebugMemStats             types.RpcName = "debug_memStats"
-	DebugMutexProfile         types.RpcName = "debug_mutexProfile"
-	DebugSetBlockProfileRate  types.RpcName = "debug_setBlockProfileRate"
+	DebugBlockProfile            types.RpcName = "debug_blockProfile"
+	DebugCpuProfile              types.RpcName = "debug_cpuProfile"
+	DebugGoTrace                 types.RpcName = "debug_goTrace"
+	DebugMemStats                types.RpcName = "debug_memStats"
+	DebugMutexProfile            types.RpcName = "debug_mutexProfile"
+	DebugSetBlockProfileRate     types.RpcName = "debug_setBlockProfileRate"
 	DebugSetMutexProfileFraction types.RpcName = "debug_setMutexProfileFraction"
 
 	// Debug namespace - diagnostics subcategory
-	DebugBacktraceAt    types.RpcName = "debug_backtraceAt"
-	DebugStacks         types.RpcName = "debug_stacks"
-	DebugGetBadBlocks   types.RpcName = "debug_getBadBlocks"
-	DebugPreimage       types.RpcName = "debug_preimage"
-	DebugFreeOSMemory   types.RpcName = "debug_freeOSMemory"
-	DebugSetHead        types.RpcName = "debug_setHead"
+	DebugBacktraceAt  types.RpcName = "debug_backtraceAt"
+	DebugStacks       types.RpcName = "debug_stacks"
+	DebugGetBadBlocks types.RpcName = "debug_getBadBlocks"
+	DebugPreimage     types.RpcName = "debug_preimage"
+	DebugFreeOSMemory types.RpcName = "debug_freeOSMemory"
+	DebugSetHead      types.RpcName = "debug_setHead"
+
+	// Additional debug methods from Geth documentation
+	DebugSetGCPercent                types.RpcName = "debug_setGCPercent"
+	DebugAccountRange                types.RpcName = "debug_accountRange"
+	DebugChaindbProperty             types.RpcName = "debug_chaindbProperty"
+	DebugDbAncients                  types.RpcName = "debug_dbAncients"
+	DebugFreezeClient                types.RpcName = "debug_freezeClient"
+	DebugGcStats                     types.RpcName = "debug_gcStats"
+	DebugGetAccessibleState          types.RpcName = "debug_getAccessibleState"
+	DebugGetRawBlock                 types.RpcName = "debug_getRawBlock"
+	DebugGetRawHeader                types.RpcName = "debug_getRawHeader"
+	DebugGetRawTransaction           types.RpcName = "debug_getRawTransaction"
+	DebugGetModifiedAccountsByHash   types.RpcName = "debug_getModifiedAccountsByHash"
+	DebugGetModifiedAccountsByNumber types.RpcName = "debug_getModifiedAccountsByNumber"
+	DebugGetRawReceipts              types.RpcName = "debug_getRawReceipts"
+	DebugPrintBlock                  types.RpcName = "debug_printBlock"
 
 	// Engine API namespace (not applicable for Cosmos chains)
 	EngineNewPayloadV1        types.RpcName = "engine_newPayloadV1"
@@ -185,10 +207,31 @@ const (
 	TraceBlock       types.RpcName = "trace_block"
 
 	// Admin namespace (Geth specific administrative methods)
-	AdminAddPeer    types.RpcName = "admin_addPeer"
-	AdminNodeInfo   types.RpcName = "admin_nodeInfo"
-	AdminPeers      types.RpcName = "admin_peers"
-	AdminDatadir    types.RpcName = "admin_datadir"
+	AdminAddPeer         types.RpcName = "admin_addPeer"
+	AdminAddTrustedPeer  types.RpcName = "admin_addTrustedPeer"
+	AdminDatadir         types.RpcName = "admin_datadir"
+	AdminExportChain     types.RpcName = "admin_exportChain"
+	AdminImportChain     types.RpcName = "admin_importChain"
+	AdminNodeInfo        types.RpcName = "admin_nodeInfo"
+	AdminPeerEvents      types.RpcName = "admin_peerEvents"
+	AdminPeers           types.RpcName = "admin_peers"
+	AdminRemovePeer      types.RpcName = "admin_removePeer"
+	AdminRemoveTrustedPeer types.RpcName = "admin_removeTrustedPeer"
+	AdminStartHTTP       types.RpcName = "admin_startHTTP"
+	AdminStartWS         types.RpcName = "admin_startWS"
+	AdminStopHTTP        types.RpcName = "admin_stopHTTP"
+	AdminStopWS          types.RpcName = "admin_stopWS"
+
+	// LES namespace (Light Ethereum Subprotocol)
+	LesServerInfo                 types.RpcName = "les_serverInfo"
+	LesClientInfo                 types.RpcName = "les_clientInfo"
+	LesPriorityClientInfo         types.RpcName = "les_priorityClientInfo"
+	LesAddBalance                 types.RpcName = "les_addBalance"
+	LesSetClientParams            types.RpcName = "les_setClientParams"
+	LesSetDefaultParams           types.RpcName = "les_setDefaultParams"
+	LesLatestCheckpoint           types.RpcName = "les_latestCheckpoint"
+	LesGetCheckpoint              types.RpcName = "les_getCheckpoint"
+	LesGetCheckpointContractAddress types.RpcName = "les_getCheckpointContractAddress"
 )
 
 type RpcContext struct {
@@ -1162,7 +1205,7 @@ func RpcEthGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 func RpcEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(EstimateGas); result != nil {
+	if result := rCtx.AlreadyTested(EthEstimateGas); result != nil {
 		return result, nil
 	}
 
@@ -1186,7 +1229,7 @@ func RpcEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: EstimateGas,
+		Method: EthEstimateGas,
 		Status: types.Ok,
 		Value:  gas,
 	}
@@ -1196,7 +1239,7 @@ func RpcEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 func RPCCall(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(Call); result != nil {
+	if result := rCtx.AlreadyTested(EthCall); result != nil {
 		return result, nil
 	}
 
@@ -1219,7 +1262,7 @@ func RPCCall(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: Call,
+		Method: EthCall,
 		Status: types.Ok,
 		Value:  hexutils.BytesToHex(res),
 	}
@@ -1273,14 +1316,14 @@ func RpcWeb3ClientVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   Web3ClientVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Web3",
+			Category: "web3",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   Web3ClientVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Web3",
+		Category: "web3",
 	}, nil
 }
 
@@ -1292,14 +1335,14 @@ func RpcWeb3Sha3(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   Web3Sha3,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Web3",
+			Category: "web3",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   Web3Sha3,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Web3",
+		Category: "web3",
 	}, nil
 }
 
@@ -1312,14 +1355,14 @@ func RpcNetVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   NetVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Net",
+			Category: "net",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   NetVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Net",
+		Category: "net",
 	}, nil
 }
 
@@ -1331,14 +1374,14 @@ func RpcNetPeerCount(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   NetPeerCount,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Net",
+			Category: "net",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   NetPeerCount,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Net",
+		Category: "net",
 	}, nil
 }
 
@@ -1350,14 +1393,14 @@ func RpcNetListening(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   NetListening,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Net",
+			Category: "net",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   NetListening,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Net",
+		Category: "net",
 	}, nil
 }
 
@@ -1608,16 +1651,16 @@ func RpcEthCoinbase(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 func RpcEthCall(rCtx *RpcContext) (*types.RpcResult, error) {
-	// Simple eth_call test 
+	// Simple eth_call test
 	callMsg := ethereum.CallMsg{
 		To:   &rCtx.Acc.Address,
 		Data: []byte{},
 	}
-	
+
 	result, err := rCtx.EthCli.CallContract(context.Background(), callMsg, nil)
 	if err != nil {
 		return &types.RpcResult{
-			Method:   Call,
+			Method:   EthCall,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
 			Category: "eth",
@@ -1625,7 +1668,7 @@ func RpcEthCall(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	return &types.RpcResult{
-		Method:   Call,
+		Method:   EthCall,
 		Status:   types.Ok,
 		Value:    "0x" + hex.EncodeToString(result),
 		Category: "eth",
@@ -1639,11 +1682,11 @@ func RpcEthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 		To:    &rCtx.Acc.Address,
 		Value: big.NewInt(0),
 	}
-	
+
 	gasLimit, err := rCtx.EthCli.EstimateGas(context.Background(), callMsg)
 	if err != nil {
 		return &types.RpcResult{
-			Method:   EstimateGas,
+			Method:   EthEstimateGas,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
 			Category: "eth",
@@ -1651,9 +1694,143 @@ func RpcEthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	return &types.RpcResult{
-		Method:   EstimateGas,
+		Method:   EthEstimateGas,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("0x%x", gasLimit),
+		Category: "eth",
+	}, nil
+}
+
+// Generic test handler that makes an actual RPC call to determine if an API is implemented
+func RpcGenericTest(rCtx *RpcContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, string(methodName))
+	
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
+		   err.Error() == "Method not found" ||
+		   err.Error() == string(methodName)+" method not found" {
+			return &types.RpcResult{
+				Method:   methodName,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: category,
+			}, nil
+		}
+		// Other errors mean the method exists but failed (could be parameter issues, etc.)
+		return &types.RpcResult{
+			Method:   methodName,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: category,
+		}, nil
+	}
+	
+	// Method exists and returned a result
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Ok,
+		Value:    result,
+		Category: category,
+	}, nil
+}
+
+// Generic handlers for methods that require specific parameters but we just want to test existence
+func RpcEthFeeHistory(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, string(EthFeeHistory), "0x1", "latest", nil)
+	
+	if err != nil {
+		if err.Error() == "the method "+string(EthFeeHistory)+" does not exist/is not available" ||
+		   err.Error() == "Method not found" {
+			return &types.RpcResult{
+				Method:   EthFeeHistory,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: "eth",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   EthFeeHistory,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+	
+	return &types.RpcResult{
+		Method:   EthFeeHistory,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "eth",
+	}, nil
+}
+
+func RpcEthBlobBaseFee(rCtx *RpcContext) (*types.RpcResult, error) {
+	return RpcGenericTest(rCtx, EthBlobBaseFee, "eth")
+}
+
+func RpcEthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, string(EthGetProof), rCtx.Acc.Address.Hex(), []string{}, "latest")
+	
+	if err != nil {
+		if err.Error() == "the method "+string(EthGetProof)+" does not exist/is not available" ||
+		   err.Error() == "Method not found" {
+			return &types.RpcResult{
+				Method:   EthGetProof,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: "eth",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   EthGetProof,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+	
+	return &types.RpcResult{
+		Method:   EthGetProof,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "eth",
+	}, nil
+}
+
+func RpcEthCreateAccessList(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	callData := map[string]interface{}{
+		"to":   rCtx.Acc.Address.Hex(),
+		"data": "0x",
+	}
+	err := rCtx.EthCli.Client().Call(&result, string(EthCreateAccessList), callData, "latest")
+	
+	if err != nil {
+		if err.Error() == "the method "+string(EthCreateAccessList)+" does not exist/is not available" ||
+		   err.Error() == "Method not found" {
+			return &types.RpcResult{
+				Method:   EthCreateAccessList,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: "eth",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   EthCreateAccessList,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+	
+	return &types.RpcResult{
+		Method:   EthCreateAccessList,
+		Status:   types.Ok,
+		Value:    result,
 		Category: "eth",
 	}, nil
 }

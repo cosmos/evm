@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/fatih/color"
@@ -155,6 +156,21 @@ func PrintHeader() {
 ══════════════════════════════════════════════`)
 }
 
+// sortResultsByStatus sorts results by status priority: PASS, FAIL, NOT_IMPL, DEPRECATED, SKIP
+func sortResultsByStatus(results []*types.RpcResult) {
+	statusPriority := map[types.RpcStatus]int{
+		types.Ok:             1, // PASS
+		types.Error:          2, // FAIL
+		types.NotImplemented: 3, // NOT_IMPL
+		types.Deprecated:     4, // DEPRECATED
+		types.Skipped:        5, // SKIP
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return statusPriority[results[i].Status] < statusPriority[results[j].Status]
+	})
+}
+
 func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 	categories := make(map[string][]*types.RpcResult)
 
@@ -167,15 +183,44 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 		categories[category] = append(categories[category], result)
 	}
 
-	// Print each category
-	categoryOrder := []string{"Web3", "Net", "Core Eth", "Account & State", "Block", "Transaction", "Filter", "Mining", "EIP-1559", "Personal", "TxPool", "Debug", "Cosmos Extensions", "Engine API", "Not Implemented", "Uncategorized"}
+	// Print each category with namespace-based names
+	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin", "les"}
+	categoryDisplayNames := map[string]string{
+		"web3":     "Web3",
+		"net":      "Net",
+		"eth":      "Ethereum",
+		"personal": "Personal (Deprecated)",
+		"miner":    "Miner (Deprecated)",
+		"txpool":   "TxPool",
+		"debug":    "Debug",
+		"engine":   "Engine API",
+		"trace":    "Trace",
+		"admin":    "Admin",
+		"les":      "LES (Light Ethereum Subprotocol)",
+	}
 
 	for _, categoryName := range categoryOrder {
 		if results, exists := categories[categoryName]; exists {
-			color.Cyan("\n=== %s Methods ===", categoryName)
+			displayName := categoryDisplayNames[categoryName]
+			if displayName == "" {
+				displayName = categoryName
+			}
+
+			// Sort results by status priority within each category
+			sortResultsByStatus(results)
+
+			color.Cyan("\n=== %s Methods ===", displayName)
 			for _, result := range results {
 				ColorPrint(result, verbose)
 			}
+		}
+	}
+
+	// Print any uncategorized results
+	if results, exists := categories["Uncategorized"]; exists {
+		color.Cyan("\n=== Uncategorized Methods ===")
+		for _, result := range results {
+			ColorPrint(result, verbose)
 		}
 	}
 }
@@ -187,7 +232,7 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 ═══════════════════════════════════════════════`)
 
 	// Define the order of categories (by namespace)
-	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin"}
+	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin", "les"}
 
 	// Print header with subcategory column
 	fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %s\n",
@@ -202,47 +247,70 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 
 	fmt.Println("────────────────┼─────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
 
-	// Print each category and its subcategories
+	// Print each category with only meaningful subcategories (no redundant "All")
 	for _, categoryName := range categoryOrder {
-		if catSummary, exists := summary.Categories[categoryName]; exists {
-			// Print category total first
+		if subcats, hasSubcats := summary.Subcategories[categoryName]; hasSubcats {
+			// Define proper subcategory order based on execution-apis structure
+			var subcatOrder []string
+			switch categoryName {
+			case "eth":
+				subcatOrder = []string{"client", "fee_market", "state", "block", "transaction", "filter", "execute", "submit", "sign", "deprecated"}
+			case "debug":
+				subcatOrder = []string{"tracing", "database", "profiling", "diagnostics"}
+			case "personal":
+				subcatOrder = []string{"account", "wallet", "key", "signing", "transaction"}
+			case "miner":
+				subcatOrder = []string{"mining"}
+			case "txpool":
+				subcatOrder = []string{"mempool"}
+			case "engine":
+				subcatOrder = []string{"consensus"}
+			case "trace":
+				subcatOrder = []string{"tracing"}
+			case "admin":
+				subcatOrder = []string{"peer", "data", "rpc"}
+			case "web3":
+				subcatOrder = []string{"utility"}
+			case "net":
+				subcatOrder = []string{"network"}
+			case "les":
+				subcatOrder = []string{"client", "checkpoint"}
+			default:
+				// For other categories, collect all subcategories
+				for subName := range subcats {
+					if subName != "other" { // Skip generic "other"
+						subcatOrder = append(subcatOrder, subName)
+					}
+				}
+			}
+
+			// Print each subcategory that has actual data
+			for _, subName := range subcatOrder {
+				if subSummary, exists := subcats[subName]; exists && subSummary.Total > 0 {
+					fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
+						categoryName,
+						subName,
+						subSummary.Passed,
+						subSummary.Failed,
+						subSummary.Deprecated,
+						subSummary.NotImplemented,
+						subSummary.Skipped,
+						subSummary.Total)
+					// Clear category name for subsequent rows
+					categoryName = ""
+				}
+			}
+		} else if catSummary, exists := summary.Categories[categoryName]; exists {
+			// Fallback: if no subcategories, show category total
 			fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
 				categoryName,
-				"All",
+				"-",
 				catSummary.Passed,
 				catSummary.Failed,
 				catSummary.Deprecated,
 				catSummary.NotImplemented,
 				catSummary.Skipped,
 				catSummary.Total)
-
-			// Print subcategories if they exist
-			if subcats, hasSubcats := summary.Subcategories[categoryName]; hasSubcats {
-				// Define order for eth subcategories
-				var subcatOrder []string
-				if categoryName == "eth" {
-					subcatOrder = []string{"Core", "EIP-1559", "Account & State", "Block", "Transaction", "Filter", "Mining", "Other"}
-				} else {
-					// For other categories, collect all subcategories
-					for subName := range subcats {
-						subcatOrder = append(subcatOrder, subName)
-					}
-				}
-
-				for _, subName := range subcatOrder {
-					if subSummary, exists := subcats[subName]; exists && subSummary.Total > 0 {
-						fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
-							"",
-							subName,
-							subSummary.Passed,
-							subSummary.Failed,
-							subSummary.Deprecated,
-							subSummary.NotImplemented,
-							subSummary.Skipped,
-							subSummary.Total)
-					}
-				}
-			}
 		}
 	}
 
@@ -285,10 +353,6 @@ func PrintSummary(summary *types.TestSummary) {
 func ColorPrint(result *types.RpcResult, verbose bool) {
 	method := result.Method
 	status := result.Status
-	subcategory := ""
-	if result.Subcategory != "" {
-		subcategory = fmt.Sprintf(" (%s)", result.Subcategory)
-	}
 
 	switch status {
 	case types.Ok:
@@ -296,26 +360,23 @@ func ColorPrint(result *types.RpcResult, verbose bool) {
 		if !verbose {
 			value = ""
 		}
-		color.Green("[%s] %s%s", status, method, subcategory)
+		color.Green("[%s] %s", status, method)
 		if verbose && value != nil {
 			fmt.Printf(" - %v", value)
 		}
-		fmt.Println()
 	case types.Deprecated:
-		color.Magenta("[%s] %s%s - Method is deprecated but implemented", status, method, subcategory)
+		color.Magenta("[%s] %s - Method is deprecated but implemented", status, method)
 	case types.NotImplemented:
-		color.Yellow("[%s] %s%s - Expected to be not implemented", status, method, subcategory)
+		color.Yellow("[%s] %s", status, method)
 	case types.Skipped:
-		color.HiBlack("[%s] %s%s", status, method, subcategory)
-		if result.ErrMsg != "" {
+		color.HiBlack("[%s] %s", status, method)
+		if verbose && result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}
-		fmt.Println()
 	case types.Error:
-		color.Red("[%s] %s%s", status, method, subcategory)
-		if result.ErrMsg != "" {
+		color.Red("[%s] %s", status, method)
+		if verbose && result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}
-		fmt.Println()
 	}
 }

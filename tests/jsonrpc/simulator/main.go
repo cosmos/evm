@@ -86,8 +86,8 @@ func main() {
 				{Name: rpc.EthGetTransactionReceipt, Handler: rpc.RpcEthGetTransactionReceipt},
 				{Name: rpc.EthGetTransactionCountByHash, Handler: rpc.RpcEthGetTransactionCountByHash},
 				// Execute subcategory
-				{Name: rpc.Call, Handler: rpc.RpcEthCall},
-				{Name: rpc.EstimateGas, Handler: rpc.RpcEthEstimateGas},
+				{Name: rpc.EthCall, Handler: rpc.RpcEthCall},
+				{Name: rpc.EthEstimateGas, Handler: rpc.RpcEthEstimateGas},
 				// Submit subcategory
 				{Name: rpc.EthSendRawTransaction, Handler: rpc.RpcEthSendRawTransactionTransferValue, Description: "Transfer value"},
 				{Name: rpc.EthSendRawTransaction, Handler: rpc.RpcEthSendRawTransactionDeployContract, Description: "Deploy contract"},
@@ -109,21 +109,56 @@ func main() {
 		},
 		{
 			Name:        "personal",
-			Description: "Personal namespace methods (deprecated)",
+			Description: "Personal namespace methods (deprecated in favor of Clef)",
 			Methods: []types.TestMethod{
+				// Account Management subcategory
 				{Name: rpc.PersonalListAccounts, Handler: rpc.RpcPersonalListAccounts},
-				{Name: rpc.PersonalEcRecover, Handler: rpc.RpcPersonalEcRecover},
+				{Name: rpc.PersonalNewAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalNewAccount, "personal")
+				}},
+				{Name: rpc.PersonalDeriveAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalDeriveAccount, "personal")
+				}},
+				// Wallet Management subcategory
 				{Name: rpc.PersonalListWallets, Handler: rpc.RpcPersonalListWallets},
-				{Name: rpc.PersonalNewAccount, Handler: nil, SkipReason: "Requires password, modifies state"},
-				{Name: rpc.PersonalImportRawKey, Handler: nil, SkipReason: "Requires key and password, modifies state"},
-				{Name: rpc.PersonalUnlockAccount, Handler: nil, SkipReason: "Requires password"},
-				{Name: rpc.PersonalLockAccount, Handler: nil, SkipReason: "Requires unlocked account"},
-				{Name: rpc.PersonalSign, Handler: nil, SkipReason: "Requires unlocked account"},
-				{Name: rpc.PersonalSignTypedData, Handler: nil, SkipReason: "Requires specific typed data format"},
+				{Name: rpc.PersonalOpenWallet, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalOpenWallet, "personal")
+				}},
+				{Name: rpc.PersonalInitializeWallet, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalInitializeWallet, "personal")
+				}},
+				{Name: rpc.PersonalUnpair, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalUnpair, "personal")
+				}},
+				// Key Management subcategory
+				{Name: rpc.PersonalImportRawKey, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalImportRawKey, "personal")
+				}},
+				{Name: rpc.PersonalUnlockAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalUnlockAccount, "personal")
+				}},
+				{Name: rpc.PersonalLockAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalLockAccount, "personal")
+				}},
+				// Signing subcategory
+				{Name: rpc.PersonalSign, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalSign, "personal")
+				}},
+				{Name: rpc.PersonalSignTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalSignTransaction, "personal")
+				}},
+				{Name: rpc.PersonalSignTypedData, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalSignTypedData, "personal")
+				}},
+				{Name: rpc.PersonalEcRecover, Handler: rpc.RpcPersonalEcRecover},
+				// Transaction subcategory
+				{Name: rpc.PersonalSendTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.PersonalSendTransaction, "personal")
+				}},
 			},
 		},
 		{
-			Name:        "miner", 
+			Name:        "miner",
 			Description: "Miner namespace methods (deprecated)",
 			Methods: []types.TestMethod{
 				{Name: rpc.MinerStart, Handler: nil, SkipReason: "Mining deprecated in Ethereum 2.0"},
@@ -149,21 +184,118 @@ func main() {
 			Description: "Debug namespace methods from Geth",
 			Methods: []types.TestMethod{
 				// Tracing subcategory
-				{Name: rpc.DebugTraceTransaction, Handler: nil, SkipReason: "Complex tracing method"},
-				{Name: rpc.DebugTraceBlock, Handler: nil, SkipReason: "Complex tracing method"},
-				{Name: rpc.DebugTraceCall, Handler: nil, SkipReason: "Complex tracing method"},
-				// Database subcategory  
-				{Name: rpc.DebugDbGet, Handler: nil, SkipReason: "Database access method"},
-				{Name: rpc.DebugDbAncient, Handler: nil, SkipReason: "Ancient database access"},
-				{Name: rpc.DebugChaindbCompact, Handler: nil, SkipReason: "Database compaction"},
-				// Diagnostics subcategory
-				{Name: rpc.DebugGetBadBlocks, Handler: nil, SkipReason: "Diagnostic method"},
-				{Name: rpc.DebugFreeOSMemory, Handler: nil, SkipReason: "System management method"},
-				{Name: rpc.DebugStacks, Handler: nil, SkipReason: "Stack inspection method"},
+				{Name: rpc.DebugTraceTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugTraceTransaction, "debug")
+				}},
+				{Name: rpc.DebugTraceBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugTraceBlock, "debug")
+				}},
+				{Name: rpc.DebugTraceCall, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugTraceCall, "debug")
+				}},
+				{Name: rpc.DebugIntermediateRoots, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugIntermediateRoots, "debug")
+				}},
+				// Database subcategory
+				{Name: rpc.DebugDbGet, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugDbGet, "debug")
+				}},
+				{Name: rpc.DebugDbAncient, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugDbAncient, "debug")
+				}},
+				{Name: rpc.DebugDbAncients, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugDbAncients, "debug")
+				}},
+				{Name: rpc.DebugChaindbCompact, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugChaindbCompact, "debug")
+				}},
+				{Name: rpc.DebugChaindbProperty, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugChaindbProperty, "debug")
+				}},
+				{Name: rpc.DebugGetModifiedAccounts, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetModifiedAccounts, "debug")
+				}},
+				{Name: rpc.DebugGetModifiedAccountsByHash, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetModifiedAccountsByHash, "debug")
+				}},
+				{Name: rpc.DebugGetModifiedAccountsByNumber, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetModifiedAccountsByNumber, "debug")
+				}},
+				{Name: rpc.DebugDumpBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugDumpBlock, "debug")
+				}},
 				// Profiling subcategory
-				{Name: rpc.DebugBlockProfile, Handler: nil, SkipReason: "Profiling method"},
-				{Name: rpc.DebugCpuProfile, Handler: nil, SkipReason: "CPU profiling method"},
-				{Name: rpc.DebugMemStats, Handler: nil, SkipReason: "Memory statistics method"},
+				{Name: rpc.DebugBlockProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugBlockProfile, "debug")
+				}},
+				{Name: rpc.DebugCpuProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugCpuProfile, "debug")
+				}},
+				{Name: rpc.DebugGoTrace, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGoTrace, "debug")
+				}},
+				{Name: rpc.DebugMemStats, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugMemStats, "debug")
+				}},
+				{Name: rpc.DebugMutexProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugMutexProfile, "debug")
+				}},
+				{Name: rpc.DebugSetBlockProfileRate, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugSetBlockProfileRate, "debug")
+				}},
+				{Name: rpc.DebugSetMutexProfileFraction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugSetMutexProfileFraction, "debug")
+				}},
+				{Name: rpc.DebugGcStats, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGcStats, "debug")
+				}},
+				// Diagnostics subcategory
+				{Name: rpc.DebugBacktraceAt, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugBacktraceAt, "debug")
+				}},
+				{Name: rpc.DebugStacks, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugStacks, "debug")
+				}},
+				{Name: rpc.DebugGetBadBlocks, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetBadBlocks, "debug")
+				}},
+				{Name: rpc.DebugPreimage, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugPreimage, "debug")
+				}},
+				{Name: rpc.DebugFreeOSMemory, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugFreeOSMemory, "debug")
+				}},
+				{Name: rpc.DebugSetHead, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugSetHead, "debug")
+				}},
+				{Name: rpc.DebugGetAccessibleState, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetAccessibleState, "debug")
+				}},
+				{Name: rpc.DebugFreezeClient, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugFreezeClient, "debug")
+				}},
+				// New debug methods (including debug_setGCPercent)
+				{Name: rpc.DebugSetGCPercent, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugSetGCPercent, "debug")
+				}},
+				{Name: rpc.DebugAccountRange, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugAccountRange, "debug")
+				}},
+				{Name: rpc.DebugGetRawBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetRawBlock, "debug")
+				}},
+				{Name: rpc.DebugGetRawHeader, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetRawHeader, "debug")
+				}},
+				{Name: rpc.DebugGetRawTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetRawTransaction, "debug")
+				}},
+				{Name: rpc.DebugGetRawReceipts, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugGetRawReceipts, "debug")
+				}},
+				{Name: rpc.DebugPrintBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.DebugPrintBlock, "debug")
+				}},
 			},
 		},
 		{
@@ -179,23 +311,86 @@ func main() {
 			},
 		},
 		{
-			Name:        "trace",
-			Description: "Trace namespace methods (OpenEthereum/Erigon specific)",
-			Methods: []types.TestMethod{
-				{Name: rpc.TraceCall, Handler: nil, SkipReason: "Trace methods not implemented in standard Geth"},
-				{Name: rpc.TraceCallMany, Handler: nil, SkipReason: "Trace methods not implemented in standard Geth"},
-				{Name: rpc.TraceTransaction, Handler: nil, SkipReason: "Trace methods not implemented in standard Geth"},
-				{Name: rpc.TraceBlock, Handler: nil, SkipReason: "Trace methods not implemented in standard Geth"},
-			},
-		},
-		{
 			Name:        "admin",
 			Description: "Admin namespace methods (Geth administrative)",
 			Methods: []types.TestMethod{
-				{Name: rpc.AdminAddPeer, Handler: nil, SkipReason: "Administrative method not exposed"},
-				{Name: rpc.AdminNodeInfo, Handler: nil, SkipReason: "Administrative method not exposed"},
-				{Name: rpc.AdminPeers, Handler: nil, SkipReason: "Administrative method not exposed"},
-				{Name: rpc.AdminDatadir, Handler: nil, SkipReason: "Administrative method not exposed"},
+				// Test all admin methods to see if they're implemented
+				{Name: rpc.AdminAddPeer, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminAddPeer, "admin")
+				}},
+				{Name: rpc.AdminAddTrustedPeer, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminAddTrustedPeer, "admin")
+				}},
+				{Name: rpc.AdminDatadir, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminDatadir, "admin")
+				}},
+				{Name: rpc.AdminExportChain, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminExportChain, "admin")
+				}},
+				{Name: rpc.AdminImportChain, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminImportChain, "admin")
+				}},
+				{Name: rpc.AdminNodeInfo, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminNodeInfo, "admin")
+				}},
+				{Name: rpc.AdminPeerEvents, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminPeerEvents, "admin")
+				}},
+				{Name: rpc.AdminPeers, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminPeers, "admin")
+				}},
+				{Name: rpc.AdminRemovePeer, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminRemovePeer, "admin")
+				}},
+				{Name: rpc.AdminRemoveTrustedPeer, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminRemoveTrustedPeer, "admin")
+				}},
+				{Name: rpc.AdminStartHTTP, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminStartHTTP, "admin")
+				}},
+				{Name: rpc.AdminStartWS, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminStartWS, "admin")
+				}},
+				{Name: rpc.AdminStopHTTP, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminStopHTTP, "admin")
+				}},
+				{Name: rpc.AdminStopWS, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.AdminStopWS, "admin")
+				}},
+			},
+		},
+		{
+			Name:        "les",
+			Description: "LES namespace methods (Light Ethereum Subprotocol)",
+			Methods: []types.TestMethod{
+				// Test all LES methods to see if they're implemented
+				{Name: rpc.LesServerInfo, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesServerInfo, "les")
+				}},
+				{Name: rpc.LesClientInfo, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesClientInfo, "les")
+				}},
+				{Name: rpc.LesPriorityClientInfo, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesPriorityClientInfo, "les")
+				}},
+				{Name: rpc.LesAddBalance, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesAddBalance, "les")
+				}},
+				{Name: rpc.LesSetClientParams, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesSetClientParams, "les")
+				}},
+				{Name: rpc.LesSetDefaultParams, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesSetDefaultParams, "les")
+				}},
+				{Name: rpc.LesLatestCheckpoint, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesLatestCheckpoint, "les")
+				}},
+				{Name: rpc.LesGetCheckpoint, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesGetCheckpoint, "les")
+				}},
+				{Name: rpc.LesGetCheckpointContractAddress, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.RpcGenericTest(rCtx, rpc.LesGetCheckpointContractAddress, "les")
+				}},
 			},
 		},
 	}
@@ -204,12 +399,19 @@ func main() {
 	for _, category := range testCategories {
 		for _, method := range category.Methods {
 			if method.Handler == nil {
-				// Handle methods with no handler
+				// Handle methods with no handler - only skip engine methods, test others
 				if category.Name == "engine" {
 					result, _ := rpc.RpcSkipped(method.Name, category.Name, method.SkipReason)
+					if result.Subcategory == "" {
+						result.Subcategory = getSubcategory(method.Name)
+					}
 					results = append(results, result)
 				} else {
-					result, _ := rpc.RpcNotImplemented(method.Name, category.Name)
+					// Test the method to see if it's actually implemented
+					result, _ := rpc.RpcGenericTest(rCtx, method.Name, category.Name)
+					if result.Subcategory == "" {
+						result.Subcategory = getSubcategory(method.Name)
+					}
 					results = append(results, result)
 				}
 				continue
@@ -234,12 +436,12 @@ func main() {
 			if result.Subcategory == "" {
 				result.Subcategory = getSubcategory(method.Name)
 			}
-			
+
 			// Mark personal/miner methods as deprecated if they pass
 			if (category.Name == "personal" || isDeprecatedMethod(method.Name)) && result.Status == types.Ok {
 				result.Status = types.Deprecated
 			}
-			
+
 			results = append(results, result)
 		}
 	}
@@ -249,13 +451,13 @@ func main() {
 	for _, result := range results {
 		alreadyTested[result.Method] = true
 	}
-	
+
 	for _, result := range rCtx.AlreadyTestedRPCs {
 		// Skip if we already tested this method in the categorized tests
 		if alreadyTested[result.Method] {
 			continue
 		}
-		
+
 		if result.Category == "" {
 			// Categorize based on method name
 			switch result.Method {
@@ -279,47 +481,47 @@ func getSubcategory(methodName types.RpcName) string {
 	// Eth namespace - client subcategory
 	case rpc.EthChainId, rpc.EthSyncing, rpc.EthCoinbase, rpc.EthAccounts, rpc.EthBlockNumber, rpc.EthMining, rpc.EthHashrate:
 		return "client"
-	
-	// Eth namespace - fee_market subcategory  
+
+	// Eth namespace - fee_market subcategory
 	case rpc.EthGasPrice, rpc.EthBlobBaseFee, rpc.EthMaxPriorityFeePerGas, rpc.EthFeeHistory:
 		return "fee_market"
-	
+
 	// Eth namespace - state subcategory
 	case rpc.EthGetBalance, rpc.EthGetStorageAt, rpc.EthGetTransactionCount, rpc.EthGetCode, rpc.EthGetProof:
 		return "state"
-	
+
 	// Eth namespace - block subcategory
 	case rpc.EthGetBlockByHash, rpc.EthGetBlockByNumber, rpc.EthGetBlockTransactionCountByHash, rpc.EthGetBlockTransactionCountByNumber,
-		 rpc.EthGetUncleCountByBlockHash, rpc.EthGetUncleCountByBlockNumber, rpc.EthGetUncleByBlockHashAndIndex, rpc.EthGetUncleByBlockNumberAndIndex,
-		 rpc.EthGetBlockReceipts:
+		rpc.EthGetUncleCountByBlockHash, rpc.EthGetUncleCountByBlockNumber, rpc.EthGetUncleByBlockHashAndIndex, rpc.EthGetUncleByBlockNumberAndIndex,
+		rpc.EthGetBlockReceipts:
 		return "block"
-	
+
 	// Eth namespace - transaction subcategory
 	case rpc.EthGetTransactionByHash, rpc.EthGetTransactionByBlockHashAndIndex, rpc.EthGetTransactionByBlockNumberAndIndex,
-		 rpc.EthGetTransactionReceipt, rpc.EthGetTransactionCountByHash, rpc.EthPendingTransactions:
+		rpc.EthGetTransactionReceipt, rpc.EthGetTransactionCountByHash, rpc.EthPendingTransactions:
 		return "transaction"
-	
+
 	// Eth namespace - filter subcategory
-	case rpc.EthNewFilter, rpc.EthNewBlockFilter, rpc.EthNewPendingTransactionFilter, rpc.EthGetFilterChanges, 
-		 rpc.EthGetFilterLogs, rpc.EthUninstallFilter, rpc.EthGetLogs:
+	case rpc.EthNewFilter, rpc.EthNewBlockFilter, rpc.EthNewPendingTransactionFilter, rpc.EthGetFilterChanges,
+		rpc.EthGetFilterLogs, rpc.EthUninstallFilter, rpc.EthGetLogs:
 		return "filter"
-	
+
 	// Eth namespace - execute subcategory
-	case rpc.Call, rpc.EstimateGas:
+	case rpc.EthCall, rpc.EthEstimateGas:
 		return "execute"
-	
+
 	// Eth namespace - submit subcategory
 	case rpc.EthSendTransaction, rpc.EthSendRawTransaction:
 		return "submit"
-	
+
 	// Eth namespace - sign subcategory (deprecated)
 	case rpc.EthSign, rpc.EthSignTransaction:
 		return "sign"
-	
+
 	// Eth namespace - deprecated/other methods
 	case rpc.EthProtocolVersion, rpc.EthGetCompilers, rpc.EthCompileSolidity, rpc.EthGetWork, rpc.EthSubmitWork, rpc.EthSubmitHashrate, rpc.EthCreateAccessList:
 		return "deprecated"
-	
+
 	// Debug namespace subcategories
 	case rpc.DebugTraceTransaction, rpc.DebugTraceBlock, rpc.DebugTraceCall, rpc.DebugIntermediateRoots:
 		return "tracing"
@@ -329,41 +531,62 @@ func getSubcategory(methodName types.RpcName) string {
 		return "profiling"
 	case rpc.DebugBacktraceAt, rpc.DebugStacks, rpc.DebugGetBadBlocks, rpc.DebugPreimage, rpc.DebugFreeOSMemory, rpc.DebugSetHead:
 		return "diagnostics"
-	
+
 	// Miner methods (deprecated)
 	case rpc.MinerStart, rpc.MinerStop, rpc.MinerSetEtherbase, rpc.MinerSetExtra, rpc.MinerSetGasPrice, rpc.MinerSetGasLimit, rpc.MinerGetHashrate:
 		return "mining"
-	
-	// Personal methods (deprecated)
-	case rpc.PersonalListAccounts, rpc.PersonalEcRecover, rpc.PersonalListWallets, rpc.PersonalNewAccount, rpc.PersonalImportRawKey, 
-		 rpc.PersonalUnlockAccount, rpc.PersonalLockAccount, rpc.PersonalSign, rpc.PersonalSignTypedData:
-		return "account_management"
-	
+
+	// Personal methods - Account Management
+	case rpc.PersonalListAccounts, rpc.PersonalNewAccount, rpc.PersonalDeriveAccount:
+		return "account"
+	// Personal methods - Wallet Management
+	case rpc.PersonalListWallets, rpc.PersonalOpenWallet, rpc.PersonalInitializeWallet, rpc.PersonalUnpair:
+		return "wallet"
+	// Personal methods - Key Management
+	case rpc.PersonalImportRawKey, rpc.PersonalUnlockAccount, rpc.PersonalLockAccount:
+		return "key"
+	// Personal methods - Signing
+	case rpc.PersonalSign, rpc.PersonalSignTransaction, rpc.PersonalSignTypedData, rpc.PersonalEcRecover:
+		return "signing"
+	// Personal methods - Transaction
+	case rpc.PersonalSendTransaction:
+		return "transaction"
+
 	// TxPool methods
 	case rpc.TxPoolContent, rpc.TxPoolInspect, rpc.TxPoolStatus:
 		return "mempool"
-	
-	// Engine API methods  
+
+	// Engine API methods
 	case rpc.EngineNewPayloadV1, rpc.EngineNewPayloadV2, rpc.EngineNewPayloadV3, rpc.EngineForkchoiceUpdatedV1, rpc.EngineForkchoiceUpdatedV2, rpc.EngineForkchoiceUpdatedV3,
-		 rpc.EngineGetPayloadV1, rpc.EngineGetPayloadV2, rpc.EngineGetPayloadV3:
+		rpc.EngineGetPayloadV1, rpc.EngineGetPayloadV2, rpc.EngineGetPayloadV3:
 		return "consensus"
-	
+
 	// Trace methods
 	case rpc.TraceCall, rpc.TraceCallMany, rpc.TraceTransaction, rpc.TraceBlock:
 		return "tracing"
-	
+
 	// Admin methods
-	case rpc.AdminAddPeer, rpc.AdminNodeInfo, rpc.AdminPeers, rpc.AdminDatadir:
-		return "node_management"
-	
+	case rpc.AdminAddPeer, rpc.AdminAddTrustedPeer, rpc.AdminRemovePeer, rpc.AdminRemoveTrustedPeer, rpc.AdminNodeInfo, rpc.AdminPeers, rpc.AdminPeerEvents:
+		return "peer"
+	case rpc.AdminDatadir, rpc.AdminExportChain, rpc.AdminImportChain:
+		return "data"
+	case rpc.AdminStartHTTP, rpc.AdminStartWS, rpc.AdminStopHTTP, rpc.AdminStopWS:
+		return "rpc"
+
 	// Web3 methods
 	case rpc.Web3ClientVersion, rpc.Web3Sha3:
 		return "utility"
-	
+
 	// Net methods
 	case rpc.NetVersion, rpc.NetPeerCount, rpc.NetListening:
 		return "network"
-	
+
+	// LES methods - Light Ethereum Subprotocol
+	case rpc.LesServerInfo, rpc.LesClientInfo, rpc.LesPriorityClientInfo, rpc.LesAddBalance, rpc.LesSetClientParams, rpc.LesSetDefaultParams:
+		return "client_management"
+	case rpc.LesLatestCheckpoint, rpc.LesGetCheckpoint, rpc.LesGetCheckpointContractAddress:
+		return "checkpoint"
+
 	default:
 		return "other"
 	}
