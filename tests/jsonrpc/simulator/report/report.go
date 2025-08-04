@@ -1,7 +1,6 @@
 package report
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -75,7 +74,7 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 		fontStyle := &excelize.Style{Font: &excelize.Font{Bold: true}}
 		for i, result := range results {
 			row := i + 2
-			warnings, _ := json.Marshal(result.Warnings)
+			warnings := "[]" // Empty warnings array for Excel compatibility
 			methodCell := fmt.Sprintf("A%d", row)
 			if err = f.SetCellValue(name, methodCell, result.Method); err != nil {
 				log.Fatalf("Failed to set cell value: %v", err)
@@ -89,7 +88,7 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 				log.Fatalf("Failed to set cell value: %v", err)
 			}
 			warningsCell := fmt.Sprintf("D%d", row)
-			if err = f.SetCellValue(name, warningsCell, string(warnings)); err != nil {
+			if err = f.SetCellValue(name, warningsCell, warnings); err != nil {
 				log.Fatalf("Failed to set cell value: %v", err)
 			}
 			errCell := fmt.Sprintf("E%d", row)
@@ -102,15 +101,6 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 			switch result.Status {
 			case types.Ok:
 				fontStyle.Font.Color = utils.GREEN
-				s, err := f.NewStyle(fontStyle)
-				if err != nil {
-					log.Fatalf("Failed to create style: %v", err)
-				}
-				if err = f.SetCellStyle(name, statusCell, statusCell, s); err != nil {
-					log.Fatalf("Failed to set cell style: %v", err)
-				}
-			case types.Warning:
-				fontStyle.Font.Color = utils.YELLOW
 				s, err := f.NewStyle(fontStyle)
 				if err != nil {
 					log.Fatalf("Failed to create style: %v", err)
@@ -154,6 +144,7 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 
 	PrintHeader()
 	PrintCategorizedResults(results, verbose)
+	PrintCategoryMatrix(summary)
 	PrintSummary(summary)
 }
 
@@ -189,50 +180,139 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 	}
 }
 
+func PrintCategoryMatrix(summary *types.TestSummary) {
+	fmt.Println(`
+═══════════════════════════════════════════════
+                CATEGORY SUMMARY
+═══════════════════════════════════════════════`)
+
+	// Define the order of categories (by namespace)
+	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin"}
+
+	// Print header with subcategory column
+	fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %s\n",
+		"Category",
+		"Sub Category",
+		color.GreenString("Pass"),
+		color.RedString("Fail"),
+		color.MagentaString("Depr"),
+		color.YellowString("N/Im"),
+		color.HiBlackString("Skip"),
+		color.CyanString("Total"))
+
+	fmt.Println("────────────────┼─────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
+
+	// Print each category and its subcategories
+	for _, categoryName := range categoryOrder {
+		if catSummary, exists := summary.Categories[categoryName]; exists {
+			// Print category total first
+			fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
+				categoryName,
+				"All",
+				catSummary.Passed,
+				catSummary.Failed,
+				catSummary.Deprecated,
+				catSummary.NotImplemented,
+				catSummary.Skipped,
+				catSummary.Total)
+
+			// Print subcategories if they exist
+			if subcats, hasSubcats := summary.Subcategories[categoryName]; hasSubcats {
+				// Define order for eth subcategories
+				var subcatOrder []string
+				if categoryName == "eth" {
+					subcatOrder = []string{"Core", "EIP-1559", "Account & State", "Block", "Transaction", "Filter", "Mining", "Other"}
+				} else {
+					// For other categories, collect all subcategories
+					for subName := range subcats {
+						subcatOrder = append(subcatOrder, subName)
+					}
+				}
+
+				for _, subName := range subcatOrder {
+					if subSummary, exists := subcats[subName]; exists && subSummary.Total > 0 {
+						fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
+							"",
+							subName,
+							subSummary.Passed,
+							subSummary.Failed,
+							subSummary.Deprecated,
+							subSummary.NotImplemented,
+							subSummary.Skipped,
+							subSummary.Total)
+					}
+				}
+			}
+		}
+	}
+
+	// Print any uncategorized
+	if catSummary, exists := summary.Categories["Uncategorized"]; exists {
+		fmt.Printf("%-15s │ %-15s │ %4d │ %4d │ %4d │ %4d │ %4d │ %5d\n",
+			"Uncategorized",
+			"All",
+			catSummary.Passed,
+			catSummary.Failed,
+			catSummary.Deprecated,
+			catSummary.NotImplemented,
+			catSummary.Skipped,
+			catSummary.Total)
+	}
+}
+
 func PrintSummary(summary *types.TestSummary) {
 	fmt.Println(`
 ═══════════════════════════════════════════════
-                   TEST SUMMARY
+                   FINAL SUMMARY
 ═══════════════════════════════════════════════`)
 
 	color.Green("Passed:          %d", summary.Passed)
 	color.Red("Failed:          %d", summary.Failed)
-	color.Yellow("Warnings:        %d", summary.Warnings)
+	color.Magenta("Deprecated:      %d", summary.Deprecated)
 	color.Yellow("Not Implemented: %d", summary.NotImplemented)
 	color.HiBlack("Skipped:         %d", summary.Skipped)
 	color.Cyan("Total:           %d", summary.Total)
+
+	if summary.Failed > 0 {
+		fmt.Printf("\n")
+		color.Red("❌ Some tests failed. Check the detailed results above.")
+	} else {
+		fmt.Printf("\n")
+		color.Green("✅ All implemented methods are working correctly!")
+	}
 }
 
 func ColorPrint(result *types.RpcResult, verbose bool) {
 	method := result.Method
 	status := result.Status
+	subcategory := ""
+	if result.Subcategory != "" {
+		subcategory = fmt.Sprintf(" (%s)", result.Subcategory)
+	}
+
 	switch status {
 	case types.Ok:
 		value := result.Value
 		if !verbose {
 			value = ""
 		}
-		color.Green("[%s] %s", status, method)
+		color.Green("[%s] %s%s", status, method, subcategory)
 		if verbose && value != nil {
 			fmt.Printf(" - %v", value)
 		}
 		fmt.Println()
-	case types.Warning:
-		color.Yellow("[%s] %s", status, method)
-		if len(result.Warnings) > 0 {
-			fmt.Printf(" - %v", result.Warnings)
-		}
-		fmt.Println()
+	case types.Deprecated:
+		color.Magenta("[%s] %s%s - Method is deprecated but implemented", status, method, subcategory)
 	case types.NotImplemented:
-		color.Yellow("[%s] %s - Expected to be not implemented", status, method)
+		color.Yellow("[%s] %s%s - Expected to be not implemented", status, method, subcategory)
 	case types.Skipped:
-		color.HiBlack("[%s] %s", status, method)
+		color.HiBlack("[%s] %s%s", status, method, subcategory)
 		if result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}
 		fmt.Println()
 	case types.Error:
-		color.Red("[%s] %s", status, method)
+		color.Red("[%s] %s%s", status, method, subcategory)
 		if result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}

@@ -32,74 +32,98 @@ const GethVersion = "1.15.10"
 type CallRPC func(rCtx *RpcContext) (*types.RpcResult, error)
 
 const (
-	// Existing methods
-	SendRawTransaction                  types.RpcName = "eth_sendRawTransaction"
-	GetBlockNumber                      types.RpcName = "eth_blockNumber"
-	GetGasPrice                         types.RpcName = "eth_gasPrice"
-	GetMaxPriorityFeePerGas             types.RpcName = "eth_maxPriorityFeePerGas"
-	GetChainId                          types.RpcName = "eth_chainId"
-	GetBalance                          types.RpcName = "eth_getBalance"
-	GetBlockByHash                      types.RpcName = "eth_getBlockByHash"
-	GetBlockByNumber                    types.RpcName = "eth_getBlockByNumber"
-	GetBlockReceipts                    types.RpcName = "eth_getBlockReceipts"
-	GetTransactionByHash                types.RpcName = "eth_getTransactionByHash"
-	GetTransactionByBlockHashAndIndex   types.RpcName = "eth_getTransactionByBlockHashAndIndex"
-	GetTransactionByBlockNumberAndIndex types.RpcName = "eth_getTransactionByBlockNumberAndIndex"
-	GetTransactionReceipt               types.RpcName = "eth_getTransactionReceipt"
-	GetTransactionCount                 types.RpcName = "eth_getTransactionCount"
-	GetTransactionCountByHash           types.RpcName = "eth_getTransactionCountByHash"
-	GetBlockTransactionCountByHash      types.RpcName = "eth_getBlockTransactionCountByHash"
-	GetCode                             types.RpcName = "eth_getCode"
-	GetStorageAt                        types.RpcName = "eth_getStorageAt"
-	NewFilter                           types.RpcName = "eth_newFilter"
-	GetFilterLogs                       types.RpcName = "eth_getFilterLogs"
-	NewBlockFilter                      types.RpcName = "eth_newBlockFilter"
-	GetFilterChanges                    types.RpcName = "eth_getFilterChanges"
-	UninstallFilter                     types.RpcName = "eth_uninstallFilter"
-	GetLogs                             types.RpcName = "eth_getLogs"
-	EstimateGas                         types.RpcName = "eth_estimateGas"
-	Call                                types.RpcName = "eth_call"
-
-	// Web3 methods
+	// Web3 namespace
 	Web3ClientVersion types.RpcName = "web3_clientVersion"
 	Web3Sha3          types.RpcName = "web3_sha3"
 
-	// Net methods
-	NetVersion     types.RpcName = "net_version"
-	NetPeerCount   types.RpcName = "net_peerCount"
-	NetListening   types.RpcName = "net_listening"
+	// Net namespace  
+	NetVersion   types.RpcName = "net_version"
+	NetPeerCount types.RpcName = "net_peerCount"
+	NetListening types.RpcName = "net_listening"
 
-	// Additional Eth methods
-	EthProtocolVersion types.RpcName = "eth_protocolVersion"
-	EthSyncing         types.RpcName = "eth_syncing"
-	EthAccounts        types.RpcName = "eth_accounts"
-	EthMining          types.RpcName = "eth_mining"
-	EthHashrate        types.RpcName = "eth_hashrate"
-	EthCoinbase        types.RpcName = "eth_coinbase"
-	EthGetProof        types.RpcName = "eth_getProof"
-	EthFeeHistory      types.RpcName = "eth_feeHistory"
+	// Eth namespace - client subcategory
+	EthChainId     types.RpcName = "eth_chainId"
+	EthSyncing     types.RpcName = "eth_syncing" 
+	EthCoinbase    types.RpcName = "eth_coinbase"
+	EthAccounts    types.RpcName = "eth_accounts"
+	EthBlockNumber types.RpcName = "eth_blockNumber"
+	EthMining      types.RpcName = "eth_mining"
+	EthHashrate    types.RpcName = "eth_hashrate"
 
-	// Personal methods
-	PersonalListAccounts types.RpcName = "personal_listAccounts"
-	PersonalEcRecover    types.RpcName = "personal_ecRecover"
-	PersonalListWallets  types.RpcName = "personal_listWallets"
+	// Eth namespace - fee_market subcategory
+	EthGasPrice             types.RpcName = "eth_gasPrice"
+	EthBlobBaseFee          types.RpcName = "eth_blobBaseFee"
+	EthMaxPriorityFeePerGas types.RpcName = "eth_maxPriorityFeePerGas"
+	EthFeeHistory           types.RpcName = "eth_feeHistory"
 
-	// TxPool methods
-	TxPoolContent types.RpcName = "txpool_content"
-	TxPoolInspect types.RpcName = "txpool_inspect"
-	TxPoolStatus  types.RpcName = "txpool_status"
+	// Eth namespace - state subcategory
+	EthGetBalance          types.RpcName = "eth_getBalance"
+	EthGetStorageAt        types.RpcName = "eth_getStorageAt"
+	EthGetTransactionCount types.RpcName = "eth_getTransactionCount"
+	EthGetCode             types.RpcName = "eth_getCode"
+	EthGetProof            types.RpcName = "eth_getProof"
 
-	// Debug methods
-	DebugTraceBlockByNumber types.RpcName = "debug_traceBlockByNumber"
-	DebugFreeOSMemory       types.RpcName = "debug_freeOSMemory"
-	DebugSetGCPercent       types.RpcName = "debug_setGCPercent"
-	DebugGetRawBlock        types.RpcName = "debug_getRawBlock"
-	DebugGetRawHeader       types.RpcName = "debug_getRawHeader"
-	DebugGetRawReceipts     types.RpcName = "debug_getRawReceipts"
-	DebugGetRawTransaction  types.RpcName = "debug_getRawTransaction"
-	DebugPrintBlock         types.RpcName = "debug_printBlock"
+	// Eth namespace - block subcategory
+	EthGetBlockByHash                types.RpcName = "eth_getBlockByHash"
+	EthGetBlockByNumber              types.RpcName = "eth_getBlockByNumber"
+	EthGetBlockTransactionCountByHash   types.RpcName = "eth_getBlockTransactionCountByHash"
+	EthGetBlockTransactionCountByNumber types.RpcName = "eth_getBlockTransactionCountByNumber"
+	EthGetUncleCountByBlockHash         types.RpcName = "eth_getUncleCountByBlockHash"
+	EthGetUncleCountByBlockNumber       types.RpcName = "eth_getUncleCountByBlockNumber"
+	EthGetUncleByBlockHashAndIndex      types.RpcName = "eth_getUncleByBlockHashAndIndex"
+	EthGetUncleByBlockNumberAndIndex    types.RpcName = "eth_getUncleByBlockNumberAndIndex"
+	EthGetBlockReceipts                 types.RpcName = "eth_getBlockReceipts"
 
-	// Miner methods
+	// Eth namespace - transaction subcategory
+	EthGetTransactionByHash                types.RpcName = "eth_getTransactionByHash"
+	EthGetTransactionByBlockHashAndIndex   types.RpcName = "eth_getTransactionByBlockHashAndIndex"
+	EthGetTransactionByBlockNumberAndIndex types.RpcName = "eth_getTransactionByBlockNumberAndIndex"
+	EthGetTransactionReceipt               types.RpcName = "eth_getTransactionReceipt"
+	EthGetTransactionCountByHash           types.RpcName = "eth_getTransactionCountByHash"
+	EthPendingTransactions                 types.RpcName = "eth_pendingTransactions"
+
+	// Eth namespace - filter subcategory
+	EthNewFilter                   types.RpcName = "eth_newFilter"
+	EthNewBlockFilter              types.RpcName = "eth_newBlockFilter"
+	EthNewPendingTransactionFilter types.RpcName = "eth_newPendingTransactionFilter"
+	EthGetFilterChanges            types.RpcName = "eth_getFilterChanges"
+	EthGetFilterLogs               types.RpcName = "eth_getFilterLogs"
+	EthUninstallFilter             types.RpcName = "eth_uninstallFilter"
+	EthGetLogs                     types.RpcName = "eth_getLogs"
+
+	// Eth namespace - execute subcategory
+	Call        types.RpcName = "eth_call"
+	EstimateGas types.RpcName = "eth_estimateGas"
+
+	// Eth namespace - submit subcategory
+	EthSendTransaction    types.RpcName = "eth_sendTransaction"
+	EthSendRawTransaction types.RpcName = "eth_sendRawTransaction"
+
+	// Eth namespace - sign subcategory (deprecated in many clients)
+	EthSign            types.RpcName = "eth_sign"
+	EthSignTransaction types.RpcName = "eth_signTransaction"
+
+	// Eth namespace - other/deprecated methods
+	EthProtocolVersion  types.RpcName = "eth_protocolVersion"
+	EthGetCompilers     types.RpcName = "eth_getCompilers"
+	EthCompileSolidity  types.RpcName = "eth_compileSolidity"
+	EthGetWork          types.RpcName = "eth_getWork"
+	EthSubmitWork       types.RpcName = "eth_submitWork"
+	EthSubmitHashrate   types.RpcName = "eth_submitHashrate"
+	EthCreateAccessList types.RpcName = "eth_createAccessList"
+
+	// Personal namespace (deprecated)
+	PersonalListAccounts  types.RpcName = "personal_listAccounts"
+	PersonalEcRecover     types.RpcName = "personal_ecRecover"
+	PersonalListWallets   types.RpcName = "personal_listWallets"
+	PersonalNewAccount    types.RpcName = "personal_newAccount"
+	PersonalImportRawKey  types.RpcName = "personal_importRawKey"
+	PersonalUnlockAccount types.RpcName = "personal_unlockAccount"
+	PersonalLockAccount   types.RpcName = "personal_lockAccount"
+	PersonalSign          types.RpcName = "personal_sign"
+	PersonalSignTypedData types.RpcName = "personal_signTypedData"
+
+	// Miner namespace (deprecated)
 	MinerStart        types.RpcName = "miner_start"
 	MinerStop         types.RpcName = "miner_stop"
 	MinerSetEtherbase types.RpcName = "miner_setEtherbase"
@@ -108,18 +132,63 @@ const (
 	MinerSetGasLimit  types.RpcName = "miner_setGasLimit"
 	MinerGetHashrate  types.RpcName = "miner_getHashrate"
 
-	// Engine API methods (expected to fail)
-	EngineNewPayloadV1        types.RpcName = "engine_newPayloadV1"
-	EngineForkchoiceUpdatedV1 types.RpcName = "engine_forkchoiceUpdatedV1"
-	EngineGetPayloadV1        types.RpcName = "engine_getPayloadV1"
+	// TxPool namespace
+	TxPoolContent types.RpcName = "txpool_content"
+	TxPoolInspect types.RpcName = "txpool_inspect"
+	TxPoolStatus  types.RpcName = "txpool_status"
 
-	// Not implemented methods
-	EthCreateAccessList types.RpcName = "eth_createAccessList"
-	TraceCall           types.RpcName = "trace_call"
-	TraceCallMany       types.RpcName = "trace_callMany"
-	TraceTransaction    types.RpcName = "trace_transaction"
-	AdminAddPeer        types.RpcName = "admin_addPeer"
-	AdminNodeInfo       types.RpcName = "admin_nodeInfo"
+	// Debug namespace - tracing subcategory
+	DebugTraceTransaction types.RpcName = "debug_traceTransaction"
+	DebugTraceBlock       types.RpcName = "debug_traceBlock"
+	DebugTraceCall        types.RpcName = "debug_traceCall"
+	DebugIntermediateRoots types.RpcName = "debug_intermediateRoots"
+
+	// Debug namespace - database subcategory
+	DebugDbGet             types.RpcName = "debug_dbGet"
+	DebugDbAncient         types.RpcName = "debug_dbAncient"
+	DebugChaindbCompact    types.RpcName = "debug_chaindbCompact"
+	DebugGetModifiedAccounts types.RpcName = "debug_getModifiedAccounts"
+	DebugDumpBlock         types.RpcName = "debug_dumpBlock"
+
+	// Debug namespace - profiling subcategory
+	DebugBlockProfile         types.RpcName = "debug_blockProfile"
+	DebugCpuProfile           types.RpcName = "debug_cpuProfile"
+	DebugGoTrace              types.RpcName = "debug_goTrace"
+	DebugMemStats             types.RpcName = "debug_memStats"
+	DebugMutexProfile         types.RpcName = "debug_mutexProfile"
+	DebugSetBlockProfileRate  types.RpcName = "debug_setBlockProfileRate"
+	DebugSetMutexProfileFraction types.RpcName = "debug_setMutexProfileFraction"
+
+	// Debug namespace - diagnostics subcategory
+	DebugBacktraceAt    types.RpcName = "debug_backtraceAt"
+	DebugStacks         types.RpcName = "debug_stacks"
+	DebugGetBadBlocks   types.RpcName = "debug_getBadBlocks"
+	DebugPreimage       types.RpcName = "debug_preimage"
+	DebugFreeOSMemory   types.RpcName = "debug_freeOSMemory"
+	DebugSetHead        types.RpcName = "debug_setHead"
+
+	// Engine API namespace (not applicable for Cosmos chains)
+	EngineNewPayloadV1        types.RpcName = "engine_newPayloadV1"
+	EngineNewPayloadV2        types.RpcName = "engine_newPayloadV2"
+	EngineNewPayloadV3        types.RpcName = "engine_newPayloadV3"
+	EngineForkchoiceUpdatedV1 types.RpcName = "engine_forkchoiceUpdatedV1"
+	EngineForkchoiceUpdatedV2 types.RpcName = "engine_forkchoiceUpdatedV2"
+	EngineForkchoiceUpdatedV3 types.RpcName = "engine_forkchoiceUpdatedV3"
+	EngineGetPayloadV1        types.RpcName = "engine_getPayloadV1"
+	EngineGetPayloadV2        types.RpcName = "engine_getPayloadV2"
+	EngineGetPayloadV3        types.RpcName = "engine_getPayloadV3"
+
+	// Trace namespace (OpenEthereum/Erigon specific, not in standard execution-apis)
+	TraceCall        types.RpcName = "trace_call"
+	TraceCallMany    types.RpcName = "trace_callMany"
+	TraceTransaction types.RpcName = "trace_transaction"
+	TraceBlock       types.RpcName = "trace_block"
+
+	// Admin namespace (Geth specific administrative methods)
+	AdminAddPeer    types.RpcName = "admin_addPeer"
+	AdminNodeInfo   types.RpcName = "admin_nodeInfo"
+	AdminPeers      types.RpcName = "admin_peers"
+	AdminDatadir    types.RpcName = "admin_datadir"
 )
 
 type RpcContext struct {
@@ -172,8 +241,8 @@ func (rCtx *RpcContext) AlreadyTested(rpc types.RpcName) *types.RpcResult {
 
 }
 
-func RpcGetBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBlockNumber); result != nil {
+func RpcEthBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthBlockNumber); result != nil {
 		return result, nil
 	}
 	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
@@ -181,29 +250,22 @@ func RpcGetBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
-	if blockNumber == 0 {
-		warnings = append(warnings, "blockNumber is zero")
-	}
-
+	// Block number 0 is valid for fresh chains
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetBlockNumber,
+		Method:   EthBlockNumber,
 		Status:   status,
 		Value:    blockNumber,
-		Warnings: warnings,
+		Category: "Core Eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcGetGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetGasPrice); result != nil {
+func RpcEthGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGasPrice); result != nil {
 		return result, nil
 	}
 
@@ -212,29 +274,29 @@ func RpcGetGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
-	if gasPrice == nil || gasPrice.Cmp(big.NewInt(0)) == 0 {
-		warnings = append(warnings, "gasPrice is nil or zero")
+	// gasPrice should never be nil or zero in a proper EVM implementation
+	if gasPrice == nil {
+		return nil, fmt.Errorf("gasPrice is nil")
+	}
+	if gasPrice.Cmp(big.NewInt(0)) == 0 {
+		return nil, fmt.Errorf("gasPrice is zero")
 	}
 
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetGasPrice,
+		Method:   EthGasPrice,
 		Status:   status,
 		Value:    gasPrice.String(),
-		Warnings: warnings,
+		Category: "Core Eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcGetMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetMaxPriorityFeePerGas); result != nil {
+func RpcEthMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthMaxPriorityFeePerGas); result != nil {
 		return result, nil
 	}
 
@@ -243,29 +305,22 @@ func RpcGetMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
-	if maxPriorityFeePerGas.Cmp(big.NewInt(0)) == 0 {
-		warnings = append(warnings, "maxPriorityFeePerGas is nil or zero")
-	}
-
+	// Zero maxPriorityFeePerGas is valid (legacy transactions don't use tips)
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetMaxPriorityFeePerGas,
+		Method:   EthMaxPriorityFeePerGas,
 		Status:   status,
 		Value:    maxPriorityFeePerGas.String(),
-		Warnings: warnings,
+		Category: "EIP-1559",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcGetChainId(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetChainId); result != nil {
+func RpcEthChainId(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthChainId); result != nil {
 		return result, nil
 	}
 
@@ -274,29 +329,26 @@ func RpcGetChainId(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
+	// chainId should never be zero
 	if chainId.Cmp(big.NewInt(0)) == 0 {
-		warnings = append(warnings, "chainId is nil")
+		return nil, fmt.Errorf("chainId is zero")
 	}
 
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetChainId,
+		Method:   EthChainId,
 		Status:   status,
 		Value:    chainId.String(),
-		Warnings: warnings,
+		Category: "Core Eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBalance); result != nil {
+func RpcEthGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetBalance); result != nil {
 		return result, nil
 	}
 
@@ -305,29 +357,22 @@ func RpcGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
-	if balance.Cmp(big.NewInt(0)) == 0 {
-		warnings = append(warnings, "balance is zero")
-	}
-
+	// Zero balance is valid for unused addresses
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetBalance,
+		Method:   EthGetBalance,
 		Status:   status,
 		Value:    balance.String(),
-		Warnings: warnings,
+		Category: "Account & State",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionCount); result != nil {
+func RpcEthGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionCount); result != nil {
 		return result, nil
 	}
 
@@ -336,26 +381,19 @@ func RpcGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
-	if nonce == 0 {
-		warnings = append(warnings, "nonce is zero")
-	}
-
+	// Zero nonce is valid for unused addresses
 	status := types.Ok
-	if len(warnings) > 0 {
-		status = types.Warning
-	}
 
 	return &types.RpcResult{
-		Method:   GetTransactionCount,
+		Method:   EthGetTransactionCount,
 		Status:   status,
 		Value:    nonce,
-		Warnings: warnings,
+		Category: "Account & State",
 	}, nil
 }
 
-func RpcGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBlockByHash); result != nil {
+func RpcEthGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetBlockByHash); result != nil {
 		return result, nil
 	}
 
@@ -379,7 +417,7 @@ func RpcGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetBlockByHash,
+		Method: EthGetBlockByHash,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyBlock(types.NewRpcBlock(block)),
 	}
@@ -388,8 +426,8 @@ func RpcGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBlockByNumber); result != nil {
+func RpcEthGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetBlockByNumber); result != nil {
 		return result, nil
 	}
 
@@ -404,7 +442,7 @@ func RpcGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetBlockByNumber,
+		Method: EthGetBlockByNumber,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyBlock(types.NewRpcBlock(blk)),
 	}
@@ -413,7 +451,7 @@ func RpcGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, error) {
+func RpcEthSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -423,7 +461,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetChainId,
+		Method: EthChainId,
 		Status: types.Ok,
 		Value:  rCtx.ChainId.String(),
 	})
@@ -433,7 +471,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetTransactionCount,
+		Method: EthGetTransactionCount,
 		Status: types.Ok,
 		Value:  nonce,
 	})
@@ -442,7 +480,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetMaxPriorityFeePerGas,
+		Method: EthMaxPriorityFeePerGas,
 		Status: types.Ok,
 		Value:  rCtx.MaxPriorityFeePerGas.String(),
 	})
@@ -450,7 +488,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetGasPrice,
+		Method: EthGasPrice,
 		Status: types.Ok,
 		Value:  rCtx.GasPrice.String(),
 	})
@@ -462,7 +500,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetBalance,
+		Method: EthGetBalance,
 		Status: types.Ok,
 		Value:  balanceBeforeSend.String(),
 	})
@@ -492,7 +530,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	result := &types.RpcResult{
-		Method: SendRawTransaction,
+		Method: EthSendRawTransaction,
 		Status: types.Ok,
 		Value:  signedTx.Hash().Hex(),
 	}
@@ -517,7 +555,7 @@ func RpcSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 	return result, nil
 }
 
-func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, error) {
+func RpcEthSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -527,7 +565,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetChainId,
+		Method: EthChainId,
 		Status: types.Ok,
 		Value:  rCtx.ChainId.String(),
 	})
@@ -537,7 +575,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetTransactionCount,
+		Method: EthGetTransactionCount,
 		Status: types.Ok,
 		Value:  nonce,
 	})
@@ -546,7 +584,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetMaxPriorityFeePerGas,
+		Method: EthMaxPriorityFeePerGas,
 		Status: types.Ok,
 		Value:  rCtx.MaxPriorityFeePerGas.String(),
 	})
@@ -554,7 +592,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetGasPrice,
+		Method: EthGasPrice,
 		Status: types.Ok,
 		Value:  rCtx.GasPrice.String(),
 	})
@@ -579,7 +617,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 		return nil, err
 	}
 	result := &types.RpcResult{
-		Method: SendRawTransaction,
+		Method: EthSendRawTransaction,
 		Status: types.Ok,
 		Value:  signedTx.Hash().Hex(),
 	}
@@ -600,7 +638,7 @@ func RpcSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 	return result, nil
 }
 
-func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, error) {
+func RpcEthSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -610,7 +648,7 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetChainId,
+		Method: EthChainId,
 		Status: types.Ok,
 		Value:  rCtx.ChainId.String(),
 	})
@@ -620,7 +658,7 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetTransactionCount,
+		Method: EthGetTransactionCount,
 		Status: types.Ok,
 		Value:  nonce,
 	})
@@ -629,7 +667,7 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetMaxPriorityFeePerGas,
+		Method: EthMaxPriorityFeePerGas,
 		Status: types.Ok,
 		Value:  rCtx.MaxPriorityFeePerGas.String(),
 	})
@@ -637,7 +675,7 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: GetGasPrice,
+		Method: EthGasPrice,
 		Status: types.Ok,
 		Value:  rCtx.GasPrice.String(),
 	})
@@ -671,7 +709,7 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 	}
 
 	result := &types.RpcResult{
-		Method: SendRawTransaction,
+		Method: EthSendRawTransaction,
 		Status: types.Ok,
 		Value:  signedTx.Hash().Hex(),
 	}
@@ -688,8 +726,8 @@ func RpcSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 	return result, nil
 }
 
-func RpcGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBlockReceipts); result != nil {
+func RpcEthGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetBlockReceipts); result != nil {
 		return result, nil
 	}
 
@@ -708,7 +746,7 @@ func RpcGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetBlockReceipts,
+		Method: EthGetBlockReceipts,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyReceipts(receipts),
 	}
@@ -717,8 +755,8 @@ func RpcGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionByHash); result != nil {
+func RpcEthGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionByHash); result != nil {
 		return result, nil
 	}
 
@@ -734,7 +772,7 @@ func RpcGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetTransactionByHash,
+		Method: EthGetTransactionByHash,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyTransaction(tx),
 	}
@@ -743,8 +781,8 @@ func RpcGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionByBlockHashAndIndex); result != nil {
+func RpcEthGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionByBlockHashAndIndex); result != nil {
 		return result, nil
 	}
 
@@ -769,7 +807,7 @@ func RpcGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, e
 	}
 
 	result := &types.RpcResult{
-		Method: GetTransactionByBlockHashAndIndex,
+		Method: EthGetTransactionByBlockHashAndIndex,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyTransaction(tx),
 	}
@@ -778,8 +816,8 @@ func RpcGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, e
 	return result, nil
 }
 
-func RpcGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionByBlockNumberAndIndex); result != nil {
+func RpcEthGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionByBlockNumberAndIndex); result != nil {
 		return result, nil
 	}
 
@@ -790,12 +828,12 @@ func RpcGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult,
 	// TODO: Random pick
 	blkNum := rCtx.BlockNumsIncludingTx[0]
 	var tx gethtypes.Transaction
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &tx, string(GetTransactionByBlockNumberAndIndex), blkNum, "0x0"); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &tx, string(EthGetTransactionByBlockNumberAndIndex), blkNum, "0x0"); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
-		Method: GetTransactionByBlockNumberAndIndex,
+		Method: EthGetTransactionByBlockNumberAndIndex,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyTransaction(&tx),
 	}
@@ -804,8 +842,8 @@ func RpcGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult,
 	return result, nil
 }
 
-func RpcGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionCountByHash); result != nil {
+func RpcEthGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionCountByHash); result != nil {
 		return result, nil
 	}
 
@@ -821,12 +859,12 @@ func RpcGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	var count uint64
-	if err = rCtx.EthCli.Client().CallContext(context.Background(), &count, string(GetTransactionCountByHash), blk.Hash()); err != nil {
+	if err = rCtx.EthCli.Client().CallContext(context.Background(), &count, string(EthGetTransactionCountByHash), blk.Hash()); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
-		Method: GetTransactionCountByHash,
+		Method: EthGetTransactionCountByHash,
 		Status: types.Ok,
 		Value:  count,
 	}
@@ -835,8 +873,8 @@ func RpcGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetTransactionReceipt); result != nil {
+func RpcEthGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetTransactionReceipt); result != nil {
 		return result, nil
 	}
 
@@ -851,7 +889,7 @@ func RpcGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetTransactionReceipt,
+		Method: EthGetTransactionReceipt,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyReceipt(receipt),
 	}
@@ -860,8 +898,8 @@ func RpcGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetBlockTransactionCountByHash); result != nil {
+func RpcEthGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetBlockTransactionCountByHash); result != nil {
 		return result, nil
 	}
 
@@ -881,7 +919,7 @@ func RpcGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, erro
 	}
 
 	result := &types.RpcResult{
-		Method: GetBlockTransactionCountByHash,
+		Method: EthGetBlockTransactionCountByHash,
 		Status: types.Ok,
 		Value:  count,
 	}
@@ -890,8 +928,8 @@ func RpcGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, erro
 	return result, nil
 }
 
-func RpcGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetCode); result != nil {
+func RpcEthGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetCode); result != nil {
 		return result, nil
 	}
 
@@ -905,7 +943,7 @@ func RpcGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: GetCode,
+		Method: EthGetCode,
 		Status: types.Ok,
 		Value:  hexutils.BytesToHex(code),
 	}
@@ -914,8 +952,8 @@ func RpcGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetStorageAt); result != nil {
+func RpcEthGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetStorageAt); result != nil {
 		return result, nil
 	}
 
@@ -929,27 +967,22 @@ func RpcGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	var warnings []string
+	// Zero storage is valid - most storage slots are empty
 	status := types.Ok
-	// check storage is zero
-	if utils.IsZeroBytes(storage) {
-		warnings = append(warnings, "storage is zero bytes, should try another slot")
-		status = types.Warning
-	}
 
 	result := &types.RpcResult{
-		Method:   GetStorageAt,
+		Method:   EthGetStorageAt,
 		Status:   status,
 		Value:    hexutils.BytesToHex(storage),
-		Warnings: warnings,
+		Category: "Account & State",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(NewFilter); result != nil {
+func RpcEthNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthNewFilter); result != nil {
 		return result, nil
 	}
 
@@ -965,12 +998,12 @@ func RpcNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 	var rpcId string
-	if err = rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(NewFilter), args); err != nil {
+	if err = rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(EthNewFilter), args); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
-		Method: NewFilter,
+		Method: EthNewFilter,
 		Status: types.Ok,
 		Value:  rpcId,
 	}
@@ -981,8 +1014,8 @@ func RpcNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetFilterLogs); result != nil {
+func RpcEthGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetFilterLogs); result != nil {
 		return result, nil
 	}
 
@@ -990,17 +1023,17 @@ func RpcGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 		return nil, errors.New("no filter id, must create a filter first")
 	}
 
-	if _, err := RpcSendRawTransactionTransferERC20(rCtx); err != nil {
+	if _, err := RpcEthSendRawTransactionTransferERC20(rCtx); err != nil {
 		return nil, errors.New("transfer ERC20 must be succeeded before checking filter logs")
 	}
 
 	var logs []gethtypes.Log
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &logs, string(GetFilterLogs), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &logs, string(EthGetFilterLogs), rCtx.FilterId); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
-		Method: GetFilterLogs,
+		Method: EthGetFilterLogs,
 		Status: types.Ok,
 		Value:  utils.MustBeautifyLogs(logs),
 	}
@@ -1009,18 +1042,18 @@ func RpcGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcNewBlockFilter(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(NewBlockFilter); result != nil {
+func RpcEthNewBlockFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthNewBlockFilter); result != nil {
 		return result, nil
 	}
 
 	var rpcId string
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(NewBlockFilter)); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(EthNewBlockFilter)); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
-		Method: NewBlockFilter,
+		Method: EthNewBlockFilter,
 		Status: types.Ok,
 		Value:  rpcId,
 	}
@@ -1030,8 +1063,8 @@ func RpcNewBlockFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetFilterChanges); result != nil {
+func RpcEthGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetFilterChanges); result != nil {
 		return result, nil
 	}
 
@@ -1043,30 +1076,26 @@ func RpcGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
 	time.Sleep(3 * time.Second) // wait for a new block to be mined
 
 	var changes []interface{}
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &changes, string(GetFilterChanges), rCtx.BlockFilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &changes, string(EthGetFilterChanges), rCtx.BlockFilterId); err != nil {
 		return nil, err
 	}
 
 	status := types.Ok
-	warnings := []string{}
-	if len(changes) == 0 {
-		status = types.Warning
-		warnings = append(warnings, "no new blocks")
-	}
+	// Empty results are valid - no warnings needed
 
 	result := &types.RpcResult{
-		Method:   GetFilterChanges,
+		Method:   EthGetFilterChanges,
 		Status:   status,
 		Value:    changes,
-		Warnings: warnings,
+		Category: "Filter",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
 	return result, nil
 }
 
-func RpcUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(UninstallFilter); result != nil {
+func RpcEthUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthUninstallFilter); result != nil {
 		return result, nil
 	}
 
@@ -1075,14 +1104,14 @@ func RpcUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	var res bool
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(UninstallFilter), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(EthUninstallFilter), rCtx.FilterId); err != nil {
 		return nil, err
 	}
 	if !res {
 		return nil, errors.New("uninstall filter failed")
 	}
 
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(UninstallFilter), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(EthUninstallFilter), rCtx.FilterId); err != nil {
 		return nil, err
 	}
 	if res {
@@ -1090,7 +1119,7 @@ func RpcUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method: UninstallFilter,
+		Method: EthUninstallFilter,
 		Status: types.Ok,
 		Value:  rCtx.FilterId,
 	}
@@ -1099,16 +1128,16 @@ func RpcUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func RpcGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(GetLogs); result != nil {
+func RpcEthGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(EthGetLogs); result != nil {
 		return result, nil
 	}
 
-	if _, err := RpcNewFilter(rCtx); err != nil {
+	if _, err := RpcEthNewFilter(rCtx); err != nil {
 		return nil, errors.New("failed to create a filter")
 	}
 
-	if _, err := RpcSendRawTransactionTransferERC20(rCtx); err != nil {
+	if _, err := RpcEthSendRawTransactionTransferERC20(rCtx); err != nil {
 		return nil, errors.New("transfer ERC20 must be succeeded before checking filter logs")
 	}
 
@@ -1119,17 +1148,13 @@ func RpcGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	status := types.Ok
-	warnings := []string{}
-	if len(logs) == 0 {
-		status = types.Warning
-		warnings = append(warnings, "no logs")
-	}
+	// Empty results are valid - no warnings needed
 
 	result := &types.RpcResult{
-		Method:   GetLogs,
+		Method:   EthGetLogs,
 		Status:   status,
 		Value:    utils.MustBeautifyLogs(logs),
-		Warnings: warnings,
+		Category: "Filter",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1223,7 +1248,7 @@ func WaitForTx(rCtx *RpcContext, txHash common.Hash, timeout time.Duration) erro
 				rCtx.ProcessedTransactions = append(rCtx.ProcessedTransactions, txHash)
 				rCtx.BlockNumsIncludingTx = append(rCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
 				rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, &types.RpcResult{
-					Method: GetTransactionReceipt,
+					Method: EthGetTransactionReceipt,
 					Status: types.Ok,
 					Value:  utils.MustBeautifyReceipt(receipt),
 				})
@@ -1403,14 +1428,55 @@ func RpcPersonalListAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   PersonalListAccounts,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Personal",
+			Category: "personal",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   PersonalListAccounts,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Personal",
+		Category: "personal",
+	}, nil
+}
+
+func RpcPersonalEcRecover(rCtx *RpcContext) (*types.RpcResult, error) {
+	// Test with known data
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "personal_ecRecover",
+		"0xdeadbeaf",
+		"0xf9ff74c86aefeb5f6019d77280bbb44fb695b4d45cfe97e6eed7acd62905f4a85034d5c68ed25a2e7a8eeb9baf1b8401e4f865d92ec48c1763bf649e354d900b1c")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   PersonalEcRecover,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   PersonalEcRecover,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "personal",
+	}, nil
+}
+
+func RpcPersonalListWallets(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "personal_listWallets")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   PersonalListWallets,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   PersonalListWallets,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "personal",
 	}, nil
 }
 
@@ -1428,6 +1494,44 @@ func RpcTxPoolStatus(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 	return &types.RpcResult{
 		Method:   TxPoolStatus,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "TxPool",
+	}, nil
+}
+
+func RpcTxPoolContent(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "txpool_content")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   TxPoolContent,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "TxPool",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   TxPoolContent,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "TxPool",
+	}, nil
+}
+
+func RpcTxPoolInspect(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "txpool_inspect")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   TxPoolInspect,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "TxPool",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   TxPoolInspect,
 		Status:   types.Ok,
 		Value:    result,
 		Category: "TxPool",
@@ -1470,5 +1574,86 @@ func RpcSkipped(methodName types.RpcName, category string, reason string) (*type
 		Status:   types.Skipped,
 		ErrMsg:   reason,
 		Category: category,
+	}, nil
+}
+
+func RpcDeprecated(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Deprecated,
+		ErrMsg:   reason,
+		Category: category,
+	}, nil
+}
+
+// Missing function implementations
+func RpcEthCoinbase(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "eth_coinbase")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EthCoinbase,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	return &types.RpcResult{
+		Method:   EthCoinbase,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "eth",
+	}, nil
+}
+
+func RpcEthCall(rCtx *RpcContext) (*types.RpcResult, error) {
+	// Simple eth_call test 
+	callMsg := ethereum.CallMsg{
+		To:   &rCtx.Acc.Address,
+		Data: []byte{},
+	}
+	
+	result, err := rCtx.EthCli.CallContract(context.Background(), callMsg, nil)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   Call,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	return &types.RpcResult{
+		Method:   Call,
+		Status:   types.Ok,
+		Value:    "0x" + hex.EncodeToString(result),
+		Category: "eth",
+	}, nil
+}
+
+func RpcEthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
+	// Simple gas estimation test
+	callMsg := ethereum.CallMsg{
+		From:  rCtx.Acc.Address,
+		To:    &rCtx.Acc.Address,
+		Value: big.NewInt(0),
+	}
+	
+	gasLimit, err := rCtx.EthCli.EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   EstimateGas,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	return &types.RpcResult{
+		Method:   EstimateGas,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("0x%x", gasLimit),
+		Category: "eth",
 	}, nil
 }
