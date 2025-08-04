@@ -175,6 +175,7 @@ func main() {
 			Description: "TxPool namespace methods",
 			Methods: []types.TestMethod{
 				{Name: rpc.TxPoolContent, Handler: rpc.RpcTxPoolContent},
+				{Name: rpc.TxPoolContentFrom, Handler: rpc.RpcTxPoolContentFrom},
 				{Name: rpc.TxPoolInspect, Handler: rpc.RpcTxPoolInspect},
 				{Name: rpc.TxPoolStatus, Handler: rpc.RpcTxPoolStatus},
 			},
@@ -553,7 +554,7 @@ func getSubcategory(methodName types.RpcName) string {
 		return "transaction"
 
 	// TxPool methods
-	case rpc.TxPoolContent, rpc.TxPoolInspect, rpc.TxPoolStatus:
+	case rpc.TxPoolContent, rpc.TxPoolContentFrom, rpc.TxPoolInspect, rpc.TxPoolStatus:
 		return "mempool"
 
 	// Engine API methods

@@ -139,9 +139,10 @@ const (
 	MinerGetHashrate  types.RpcName = "miner_getHashrate"
 
 	// TxPool namespace
-	TxPoolContent types.RpcName = "txpool_content"
-	TxPoolInspect types.RpcName = "txpool_inspect"
-	TxPoolStatus  types.RpcName = "txpool_status"
+	TxPoolContent     types.RpcName = "txpool_content"
+	TxPoolContentFrom types.RpcName = "txpool_contentFrom"
+	TxPoolInspect     types.RpcName = "txpool_inspect"
+	TxPoolStatus      types.RpcName = "txpool_status"
 
 	// Debug namespace - tracing subcategory
 	DebugTraceTransaction  types.RpcName = "debug_traceTransaction"
@@ -1532,14 +1533,14 @@ func RpcTxPoolStatus(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   TxPoolStatus,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "TxPool",
+			Category: "txpool",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   TxPoolStatus,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "TxPool",
+		Category: "txpool",
 	}, nil
 }
 
@@ -1551,14 +1552,14 @@ func RpcTxPoolContent(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   TxPoolContent,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "TxPool",
+			Category: "txpool",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   TxPoolContent,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "TxPool",
+		Category: "txpool",
 	}, nil
 }
 
@@ -1570,14 +1571,36 @@ func RpcTxPoolInspect(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   TxPoolInspect,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "TxPool",
+			Category: "txpool",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   TxPoolInspect,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "TxPool",
+		Category: "txpool",
+	}, nil
+}
+
+// RpcTxPoolContentFrom returns the transactions pool content for a specific account
+func RpcTxPoolContentFrom(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	// Use a sample address for testing - in real usage this would be parameterized
+	testAddress := "0x407d73d8a49eeb85d32cf465507dd71d507100c1"
+	err := rCtx.EthCli.Client().Call(&result, "txpool_contentFrom", testAddress)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   TxPoolContentFrom,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "txpool",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   TxPoolContentFrom,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "txpool",
 	}, nil
 }
 
