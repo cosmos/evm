@@ -644,13 +644,18 @@ func (k *Keeper) traceTx(
 	if traceConfig.Tracer == types.TracerAccessList {
 		// Create access list tracer using the logger package directly
 		blockAddrs := map[common.Address]struct{}{
-			*msg.To: {}, msg.From: {},
+			msg.From: {},
+		}
+
+		// Add the 'to' address if it exists (not nil for contract creation)
+		if msg.To != nil {
+			blockAddrs[*msg.To] = struct{}{}
 		}
 
 		// Get active precompiles for the correct block height
 		chainConfig := types.GetEthChainConfig()
 		blockNumber := big.NewInt(ctx.BlockHeight())
-		blockTime := uint64(ctx.BlockTime().Unix())
+		blockTime := uint64(ctx.BlockTime().Unix()) //nolint:gosec // disable G115, can't be negative
 		precompiles := vm.ActivePrecompiles(chainConfig.Rules(blockNumber, chainConfig.MergeNetsplitBlock != nil, blockTime))
 		for _, addr := range precompiles {
 			blockAddrs[addr] = struct{}{}
