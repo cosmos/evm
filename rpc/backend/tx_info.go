@@ -471,25 +471,21 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
 func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*ethtypes.AccessList, *hexutil.Uint64, error) {
-	// Get the block number from the block number or hash
 	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Get the block header to determine the proposer address
 	header, err := b.TendermintBlockByNumber(blockNum)
 	if err != nil {
 		return nil, nil, errors.New("header not found")
 	}
 
-	// Convert transaction args to MsgEthereumTx
 	msg := args.ToTransaction()
 	if msg == nil {
 		return nil, nil, errors.New("failed to convert transaction args to message")
 	}
 
-	// Get consensus params for block max gas
 	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
 		return nil, nil, errors.New("invalid rpc client")
@@ -501,24 +497,28 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	}
 
 	// Determine if this is a prospective transaction or an executed transaction
-	// by checking if the transaction hash exists in the block
+	// by checking if the transaction hash exists in the block and finding its exact position
+	var isExecuted bool
+	var targetTxIndex int
+	var targetMsgIndex int
 	var predecessors []*evmtypes.MsgEthereumTx
 	txHash := msg.AsTransaction().Hash()
 
-	// Try to find the transaction in the block to determine if it's executed
-	var isExecuted bool
-	for _, txBz := range header.Block.Txs {
+	// Find the exact position of the target transaction
+	for txIdx, txBz := range header.Block.Txs {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
 		if err != nil {
 			continue
 		}
-		for _, txMsg := range tx.GetMsgs() {
+		for msgIdx, txMsg := range tx.GetMsgs() {
 			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
 			if !ok {
 				continue
 			}
 			if ethMsg.AsTransaction().Hash() == txHash {
 				isExecuted = true
+				targetTxIndex = txIdx
+				targetMsgIndex = msgIdx
 				break
 			}
 		}
@@ -527,12 +527,10 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		}
 	}
 
-	// If it's an executed transaction, we need to get the predecessor transactions
+	// if tx has already been executed, we need to get the predecessor transactions
 	if isExecuted {
-		// Get all transactions in the block up to the target transaction
-		// For simplicity, we'll get all transactions in the block as predecessors
-		// In a more sophisticated implementation, you'd want to find the exact position
-		for _, txBz := range header.Block.Txs {
+		for i := 0; i < targetTxIndex; i++ {
+			txBz := header.Block.Txs[i]
 			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
 			if err != nil {
 				continue
@@ -542,18 +540,28 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 				if !ok {
 					continue
 				}
-				// Don't include the target transaction itself as a predecessor
-				if ethMsg.AsTransaction().Hash() != txHash {
+				predecessors = append(predecessors, ethMsg)
+			}
+		}
+
+		// Then, get messages from the same transaction but before the target message
+		if targetMsgIndex > 0 {
+			txBz := header.Block.Txs[targetTxIndex]
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+			if err == nil {
+				for i := 0; i < targetMsgIndex; i++ {
+					ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
+					if !ok {
+						continue
+					}
 					predecessors = append(predecessors, ethMsg)
 				}
 			}
 		}
 	} else {
-		// For prospective transactions, use empty predecessors
 		predecessors = []*evmtypes.MsgEthereumTx{}
 	}
 
-	// Create the trace request
 	traceTxRequest := evmtypes.QueryTraceTxRequest{
 		Msg:             msg,
 		Predecessors:    predecessors,
@@ -568,39 +576,27 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		},
 	}
 
-	// From ContextWithHeight: if the provided height is 0,
-	// it will return an empty context and the gRPC query will use
-	// the latest block height for querying.
 	ctx := rpctypes.ContextWithHeight(blockNum.Int64())
 	timeout := b.RPCEVMTimeout()
 
-	// Setup context so it may be canceled the call has completed
-	// or, in case of unmetered gas, setup a context with a timeout.
 	var cancel context.CancelFunc
 	if timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 	} else {
 		ctx, cancel = context.WithCancel(ctx)
 	}
-
-	// Make sure the context is canceled when the call has completed
-	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	// Call the EVM keeper to create the access list using the access list tracer
 	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// The access list tracer returns the access list directly as the result
-	// not wrapped in an "accessList" field
 	var ethAccessList ethtypes.AccessList
 	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
 		return nil, nil, err
 	}
 
-	// Estimate gas usage with the access list
 	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
 		From:       args.From,
 		To:         args.To,

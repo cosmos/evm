@@ -640,6 +640,39 @@ func (k *Keeper) traceTx(
 		overrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
 	}
 
+	// Handle access list tracer specifically
+	if traceConfig.Tracer == types.TracerAccessList {
+		// Create access list tracer using the logger package directly
+		blockAddrs := map[common.Address]struct{}{
+			*msg.To: {}, msg.From: {},
+		}
+
+		// Get active precompiles for the correct block height
+		chainConfig := types.GetEthChainConfig()
+		blockNumber := big.NewInt(ctx.BlockHeight())
+		blockTime := uint64(ctx.BlockTime().Unix())
+		precompiles := vm.ActivePrecompiles(chainConfig.Rules(blockNumber, chainConfig.MergeNetsplitBlock != nil, blockTime))
+		for _, addr := range precompiles {
+			blockAddrs[addr] = struct{}{}
+		}
+
+		accessListTracer := logger.NewAccessListTracer(msg.AccessList, blockAddrs)
+
+		// Build EVM execution context
+		ctx = buildTraceCtx(ctx, msg.GasLimit)
+		res, err := k.ApplyMessageWithConfig(ctx, *msg, accessListTracer.Hooks(), commitMessage, cfg, txConfig, false)
+		if err != nil {
+			return nil, 0, status.Error(codes.Internal, err.Error())
+		}
+
+		// Get the access list result
+		accessList := accessListTracer.AccessList()
+		var result any = accessList
+
+		return &result, txConfig.LogIndex + uint(len(res.Logs)), nil
+	}
+
+	// For other tracers, use the existing logic
 	logConfig := logger.Config{
 		EnableMemory:     traceConfig.EnableMemory,
 		DisableStorage:   traceConfig.DisableStorage,
