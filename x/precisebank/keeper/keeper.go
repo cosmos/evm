@@ -10,7 +10,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // Enforce that Keeper implements the expected keeper interfaces
@@ -48,12 +47,4 @@ func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) b
 
 func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
-}
-
-func (k Keeper) GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool) {
-	return k.bk.GetDenomMetaData(ctx, denom)
-}
-
-func (k Keeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
-	k.bk.SetDenomMetaData(ctx, denomMetaData)
 }
