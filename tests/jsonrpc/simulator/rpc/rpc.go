@@ -208,30 +208,30 @@ const (
 	TraceBlock       types.RpcName = "trace_block"
 
 	// Admin namespace (Geth specific administrative methods)
-	AdminAddPeer         types.RpcName = "admin_addPeer"
-	AdminAddTrustedPeer  types.RpcName = "admin_addTrustedPeer"
-	AdminDatadir         types.RpcName = "admin_datadir"
-	AdminExportChain     types.RpcName = "admin_exportChain"
-	AdminImportChain     types.RpcName = "admin_importChain"
-	AdminNodeInfo        types.RpcName = "admin_nodeInfo"
-	AdminPeerEvents      types.RpcName = "admin_peerEvents"
-	AdminPeers           types.RpcName = "admin_peers"
-	AdminRemovePeer      types.RpcName = "admin_removePeer"
+	AdminAddPeer           types.RpcName = "admin_addPeer"
+	AdminAddTrustedPeer    types.RpcName = "admin_addTrustedPeer"
+	AdminDatadir           types.RpcName = "admin_datadir"
+	AdminExportChain       types.RpcName = "admin_exportChain"
+	AdminImportChain       types.RpcName = "admin_importChain"
+	AdminNodeInfo          types.RpcName = "admin_nodeInfo"
+	AdminPeerEvents        types.RpcName = "admin_peerEvents"
+	AdminPeers             types.RpcName = "admin_peers"
+	AdminRemovePeer        types.RpcName = "admin_removePeer"
 	AdminRemoveTrustedPeer types.RpcName = "admin_removeTrustedPeer"
-	AdminStartHTTP       types.RpcName = "admin_startHTTP"
-	AdminStartWS         types.RpcName = "admin_startWS"
-	AdminStopHTTP        types.RpcName = "admin_stopHTTP"
-	AdminStopWS          types.RpcName = "admin_stopWS"
+	AdminStartHTTP         types.RpcName = "admin_startHTTP"
+	AdminStartWS           types.RpcName = "admin_startWS"
+	AdminStopHTTP          types.RpcName = "admin_stopHTTP"
+	AdminStopWS            types.RpcName = "admin_stopWS"
 
 	// LES namespace (Light Ethereum Subprotocol)
-	LesServerInfo                 types.RpcName = "les_serverInfo"
-	LesClientInfo                 types.RpcName = "les_clientInfo"
-	LesPriorityClientInfo         types.RpcName = "les_priorityClientInfo"
-	LesAddBalance                 types.RpcName = "les_addBalance"
-	LesSetClientParams            types.RpcName = "les_setClientParams"
-	LesSetDefaultParams           types.RpcName = "les_setDefaultParams"
-	LesLatestCheckpoint           types.RpcName = "les_latestCheckpoint"
-	LesGetCheckpoint              types.RpcName = "les_getCheckpoint"
+	LesServerInfo                   types.RpcName = "les_serverInfo"
+	LesClientInfo                   types.RpcName = "les_clientInfo"
+	LesPriorityClientInfo           types.RpcName = "les_priorityClientInfo"
+	LesAddBalance                   types.RpcName = "les_addBalance"
+	LesSetClientParams              types.RpcName = "les_setClientParams"
+	LesSetDefaultParams             types.RpcName = "les_setDefaultParams"
+	LesLatestCheckpoint             types.RpcName = "les_latestCheckpoint"
+	LesGetCheckpoint                types.RpcName = "les_getCheckpoint"
 	LesGetCheckpointContractAddress types.RpcName = "les_getCheckpointContractAddress"
 )
 
@@ -1728,12 +1728,12 @@ func RpcEthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 func RpcGenericTest(rCtx *RpcContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(methodName))
-	
+
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
 		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
-		   err.Error() == "Method not found" ||
-		   err.Error() == string(methodName)+" method not found" {
+			err.Error() == "Method not found" ||
+			err.Error() == string(methodName)+" method not found" {
 			return &types.RpcResult{
 				Method:   methodName,
 				Status:   types.NotImplemented,
@@ -1749,7 +1749,7 @@ func RpcGenericTest(rCtx *RpcContext, methodName types.RpcName, category string)
 			Category: category,
 		}, nil
 	}
-	
+
 	// Method exists and returned a result
 	return &types.RpcResult{
 		Method:   methodName,
@@ -1763,10 +1763,10 @@ func RpcGenericTest(rCtx *RpcContext, methodName types.RpcName, category string)
 func RpcEthFeeHistory(rCtx *RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(EthFeeHistory), "0x1", "latest", nil)
-	
+
 	if err != nil {
 		if err.Error() == "the method "+string(EthFeeHistory)+" does not exist/is not available" ||
-		   err.Error() == "Method not found" {
+			err.Error() == "Method not found" {
 			return &types.RpcResult{
 				Method:   EthFeeHistory,
 				Status:   types.NotImplemented,
@@ -1781,7 +1781,7 @@ func RpcEthFeeHistory(rCtx *RpcContext) (*types.RpcResult, error) {
 			Category: "eth",
 		}, nil
 	}
-	
+
 	return &types.RpcResult{
 		Method:   EthFeeHistory,
 		Status:   types.Ok,
@@ -1797,10 +1797,10 @@ func RpcEthBlobBaseFee(rCtx *RpcContext) (*types.RpcResult, error) {
 func RpcEthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(EthGetProof), rCtx.Acc.Address.Hex(), []string{}, "latest")
-	
+
 	if err != nil {
 		if err.Error() == "the method "+string(EthGetProof)+" does not exist/is not available" ||
-		   err.Error() == "Method not found" {
+			err.Error() == "Method not found" {
 			return &types.RpcResult{
 				Method:   EthGetProof,
 				Status:   types.NotImplemented,
@@ -1815,7 +1815,7 @@ func RpcEthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
 			Category: "eth",
 		}, nil
 	}
-	
+
 	return &types.RpcResult{
 		Method:   EthGetProof,
 		Status:   types.Ok,
@@ -1831,10 +1831,10 @@ func RpcEthCreateAccessList(rCtx *RpcContext) (*types.RpcResult, error) {
 		"data": "0x",
 	}
 	err := rCtx.EthCli.Client().Call(&result, string(EthCreateAccessList), callData, "latest")
-	
+
 	if err != nil {
 		if err.Error() == "the method "+string(EthCreateAccessList)+" does not exist/is not available" ||
-		   err.Error() == "Method not found" {
+			err.Error() == "Method not found" {
 			return &types.RpcResult{
 				Method:   EthCreateAccessList,
 				Status:   types.NotImplemented,
@@ -1849,7 +1849,7 @@ func RpcEthCreateAccessList(rCtx *RpcContext) (*types.RpcResult, error) {
 			Category: "eth",
 		}, nil
 	}
-	
+
 	return &types.RpcResult{
 		Method:   EthCreateAccessList,
 		Status:   types.Ok,
