@@ -144,10 +144,6 @@ which accepts a path for the resulting pprof file.
 			}
 
 			serverCtx.Logger.Debug("received quit signal")
-			// TODO: why is this check here? Should not make sense since err is checked above
-			if err != nil {
-				serverCtx.Logger.Error(fmt.Sprintf("error on quit: %s", err.Error()))
-			}
 
 			return nil
 		},

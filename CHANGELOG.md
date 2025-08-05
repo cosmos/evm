@@ -13,6 +13,7 @@
 
 - Fixed example chain's cmd by adding NoOpEVMOptions to tmpApp in root.go
 - Added RPC support for `--legacy` transactions (Non EIP-1559)
+- [\#296](https://github.com/cosmos/evm/pull/296) Sanity checks for TraceTx
 
 ### IMPROVEMENTS
 

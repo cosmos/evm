@@ -724,7 +724,7 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 			return nil
 		}
 
-		po.Proposals[i] = ProposalData{
+		proposalData := ProposalData{
 			Id:       p.Id,
 			Messages: msgs,
 			Status:   uint32(p.Status), //nolint:gosec // G115
@@ -734,16 +734,24 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 				No:         p.FinalTallyResult.NoCount,
 				NoWithVeto: p.FinalTallyResult.NoWithVetoCount,
 			},
-			SubmitTime:      uint64(p.SubmitTime.Unix()),     //nolint:gosec // G115
-			DepositEndTime:  uint64(p.DepositEndTime.Unix()), //nolint:gosec // G115
-			TotalDeposit:    coins,
-			VotingStartTime: uint64(p.VotingStartTime.Unix()), //nolint:gosec // G115
-			VotingEndTime:   uint64(p.VotingEndTime.Unix()),   //nolint:gosec // G115
-			Metadata:        p.Metadata,
-			Title:           p.Title,
-			Summary:         p.Summary,
-			Proposer:        proposer,
+			SubmitTime:     uint64(p.SubmitTime.Unix()),     //nolint:gosec // G115
+			DepositEndTime: uint64(p.DepositEndTime.Unix()), //nolint:gosec // G115
+			TotalDeposit:   coins,
+			Metadata:       p.Metadata,
+			Title:          p.Title,
+			Summary:        p.Summary,
+			Proposer:       proposer,
 		}
+
+		// The following fields are nil when proposal is in deposit period
+		if p.VotingStartTime != nil {
+			proposalData.VotingStartTime = uint64(p.VotingStartTime.Unix()) //nolint:gosec // G115
+		}
+		if p.VotingEndTime != nil {
+			proposalData.VotingEndTime = uint64(p.VotingEndTime.Unix()) //nolint:gosec // G115
+		}
+
+		po.Proposals[i] = proposalData
 	}
 
 	if res.Pagination != nil {
