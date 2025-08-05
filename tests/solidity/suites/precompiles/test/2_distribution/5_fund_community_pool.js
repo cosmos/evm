@@ -25,7 +25,7 @@ describe('Distribution – fund community pool', function () {
         const tx = await distribution
             .connect(signer)
             .fundCommunityPool(signer.address, [coin], { gasLimit: GAS_LIMIT });
-        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
         console.log('FundCommunityPool tx hash:', receipt.hash);
 
         // Check user balance after funding

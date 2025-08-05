@@ -48,7 +48,7 @@ describe('Staking – edge case revert test', function () {
             const tx = await stakingReverter.callPrecompileBeforeAndAfterRevert(1, validatorAddress, {
                 gasLimit: GAS_LIMIT
             });
-            await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
+            await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
             const receipt = await tx.wait();
             
             console.log('Transaction hash:', receipt.hash);

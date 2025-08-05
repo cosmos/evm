@@ -28,7 +28,7 @@ describe('Distribution – deposit validator rewards pool', function () {
         const tx = await distribution
             .connect(signer)
             .depositValidatorRewardsPool(signer.address, VAL_BECH32, [coin], { gasLimit: GAS_LIMIT });
-        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
         console.log('DepositValidatorRewardsPool tx hash:', receipt.hash);
 
         const balanceAfter = await hre.ethers.provider.getBalance(signer.address);

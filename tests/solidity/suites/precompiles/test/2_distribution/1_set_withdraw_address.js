@@ -18,7 +18,7 @@ describe('Distribution – set withdraw address', function () {
         const tx = await distribution
             .connect(signer)
             .setWithdrawAddress(signer.address, newWithdrawAddress, {gasLimit: GAS_LIMIT});
-        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
         console.log('SetWithdrawAddress tx hash:', receipt.hash);
 
         const evt = findEvent(receipt.logs, distribution.interface, 'SetWithdrawerAddress');
