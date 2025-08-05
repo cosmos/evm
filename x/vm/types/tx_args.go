@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -181,8 +182,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int, sk
 	// Set default gas & gas price if none were set
 	gas := globalGasCap
 	if gas == 0 {
-		// Ethereum block size is ~36000000, we use this value as default in case neither gas or global cap is specified, to protect against DOS
-		gas = uint64(100000000)
+		gas = uint64(math.MaxUint64 / 2)
 	}
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
