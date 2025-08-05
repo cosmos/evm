@@ -1,11 +1,11 @@
-package erc20factory_test
+package erc20factory
 
 import (
 	"github.com/cosmos/evm/precompiles/erc20factory"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/cosmos/evm/testutil/integration/os/grpc"
-	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
-	"github.com/cosmos/evm/testutil/integration/os/network"
+	"github.com/cosmos/evm/testutil/integration/evm/factory"
+	"github.com/cosmos/evm/testutil/integration/evm/grpc"
+	"github.com/cosmos/evm/testutil/integration/evm/network"
+	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -14,7 +14,7 @@ import (
 type PrecompileTestSuite struct {
 	suite.Suite
 
-	create      network.UnitTestNetwork
+	create      network.CreateEvmApp
 	options     []network.ConfigOption
 	bondDenom   string
 	network     *network.UnitTestNetwork
@@ -25,7 +25,7 @@ type PrecompileTestSuite struct {
 	precompile *erc20factory.Precompile
 }
 
-func NewPrecompileTestSuite(create network.UnitTestNetwork, options ...network.ConfigOption) *PrecompileTestSuite {
+func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *PrecompileTestSuite {
 	return &PrecompileTestSuite{
 		create:  create,
 		options: options,
@@ -38,12 +38,12 @@ func (s *PrecompileTestSuite) SetupTest() {
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	}
 	options = append(options, s.options...)
-	integrationNetwork := network.NewUnitTestNetwork(options...)
+	integrationNetwork := network.NewUnitTestNetwork(s.create, options...)
 	grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
 	txFactory := factory.New(integrationNetwork, grpcHandler)
 
 	ctx := integrationNetwork.GetContext()
-	sk := integrationNetwork.App.StakingKeeper
+	sk := integrationNetwork.App.GetStakingKeeper()
 	bondDenom, err := sk.BondDenom(ctx)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(bondDenom, "bond denom cannot be empty")

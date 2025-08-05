@@ -1,4 +1,4 @@
-package erc20factory_test
+package erc20factory
 
 import (
 	"math/big"
@@ -41,7 +41,7 @@ func (s *PrecompileTestSuite) TestCreate() {
 				s.Require().True(ok, "expected address type")
 
 				// Check the balance of the token for the mintAddr
-				balance := s.network.App.BankKeeper.GetBalance(s.network.GetContext(), sdk.AccAddress(mintAddr.Bytes()), erc20types.CreateDenom(address.String()))
+				balance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), sdk.AccAddress(mintAddr.Bytes()), erc20types.CreateDenom(address.String()))
 				s.Require().Equal(amount, balance.Amount.BigInt(), "expected balance to match preminted amount")
 
 				s.Require().Equal(address.String(), expectedAddress, "expected address to match")

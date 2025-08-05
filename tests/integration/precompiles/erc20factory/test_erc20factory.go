@@ -1,4 +1,4 @@
-package erc20factory_test
+package erc20factory
 
 import (
 	"math/big"

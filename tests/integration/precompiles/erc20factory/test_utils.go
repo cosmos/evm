@@ -1,4 +1,4 @@
-package erc20factory_test
+package erc20factory
 
 import (
 	"math/big"
@@ -9,8 +9,8 @@ import (
 
 func (s *PrecompileTestSuite) setupERC20FactoryPrecompile() *erc20factory.Precompile {
 	precompile, err := erc20factory.NewPrecompile(
-		&s.network.App.Erc20Keeper,
-		s.network.App.BankKeeper)
+		s.network.App.GetErc20Keeper(),
+		s.network.App.GetBankKeeper())
 	s.Require().NoError(err, "failed to create erc20factory precompile")
 
 	return precompile
