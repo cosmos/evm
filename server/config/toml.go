@@ -19,6 +19,9 @@ max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 # EnablePreimageRecording enables tracking of SHA3 preimages in the VM
 cache-preimage = {{ .EVM.EnablePreimageRecording }}
 
+# EVMChainID defines the EVM chain ID.
+evm-chain-id = {{ .EVM.EVMChainID }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
