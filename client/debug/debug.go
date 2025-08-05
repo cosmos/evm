@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	"github.com/cosmos/evm/ethereum/eip712"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -165,10 +164,10 @@ func RawBytesCmd() *cobra.Command {
 // LegacyEIP712Cmd outputs types of legacy EIP712 typed data
 func LegacyEIP712Cmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "legacy-eip712 [file]",
+		Use:     "legacy-eip712 [file] [evm-chain-id]",
 		Short:   "Output types of legacy eip712 typed data according to the given transaction",
-		Example: fmt.Sprintf(`$ %s debug legacy-eip712 tx.json --chain-id evmd-1`, version.AppName),
-		Args:    cobra.ExactArgs(1),
+		Example: fmt.Sprintf(`$ %s debug legacy-eip712 tx.json 4221 --chain-id evmd-1`, version.AppName),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -185,7 +184,12 @@ func LegacyEIP712Cmd() *cobra.Command {
 				return errors.Wrap(err, "encode tx")
 			}
 
-			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, evmdconfig.EVMChainID, stdTx.GetMsgs()[0], txBytes, nil)
+			evmChainID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return errors.Wrap(err, "parse evm-chain-id")
+			}
+
+			td, err := eip712.LegacyWrapTxToTypedData(clientCtx.Codec, uint64(evmChainID), stdTx.GetMsgs()[0], txBytes, nil) //nolint:gosec // G115 // overflow not a concern
 			if err != nil {
 				return errors.Wrap(err, "wrap tx to typed data")
 			}

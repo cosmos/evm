@@ -1,14 +1,15 @@
-package common_test
+package common
 
 import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	testutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -32,7 +33,11 @@ func setupBalanceHandlerTest(t *testing.T) {
 }
 
 func TestParseHexAddress(t *testing.T) {
-	var accAddr sdk.AccAddress
+	// account key, use a constant account to keep unit test deterministic.
+	priv, err := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	require.NoError(t, err)
+	privKey := &ethsecp256k1.PrivKey{Key: crypto.FromECDSA(priv)}
+	accAddr := sdk.AccAddress(privKey.PubKey().Address().Bytes())
 
 	testCases := []struct {
 		name     string
@@ -47,6 +52,16 @@ func TestParseHexAddress(t *testing.T) {
 				return sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, accAddr.String()))
 			},
 			key:      banktypes.AttributeKeySpender,
+			expAddr:  common.BytesToAddress(accAddr),
+			expError: false,
+		},
+		{
+			name: "valid address - BytesToAddress",
+			maleate: func() sdk.Event {
+				return sdk.NewEvent("bank", sdk.NewAttribute(banktypes.AttributeKeySpender, "cosmos1ddjhjcmgv95kutgqqqqqqqqqqqqsjugwrg"))
+			},
+			key:      banktypes.AttributeKeySpender,
+			expAddr:  common.HexToAddress("0x0000006B6579636861696e2d0000000000000001"),
 			expError: false,
 		},
 		{
@@ -71,20 +86,16 @@ func TestParseHexAddress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			setupBalanceHandlerTest(t)
 
-			_, addrs, err := testutil.GeneratePrivKeyAddressPairs(1)
-			require.NoError(t, err)
-			accAddr = addrs[0]
-
 			event := tc.maleate()
 
-			addr, err := cmn.ParseHexAddress(event, tc.key)
+			addr, err := parseHexAddress(event, tc.key)
 			if tc.expError {
 				require.Error(t, err)
 				return
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, common.BytesToAddress(accAddr), addr)
+			require.Equal(t, tc.expAddr, addr)
 		})
 	}
 }
@@ -124,7 +135,7 @@ func TestParseAmount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			setupBalanceHandlerTest(t)
 
-			amt, err := cmn.ParseAmount(tc.maleate())
+			amt, err := parseAmount(tc.maleate())
 			if tc.expError {
 				require.Error(t, err)
 				return
@@ -149,13 +160,14 @@ func TestAfterBalanceChange(t *testing.T) {
 	require.NoError(t, err)
 	spenderAcc := addrs[0]
 	receiverAcc := addrs[1]
+
 	spender := common.BytesToAddress(spenderAcc)
 	receiver := common.BytesToAddress(receiverAcc)
 
 	// initial balance for spender
 	stateDB.AddBalance(spender, uint256.NewInt(5), tracing.BalanceChangeUnspecified)
 
-	bh := cmn.NewBalanceHandler()
+	bh := NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	coins := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 3))
@@ -183,7 +195,7 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 	require.NoError(t, err)
 	addr := addrs[0]
 
-	bh := cmn.NewBalanceHandler()
+	bh := NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	// invalid address in event
