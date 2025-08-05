@@ -107,7 +107,8 @@ func (m *QueryRemainderResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_QueryRemainderResponse proto.InternalMessageInfo
 
-// QueryFractionalBalanceRequest defines the request type for Query/FractionalBalance method.
+// QueryFractionalBalanceRequest defines the request type for
+// Query/FractionalBalance method.
 type QueryFractionalBalanceRequest struct {
 	// address is the account address to query  fractional balance for.
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -146,7 +147,8 @@ func (m *QueryFractionalBalanceRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_QueryFractionalBalanceRequest proto.InternalMessageInfo
 
-// QueryFractionalBalanceResponse defines the response type for Query/FractionalBalance method.
+// QueryFractionalBalanceResponse defines the response type for
+// Query/FractionalBalance method.
 type QueryFractionalBalanceResponse struct {
 	// fractional_balance is the fractional balance of the address.
 	FractionalBalance types.Coin `protobuf:"bytes,1,opt,name=fractional_balance,json=fractionalBalance,proto3" json:"fractional_balance"`

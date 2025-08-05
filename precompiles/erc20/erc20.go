@@ -21,14 +21,22 @@ const (
 	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
 	abiPath = "abi.json"
 
-	GasTransfer    = 3_000_000
-	GasApprove     = 30_956
-	GasName        = 3_421
-	GasSymbol      = 3_464
-	GasDecimals    = 427
-	GasTotalSupply = 2_477
-	GasBalanceOf   = 2_851
-	GasAllowance   = 3_246
+	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which
+	// is not being merged to the main branch. The reason for this was to not clutter the repository with the
+	// necessary tests for this use case.
+	//
+	// The results can be inspected here:
+	// https://github.com/evmos/evmos/blob/malte/erc20-gas-tests/precompiles/erc20/plot_gas_values.ipynb
+
+	GasTransfer     = 9_000
+	GasTransferFrom = 30_500
+	GasApprove      = 8_100
+	GasName         = 3_421
+	GasSymbol       = 3_464
+	GasDecimals     = 427
+	GasTotalSupply  = 2_480
+	GasBalanceOf    = 2_870
+	GasAllowance    = 3_225
 )
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -98,7 +106,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	case TransferMethod:
 		return GasTransfer
 	case TransferFromMethod:
-		return GasTransfer
+		return GasTransferFrom
 	case ApproveMethod:
 		return GasApprove
 	// ERC-20 queries

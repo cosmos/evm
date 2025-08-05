@@ -177,8 +177,6 @@ func (s *StateDB) MultiStoreSnapshot() int {
 func (s *StateDB) RevertMultiStore(snapshot int, events sdk.Events) {
 	s.snapshotter.RevertToSnapshot(snapshot)
 	s.writeCache = func() {
-		// rollback the events to the ones
-		// on the snapshot
 		s.ctx.EventManager().EmitEvents(events)
 		s.cacheCtx.MultiStore().(storetypes.CacheMultiStore).Write()
 	}

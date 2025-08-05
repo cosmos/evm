@@ -363,7 +363,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	// NOTE: the errors from the executable below should be consistent with go-ethereum,
 	// so we don't wrap them with the gRPC status code
 
-	// Create a helper to check if a gas allowance results in an executable transaction
+	// create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (vmError bool, rsp *types.MsgEthereumTxResponse, err error) {
 		// update the message with the new gas value
 		msg = core.Message{

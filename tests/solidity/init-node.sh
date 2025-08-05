@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 # TODO: remove this script and just use the local node script for it, add flag to start node in given directory
 
 CHAINID="${CHAIN_ID:-cosmos_262144-1}"
