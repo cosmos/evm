@@ -1,6 +1,6 @@
 const {expect} = require('chai')
 const hre = require('hardhat')
-const { findEvent } = require('../common')
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 function formatUnbondingDelegation(res) {
     const delegatorAddress = res[0]
@@ -52,7 +52,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
 
         // DELEGATE
         const delegateTx = await staking.connect(signer).delegate(signer.address, valBech32, amount, {gasLimit: GAS_LIMIT})
-        const delegateReceipt = await delegateTx.wait(2)
+        const delegateReceipt = await waitWithTimeout(delegateTx, 20000, RETRY_DELAY_FUNC)
         console.log('Delegate tx hash:', delegateTx.hash, 'gas used:', delegateReceipt.gasUsed.toString())
 
         const hexValAddr = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
@@ -68,7 +68,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
 
         // UNDELEGATE
         const undelegateTx = await staking.connect(signer).undelegate(signer.address, valBech32, amount, {gasLimit: GAS_LIMIT})
-        const undelegateReceipt = await undelegateTx.wait(2)
+        const undelegateReceipt = await waitWithTimeout(undelegateTx, 20000, RETRY_DELAY_FUNC)
         console.log('Undelegate tx hash:', undelegateTx.hash, 'gas used:', undelegateReceipt.gasUsed.toString())
 
         const unbondEvt = findEvent(undelegateReceipt.logs, staking.interface, 'Unbond')
@@ -103,7 +103,7 @@ describe('Staking – delegate, undelegate & cancelUnbondingDelegation with even
             entryToCancel.creationHeight,
             {gasLimit: GAS_LIMIT}
         )
-        const cancelReceipt = await cancelTx.wait(2)
+        const cancelReceipt = await waitWithTimeout(cancelTx, 20000, RETRY_DELAY_FUNC)
         console.log('CancelUnbondingDelegation tx hash:', cancelTx.hash, 'gas used:', cancelReceipt.gasUsed.toString())
 
         const cancelEvt = findEvent(cancelReceipt.logs, staking.interface, 'CancelUnbondingDelegation')

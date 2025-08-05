@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { findEvent } = require('../common');
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
 
 describe('Distribution – deposit validator rewards pool', function () {
     const DIST_ADDRESS = '0x0000000000000000000000000000000000000801';
@@ -28,7 +28,7 @@ describe('Distribution – deposit validator rewards pool', function () {
         const tx = await distribution
             .connect(signer)
             .depositValidatorRewardsPool(signer.address, VAL_BECH32, [coin], { gasLimit: GAS_LIMIT });
-        const receipt = await tx.wait(2);
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('DepositValidatorRewardsPool tx hash:', receipt.hash);
 
         const balanceAfter = await hre.ethers.provider.getBalance(signer.address);
