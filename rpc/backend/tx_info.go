@@ -470,30 +470,30 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
-func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*ethtypes.AccessList, *hexutil.Uint64, error) {
+func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
 	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	header, err := b.TendermintBlockByNumber(blockNum)
 	if err != nil {
-		return nil, nil, errors.New("header not found")
+		return nil, errors.New("header not found")
 	}
 
 	msg := args.ToTransaction()
 	if msg == nil {
-		return nil, nil, errors.New("failed to convert transaction args to message")
+		return nil, errors.New("failed to convert transaction args to message")
 	}
 
 	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
 	if !ok {
-		return nil, nil, errors.New("invalid rpc client")
+		return nil, errors.New("invalid rpc client")
 	}
 
 	cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Determine if this is a prospective transaction or an executed transaction
@@ -589,12 +589,12 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 
 	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var ethAccessList ethtypes.AccessList
 	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
-		return nil, nil, err
+		return nil, errors.New("failed to unmarshal access list")
 	}
 
 	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
@@ -608,8 +608,8 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		ChainID:    args.ChainID,
 	}, &blockNum)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &ethAccessList, &gasEstimate, nil
+	return &rpctypes.AccessListResult{AccessList: &ethAccessList, GasUsed: &gasEstimate}, nil
 }
