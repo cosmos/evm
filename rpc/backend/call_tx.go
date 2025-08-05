@@ -40,7 +40,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	// signers to be backwards-compatible with old transactions.
 	cfg := b.ChainConfig()
 	if cfg == nil {
-		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64()).EthereumConfig(nil)
+		cfg = evmtypes.DefaultChainConfig(b.EvmChainID().Uint64()).EthereumConfig(nil)
 	}
 
 	signer := ethtypes.LatestSigner(cfg)
@@ -112,8 +112,8 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
 			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 		}
-		if tx.ChainId().Uint64() != b.EvmChainID.Uint64() {
-			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.EvmChainID, tx.ChainId())
+		if tx.ChainId().Uint64() != b.EvmChainID().Uint64() {
+			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.EvmChainID(), tx.ChainId())
 		}
 	}
 
@@ -280,7 +280,7 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 	}
 
 	if args.ChainID == nil {
-		args.ChainID = (*hexutil.Big)(b.EvmChainID)
+		args.ChainID = (*hexutil.Big)(b.EvmChainID())
 	}
 
 	return args, nil
@@ -308,7 +308,7 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
 		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.EvmChainID().Int64(),
 	}
 
 	// From ContextWithHeight: if the provided height is 0,
@@ -343,7 +343,7 @@ func (b *Backend) DoCall(
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
 		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.EvmChainID().Int64(),
 	}
 
 	// From ContextWithHeight: if the provided height is 0,

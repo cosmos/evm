@@ -91,7 +91,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				break
 			}
 
-			sender, err := ethMsg.GetSender(b.EvmChainID)
+			sender, err := ethMsg.GetSender(b.EvmChainID())
 			if err != nil {
 				continue
 			}

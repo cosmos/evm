@@ -104,7 +104,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *evmtypes.TraceConfi
 		BlockTime:       blk.Block.Time,
 		BlockHash:       common.Bytes2Hex(blk.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(blk.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.EvmChainID().Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
@@ -194,7 +194,7 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		BlockTime:       block.Block.Time,
 		BlockHash:       common.Bytes2Hex(block.BlockID.Hash),
 		ProposerAddress: sdk.ConsAddress(block.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
+		ChainId:         b.EvmChainID().Int64(),
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
