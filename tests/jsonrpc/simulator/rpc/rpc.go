@@ -301,7 +301,7 @@ func RpcEthBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthBlockNumber,
 		Status:   status,
 		Value:    blockNumber,
-		Category: "Core Eth",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -332,7 +332,7 @@ func RpcEthGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGasPrice,
 		Status:   status,
 		Value:    gasPrice.String(),
-		Category: "Core Eth",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -356,7 +356,7 @@ func RpcEthMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthMaxPriorityFeePerGas,
 		Status:   status,
 		Value:    maxPriorityFeePerGas.String(),
-		Category: "EIP-1559",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -384,7 +384,7 @@ func RpcEthChainId(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthChainId,
 		Status:   status,
 		Value:    chainId.String(),
-		Category: "Core Eth",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -408,7 +408,7 @@ func RpcEthGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGetBalance,
 		Status:   status,
 		Value:    balance.String(),
-		Category: "Account & State",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -432,7 +432,7 @@ func RpcEthGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGetTransactionCount,
 		Status:   status,
 		Value:    nonce,
-		Category: "Account & State",
+		Category: "eth",
 	}, nil
 }
 
@@ -1018,7 +1018,7 @@ func RpcEthGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGetStorageAt,
 		Status:   status,
 		Value:    hexutils.BytesToHex(storage),
-		Category: "Account & State",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1028,6 +1028,10 @@ func RpcEthGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
 func RpcEthNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(EthNewFilter); result != nil {
 		return result, nil
+	}
+
+	if len(rCtx.BlockNumsIncludingTx) == 0 {
+		return nil, errors.New("no blocks with transactions")
 	}
 
 	fErc20Transfer := ethereum.FilterQuery{
@@ -1131,7 +1135,7 @@ func RpcEthGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGetFilterChanges,
 		Status:   status,
 		Value:    changes,
-		Category: "Filter",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1198,7 +1202,7 @@ func RpcEthGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   EthGetLogs,
 		Status:   status,
 		Value:    utils.MustBeautifyLogs(logs),
-		Category: "Filter",
+		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1414,14 +1418,14 @@ func RpcEthProtocolVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   EthProtocolVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Core Eth",
+			Category: "eth",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   EthProtocolVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Core Eth",
+		Category: "eth",
 	}, nil
 }
 
@@ -1433,14 +1437,14 @@ func RpcEthSyncing(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   EthSyncing,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Core Eth",
+			Category: "eth",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   EthSyncing,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Core Eth",
+		Category: "eth",
 	}, nil
 }
 
@@ -1452,14 +1456,14 @@ func RpcEthAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   EthAccounts,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Core Eth",
+			Category: "eth",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   EthAccounts,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Core Eth",
+		Category: "eth",
 	}, nil
 }
 
@@ -1613,14 +1617,14 @@ func RpcEthMining(rCtx *RpcContext) (*types.RpcResult, error) {
 			Method:   EthMining,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "Mining",
+			Category: "eth",
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   EthMining,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "Mining",
+		Category: "eth",
 	}, nil
 }
 

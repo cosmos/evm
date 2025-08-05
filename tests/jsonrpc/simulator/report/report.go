@@ -151,10 +151,11 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 }
 
 func PrintHeader() {
-	fmt.Println(`
-═════════════════════════════════════════════════════════════════════════════
-                    Cosmos EVM JSON-RPC Compatibility Test                    
-═════════════════════════════════════════════════════════════════════════════`)
+	// 63 equals characters to match matrix width
+	line := strings.Repeat("═", 63)
+	fmt.Printf("\n%s\n", line)
+	fmt.Println("           Cosmos EVM JSON-RPC Compatibility Test           ")
+	fmt.Printf("%s\n", line)
 }
 
 // sortResultsByStatus sorts results by status priority: PASS, FAIL, NOT_IMPL, DEPRECATED, SKIP
@@ -212,12 +213,12 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 
 			// Calculate padding for consistent width
 			methodsText := fmt.Sprintf(" %s Methods ", displayName)
-			totalWidth := 77
+			totalWidth := 63
 			padding := totalWidth - len(methodsText)
 			leftPadding := padding / 2
 			rightPadding := padding - leftPadding
-			
-			subtitle := fmt.Sprintf("\n%s%s%s", 
+
+			subtitle := fmt.Sprintf("\n%s%s%s",
 				strings.Repeat("═", leftPadding),
 				methodsText,
 				strings.Repeat("═", rightPadding))
@@ -232,12 +233,12 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 	if results, exists := categories["Uncategorized"]; exists {
 		// Calculate padding for consistent width
 		methodsText := " Uncategorized Methods "
-		totalWidth := 77
+		totalWidth := 63
 		padding := totalWidth - len(methodsText)
 		leftPadding := padding / 2
 		rightPadding := padding - leftPadding
-		
-		subtitle := fmt.Sprintf("\n%s%s%s", 
+
+		subtitle := fmt.Sprintf("\n%s%s%s",
 			strings.Repeat("═", leftPadding),
 			methodsText,
 			strings.Repeat("═", rightPadding))
@@ -249,18 +250,18 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 }
 
 func PrintCategoryMatrix(summary *types.TestSummary) {
-	fmt.Println(`
-═════════════════════════════════════════════════════════════════════════════
-                              CATEGORY SUMMARY                              
-═════════════════════════════════════════════════════════════════════════════`)
+	// 63 equals characters to match matrix width  
+	line := strings.Repeat("═", 63)
+	fmt.Printf("\n%s\n", line)
+	fmt.Println("                      CATEGORY SUMMARY                      ")
+	fmt.Printf("%s\n", line)
 
 	// Define the order of categories (by namespace)
 	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin", "les"}
 
-	// Print header with subcategory column
-	fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %s\n",
+	// Print header without subcategory column
+	fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %s\n",
 		"Category",
-		"Sub Category",
 		color.GreenString("Pass"),
 		color.RedString("Fail"),
 		color.MagentaString("Depr"),
@@ -268,103 +269,11 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 		color.HiBlackString("Skip"),
 		color.CyanString("Total"))
 
-	fmt.Println("────────────────┼─────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
+	fmt.Println("─────────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
 
-	// Print each category with only meaningful subcategories (no redundant "All")
+	// Print each category in the defined order
 	for _, categoryName := range categoryOrder {
-		if subcats, hasSubcats := summary.Subcategories[categoryName]; hasSubcats {
-			// Define proper subcategory order based on execution-apis structure
-			var subcatOrder []string
-			switch categoryName {
-			case "eth":
-				subcatOrder = []string{"client", "fee_market", "state", "block", "transaction", "filter", "execute", "submit", "sign", "deprecated"}
-			case "debug":
-				subcatOrder = []string{"tracing", "database", "profiling", "diagnostics"}
-			case "personal":
-				subcatOrder = []string{"account", "wallet", "key", "signing", "transaction"}
-			case "miner":
-				subcatOrder = []string{"mining"}
-			case "txpool":
-				subcatOrder = []string{"mempool"}
-			case "engine":
-				subcatOrder = []string{"consensus"}
-			case "trace":
-				subcatOrder = []string{"tracing"}
-			case "admin":
-				subcatOrder = []string{"peer", "data", "rpc"}
-			case "web3":
-				subcatOrder = []string{"utility"}
-			case "net":
-				subcatOrder = []string{"network"}
-			case "les":
-				subcatOrder = []string{"client", "checkpoint"}
-			default:
-				// For other categories, collect all subcategories
-				for subName := range subcats {
-					if subName != "other" { // Skip generic "other"
-						subcatOrder = append(subcatOrder, subName)
-					}
-				}
-			}
-
-			// Print each subcategory that has actual data
-			// Calculate total for this category to display in parentheses
-			categoryTotal := 0
-			if catSummary, exists := summary.Categories[categoryName]; exists {
-				categoryTotal = catSummary.Total
-			}
-
-			for _, subName := range subcatOrder {
-				if subSummary, exists := subcats[subName]; exists && subSummary.Total > 0 {
-					// Add total count in parentheses for first row of each category
-					displayCategoryName := categoryName
-					if displayCategoryName != "" && categoryTotal > 0 {
-						displayCategoryName = fmt.Sprintf("%s (%d)", categoryName, categoryTotal)
-					}
-
-					// Format counts with colors for non-zero values
-					passColor := fmt.Sprintf("%4d", subSummary.Passed)
-					if subSummary.Passed > 0 {
-						passColor = color.GreenString("%4d", subSummary.Passed)
-					}
-
-					failColor := fmt.Sprintf("%4d", subSummary.Failed)
-					if subSummary.Failed > 0 {
-						failColor = color.RedString("%4d", subSummary.Failed)
-					}
-
-					deprColor := fmt.Sprintf("%4d", subSummary.Deprecated)
-					if subSummary.Deprecated > 0 {
-						deprColor = color.MagentaString("%4d", subSummary.Deprecated)
-					}
-
-					nimplColor := fmt.Sprintf("%4d", subSummary.NotImplemented)
-					if subSummary.NotImplemented > 0 {
-						nimplColor = color.YellowString("%4d", subSummary.NotImplemented)
-					}
-
-					skipColor := fmt.Sprintf("%4d", subSummary.Skipped)
-					if subSummary.Skipped > 0 {
-						skipColor = color.HiBlackString("%4d", subSummary.Skipped)
-					}
-
-					fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
-						displayCategoryName,
-						subName,
-						passColor,
-						failColor,
-						deprColor,
-						nimplColor,
-						skipColor,
-						subSummary.Total)
-					// Clear category name for subsequent rows
-					categoryName = ""
-				}
-			}
-		} else if catSummary, exists := summary.Categories[categoryName]; exists {
-			// Fallback: if no subcategories, show category total
-			displayCategoryName := fmt.Sprintf("%s (%d)", categoryName, catSummary.Total)
-
+		if catSummary, exists := summary.Categories[categoryName]; exists && catSummary.Total > 0 {
 			// Format counts with colors for non-zero values
 			passColor := fmt.Sprintf("%4d", catSummary.Passed)
 			if catSummary.Passed > 0 {
@@ -391,9 +300,8 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
 			}
 
-			fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
-				displayCategoryName,
-				"-",
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
+				categoryName,
 				passColor,
 				failColor,
 				deprColor,
@@ -403,53 +311,59 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 		}
 	}
 
-	// Print any uncategorized
-	if catSummary, exists := summary.Categories["Uncategorized"]; exists {
-		displayCategoryName := fmt.Sprintf("Uncategorized (%d)", catSummary.Total)
-
-		// Format counts with colors for non-zero values
-		passColor := fmt.Sprintf("%4d", catSummary.Passed)
-		if catSummary.Passed > 0 {
-			passColor = color.GreenString("%4d", catSummary.Passed)
-		}
-
-		failColor := fmt.Sprintf("%4d", catSummary.Failed)
-		if catSummary.Failed > 0 {
-			failColor = color.RedString("%4d", catSummary.Failed)
-		}
-
-		deprColor := fmt.Sprintf("%4d", catSummary.Deprecated)
-		if catSummary.Deprecated > 0 {
-			deprColor = color.MagentaString("%4d", catSummary.Deprecated)
-		}
-
-		nimplColor := fmt.Sprintf("%4d", catSummary.NotImplemented)
-		if catSummary.NotImplemented > 0 {
-			nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
-		}
-
-		skipColor := fmt.Sprintf("%4d", catSummary.Skipped)
-		if catSummary.Skipped > 0 {
-			skipColor = color.HiBlackString("%4d", catSummary.Skipped)
-		}
-
-		fmt.Printf("%-15s │ %-15s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
-			displayCategoryName,
-			"All",
-			passColor,
-			failColor,
-			deprColor,
-			nimplColor,
-			skipColor,
-			catSummary.Total)
+	// Print any additional categories not in the predefined order
+	predefinedCategories := make(map[string]bool)
+	for _, cat := range categoryOrder {
+		predefinedCategories[cat] = true
 	}
+
+	for categoryName, catSummary := range summary.Categories {
+		if !predefinedCategories[categoryName] && catSummary.Total > 0 {
+			// Format counts with colors for non-zero values
+			passColor := fmt.Sprintf("%4d", catSummary.Passed)
+			if catSummary.Passed > 0 {
+				passColor = color.GreenString("%4d", catSummary.Passed)
+			}
+
+			failColor := fmt.Sprintf("%4d", catSummary.Failed)
+			if catSummary.Failed > 0 {
+				failColor = color.RedString("%4d", catSummary.Failed)
+			}
+
+			deprColor := fmt.Sprintf("%4d", catSummary.Deprecated)
+			if catSummary.Deprecated > 0 {
+				deprColor = color.MagentaString("%4d", catSummary.Deprecated)
+			}
+
+			nimplColor := fmt.Sprintf("%4d", catSummary.NotImplemented)
+			if catSummary.NotImplemented > 0 {
+				nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
+			}
+
+			skipColor := fmt.Sprintf("%4d", catSummary.Skipped)
+			if catSummary.Skipped > 0 {
+				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
+			}
+
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
+				categoryName,
+				passColor,
+				failColor,
+				deprColor,
+				nimplColor,
+				skipColor,
+				catSummary.Total)
+		}
+	}
+
 }
 
 func PrintSummary(summary *types.TestSummary) {
-	fmt.Println(`
-═════════════════════════════════════════════════════════════════════════════
-                               FINAL SUMMARY                               
-═════════════════════════════════════════════════════════════════════════════`)
+	// 63 equals characters to match matrix width
+	line := strings.Repeat("═", 63)
+	fmt.Printf("\n%s\n", line)
+	fmt.Println("                     FINAL SUMMARY                     ")
+	fmt.Printf("%s\n", line)
 
 	color.Green("Passed:          %d", summary.Passed)
 	color.Red("Failed:          %d", summary.Failed)

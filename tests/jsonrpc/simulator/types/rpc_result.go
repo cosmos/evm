@@ -13,12 +13,11 @@ const (
 type RpcName string
 
 type RpcResult struct {
-	Method      RpcName
-	Status      RpcStatus
-	Value       interface{}
-	ErrMsg      string
-	Category    string // Main category (namespace)
-	Subcategory string // Subcategory (functional grouping)
+	Method   RpcName
+	Status   RpcStatus
+	Value    interface{}
+	ErrMsg   string
+	Category string // Main category (namespace)
 }
 
 type TestSummary struct {
@@ -29,7 +28,6 @@ type TestSummary struct {
 	Deprecated     int
 	Total          int
 	Categories     map[string]*CategorySummary
-	Subcategories  map[string]map[string]*CategorySummary // category -> subcategory -> summary
 }
 
 type CategorySummary struct {
@@ -76,31 +74,15 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 	if s.Categories == nil {
 		s.Categories = make(map[string]*CategorySummary)
 	}
-	if s.Subcategories == nil {
-		s.Subcategories = make(map[string]map[string]*CategorySummary)
-	}
 	
 	category := result.Category
 	if category == "" {
 		category = "Uncategorized"
 	}
 	
-	subcategory := result.Subcategory
-	if subcategory == "" {
-		subcategory = "Other"
-	}
-	
 	// Initialize category if it doesn't exist
 	if s.Categories[category] == nil {
 		s.Categories[category] = &CategorySummary{Name: category}
-	}
-	
-	// Initialize subcategory tracking
-	if s.Subcategories[category] == nil {
-		s.Subcategories[category] = make(map[string]*CategorySummary)
-	}
-	if s.Subcategories[category][subcategory] == nil {
-		s.Subcategories[category][subcategory] = &CategorySummary{Name: subcategory}
 	}
 	
 	// Update overall summary
@@ -132,21 +114,5 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 		catSummary.Skipped++
 	case Deprecated:
 		catSummary.Deprecated++
-	}
-	
-	// Update subcategory summary
-	subSummary := s.Subcategories[category][subcategory]
-	subSummary.Total++
-	switch result.Status {
-	case Ok:
-		subSummary.Passed++
-	case Error:
-		subSummary.Failed++
-	case NotImplemented:
-		subSummary.NotImplemented++
-	case Skipped:
-		subSummary.Skipped++
-	case Deprecated:
-		subSummary.Deprecated++
 	}
 }

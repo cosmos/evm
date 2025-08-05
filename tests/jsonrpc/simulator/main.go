@@ -403,16 +403,10 @@ func main() {
 				// Handle methods with no handler - only skip engine methods, test others
 				if category.Name == "engine" {
 					result, _ := rpc.RpcSkipped(method.Name, category.Name, method.SkipReason)
-					if result.Subcategory == "" {
-						result.Subcategory = getSubcategory(method.Name)
-					}
 					results = append(results, result)
 				} else {
 					// Test the method to see if it's actually implemented
 					result, _ := rpc.RpcGenericTest(rCtx, method.Name, category.Name)
-					if result.Subcategory == "" {
-						result.Subcategory = getSubcategory(method.Name)
-					}
 					results = append(results, result)
 				}
 				continue
@@ -427,15 +421,11 @@ func main() {
 					Status:      types.Error,
 					ErrMsg:      err.Error(),
 					Category:    category.Name,
-					Subcategory: getSubcategory(method.Name),
 				}
 			}
-			// Ensure category is set and add subcategory
+			// Ensure category is set
 			if result.Category == "" {
 				result.Category = category.Name
-			}
-			if result.Subcategory == "" {
-				result.Subcategory = getSubcategory(method.Name)
 			}
 
 			// Mark personal/miner methods as deprecated if they pass
@@ -460,13 +450,29 @@ func main() {
 		}
 
 		if result.Category == "" {
-			// Categorize based on method name
-			switch result.Method {
-			case rpc.EthGetTransactionReceipt:
-				result.Category = "Transaction"
-			case rpc.EthGetBlockByNumber, rpc.EthGetBlockByHash:
-				result.Category = "Block"
-			default:
+			// Categorize based on method name using the namespace
+			methodStr := string(result.Method)
+			if strings.HasPrefix(methodStr, "eth_") {
+				result.Category = "eth"
+			} else if strings.HasPrefix(methodStr, "web3_") {
+				result.Category = "web3"
+			} else if strings.HasPrefix(methodStr, "net_") {
+				result.Category = "net"
+			} else if strings.HasPrefix(methodStr, "personal_") {
+				result.Category = "personal"
+			} else if strings.HasPrefix(methodStr, "debug_") {
+				result.Category = "debug"
+			} else if strings.HasPrefix(methodStr, "txpool_") {
+				result.Category = "txpool"
+			} else if strings.HasPrefix(methodStr, "miner_") {
+				result.Category = "miner"
+			} else if strings.HasPrefix(methodStr, "admin_") {
+				result.Category = "admin"
+			} else if strings.HasPrefix(methodStr, "engine_") {
+				result.Category = "engine"
+			} else if strings.HasPrefix(methodStr, "les_") {
+				result.Category = "les"
+			} else {
 				result.Category = "Uncategorized"
 			}
 		}
@@ -476,122 +482,6 @@ func main() {
 	report.ReportResults(results, *verbose, *outputExcel)
 }
 
-// getSubcategory determines the functional subcategory of a method based on execution-apis structure
-func getSubcategory(methodName types.RpcName) string {
-	switch methodName {
-	// Eth namespace - client subcategory
-	case rpc.EthChainId, rpc.EthSyncing, rpc.EthCoinbase, rpc.EthAccounts, rpc.EthBlockNumber, rpc.EthMining, rpc.EthHashrate:
-		return "client"
-
-	// Eth namespace - fee_market subcategory
-	case rpc.EthGasPrice, rpc.EthBlobBaseFee, rpc.EthMaxPriorityFeePerGas, rpc.EthFeeHistory:
-		return "fee_market"
-
-	// Eth namespace - state subcategory
-	case rpc.EthGetBalance, rpc.EthGetStorageAt, rpc.EthGetTransactionCount, rpc.EthGetCode, rpc.EthGetProof:
-		return "state"
-
-	// Eth namespace - block subcategory
-	case rpc.EthGetBlockByHash, rpc.EthGetBlockByNumber, rpc.EthGetBlockTransactionCountByHash, rpc.EthGetBlockTransactionCountByNumber,
-		rpc.EthGetUncleCountByBlockHash, rpc.EthGetUncleCountByBlockNumber, rpc.EthGetUncleByBlockHashAndIndex, rpc.EthGetUncleByBlockNumberAndIndex,
-		rpc.EthGetBlockReceipts:
-		return "block"
-
-	// Eth namespace - transaction subcategory
-	case rpc.EthGetTransactionByHash, rpc.EthGetTransactionByBlockHashAndIndex, rpc.EthGetTransactionByBlockNumberAndIndex,
-		rpc.EthGetTransactionReceipt, rpc.EthGetTransactionCountByHash, rpc.EthPendingTransactions:
-		return "transaction"
-
-	// Eth namespace - filter subcategory
-	case rpc.EthNewFilter, rpc.EthNewBlockFilter, rpc.EthNewPendingTransactionFilter, rpc.EthGetFilterChanges,
-		rpc.EthGetFilterLogs, rpc.EthUninstallFilter, rpc.EthGetLogs:
-		return "filter"
-
-	// Eth namespace - execute subcategory
-	case rpc.EthCall, rpc.EthEstimateGas:
-		return "execute"
-
-	// Eth namespace - submit subcategory
-	case rpc.EthSendTransaction, rpc.EthSendRawTransaction:
-		return "submit"
-
-	// Eth namespace - sign subcategory (deprecated)
-	case rpc.EthSign, rpc.EthSignTransaction:
-		return "sign"
-
-	// Eth namespace - deprecated/other methods
-	case rpc.EthProtocolVersion, rpc.EthGetCompilers, rpc.EthCompileSolidity, rpc.EthGetWork, rpc.EthSubmitWork, rpc.EthSubmitHashrate, rpc.EthCreateAccessList:
-		return "deprecated"
-
-	// Debug namespace subcategories
-	case rpc.DebugTraceTransaction, rpc.DebugTraceBlock, rpc.DebugTraceCall, rpc.DebugIntermediateRoots:
-		return "tracing"
-	case rpc.DebugDbGet, rpc.DebugDbAncient, rpc.DebugChaindbCompact, rpc.DebugGetModifiedAccounts, rpc.DebugDumpBlock:
-		return "database"
-	case rpc.DebugBlockProfile, rpc.DebugCpuProfile, rpc.DebugGoTrace, rpc.DebugMemStats, rpc.DebugMutexProfile, rpc.DebugSetBlockProfileRate, rpc.DebugSetMutexProfileFraction:
-		return "profiling"
-	case rpc.DebugBacktraceAt, rpc.DebugStacks, rpc.DebugGetBadBlocks, rpc.DebugPreimage, rpc.DebugFreeOSMemory, rpc.DebugSetHead:
-		return "diagnostics"
-
-	// Miner methods (deprecated)
-	case rpc.MinerStart, rpc.MinerStop, rpc.MinerSetEtherbase, rpc.MinerSetExtra, rpc.MinerSetGasPrice, rpc.MinerSetGasLimit, rpc.MinerGetHashrate:
-		return "mining"
-
-	// Personal methods - Account Management
-	case rpc.PersonalListAccounts, rpc.PersonalNewAccount, rpc.PersonalDeriveAccount:
-		return "account"
-	// Personal methods - Wallet Management
-	case rpc.PersonalListWallets, rpc.PersonalOpenWallet, rpc.PersonalInitializeWallet, rpc.PersonalUnpair:
-		return "wallet"
-	// Personal methods - Key Management
-	case rpc.PersonalImportRawKey, rpc.PersonalUnlockAccount, rpc.PersonalLockAccount:
-		return "key"
-	// Personal methods - Signing
-	case rpc.PersonalSign, rpc.PersonalSignTransaction, rpc.PersonalSignTypedData, rpc.PersonalEcRecover:
-		return "signing"
-	// Personal methods - Transaction
-	case rpc.PersonalSendTransaction:
-		return "transaction"
-
-	// TxPool methods
-	case rpc.TxPoolContent, rpc.TxPoolContentFrom, rpc.TxPoolInspect, rpc.TxPoolStatus:
-		return "mempool"
-
-	// Engine API methods
-	case rpc.EngineNewPayloadV1, rpc.EngineNewPayloadV2, rpc.EngineNewPayloadV3, rpc.EngineForkchoiceUpdatedV1, rpc.EngineForkchoiceUpdatedV2, rpc.EngineForkchoiceUpdatedV3,
-		rpc.EngineGetPayloadV1, rpc.EngineGetPayloadV2, rpc.EngineGetPayloadV3:
-		return "consensus"
-
-	// Trace methods
-	case rpc.TraceCall, rpc.TraceCallMany, rpc.TraceTransaction, rpc.TraceBlock:
-		return "tracing"
-
-	// Admin methods
-	case rpc.AdminAddPeer, rpc.AdminAddTrustedPeer, rpc.AdminRemovePeer, rpc.AdminRemoveTrustedPeer, rpc.AdminNodeInfo, rpc.AdminPeers, rpc.AdminPeerEvents:
-		return "peer"
-	case rpc.AdminDatadir, rpc.AdminExportChain, rpc.AdminImportChain:
-		return "data"
-	case rpc.AdminStartHTTP, rpc.AdminStartWS, rpc.AdminStopHTTP, rpc.AdminStopWS:
-		return "rpc"
-
-	// Web3 methods
-	case rpc.Web3ClientVersion, rpc.Web3Sha3:
-		return "utility"
-
-	// Net methods
-	case rpc.NetVersion, rpc.NetPeerCount, rpc.NetListening:
-		return "network"
-
-	// LES methods - Light Ethereum Subprotocol
-	case rpc.LesServerInfo, rpc.LesClientInfo, rpc.LesPriorityClientInfo, rpc.LesAddBalance, rpc.LesSetClientParams, rpc.LesSetDefaultParams:
-		return "client_management"
-	case rpc.LesLatestCheckpoint, rpc.LesGetCheckpoint, rpc.LesGetCheckpointContractAddress:
-		return "checkpoint"
-
-	default:
-		return "other"
-	}
-}
 
 // isDeprecatedMethod checks if a method is deprecated
 func isDeprecatedMethod(methodName types.RpcName) bool {
