@@ -1,6 +1,6 @@
 const { expect } = require('chai')
 const hre = require('hardhat')
-const { findEvent } = require('../common')
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 describe('ERC20 Precompile', function () {
     let erc20, owner, spender, recipient
@@ -9,7 +9,7 @@ describe('ERC20 Precompile', function () {
     before(async function () {
         [owner, spender, recipient] = await hre.ethers.getSigners()
         erc20 = await hre.ethers.getContractAt(
-            'IERC20MetadataAllowance',
+            'IERC20Metadata',
             '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
         )
     })
@@ -49,7 +49,7 @@ describe('ERC20 Precompile', function () {
         const prev   = await erc20.balanceOf(spender.address)
 
         const tx = await erc20.connect(owner).transfer(spender.address, amount)
-        const receipt = await tx.wait(1)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
 
         const transferEvent = findEvent(receipt.logs, erc20.interface, 'Transfer')
         expect(transferEvent, 'Transfer event must be emitted').to.exist
@@ -68,7 +68,7 @@ describe('ERC20 Precompile', function () {
         const approvalTx = await erc20.
             connect(owner)
             .approve(spender.address, amount, {gasLimit: GAS_LIMIT})
-        const approvalReceipt = await approvalTx.wait(1)
+        const approvalReceipt = await waitWithTimeout(approvalTx, 20000, RETRY_DELAY_FUNC)
         console.log(`Approval transaction hash: ${approvalTx.hash}`)
 
         const approvalEvent = findEvent(approvalReceipt.logs, erc20.interface, 'Approval')
@@ -87,7 +87,7 @@ describe('ERC20 Precompile', function () {
         const tx = await erc20
             .connect(spender)
             .transferFrom(owner.address, recipient.address, amount, {gasLimit: GAS_LIMIT})
-        const receipt = await tx.wait(1)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log(`Transfer transaction hash: ${tx.hash}`)
 
         const transferEvent = findEvent(receipt.logs, erc20.interface, 'Transfer')

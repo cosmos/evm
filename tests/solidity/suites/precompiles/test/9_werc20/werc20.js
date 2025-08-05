@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { WERC20_ADDRESS, DEFAULT_GAS_LIMIT, findEvent } = require('../common');
+const { WERC20_ADDRESS, DEFAULT_GAS_LIMIT, findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
 
 describe('WERC20 – deposit and withdraw', function () {
     const GAS_LIMIT = DEFAULT_GAS_LIMIT;
@@ -26,8 +26,8 @@ describe('WERC20 – deposit and withdraw', function () {
                 value: depositAmount,
                 gasLimit: GAS_LIMIT
             });
-            const receipt = await tx.wait();
-            
+            const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
             // Check balances after deposit
             const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
             const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
@@ -69,8 +69,8 @@ describe('WERC20 – deposit and withdraw', function () {
                     value: amount,
                     gasLimit: GAS_LIMIT
                 });
-                const receipt = await tx.wait();
-                
+                const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
                 // Check balances after deposit
                 const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
                 const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
@@ -102,8 +102,8 @@ describe('WERC20 – deposit and withdraw', function () {
                 value: depositAmount,
                 gasLimit: GAS_LIMIT
             });
-            const receipt = await tx.wait();
-            
+            const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
             // Check balances after deposit
             const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
             const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
@@ -133,8 +133,8 @@ describe('WERC20 – deposit and withdraw', function () {
             const tx = await werc20.withdraw(withdrawAmount, {
                 gasLimit: GAS_LIMIT
             });
-            const receipt = await tx.wait();
-            
+            const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
             // Check balances after withdrawal
             const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
             const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
@@ -176,8 +176,8 @@ describe('WERC20 – deposit and withdraw', function () {
                 const tx = await werc20.withdraw(amount, {
                     gasLimit: GAS_LIMIT
                 });
-                const receipt = await tx.wait();
-                
+                const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
                 // Check balances after withdrawal
                 const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
                 const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
@@ -206,8 +206,8 @@ describe('WERC20 – deposit and withdraw', function () {
             const tx = await werc20.withdraw(zeroAmount, {
                 gasLimit: GAS_LIMIT
             });
-            const receipt = await tx.wait();
-            
+            const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
+
             // Check balances after withdrawal
             const signerBalanceAfter = await hre.ethers.provider.getBalance(signer.address);
             const contractBalanceAfter = await hre.ethers.provider.getBalance(WERC20_ADDRESS);
