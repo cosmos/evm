@@ -13,6 +13,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -32,6 +33,7 @@ type Precompile struct {
 	distributionKeeper distributionkeeper.Keeper
 	stakingKeeper      stakingkeeper.Keeper
 	evmKeeper          *evmkeeper.Keeper
+	addrCdc            address.Codec
 }
 
 // NewPrecompile creates a new distribution Precompile instance as a
@@ -40,6 +42,7 @@ func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
 	stakingKeeper stakingkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
+	addrCdc address.Codec,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
@@ -55,6 +58,7 @@ func NewPrecompile(
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
 		evmKeeper:          evmKeeper,
+		addrCdc:            addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
@@ -154,10 +158,6 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	// Process the native balance changes after the method execution.
 	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
-		return nil, err
-	}
-
-	if err = p.AddJournalEntries(stateDB); err != nil {
 		return nil, err
 	}
 

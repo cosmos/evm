@@ -25,16 +25,16 @@ function extractChainIDFromGo(goFilePath) {
 
     const goFileContent = fs.readFileSync(goFilePath, 'utf8')
 
-    // Look for EVMChainID = number
-    const chainIdMatch = goFileContent.match(/EVMChainID\s*=\s*(\d+)/)
+    // Look for DefaultEVMChainID = number
+    const chainIdMatch = goFileContent.match(/DefaultEVMChainID\s*=\s*(\d+)/)
 
     if (chainIdMatch) {
       const chainId = parseInt(chainIdMatch[1], 10)
-      logger.info(`Extracted EVMChainID from Go config: ${chainId}`)
+      logger.info(`Extracted DefaultEVMChainID from Go config: ${chainId}`)
       return chainId
     }
 
-    logger.warn('EVMChainID not found in Go file, using default: 262144')
+    logger.warn('DefaultEVMChainID not found in Go file, using default: 262144')
     return 262144
   } catch (error) {
     logger.warn(`Error reading Go config file: ${error.message}, using default: 262144`)
@@ -116,7 +116,7 @@ function restoreHardhatConfig(hardhatConfigPath, backupPath) {
 // Function to sync configuration from Go to Hardhat
 function syncConfiguration() {
   // Adjust these paths based on your project structure
-  const goConfigPath = path.join(__dirname, '../../cmd/evmd/config/config.go')
+  const goConfigPath = path.join(__dirname, '../../server/config/config.go')
   const hardhatConfigPath = path.join(__dirname, './suites/precompiles/hardhat.config.js')
 
   logger.info('Syncing configuration from Go to Hardhat...')

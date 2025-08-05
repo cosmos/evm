@@ -5,7 +5,7 @@
 package network
 
 import (
-	"github.com/cosmos/evm/cmd/evmd/config"
+	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/precisebank/types"

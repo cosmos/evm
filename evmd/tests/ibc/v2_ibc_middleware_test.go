@@ -11,6 +11,7 @@ import (
 	testifysuite "github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -44,7 +45,7 @@ type MiddlewareV2TestSuite struct {
 }
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1, integration.SetupEvmd)
 	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetEvmChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -316,7 +317,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -600,7 +601,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
@@ -834,7 +835,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA)
+			nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
 			senderEthAddr := nativeErc20.Account
 			sender := sdk.AccAddress(senderEthAddr.Bytes())
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)

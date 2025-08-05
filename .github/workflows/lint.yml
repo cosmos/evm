@@ -5,6 +5,8 @@ name: Lint
 on:
   merge_group:
   pull_request:
+  merge_group:
+
 
 permissions: read-all
 

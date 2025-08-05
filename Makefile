@@ -1,24 +1,40 @@
 #!/usr/bin/make -f
 
-PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
+###############################################################################
+###                           Module & Versioning                           ###
+###############################################################################
+
 VERSION ?= $(shell echo $(shell git describe --tags --always) | sed 's/^v//')
 TMVERSION := $(shell go list -m github.com/cometbft/cometbft | sed 's:.* ::')
 COMMIT := $(shell git log -1 --format='%H')
+
+###############################################################################
+###                          Directories & Binaries                         ###
+###############################################################################
+
 BINDIR ?= $(GOPATH)/bin
-EXAMPLE_BINARY = evmd
 BUILDDIR ?= $(CURDIR)/build
+EXAMPLE_BINARY := evmd
+
+###############################################################################
+###                              Repo Info                                  ###
+###############################################################################
+
 HTTPS_GIT := https://github.com/cosmos/evm.git
 DOCKER := $(shell which docker)
 
 export GO111MODULE = on
 
-# Default target executed when no arguments are given to make.
-default_target: all
+###############################################################################
+###                            Submodule Settings                           ###
+###############################################################################
 
-.PHONY: build default_target
+# evmd is a separate module under ./evmd
+EVMD_DIR      := evmd
+EVMD_MAIN_PKG := ./cmd/evmd
 
 ###############################################################################
-###                          evmd Build & Install                           ###
+###                        Build & Install evmd                             ###
 ###############################################################################
 
 # process build tags
@@ -71,18 +87,28 @@ ifneq (,$(findstring nooptimization,$(COSMOS_BUILD_OPTIONS)))
   BUILD_FLAGS += -gcflags "all=-N -l"
 endif
 
+# Build into $(BUILDDIR)
+build: go.sum $(BUILDDIR)/
+	@echo "🏗️  Building evmd to $(BUILDDIR)/$(EXAMPLE_BINARY) ..."
+	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
+	  go build $(BUILD_FLAGS) -o $(BUILDDIR)/$(EXAMPLE_BINARY) $(EVMD_MAIN_PKG)
 
-BUILD_TARGETS := build install
-
-build: BUILD_ARGS=-o $(BUILDDIR)/
+# Cross-compile for Linux AMD64
 build-linux:
 	GOOS=linux GOARCH=amd64 $(MAKE) build
 
-$(BUILD_TARGETS): go.sum $(BUILDDIR)/
-	CGO_ENABLED="1" go $@ $(BUILD_FLAGS) $(BUILD_ARGS) ./...
+# Install into $(BINDIR)
+install: go.sum
+	@echo "🚚  Installing evmd to $(BINDIR) ..."
+	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
+	  go install $(BUILD_FLAGS) $(EVMD_MAIN_PKG)
 
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
+
+# Default & all target
+.PHONY: all build build-linux install
+all: build
 
 ###############################################################################
 ###                          Tools & Dependencies                           ###
@@ -101,6 +127,7 @@ vulncheck:
 ###                           Tests & Simulation                            ###
 ###############################################################################
 
+PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
 PACKAGES_UNIT := $(shell go list ./... | grep -v '/tests/e2e$$' | grep -v '/simulation')
 PACKAGES_EVMD := $(shell cd evmd && go list ./... | grep -v '/simulation')
 COVERPKG_EVM  := $(shell go list ./... | grep -v '/tests/e2e$$' | grep -v '/simulation' | paste -sd, -)
@@ -131,6 +158,8 @@ test-unit-cover: run-tests
 	@cd evmd && go test -tags=test $(COMMON_COVER_ARGS) -coverpkg=$(COVERPKG_ALL) -coverprofile=coverage_evmd.txt ./...
 	@echo "🔀 Merging evmd coverage into root coverage..."
 	@tail -n +2 evmd/coverage_evmd.txt >> coverage.txt && rm evmd/coverage_evmd.txt
+	@echo "🧹 Filtering ignored files from coverage.txt..."
+	@grep -v -E '/cmd/|/client/|/proto/|/testutil/|/mocks/|/test_.*\.go:|\.pb\.go:|\.pb\.gw\.go:|/x/[^/]+/module\.go:|/scripts/|/ibc/testing/|/version/|\.md:|\.pulsar\.go:' coverage.txt > tmp_coverage.txt && mv tmp_coverage.txt coverage.txt
 	@echo "📊 Coverage summary:"
 	@go tool cover -func=coverage.txt
 
@@ -180,7 +209,7 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.1.6
+golangci_version=v2.2.2
 
 lint: lint-go lint-python lint-contracts
 

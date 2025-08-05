@@ -2,10 +2,9 @@ package network
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"time"
-
-	"golang.org/x/exp/maps"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -135,8 +134,7 @@ func createBalances(
 ) []banktypes.Balance {
 	numberOfAccounts := len(accounts)
 
-	denoms := maps.Keys(denomDecimals)
-	slices.Sort(denoms)
+	denoms := slices.Sorted(maps.Keys(denomDecimals))
 
 	coins := make([]sdktypes.Coin, len(denoms))
 	for i, denom := range denoms {
@@ -157,7 +155,7 @@ func createBalances(
 
 // createStakingValidator creates a staking validator from the given tm validator and bonded
 func createStakingValidator(val *cmttypes.Validator, bondedAmt sdkmath.Int, operatorAddr *sdktypes.AccAddress) (stakingtypes.Validator, error) {
-	pk, err := cryptocodec.FromTmPubKeyInterface(val.PubKey) //nolint:staticcheck
+	pk, err := cryptocodec.FromCmtPubKeyInterface(val.PubKey)
 	if err != nil {
 		return stakingtypes.Validator{}, err
 	}

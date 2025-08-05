@@ -2,22 +2,31 @@ package precisebank
 
 import (
 	"fmt"
+	"maps"
 	"math/big"
 	"math/rand"
+	"sort"
 	"testing"
 
+	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/evmd"
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	cosmosevmutils "github.com/cosmos/evm/utils"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/precisebank/types"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
@@ -78,7 +87,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 	// we only are testing the errors/panics specific to the method and
 	// remaining logic is the same as SendCoins.
 
-	blockedMacAddrs := evmd.BlockedAddresses()
+	blockedMacAddrs := blockedAddresses()
 	precisebankAddr := s.network.App.GetAccountKeeper().GetModuleAddress(types.ModuleName)
 
 	var blockedAddr sdk.AccAddress
@@ -99,7 +108,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 	// x/precisebank is blocked from use with SendCoinsFromModuleToAccount as we
 	// don't want external modules to modify x/precisebank balances.
 	var senderModuleName string
-	macPerms := evmd.GetMaccPerms()
+	macPerms := getMaccPerms()
 	for moduleName := range macPerms {
 		if moduleName != types.ModuleName && moduleName != stakingtypes.BondedPoolName {
 			senderModuleName = moduleName
@@ -936,4 +945,52 @@ func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //
 			s.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)
 		})
 	}
+}
+
+func blockedAddresses() map[string]bool {
+	blockedAddrs := make(map[string]bool)
+
+	maccPerms := getMaccPerms()
+	accs := make([]string, 0, len(maccPerms))
+	for acc := range maccPerms {
+		accs = append(accs, acc)
+	}
+	sort.Strings(accs)
+
+	for _, acc := range accs {
+		blockedAddrs[authtypes.NewModuleAddress(acc).String()] = true
+	}
+
+	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
+	for _, addr := range corevm.PrecompiledAddressesBerlin {
+		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
+	}
+
+	for _, precompile := range blockedPrecompilesHex {
+		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
+	}
+
+	return blockedAddrs
+}
+
+// module account permissions
+var maccPerms = map[string][]string{
+	authtypes.FeeCollectorName:     nil,
+	distrtypes.ModuleName:          nil,
+	ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+	minttypes.ModuleName:           {authtypes.Minter},
+	stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
+	stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
+	govtypes.ModuleName:            {authtypes.Burner},
+
+	// Cosmos EVM modules
+	evmtypes.ModuleName:         {authtypes.Minter, authtypes.Burner},
+	feemarkettypes.ModuleName:   nil,
+	erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
+	precisebanktypes.ModuleName: {authtypes.Minter, authtypes.Burner},
+}
+
+// getMaccPerms returns a copy of the module account permissions
+func getMaccPerms() map[string][]string {
+	return maps.Clone(maccPerms)
 }
