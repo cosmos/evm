@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	mock "github.com/stretchr/testify/mock"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -240,11 +241,44 @@ func (s *TestSuite) TestTraceBlock() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterTraceBlock(QueryClient, []*evmtypes.MsgEthereumTx{msgEthTx})
 				RegisterConsensusParams(client, 1)
+				_, err := RegisterBlockResults(client, 1)
+				s.Require().NoError(err)
 			},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockFilled,
 			&evmtypes.TraceConfig{},
 			false,
+		},
+		{
+			"fail - TendermintBlockResultByNumber returns error",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterBlockResultsError(client, 1)
+			},
+			nil,
+			&resBlockFilled,
+			&evmtypes.TraceConfig{},
+			true,
+		},
+		{
+			"skip invalid tx result code - transaction failed",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				_, err := RegisterBlockResultsWithTxs(client, 1, []*abci.ExecTxResult{{Code: 0}, {Code: 1}, {Code: 0}})
+				s.Require().NoError(err)
+				RegisterConsensusParams(client, 1)
+				traceResult := &evmtypes.QueryTraceBlockResponse{
+					Data: []byte(`[{"result": "trace1"}, {"result": "trace2"}]`),
+				}
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				queryClient.On("TraceBlock", mock.Anything, mock.AnythingOfType("*types.QueryTraceBlockRequest")).
+					Return(traceResult, nil).
+					Once()
+			},
+			[]*evmtypes.TxTraceResult{{Result: "trace1"}, {Result: "trace2"}},
+			&resBlockFilled,
+			&evmtypes.TraceConfig{},
+			true,
 		},
 	}
 
