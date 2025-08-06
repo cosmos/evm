@@ -4,27 +4,44 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/report"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/rpc"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose output")
 	outputExcel := flag.Bool("xlsx", false, "Save output as xlsx")
+	fundAccounts := flag.Bool("fund-geth", false, "Fund standard dev accounts in geth using coinbase")
 	flag.Parse()
 
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig("config.yaml")
+
+	// Handle account funding if requested
+	if *fundAccounts {
+		log.Println("Funding standard dev accounts in geth...")
+		err := fundGethAccounts(conf)
+		if err != nil {
+			log.Fatalf("Failed to fund geth accounts: %v", err)
+		}
+		log.Println("✓ Account funding completed successfully!")
+		return
+	}
 
 	rCtx, err := rpc.NewContext(conf)
 	if err != nil {
@@ -494,4 +511,59 @@ func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {
 	rCtx.ERC20ByteCode = contractBytecode
 
 	return rCtx
+}
+
+// fundGethAccounts funds the standard dev accounts in geth using coinbase balance
+func fundGethAccounts(conf *config.Config) error {
+	// For now, assume geth is running on localhost:8547 (based on our setup)
+	gethURL := "http://localhost:8547"
+	
+	// Connect to geth
+	client, err := ethclient.Dial(gethURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to geth at %s: %w", gethURL, err)
+	}
+
+	// Fund the accounts
+	results, err := utils.FundStandardAccounts(client, gethURL)
+	if err != nil {
+		return fmt.Errorf("failed to fund accounts: %w", err)
+	}
+
+	// Print results
+	fmt.Println("\nFunding Results:")
+	for _, result := range results {
+		if result.Success {
+			fmt.Printf("✓ %s (%s): %s ETH - TX: %s\n", 
+				result.Account, 
+				result.Address.Hex(), 
+				"1000", // We know it's 1000 ETH
+				result.TxHash.Hex())
+		} else {
+			fmt.Printf("✗ %s (%s): Failed - %s\n", 
+				result.Account, 
+				result.Address.Hex(), 
+				result.Error)
+		}
+	}
+
+	// Wait for transactions to be mined
+	fmt.Println("\nWaiting for transactions to be mined...")
+	time.Sleep(15 * time.Second) // Dev mode mines every 12 seconds
+
+	// Check final balances
+	fmt.Println("\nChecking final balances:")
+	balances, err := utils.CheckAccountBalances(client)
+	if err != nil {
+		return fmt.Errorf("failed to check balances: %w", err)
+	}
+
+	for name, balance := range balances {
+		address := utils.StandardDevAccounts[name]
+		ethBalance := new(big.Int).Div(balance, big.NewInt(1e18)) // Convert wei to ETH
+		fmt.Printf("%s (%s): %s ETH\n", name, address.Hex(), ethBalance.String())
+	}
+
+	fmt.Println("\n✓ Now dev1-dev4 accounts have matching balances on both evmd and geth")
+	return nil
 }

@@ -45,24 +45,13 @@ fi
 # Create data directory
 mkdir -p "$DATA_DIR"
 
-# Check if genesis file exists
-if [ ! -f "$GENESIS_FILE" ]; then
-    echo -e "${RED}Error: Genesis file not found at $GENESIS_FILE${NC}"
-    echo -e "${YELLOW}Please run the genesis converter first to create geth_genesis.json${NC}"
-    exit 1
-fi
+# Note: JWT not needed in dev mode (no external consensus client)
 
-# Initialize geth with custom genesis
-echo -e "${GREEN}Initializing geth with converted genesis...${NC}"
-docker run --rm \
-    -v "$DATA_DIR:/data" \
-    -v "$GENESIS_FILE:/genesis.json" \
-    "$GETH_IMAGE" \
-    --datadir /data \
-    init /genesis.json
+# Note: --dev mode creates its own genesis, so we skip custom genesis initialization
+echo -e "${YELLOW}Using --dev mode which creates its own genesis (PoA network)${NC}"
 
-# Start geth container
-echo -e "${GREEN}Starting geth container...${NC}"
+# Start geth container in dev mode (PoA network, no beacon client needed)
+echo -e "${GREEN}Starting geth container in dev mode...${NC}"
 docker run -d \
     --name "$CONTAINER_NAME" \
     --rm \
@@ -73,6 +62,8 @@ docker run -d \
     "$GETH_IMAGE" \
     --datadir /data \
     --networkid $NETWORK_ID \
+    --dev \
+    --dev.period 12 \
     --http \
     --http.addr 0.0.0.0 \
     --http.port 8545 \

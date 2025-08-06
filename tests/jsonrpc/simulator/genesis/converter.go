@@ -70,30 +70,30 @@ func NewGenesisConverter() *GenesisConverter {
 	return &GenesisConverter{
 		gethGenesis: &core.Genesis{
 			Config: &params.ChainConfig{
-				ChainID:                       big.NewInt(4221), // Same as evmd chain ID
-				HomesteadBlock:                big.NewInt(0),
-				EIP150Block:                   big.NewInt(0),
-				EIP155Block:                   big.NewInt(0),
-				EIP158Block:                   big.NewInt(0),
-				ByzantiumBlock:                big.NewInt(0),
-				ConstantinopleBlock:           big.NewInt(0),
-				PetersburgBlock:               big.NewInt(0),
-				IstanbulBlock:                 big.NewInt(0),
-				MuirGlacierBlock:              big.NewInt(0),
-				BerlinBlock:                   big.NewInt(0),
-				LondonBlock:                   big.NewInt(0),
-				ArrowGlacierBlock:             big.NewInt(0),
-				GrayGlacierBlock:              big.NewInt(0),
-				MergeNetsplitBlock:            big.NewInt(0),
-				TerminalTotalDifficulty:       big.NewInt(0), // Required for PoS - triggers merge immediately
-				ShanghaiTime:                  nil, // Disable post-merge forks to avoid blob configuration
-				CancunTime:                    nil, // Disable post-merge forks to avoid blob configuration
+				ChainID:             big.NewInt(4221), // Same as evmd chain ID
+				HomesteadBlock:      big.NewInt(0),
+				EIP150Block:         big.NewInt(0),
+				EIP155Block:         big.NewInt(0),
+				EIP158Block:         big.NewInt(0),
+				ByzantiumBlock:      big.NewInt(0),
+				ConstantinopleBlock: big.NewInt(0),
+				PetersburgBlock:     big.NewInt(0),
+				IstanbulBlock:       big.NewInt(0),
+				MuirGlacierBlock:    big.NewInt(0),
+				BerlinBlock:         big.NewInt(0),
+				LondonBlock:         big.NewInt(0),
+				ArrowGlacierBlock:   big.NewInt(0),
+				GrayGlacierBlock:    big.NewInt(0),
+				// PoS configuration for --dev.pos mode
+				TerminalTotalDifficulty: big.NewInt(0), // Immediate merge for PoS
+				ShanghaiTime:            nil, // Disable post-merge forks to avoid complexity
+				CancunTime:              nil, // Disable post-merge forks to avoid complexity
 			},
 			Nonce:      0,
 			Timestamp:  0,
-			ExtraData:  []byte{},
+			ExtraData:  []byte{}, // Empty for PoS
 			GasLimit:   10000000,
-			Difficulty: big.NewInt(0),
+			Difficulty: big.NewInt(0), // Zero difficulty for PoS
 			Mixhash:    common.Hash{},
 			Coinbase:   common.Address{},
 			Alloc:      make(core.GenesisAlloc),

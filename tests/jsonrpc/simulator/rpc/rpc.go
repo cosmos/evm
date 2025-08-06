@@ -54,14 +54,84 @@ func NewContext(conf *config.Config) (*RpcContext, error) {
 		return nil, err
 	}
 
-	return &RpcContext{
+	ctx := &RpcContext{
 		Conf:   conf,
 		EthCli: ethCli,
 		Acc: &types.Account{
 			Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey),
 			PrivKey: ecdsaPrivKey,
 		},
-	}, nil
+	}
+
+	// Scan existing blockchain state to populate initial data
+	err = ctx.loadExistingState()
+	if err != nil {
+		// Not a fatal error - we can continue with empty state
+		fmt.Printf("Warning: Could not load existing blockchain state: %v\n", err)
+	}
+
+	return ctx, nil
+}
+
+// loadExistingState scans the blockchain and creates test transactions if needed
+func (rCtx *RpcContext) loadExistingState() error {
+	// First, scan existing blocks for any transactions
+	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get block number: %v", err)
+	}
+
+	// Scan recent blocks for any existing transactions
+	startBlock := uint64(1) // Start from block 1 (genesis is 0)
+	if blockNumber > 50 {
+		startBlock = blockNumber - 50
+	}
+
+	fmt.Printf("Scanning blocks %d to %d for existing transactions...\n", startBlock, blockNumber)
+
+	for i := startBlock; i <= blockNumber; i++ {
+		block, err := rCtx.EthCli.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+		if err != nil {
+			continue // Skip blocks we can't read
+		}
+
+		// Process transactions in this block
+		for _, tx := range block.Transactions() {
+			txHash := tx.Hash()
+			
+			// Get transaction receipt
+			receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
+			if err != nil {
+				continue // Skip transactions without receipts
+			}
+
+			// Add successful transactions to our list
+			if receipt.Status == 1 {
+				rCtx.ProcessedTransactions = append(rCtx.ProcessedTransactions, txHash)
+				rCtx.BlockNumsIncludingTx = append(rCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
+
+				// If this transaction created a contract, save the address
+				if receipt.ContractAddress != (common.Address{}) {
+					rCtx.ERC20Addr = receipt.ContractAddress
+					fmt.Printf("Found contract at address: %s (tx: %s)\n", receipt.ContractAddress.Hex(), txHash.Hex())
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Loaded %d existing transactions\n", len(rCtx.ProcessedTransactions))
+
+	// If we don't have enough transactions, create some test transactions now
+	if len(rCtx.ProcessedTransactions) < 3 {
+		fmt.Printf("Note: Only %d transactions found. Consider running more transactions for comprehensive API testing.\n", len(rCtx.ProcessedTransactions))
+		// TODO: Implement createTestTransactions method
+	}
+
+	if rCtx.ERC20Addr != (common.Address{}) {
+		fmt.Printf("Contract available at: %s\n", rCtx.ERC20Addr.Hex())
+	}
+
+	return nil
 }
 
 func (rCtx *RpcContext) AlreadyTested(rpc types.RpcName) *types.RpcResult {
