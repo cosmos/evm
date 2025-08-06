@@ -48,7 +48,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 			BaseFee: res.BaseFee.BigInt(),
 		}
 		vmConfig := k.VMConfig(ctx, cfg, nil)
-		blockCtx := k.BlockContext(ctx, cfg)
+		blockCtx := k.BlockContext(ctx, cfg, stateDB)
 		evm := vm.NewEVM(blockCtx, stateDB, ethCfg, vmConfig)
 		parentHash := ctx.BlockHeader().LastBlockId.Hash
 		if err := ProcessParentBlockHash(common.BytesToHash(parentHash), evm); err != nil {
