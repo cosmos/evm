@@ -96,6 +96,5 @@ func ProcessParentBlockHash(prevHash common.Hash, evm *vm.EVM) error {
 	if evm.StateDB.AccessEvents() != nil {
 		evm.StateDB.AccessEvents().Merge(evm.AccessEvents)
 	}
-	evm.StateDB.Finalise(true)
 	return nil
 }
