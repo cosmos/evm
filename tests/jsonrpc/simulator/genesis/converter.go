@@ -85,8 +85,9 @@ func NewGenesisConverter() *GenesisConverter {
 				ArrowGlacierBlock:             big.NewInt(0),
 				GrayGlacierBlock:              big.NewInt(0),
 				MergeNetsplitBlock:            big.NewInt(0),
-				ShanghaiTime:                  nil, // Disable for compatibility
-				CancunTime:                    nil, // Disable for compatibility
+				TerminalTotalDifficulty:       big.NewInt(0), // Required for PoS - triggers merge immediately
+				ShanghaiTime:                  nil, // Disable post-merge forks to avoid blob configuration
+				CancunTime:                    nil, // Disable post-merge forks to avoid blob configuration
 			},
 			Nonce:      0,
 			Timestamp:  0,

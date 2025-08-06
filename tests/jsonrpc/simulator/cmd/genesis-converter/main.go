@@ -10,8 +10,8 @@ import (
 
 func main() {
 	var (
-		inputFile  = flag.String("input", "exported_genesis.json", "Input cosmos genesis file")
-		outputFile = flag.String("output", "geth_genesis.json", "Output geth genesis file")
+		inputFile  = flag.String("input", "../exported_genesis.json", "Input cosmos genesis file")
+		outputFile = flag.String("output", "../geth_genesis.json", "Output geth genesis file")
 		help       = flag.Bool("h", false, "Show help")
 	)
 	flag.Parse()
