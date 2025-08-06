@@ -144,6 +144,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
 	case CommunityPoolMethod:
 		bz, err = p.CommunityPool(ctx, contract, method, args)
+	case GetParamsMethod:
+		bz, err = p.GetParams(ctx, contract, method, args)
 	}
 
 	if err != nil {
