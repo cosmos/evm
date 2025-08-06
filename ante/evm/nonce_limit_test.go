@@ -8,11 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	evmante "github.com/cosmos/evm/ante/evm"
+
 	addresscodec "cosmossdk.io/core/address"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-
-	evmante "github.com/cosmos/evm/ante/evm"
 )
 
 // --- minimal codec to satisfy addresscodec.Codec (not used by these tests) ---
