@@ -42,25 +42,14 @@ func (k *Keeper) NewEVM(
 	stateDB vm.StateDB,
 ) *vm.EVM {
 	ctx = k.SetConsensusParamsInCtx(ctx)
-	blockCtx := vm.BlockContext{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-		GetHash:     k.GetHashFn(ctx),
-		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
-		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
-		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
-		BaseFee:     cfg.BaseFee,
-		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
-	}
+	blockCtx := k.BlockContext(ctx, cfg)
 
 	ethCfg := types.GetEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
 	}
-	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	vmConfig := k.VMConfig(ctx, cfg, tracer)
 
 	signer := msg.From
 	accessControl := types.NewRestrictedPermissionPolicy(&cfg.Params.AccessControl, signer)
@@ -75,6 +64,21 @@ func (k *Keeper) NewEVM(
 		k.GetPrecompilesCallHook(ctx),
 	)
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
+}
+
+func (k Keeper) BlockContext(ctx sdk.Context, cfg *statedb.EVMConfig) vm.BlockContext {
+	return vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     k.GetHashFn(ctx),
+		Coinbase:    cfg.CoinBase,
+		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
+		BlockNumber: big.NewInt(ctx.BlockHeight()),
+		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
+		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
+		BaseFee:     cfg.BaseFee,
+		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
+	}
 }
 
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
