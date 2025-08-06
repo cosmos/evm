@@ -52,8 +52,10 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		evm := vm.NewEVM(blockCtx, stateDB, ethCfg, vmConfig)
 		parentHash := ctx.BlockHeader().LastBlockId.Hash
 		if err := ProcessParentBlockHash(common.BytesToHash(parentHash), evm); err != nil {
-			// must not happen
-			return err
+			logger.Error("error processing parent block hash", "error", err.Error())
+		}
+		if err := stateDB.Commit(); err != nil {
+			logger.Error("error committing stateDB", "error", err.Error())
 		}
 	}
 
