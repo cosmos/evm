@@ -1,6 +1,6 @@
 const {expect} = require('chai')
 const hre = require('hardhat')
-const { findEvent } = require('../common')
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 // Cosmos SDK LegacyDec precision (18 decimal places)
 const PRECISION = 10n ** 18n
@@ -99,7 +99,7 @@ describe('Staking – redelegate with event and state assertions', function () {
         const tx = await staking
             .connect(signer)
             .redelegate(signer.address, srcValBech32, dstValBech32, amount, {gasLimit: GAS_LIMIT})
-        const receipt = await tx.wait(2)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('Redelegate tx hash:', tx.hash, 'gas used:', receipt.gasUsed.toString())
 
         // 4) parse and assert the Redelegate event

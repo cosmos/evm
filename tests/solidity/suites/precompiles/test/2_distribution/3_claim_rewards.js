@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { findEvent } = require('../common');
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common');
 
 /**
  * Parse the raw return from delegationTotalRewards into structured objects.
@@ -54,7 +54,7 @@ describe('DistributionI – claimRewards', function () {
         const tx = await distribution
             .connect(signer)
             .claimRewards(signer.address, 5, { gasLimit: GAS_LIMIT });
-        const receipt = await tx.wait(2);
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('ClaimRewards tx hash:', receipt.hash, 'gas used:', receipt.gasUsed.toString());
 
         // Check user balance after claiming rewards

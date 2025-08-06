@@ -14,11 +14,12 @@ import (
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
-	testKeyring "github.com/cosmos/evm/testutil/keyring"
+	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -28,6 +29,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 func (s *KeeperTestSuite) TestCreateAccount() {
@@ -451,19 +453,19 @@ func (s *KeeperTestSuite) TestSetAndGetCodeHash() {
 }
 
 func (s *KeeperTestSuite) TestSuicide() {
-	Keyring := testKeyring.New(1)
-	unitNetwork := network.NewUnitTestNetwork(
+	keyring := testkeyring.New(1)
+	s.Network = network.NewUnitTestNetwork(
 		s.Create,
-		network.WithPreFundedAccounts(Keyring.GetAllAccAddrs()...),
+		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 
-	firstAddressIndex := Keyring.AddKey()
-	firstAddress := Keyring.GetAddr(firstAddressIndex)
-	secondAddressIndex := Keyring.AddKey()
-	secondAddress := Keyring.GetAddr(secondAddressIndex)
+	firstAddressIndex := keyring.AddKey()
+	firstAddress := keyring.GetAddr(firstAddressIndex)
+	secondAddressIndex := keyring.AddKey()
+	secondAddress := keyring.GetAddr(secondAddressIndex)
 
 	code := []byte("code")
-	db := unitNetwork.GetStateDB()
+	db := s.Network.GetStateDB()
 	// Add code to account
 	db.SetCode(firstAddress, code)
 	s.Require().Equal(code, db.GetCode(firstAddress))
@@ -476,7 +478,7 @@ func (s *KeeperTestSuite) TestSuicide() {
 		)
 	}
 	s.Require().NoError(db.Commit())
-	db = unitNetwork.GetStateDB()
+	db = s.Network.GetStateDB()
 
 	// Add code and state to account 2
 	db.SetCode(secondAddress, code)
@@ -497,14 +499,14 @@ func (s *KeeperTestSuite) TestSuicide() {
 
 	// Commit state
 	s.Require().NoError(db.Commit())
-	db = unitNetwork.GetStateDB()
+	db = s.Network.GetStateDB()
 
 	// Check code is deleted
 	s.Require().Nil(db.GetCode(firstAddress))
 
 	// Check state is deleted
 	var storage types.Storage
-	unitNetwork.App.GetEVMKeeper().ForEachStorage(unitNetwork.GetContext(), firstAddress, func(key, value common.Hash) bool {
+	s.Network.App.GetEVMKeeper().ForEachStorage(s.Network.GetContext(), firstAddress, func(key, value common.Hash) bool {
 		storage = append(storage, types.NewState(key, value))
 		return true
 	})
@@ -790,6 +792,7 @@ func (s *KeeperTestSuite) TestPrepareAccessList() {
 		IsShanghai:       true,
 		IsCancun:         true,
 		IsEIP2929:        true,
+		IsPrague:         true,
 	}
 
 	vmdb := s.StateDB()
@@ -925,13 +928,15 @@ func (s *KeeperTestSuite) TestAddSlotToAccessList() {
 
 func (s *KeeperTestSuite) TestSetBalance() {
 	amount := common.U2560
+	totalBalance := common.U2560
 	addr := utiltx.GenerateAddress()
 
 	testCases := []struct {
-		name     string
-		addr     common.Address
-		malleate func()
-		expErr   bool
+		name           string
+		addr           common.Address
+		malleate       func()
+		expErr         bool
+		expTotalAmount func() *uint256.Int
 	}{
 		{
 			"mint to address",
@@ -940,6 +945,50 @@ func (s *KeeperTestSuite) TestSetBalance() {
 				amount = uint256.NewInt(100)
 			},
 			false,
+			func() *uint256.Int {
+				return uint256.NewInt(100)
+			},
+		},
+		{
+			"mint to address, vesting account",
+			addr,
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))))
+				s.Require().NoError(err)
+				// replace with vesting account
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				tb, overflow := uint256.FromBig(s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom).Amount.BigInt())
+				s.Require().False(overflow)
+				s.Require().Equal(tb.ToBig(), balance.BigInt())
+				totalBalance = tb
+				amount = uint256.NewInt(100)
+			},
+			false,
+			func() *uint256.Int {
+				return common.U2560.Add(totalBalance, amount)
+			},
 		},
 		{
 			"burn from address",
@@ -948,6 +997,50 @@ func (s *KeeperTestSuite) TestSetBalance() {
 				amount = uint256.NewInt(60)
 			},
 			false,
+			func() *uint256.Int {
+				return uint256.NewInt(60)
+			},
+		},
+		{
+			"burn from address, don't burn vesting amount",
+			addr,
+			func() {
+				ctx := s.Network.GetContext()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))))
+				s.Require().NoError(err)
+				// replace with vesting account
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				tb, overflow := uint256.FromBig(s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom).Amount.BigInt())
+				s.Require().False(overflow)
+				s.Require().Equal(tb.ToBig(), balance.BigInt())
+				totalBalance = tb
+				amount = uint256.NewInt(0)
+			},
+			false,
+			func() *uint256.Int {
+				return uint256.NewInt(100)
+			},
 		},
 	}
 
@@ -961,7 +1054,10 @@ func (s *KeeperTestSuite) TestSetBalance() {
 			} else {
 				balance := s.Network.App.GetEVMKeeper().GetBalance(s.Network.GetContext(), tc.addr)
 				s.Require().NoError(err)
-				s.Require().Equal(amount, balance)
+				expTotalAmount := tc.expTotalAmount()
+				s.Require().Equal(expTotalAmount, balance)
+				spendable := s.Network.App.GetEVMKeeper().SpendableCoin(s.Network.GetContext(), tc.addr)
+				s.Require().Equal(amount, spendable)
 			}
 		})
 	}
@@ -984,6 +1080,41 @@ func (s *KeeperTestSuite) TestDeleteAccount() {
 			name:        "remove address",
 			malleate:    func() common.Address { return s.Keyring.GetAddr(0) },
 			errContains: "only smart contracts can be self-destructed",
+		},
+		{
+			name: "removing vested account should remove all balance (including locked)",
+			malleate: func() common.Address {
+				contractAccAddr := sdk.AccAddress(contractAddr.Bytes())
+				err := s.Network.App.GetBankKeeper().SendCoins(ctx, s.Keyring.GetAccAddr(0), contractAccAddr, sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), math.NewInt(100))))
+				s.Require().NoError(err)
+				// replace with vesting account
+				balanceResp, err := s.Handler.GetBalanceFromEVM(contractAccAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+
+				ctx := s.Network.GetContext()
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, contractAccAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, contractAccAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(contractAccAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, contractAccAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+				return contractAddr
+			},
+			expPass: true,
 		},
 		{
 			name:     "remove unexistent address - returns nil error",

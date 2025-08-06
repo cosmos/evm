@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -12,14 +13,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
+	"github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	types2 "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -28,6 +33,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 // Not valid Ethereum address
@@ -990,6 +996,7 @@ func (s *KeeperTestSuite) TestTraceTx() {
 		getRequest      func() *types.QueryTraceTxRequest
 		getPredecessors func() []*types.MsgEthereumTx
 		expPass         bool
+		expPanics       bool
 		expectedTrace   string
 	}{
 		{
@@ -1071,6 +1078,67 @@ func (s *KeeperTestSuite) TestTraceTx() {
 			expectedTrace: "{\"gas\":34780,\"failed\":false," +
 				"" + "\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
 				"" + "\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
+		},
+		{
+			msg: "invalid too many predecessors",
+			getRequest: func() *types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(s.Network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				pred := make([]*types.MsgEthereumTx, 10001)
+				for i := 0; i < 10001; i++ {
+					pred[i] = &types.MsgEthereumTx{}
+				}
+
+				return pred
+			},
+			expPass: false,
+		},
+		{
+			msg: "no panic when gas limit exceeded for predecessors",
+			getRequest: func() *types.QueryTraceTxRequest {
+				return getDefaultTraceTxRequest(s.Network)
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				// Create predecessor tx
+				// Use different address to avoid nonce collision
+				senderKey := s.Keyring.GetKey(1)
+				contractAddr, err := deployErc20Contract(senderKey, s.Factory)
+				s.Require().NoError(err)
+				s.Require().NoError(s.Network.NextBlock())
+				numTxs := 1500
+				txs := make([]*types.MsgEthereumTx, 0, numTxs)
+				for range numTxs {
+					txMsg := buildTransferTx(
+						s.T(),
+						transferParams{
+							senderKey:     senderKey,
+							contractAddr:  contractAddr,
+							recipientAddr: hardcodedRecipient,
+						},
+						s.Factory,
+					)
+					txs = append(txs, txMsg)
+				}
+				return txs
+			},
+			expPanics: false,
+			expPass:   true,
+			expectedTrace: "{\"gas\":34780,\"failed\":false," +
+				"\"returnValue\":\"0x0000000000000000000000000000000000000000000000000000000000000001\"," +
+				"\"structLogs\":[{\"pc\":0,\"op\":\"PUSH1\",\"gas",
+		},
+		{
+			msg: "error when requested block num greater than chain height",
+			getRequest: func() *types.QueryTraceTxRequest {
+				req := getDefaultTraceTxRequest(s.Network)
+				req.BlockNumber = math.MaxInt64
+				return req
+			},
+			getPredecessors: func() []*types.MsgEthereumTx {
+				return nil
+			},
+			expPass: false,
 		},
 		{
 			msg: "invalid trace config - Negative Limit",
@@ -1221,12 +1289,22 @@ func (s *KeeperTestSuite) TestTraceTx() {
 				traceReq.Msg = msgToTrace
 			}
 
+			if tc.expPanics {
+				s.Require().Panics(func() {
+					//nolint:errcheck // we just want this to panic.
+					s.Network.GetEvmClient().TraceTx(
+						s.Network.GetContext(),
+						traceReq,
+					)
+				})
+				return
+			}
+
 			// Function under test
 			res, err := s.Network.GetEvmClient().TraceTx(
 				s.Network.GetContext(),
 				traceReq,
 			)
-
 			if tc.expPass {
 				s.Require().NoError(err)
 
@@ -1700,6 +1778,147 @@ func (s *KeeperTestSuite) TestEthCall() {
 	}
 }
 
+func (s *KeeperTestSuite) TestBalance() {
+	testCases := []struct {
+		name        string
+		returnedBal func() *uint256.Int
+		expBalance  *uint256.Int
+	}{
+		{
+			"Account method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				s.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := s.Network.GetContext()
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := s.Network.App.GetEVMKeeper().Account(s.Network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Balance method, vesting account (0 spendable, large locked balance)",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				accAddr := sdk.AccAddress(addr.Bytes())
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+
+				// Make tx cost greater than balance
+				balanceResp, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+
+				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types2.ConversionFactor())
+				s.Require().NotEqual(balance.String(), "0")
+
+				// replace with vesting account
+				ctx := s.Network.GetContext()
+				baseAccount := s.Network.App.GetAccountKeeper().GetAccount(ctx, accAddr).(*authtypes.BaseAccount)
+				baseDenom := s.Network.GetBaseDenom()
+				currTime := s.Network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), s.Network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.Network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.Network.App.GetBankKeeper().SpendableCoin(ctx, accAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.Handler.GetBalanceFromEVM(accAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := s.Network.App.GetBankKeeper().GetBalance(ctx, accAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+
+				res, err := s.Network.App.GetEVMKeeper().Balance(s.Network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{0},
+		},
+		{
+			"Account method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				res, err := s.Network.App.GetEVMKeeper().Account(s.Network.GetContext(), &types.QueryAccountRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+		{
+			"Balance method, regular account",
+			func() *uint256.Int {
+				addr := tx.GenerateAddress()
+				err := s.Network.App.GetBankKeeper().MintCoins(s.Network.GetContext(), "mint", sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.Network.GetContext(), "mint", addr.Bytes(), sdk.NewCoins(sdk.NewCoin(s.Network.GetBaseDenom(), sdkmath.NewInt(100))))
+				s.Require().NoError(err)
+				res, err := s.Network.App.GetEVMKeeper().Balance(s.Network.GetContext(), &types.QueryBalanceRequest{Address: addr.String()})
+				s.Require().NoError(err)
+				bal, err := uint256.FromDecimal(res.Balance)
+				s.Require().NoError(err)
+				return bal
+			},
+			&uint256.Int{100},
+		},
+	}
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			s.SetupTest()
+			s.Require().Equal(tc.returnedBal(), tc.expBalance)
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestEmptyRequest() {
 	s.SetupTest()
 	k := s.Network.App.GetEVMKeeper()
@@ -1858,4 +2077,34 @@ func executeTransferCall(
 		return nil, err
 	}
 	return txMsg, nil
+}
+
+func buildTransferTx(
+	t *testing.T,
+	transferParams transferParams,
+	txFactory factory.TxFactory,
+) (msgEthereumTx *types.MsgEthereumTx) {
+	t.Helper()
+	erc20Contract, err := testdata.LoadERC20Contract()
+	require.NoError(t, err)
+
+	transferArgs := types.EvmTxArgs{
+		To: &transferParams.contractAddr,
+	}
+	callArgs := testutiltypes.CallArgs{
+		ContractABI: erc20Contract.ABI,
+		MethodName:  "transfer",
+		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
+	}
+
+	input, err := factory.GenerateContractCallArgs(callArgs)
+	require.NoError(t, err)
+	transferArgs.Input = input
+
+	// We need to get access to the message
+	firstSignedTX, err := txFactory.GenerateSignedEthTx(transferParams.senderKey.Priv, transferArgs)
+	require.NoError(t, err)
+	txMsg, ok := firstSignedTX.GetMsgs()[0].(*types.MsgEthereumTx)
+	require.True(t, ok, "expected MsgEthereumTx type, got type: %T", firstSignedTX.GetMsgs()[0])
+	return txMsg
 }

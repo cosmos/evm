@@ -5,31 +5,30 @@ import (
 	"math/big"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
+	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 	keyring := testkeyring.New(1)
-	unitNetwork := network.NewUnitTestNetwork(
-		s.create,
-		network.WithChainID(testconstants.ChainID{
-			ChainID:    s.ChainID,
-			EVMChainID: s.EvmChainID,
-		}),
-		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-	)
-	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
-	txFactory := factory.New(unitNetwork, grpcHandler)
 	senderKey := keyring.GetKey(0)
+
+	var (
+		unitNetwork *network.UnitTestNetwork
+		grpcHandler grpc.Handler
+		txFactory   factory.TxFactory
+	)
 
 	testCases := []struct {
 		name          string
@@ -67,10 +66,103 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			malleate: func(*evmtypes.EvmTxArgs) {
 			},
 		},
+		{
+			"fail: valid tx and insufficient balance with vesting tokens",
+			errortypes.ErrInsufficientFunds,
+			true,
+			func(txArgs *evmtypes.EvmTxArgs) {
+				balanceResp, err := grpcHandler.GetBalanceFromEVM(senderKey.AccAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types.ConversionFactor())
+
+				// replace with vesting account
+				ctx := unitNetwork.GetContext()
+				baseAccount := unitNetwork.App.GetAccountKeeper().GetAccount(ctx, senderKey.AccAddr).(*authtypes.BaseAccount)
+				baseDenom := unitNetwork.GetBaseDenom()
+				currTime := unitNetwork.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), unitNetwork.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				unitNetwork.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := unitNetwork.App.GetBankKeeper().SpendableCoin(ctx, senderKey.AccAddr, baseDenom).Amount.Int64()
+				s.Require().Equal(spendable, int64(0))
+
+				evmBalanceRes, err := grpcHandler.GetBalanceFromEVM(senderKey.AccAddr)
+				s.Require().NoError(err)
+				evmBalance, ok := math.NewIntFromString(evmBalanceRes.Balance)
+				s.Require().True(ok)
+				s.Require().Equal(evmBalance.Int64(), int64(0))
+
+				totalBalance := unitNetwork.App.GetBankKeeper().GetBalance(ctx, senderKey.AccAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+			},
+		},
+		{
+			"success: valid tx with vesting tokens",
+			nil,
+			true,
+			func(txArgs *evmtypes.EvmTxArgs) {
+				balanceResp, err := grpcHandler.GetBalanceFromEVM(senderKey.AccAddr)
+				s.Require().NoError(err)
+
+				balance, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+				balance = balance.Quo(types.ConversionFactor())
+
+				// replace with vesting account
+				ctx := unitNetwork.GetContext()
+				baseAccount := unitNetwork.App.GetAccountKeeper().GetAccount(ctx, senderKey.AccAddr).(*authtypes.BaseAccount)
+				baseDenom := unitNetwork.GetBaseDenom()
+				currTime := unitNetwork.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, balance)), unitNetwork.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				unitNetwork.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := unitNetwork.App.GetBankKeeper().SpendableCoin(ctx, senderKey.AccAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := grpcHandler.GetBalanceFromEVM(senderKey.AccAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				totalBalance := unitNetwork.App.GetBankKeeper().GetBalance(ctx, senderKey.AccAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance)
+
+				mintAmt := sdk.NewCoins(sdk.NewCoin(baseDenom, balance))
+				err = unitNetwork.App.GetBankKeeper().MintCoins(ctx, "mint", mintAmt)
+				s.Require().NoError(err)
+
+				err = unitNetwork.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, "mint", senderKey.AccAddr, mintAmt)
+				s.Require().NoError(err)
+
+				spendable = unitNetwork.App.GetBankKeeper().SpendableCoin(ctx, senderKey.AccAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), balance.String())
+
+				evmBalanceRes, err = grpcHandler.GetBalanceFromEVM(senderKey.AccAddr)
+				s.Require().NoError(err)
+				evmBalance = evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, balanceResp.Balance)
+
+				totalBalance = unitNetwork.App.GetBankKeeper().GetBalance(ctx, senderKey.AccAddr, baseDenom)
+				s.Require().Equal(totalBalance.Amount, balance.Mul(math.NewInt(2)))
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("%v_%v_%v", evmtypes.GetTxTypeName(s.EthTxType), s.ChainID, tc.name), func() {
+			unitNetwork = network.NewUnitTestNetwork(
+				s.create,
+				network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
+			)
+
+			grpcHandler = grpc.NewIntegrationHandler(unitNetwork)
+			txFactory = factory.New(unitNetwork, grpcHandler)
+
 			baseFeeResp, err := grpcHandler.GetEvmBaseFee()
 			s.Require().NoError(err)
 			evmParams, err := grpcHandler.GetEvmParams()

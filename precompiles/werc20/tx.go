@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -41,12 +43,18 @@ func (p Precompile) Deposit(
 		precompileAccAddr,
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
-			Denom:  evmtypes.GetEVMCoinDenom(),
+			Denom:  evmtypes.GetEVMCoinExtendedDenom(),
 			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
 		}),
 	); err != nil {
 		return nil, err
 	}
+
+	// TODO: Properly handle native balance changes via the balance handler.
+	// Currently, decimal conversion issues exist with the precisebank module.
+	// As a temporary workaround, balances are adjusted directly using add/sub operations.
+	stateDB.SubBalance(p.Address(), depositedAmount, tracing.BalanceChangeUnspecified)
+	stateDB.AddBalance(caller, depositedAmount, tracing.BalanceChangeUnspecified)
 
 	if err := p.EmitDepositEvent(ctx, stateDB, caller, depositedAmount.ToBig()); err != nil {
 		return nil, err
@@ -67,8 +75,8 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 
 	caller := contract.Caller()
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
-	nativeBalance := p.BankKeeper.GetBalance(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
-	if nativeBalance.Amount.LT(amountInt) {
+	nativeBalance := p.BankKeeper.SpendableCoin(ctx, callerAccAddress, evmtypes.GetEVMCoinDenom())
+	if nativeBalance.Amount.Mul(types.ConversionFactor()).LT(amountInt) {
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 

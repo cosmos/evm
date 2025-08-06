@@ -33,6 +33,8 @@ import (
 // BackendI implements the Cosmos and EVM backend.
 type BackendI interface { //nolint: revive
 	EVMBackend
+
+	GetConfig() config.Config
 }
 
 // EVMBackend implements the functionality shared within ethereum namespaces
@@ -164,6 +166,10 @@ type Backend struct {
 	AllowUnprotectedTxs bool
 	Indexer             cosmosevmtypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
+}
+
+func (b *Backend) GetConfig() config.Config {
+	return b.Cfg
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces

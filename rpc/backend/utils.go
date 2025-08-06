@@ -263,7 +263,7 @@ func (b *Backend) ProcessBlock(
 			if err != nil {
 				b.Logger.Error("failed to calculate effective gas tip", "height", blockHeight, "error", err.Error())
 			}
-			if reward == nil {
+      if reward == nil || reward.Sign() == -1 {
 				reward = big.NewInt(0)
 			}
 			sorter = append(sorter, txGasAndReward{gasUsed: txGasUsed, reward: reward})
