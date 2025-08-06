@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -47,13 +46,9 @@ type ContractDeploymentRequest struct {
 	Value    string `json:"value,omitempty"`
 }
 
-
-// Dev1 private key from local_node.sh
-const Dev1PrivateKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544"
-
-// GetDev1PrivateKeyAndAddress returns dev1's private key and address for contract deployment
-func GetDev1PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {
-	privateKey, err := crypto.HexToECDSA(Dev1PrivateKey)
+// GetDev0PrivateKeyAndAddress returns dev0's private key and address for contract deployment
+func GetDev0PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {
+	privateKey, err := crypto.HexToECDSA(Dev0PrivateKey)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
@@ -113,7 +108,7 @@ func deployContractViaRPC(rpcURL, fromAddress, contractBytecode string, gasLimit
 
 func deployContractViaDynamicFeeTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, contractByteCode []byte) (string, error) {
 	ctx := context.Background()
-	
+
 	chainID, err := client.ChainID(ctx)
 	if err != nil {
 		return "", err
@@ -135,7 +130,7 @@ func deployContractViaDynamicFeeTx(client *ethclient.Client, privateKey *ecdsa.P
 	if err != nil {
 		return "", err
 	}
-	
+
 	gasPrice, err := client.SuggestGasPrice(ctx)
 	if err != nil {
 		return "", err
@@ -197,21 +192,29 @@ func waitForContractDeployment(client *ethclient.Client, txHashStr string, timeo
 
 func DeployERC20Contract(evmdURL, gethURL string, contractByteCode []byte) (*DeploymentResult, error) {
 	result := &DeploymentResult{}
-	
+
 	evmdClient, err := ethclient.Dial(evmdURL)
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to connect to evmd: %v", err)
 		return result, err
 	}
 
-	privateKey, fromAddress, err := GetDev1PrivateKeyAndAddress()
+	privateKey, fromAddress, err := GetDev0PrivateKeyAndAddress()
 	if err != nil {
-		result.Error = fmt.Sprintf("failed to get dev1 credentials: %v", err)
+		result.Error = fmt.Sprintf("failed to get dev0 credentials: %v", err)
 		return result, err
 	}
 
-	fmt.Printf("Deploying ERC20 to evmd using dev1 (%s)...\n", fromAddress.Hex())
+	fmt.Printf("Deploying ERC20 to evmd using dev0 (%s)...\n", fromAddress.Hex())
 	
+	// DEBUG: Check dev0's nonce before deployment on evmd
+	nonce, err := evmdClient.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		fmt.Printf("  Warning: Could not check dev0 nonce on evmd: %v\n", err)
+	} else {
+		fmt.Printf("  dev0 nonce on evmd: %d\n", nonce)
+	}
+
 	evmdTxHash, err := deployContractViaDynamicFeeTx(evmdClient, privateKey, contractByteCode)
 	if err != nil {
 		result.EvmdDeployment = &ContractDeployment{
@@ -264,10 +267,19 @@ func DeployERC20Contract(evmdURL, gethURL string, contractByteCode []byte) (*Dep
 		return result, fmt.Errorf("no accounts found in geth")
 	}
 
-	gethCoinbase := accounts[0]
-	fmt.Printf("Deploying ERC20 to geth using coinbase (%s)...\n", gethCoinbase.Hex())
-
-	gethTxHash, err := deployContractViaRPC(gethURL, gethCoinbase.Hex(), hex.EncodeToString(contractByteCode), big.NewInt(10000000))
+	// Use dev0 on geth as well for state consistency
+	fmt.Printf("Deploying ERC20 to geth using dev0 (%s)...\n", fromAddress.Hex())
+	
+	// DEBUG: Check dev0's nonce before deployment on geth
+	gethNonce, err := gethClient.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		fmt.Printf("  Warning: Could not check dev0 nonce on geth: %v\n", err)
+	} else {
+		fmt.Printf("  dev0 nonce on geth: %d\n", gethNonce)
+	}
+	
+	// Use existing gethClient for signed transaction deployment
+	gethTxHash, err := deployContractViaDynamicFeeTx(gethClient, privateKey, contractByteCode)
 	if err != nil {
 		result.GethDeployment = &ContractDeployment{
 			Name:       "ERC20",

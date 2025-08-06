@@ -39,6 +39,16 @@ func main() {
 		log.Println("✓ Setup completed successfully!")
 		return
 	}
+	
+	if len(args) > 0 && args[0] == "txgen" {
+		log.Println("Running transaction generation on both networks...")
+		err := runTransactionGeneration()
+		if err != nil {
+			log.Fatalf("Transaction generation failed: %v", err)
+		}
+		log.Println("✓ Transaction generation completed successfully!")
+		return
+	}
 
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig("config.yaml")
@@ -513,7 +523,7 @@ func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {
 	return rCtx
 }
 
-// runSetup performs the complete setup: fund geth accounts and deploy contracts
+// runSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
 func runSetup() error {
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
@@ -527,11 +537,37 @@ func runSetup() error {
 	log.Println("✓ Geth accounts funded successfully")
 	
 	log.Println("Step 2: Deploying ERC20 contracts to both networks...")
-	err = deployContracts(evmdURL, gethURL)
+	result, err := deployContracts(evmdURL, gethURL)
 	if err != nil {
 		return fmt.Errorf("failed to deploy contracts: %w", err)
 	}
 	log.Println("✓ Contracts deployed successfully")
+	
+	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
+	err = utils.MintTokensOnBothNetworks(evmdURL, gethURL, 
+		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	if err != nil {
+		return fmt.Errorf("failed to mint tokens: %w", err)
+	}
+	log.Println("✓ Token minting completed successfully")
+	
+	log.Println("Step 4: Verifying state synchronization...")
+	err = utils.VerifyTokenBalances(evmdURL, gethURL,
+		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	if err != nil {
+		return fmt.Errorf("state verification failed: %w", err)
+	}
+	log.Println("✓ State synchronization verified")
+	
+	log.Println("Step 5: Saving contract addresses for future use...")
+	err = utils.SaveContractAddresses(
+		result.EvmdDeployment.Address, 
+		result.GethDeployment.Address, 
+		"dev0")
+	if err != nil {
+		return fmt.Errorf("failed to save contract addresses: %w", err)
+	}
+	log.Println("✓ Contract addresses saved")
 	
 	return nil
 }
@@ -589,16 +625,16 @@ func fundGethAccounts(gethURL string) error {
 }
 
 // deployContracts deploys the ERC20 contract to both evmd and geth
-func deployContracts(evmdURL, gethURL string) error {
+func deployContracts(evmdURL, gethURL string) (*utils.DeploymentResult, error) {
 	// The embedded .bin file contains hex-encoded text, need to decode it to bytes
 	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
 	result, err := utils.DeployERC20Contract(evmdURL, gethURL, contractBytecode)
 	if err != nil {
-		return fmt.Errorf("deployment failed: %w", err)
+		return nil, fmt.Errorf("deployment failed: %w", err)
 	}
 	
 	if !result.Success {
-		return fmt.Errorf("deployment unsuccessful: %s", result.Error)
+		return nil, fmt.Errorf("deployment unsuccessful: %s", result.Error)
 	}
 	
 	fmt.Printf("\n✓ ERC20 Contract Deployment Summary:\n")
@@ -614,6 +650,39 @@ func deployContracts(evmdURL, gethURL string) error {
 			result.GethDeployment.TxHash.Hex(),
 			result.GethDeployment.BlockNumber.String())
 	}
+	
+	return result, nil
+}
+
+// runTransactionGeneration generates test transactions on both networks
+func runTransactionGeneration() error {
+	// URLs for both networks
+	evmdURL := "http://localhost:8545"
+	gethURL := "http://localhost:8547"
+	
+	log.Println("Step 1: Loading contract addresses from registry...")
+	
+	evmdContract, gethContract, err := utils.GetContractAddresses()
+	if err != nil {
+		return fmt.Errorf("failed to load contract addresses: %w", err)
+	}
+	
+	log.Printf("Loaded contracts - evmd: %s, geth: %s\n", evmdContract.Hex(), gethContract.Hex())
+	
+	log.Println("Step 2: Executing transaction scenarios...")
+	batch, err := utils.ExecuteTransactionBatch(evmdURL, gethURL, evmdContract, gethContract)
+	if err != nil {
+		return fmt.Errorf("failed to execute transaction batch: %w", err)
+	}
+	
+	log.Println("Step 3: Generating transaction summary...")
+	summary := utils.GenerateTransactionSummary(batch)
+	fmt.Printf("%s\n", summary)
+	
+	// Get successful transaction hashes for potential use in API testing
+	evmdHashes, gethHashes := batch.GetTransactionHashes()
+	log.Printf("Generated %d evmd transaction hashes and %d geth transaction hashes\n", 
+		len(evmdHashes), len(gethHashes))
 	
 	return nil
 }

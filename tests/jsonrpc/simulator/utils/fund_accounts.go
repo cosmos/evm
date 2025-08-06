@@ -15,10 +15,10 @@ import (
 
 // Standard dev account addresses (matching evmd genesis accounts)
 var StandardDevAccounts = map[string]common.Address{
+	"dev0": common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101"), // dev0 from local_node.sh
 	"dev1": common.HexToAddress("0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17"), // dev1 from local_node.sh
-	"dev2": common.HexToAddress("0x40B5A72A98b3dD51C6EEdCF7c2078671a08B4e2F"), // dev2 from local_node.sh  
-	"dev3": common.HexToAddress("0xF44eF20ED88eFdC8e68e74b9bF51ffCb4b6A1415"), // dev3 from local_node.sh
-	"dev4": common.HexToAddress("0x742F5b99D4D3d9FB5E8C2b6C6BfE5C61DD2f10dc"), // dev4 from local_node.sh
+	"dev2": common.HexToAddress("0x40a0cb1C63e026A81B55EE1308586E21eec1eFa9"), // dev2 from local_node.sh (CORRECTED)
+	"dev3": common.HexToAddress("0x498B5AeC5D439b733dC2F58AB489783A23FB26dA"), // dev3 from local_node.sh (CORRECTED)
 }
 
 // Standard dev account balance (1000 ETH = 1000 * 10^18 wei)
