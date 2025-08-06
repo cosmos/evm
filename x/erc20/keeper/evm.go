@@ -56,7 +56,7 @@ func (k Keeper) DeployERC20Contract(
 	}
 
 	contractAddr := crypto.CreateAddress(types.ModuleAddress, nonce)
-	_, err = k.evmKeeper.CallEVMWithData(ctx, types.ModuleAddress, nil, data, true)
+	_, err = k.evmKeeper.CallEVMWithData(ctx, types.ModuleAddress, nil, data, true, nil)
 	if err != nil {
 		return common.Address{}, errorsmod.Wrapf(err, "failed to deploy contract for %s", coinMetadata.Name)
 	}
@@ -84,7 +84,7 @@ func (k Keeper) QueryERC20(
 	}
 
 	// Decimals - standard uint8, no fallback needed
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, "decimals")
+	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, "decimals")
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
@@ -107,7 +107,7 @@ func (k Keeper) queryERC20String(
 	method string,
 ) (string, error) {
 	// 1) Call into the EVM
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, method)
+	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, method)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +140,7 @@ func (k Keeper) BalanceOf(
 	abi abi.ABI,
 	contract, account common.Address,
 ) *big.Int {
-	res, err := k.evmKeeper.CallEVM(ctx, abi, types.ModuleAddress, contract, false, "balanceOf", account)
+	res, err := k.evmKeeper.CallEVM(ctx, abi, types.ModuleAddress, contract, false, nil, "balanceOf", account)
 	if err != nil {
 		return nil
 	}

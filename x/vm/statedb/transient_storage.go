@@ -19,9 +19,9 @@ func newTransientStorage() transientStorage {
 // Set sets the transient-storage `value` for `key` at the given `addr`.
 func (t transientStorage) Set(addr common.Address, key, value common.Hash) {
 	if value == (common.Hash{}) { // this is a 'delete'
-		if _, ok := t[addr]; ok {
-			delete(t[addr], key)
-			if len(t[addr]) == 0 {
+		if storage, ok := t[addr]; ok {
+			delete(storage, key)
+			if len(storage) == 0 {
 				delete(t, addr)
 			}
 		}
@@ -35,11 +35,10 @@ func (t transientStorage) Set(addr common.Address, key, value common.Hash) {
 
 // Get gets the transient storage for `key` at the given `addr`.
 func (t transientStorage) Get(addr common.Address, key common.Hash) common.Hash {
-	val, ok := t[addr]
-	if !ok {
-		return common.Hash{}
+	if val, ok := t[addr]; ok {
+		return val[key]
 	}
-	return val[key]
+	return common.Hash{}
 }
 
 // Copy does a deep copy of the transientStorage
@@ -54,16 +53,16 @@ func (t transientStorage) Copy() transientStorage {
 // PrettyPrint prints the contents of the access list in a human-readable form
 func (t transientStorage) PrettyPrint() string {
 	out := new(strings.Builder)
-	var sortedAddrs []common.Address
+	sortedAddrs := make([]common.Address, 0, len(t))
 	for addr := range t {
 		sortedAddrs = append(sortedAddrs, addr)
-		slices.SortFunc(sortedAddrs, common.Address.Cmp)
 	}
+	slices.SortFunc(sortedAddrs, common.Address.Cmp)
 
 	for _, addr := range sortedAddrs {
 		fmt.Fprintf(out, "%#x:", addr)
-		var sortedKeys []common.Hash
 		storage := t[addr]
+		sortedKeys := make([]common.Hash, 0, len(storage))
 		for key := range storage {
 			sortedKeys = append(sortedKeys, key)
 		}

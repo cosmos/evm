@@ -21,8 +21,8 @@ enum VoteOption {
     Abstain,
     // No defines a no vote option.
     No,
-    // NoWithWeto defines a no with veto vote option.
-    NoWithWeto
+    // NoWithVeto defines a no with veto vote option.
+    NoWithVeto
 }
 /// @dev WeightedVote represents a vote on a governance proposal
 struct WeightedVote {
