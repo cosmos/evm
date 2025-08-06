@@ -6,8 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"cosmossdk.io/math"
-
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 var (
@@ -21,37 +19,9 @@ var (
 	DefaultEnableHeight = int64(0)
 	// DefaultNoBaseFee is false
 	DefaultNoBaseFee = false
+
+	ParamsKey = []byte("Params")
 )
-
-// Parameter keys
-var (
-	ParamsKey                             = []byte("Params")
-	ParamStoreKeyNoBaseFee                = []byte("NoBaseFee")
-	ParamStoreKeyBaseFeeChangeDenominator = []byte("BaseFeeChangeDenominator")
-	ParamStoreKeyElasticityMultiplier     = []byte("ElasticityMultiplier")
-	ParamStoreKeyBaseFee                  = []byte("BaseFee")
-	ParamStoreKeyEnableHeight             = []byte("EnableHeight")
-	ParamStoreKeyMinGasPrice              = []byte("MinGasPrice")
-	ParamStoreKeyMinGasMultiplier         = []byte("MinGasMultiplier")
-)
-
-// ParamKeyTable returns the parameter key table.
-func ParamKeyTable() paramtypes.KeyTable {
-	return paramtypes.NewKeyTable().RegisterParamSet(&Params{})
-}
-
-// ParamSetPairs returns the parameter set pairs.
-func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
-	return paramtypes.ParamSetPairs{
-		paramtypes.NewParamSetPair(ParamStoreKeyNoBaseFee, &p.NoBaseFee, validateBool),
-		paramtypes.NewParamSetPair(ParamStoreKeyBaseFeeChangeDenominator, &p.BaseFeeChangeDenominator, validateBaseFeeChangeDenominator),
-		paramtypes.NewParamSetPair(ParamStoreKeyElasticityMultiplier, &p.ElasticityMultiplier, validateElasticityMultiplier),
-		paramtypes.NewParamSetPair(ParamStoreKeyBaseFee, &p.BaseFee, validateBaseFee),
-		paramtypes.NewParamSetPair(ParamStoreKeyEnableHeight, &p.EnableHeight, validateEnableHeight),
-		paramtypes.NewParamSetPair(ParamStoreKeyMinGasPrice, &p.MinGasPrice, validateMinGasPrice),
-		paramtypes.NewParamSetPair(ParamStoreKeyMinGasMultiplier, &p.MinGasMultiplier, validateMinGasPrice),
-	}
-}
 
 // NewParams creates a new Params instance
 func NewParams(
@@ -101,6 +71,10 @@ func (p Params) Validate() error {
 		return fmt.Errorf("enable height cannot be negative: %d", p.EnableHeight)
 	}
 
+	if p.ElasticityMultiplier == 0 {
+		return fmt.Errorf("elasticity multiplier cannot be zero: %d", p.ElasticityMultiplier)
+	}
+
 	if err := validateMinGasMultiplier(p.MinGasMultiplier); err != nil {
 		return err
 	}
@@ -108,100 +82,34 @@ func (p Params) Validate() error {
 	return validateMinGasPrice(p.MinGasPrice)
 }
 
-func validateBool(i interface{}) error {
-	_, ok := i.(bool)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-	return nil
-}
-
 func (p *Params) IsBaseFeeEnabled(height int64) bool {
 	return !p.NoBaseFee && height >= p.EnableHeight
 }
 
-func validateMinGasPrice(i interface{}) error {
-	v, ok := i.(math.LegacyDec)
-
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if v.IsNil() {
+func validateMinGasPrice(gasPrice math.LegacyDec) error {
+	if gasPrice.IsNil() {
 		return fmt.Errorf("invalid parameter: nil")
 	}
 
-	if v.IsNegative() {
-		return fmt.Errorf("value cannot be negative: %s", i)
+	if gasPrice.IsNegative() {
+		return fmt.Errorf("value cannot be negative: %s", gasPrice)
 	}
 
 	return nil
 }
 
-func validateBaseFeeChangeDenominator(i interface{}) error {
-	value, ok := i.(uint32)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if value == 0 {
-		return fmt.Errorf("base fee change denominator cannot be 0")
-	}
-
-	return nil
-}
-
-func validateElasticityMultiplier(i interface{}) error {
-	_, ok := i.(uint32)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-	return nil
-}
-
-func validateBaseFee(i interface{}) error {
-	value, ok := i.(math.Int)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if value.IsNegative() {
-		return fmt.Errorf("base fee cannot be negative")
-	}
-
-	return nil
-}
-
-func validateEnableHeight(i interface{}) error {
-	value, ok := i.(int64)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if value < 0 {
-		return fmt.Errorf("enable height cannot be negative: %d", value)
-	}
-
-	return nil
-}
-
-func validateMinGasMultiplier(i interface{}) error {
-	v, ok := i.(math.LegacyDec)
-
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if v.IsNil() {
+func validateMinGasMultiplier(multiplier math.LegacyDec) error {
+	if multiplier.IsNil() {
 		return fmt.Errorf("invalid parameter: nil")
 	}
 
-	if v.IsNegative() {
-		return fmt.Errorf("value cannot be negative: %s", v)
+	if multiplier.IsNegative() {
+		return fmt.Errorf("value cannot be negative: %s", multiplier)
 	}
 
-	if v.GT(math.LegacyOneDec()) {
-		return fmt.Errorf("value cannot be greater than 1: %s", v)
+	if multiplier.GT(math.LegacyOneDec()) {
+		return fmt.Errorf("value cannot be greater than 1: %s", multiplier)
 	}
+
 	return nil
 }

@@ -464,17 +464,27 @@ func setDefaultMintGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmt
 
 func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
 	// NOTE: here we are using the setup from the example chain
-	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, testconstants.WEVMOSContractMainnet)
-
+	erc20Gen := newErc20GenesisState()
 	updatedErc20Gen := updateErc20GenesisStateForChainID(testconstants.ChainID{
 		ChainID:    cosmosEVMApp.ChainID(),
 		EVMChainID: evmChainID,
-	}, *erc20GenState)
+	}, *erc20Gen)
 
 	genesisState[erc20types.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedErc20Gen)
 	return genesisState
+}
+
+// newErc20GenesisState returns the default genesis state for the ERC20 module.
+// This is a duplicate of the function in utils to avoid an import cycle
+//
+// NOTE: for the example chain implementation we are also adding a default token pair,
+// which is the base denomination of the chain (i.e. the WEVMOS contract).
+func newErc20GenesisState() *erc20types.GenesisState {
+	erc20GenState := erc20types.DefaultGenesisState()
+	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+
+	return erc20GenState
 }
 
 // defaultAuthGenesisState sets the default genesis state

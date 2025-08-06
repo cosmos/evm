@@ -12,6 +12,8 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
+	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -20,7 +22,7 @@ type LogRecordHook struct {
 	Logs []*ethtypes.Log
 }
 
-func (dh *LogRecordHook) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (dh *LogRecordHook) PostTxProcessing(_ sdk.Context, _ common.Address, _ core.Message, receipt *ethtypes.Receipt) error {
 	dh.Logs = receipt.Logs
 	return nil
 }
@@ -28,7 +30,7 @@ func (dh *LogRecordHook) PostTxProcessing(ctx sdk.Context, sender common.Address
 // FailureHook always fail
 type FailureHook struct{}
 
-func (dh FailureHook) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (dh *FailureHook) PostTxProcessing(_ sdk.Context, _ common.Address, _ core.Message, _ *ethtypes.Receipt) error {
 	return errors.New("post tx processing failed")
 }
 
@@ -53,7 +55,7 @@ func (s *KeeperTestSuite) TestEvmHooks() {
 			func() types.EvmHooks {
 				return &FailureHook{}
 			},
-			func(hook types.EvmHooks, result error) {
+			func(_ types.EvmHooks, result error) {
 				s.Require().Error(result)
 			},
 		},
@@ -87,4 +89,61 @@ func (s *KeeperTestSuite) TestEvmHooks() {
 
 		tc.expFunc(hook, result)
 	}
+}
+
+func (s *KeeperTestSuite) TestPostTxProcessingFailureLogReversion() {
+	s.SetupTest()
+
+	// Set up the failing hook
+	hook := &FailureHook{}
+	s.Network.App.GetEVMKeeper().SetHooks(keeper.NewMultiEvmHooks(hook))
+
+	k := s.Network.App.GetEVMKeeper()
+	ctx := s.Network.GetContext()
+
+	// Fund the sender
+	sender := s.Keyring.GetKey(0)
+	recipient := s.Keyring.GetAddr(1)
+	baseDenom := types.GetEVMCoinDenom()
+	coins := sdk.NewCoins(sdk.NewCoin(baseDenom, sdkmath.NewInt(1e18)))
+	err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", coins)
+	s.Require().NoError(err)
+	err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, "mint", sender.AccAddr, coins)
+	s.Require().NoError(err)
+
+	// Store original transient state
+	originalBloom := k.GetBlockBloomTransient(ctx)
+	originalLogSize := k.GetLogSizeTransient(ctx)
+
+	// Create a simple transfer transaction
+	transferArgs := types.EvmTxArgs{
+		To:       &recipient,
+		Amount:   big.NewInt(100),
+		GasLimit: 21000,
+		GasPrice: big.NewInt(1000000000),
+	}
+	tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, transferArgs)
+	s.Require().NoError(err)
+	msg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+
+	// Execute transaction - should fail in PostTxProcessing
+	res, err := k.EthereumTx(ctx, msg)
+
+	// Verify the transaction execution itself doesn't error, but PostTxProcessing fails
+	s.Require().NoError(err, "EthereumTx should not return error")
+	s.Require().NotNil(res)
+	s.Require().NotEmpty(res.VmError, "Should have VmError due to PostTxProcessing failure")
+	s.Require().Contains(res.VmError, "failed to execute post transaction processing")
+
+	// Critical test: Verify logs are completely cleared
+	s.Require().Nil(res.Logs, "res.Logs should be nil after PostTxProcessing failure")
+
+	// Critical test: Verify transient state was not updated when PostTx failed
+	finalBloom := k.GetBlockBloomTransient(ctx)
+	finalLogSize := k.GetLogSizeTransient(ctx)
+
+	s.Require().Equal(originalBloom.String(), finalBloom.String(),
+		"BlockBloomTransient should not be updated when PostTxProcessing fails")
+	s.Require().Equal(originalLogSize, finalLogSize,
+		"LogSizeTransient should not be updated when PostTxProcessing fails")
 }

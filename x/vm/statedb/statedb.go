@@ -505,7 +505,6 @@ func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 		return uint256.Int{}, false
 	}
 
-	// todo: this is not equivalent to upstream (https://github.com/cosmos/evm/pull/181/#discussion_r2105471095)
 	if stateObject.newContract {
 		return s.SelfDestruct(addr), true
 	}
