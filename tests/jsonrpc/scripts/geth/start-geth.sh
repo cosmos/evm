@@ -11,8 +11,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 CONTAINER_NAME="geth-jsonrpc-test"
 GETH_IMAGE="ethereum/client-go:v1.15.10"
 DATA_DIR="$PROJECT_ROOT/tests/jsonrpc/.geth-data"
-CHAIN_ID=1337
-NETWORK_ID=1337
+GENESIS_FILE="$PROJECT_ROOT/tests/jsonrpc/geth_genesis.json"
+CHAIN_ID=4221
+NETWORK_ID=4221
 
 # Colors for output
 RED='\033[0;31m'
@@ -44,8 +45,21 @@ fi
 # Create data directory
 mkdir -p "$DATA_DIR"
 
-# Use dev mode instead of custom genesis for simplicity
-echo -e "${GREEN}Using geth dev mode for testing...${NC}"
+# Check if genesis file exists
+if [ ! -f "$GENESIS_FILE" ]; then
+    echo -e "${RED}Error: Genesis file not found at $GENESIS_FILE${NC}"
+    echo -e "${YELLOW}Please run the genesis converter first to create geth_genesis.json${NC}"
+    exit 1
+fi
+
+# Initialize geth with custom genesis
+echo -e "${GREEN}Initializing geth with converted genesis...${NC}"
+docker run --rm \
+    -v "$DATA_DIR:/data" \
+    -v "$GENESIS_FILE:/genesis.json" \
+    "$GETH_IMAGE" \
+    --datadir /data \
+    init /genesis.json
 
 # Start geth container
 echo -e "${GREEN}Starting geth container...${NC}"
@@ -57,9 +71,8 @@ docker run -d \
     -p 30303:30303 \
     -v "$DATA_DIR:/data" \
     "$GETH_IMAGE" \
-    --dev \
-    --dev.period 2 \
     --datadir /data \
+    --networkid $NETWORK_ID \
     --http \
     --http.addr 0.0.0.0 \
     --http.port 8545 \
