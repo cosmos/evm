@@ -3,7 +3,7 @@ package tx
 import (
 	protov2 "google.golang.org/protobuf/proto"
 
-	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/testutil/constants"
 
 	sdkmath "cosmossdk.io/math"
@@ -42,7 +42,7 @@ type CosmosTxArgs struct {
 // It returns the signed transaction and an error
 func PrepareCosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args CosmosTxArgs,
 ) (authsigning.Tx, error) {
 	txBuilder := args.TxCfg.NewTxBuilder()
@@ -65,7 +65,7 @@ func PrepareCosmosTx(
 
 	return signCosmosTx(
 		ctx,
-		exampleApp,
+		evmApp,
 		args,
 		txBuilder,
 	)
@@ -75,12 +75,12 @@ func PrepareCosmosTx(
 // the provided private key
 func signCosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.EVMD,
+	evmApp evm.EvmApp,
 	args CosmosTxArgs,
 	txBuilder client.TxBuilder,
 ) (authsigning.Tx, error) {
 	addr := sdk.AccAddress(args.Priv.PubKey().Address().Bytes())
-	seq, err := exampleApp.AccountKeeper.GetSequence(ctx, addr)
+	seq, err := evmApp.GetAccountKeeper().GetSequence(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func signCosmosTx(
 	}
 
 	// Second round: all signer infos are set, so each signer can sign.
-	accNumber := exampleApp.AccountKeeper.GetAccount(ctx, addr).GetAccountNumber()
+	accNumber := evmApp.GetAccountKeeper().GetAccount(ctx, addr).GetAccountNumber()
 	signerData := authsigning.SignerData{
 		ChainID:       args.ChainID,
 		AccountNumber: accNumber,

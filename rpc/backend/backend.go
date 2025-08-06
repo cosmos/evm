@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -93,7 +94,7 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
@@ -119,6 +120,12 @@ type EVMBackend interface {
 	GetLogsByHeight(height *int64) ([][]*ethtypes.Log, error)
 	BloomStatus() (uint64, uint64)
 
+	// TxPool API
+	Content() (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
+	ContentFrom(address common.Address) (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
+	Inspect() (map[string]map[string]map[string]string, error)
+	Status() (map[string]hexutil.Uint, error)
+
 	// Tracing
 	TraceTransaction(hash common.Hash, config *evmtypes.TraceConfig) (interface{}, error)
 	TraceBlock(height rpctypes.BlockNumber, config *evmtypes.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
@@ -126,21 +133,43 @@ type EVMBackend interface {
 
 var _ BackendI = (*Backend)(nil)
 
+// ProcessBlocker is a function type that processes a block and its associated data
+// for fee history calculation. It takes a Tendermint block, its corresponding
+// Ethereum block representation, reward percentiles for fee estimation,
+// block results, and a target fee history entry to populate.
+//
+// Parameters:
+//   - tendermintBlock: The raw Tendermint block data
+//   - ethBlock: The Ethereum-formatted block representation
+//   - rewardPercentiles: Percentiles used for fee reward calculation
+//   - tendermintBlockResult: Block execution results from Tendermint
+//   - targetOneFeeHistory: The fee history entry to be populated
+//
+// Returns an error if block processing fails.
+type ProcessBlocker func(
+	tendermintBlock *tmrpctypes.ResultBlock,
+	ethBlock *map[string]interface{},
+	rewardPercentiles []float64,
+	tendermintBlockResult *tmrpctypes.ResultBlockResults,
+	targetOneFeeHistory *rpctypes.OneFeeHistory,
+) error
+
 // Backend implements the BackendI interface
 type Backend struct {
-	ctx                 context.Context
-	clientCtx           client.Context
-	rpcClient           tmrpcclient.SignClient
-	queryClient         *rpctypes.QueryClient // gRPC query client
-	logger              log.Logger
-	chainID             *big.Int
-	cfg                 config.Config
-	allowUnprotectedTxs bool
-	indexer             cosmosevmtypes.EVMTxIndexer
+	Ctx                 context.Context
+	ClientCtx           client.Context
+	RPCClient           tmrpcclient.SignClient
+	QueryClient         *rpctypes.QueryClient // gRPC query client
+	Logger              log.Logger
+	EvmChainID          *big.Int
+	Cfg                 config.Config
+	AllowUnprotectedTxs bool
+	Indexer             cosmosevmtypes.EVMTxIndexer
+	ProcessBlocker      ProcessBlocker
 }
 
 func (b *Backend) GetConfig() config.Config {
-	return b.cfg
+	return b.Cfg
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
@@ -161,15 +190,17 @@ func NewBackend(
 		panic(fmt.Sprintf("invalid rpc client, expected: tmrpcclient.SignClient, got: %T", clientCtx.Client))
 	}
 
-	return &Backend{
-		ctx:                 context.Background(),
-		clientCtx:           clientCtx,
-		rpcClient:           rpcClient,
-		queryClient:         rpctypes.NewQueryClient(clientCtx),
-		logger:              logger.With("module", "backend"),
-		chainID:             big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
-		cfg:                 appConf,
-		allowUnprotectedTxs: allowUnprotectedTxs,
-		indexer:             indexer,
+	b := &Backend{
+		Ctx:                 context.Background(),
+		ClientCtx:           clientCtx,
+		RPCClient:           rpcClient,
+		QueryClient:         rpctypes.NewQueryClient(clientCtx),
+		Logger:              logger.With("module", "backend"),
+		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
+		Cfg:                 appConf,
+		AllowUnprotectedTxs: allowUnprotectedTxs,
+		Indexer:             indexer,
 	}
+	b.ProcessBlocker = b.ProcessBlock
+	return b
 }

@@ -366,25 +366,10 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	// NOTE: the errors from the executable below should be consistent with go-ethereum,
 	// so we don't wrap them with the gRPC status code
 
-	// Create a helper to check if a gas allowance results in an executable transaction
+	// create a helper to check if a gas allowance results in an executable transaction
 	executable := func(gas uint64) (vmError bool, rsp *types.MsgEthereumTxResponse, err error) {
 		// update the message with the new gas value
-		msg = core.Message{
-			From:             msg.From,
-			To:               msg.To,
-			Nonce:            msg.Nonce,
-			Value:            msg.Value,
-			GasLimit:         gas,
-			GasPrice:         msg.GasPrice,
-			GasFeeCap:        msg.GasFeeCap,
-			GasTipCap:        msg.GasTipCap,
-			Data:             msg.Data,
-			AccessList:       msg.AccessList,
-			BlobGasFeeCap:    msg.BlobGasFeeCap,
-			BlobHashes:       msg.BlobHashes,
-			SkipNonceChecks:  msg.SkipNonceChecks,
-			SkipFromEOACheck: msg.SkipFromEOACheck,
-		}
+		msg.GasLimit = gas
 
 		tmpCtx := ctx
 		if fromType == types.RPC {
@@ -452,7 +437,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 // executes the given message in the provided environment. The return value will
 // be tracer-dependent.
 func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*types.QueryTraceTxResponse, error) {
-	if req == nil {
+	if req == nil || req.Msg == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
@@ -472,7 +457,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
-	if requestedHeight > ctx.BlockHeight() {
+	// the caller sets the `ctx.BlockHeight()` to be `requestedHeight - 1`, so we can get the context of block beginning
+	if requestedHeight > ctx.BlockHeight()+1 {
 		return nil, status.Errorf(codes.FailedPrecondition, "requested height [%d] must be less than or equal to current height [%d]", requestedHeight, ctx.BlockHeight())
 	}
 	// TODO: ideally, this query should validate that the block hash, predecessor transactions, and main trace tx actually existed in the block requested.

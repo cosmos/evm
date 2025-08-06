@@ -87,12 +87,12 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(_ *server.Context, clientCtx client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
 					Version:   apiVersion,
-					Service:   net.NewPublicAPI(clientCtx),
+					Service:   net.NewPublicAPI(ctx, clientCtx),
 					Public:    true,
 				},
 			}
@@ -113,12 +113,18 @@ func init() {
 				},
 			}
 		},
-		TxPoolNamespace: func(ctx *server.Context, _ client.Context, _ *rpcclient.WSClient, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		TxPoolNamespace: func(ctx *server.Context,
+			clientCtx client.Context,
+			_ *rpcclient.WSClient,
+			allowUnprotectedTxs bool,
+			indexer types.EVMTxIndexer,
+		) []rpc.API {
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
 					Version:   apiVersion,
-					Service:   txpool.NewPublicAPI(ctx.Logger),
+					Service:   txpool.NewPublicAPI(ctx.Logger, evmBackend),
 					Public:    true,
 				},
 			}

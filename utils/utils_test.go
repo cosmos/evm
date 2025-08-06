@@ -1,13 +1,22 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/crypto/hd"
+	"github.com/cosmos/evm/types"
 
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdkhd "github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -332,4 +341,138 @@ func TestBytes32ToString(t *testing.T) {
 			require.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+// TestAccountEquivalence tests and demonstrates the equivalence of accounts
+func TestAccountEquivalence(t *testing.T) {
+	registry := codectypes.NewInterfaceRegistry()
+	cryptocodec.RegisterInterfaces(registry)
+	cdc := codec.NewProtoCodec(registry)
+
+	uid := "inMemory"
+	mnemonic := "aunt imitate maximum student guard unhappy guard rotate marine panel negative merit record priority zoo voice mixture boost describe fruit often occur expect teach"
+
+	// create a keyring with support for ethsecp and secp (default supported)
+	kb, err := keyring.New("keybasename", keyring.BackendMemory, t.TempDir(), nil, cdc, hd.EthSecp256k1Option())
+	require.NoError(t, err)
+
+	// get the proper signing algorithms
+	keyringAlgos, _ := kb.SupportedAlgorithms()
+	algoEvm, err := keyring.NewSigningAlgoFromString(string(hd.EthSecp256k1Type), keyringAlgos)
+	require.NoError(t, err)
+	legacyAlgo, err := keyring.NewSigningAlgoFromString(string(sdkhd.Secp256k1Type), keyringAlgos)
+	require.NoError(t, err)
+
+	// legacy account using "regular" cosmos secp
+	// and coin type 118
+	legacyCosmosKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, sdk.FullFundraiserPath, legacyAlgo)
+	require.NoError(t, err)
+
+	// account using ethsecp
+	// and coin type 118
+	cosmsosKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, sdk.FullFundraiserPath, algoEvm)
+	require.NoError(t, err)
+
+	// account using ethsecp
+	// and coin type 60
+	evmKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, types.BIP44HDPath, algoEvm)
+	require.NoError(t, err)
+
+	// verify that none of these three keys are equal
+	require.NotEqual(t, legacyCosmosKey, cosmsosKey)
+	require.NotEqual(t, legacyCosmosKey.String(), cosmsosKey.String())
+	require.NotEqual(t, legacyCosmosKey.PubKey.String(), cosmsosKey.PubKey.String())
+
+	require.NotEqual(t, legacyCosmosKey, evmKey)
+	require.NotEqual(t, legacyCosmosKey.String(), evmKey.String())
+	require.NotEqual(t, legacyCosmosKey.PubKey.String(), evmKey.PubKey.String())
+
+	require.NotEqual(t, cosmsosKey, evmKey)
+	require.NotEqual(t, cosmsosKey.String(), evmKey.String())
+	require.NotEqual(t, cosmsosKey.PubKey.String(), evmKey.PubKey.String())
+
+	// calls:
+	// sha := sha256.Sum256(pubKey.Key)
+	// hasherRIPEMD160 := ripemd160.New()
+	// hasherRIPEMD160.Write(sha[:])
+	//
+	// one way sha256 -> ripeMD160
+	// this is the actual bech32 algorithm
+	legacyAddress, err := legacyCosmosKey.GetAddress() //
+	require.NoError(t, err)
+
+	legacyPubKey, err := legacyCosmosKey.GetPubKey()
+	require.NoError(t, err)
+
+	// create an ethsecp key from the same exact pubkey bytes
+	// this will mean that calling `Address()` will use the Keccack hash of the pubkey
+	ethSecpPubkey := ethsecp256k1.PubKey{Key: legacyPubKey.Bytes()}
+
+	// calls:
+	// 	pubBytes := FromECDSAPub(&p)
+	//	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	//
+	// one way keccak hash
+	// because the key implementation points to it to call the EVM methods
+	ethSecpAddress := ethSecpPubkey.Address().Bytes()
+	require.False(t, bytes.Equal(legacyAddress.Bytes(), ethSecpAddress))
+	trueHexLegacy, err := HexAddressFromBech32String(sdk.AccAddress(ethSecpAddress).String())
+	require.NoError(t, err)
+
+	// deriving a legacy bech32 from the legacy address
+	legacyBech32Address := legacyAddress.String()
+
+	// this just converts the ripeMD(sha(pubkey)) from bech32 formatting style to hex
+	gotHexLegacy, err := HexAddressFromBech32String(legacyBech32Address)
+	require.NoError(t, err)
+	require.NotEqual(t, trueHexLegacy.Hex(), gotHexLegacy.Hex())
+
+	fmt.Println("\nLegacy Ethereum address:\t\t", gotHexLegacy.Hex()) //
+	fmt.Println("True Legacy Ethereum address:\t", trueHexLegacy.Hex())
+	fmt.Println("Legacy Bech32 address:\t\t\t", legacyBech32Address)
+	fmt.Println()
+
+	// calls:
+	// 	pubBytes := FromECDSAPub(&p)
+	//	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	//
+	// one way keccak hash
+	// because the key implementation points to it to call the EVM methods
+	cosmosAddress, err := cosmsosKey.GetAddress() //
+	require.NoError(t, err)
+	require.NotEqual(t, legacyAddress, cosmosAddress)
+	require.False(t, legacyAddress.Equals(cosmosAddress))
+
+	// calls:
+	// 	pubBytes := FromECDSAPub(&p)
+	//	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	//
+	// one way keccak hash
+	evmAddress, err := evmKey.GetAddress()
+	require.NoError(t, err)
+	require.NotEqual(t, cosmosAddress, evmAddress)
+	require.False(t, cosmosAddress.Equals(evmAddress))
+
+	// we have verified that two privkeys generated from the same mnemonic (on different HD paths) are different
+	// now, let's derive the 0x and bech32 addresses of our EVM key
+	t.Run("verify 0x and cosmos formatted address string is the same for an EVM key", func(t *testing.T) {
+		addr := evmAddress
+		require.NoError(t, err)
+		_, err = kb.KeyByAddress(addr)
+		require.NoError(t, err)
+
+		bech32 := addr.String()
+		// Decode from hex to bytes
+
+		// Convert to Ethereum address
+		address := common.BytesToAddress(addr)
+
+		fmt.Println("\nEthereum address:", address.Hex())
+		fmt.Println("Bech32 address:", bech32)
+
+		require.Equal(t, bech32, Bech32StringFromHexAddress(address.Hex()))
+		gotAddr, err := HexAddressFromBech32String(bech32)
+		require.NoError(t, err)
+		require.Equal(t, address.Hex(), gotAddr.Hex())
+	})
 }
