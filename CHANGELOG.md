@@ -16,7 +16,6 @@
 - [\#368](https://github.com/cosmos/evm/pull/368) Support query gas limit flag
 - [\#296](https://github.com/cosmos/evm/pull/296) Sanity checks for TraceTx
 
-
 ### IMPROVEMENTS
 
 - [\#183](https://github.com/cosmos/evm/pull/183) Enforce `msg.sender == requester` on
