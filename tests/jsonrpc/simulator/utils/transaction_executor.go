@@ -8,13 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// ExecuteTransactionBatch executes a batch of transaction scenarios on both networks
-func ExecuteTransactionBatch(evmdURL, gethURL string, evmdContract, gethContract common.Address) (*TransactionBatch, error) {
-	batch := &TransactionBatch{
-		Name:         "JSON-RPC Compatibility Test Batch",
-		EvmdContract: evmdContract,
-		GethContract: gethContract,
-	}
+// ExecuteTransactionBatch executes a batch of transaction scenarios on both networks with enhanced metadata
+func ExecuteTransactionBatch(evmdURL, gethURL string, evmdContract, gethContract common.Address) (*TransactionMetadataBatch, error) {
+	batch := NewTransactionMetadataBatch("JSON-RPC Compatibility Test Batch", nil, evmdContract, gethContract)
 
 	// Create transaction scenarios
 	scenarios := CreateTransactionScenarios(evmdContract, gethContract)
@@ -49,100 +45,135 @@ func ExecuteTransactionBatch(evmdURL, gethURL string, evmdContract, gethContract
 			gethScenario.To = &gethContract
 		}
 
-		// Execute on evmd
+		// Execute on evmd with metadata
 		fmt.Printf("  → evmd: ")
-		evmdResult, err := ExecuteTransactionScenario(evmdClient, &evmdScenario, "evmd")
+		evmdMeta, err := ExecuteTransactionScenarioWithMetadata(evmdClient, evmdURL, &evmdScenario, "evmd")
 		if err != nil && !scenario.ExpectFail {
 			fmt.Printf("ERROR - %s\n", err.Error())
 		} else {
-			if evmdResult.Success {
+			// Enhance metadata with additional fields
+			EnhanceTransactionMetadata(evmdMeta)
+			
+			if evmdMeta.Success {
 				fmt.Printf("✓ Success")
-				if evmdResult.Receipt != nil {
-					fmt.Printf(" (gas: %d, block: %s)", evmdResult.GasUsed, evmdResult.BlockNumber.String())
+				if evmdMeta.Receipt != nil {
+					fmt.Printf(" (gas: %d, block: %s, latency: %v)", 
+						evmdMeta.GasUsed, evmdMeta.BlockNumber.String(), evmdMeta.APICallLatency)
 				}
 				fmt.Printf("\n")
 			} else {
-				fmt.Printf("✗ Failed - %s\n", evmdResult.Error)
+				fmt.Printf("✗ Failed - %s\n", evmdMeta.Error)
 			}
 		}
-		batch.EvmdResults = append(batch.EvmdResults, evmdResult)
+		batch.EvmdResults = append(batch.EvmdResults, evmdMeta)
 
 		// Small delay between networks to avoid nonce issues
 		time.Sleep(100 * time.Millisecond)
 
-		// Execute on geth
+		// Execute on geth with metadata
 		fmt.Printf("  → geth: ")
-		gethResult, err := ExecuteTransactionScenario(gethClient, &gethScenario, "geth")
+		gethMeta, err := ExecuteTransactionScenarioWithMetadata(gethClient, gethURL, &gethScenario, "geth")
 		if err != nil && !scenario.ExpectFail {
 			fmt.Printf("ERROR - %s\n", err.Error())
 		} else {
-			if gethResult.Success {
+			// Enhance metadata with additional fields
+			EnhanceTransactionMetadata(gethMeta)
+			
+			if gethMeta.Success {
 				fmt.Printf("✓ Success")
-				if gethResult.Receipt != nil {
-					fmt.Printf(" (gas: %d, block: %s)", gethResult.GasUsed, gethResult.BlockNumber.String())
+				if gethMeta.Receipt != nil {
+					fmt.Printf(" (gas: %d, block: %s, latency: %v)", 
+						gethMeta.GasUsed, gethMeta.BlockNumber.String(), gethMeta.APICallLatency)
 				}
 				fmt.Printf("\n")
 			} else {
-				fmt.Printf("✗ Failed - %s\n", gethResult.Error)
+				fmt.Printf("✗ Failed - %s\n", gethMeta.Error)
 			}
 		}
-		batch.GethResults = append(batch.GethResults, gethResult)
+		batch.GethResults = append(batch.GethResults, gethMeta)
+		
 
 		// Delay between scenarios
 		time.Sleep(500 * time.Millisecond)
 	}
 
+	// Finalize batch metadata
+	batch.EndTime = time.Now()
+	batch.TotalLatency = batch.EndTime.Sub(batch.StartTime)
+	
+	// Count successes and failures
+	for _, result := range batch.EvmdResults {
+		if result.Success {
+			batch.SuccessCount++
+		} else {
+			batch.FailureCount++
+		}
+	}
+	
 	return batch, nil
 }
 
 // GenerateTransactionSummary creates a summary report of the transaction batch execution
-func GenerateTransactionSummary(batch *TransactionBatch) string {
+func GenerateTransactionSummary(batch *TransactionMetadataBatch) string {
 	if batch == nil {
 		return "No transaction batch to summarize"
 	}
 
 	summary := "\n=== Transaction Batch Summary ===\n"
 	summary += fmt.Sprintf("Batch: %s\n", batch.Name)
-	summary += fmt.Sprintf("Total Scenarios: %d\n\n", len(batch.Scenarios))
+	summary += fmt.Sprintf("Total Scenarios: %d\n", len(batch.Scenarios))
+	summary += fmt.Sprintf("Total Duration: %v\n\n", batch.TotalLatency)
 
 	evmdSuccess := 0
 	gethSuccess := 0
 
 	for i, scenario := range batch.Scenarios {
-		evmdResult := batch.EvmdResults[i]
-		gethResult := batch.GethResults[i]
+		if i < len(batch.EvmdResults) && i < len(batch.GethResults) {
+			evmdResult := batch.EvmdResults[i]
+			gethResult := batch.GethResults[i]
 
-		summary += fmt.Sprintf("%d. %s (%s)\n", i+1, scenario.Name, scenario.Description)
+			summary += fmt.Sprintf("%d. %s (%s)\n", i+1, scenario.Name, scenario.Description)
 
-		if evmdResult.Success {
-			evmdSuccess++
-			summary += "   evmd: ✓ Success"
-			if evmdResult.Receipt != nil {
-				summary += fmt.Sprintf(" | TX: %s | Gas: %d | Block: %s",
-					evmdResult.TxHash.Hex()[:10]+"...",
-					evmdResult.GasUsed,
-					evmdResult.BlockNumber.String())
+			if evmdResult.Success {
+				evmdSuccess++
+				summary += "   evmd: ✓ Success"
+				if evmdResult.Receipt != nil {
+					summary += fmt.Sprintf(" | TX: %s | Gas: %d | Block: %s | Latency: %v",
+						evmdResult.TxHash.Hex()[:10]+"...",
+						evmdResult.GasUsed,
+						evmdResult.BlockNumber.String(),
+						evmdResult.APICallLatency)
+				}
+				summary += "\n"
+			} else {
+				summary += fmt.Sprintf("   evmd: ✗ Failed - %s\n", evmdResult.Error)
 			}
-			summary += "\n"
-		} else {
-			summary += fmt.Sprintf("   evmd: ✗ Failed - %s\n", evmdResult.Error)
-		}
 
-		if gethResult.Success {
-			gethSuccess++
-			summary += "   geth: ✓ Success"
-			if gethResult.Receipt != nil {
-				summary += fmt.Sprintf(" | TX: %s | Gas: %d | Block: %s",
-					gethResult.TxHash.Hex()[:10]+"...",
-					gethResult.GasUsed,
-					gethResult.BlockNumber.String())
+			if gethResult.Success {
+				gethSuccess++
+				summary += "   geth: ✓ Success"
+				if gethResult.Receipt != nil {
+					summary += fmt.Sprintf(" | TX: %s | Gas: %d | Block: %s | Latency: %v",
+						gethResult.TxHash.Hex()[:10]+"...",
+						gethResult.GasUsed,
+						gethResult.BlockNumber.String(),
+						gethResult.APICallLatency)
+				}
+				summary += "\n"
+			} else {
+				summary += fmt.Sprintf("   geth: ✗ Failed - %s\n", gethResult.Error)
 			}
-			summary += "\n"
-		} else {
-			summary += fmt.Sprintf("   geth: ✗ Failed - %s\n", gethResult.Error)
-		}
 
-		summary += "\n"
+			// Add basic comparison info if both succeeded
+			if evmdResult.Success && gethResult.Success {
+				gasMatch := evmdResult.GasUsed == gethResult.GasUsed
+				latencyDiff := gethResult.APICallLatency - evmdResult.APICallLatency
+				summary += fmt.Sprintf("   comparison: gasUsed_match=%v, latency_diff=%v\n",
+					gasMatch, latencyDiff)
+			}
+
+			summary += "\n"
+		}
 	}
 
 	summary += "=== Results Summary ===\n"
@@ -152,12 +183,13 @@ func GenerateTransactionSummary(batch *TransactionBatch) string {
 	summary += fmt.Sprintf("geth: %d/%d successful (%.1f%%)\n",
 		gethSuccess, len(batch.Scenarios),
 		float64(gethSuccess)/float64(len(batch.Scenarios))*100)
+	summary += fmt.Sprintf("Total batch success: %d, failures: %d\n", batch.SuccessCount, batch.FailureCount)
 
 	return summary
 }
 
 // GetTransactionHashes returns all transaction hashes from the batch for testing
-func (batch *TransactionBatch) GetTransactionHashes() (evmdHashes, gethHashes []common.Hash) {
+func (batch *TransactionMetadataBatch) GetTransactionHashes() (evmdHashes, gethHashes []common.Hash) {
 	for _, result := range batch.EvmdResults {
 		if result.Success && result.TxHash != (common.Hash{}) {
 			evmdHashes = append(evmdHashes, result.TxHash)
@@ -173,8 +205,8 @@ func (batch *TransactionBatch) GetTransactionHashes() (evmdHashes, gethHashes []
 	return evmdHashes, gethHashes
 }
 
-// GetSuccessfulTransactions returns only successful transaction results
-func (batch *TransactionBatch) GetSuccessfulTransactions() (evmdTxs, gethTxs []*TransactionResult) {
+// GetSuccessfulTransactions returns only successful transaction metadata
+func (batch *TransactionMetadataBatch) GetSuccessfulTransactions() (evmdTxs, gethTxs []*TransactionMetadata) {
 	for _, result := range batch.EvmdResults {
 		if result.Success {
 			evmdTxs = append(evmdTxs, result)

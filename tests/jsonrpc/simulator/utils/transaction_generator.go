@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // TransactionScenario represents a test transaction scenario
@@ -26,7 +28,42 @@ type TransactionScenario struct {
 	ExpectFail  bool
 }
 
-// TransactionResult holds the result of a transaction execution
+// TransactionMetadata holds comprehensive transaction information for API testing
+type TransactionMetadata struct {
+	Scenario    *TransactionScenario `json:"scenario"`
+	Network     string               `json:"network"` // "evmd" or "geth"
+	TxHash      common.Hash          `json:"txHash"`
+	Receipt     *types.Receipt       `json:"receipt,omitempty"`
+	Success     bool                 `json:"success"`
+	Error       string               `json:"error,omitempty"`
+	GasUsed     uint64               `json:"gasUsed"`
+	BlockNumber *big.Int             `json:"blockNumber,omitempty"`
+	Timestamp   time.Time            `json:"timestamp"`
+	
+	// Enhanced metadata for API testing
+	Transaction    *types.Transaction `json:"transaction,omitempty"`    // Original transaction
+	TransactionRaw string            `json:"transactionRaw,omitempty"`  // RLP-encoded transaction
+	ReceiptRaw     string            `json:"receiptRaw,omitempty"`      // JSON-encoded receipt
+	Logs           []*types.Log      `json:"logs,omitempty"`            // Transaction logs
+	ContractAddress *common.Address  `json:"contractAddress,omitempty"` // For contract deployments
+	RevertReason   string            `json:"revertReason,omitempty"`    // Decoded revert reason
+	
+	// API call metadata
+	JSONRPCCalls   []JSONRPCCallInfo `json:"jsonrpcCalls,omitempty"`   // All JSON-RPC calls made
+	APICallLatency time.Duration     `json:"apiCallLatency"`           // Total API call time
+}
+
+// JSONRPCCallInfo tracks individual JSON-RPC method calls
+type JSONRPCCallInfo struct {
+	Method    string        `json:"method"`
+	Params    interface{}   `json:"params,omitempty"`
+	Response  interface{}   `json:"response,omitempty"`
+	Error     string        `json:"error,omitempty"`
+	Latency   time.Duration `json:"latency"`
+	Timestamp time.Time     `json:"timestamp"`
+}
+
+// TransactionResult holds the result of a transaction execution (legacy compatibility)
 type TransactionResult struct {
 	Scenario    *TransactionScenario
 	Network     string // "evmd" or "geth"
@@ -39,6 +76,23 @@ type TransactionResult struct {
 	Timestamp   time.Time
 }
 
+// ToTransactionMetadata converts TransactionResult to enhanced TransactionMetadata
+func (tr *TransactionResult) ToTransactionMetadata() *TransactionMetadata {
+	return &TransactionMetadata{
+		Scenario:    tr.Scenario,
+		Network:     tr.Network,
+		TxHash:      tr.TxHash,
+		Receipt:     tr.Receipt,
+		Success:     tr.Success,
+		Error:       tr.Error,
+		GasUsed:     tr.GasUsed,
+		BlockNumber: tr.BlockNumber,
+		Timestamp:   tr.Timestamp,
+		Logs:        tr.Receipt.Logs,
+		JSONRPCCalls: make([]JSONRPCCallInfo, 0),
+	}
+}
+
 // TransactionBatch represents a batch of transactions to be executed
 type TransactionBatch struct {
 	Name         string
@@ -47,6 +101,36 @@ type TransactionBatch struct {
 	GethResults  []*TransactionResult
 	EvmdContract common.Address
 	GethContract common.Address
+}
+
+// TransactionMetadataBatch represents a batch with enhanced metadata
+type TransactionMetadataBatch struct {
+	Name         string                  `json:"name"`
+	Scenarios    []*TransactionScenario  `json:"scenarios"`
+	EvmdResults  []*TransactionMetadata  `json:"evmdResults"`
+	GethResults  []*TransactionMetadata  `json:"gethResults"`
+	EvmdContract common.Address          `json:"evmdContract"`
+	GethContract common.Address          `json:"gethContract"`
+	
+	// Batch-level metadata
+	StartTime    time.Time               `json:"startTime"`
+	EndTime      time.Time               `json:"endTime"`
+	TotalLatency time.Duration           `json:"totalLatency"`
+	SuccessCount int                     `json:"successCount"`
+	FailureCount int                     `json:"failureCount"`
+}
+
+// NewTransactionMetadataBatch creates a new batch with enhanced metadata
+func NewTransactionMetadataBatch(name string, scenarios []*TransactionScenario, evmdAddr, gethAddr common.Address) *TransactionMetadataBatch {
+	return &TransactionMetadataBatch{
+		Name:         name,
+		Scenarios:    scenarios,
+		EvmdResults:  make([]*TransactionMetadata, 0, len(scenarios)),
+		GethResults:  make([]*TransactionMetadata, 0, len(scenarios)),
+		EvmdContract: evmdAddr,
+		GethContract: gethAddr,
+		StartTime:    time.Now(),
+	}
 }
 
 // Dev account private keys (from local_node.sh)
@@ -220,6 +304,156 @@ func buildERC20ApproveData(approveSig []byte, spender common.Address, amount *bi
 	return data
 }
 
+// ExecuteTransactionScenarioWithMetadata executes a transaction scenario and captures detailed metadata
+func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL string, scenario *TransactionScenario, network string) (*TransactionMetadata, error) {
+	startTime := time.Now()
+	metadata := &TransactionMetadata{
+		Scenario:     scenario,
+		Network:      network,
+		Timestamp:    startTime,
+		JSONRPCCalls: make([]JSONRPCCallInfo, 0),
+	}
+
+	// Get private key and address
+	privateKey, fromAddr, err := GetPrivateKeyAndAddress(scenario.FromKey)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to get private key: %v", err)
+		return metadata, err
+	}
+
+	ctx := context.Background()
+
+	// Track chain ID call
+	callStart := time.Now()
+	chainID, err := client.ChainID(ctx)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to get chain ID: %v", err)
+		return metadata, err
+	}
+	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
+		Method:    "eth_chainId",
+		Response:  chainID.String(),
+		Latency:   time.Since(callStart),
+		Timestamp: callStart,
+	})
+
+	// Track nonce call
+	callStart = time.Now()
+	nonce, err := client.PendingNonceAt(ctx, fromAddr)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to get nonce: %v", err)
+		return metadata, err
+	}
+	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
+		Method:    "eth_getTransactionCount",
+		Params:    map[string]interface{}{"address": fromAddr.Hex(), "block": "pending"},
+		Response:  nonce,
+		Latency:   time.Since(callStart),
+		Timestamp: callStart,
+	})
+
+	// Track gas price call
+	callStart = time.Now()
+	gasPrice, err := client.SuggestGasPrice(ctx)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to get gas price: %v", err)
+		return metadata, err
+	}
+	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
+		Method:    "eth_gasPrice",
+		Response:  gasPrice.String(),
+		Latency:   time.Since(callStart),
+		Timestamp: callStart,
+	})
+
+	// Create transaction
+	var tx *types.Transaction
+	if scenario.To != nil {
+		tx = types.NewTransaction(nonce, *scenario.To, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+	} else {
+		tx = types.NewContractCreation(nonce, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+	}
+
+	// Sign transaction
+	signer := types.NewEIP155Signer(chainID)
+	signedTx, err := types.SignTx(tx, signer, privateKey)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to sign transaction: %v", err)
+		return metadata, err
+	}
+
+	// Store transaction details
+	metadata.Transaction = signedTx
+	
+	// Track send transaction call
+	callStart = time.Now()
+	err = client.SendTransaction(ctx, signedTx)
+	if err != nil {
+		metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
+			Method:    "eth_sendRawTransaction",
+			Error:     err.Error(),
+			Latency:   time.Since(callStart),
+			Timestamp: callStart,
+		})
+		
+		if scenario.ExpectFail {
+			metadata.Success = true
+			metadata.Error = fmt.Sprintf("expected failure: %v", err)
+		} else {
+			metadata.Error = fmt.Sprintf("failed to send transaction: %v", err)
+		}
+		return metadata, err
+	}
+	
+	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
+		Method:    "eth_sendRawTransaction",
+		Response:  signedTx.Hash().Hex(),
+		Latency:   time.Since(callStart),
+		Timestamp: callStart,
+	})
+
+	metadata.TxHash = signedTx.Hash()
+
+	// Wait for transaction receipt with detailed tracking
+	callStart = time.Now()
+	receipt, err := waitForTransactionReceiptWithTracking(client, metadata.TxHash, 30*time.Second, &metadata.JSONRPCCalls)
+	if err != nil {
+		metadata.Error = fmt.Sprintf("failed to get receipt: %v", err)
+		return metadata, err
+	}
+
+	metadata.Receipt = receipt
+	metadata.GasUsed = receipt.GasUsed
+	metadata.BlockNumber = receipt.BlockNumber
+	metadata.Logs = receipt.Logs
+	
+	// Extract contract address if it's a deployment
+	if receipt.ContractAddress != (common.Address{}) {
+		metadata.ContractAddress = &receipt.ContractAddress
+	}
+
+	// Check transaction status
+	if receipt.Status == 1 {
+		if scenario.ExpectFail {
+			metadata.Success = false
+			metadata.Error = "transaction succeeded but was expected to fail"
+		} else {
+			metadata.Success = true
+		}
+	} else {
+		if scenario.ExpectFail {
+			metadata.Success = true
+			metadata.Error = "expected failure - transaction reverted"
+		} else {
+			metadata.Success = false
+			metadata.Error = "transaction failed - status 0"
+		}
+	}
+
+	metadata.APICallLatency = time.Since(startTime)
+	return metadata, nil
+}
+
 // ExecuteTransactionScenario executes a single transaction scenario on a network
 func ExecuteTransactionScenario(client *ethclient.Client, scenario *TransactionScenario, network string) (*TransactionResult, error) {
 	result := &TransactionResult{
@@ -320,6 +554,48 @@ func ExecuteTransactionScenario(client *ethclient.Client, scenario *TransactionS
 	return result, nil
 }
 
+// waitForTransactionReceiptWithTracking waits for a transaction receipt and tracks JSON-RPC calls
+func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash common.Hash, timeout time.Duration, jsonrpcCalls *[]JSONRPCCallInfo) (*types.Receipt, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	attempts := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for transaction %s after %d attempts", txHash.Hex(), attempts)
+		case <-ticker.C:
+			attempts++
+			callStart := time.Now()
+			receipt, err := client.TransactionReceipt(context.Background(), txHash)
+			
+			if err != nil {
+				*jsonrpcCalls = append(*jsonrpcCalls, JSONRPCCallInfo{
+					Method:    "eth_getTransactionReceipt",
+					Params:    txHash.Hex(),
+					Error:     err.Error(),
+					Latency:   time.Since(callStart),
+					Timestamp: callStart,
+				})
+				continue // Transaction not mined yet
+			}
+			
+			*jsonrpcCalls = append(*jsonrpcCalls, JSONRPCCallInfo{
+				Method:    "eth_getTransactionReceipt",
+				Params:    txHash.Hex(),
+				Response:  fmt.Sprintf("status=%d, gasUsed=%d", receipt.Status, receipt.GasUsed),
+				Latency:   time.Since(callStart),
+				Timestamp: callStart,
+			})
+			
+			return receipt, nil
+		}
+	}
+}
+
 // waitForTransactionReceipt waits for a transaction receipt
 func waitForTransactionReceipt(client *ethclient.Client, txHash common.Hash, timeout time.Duration) (*types.Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -341,3 +617,29 @@ func waitForTransactionReceipt(client *ethclient.Client, txHash common.Hash, tim
 		}
 	}
 }
+
+// EnhanceTransactionMetadata adds additional computed fields to transaction metadata
+func EnhanceTransactionMetadata(metadata *TransactionMetadata) error {
+	if metadata.Transaction != nil {
+		// Add RLP-encoded transaction
+		txBytes, err := rlp.EncodeToBytes(metadata.Transaction)
+		if err != nil {
+			return fmt.Errorf("failed to RLP encode transaction: %w", err)
+		}
+		metadata.TransactionRaw = "0x" + hex.EncodeToString(txBytes)
+	}
+	
+	// Add JSON-encoded receipt if available
+	if metadata.Receipt != nil {
+		// We don't serialize the entire receipt to avoid circular references
+		// Instead, create a summary
+		metadata.ReceiptRaw = fmt.Sprintf(`{"status":%d,"gasUsed":%d,"logs":%d,"blockNumber":%s}`,
+			metadata.Receipt.Status,
+			metadata.Receipt.GasUsed,
+			len(metadata.Receipt.Logs),
+			metadata.Receipt.BlockNumber.String())
+	}
+	
+	return nil
+}
+
