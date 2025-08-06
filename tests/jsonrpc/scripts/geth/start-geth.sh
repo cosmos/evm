@@ -11,7 +11,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 CONTAINER_NAME="geth-jsonrpc-test"
 GETH_IMAGE="ethereum/client-go:v1.15.10"
 DATA_DIR="$PROJECT_ROOT/tests/jsonrpc/.geth-data"
-GENESIS_FILE="$PROJECT_ROOT/tests/jsonrpc/geth_genesis.json"
 CHAIN_ID=4221
 NETWORK_ID=4221
 

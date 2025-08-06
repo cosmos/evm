@@ -26,22 +26,22 @@ import (
 func main() {
 	verbose := flag.Bool("v", false, "Enable verbose output")
 	outputExcel := flag.Bool("xlsx", false, "Save output as xlsx")
-	fundAccounts := flag.Bool("fund-geth", false, "Fund standard dev accounts in geth using coinbase")
 	flag.Parse()
+
+	// Handle subcommand
+	args := flag.Args()
+	if len(args) > 0 && args[0] == "setup" {
+		log.Println("Running setup: funding geth accounts and deploying contracts...")
+		err := runSetup()
+		if err != nil {
+			log.Fatalf("Setup failed: %v", err)
+		}
+		log.Println("✓ Setup completed successfully!")
+		return
+	}
 
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig("config.yaml")
-
-	// Handle account funding if requested
-	if *fundAccounts {
-		log.Println("Funding standard dev accounts in geth...")
-		err := fundGethAccounts(conf)
-		if err != nil {
-			log.Fatalf("Failed to fund geth accounts: %v", err)
-		}
-		log.Println("✓ Account funding completed successfully!")
-		return
-	}
 
 	rCtx, err := rpc.NewContext(conf)
 	if err != nil {
@@ -513,11 +513,31 @@ func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {
 	return rCtx
 }
 
-// fundGethAccounts funds the standard dev accounts in geth using coinbase balance
-func fundGethAccounts(conf *config.Config) error {
-	// For now, assume geth is running on localhost:8547 (based on our setup)
+// runSetup performs the complete setup: fund geth accounts and deploy contracts
+func runSetup() error {
+	// URLs for both networks
+	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
 	
+	log.Println("Step 1: Funding geth dev accounts...")
+	err := fundGethAccounts(gethURL)
+	if err != nil {
+		return fmt.Errorf("failed to fund geth accounts: %w", err)
+	}
+	log.Println("✓ Geth accounts funded successfully")
+	
+	log.Println("Step 2: Deploying ERC20 contracts to both networks...")
+	err = deployContracts(evmdURL, gethURL)
+	if err != nil {
+		return fmt.Errorf("failed to deploy contracts: %w", err)
+	}
+	log.Println("✓ Contracts deployed successfully")
+	
+	return nil
+}
+
+// fundGethAccounts funds the standard dev accounts in geth using coinbase balance
+func fundGethAccounts(gethURL string) error {
 	// Connect to geth
 	client, err := ethclient.Dial(gethURL)
 	if err != nil {
@@ -564,6 +584,36 @@ func fundGethAccounts(conf *config.Config) error {
 		fmt.Printf("%s (%s): %s ETH\n", name, address.Hex(), ethBalance.String())
 	}
 
-	fmt.Println("\n✓ Now dev1-dev4 accounts have matching balances on both evmd and geth")
+	fmt.Println("\n✓ Geth dev accounts funded successfully")
+	return nil
+}
+
+// deployContracts deploys the ERC20 contract to both evmd and geth
+func deployContracts(evmdURL, gethURL string) error {
+	// The embedded .bin file contains hex-encoded text, need to decode it to bytes
+	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
+	result, err := utils.DeployERC20Contract(evmdURL, gethURL, contractBytecode)
+	if err != nil {
+		return fmt.Errorf("deployment failed: %w", err)
+	}
+	
+	if !result.Success {
+		return fmt.Errorf("deployment unsuccessful: %s", result.Error)
+	}
+	
+	fmt.Printf("\n✓ ERC20 Contract Deployment Summary:\n")
+	if result.EvmdDeployment != nil {
+		fmt.Printf("  evmd: %s (tx: %s, block: %s)\n", 
+			result.EvmdDeployment.Address.Hex(),
+			result.EvmdDeployment.TxHash.Hex(),
+			result.EvmdDeployment.BlockNumber.String())
+	}
+	if result.GethDeployment != nil {
+		fmt.Printf("  geth: %s (tx: %s, block: %s)\n", 
+			result.GethDeployment.Address.Hex(),
+			result.GethDeployment.TxHash.Hex(),
+			result.GethDeployment.BlockNumber.String())
+	}
+	
 	return nil
 }
