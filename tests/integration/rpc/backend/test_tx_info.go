@@ -688,9 +688,9 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult)
 			s.Require().NoError(err)
 
-			txReceipt, err := s.backend.GetTransactionReceipt(tc.tx.Hash())
+			res, err := s.backend.GetTransactionReceipt(tc.tx.Hash())
 			if tc.expPass {
-				s.Require().Equal(res["transactionHash"], hash)
+				s.Require().Equal(res["transactionHash"], tc.tx.Hash())
 				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height)) //nolint: gosec // G115
 				requiredFields := []string{"status", "cumulativeGasUsed", "logsBloom", "logs", "gasUsed", "blockHash", "blockNumber", "transactionIndex", "effectiveGasPrice", "from", "to", "type"}
 				for _, field := range requiredFields {
