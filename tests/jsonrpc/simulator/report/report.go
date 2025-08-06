@@ -151,8 +151,8 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 }
 
 func PrintHeader() {
-	// 63 equals characters to match matrix width
-	line := strings.Repeat("═", 63)
+	// 54 equals characters to match matrix width
+	line := strings.Repeat("═", 54)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("           Cosmos EVM JSON-RPC Compatibility Test           ")
 	fmt.Printf("%s\n", line)
@@ -164,8 +164,7 @@ func sortResultsByStatus(results []*types.RpcResult) {
 		types.Ok:             1, // PASS
 		types.Error:          2, // FAIL
 		types.NotImplemented: 3, // NOT_IMPL
-		types.Deprecated:     4, // DEPRECATED
-		types.Skipped:        5, // SKIP
+		types.Skipped:        4, // SKIP
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -213,7 +212,7 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 
 			// Calculate padding for consistent width
 			methodsText := fmt.Sprintf(" %s Methods ", displayName)
-			totalWidth := 63
+			totalWidth := 56
 			padding := totalWidth - len(methodsText)
 			leftPadding := padding / 2
 			rightPadding := padding - leftPadding
@@ -233,7 +232,7 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 	if results, exists := categories["Uncategorized"]; exists {
 		// Calculate padding for consistent width
 		methodsText := " Uncategorized Methods "
-		totalWidth := 63
+		totalWidth := 56
 		padding := totalWidth - len(methodsText)
 		leftPadding := padding / 2
 		rightPadding := padding - leftPadding
@@ -250,26 +249,25 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 }
 
 func PrintCategoryMatrix(summary *types.TestSummary) {
-	// 63 equals characters to match matrix width  
-	line := strings.Repeat("═", 63)
+	// 56 equals characters to match matrix width
+	line := strings.Repeat("═", 56)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("                      CATEGORY SUMMARY                      ")
 	fmt.Printf("%s\n", line)
 
 	// Define the order of categories (by namespace)
-	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "trace", "admin", "les"}
+	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "admin", "les"}
 
 	// Print header without subcategory column
-	fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %s\n",
+	fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s\n",
 		"Category",
 		color.GreenString("Pass"),
 		color.RedString("Fail"),
-		color.MagentaString("Depr"),
 		color.YellowString("N/Im"),
 		color.HiBlackString("Skip"),
 		color.CyanString("Total"))
 
-	fmt.Println("─────────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
+	fmt.Println("─────────────────────┼──────┼──────┼──────┼──────┼──────")
 
 	// Print each category in the defined order
 	for _, categoryName := range categoryOrder {
@@ -285,11 +283,6 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				failColor = color.RedString("%4d", catSummary.Failed)
 			}
 
-			deprColor := fmt.Sprintf("%4d", catSummary.Deprecated)
-			if catSummary.Deprecated > 0 {
-				deprColor = color.MagentaString("%4d", catSummary.Deprecated)
-			}
-
 			nimplColor := fmt.Sprintf("%4d", catSummary.NotImplemented)
 			if catSummary.NotImplemented > 0 {
 				nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
@@ -300,11 +293,10 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
 			}
 
-			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %5d\n",
 				categoryName,
 				passColor,
 				failColor,
-				deprColor,
 				nimplColor,
 				skipColor,
 				catSummary.Total)
@@ -330,11 +322,6 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				failColor = color.RedString("%4d", catSummary.Failed)
 			}
 
-			deprColor := fmt.Sprintf("%4d", catSummary.Deprecated)
-			if catSummary.Deprecated > 0 {
-				deprColor = color.MagentaString("%4d", catSummary.Deprecated)
-			}
-
 			nimplColor := fmt.Sprintf("%4d", catSummary.NotImplemented)
 			if catSummary.NotImplemented > 0 {
 				nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
@@ -345,11 +332,10 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
 			}
 
-			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %5d\n",
 				categoryName,
 				passColor,
 				failColor,
-				deprColor,
 				nimplColor,
 				skipColor,
 				catSummary.Total)
@@ -359,15 +345,14 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 }
 
 func PrintSummary(summary *types.TestSummary) {
-	// 63 equals characters to match matrix width
-	line := strings.Repeat("═", 63)
+	// 56 equals characters to match matrix width
+	line := strings.Repeat("═", 56)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("                     FINAL SUMMARY                     ")
 	fmt.Printf("%s\n", line)
 
 	color.Green("Passed:          %d", summary.Passed)
 	color.Red("Failed:          %d", summary.Failed)
-	color.Magenta("Deprecated:      %d", summary.Deprecated)
 	color.Yellow("Not Implemented: %d", summary.NotImplemented)
 	color.HiBlack("Skipped:         %d", summary.Skipped)
 	color.Cyan("Total:           %d", summary.Total)
@@ -387,8 +372,6 @@ func ColorPrint(result *types.RpcResult, verbose bool) {
 		if verbose && value != nil {
 			fmt.Printf(" - %v", value)
 		}
-	case types.Deprecated:
-		color.Magenta("[%s] %s", status, method)
 	case types.NotImplemented:
 		color.Yellow("[%s] %s", status, method)
 	case types.Skipped:

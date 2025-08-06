@@ -417,20 +417,15 @@ func main() {
 			result, err := handler(rCtx)
 			if err != nil {
 				result = &types.RpcResult{
-					Method:      method.Name,
-					Status:      types.Error,
-					ErrMsg:      err.Error(),
-					Category:    category.Name,
+					Method:   method.Name,
+					Status:   types.Error,
+					ErrMsg:   err.Error(),
+					Category: category.Name,
 				}
 			}
 			// Ensure category is set
 			if result.Category == "" {
 				result.Category = category.Name
-			}
-
-			// Mark personal/miner methods as deprecated if they pass
-			if (category.Name == "personal" || isDeprecatedMethod(method.Name)) && result.Status == types.Ok {
-				result.Status = types.Deprecated
 			}
 
 			results = append(results, result)
@@ -480,19 +475,6 @@ func main() {
 	}
 
 	report.ReportResults(results, *verbose, *outputExcel)
-}
-
-
-// isDeprecatedMethod checks if a method is deprecated
-func isDeprecatedMethod(methodName types.RpcName) bool {
-	// Miner methods are deprecated
-	switch methodName {
-	case rpc.MinerStart, rpc.MinerStop, rpc.MinerSetEtherbase, rpc.MinerSetExtra, rpc.MinerSetGasPrice, rpc.MinerSetGasLimit, rpc.MinerGetHashrate:
-		return true
-	// Personal methods are deprecated (checked by category in main logic)
-	default:
-		return false
-	}
 }
 
 func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {

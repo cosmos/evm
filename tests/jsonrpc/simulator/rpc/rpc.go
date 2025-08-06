@@ -1628,29 +1628,10 @@ func RpcEthMining(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-// Not implemented method handlers
-func RpcNotImplemented(methodName types.RpcName, category string) (*types.RpcResult, error) {
-	return &types.RpcResult{
-		Method:   methodName,
-		Status:   types.NotImplemented,
-		ErrMsg:   "Expected to be not implemented",
-		Category: category,
-	}, nil
-}
-
 func RpcSkipped(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
 	return &types.RpcResult{
 		Method:   methodName,
 		Status:   types.Skipped,
-		ErrMsg:   reason,
-		Category: category,
-	}, nil
-}
-
-func RpcDeprecated(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
-	return &types.RpcResult{
-		Method:   methodName,
-		Status:   types.Deprecated,
 		ErrMsg:   reason,
 		Category: category,
 	}, nil

@@ -7,7 +7,6 @@ const (
 	Error          RpcStatus = "FAIL"
 	NotImplemented RpcStatus = "NOT_IMPL"
 	Skipped        RpcStatus = "SKIP"
-	Deprecated     RpcStatus = "DEPRECATED"
 )
 
 type RpcName string
@@ -25,7 +24,6 @@ type TestSummary struct {
 	Failed         int
 	NotImplemented int
 	Skipped        int
-	Deprecated     int
 	Total          int
 	Categories     map[string]*CategorySummary
 }
@@ -36,7 +34,6 @@ type CategorySummary struct {
 	Failed         int
 	NotImplemented int
 	Skipped        int
-	Deprecated     int
 	Total          int
 }
 
@@ -57,16 +54,14 @@ func GetStatusPriority(status RpcStatus) int {
 	switch status {
 	case Ok:
 		return 1
-	case Deprecated:
-		return 2
 	case NotImplemented:
-		return 3
+		return 2
 	case Skipped:
-		return 4
+		return 3
 	case Error:
-		return 5
+		return 4
 	default:
-		return 6
+		return 5
 	}
 }
 
@@ -74,17 +69,17 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 	if s.Categories == nil {
 		s.Categories = make(map[string]*CategorySummary)
 	}
-	
+
 	category := result.Category
 	if category == "" {
 		category = "Uncategorized"
 	}
-	
+
 	// Initialize category if it doesn't exist
 	if s.Categories[category] == nil {
 		s.Categories[category] = &CategorySummary{Name: category}
 	}
-	
+
 	// Update overall summary
 	s.Total++
 	switch result.Status {
@@ -96,10 +91,8 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 		s.NotImplemented++
 	case Skipped:
 		s.Skipped++
-	case Deprecated:
-		s.Deprecated++
 	}
-	
+
 	// Update category summary
 	catSummary := s.Categories[category]
 	catSummary.Total++
@@ -112,7 +105,5 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 		catSummary.NotImplemented++
 	case Skipped:
 		catSummary.Skipped++
-	case Deprecated:
-		catSummary.Deprecated++
 	}
 }
