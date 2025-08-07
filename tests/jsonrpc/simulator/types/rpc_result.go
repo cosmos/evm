@@ -12,11 +12,12 @@ const (
 type RpcName string
 
 type RpcResult struct {
-	Method   RpcName
-	Status   RpcStatus
-	Value    interface{}
-	ErrMsg   string
-	Category string // Main category (namespace)
+	Method      RpcName
+	Status      RpcStatus
+	Value       interface{}
+	ErrMsg      string
+	Category    string // Main category (namespace)
+	Description string // Test description to distinguish multiple tests with same method name
 }
 
 type TestSummary struct {

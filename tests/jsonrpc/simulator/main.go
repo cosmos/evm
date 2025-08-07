@@ -39,7 +39,7 @@ func main() {
 		log.Println("✓ Setup completed successfully!")
 		return
 	}
-	
+
 	if len(args) > 0 && args[0] == "txgen" {
 		log.Println("Running transaction generation on both networks...")
 		err := runTransactionGeneration()
@@ -93,6 +93,7 @@ func main() {
 				{Name: rpc.MethodNameEthAccounts, Handler: rpc.EthAccounts},
 				{Name: rpc.MethodNameEthBlockNumber, Handler: rpc.EthBlockNumber},
 				{Name: rpc.MethodNameEthMining, Handler: rpc.EthMining},
+				{Name: rpc.MethodNameEthHashrate, Handler: nil},
 				// Fee market subcategory
 				{Name: rpc.MethodNameEthGasPrice, Handler: rpc.EthGasPrice},
 				{Name: rpc.MethodNameEthMaxPriorityFeePerGas, Handler: rpc.EthMaxPriorityFeePerGas},
@@ -106,32 +107,41 @@ func main() {
 				{Name: rpc.MethodNameEthGetBlockByNumber, Handler: rpc.EthGetBlockByNumber},
 				{Name: rpc.MethodNameEthGetBlockTransactionCountByHash, Handler: rpc.EthGetBlockTransactionCountByHash},
 				{Name: rpc.MethodNameEthGetBlockReceipts, Handler: rpc.EthGetBlockReceipts},
+				// Uncle subcategory (uncles don't exist in CometBFT, should return 0/nil)
+				{Name: rpc.MethodNameEthGetUncleCountByBlockHash, Handler: rpc.EthGetUncleCountByBlockHash},
+				{Name: rpc.MethodNameEthGetUncleCountByBlockNumber, Handler: rpc.EthGetUncleCountByBlockNumber},
+				{Name: rpc.MethodNameEthGetUncleByBlockHashAndIndex, Handler: rpc.EthGetUncleByBlockHashAndIndex},
+				{Name: rpc.MethodNameEthGetUncleByBlockNumberAndIndex, Handler: rpc.EthGetUncleByBlockNumberAndIndex},
 				// Transaction subcategory
 				{Name: rpc.MethodNameEthGetTransactionByHash, Handler: rpc.EthGetTransactionByHash},
 				{Name: rpc.MethodNameEthGetTransactionByBlockHashAndIndex, Handler: rpc.EthGetTransactionByBlockHashAndIndex},
 				{Name: rpc.MethodNameEthGetTransactionByBlockNumberAndIndex, Handler: rpc.EthGetTransactionByBlockNumberAndIndex},
 				{Name: rpc.MethodNameEthGetTransactionReceipt, Handler: rpc.EthGetTransactionReceipt},
-				{Name: rpc.MethodNameEthGetTransactionCountByHash, Handler: rpc.EthGetTransactionCountByHash},
+				{Name: rpc.MethodNameEthGetBlockTransactionCountByNumber, Handler: rpc.EthGetBlockTransactionCountByNumber},
+				{Name: rpc.MethodNameEthPendingTransactions, Handler: nil},
 				// Execute subcategory
 				{Name: rpc.MethodNameEthCall, Handler: rpc.EthCall},
 				{Name: rpc.MethodNameEthEstimateGas, Handler: rpc.EthEstimateGas},
 				// Submit subcategory
-				{Name: rpc.MethodNameEthSendRawTransaction, Handler: rpc.EthSendRawTransactionTransferValue, Description: "Transfer value"},
-				{Name: rpc.MethodNameEthSendRawTransaction, Handler: rpc.EthSendRawTransactionDeployContract, Description: "Deploy contract"},
-				{Name: rpc.MethodNameEthSendRawTransaction, Handler: rpc.EthSendRawTransactionTransferERC20, Description: "Transfer ERC20"},
+				{Name: rpc.MethodNameEthSendRawTransaction, Handler: rpc.EthSendRawTransaction, Description: "Combined test: Transfer value, Deploy contract, Transfer ERC20"},
 				// Filter subcategory
 				{Name: rpc.MethodNameEthNewFilter, Handler: rpc.EthNewFilter},
 				{Name: rpc.MethodNameEthGetFilterLogs, Handler: rpc.EthGetFilterLogs},
 				{Name: rpc.MethodNameEthNewBlockFilter, Handler: rpc.EthNewBlockFilter},
+				{Name: rpc.MethodNameEthNewPendingTransactionFilter, Handler: nil},
 				{Name: rpc.MethodNameEthGetFilterChanges, Handler: rpc.EthGetFilterChanges},
 				{Name: rpc.MethodNameEthUninstallFilter, Handler: rpc.EthUninstallFilter},
 				{Name: rpc.MethodNameEthGetLogs, Handler: rpc.EthGetLogs},
 				// Other/not implemented methods
 				{Name: rpc.MethodNameEthBlobBaseFee, Handler: nil, SkipReason: "EIP-4844 blob base fee (post-Cancun)"},
-				{Name: rpc.MethodNameEthFeeHistory, Handler: nil, SkipReason: "Fee history not implemented"},
+				{Name: rpc.MethodNameEthFeeHistory, Handler: rpc.EthFeeHistory},
 				{Name: rpc.MethodNameEthGetProof, Handler: nil, SkipReason: "State proof not implemented"},
 				{Name: rpc.MethodNameEthProtocolVersion, Handler: nil, SkipReason: "Protocol version deprecated"},
 				{Name: rpc.MethodNameEthCreateAccessList, Handler: nil, SkipReason: "Access list creation not implemented"},
+				// Standard methods that should be implemented
+				{Name: rpc.MethodNameEthSendTransaction, Handler: nil},
+				{Name: rpc.MethodNameEthSign, Handler: nil},
+				{Name: rpc.MethodNameEthSignTransaction, Handler: nil},
 			},
 		},
 		{
@@ -430,10 +440,16 @@ func main() {
 				// Handle methods with no handler - only skip engine methods, test others
 				if category.Name == "engine" {
 					result, _ := rpc.Skipped(method.Name, category.Name, method.SkipReason)
+					if result != nil {
+						result.Description = method.Description
+					}
 					results = append(results, result)
 				} else {
 					// Test the method to see if it's actually implemented
 					result, _ := rpc.GenericTest(rCtx, method.Name, category.Name)
+					if result != nil {
+						result.Description = method.Description
+					}
 					results = append(results, result)
 				}
 				continue
@@ -444,15 +460,19 @@ func main() {
 			result, err := handler(rCtx)
 			if err != nil {
 				result = &types.RpcResult{
-					Method:   method.Name,
-					Status:   types.Error,
-					ErrMsg:   err.Error(),
-					Category: category.Name,
+					Method:      method.Name,
+					Status:      types.Error,
+					ErrMsg:      err.Error(),
+					Category:    category.Name,
+					Description: method.Description,
 				}
 			}
-			// Ensure category is set
+			// Ensure category and description are set
 			if result.Category == "" {
 				result.Category = category.Name
+			}
+			if result.Description == "" {
+				result.Description = method.Description
 			}
 
 			results = append(results, result)
@@ -520,7 +540,72 @@ func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {
 	contractBytecode := common.FromHex(hex.EncodeToString(contracts.ContractByteCode))
 	rCtx.ERC20ByteCode = contractBytecode
 
+	// Load deployed contract addresses from registry
+	evmdContract, _, err := utils.GetContractAddresses()
+	if err != nil {
+		log.Printf("Warning: Could not load contract addresses from registry: %v", err)
+		log.Printf("Run 'go run main.go setup' first to deploy contracts")
+	} else {
+		// Use evmd contract address (since we're testing against evmd endpoint)
+		rCtx.ERC20Addr = evmdContract
+		log.Printf("Loaded contract address from registry: %s", rCtx.ERC20Addr.Hex())
+
+		// Try to run a quick transaction generation to populate transaction data
+		log.Println("Generating fresh test transactions for comprehensive API testing...")
+		if err := generateTestTransactionsForRPC(rCtx); err != nil {
+			log.Printf("Warning: Could not generate test transactions: %v", err)
+			log.Printf("Some transaction-dependent API tests may fail")
+		}
+	}
+
 	return rCtx
+}
+
+// generateTestTransactionsForRPC creates some test transactions to populate RPC context data
+func generateTestTransactionsForRPC(rCtx *rpc.RpcContext) error {
+	// Generate a few quick transactions using the transaction generation system
+	evmdURL := "http://localhost:8545"
+
+	// Create a few transaction scenarios specifically for RPC testing
+	scenarios := []*utils.TransactionScenario{
+		{
+			Name:        "rpc_test_eth_transfer",
+			Description: "ETH transfer for RPC testing",
+			TxType:      "transfer",
+			FromKey:     utils.Dev1PrivateKey,
+			To:          &common.Address{0x01},        // Simple test address
+			Value:       big.NewInt(1000000000000000), // 0.001 ETH
+			GasLimit:    21000,
+			ExpectFail:  false,
+		},
+	}
+
+	// Connect to evmd
+	evmdClient, err := ethclient.Dial(evmdURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to evmd: %w", err)
+	}
+
+	// Execute scenarios to generate transaction hashes
+	for _, scenario := range scenarios {
+		result, err := utils.ExecuteTransactionScenario(evmdClient, scenario, "evmd")
+		if err != nil {
+			log.Printf("Warning: Failed to execute test transaction %s: %v", scenario.Name, err)
+			continue
+		}
+
+		if result.Success {
+			// Add transaction hash to RPC context
+			rCtx.ProcessedTransactions = append(rCtx.ProcessedTransactions, result.TxHash)
+			if result.Receipt != nil {
+				rCtx.BlockNumsIncludingTx = append(rCtx.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
+			}
+			log.Printf("Generated test transaction: %s", result.TxHash.Hex())
+		}
+	}
+
+	log.Printf("Generated %d test transactions for RPC testing", len(rCtx.ProcessedTransactions))
+	return nil
 }
 
 // runSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
@@ -528,29 +613,29 @@ func runSetup() error {
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
-	
+
 	log.Println("Step 1: Funding geth dev accounts...")
 	err := fundGethAccounts(gethURL)
 	if err != nil {
 		return fmt.Errorf("failed to fund geth accounts: %w", err)
 	}
 	log.Println("✓ Geth accounts funded successfully")
-	
+
 	log.Println("Step 2: Deploying ERC20 contracts to both networks...")
 	result, err := deployContracts(evmdURL, gethURL)
 	if err != nil {
 		return fmt.Errorf("failed to deploy contracts: %w", err)
 	}
 	log.Println("✓ Contracts deployed successfully")
-	
+
 	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
-	err = utils.MintTokensOnBothNetworks(evmdURL, gethURL, 
+	err = utils.MintTokensOnBothNetworks(evmdURL, gethURL,
 		result.EvmdDeployment.Address, result.GethDeployment.Address)
 	if err != nil {
 		return fmt.Errorf("failed to mint tokens: %w", err)
 	}
 	log.Println("✓ Token minting completed successfully")
-	
+
 	log.Println("Step 4: Verifying state synchronization...")
 	err = utils.VerifyTokenBalances(evmdURL, gethURL,
 		result.EvmdDeployment.Address, result.GethDeployment.Address)
@@ -558,17 +643,17 @@ func runSetup() error {
 		return fmt.Errorf("state verification failed: %w", err)
 	}
 	log.Println("✓ State synchronization verified")
-	
+
 	log.Println("Step 5: Saving contract addresses for future use...")
 	err = utils.SaveContractAddresses(
-		result.EvmdDeployment.Address, 
-		result.GethDeployment.Address, 
+		result.EvmdDeployment.Address,
+		result.GethDeployment.Address,
 		"dev0")
 	if err != nil {
 		return fmt.Errorf("failed to save contract addresses: %w", err)
 	}
 	log.Println("✓ Contract addresses saved")
-	
+
 	return nil
 }
 
@@ -590,15 +675,15 @@ func fundGethAccounts(gethURL string) error {
 	fmt.Println("\nFunding Results:")
 	for _, result := range results {
 		if result.Success {
-			fmt.Printf("✓ %s (%s): %s ETH - TX: %s\n", 
-				result.Account, 
-				result.Address.Hex(), 
+			fmt.Printf("✓ %s (%s): %s ETH - TX: %s\n",
+				result.Account,
+				result.Address.Hex(),
 				"1000", // We know it's 1000 ETH
 				result.TxHash.Hex())
 		} else {
-			fmt.Printf("✗ %s (%s): Failed - %s\n", 
-				result.Account, 
-				result.Address.Hex(), 
+			fmt.Printf("✗ %s (%s): Failed - %s\n",
+				result.Account,
+				result.Address.Hex(),
 				result.Error)
 		}
 	}
@@ -632,25 +717,25 @@ func deployContracts(evmdURL, gethURL string) (*utils.DeploymentResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("deployment failed: %w", err)
 	}
-	
+
 	if !result.Success {
 		return nil, fmt.Errorf("deployment unsuccessful: %s", result.Error)
 	}
-	
+
 	fmt.Printf("\n✓ ERC20 Contract Deployment Summary:\n")
 	if result.EvmdDeployment != nil {
-		fmt.Printf("  evmd: %s (tx: %s, block: %s)\n", 
+		fmt.Printf("  evmd: %s (tx: %s, block: %s)\n",
 			result.EvmdDeployment.Address.Hex(),
 			result.EvmdDeployment.TxHash.Hex(),
 			result.EvmdDeployment.BlockNumber.String())
 	}
 	if result.GethDeployment != nil {
-		fmt.Printf("  geth: %s (tx: %s, block: %s)\n", 
+		fmt.Printf("  geth: %s (tx: %s, block: %s)\n",
 			result.GethDeployment.Address.Hex(),
 			result.GethDeployment.TxHash.Hex(),
 			result.GethDeployment.BlockNumber.String())
 	}
-	
+
 	return result, nil
 }
 
@@ -659,30 +744,30 @@ func runTransactionGeneration() error {
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
-	
+
 	log.Println("Step 1: Loading contract addresses from registry...")
-	
+
 	evmdContract, gethContract, err := utils.GetContractAddresses()
 	if err != nil {
 		return fmt.Errorf("failed to load contract addresses: %w", err)
 	}
-	
+
 	log.Printf("Loaded contracts - evmd: %s, geth: %s\n", evmdContract.Hex(), gethContract.Hex())
-	
+
 	log.Println("Step 2: Executing transaction scenarios...")
 	batch, err := utils.ExecuteTransactionBatch(evmdURL, gethURL, evmdContract, gethContract)
 	if err != nil {
 		return fmt.Errorf("failed to execute transaction batch: %w", err)
 	}
-	
+
 	log.Println("Step 3: Generating transaction summary...")
 	summary := utils.GenerateTransactionSummary(batch)
 	fmt.Printf("%s\n", summary)
-	
+
 	// Get successful transaction hashes for potential use in API testing
 	evmdHashes, gethHashes := batch.GetTransactionHashes()
-	log.Printf("Generated %d evmd transaction hashes and %d geth transaction hashes\n", 
+	log.Printf("Generated %d evmd transaction hashes and %d geth transaction hashes\n",
 		len(evmdHashes), len(gethHashes))
-	
+
 	return nil
 }

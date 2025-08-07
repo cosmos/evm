@@ -361,6 +361,12 @@ func PrintSummary(summary *types.TestSummary) {
 func ColorPrint(result *types.RpcResult, verbose bool) {
 	method := result.Method
 	status := result.Status
+	
+	// Include description if it exists (helps distinguish multiple tests with same method name)
+	methodDisplay := string(method)
+	if result.Description != "" {
+		methodDisplay = fmt.Sprintf("%s (%s)", method, result.Description)
+	}
 
 	switch status {
 	case types.Ok:
@@ -368,19 +374,19 @@ func ColorPrint(result *types.RpcResult, verbose bool) {
 		if !verbose {
 			value = ""
 		}
-		color.Green("[%s] %s", status, method)
+		color.Green("[%s] %s", status, methodDisplay)
 		if verbose && value != nil {
 			fmt.Printf(" - %v", value)
 		}
 	case types.NotImplemented:
-		color.Yellow("[%s] %s", status, method)
+		color.Yellow("[%s] %s", status, methodDisplay)
 	case types.Skipped:
-		color.HiBlack("[%s] %s", status, method)
+		color.HiBlack("[%s] %s", status, methodDisplay)
 		if verbose && result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}
 	case types.Error:
-		color.Red("[%s] %s", status, method)
+		color.Red("[%s] %s", status, methodDisplay)
 		if verbose && result.ErrMsg != "" {
 			fmt.Printf(" - %s", result.ErrMsg)
 		}
