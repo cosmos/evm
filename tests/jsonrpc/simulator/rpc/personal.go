@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"strings"
+
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
@@ -20,6 +22,143 @@ func PersonalListAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
 		Method:   MethodNamePersonalListAccounts,
 		Status:   types.Ok,
 		Value:    result,
+		Category: "personal",
+	}, nil
+}
+
+// PersonalNewAccount tests personal_newAccount with a passphrase
+func PersonalNewAccount(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "personal_newAccount", "test_passphrase")
+	if err != nil {
+		// Check for expected security/key management errors
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "too many failed passphrase attempts") || 
+		   strings.Contains(errMsg, "passphrase") ||
+		   strings.Contains(errMsg, "authentication") {
+			return &types.RpcResult{
+				Method:   MethodNamePersonalNewAccount,
+				Status:   types.Legacy,
+				Value:    "Personal namespace deprecated - API functional but security restricted: " + errMsg,
+				Category: "personal",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNamePersonalNewAccount,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNamePersonalNewAccount,
+		Status:   types.Legacy,
+		Value:    "Personal namespace deprecated - but functional: " + result,
+		Category: "personal",
+	}, nil
+}
+
+// PersonalSign tests personal_sign with test data
+func PersonalSign(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	testData := "0xdeadbeaf"
+	testAccount := "0x7cb61d4117ae31a12e393a1cfa3bac666481d02e" // coinbase address
+	err := rCtx.EthCli.Client().Call(&result, "personal_sign", testData, testAccount, "test_passphrase")
+	if err != nil {
+		// Check for expected key management errors
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "no key for given address") ||
+		   strings.Contains(errMsg, "key not found") ||
+		   strings.Contains(errMsg, "keyring") {
+			return &types.RpcResult{
+				Method:   MethodNamePersonalSign,
+				Status:   types.Legacy,
+				Value:    "Personal namespace deprecated - API functional but key management error: " + errMsg,
+				Category: "personal",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNamePersonalSign,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNamePersonalSign,
+		Status:   types.Legacy,
+		Value:    "Personal namespace deprecated - but functional: " + result,
+		Category: "personal",
+	}, nil
+}
+
+// PersonalImportRawKey tests personal_importRawKey with a test private key
+func PersonalImportRawKey(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // test private key
+	err := rCtx.EthCli.Client().Call(&result, "personal_importRawKey", testPrivateKey, "test_passphrase")
+	if err != nil {
+		// Check for expected security/passphrase errors
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "too many failed passphrase attempts") ||
+		   strings.Contains(errMsg, "passphrase") ||
+		   strings.Contains(errMsg, "authentication") {
+			return &types.RpcResult{
+				Method:   MethodNamePersonalImportRawKey,
+				Status:   types.Legacy,
+				Value:    "Personal namespace deprecated - API functional but security restricted: " + errMsg,
+				Category: "personal",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNamePersonalImportRawKey,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNamePersonalImportRawKey,
+		Status:   types.Legacy,
+		Value:    "Personal namespace deprecated - but functional: " + result,
+		Category: "personal",
+	}, nil
+}
+
+// PersonalSendTransaction tests personal_sendTransaction with test transaction
+func PersonalSendTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result string
+	testTx := map[string]interface{}{
+		"from":  "0x7cb61d4117ae31a12e393a1cfa3bac666481d02e", // coinbase
+		"to":    "0x0100000000000000000000000000000000000000", // test address
+		"value": "0x1000",                                       // small amount
+		"gas":   "0x5208",                                       // 21000 gas
+	}
+	err := rCtx.EthCli.Client().Call(&result, "personal_sendTransaction", testTx, "test_passphrase")
+	if err != nil {
+		// Check for expected key management errors
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "failed to find key in the node's keyring") ||
+		   strings.Contains(errMsg, "no key for given address") ||
+		   strings.Contains(errMsg, "key not found") {
+			return &types.RpcResult{
+				Method:   MethodNamePersonalSendTransaction,
+				Status:   types.Legacy,
+				Value:    "Personal namespace deprecated - API functional but key management error: " + errMsg,
+				Category: "personal",
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNamePersonalSendTransaction,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "personal",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNamePersonalSendTransaction,
+		Status:   types.Legacy,
+		Value:    "Personal namespace deprecated - but functional: " + result,
 		Category: "personal",
 	}, nil
 }

@@ -157,9 +157,7 @@ func main() {
 				{Name: rpc.MethodNamePersonalListAccounts, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.Legacy(rCtx, rpc.MethodNamePersonalListAccounts, "personal", "Personal namespace deprecated - use external signers like Clef")
 				}},
-				{Name: rpc.MethodNamePersonalNewAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.Skipped(rpc.MethodNamePersonalNewAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
-				}},
+				{Name: rpc.MethodNamePersonalNewAccount, Handler: rpc.PersonalNewAccount},
 				{Name: rpc.MethodNamePersonalDeriveAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalDeriveAccount, "personal")
 				}},
@@ -177,9 +175,7 @@ func main() {
 					return rpc.Skipped(rpc.MethodNamePersonalUnpair, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				// Key Management subcategory
-				{Name: rpc.MethodNamePersonalImportRawKey, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.Skipped(rpc.MethodNamePersonalImportRawKey, "personal", "Cosmos EVM always returns false for personal namespace methods")
-				}},
+				{Name: rpc.MethodNamePersonalImportRawKey, Handler: rpc.PersonalImportRawKey},
 				{Name: rpc.MethodNamePersonalUnlockAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.Skipped(rpc.MethodNamePersonalUnlockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
@@ -187,9 +183,7 @@ func main() {
 					return rpc.Skipped(rpc.MethodNamePersonalLockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				// Signing subcategory
-				{Name: rpc.MethodNamePersonalSign, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.Skipped(rpc.MethodNamePersonalSign, "personal", "Cosmos EVM always returns false for personal namespace methods")
-				}},
+				{Name: rpc.MethodNamePersonalSign, Handler: rpc.PersonalSign},
 				{Name: rpc.MethodNamePersonalSignTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalSignTransaction, "personal")
 				}},
@@ -200,9 +194,7 @@ func main() {
 					return rpc.Legacy(rCtx, rpc.MethodNamePersonalEcRecover, "personal", "Personal namespace deprecated - use external signers like Clef")
 				}},
 				// Transaction subcategory
-				{Name: rpc.MethodNamePersonalSendTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.Skipped(rpc.MethodNamePersonalSendTransaction, "personal", "Cosmos EVM always returns false for personal namespace methods")
-				}},
+				{Name: rpc.MethodNamePersonalSendTransaction, Handler: rpc.PersonalSendTransaction},
 			},
 		},
 		{
