@@ -206,10 +206,10 @@ sed -i.bak 's/"max_deposit_period": "172800s"/"max_deposit_period": "30s"/g' "$D
 sed -i.bak 's/"voting_period": "172800s"/"voting_period": "30s"/g' "$DATA_DIR/config/genesis.json"
 sed -i.bak 's/"expedited_voting_period": "86400s"/"expedited_voting_period": "15s"/g' "$DATA_DIR/config/genesis.json"
 
-# Set custom pruning settings
-sed -i.bak 's/pruning = "default"/pruning = "custom"/g' "$DATA_DIR/config/app.toml"
-sed -i.bak 's/pruning-keep-recent = "0"/pruning-keep-recent = "2"/g' "$DATA_DIR/config/app.toml"
-sed -i.bak 's/pruning-interval = "0"/pruning-interval = "10"/g' "$DATA_DIR/config/app.toml"
+# Set pruning to nothing to preserve all blocks for debug APIs
+sed -i.bak 's/pruning = "default"/pruning = "nothing"/g' "$DATA_DIR/config/app.toml"
+sed -i.bak 's/pruning-keep-recent = "0"/pruning-keep-recent = "0"/g' "$DATA_DIR/config/app.toml"
+sed -i.bak 's/pruning-interval = "0"/pruning-interval = "0"/g' "$DATA_DIR/config/app.toml"
 
 echo -e "${GREEN}Configuration completed${NC}"
 
