@@ -15,8 +15,10 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
-// ReportResults prints or saves the RPC results based on the verbosity flag and output format
-func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
+const totalWidth = 63
+
+// Results prints or saves the RPC results based on the verbosity flag and output format
+func Results(results []*types.RpcResult, verbose bool, outputExcel bool) {
 	summary := &types.TestSummary{}
 	for _, result := range results {
 		summary.AddResult(result)
@@ -151,20 +153,20 @@ func ReportResults(results []*types.RpcResult, verbose bool, outputExcel bool) {
 }
 
 func PrintHeader() {
-	// 54 equals characters to match matrix width
-	line := strings.Repeat("═", 54)
+	line := strings.Repeat("═", totalWidth)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("           Cosmos EVM JSON-RPC Compatibility Test           ")
 	fmt.Printf("%s\n", line)
 }
 
-// sortResultsByStatus sorts results by status priority: PASS, FAIL, NOT_IMPL, DEPRECATED, SKIP
+// sortResultsByStatus sorts results by status priority: PASS, FAIL, NOT_IMPL, LEGACY, SKIP
 func sortResultsByStatus(results []*types.RpcResult) {
 	statusPriority := map[types.RpcStatus]int{
 		types.Ok:             1, // PASS
 		types.Error:          2, // FAIL
 		types.NotImplemented: 3, // NOT_IMPL
-		types.Skipped:        4, // SKIP
+		types.Legacy:         4, // LEGACY
+		types.Skipped:        5, // SKIP
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -212,7 +214,6 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 
 			// Calculate padding for consistent width
 			methodsText := fmt.Sprintf(" %s Methods ", displayName)
-			totalWidth := 56
 			padding := totalWidth - len(methodsText)
 			leftPadding := padding / 2
 			rightPadding := padding - leftPadding
@@ -232,7 +233,6 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 	if results, exists := categories["Uncategorized"]; exists {
 		// Calculate padding for consistent width
 		methodsText := " Uncategorized Methods "
-		totalWidth := 56
 		padding := totalWidth - len(methodsText)
 		leftPadding := padding / 2
 		rightPadding := padding - leftPadding
@@ -249,8 +249,7 @@ func PrintCategorizedResults(results []*types.RpcResult, verbose bool) {
 }
 
 func PrintCategoryMatrix(summary *types.TestSummary) {
-	// 56 equals characters to match matrix width
-	line := strings.Repeat("═", 56)
+	line := strings.Repeat("═", totalWidth)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("                      CATEGORY SUMMARY                      ")
 	fmt.Printf("%s\n", line)
@@ -259,15 +258,16 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 	categoryOrder := []string{"web3", "net", "eth", "personal", "miner", "txpool", "debug", "engine", "admin", "les"}
 
 	// Print header without subcategory column
-	fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s\n",
+	fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %s\n",
 		"Category",
 		color.GreenString("Pass"),
 		color.RedString("Fail"),
 		color.YellowString("N/Im"),
+		color.BlueString("Lgcy"),
 		color.HiBlackString("Skip"),
-		color.CyanString("Total"))
+		color.HiWhiteString("Total"))
 
-	fmt.Println("─────────────────────┼──────┼──────┼──────┼──────┼──────")
+	fmt.Println("─────────────────────┼──────┼──────┼──────┼──────┼──────┼──────")
 
 	// Print each category in the defined order
 	for _, categoryName := range categoryOrder {
@@ -288,16 +288,22 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
 			}
 
+			legacyColor := fmt.Sprintf("%4d", catSummary.Legacy)
+			if catSummary.Legacy > 0 {
+				legacyColor = color.BlueString("%4d", catSummary.Legacy)
+			}
+
 			skipColor := fmt.Sprintf("%4d", catSummary.Skipped)
 			if catSummary.Skipped > 0 {
 				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
 			}
 
-			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %5d\n",
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
 				categoryName,
 				passColor,
 				failColor,
 				nimplColor,
+				legacyColor,
 				skipColor,
 				catSummary.Total)
 		}
@@ -327,16 +333,22 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				nimplColor = color.YellowString("%4d", catSummary.NotImplemented)
 			}
 
+			legacyColor := fmt.Sprintf("%4d", catSummary.Legacy)
+			if catSummary.Legacy > 0 {
+				legacyColor = color.BlueString("%4d", catSummary.Legacy)
+			}
+
 			skipColor := fmt.Sprintf("%4d", catSummary.Skipped)
 			if catSummary.Skipped > 0 {
 				skipColor = color.HiBlackString("%4d", catSummary.Skipped)
 			}
 
-			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %5d\n",
+			fmt.Printf("%-20s │ %s │ %s │ %s │ %s │ %s │ %5d\n",
 				categoryName,
 				passColor,
 				failColor,
 				nimplColor,
+				legacyColor,
 				skipColor,
 				catSummary.Total)
 		}
@@ -345,8 +357,7 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 }
 
 func PrintSummary(summary *types.TestSummary) {
-	// 56 equals characters to match matrix width
-	line := strings.Repeat("═", 56)
+	line := strings.Repeat("═", totalWidth)
 	fmt.Printf("\n%s\n", line)
 	fmt.Println("                     FINAL SUMMARY                     ")
 	fmt.Printf("%s\n", line)
@@ -354,6 +365,7 @@ func PrintSummary(summary *types.TestSummary) {
 	color.Green("Passed:          %d", summary.Passed)
 	color.Red("Failed:          %d", summary.Failed)
 	color.Yellow("Not Implemented: %d", summary.NotImplemented)
+	color.Blue("Legacy:          %d", summary.Legacy)
 	color.HiBlack("Skipped:         %d", summary.Skipped)
 	color.Cyan("Total:           %d", summary.Total)
 }
@@ -361,7 +373,7 @@ func PrintSummary(summary *types.TestSummary) {
 func ColorPrint(result *types.RpcResult, verbose bool) {
 	method := result.Method
 	status := result.Status
-	
+
 	// Include description if it exists (helps distinguish multiple tests with same method name)
 	methodDisplay := string(method)
 	if result.Description != "" {
@@ -377,6 +389,11 @@ func ColorPrint(result *types.RpcResult, verbose bool) {
 		color.Green("[%s] %s", status, methodDisplay)
 		if verbose && value != nil {
 			fmt.Printf(" - %v", value)
+		}
+	case types.Legacy:
+		color.Blue("[%s] %s", status, methodDisplay)
+		if verbose && result.ErrMsg != "" {
+			fmt.Printf(" - %s", result.ErrMsg)
 		}
 	case types.NotImplemented:
 		color.Yellow("[%s] %s", status, methodDisplay)

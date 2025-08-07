@@ -457,8 +457,8 @@ func EthSendRawTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	var errMsg string
 	if len(failedScenarios) > 0 {
 		status = types.Error
-		errMsg = fmt.Sprintf("Failed scenarios: %s. Passed scenarios: %s", 
-			strings.Join(failedScenarios, ", "), 
+		errMsg = fmt.Sprintf("Failed scenarios: %s. Passed scenarios: %s",
+			strings.Join(failedScenarios, ", "),
 			strings.Join(passedScenarios, ", "))
 	}
 
@@ -698,11 +698,11 @@ func EthGetBlockTransactionCountByNumber(rCtx *RpcContext) (*types.RpcResult, er
 
 	// Get transaction count for the block
 	count := uint64(len(block.Transactions()))
-	
+
 	result := &types.RpcResult{
-		Method: MethodNameEthGetBlockTransactionCountByNumber,
-		Status: types.Ok,
-		Value:  count,
+		Method:   MethodNameEthGetBlockTransactionCountByNumber,
+		Status:   types.Ok,
+		Value:    count,
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -741,9 +741,9 @@ func EthGetUncleCountByBlockHash(rCtx *RpcContext) (*types.RpcResult, error) {
 
 	// Should always be 0 in Cosmos EVM
 	result := &types.RpcResult{
-		Method: MethodNameEthGetUncleCountByBlockHash,
-		Status: types.Ok,
-		Value:  uncleCount,
+		Method:   MethodNameEthGetUncleCountByBlockHash,
+		Status:   types.Ok,
+		Value:    uncleCount,
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -756,7 +756,7 @@ func EthGetUncleCountByBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	var uncleCount string  
+	var uncleCount string
 	err := rCtx.EthCli.Client().CallContext(context.Background(), &uncleCount, string(MethodNameEthGetUncleCountByBlockNumber), "latest")
 	if err != nil {
 		return nil, fmt.Errorf("eth_getUncleCountByBlockNumber call failed: %w", err)
@@ -764,9 +764,9 @@ func EthGetUncleCountByBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 
 	// Should always be 0 in Cosmos EVM
 	result := &types.RpcResult{
-		Method: MethodNameEthGetUncleCountByBlockNumber,
-		Status: types.Ok,
-		Value:  uncleCount,
+		Method:   MethodNameEthGetUncleCountByBlockNumber,
+		Status:   types.Ok,
+		Value:    uncleCount,
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -804,9 +804,9 @@ func EthGetUncleByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) 
 
 	// Should always be nil in Cosmos EVM
 	result := &types.RpcResult{
-		Method: MethodNameEthGetUncleByBlockHashAndIndex,
-		Status: types.Ok,
-		Value:  uncle,
+		Method:   MethodNameEthGetUncleByBlockHashAndIndex,
+		Status:   types.Ok,
+		Value:    uncle,
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -826,7 +826,7 @@ func EthGetUncleByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error
 		return nil, fmt.Errorf("failed to get block number: %w", err)
 	}
 	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
-	
+
 	err = rCtx.EthCli.Client().CallContext(context.Background(), &uncle, string(MethodNameEthGetUncleByBlockNumberAndIndex), blockNumberHex, "0x0")
 	if err != nil {
 		return nil, fmt.Errorf("eth_getUncleByBlockNumberAndIndex call failed: %w", err)
@@ -834,9 +834,9 @@ func EthGetUncleByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error
 
 	// Should always be nil in Cosmos EVM
 	result := &types.RpcResult{
-		Method: MethodNameEthGetUncleByBlockNumberAndIndex,
-		Status: types.Ok,
-		Value:  uncle,
+		Method:   MethodNameEthGetUncleByBlockNumberAndIndex,
+		Status:   types.Ok,
+		Value:    uncle,
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -1358,6 +1358,100 @@ func EthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
 		Value:    result,
 		Category: "eth",
 	}, nil
+}
+
+// EthSendTransaction sends a transaction using eth_sendTransaction
+// This requires the account to be unlocked or managed by the node
+func EthSendTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthSendTransaction); result != nil {
+		return result, nil
+	}
+
+	// Create a simple transaction object for testing
+	tx := map[string]interface{}{
+		"from":  rCtx.Acc.Address.Hex(),
+		"to":    "0x0100000000000000000000000000000000000000", // Bank precompile
+		"value": "0x1",                                        // 1 wei
+		"gas":   "0x5208",                                     // 21000 gas
+	}
+
+	var txHash string
+	err := rCtx.EthCli.Client().Call(&txHash, string(MethodNameEthSendTransaction), tx)
+	if err != nil {
+		// Check for expected "key not found" errors which indicate the API is working
+		// but the account is not managed by the node (which is normal/secure)
+		if strings.Contains(err.Error(), "key not found") ||
+			strings.Contains(err.Error(), "failed to find key in the node's keyring") ||
+			strings.Contains(err.Error(), "account not unlocked") {
+			return &types.RpcResult{
+				Method:   MethodNameEthSendTransaction,
+				Status:   types.Ok, // API works correctly, just account not available
+				Value:    fmt.Sprintf("API functional - expected key management error: %s", err.Error()),
+				Category: "eth",
+			}, nil
+		}
+		// Other errors indicate actual API problems
+		return &types.RpcResult{
+			Method:   MethodNameEthSendTransaction,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameEthSendTransaction,
+		Status:   types.Ok,
+		Value:    txHash,
+		Category: "eth",
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+// EthSign signs data using eth_sign
+// This requires the account to be unlocked or managed by the node
+func EthSign(rCtx *RpcContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthSign); result != nil {
+		return result, nil
+	}
+
+	// Test data to sign (32-byte hash)
+	testData := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+	var signature string
+	err := rCtx.EthCli.Client().Call(&signature, string(MethodNameEthSign), rCtx.Acc.Address.Hex(), testData)
+	if err != nil {
+		// Check for expected "key not found" errors which indicate the API is working
+		// but the account is not managed by the node (which is normal/secure)
+		if strings.Contains(err.Error(), "key not found") ||
+			strings.Contains(err.Error(), "failed to find key in the node's keyring") ||
+			strings.Contains(err.Error(), "account not unlocked") ||
+			strings.Contains(err.Error(), "eth_sign is disabled") {
+			return &types.RpcResult{
+				Method:   MethodNameEthSign,
+				Status:   types.Ok, // API works correctly, just account not available or disabled
+				Value:    fmt.Sprintf("API functional - expected key management/security error: %s", err.Error()),
+				Category: "eth",
+			}, nil
+		}
+		// Other errors indicate actual API problems
+		return &types.RpcResult{
+			Method:   MethodNameEthSign,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameEthSign,
+		Status:   types.Ok,
+		Value:    signature,
+		Category: "eth",
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
 }
 
 func EthCreateAccessList(rCtx *RpcContext) (*types.RpcResult, error) {

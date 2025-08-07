@@ -53,7 +53,7 @@ const (
 	MethodNameEthGetTransactionByBlockNumberAndIndex types.RpcName = "eth_getTransactionByBlockNumberAndIndex"
 	MethodNameEthGetTransactionReceipt               types.RpcName = "eth_getTransactionReceipt"
 	MethodNameEthGetTransactionCountByHash           types.RpcName = "eth_getTransactionCountByHash"
-	MethodNameEthPendingTransactions                 types.RpcName = "eth_pendingTransactions"
+	MethodNameEthGetPendingTransactions              types.RpcName = "eth_getPendingTransactions"
 
 	// Eth namespace - filter subcategory
 	MethodNameEthNewFilter                   types.RpcName = "eth_newFilter"

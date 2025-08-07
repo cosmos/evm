@@ -6,6 +6,7 @@ const (
 	Ok             RpcStatus = "PASS"
 	Error          RpcStatus = "FAIL"
 	NotImplemented RpcStatus = "NOT_IMPL"
+	Legacy         RpcStatus = "LEGACY"
 	Skipped        RpcStatus = "SKIP"
 )
 
@@ -24,6 +25,7 @@ type TestSummary struct {
 	Passed         int
 	Failed         int
 	NotImplemented int
+	Legacy         int
 	Skipped        int
 	Total          int
 	Categories     map[string]*CategorySummary
@@ -34,6 +36,7 @@ type CategorySummary struct {
 	Passed         int
 	Failed         int
 	NotImplemented int
+	Legacy         int
 	Skipped        int
 	Total          int
 }
@@ -90,6 +93,8 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 		s.Failed++
 	case NotImplemented:
 		s.NotImplemented++
+	case Legacy:
+		s.Legacy++
 	case Skipped:
 		s.Skipped++
 	}
@@ -104,6 +109,8 @@ func (s *TestSummary) AddResult(result *RpcResult) {
 		catSummary.Failed++
 	case NotImplemented:
 		catSummary.NotImplemented++
+	case Legacy:
+		catSummary.Legacy++
 	case Skipped:
 		catSummary.Skipped++
 	}

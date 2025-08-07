@@ -118,7 +118,9 @@ func main() {
 				{Name: rpc.MethodNameEthGetTransactionByBlockNumberAndIndex, Handler: rpc.EthGetTransactionByBlockNumberAndIndex},
 				{Name: rpc.MethodNameEthGetTransactionReceipt, Handler: rpc.EthGetTransactionReceipt},
 				{Name: rpc.MethodNameEthGetBlockTransactionCountByNumber, Handler: rpc.EthGetBlockTransactionCountByNumber},
-				{Name: rpc.MethodNameEthPendingTransactions, Handler: nil},
+				{Name: rpc.MethodNameEthGetPendingTransactions, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.Legacy(rCtx, rpc.MethodNameEthGetPendingTransactions, "eth", "Use eth_newPendingTransactionFilter + eth_getFilterChanges instead")
+				}},
 				// Execute subcategory
 				{Name: rpc.MethodNameEthCall, Handler: rpc.EthCall},
 				{Name: rpc.MethodNameEthEstimateGas, Handler: rpc.EthEstimateGas},
@@ -135,12 +137,12 @@ func main() {
 				// Other/not implemented methods
 				{Name: rpc.MethodNameEthBlobBaseFee, Handler: nil, SkipReason: "EIP-4844 blob base fee (post-Cancun)"},
 				{Name: rpc.MethodNameEthFeeHistory, Handler: rpc.EthFeeHistory},
-				{Name: rpc.MethodNameEthGetProof, Handler: nil, SkipReason: "State proof not implemented"},
+				{Name: rpc.MethodNameEthGetProof, Handler: rpc.EthGetProof},
 				{Name: rpc.MethodNameEthProtocolVersion, Handler: nil, SkipReason: "Protocol version deprecated"},
 				{Name: rpc.MethodNameEthCreateAccessList, Handler: nil, SkipReason: "Access list creation not implemented"},
 				// Standard methods that should be implemented
-				{Name: rpc.MethodNameEthSendTransaction, Handler: nil},
-				{Name: rpc.MethodNameEthSign, Handler: nil},
+				{Name: rpc.MethodNameEthSendTransaction, Handler: rpc.EthSendTransaction},
+				{Name: rpc.MethodNameEthSign, Handler: rpc.EthSign},
 				{Name: rpc.MethodNameEthSignTransaction, Handler: nil},
 			},
 		},
@@ -149,7 +151,9 @@ func main() {
 			Description: "Personal namespace methods (deprecated in favor of Clef)",
 			Methods: []types.TestMethod{
 				// Account Management subcategory
-				{Name: rpc.MethodNamePersonalListAccounts, Handler: rpc.PersonalListAccounts},
+				{Name: rpc.MethodNamePersonalListAccounts, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.Legacy(rCtx, rpc.MethodNamePersonalListAccounts, "personal", "Personal namespace deprecated - use external signers like Clef")
+				}},
 				{Name: rpc.MethodNamePersonalNewAccount, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalNewAccount, "personal")
 				}},
@@ -157,7 +161,9 @@ func main() {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalDeriveAccount, "personal")
 				}},
 				// Wallet Management subcategory
-				{Name: rpc.MethodNamePersonalListWallets, Handler: rpc.PersonalListWallets},
+				{Name: rpc.MethodNamePersonalListWallets, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.Legacy(rCtx, rpc.MethodNamePersonalListWallets, "personal", "Personal namespace deprecated - use external signers like Clef")
+				}},
 				{Name: rpc.MethodNamePersonalOpenWallet, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalOpenWallet, "personal")
 				}},
@@ -187,7 +193,9 @@ func main() {
 				{Name: rpc.MethodNamePersonalSignTypedData, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalSignTypedData, "personal")
 				}},
-				{Name: rpc.MethodNamePersonalEcRecover, Handler: rpc.PersonalEcRecover},
+				{Name: rpc.MethodNamePersonalEcRecover, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.Legacy(rCtx, rpc.MethodNamePersonalEcRecover, "personal", "Personal namespace deprecated - use external signers like Clef")
+				}},
 				// Transaction subcategory
 				{Name: rpc.MethodNamePersonalSendTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNamePersonalSendTransaction, "personal")
@@ -521,7 +529,7 @@ func main() {
 		results = append(results, result)
 	}
 
-	report.ReportResults(results, *verbose, *outputExcel)
+	report.Results(results, *verbose, *outputExcel)
 }
 
 func MustLoadContractInfo(rCtx *rpc.RpcContext) *rpc.RpcContext {

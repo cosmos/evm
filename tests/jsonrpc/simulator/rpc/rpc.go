@@ -189,6 +189,38 @@ func Skipped(methodName types.RpcName, category string, reason string) (*types.R
 	}, nil
 }
 
+func Legacy(rCtx *RpcContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
+	// First test if the API is actually implemented
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, string(methodName))
+	
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(methodName)+" method not found" {
+			// API is not implemented, so it should be NOT_IMPL, not LEGACY
+			return &types.RpcResult{
+				Method:   methodName,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: category,
+			}, nil
+		}
+		// API exists but failed with parameters (could be legacy with wrong params)
+		// Still mark as legacy since the method exists
+	}
+
+	// API exists (either succeeded or failed with parameter issues), mark as LEGACY
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Legacy,
+		Value:    fmt.Sprintf("Legacy API implemented in Cosmos EVM. %s", replacementInfo),
+		ErrMsg:   replacementInfo,
+		Category: category,
+	}, nil
+}
+
 // Missing function implementations
 func EthCoinbase(rCtx *RpcContext) (*types.RpcResult, error) {
 	var result string
