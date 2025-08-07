@@ -481,6 +481,12 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		return nil, errors.New("header not found")
 	}
 
+	// Set a reasonable gas limit for access list creation if none is provided
+	if args.Gas == nil {
+		defaultGas := hexutil.Uint64(b.RPCGasCap())
+		args.Gas = &defaultGas
+	}
+
 	msg := args.ToTransaction()
 	if msg == nil {
 		return nil, errors.New("failed to convert transaction args to message")

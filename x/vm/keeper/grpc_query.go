@@ -518,7 +518,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		txConfig.TxIndex++
 	}
 
-	result, _, err := k.traceTx(ctx, cfg, txConfig, signer, tx, req.TraceConfig, false)
+	result, _, err := k.traceTx(ctx, cfg, txConfig, signer, req.Msg, req.TraceConfig, false)
 	if err != nil {
 		// error will be returned with detail status from traceTx
 		return nil, err
@@ -585,7 +585,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		ethTx := tx.AsTransaction()
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
-		traceResult, logIndex, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true)
+		traceResult, logIndex, err := k.traceTx(ctx, cfg, txConfig, signer, tx, req.TraceConfig, true)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -611,7 +611,7 @@ func (k *Keeper) traceTx(
 	cfg *statedb.EVMConfig,
 	txConfig statedb.TxConfig,
 	signer ethtypes.Signer,
-	tx *ethtypes.Transaction,
+	ethTx *types.MsgEthereumTx,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
 ) (*any, uint, error) {
@@ -623,9 +623,15 @@ func (k *Keeper) traceTx(
 		err              error
 		timeout          = defaultTraceTimeout
 	)
+	tx := ethTx.AsTransaction()
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
+		// Handle unsigned prospective transaction tracing and use given sender addr instead of deriving
+		if errors.Is(err, ethtypes.ErrInvalidSig) && traceConfig.Tracer == types.TracerAccessList {
+			msg.From = ethTx.GetSender()
+		} else {
+			return nil, 0, status.Error(codes.Internal, err.Error())
+		}
 	}
 
 	if traceConfig == nil {
