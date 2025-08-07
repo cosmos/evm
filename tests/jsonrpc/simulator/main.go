@@ -144,6 +144,9 @@ func main() {
 				{Name: rpc.MethodNameEthSendTransaction, Handler: rpc.EthSendTransaction},
 				{Name: rpc.MethodNameEthSign, Handler: rpc.EthSign},
 				{Name: rpc.MethodNameEthSignTransaction, Handler: nil},
+				// WebSocket subscription methods (part of eth namespace)
+				{Name: rpc.MethodNameEthSubscribe, Handler: rpc.EthSubscribe, Description: "WebSocket subscription with all 4 subscription types: newHeads, logs, newPendingTransactions, syncing"},
+				{Name: rpc.MethodNameEthUnsubscribe, Handler: rpc.EthUnsubscribe, Description: "WebSocket unsubscription functionality"},
 			},
 		},
 		{

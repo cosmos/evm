@@ -85,6 +85,10 @@ const (
 	MethodNameEthSubmitHashrate   types.RpcName = "eth_submitHashrate"
 	MethodNameEthCreateAccessList types.RpcName = "eth_createAccessList"
 
+	// WebSocket-only subscription methods
+	MethodNameEthSubscribe   types.RpcName = "eth_subscribe"
+	MethodNameEthUnsubscribe types.RpcName = "eth_unsubscribe"
+
 	// Personal namespace (deprecated in favor of Clef)
 	MethodNamePersonalListAccounts     types.RpcName = "personal_listAccounts"
 	MethodNamePersonalDeriveAccount    types.RpcName = "personal_deriveAccount"
@@ -118,12 +122,12 @@ const (
 	MethodNameTxPoolStatus      types.RpcName = "txpool_status"
 
 	// Debug namespace - tracing subcategory
-	MethodNameDebugTraceTransaction  types.RpcName = "debug_traceTransaction"
-	MethodNameDebugTraceBlock        types.RpcName = "debug_traceBlock"
-	MethodNameDebugTraceBlockByHash  types.RpcName = "debug_traceBlockByHash"
+	MethodNameDebugTraceTransaction   types.RpcName = "debug_traceTransaction"
+	MethodNameDebugTraceBlock         types.RpcName = "debug_traceBlock"
+	MethodNameDebugTraceBlockByHash   types.RpcName = "debug_traceBlockByHash"
 	MethodNameDebugTraceBlockByNumber types.RpcName = "debug_traceBlockByNumber"
-	MethodNameDebugTraceCall         types.RpcName = "debug_traceCall"
-	MethodNameDebugIntermediateRoots types.RpcName = "debug_intermediateRoots"
+	MethodNameDebugTraceCall          types.RpcName = "debug_traceCall"
+	MethodNameDebugIntermediateRoots  types.RpcName = "debug_intermediateRoots"
 
 	// Debug namespace - database subcategory
 	MethodNameDebugDbGet               types.RpcName = "debug_dbGet"
