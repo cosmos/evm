@@ -230,18 +230,16 @@ func main() {
 			Description: "Debug namespace methods from Geth",
 			Methods: []types.TestMethod{
 				// Tracing subcategory
-				{Name: rpc.MethodNameDebugTraceTransaction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugTraceTransaction, "debug")
-				}},
+				{Name: rpc.MethodNameDebugTraceTransaction, Handler: rpc.DebugTraceTransaction},
 				{Name: rpc.MethodNameDebugTraceBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugTraceBlock, "debug")
 				}},
+				{Name: rpc.MethodNameDebugTraceBlockByHash, Handler: rpc.DebugTraceBlockByHash},
+				{Name: rpc.MethodNameDebugTraceBlockByNumber, Handler: rpc.DebugTraceBlockByNumber},
 				{Name: rpc.MethodNameDebugTraceCall, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugTraceCall, "debug")
 				}},
-				{Name: rpc.MethodNameDebugIntermediateRoots, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugIntermediateRoots, "debug")
-				}},
+				{Name: rpc.MethodNameDebugIntermediateRoots, Handler: rpc.DebugIntermediateRoots},
 				// Database subcategory
 				{Name: rpc.MethodNameDebugDbGet, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugDbGet, "debug")
@@ -271,46 +269,28 @@ func main() {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugDumpBlock, "debug")
 				}},
 				// Profiling subcategory
-				{Name: rpc.MethodNameDebugBlockProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugBlockProfile, "debug")
-				}},
-				{Name: rpc.MethodNameDebugCpuProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugCpuProfile, "debug")
-				}},
-				{Name: rpc.MethodNameDebugGoTrace, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugGoTrace, "debug")
-				}},
+				{Name: rpc.MethodNameDebugBlockProfile, Handler: rpc.DebugBlockProfile},
+				{Name: rpc.MethodNameDebugCpuProfile, Handler: rpc.DebugCpuProfile},
+				{Name: rpc.MethodNameDebugGoTrace, Handler: rpc.DebugGoTrace},
 				{Name: rpc.MethodNameDebugMemStats, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugMemStats, "debug")
 				}},
-				{Name: rpc.MethodNameDebugMutexProfile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugMutexProfile, "debug")
-				}},
-				{Name: rpc.MethodNameDebugSetBlockProfileRate, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugSetBlockProfileRate, "debug")
-				}},
-				{Name: rpc.MethodNameDebugSetMutexProfileFraction, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugSetMutexProfileFraction, "debug")
-				}},
-				{Name: rpc.MethodNameDebugGcStats, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugGcStats, "debug")
-				}},
+				{Name: rpc.MethodNameDebugMutexProfile, Handler: rpc.DebugMutexProfile},
+				{Name: rpc.MethodNameDebugSetBlockProfileRate, Handler: rpc.DebugSetBlockProfileRate},
+				{Name: rpc.MethodNameDebugSetMutexProfileFraction, Handler: rpc.DebugSetMutexProfileFraction},
+				{Name: rpc.MethodNameDebugGcStats, Handler: rpc.DebugGcStats},
 				// Diagnostics subcategory
 				{Name: rpc.MethodNameDebugBacktraceAt, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugBacktraceAt, "debug")
 				}},
-				{Name: rpc.MethodNameDebugStacks, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugStacks, "debug")
-				}},
+				{Name: rpc.MethodNameDebugStacks, Handler: rpc.DebugStacks},
 				{Name: rpc.MethodNameDebugGetBadBlocks, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugGetBadBlocks, "debug")
 				}},
 				{Name: rpc.MethodNameDebugPreimage, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugPreimage, "debug")
 				}},
-				{Name: rpc.MethodNameDebugFreeOSMemory, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugFreeOSMemory, "debug")
-				}},
+				{Name: rpc.MethodNameDebugFreeOSMemory, Handler: rpc.DebugFreeOSMemory},
 				{Name: rpc.MethodNameDebugSetHead, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugSetHead, "debug")
 				}},
@@ -321,9 +301,7 @@ func main() {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugFreezeClient, "debug")
 				}},
 				// New debug methods (including debug_setGCPercent)
-				{Name: rpc.MethodNameDebugSetGCPercent, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugSetGCPercent, "debug")
-				}},
+				{Name: rpc.MethodNameDebugSetGCPercent, Handler: rpc.DebugSetGCPercent},
 				{Name: rpc.MethodNameDebugAccountRange, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugAccountRange, "debug")
 				}},
@@ -339,9 +317,7 @@ func main() {
 				{Name: rpc.MethodNameDebugGetRawReceipts, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugGetRawReceipts, "debug")
 				}},
-				{Name: rpc.MethodNameDebugPrintBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
-					return rpc.GenericTest(rCtx, rpc.MethodNameDebugPrintBlock, "debug")
-				}},
+				{Name: rpc.MethodNameDebugPrintBlock, Handler: rpc.DebugPrintBlock},
 			},
 		},
 		{

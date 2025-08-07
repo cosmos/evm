@@ -120,6 +120,8 @@ const (
 	// Debug namespace - tracing subcategory
 	MethodNameDebugTraceTransaction  types.RpcName = "debug_traceTransaction"
 	MethodNameDebugTraceBlock        types.RpcName = "debug_traceBlock"
+	MethodNameDebugTraceBlockByHash  types.RpcName = "debug_traceBlockByHash"
+	MethodNameDebugTraceBlockByNumber types.RpcName = "debug_traceBlockByNumber"
 	MethodNameDebugTraceCall         types.RpcName = "debug_traceCall"
 	MethodNameDebugIntermediateRoots types.RpcName = "debug_intermediateRoots"
 
