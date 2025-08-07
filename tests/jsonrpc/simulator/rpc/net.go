@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"context"
+	
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
@@ -25,8 +27,8 @@ func NetVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 func NetPeerCount(rCtx *RpcContext) (*types.RpcResult, error) {
-	var result string
-	err := rCtx.EthCli.Client().Call(&result, "net_peerCount")
+	var result interface{}
+	err := rCtx.EthCli.Client().CallContext(context.Background(), &result, "net_peerCount")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameNetPeerCount,
