@@ -313,6 +313,30 @@ func main() {
 					return rpc.GenericTest(rCtx, rpc.MethodNameDebugGetRawReceipts, "debug")
 				}},
 				{Name: rpc.MethodNameDebugPrintBlock, Handler: rpc.DebugPrintBlock},
+				// Additional debug methods from Geth documentation
+				{Name: rpc.MethodNameDebugStartCPUProfile, Handler: rpc.DebugStartCPUProfile, Description: "Start CPU profiling"},
+				{Name: rpc.MethodNameDebugStopCPUProfile, Handler: rpc.DebugStopCPUProfile, Description: "Stop CPU profiling"},
+				{Name: rpc.MethodNameDebugTraceBadBlock, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugTraceBadBlock, "debug")
+				}, Description: "Trace bad blocks"},
+				{Name: rpc.MethodNameDebugStandardTraceBlockToFile, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugStandardTraceBlockToFile, "debug")
+				}, Description: "Standard trace block to file"},
+				{Name: rpc.MethodNameDebugStorageRangeAt, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugStorageRangeAt, "debug")
+				}, Description: "Get storage range at specific position"},
+				{Name: rpc.MethodNameDebugSetTrieFlushInterval, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugSetTrieFlushInterval, "debug")
+				}, Description: "Set trie flush interval"},
+				{Name: rpc.MethodNameDebugVmodule, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugVmodule, "debug")
+				}, Description: "Set logging verbosity pattern"},
+				{Name: rpc.MethodNameDebugWriteBlockProfile, Handler: rpc.DebugWriteBlockProfile, Description: "Write block profile to file"},
+				{Name: rpc.MethodNameDebugWriteMemProfile, Handler: rpc.DebugWriteMemProfile, Description: "Write memory profile to file"},
+				{Name: rpc.MethodNameDebugWriteMutexProfile, Handler: rpc.DebugWriteMutexProfile, Description: "Write mutex profile to file"},
+				{Name: rpc.MethodNameDebugVerbosity, Handler: func(rCtx *rpc.RpcContext) (*types.RpcResult, error) {
+					return rpc.GenericTest(rCtx, rpc.MethodNameDebugVerbosity, "debug")
+				}, Description: "Set log verbosity level"},
 			},
 		},
 		{

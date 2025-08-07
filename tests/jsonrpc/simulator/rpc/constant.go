@@ -169,6 +169,19 @@ const (
 	MethodNameDebugGetRawReceipts              types.RpcName = "debug_getRawReceipts"
 	MethodNameDebugPrintBlock                  types.RpcName = "debug_printBlock"
 
+	// Missing debug methods from Geth documentation
+	MethodNameDebugStartCPUProfile         types.RpcName = "debug_startCPUProfile"
+	MethodNameDebugStopCPUProfile          types.RpcName = "debug_stopCPUProfile"
+	MethodNameDebugTraceBadBlock           types.RpcName = "debug_traceBadBlock"
+	MethodNameDebugStandardTraceBlockToFile types.RpcName = "debug_standardTraceBlockToFile"
+	MethodNameDebugStorageRangeAt          types.RpcName = "debug_storageRangeAt"
+	MethodNameDebugSetTrieFlushInterval    types.RpcName = "debug_setTrieFlushInterval"
+	MethodNameDebugVmodule                 types.RpcName = "debug_vmodule"
+	MethodNameDebugWriteBlockProfile       types.RpcName = "debug_writeBlockProfile"
+	MethodNameDebugWriteMemProfile         types.RpcName = "debug_writeMemProfile"
+	MethodNameDebugWriteMutexProfile       types.RpcName = "debug_writeMutexProfile"
+	MethodNameDebugVerbosity               types.RpcName = "debug_verbosity"
+
 	// Engine API namespace (not applicable for Cosmos chains)
 	MethodNameEngineNewPayloadV1        types.RpcName = "engine_newPayloadV1"
 	MethodNameEngineNewPayloadV2        types.RpcName = "engine_newPayloadV2"

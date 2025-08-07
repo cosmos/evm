@@ -585,3 +585,244 @@ func DebugBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
+
+// Additional debug methods from Geth documentation
+
+// DebugStartCPUProfile starts CPU profiling
+func DebugStartCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "debug_startCPUProfile", "/tmp/cpu_profile_start.out")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugStartCPUProfile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugStartCPUProfile,
+		Status:   types.Ok,
+		Value:    "CPU profiling started",
+		Category: "debug",
+	}, nil
+}
+
+// DebugStopCPUProfile stops CPU profiling
+func DebugStopCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.EthCli.Client().Call(&result, "debug_stopCPUProfile")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugStopCPUProfile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugStopCPUProfile,
+		Status:   types.Ok,
+		Value:    "CPU profiling stopped",
+		Category: "debug",
+	}, nil
+}
+
+// DebugTraceBadBlock traces bad blocks
+func DebugTraceBadBlock(rCtx *RpcContext) (*types.RpcResult, error) {
+	// Use a test hash to see if the method is implemented
+	var result interface{}
+	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	err := rCtx.EthCli.Client().Call(&result, "debug_traceBadBlock", testHash)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBadBlock,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugTraceBadBlock,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "debug",
+	}, nil
+}
+
+// DebugStandardTraceBlockToFile traces block to file
+func DebugStandardTraceBlockToFile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	config := map[string]interface{}{
+		"tracer": "standardTracer",
+	}
+	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBlockToFile", testHash, config)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugStandardTraceBlockToFile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugStandardTraceBlockToFile,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "debug",
+	}, nil
+}
+
+// DebugStorageRangeAt returns storage range at a given position
+func DebugStorageRangeAt(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	// Test parameters for storage range
+	testBlockHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	txIndex := 0
+	contractAddr := "0x0000000000000000000000000000000000000000"
+	keyStart := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	maxResult := 10
+	
+	err := rCtx.EthCli.Client().Call(&result, "debug_storageRangeAt", testBlockHash, txIndex, contractAddr, keyStart, maxResult)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugStorageRangeAt,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugStorageRangeAt,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "debug",
+	}, nil
+}
+
+// DebugSetTrieFlushInterval sets trie flush interval
+func DebugSetTrieFlushInterval(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	interval := "10s" // Test interval
+	err := rCtx.EthCli.Client().Call(&result, "debug_setTrieFlushInterval", interval)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugSetTrieFlushInterval,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugSetTrieFlushInterval,
+		Status:   types.Ok,
+		Value:    "Trie flush interval set to " + interval,
+		Category: "debug",
+	}, nil
+}
+
+// DebugVmodule sets the logging verbosity pattern
+func DebugVmodule(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	pattern := "eth/*=5" // Test verbosity pattern
+	err := rCtx.EthCli.Client().Call(&result, "debug_vmodule", pattern)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugVmodule,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugVmodule,
+		Status:   types.Ok,
+		Value:    "Verbosity pattern set to " + pattern,
+		Category: "debug",
+	}, nil
+}
+
+// DebugWriteBlockProfile writes block profile to file
+func DebugWriteBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	filename := "/tmp/block_profile_write.out"
+	err := rCtx.EthCli.Client().Call(&result, "debug_writeBlockProfile", filename)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugWriteBlockProfile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugWriteBlockProfile,
+		Status:   types.Ok,
+		Value:    "Block profile written to " + filename,
+		Category: "debug",
+	}, nil
+}
+
+// DebugWriteMemProfile writes memory profile to file
+func DebugWriteMemProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	filename := "/tmp/mem_profile_write.out"
+	err := rCtx.EthCli.Client().Call(&result, "debug_writeMemProfile", filename)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugWriteMemProfile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugWriteMemProfile,
+		Status:   types.Ok,
+		Value:    "Memory profile written to " + filename,
+		Category: "debug",
+	}, nil
+}
+
+// DebugWriteMutexProfile writes mutex profile to file
+func DebugWriteMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	filename := "/tmp/mutex_profile_write.out"
+	err := rCtx.EthCli.Client().Call(&result, "debug_writeMutexProfile", filename)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugWriteMutexProfile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugWriteMutexProfile,
+		Status:   types.Ok,
+		Value:    "Mutex profile written to " + filename,
+		Category: "debug",
+	}, nil
+}
+
+// DebugVerbosity sets the log verbosity level
+func DebugVerbosity(rCtx *RpcContext) (*types.RpcResult, error) {
+	var result interface{}
+	level := 3 // Test verbosity level (0-5)
+	err := rCtx.EthCli.Client().Call(&result, "debug_verbosity", level)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugVerbosity,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "debug",
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugVerbosity,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Verbosity level set to %d", level),
+		Category: "debug",
+	}, nil
+}
