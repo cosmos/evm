@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
@@ -24,11 +25,17 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	txHash := rCtx.ProcessedTransactions[0]
+	
+	// Test with callTracer configuration to get structured result
 	traceConfig := map[string]interface{}{
-		"tracer": "callTracer",
+		"tracer":        "callTracer",
+		"disableStorage": false,
+		"disableMemory":  false, 
+		"disableStack":   false,
+		"timeout":        "10s",
 	}
 
-	var traceResult interface{}
+	var traceResult map[string]interface{}
 	err := rCtx.EthCli.Client().CallContext(context.Background(), &traceResult, string(MethodNameDebugTraceTransaction), txHash, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
@@ -39,10 +46,74 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 		}, nil
 	}
 
+	// Validate trace result structure based on real network responses
+	validationErrors := []string{}
+	
+	if traceResult == nil {
+		validationErrors = append(validationErrors, "trace result is null")
+	} else {
+		// Check for callTracer format fields: {from, gas, gasUsed, input, output, to, type, value}
+		requiredFields := []string{"from", "gas", "gasUsed", "to", "type"}
+		for _, field := range requiredFields {
+			if _, exists := traceResult[field]; !exists {
+				validationErrors = append(validationErrors, fmt.Sprintf("missing callTracer field '%s'", field))
+			}
+		}
+		
+		// Validate specific field types and formats
+		if gasStr, ok := traceResult["gas"].(string); ok {
+			if !strings.HasPrefix(gasStr, "0x") {
+				validationErrors = append(validationErrors, "gas field should be hex string with 0x prefix")
+			}
+		}
+		
+		if gasUsedStr, ok := traceResult["gasUsed"].(string); ok {
+			if !strings.HasPrefix(gasUsedStr, "0x") {
+				validationErrors = append(validationErrors, "gasUsed field should be hex string with 0x prefix")
+			}
+		}
+
+		if typeStr, ok := traceResult["type"].(string); ok {
+			validTypes := []string{"CALL", "DELEGATECALL", "STATICCALL", "CREATE", "CREATE2"}
+			isValidType := false
+			for _, vt := range validTypes {
+				if typeStr == vt {
+					isValidType = true
+					break
+				}
+			}
+			if !isValidType {
+				validationErrors = append(validationErrors, fmt.Sprintf("invalid call type '%s'", typeStr))
+			}
+		}
+	}
+
+	// Get transaction receipt to validate consistency
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
+	if err == nil && receipt != nil {
+		// Validate that trace gas matches receipt gas
+		if gasUsedStr, ok := traceResult["gasUsed"].(string); ok {
+			expectedGas := fmt.Sprintf("0x%x", receipt.GasUsed)
+			if gasUsedStr != expectedGas {
+				validationErrors = append(validationErrors, fmt.Sprintf("gas mismatch: trace=%s, receipt=%s", gasUsedStr, expectedGas))
+			}
+		}
+	}
+
+	// Return validation results
+	if len(validationErrors) > 0 {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceTransaction,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Trace validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: "debug",
+		}, nil
+	}
+
 	result := &types.RpcResult{
 		Method:   MethodNameDebugTraceTransaction,
 		Status:   types.Ok,
-		Value:    "Transaction traced successfully",
+		Value:    fmt.Sprintf("Transaction traced and validated (tx: %s, type: %v, gas: %v)", txHash.Hex()[:10]+"...", traceResult["type"], traceResult["gasUsed"]),
 		Category: "debug",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -242,12 +313,12 @@ func DebugTraceBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 		}, nil
 	}
 
-	// Call the debug API
-	var traceResults []interface{}
+	// Call the debug API with callTracer for structured output
 	traceConfig := map[string]interface{}{
 		"tracer": "callTracer",
 	}
 	
+	var traceResults interface{}
 	err = rCtx.EthCli.Client().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByHash), receipt.BlockHash, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
@@ -258,10 +329,20 @@ func DebugTraceBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 		}, nil
 	}
 
+	// Simple validation - just check that we got a non-nil response
+	if traceResults == nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlockByHash,
+			Status:   types.Error,
+			ErrMsg:   "trace result is null",
+			Category: "debug",
+		}, nil
+	}
+
 	result := &types.RpcResult{
 		Method:   MethodNameDebugTraceBlockByHash,
 		Status:   types.Ok,
-		Value:    fmt.Sprintf("Traced block by hash with %d results", len(traceResults)),
+		Value:    fmt.Sprintf("Block traced successfully (hash: %s)", receipt.BlockHash.Hex()[:10]+"..."),
 		Category: "debug",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
