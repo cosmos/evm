@@ -1,6 +1,7 @@
 # ERC20 Precompile
 
-The ERC20 precompile enables native Cosmos SDK coins to be accessed and managed through the standard ERC20 token interface within the EVM. This allows smart contracts to interact with native tokens using familiar ERC20 methods.
+The ERC20 precompile enables native Cosmos SDK coins to be accessed and managed through the standard ERC20
+token interface within the EVM. This allows smart contracts to interact with native tokens using familiar ERC20 methods.
 
 ## Interface
 
@@ -49,6 +50,7 @@ The following gas costs are charged for each method:
 ### Token Pair Mapping
 
 Each ERC20 precompile instance is associated with a `TokenPair` that links:
+
 - A Cosmos SDK denomination (e.g., `uatom`)
 - An ERC20 contract address
 
@@ -57,14 +59,15 @@ The precompile address is determined by the token pair configuration.
 ### Transfer Mechanism
 
 - **Direct transfers** (`transfer`): Execute a bank send message from the caller to the recipient
-- **Delegated transfers** (`transferFrom`): 
-  - Check and update the spender's allowance
-  - Execute a bank send message from the token owner to the recipient
-  - Emit both Transfer and Approval events
+- **Delegated transfers** (`transferFrom`):
+    - Check and update the spender's allowance
+    - Execute a bank send message from the token owner to the recipient
+    - Emit both Transfer and Approval events
 
 ### Metadata Handling
 
 Token metadata is resolved in the following priority:
+
 1. Bank module metadata (if registered)
 2. IBC voucher base denomination (for IBC tokens)
 3. Inferred from denomination (e.g., `uatom` → name: "Atom", symbol: "ATOM", decimals: 6)
@@ -72,6 +75,7 @@ Token metadata is resolved in the following priority:
 ### Balance Integration
 
 The precompile integrates with the Cosmos SDK bank module:
+
 - Balances are read directly from the bank keeper
 - Transfers use bank send messages for state changes
 - Special handling for the EVM native token (18 decimal conversion)

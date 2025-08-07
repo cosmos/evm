@@ -1,6 +1,7 @@
 # Staking Precompile
 
-The Staking precompile provides an EVM interface to the Cosmos SDK staking module, enabling smart contracts to perform staking operations including validator management, delegation, undelegation, and redelegation.
+The Staking precompile provides an EVM interface to the Cosmos SDK staking module.
+This enables smart contracts to perform staking operations including validator management, delegation, undelegation, redelegation.
 
 ## Address
 
@@ -153,6 +154,7 @@ function redelegation(
 ## Gas Costs
 
 Gas costs are calculated dynamically based on:
+
 - Base gas for the method
 - Complexity of the staking operation
 - Storage operations for state changes

@@ -1,6 +1,7 @@
 # ICS20 Precompile
 
-The ICS20 precompile provides an EVM interface to the Inter-Blockchain Communication (IBC) transfer module, enabling smart contracts to perform cross-chain token transfers using the ICS-20 standard.
+The ICS20 precompile provides an EVM interface to the Inter-Blockchain Communication (IBC) transfer module,
+enabling smart contracts to perform cross-chain token transfers using the ICS-20 standard.
 
 ## Address
 
@@ -72,6 +73,7 @@ function denomHash(
 ## Gas Costs
 
 Gas costs are calculated dynamically based on:
+
 - Base gas for the method
 - Additional gas for IBC operations
 - Key-value storage operations
@@ -82,7 +84,7 @@ The precompile uses standard gas configuration for storage operations.
 
 ### Transfer Mechanism
 
-1. **Channel Validation**: 
+1. **Channel Validation**:
    - For v1 packets: Validates that the channel exists and is in OPEN state
    - For v2 packets: Validates the client ID format
    - Checks that the underlying connection is OPEN

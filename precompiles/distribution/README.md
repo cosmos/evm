@@ -6,7 +6,10 @@
 
 ## Description
 
-The Distribution precompile provides an EVM interface to the Cosmos SDK `x/distribution` module, enabling smart contracts to interact with staking rewards, validator commissions, and the community pool. It supports both reward queries and distribution operations including claiming, withdrawing, and funding.
+The Distribution precompile provides an EVM interface to the Cosmos SDK `x/distribution` module,
+enabling smart contracts to interact with staking rewards, validator commissions,
+and the community pool. It supports both reward queries and distribution operations including claiming,
+withdrawing, and funding.
 
 ## Interface
 
@@ -21,6 +24,7 @@ function setWithdrawAddress(address delegator, string memory withdrawerAddress) 
 Sets the address authorized to withdraw rewards for a delegator.
 
 **Parameters:**
+
 - `delegator`: The delegator address setting the withdraw address
 - `withdrawerAddress`: The address that will be authorized to withdraw rewards
 
@@ -37,10 +41,12 @@ function withdrawDelegatorRewards(address delegator, string memory validator) ex
 Withdraws pending rewards from a specific validator.
 
 **Parameters:**
+
 - `delegator`: The delegator withdrawing rewards
 - `validator`: The validator address to withdraw from
 
 **Returns:**
+
 - Array of `Coin` structs representing withdrawn amounts
 
 **Authorization:** Caller must be the delegator
@@ -56,9 +62,11 @@ function withdrawValidatorCommission(string memory validator) external returns (
 Withdraws accumulated commission for a validator.
 
 **Parameters:**
+
 - `validator`: The validator address withdrawing commission
 
 **Returns:**
+
 - Array of `Coin` structs representing withdrawn commission
 
 **Authorization:** Caller must be the validator
@@ -74,6 +82,7 @@ function claimRewards(address delegator, uint32 maxRetrieve) external returns (b
 Claims rewards from all validators at once (custom batch operation).
 
 **Parameters:**
+
 - `delegator`: The delegator claiming rewards
 - `maxRetrieve`: Maximum number of validators to claim from
 
@@ -90,6 +99,7 @@ function fundCommunityPool(address depositor, Coin[] memory coins) external retu
 Deposits tokens into the community pool.
 
 **Parameters:**
+
 - `depositor`: The address funding the pool
 - `coins`: Array of coins to deposit
 
@@ -106,6 +116,7 @@ function depositValidatorRewardsPool(string memory validator, Coin[] memory coin
 Deposits tokens into a validator's rewards pool.
 
 **Parameters:**
+
 - `validator`: The validator whose pool receives the deposit
 - `coins`: Array of coins to deposit
 
@@ -122,9 +133,11 @@ function delegationTotalRewards(address delegator) external view returns (Delega
 Returns total rewards across all validators for a delegator.
 
 **Parameters:**
+
 - `delegator`: The delegator address
 
 **Returns:**
+
 - Array of `DelegatorTotal` structs (per-validator rewards)
 - Array of `DecCoin` structs (total rewards sum)
 
@@ -139,10 +152,12 @@ function delegationRewards(address delegator, string memory validator) external 
 Returns rewards for a specific delegator-validator pair.
 
 **Parameters:**
+
 - `delegator`: The delegator address
 - `validator`: The validator address
 
 **Returns:**
+
 - Array of `DecCoin` structs representing rewards
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -156,9 +171,11 @@ function delegatorValidators(address delegator) external view returns (string[] 
 Lists all validators from which a delegator can claim rewards.
 
 **Parameters:**
+
 - `delegator`: The delegator address
 
 **Returns:**
+
 - Array of validator addresses
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -172,9 +189,11 @@ function delegatorWithdrawAddress(address delegator) external view returns (stri
 Returns the configured withdraw address for a delegator.
 
 **Parameters:**
+
 - `delegator`: The delegator address
 
 **Returns:**
+
 - The withdraw address
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -188,6 +207,7 @@ function communityPool() external view returns (DecCoin[] memory)
 Returns the current balance of the community pool.
 
 **Returns:**
+
 - Array of `DecCoin` structs representing pool balance
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -201,9 +221,11 @@ function validatorCommission(string memory validator) external view returns (Dec
 Returns accumulated commission for a validator.
 
 **Parameters:**
+
 - `validator`: The validator address
 
 **Returns:**
+
 - Array of `DecCoin` structs representing commission
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -217,9 +239,11 @@ function validatorDistributionInfo(string memory validator) external view return
 Returns comprehensive distribution information for a validator.
 
 **Parameters:**
+
 - `validator`: The validator address
 
 **Returns:**
+
 - `DistInfo` struct containing commission and self-delegation rewards
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -233,9 +257,11 @@ function validatorOutstandingRewards(string memory validator) external view retu
 Returns outstanding (undistributed) rewards for a validator.
 
 **Parameters:**
+
 - `validator`: The validator address
 
 **Returns:**
+
 - Array of `DecCoin` structs representing outstanding rewards
 
 **Gas Cost:** 1000 + (3 × input data size in bytes)
@@ -249,12 +275,14 @@ function validatorSlashes(string memory validator, uint64 startingHeight, uint64
 Returns slashing events for a validator within a height range.
 
 **Parameters:**
+
 - `validator`: The validator address
 - `startingHeight`: Start of the query range
 - `endingHeight`: End of the query range
 - `pageRequest`: Pagination parameters
 
 **Returns:**
+
 - Array of `ValidatorSlashEvent` structs
 - `PageResponse` with pagination information
 
@@ -308,7 +336,8 @@ string constant MSG_WITHDRAW_VALIDATOR_COMMISSION = "/cosmos.distribution.v1beta
 
 ### Authorization
 
-All transaction methods enforce that the caller matches the relevant account (delegator or validator) to prevent unauthorized operations.
+All transaction methods enforce that the caller matches the relevant account (delegator or validator)
+to prevent unauthorized operations.
 
 ### Balance Tracking
 

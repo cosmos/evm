@@ -1,6 +1,8 @@
 # P256 Precompile
 
-The P256 precompile implements secp256r1 (also known as P-256 or prime256v1) elliptic curve signature verification as defined in EIP-7212. This enables smart contracts to verify signatures from devices and systems that use the secp256r1 curve, such as WebAuthn authenticators, secure enclaves, and many hardware security modules.
+The P256 precompile implements secp256r1 (also known as P-256 or prime256v1) elliptic curve signature verification as
+defined in EIP-7212. This enables smart contracts to verify signatures from devices and systems that use the
+secp256r1 curve, such as WebAuthn authenticators, secure enclaves, and many hardware security modules.
 
 ## Address
 
@@ -8,7 +10,8 @@ The precompile is available at the fixed address: `0x000000000000000000000000000
 
 ## Interface
 
-The P256 precompile doesn't have a Solidity interface as it operates at a lower level. It accepts raw input data and returns a verification result.
+The P256 precompile doesn't have a Solidity interface as it operates at a lower level.
+It accepts raw input data and returns a verification result.
 
 ### Input Format
 
@@ -39,6 +42,7 @@ This cost is constant regardless of the input values, making gas consumption pre
 ### Signature Verification
 
 The precompile performs ECDSA signature verification using the secp256r1 curve parameters:
+
 - Verifies that the signature (r, s) is valid for the given message hash
 - Checks that the public key (x, y) corresponds to the signature
 - Uses constant-time operations to prevent timing attacks

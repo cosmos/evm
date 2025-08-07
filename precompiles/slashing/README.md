@@ -1,6 +1,7 @@
 # Slashing Precompile
 
-The Slashing precompile provides an EVM interface to the Cosmos SDK slashing module, enabling smart contracts to interact with validator slashing information and allowing jailed validators to unjail themselves.
+The Slashing precompile provides an EVM interface to the Cosmos SDK slashing module, enabling smart contracts
+to interact with validator slashing information and allowing jailed validators to unjail themselves.
 
 ## Address
 
@@ -66,6 +67,7 @@ function getParams() external view returns (Params memory params);
 ## Gas Costs
 
 Gas costs are calculated dynamically based on:
+
 - Base gas for the method
 - Storage operations for state changes
 - Query complexity for read operations
@@ -90,6 +92,7 @@ The precompile uses standard gas configuration for storage operations.
 ### Parameter Management
 
 The slashing parameters control:
+
 - **Downtime Detection**: Window size and minimum signing percentage
 - **Penalties**: Slash fractions for different infractions
 - **Jail Duration**: Time validators must wait before unjailing
@@ -119,7 +122,7 @@ SigningInfo memory info = slashing.getSigningInfo(consAddress);
 // Check if validator is jailed
 if (info.jailedUntil > int64(block.timestamp)) {
     // Validator is currently jailed
-    
+
     // If jail period has expired and caller is the validator
     if (block.timestamp >= uint64(info.jailedUntil)) {
         // Unjail the validator
@@ -138,7 +141,7 @@ Params memory params = slashing.getParams();
 ```solidity
 contract ValidatorManager {
     ISlashing constant slashing = ISlashing(SLASHING_PRECOMPILE_ADDRESS);
-    
+
     function checkValidatorStatus(address validatorAddr) public view returns (
         bool isJailed,
         int64 jailedUntil,
@@ -146,19 +149,19 @@ contract ValidatorManager {
     ) {
         // Convert to consensus address (implementation specific)
         address consAddr = getConsensusAddress(validatorAddr);
-        
+
         SigningInfo memory info = slashing.getSigningInfo(consAddr);
-        
+
         isJailed = info.jailedUntil > int64(block.timestamp);
         jailedUntil = info.jailedUntil;
         canUnjail = isJailed && block.timestamp >= uint64(info.jailedUntil) && !info.tombstoned;
     }
-    
+
     function autoUnjail(address validatorAddr) external {
         (, , bool canUnjail) = checkValidatorStatus(validatorAddr);
         require(canUnjail, "Cannot unjail yet");
         require(msg.sender == validatorAddr, "Only validator can unjail");
-        
+
         slashing.unjail(validatorAddr);
     }
 }
@@ -167,10 +170,12 @@ contract ValidatorManager {
 ## Address Conversion
 
 The precompile uses different address types:
+
 - **Validator Address**: Standard Ethereum address (operator address)
 - **Consensus Address**: Derived from validator's Tendermint public key
 
 Consensus addresses are typically found in:
+
 - `$HOME/.evmd/config/priv_validator_key.json`
 - Validator info queries
 

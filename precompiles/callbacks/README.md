@@ -3,7 +3,8 @@
 ## Description
 
 The Callbacks interface defines a standard for smart contracts to receive notifications about IBC packet lifecycle events.
-This is not a precompile with a fixed address, but rather an interface specification that contracts must implement to receive callbacks from the IBC module.
+This is not a precompile with a fixed address, but rather an interface specification
+that contracts must implement to receive callbacks from the IBC module.
 
 ## Interface
 
@@ -67,11 +68,13 @@ Called when an IBC packet sent by the implementing contract times out without be
 
 ### Access Control
 
-Implementing contracts must ensure that only the IBC module can invoke these callback methods. This prevents unauthorized contracts from triggering callback logic.
+Implementing contracts must ensure that only the IBC module can invoke these callback methods.
+This prevents unauthorized contracts from triggering callback logic.
 
 ### State Management
 
-Contracts should maintain appropriate state to correlate callbacks with their original packet sends, typically using the sequence number as a unique identifier.
+Contracts should maintain appropriate state to correlate callbacks with their original packet sends,
+typically using the sequence number as a unique identifier.
 
 ### Error Handling
 
@@ -79,4 +82,5 @@ Callback implementations should handle errors gracefully as failures in callback
 
 ### Gas Considerations
 
-Callback execution consumes gas on the source chain. Implementations should be gas-efficient to avoid transaction failures due to out-of-gas errors.
+Callback execution consumes gas on the source chain.
+Implementations should be gas-efficient to avoid transaction failures due to out-of-gas errors.

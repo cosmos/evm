@@ -1,6 +1,7 @@
 # Gov Precompile
 
-The Gov precompile provides an EVM interface to the Cosmos SDK governance module, enabling smart contracts to interact with on-chain governance proposals, voting, and deposits.
+The Gov precompile provides an EVM interface to the Cosmos SDK governance module,
+enabling smart contracts to interact with on-chain governance proposals, voting, and deposits.
 
 ## Address
 
@@ -142,7 +143,8 @@ function getConstitution() external view returns (string memory constitution);
 
 ## Gas Costs
 
-Gas costs are calculated dynamically based on the method and the Cosmos SDK operations performed. The precompile uses the standard gas configuration for key-value operations.
+Gas costs are calculated dynamically based on the method and the Cosmos SDK operations performed.
+The precompile uses the standard gas configuration for key-value operations.
 
 ## Implementation Details
 

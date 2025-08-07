@@ -1,6 +1,8 @@
 # WERC20 Precompile
 
-The WERC20 (Wrapped ERC20) precompile provides a wrapped ERC20 interface for the native EVM token, similar to WETH on Ethereum. This allows the native token to be used in smart contracts that expect ERC20 tokens, maintaining compatibility with DeFi protocols and other ERC20-based applications.
+The WERC20 (Wrapped ERC20) precompile provides a wrapped ERC20 interface for the native EVM token,
+similar to WETH on Ethereum. This allows the native token to be used in smart contracts that expect
+ERC20 tokens, maintaining compatibility with DeFi protocols and other ERC20-based applications.
 
 ## Interface
 
@@ -54,6 +56,7 @@ receive() external payable;
 ### Deposit Mechanism
 
 The deposit function has a unique implementation:
+
 1. Accepts native tokens via `msg.value`
 2. Sends the native tokens back to the caller using the bank module
 3. Adjusts EVM state balances to reflect the "wrapping"
@@ -64,6 +67,7 @@ This approach ensures that the native tokens remain in the user's account while 
 ### Withdraw Mechanism
 
 The withdraw function is implemented as a no-op that:
+
 1. Validates the user has sufficient balance
 2. Emits a `Withdrawal` event
 3. Does not actually perform any token transfers
@@ -78,7 +82,8 @@ This maintains interface compatibility with WETH-style contracts while preservin
 
 ### Extended Precision
 
-The precompile handles the extended precision of the native token (18 decimals in EVM vs 6 decimals in Cosmos SDK) through internal conversion.
+The precompile handles the extended precision of the native token
+(18 decimals in EVM vs 6 decimals in Cosmos SDK) through internal conversion.
 
 ## Events
 
