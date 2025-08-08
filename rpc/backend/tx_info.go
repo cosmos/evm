@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -464,4 +466,156 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, i
 		baseFee,
 		b.EvmChainID,
 	)
+}
+
+// CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
+// sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
+func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
+	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+
+	header, err := b.TendermintBlockByNumber(blockNum)
+	if err != nil {
+		return nil, errors.New("header not found")
+	}
+
+	// Set a reasonable gas limit for access list creation if none is provided
+	if args.Gas == nil {
+		defaultGas := hexutil.Uint64(b.RPCGasCap())
+		args.Gas = &defaultGas
+	}
+
+	msg := args.ToTransaction()
+	if msg == nil {
+		return nil, errors.New("failed to convert transaction args to message")
+	}
+
+	nc, ok := b.ClientCtx.Client.(tmrpcclient.NetworkClient)
+	if !ok {
+		return nil, errors.New("invalid rpc client")
+	}
+
+	cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine if this is a prospective transaction or an executed transaction
+	// by checking if the transaction hash exists in the block and finding its exact position
+	var isExecuted bool
+	var targetTxIndex int
+	var targetMsgIndex int
+	var predecessors []*evmtypes.MsgEthereumTx
+	txHash := msg.AsTransaction().Hash()
+
+	// Find the exact position of the target transaction
+	for txIdx, txBytes := range header.Block.Txs {
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+		if err != nil {
+			continue
+		}
+		for msgIdx, txMsg := range tx.GetMsgs() {
+			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+			if !ok {
+				continue
+			}
+			if ethMsg.AsTransaction().Hash() == txHash {
+				isExecuted = true
+				targetTxIndex = txIdx
+				targetMsgIndex = msgIdx
+				break
+			}
+		}
+		if isExecuted {
+			break
+		}
+	}
+
+	// if tx has already been executed, we need to get the predecessor transactions
+	if isExecuted {
+		for i := 0; i < targetTxIndex; i++ {
+			txBytes := header.Block.Txs[i]
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+			if err != nil {
+				continue
+			}
+			for _, txMsg := range tx.GetMsgs() {
+				ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+				if !ok {
+					continue
+				}
+				predecessors = append(predecessors, ethMsg)
+			}
+		}
+
+		// Then, get messages from the same transaction but before the target message
+		if targetMsgIndex > 0 {
+			txBytes := header.Block.Txs[targetTxIndex]
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+			if err == nil {
+				for i := 0; i < targetMsgIndex; i++ {
+					ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
+					if !ok {
+						continue
+					}
+					predecessors = append(predecessors, ethMsg)
+				}
+			}
+		}
+	} else {
+		predecessors = []*evmtypes.MsgEthereumTx{}
+	}
+
+	traceTxRequest := evmtypes.QueryTraceTxRequest{
+		Msg:             msg,
+		Predecessors:    predecessors,
+		BlockNumber:     header.Block.Height,
+		BlockTime:       header.Block.Time,
+		BlockHash:       common.Bytes2Hex(header.BlockID.Hash),
+		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
+		ChainId:         b.EvmChainID.Int64(),
+		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
+		TraceConfig: &evmtypes.TraceConfig{
+			Tracer: evmtypes.TracerAccessList,
+		},
+	}
+
+	ctx := rpctypes.ContextWithHeight(blockNum.Int64())
+	timeout := b.RPCEVMTimeout()
+
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
+
+	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	var ethAccessList ethtypes.AccessList
+	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
+		return nil, errors.New("failed to unmarshal access list")
+	}
+
+	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
+		From:       args.From,
+		To:         args.To,
+		Gas:        args.Gas,
+		GasPrice:   args.GasPrice,
+		Value:      args.Value,
+		Data:       args.Data,
+		AccessList: &ethAccessList,
+		ChainID:    args.ChainID,
+	}, &blockNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rpctypes.AccessListResult{AccessList: &ethAccessList, GasUsed: &gasEstimate}, nil
 }
