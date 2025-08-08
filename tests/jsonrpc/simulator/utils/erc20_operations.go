@@ -8,9 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
 // ERC20MintResult represents the result of a token minting operation
@@ -29,18 +32,18 @@ type ERC20MintResult struct {
 // MintTokensOnBothNetworks distributes ERC20 tokens to specified accounts on both evmd and geth
 func MintTokensOnBothNetworks(evmdURL, gethURL string, evmdContract, gethContract common.Address) error {
 	fmt.Printf("\n=== Distributing ERC20 Tokens for State Synchronization ===\n")
-	
+
 	// Define accounts and amounts to distribute (dev0 keeps remaining balance)
 	distributionTargets := map[string]*big.Int{
-		Dev1PrivateKey: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)), // 1000 tokens
-		Dev2PrivateKey: new(big.Int).Mul(big.NewInt(500), big.NewInt(1e18)),  // 500 tokens
-		Dev3PrivateKey: new(big.Int).Mul(big.NewInt(750), big.NewInt(1e18)),  // 750 tokens
+		config.Dev1PrivateKey: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)), // 1000 tokens
+		config.Dev2PrivateKey: new(big.Int).Mul(big.NewInt(500), big.NewInt(1e18)),  // 500 tokens
+		config.Dev3PrivateKey: new(big.Int).Mul(big.NewInt(750), big.NewInt(1e18)),  // 750 tokens
 		// dev0 (contract deployer) keeps remaining tokens - no need to transfer to self
 	}
 
 	// Distribute on evmd (from dev0 who deployed the contract)
 	fmt.Printf("Distributing tokens on evmd (contract: %s)...\n", evmdContract.Hex())
-	evmdResults, err := distributeTokensOnNetwork(evmdURL, evmdContract, "evmd", distributionTargets, Dev0PrivateKey)
+	evmdResults, err := distributeTokensOnNetwork(evmdURL, evmdContract, "evmd", distributionTargets, config.Dev0PrivateKey)
 	if err != nil {
 		return fmt.Errorf("failed to distribute tokens on evmd: %w", err)
 	}
@@ -54,23 +57,23 @@ func MintTokensOnBothNetworks(evmdURL, gethURL string, evmdContract, gethContrac
 
 	// Report results
 	fmt.Printf("\n=== Token Distribution Results ===\n")
-	
+
 	fmt.Printf("evmd results:\n")
 	for _, result := range evmdResults {
 		if result.Success {
 			fmt.Printf("  ✓ Distributed %s tokens to %s (tx: %s, gas: %d)\n",
-				result.Amount.String(), result.Recipient.Hex()[:10]+"...", 
+				result.Amount.String(), result.Recipient.Hex()[:10]+"...",
 				result.TxHash.Hex()[:10]+"...", result.GasUsed)
 		} else {
 			fmt.Printf("  ✗ Failed to distribute to %s: %s\n", result.Recipient.Hex()[:10]+"...", result.Error)
 		}
 	}
-	
+
 	fmt.Printf("geth results:\n")
 	for _, result := range gethResults {
 		if result.Success {
 			fmt.Printf("  ✓ Distributed %s tokens to %s (tx: %s, gas: %d)\n",
-				result.Amount.String(), result.Recipient.Hex()[:10]+"...", 
+				result.Amount.String(), result.Recipient.Hex()[:10]+"...",
 				result.TxHash.Hex()[:10]+"...", result.GasUsed)
 		} else {
 			fmt.Printf("  ✗ Failed to distribute to %s: %s\n", result.Recipient.Hex()[:10]+"...", result.Error)
@@ -91,7 +94,7 @@ func MintTokensOnBothNetworks(evmdURL, gethURL string, evmdContract, gethContrac
 		}
 	}
 
-	fmt.Printf("\nDistribution summary: evmd (%d/%d), geth (%d/%d)\n", 
+	fmt.Printf("\nDistribution summary: evmd (%d/%d), geth (%d/%d)\n",
 		evmdSuccess, len(evmdResults), gethSuccess, len(gethResults))
 
 	if evmdSuccess != len(distributionTargets) || gethSuccess != len(distributionTargets) {
@@ -126,7 +129,7 @@ func distributeTokensOnNetwork(rpcURL string, contractAddr common.Address, netwo
 			continue
 		}
 
-		fmt.Printf("  Transferring %s tokens to %s...\n", 
+		fmt.Printf("  Transferring %s tokens to %s...\n",
 			new(big.Int).Div(amount, big.NewInt(1e18)).String(), // Convert to readable units
 			recipientAddr.Hex()[:10]+"...")
 
@@ -147,7 +150,7 @@ func distributeTokensOnNetwork(rpcURL string, contractAddr common.Address, netwo
 		}
 
 		results = append(results, result)
-		
+
 		// Small delay between transfers
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -187,23 +190,23 @@ func transferTokensToAccount(client *ethclient.Client, contractAddr, recipient c
 	// transfer(address to, uint256 amount) - function signature: 0xa9059cbb
 	transferSig := crypto.Keccak256([]byte("transfer(address,uint256)"))[:4]
 	data := make([]byte, 68) // 4 bytes signature + 32 bytes address + 32 bytes amount
-	
+
 	// Function signature
 	copy(data[0:4], transferSig)
-	
+
 	// Recipient address (left-padded to 32 bytes)
 	copy(data[16:36], recipient.Bytes())
-	
+
 	// Amount (32 bytes)
 	amountBytes := amount.Bytes()
 	copy(data[68-len(amountBytes):68], amountBytes)
 
 	// Create transaction
-	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(0), 100000, gasPrice, data)
+	tx := ethtypes.NewTransaction(nonce, contractAddr, big.NewInt(0), 100000, gasPrice, data)
 
 	// Sign transaction
-	signer := types.NewEIP155Signer(chainID)
-	signedTx, err := types.SignTx(tx, signer, privateKey)
+	signer := ethtypes.NewEIP155Signer(chainID)
+	signedTx, err := ethtypes.SignTx(tx, signer, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign transaction: %w", err)
 	}
@@ -232,7 +235,7 @@ func transferTokensToAccount(client *ethclient.Client, contractAddr, recipient c
 	}
 
 	if receipt.Status != 1 {
-		result.Error = "transaction failed - status 0"
+		result.Error = types.ErrorTansactionFailed
 	}
 
 	return result, nil
@@ -242,23 +245,23 @@ func transferTokensToAccount(client *ethclient.Client, contractAddr, recipient c
 func distributeTokensOnGeth(rpcURL string, contractAddr common.Address, distributionTargets map[string]*big.Int) ([]*ERC20MintResult, error) {
 	// On geth, coinbase deployed the contract and has all tokens
 	// First, we need to transfer tokens from coinbase to dev1, then from dev1 to others
-	
+
 	// Since we can't sign transactions with geth's coinbase in dev mode,
 	// we'll use the same approach as the original contracts: dev1 has the tokens
 	// For simplicity, let's assume the tokens are already distributed correctly
-	
+
 	// In reality, we should deploy the contract from dev1 on both networks for consistency
 	// For now, let's use the simpler approach: direct distribution from available account
-	
-	return distributeTokensOnNetwork(rpcURL, contractAddr, "geth", distributionTargets, Dev0PrivateKey)
+
+	return distributeTokensOnNetwork(rpcURL, contractAddr, "geth", distributionTargets, config.Dev0PrivateKey)
 }
 
 // VerifyTokenBalances verifies that token balances are identical on both networks
 func VerifyTokenBalances(evmdURL, gethURL string, evmdContract, gethContract common.Address) error {
 	fmt.Printf("\n=== Verifying Token Balance Synchronization ===\n")
 
-	accounts := []string{Dev0PrivateKey, Dev1PrivateKey, Dev2PrivateKey, Dev3PrivateKey}
-	
+	accounts := []string{config.Dev0PrivateKey, config.Dev1PrivateKey, config.Dev2PrivateKey, config.Dev3PrivateKey}
+
 	for _, privateKeyHex := range accounts {
 		_, addr, err := GetPrivateKeyAndAddress(privateKeyHex)
 		if err != nil {
@@ -279,12 +282,12 @@ func VerifyTokenBalances(evmdURL, gethURL string, evmdContract, gethContract com
 
 		// Compare balances
 		if evmdBalance.Cmp(gethBalance) != 0 {
-			return fmt.Errorf("balance mismatch for %s: evmd=%s, geth=%s", 
+			return fmt.Errorf("balance mismatch for %s: evmd=%s, geth=%s",
 				addr.Hex(), evmdBalance.String(), gethBalance.String())
 		}
 
 		readableBalance := new(big.Int).Div(evmdBalance, big.NewInt(1e18))
-		fmt.Printf("  ✓ %s: %s tokens (identical on both networks)\n", 
+		fmt.Printf("  ✓ %s: %s tokens (identical on both networks)\n",
 			addr.Hex()[:10]+"...", readableBalance.String())
 	}
 
@@ -302,10 +305,10 @@ func getTokenBalance(rpcURL string, contractAddr, account common.Address) (*big.
 	// balanceOf(address) function signature: 0x70a08231
 	balanceOfSig := crypto.Keccak256([]byte("balanceOf(address)"))[:4]
 	data := make([]byte, 36) // 4 bytes signature + 32 bytes address
-	
+
 	// Function signature
 	copy(data[0:4], balanceOfSig)
-	
+
 	// Account address (left-padded to 32 bytes)
 	copy(data[16:36], account.Bytes())
 

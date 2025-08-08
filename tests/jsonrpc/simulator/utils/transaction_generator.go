@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
 // TransactionScenario represents a test transaction scenario
@@ -33,24 +36,24 @@ type TransactionMetadata struct {
 	Scenario    *TransactionScenario `json:"scenario"`
 	Network     string               `json:"network"` // "evmd" or "geth"
 	TxHash      common.Hash          `json:"txHash"`
-	Receipt     *types.Receipt       `json:"receipt,omitempty"`
+	Receipt     *ethtypes.Receipt    `json:"receipt,omitempty"`
 	Success     bool                 `json:"success"`
 	Error       string               `json:"error,omitempty"`
 	GasUsed     uint64               `json:"gasUsed"`
 	BlockNumber *big.Int             `json:"blockNumber,omitempty"`
 	Timestamp   time.Time            `json:"timestamp"`
-	
+
 	// Enhanced metadata for API testing
-	Transaction    *types.Transaction `json:"transaction,omitempty"`    // Original transaction
-	TransactionRaw string            `json:"transactionRaw,omitempty"`  // RLP-encoded transaction
-	ReceiptRaw     string            `json:"receiptRaw,omitempty"`      // JSON-encoded receipt
-	Logs           []*types.Log      `json:"logs,omitempty"`            // Transaction logs
-	ContractAddress *common.Address  `json:"contractAddress,omitempty"` // For contract deployments
-	RevertReason   string            `json:"revertReason,omitempty"`    // Decoded revert reason
-	
+	Transaction     *ethtypes.Transaction `json:"transaction,omitempty"`     // Original transaction
+	TransactionRaw  string                `json:"transactionRaw,omitempty"`  // RLP-encoded transaction
+	ReceiptRaw      string                `json:"receiptRaw,omitempty"`      // JSON-encoded receipt
+	Logs            []*ethtypes.Log       `json:"logs,omitempty"`            // Transaction logs
+	ContractAddress *common.Address       `json:"contractAddress,omitempty"` // For contract deployments
+	RevertReason    string                `json:"revertReason,omitempty"`    // Decoded revert reason
+
 	// API call metadata
-	JSONRPCCalls   []JSONRPCCallInfo `json:"jsonrpcCalls,omitempty"`   // All JSON-RPC calls made
-	APICallLatency time.Duration     `json:"apiCallLatency"`           // Total API call time
+	JSONRPCCalls   []JSONRPCCallInfo `json:"jsonrpcCalls,omitempty"` // All JSON-RPC calls made
+	APICallLatency time.Duration     `json:"apiCallLatency"`         // Total API call time
 }
 
 // JSONRPCCallInfo tracks individual JSON-RPC method calls
@@ -68,7 +71,7 @@ type TransactionResult struct {
 	Scenario    *TransactionScenario
 	Network     string // "evmd" or "geth"
 	TxHash      common.Hash
-	Receipt     *types.Receipt
+	Receipt     *ethtypes.Receipt
 	Success     bool
 	Error       string
 	GasUsed     uint64
@@ -79,16 +82,16 @@ type TransactionResult struct {
 // ToTransactionMetadata converts TransactionResult to enhanced TransactionMetadata
 func (tr *TransactionResult) ToTransactionMetadata() *TransactionMetadata {
 	return &TransactionMetadata{
-		Scenario:    tr.Scenario,
-		Network:     tr.Network,
-		TxHash:      tr.TxHash,
-		Receipt:     tr.Receipt,
-		Success:     tr.Success,
-		Error:       tr.Error,
-		GasUsed:     tr.GasUsed,
-		BlockNumber: tr.BlockNumber,
-		Timestamp:   tr.Timestamp,
-		Logs:        tr.Receipt.Logs,
+		Scenario:     tr.Scenario,
+		Network:      tr.Network,
+		TxHash:       tr.TxHash,
+		Receipt:      tr.Receipt,
+		Success:      tr.Success,
+		Error:        tr.Error,
+		GasUsed:      tr.GasUsed,
+		BlockNumber:  tr.BlockNumber,
+		Timestamp:    tr.Timestamp,
+		Logs:         tr.Receipt.Logs,
 		JSONRPCCalls: make([]JSONRPCCallInfo, 0),
 	}
 }
@@ -105,19 +108,19 @@ type TransactionBatch struct {
 
 // TransactionMetadataBatch represents a batch with enhanced metadata
 type TransactionMetadataBatch struct {
-	Name         string                  `json:"name"`
-	Scenarios    []*TransactionScenario  `json:"scenarios"`
-	EvmdResults  []*TransactionMetadata  `json:"evmdResults"`
-	GethResults  []*TransactionMetadata  `json:"gethResults"`
-	EvmdContract common.Address          `json:"evmdContract"`
-	GethContract common.Address          `json:"gethContract"`
-	
+	Name         string                 `json:"name"`
+	Scenarios    []*TransactionScenario `json:"scenarios"`
+	EvmdResults  []*TransactionMetadata `json:"evmdResults"`
+	GethResults  []*TransactionMetadata `json:"gethResults"`
+	EvmdContract common.Address         `json:"evmdContract"`
+	GethContract common.Address         `json:"gethContract"`
+
 	// Batch-level metadata
-	StartTime    time.Time               `json:"startTime"`
-	EndTime      time.Time               `json:"endTime"`
-	TotalLatency time.Duration           `json:"totalLatency"`
-	SuccessCount int                     `json:"successCount"`
-	FailureCount int                     `json:"failureCount"`
+	StartTime    time.Time     `json:"startTime"`
+	EndTime      time.Time     `json:"endTime"`
+	TotalLatency time.Duration `json:"totalLatency"`
+	SuccessCount int           `json:"successCount"`
+	FailureCount int           `json:"failureCount"`
 }
 
 // NewTransactionMetadataBatch creates a new batch with enhanced metadata
@@ -132,14 +135,6 @@ func NewTransactionMetadataBatch(name string, scenarios []*TransactionScenario, 
 		StartTime:    time.Now(),
 	}
 }
-
-// Dev account private keys (from local_node.sh)
-const (
-	Dev0PrivateKey = "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305" // dev0
-	Dev1PrivateKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544" // dev1  
-	Dev2PrivateKey = "3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9" // dev2
-	Dev3PrivateKey = "8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b" // dev3
-)
 
 // GetPrivateKeyAndAddress returns the private key and address for a given private key string
 func GetPrivateKeyAndAddress(privateKeyHex string) (*ecdsa.PrivateKey, common.Address, error) {
@@ -160,14 +155,14 @@ func GetPrivateKeyAndAddress(privateKeyHex string) (*ecdsa.PrivateKey, common.Ad
 
 // CreateTransactionScenarios creates a comprehensive set of transaction test scenarios
 func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Address) []*TransactionScenario {
-	_, dev0Addr, _ := GetPrivateKeyAndAddress(Dev0PrivateKey)
-	_, dev1Addr, _ := GetPrivateKeyAndAddress(Dev1PrivateKey)
-	_, dev2Addr, _ := GetPrivateKeyAndAddress(Dev2PrivateKey)
-	_, dev3Addr, _ := GetPrivateKeyAndAddress(Dev3PrivateKey)
+	_, dev0Addr, _ := GetPrivateKeyAndAddress(config.Dev0PrivateKey)
+	_, dev1Addr, _ := GetPrivateKeyAndAddress(config.Dev1PrivateKey)
+	_, dev2Addr, _ := GetPrivateKeyAndAddress(config.Dev2PrivateKey)
+	_, dev3Addr, _ := GetPrivateKeyAndAddress(config.Dev3PrivateKey)
 
 	// ERC20 transfer function signature: transfer(address,uint256)
 	transferSig := crypto.Keccak256([]byte("transfer(address,uint256)"))[:4]
-	
+
 	// ERC20 approve function signature: approve(address,uint256)
 	approveSig := crypto.Keccak256([]byte("approve(address,uint256)"))[:4]
 
@@ -177,7 +172,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "eth_transfer_1",
 			Description: "Transfer 1 ETH from dev1 to dev2",
 			TxType:      "transfer",
-			FromKey:     Dev1PrivateKey,
+			FromKey:     config.Dev1PrivateKey,
 			To:          &dev2Addr,
 			Value:       big.NewInt(1000000000000000000), // 1 ETH
 			Data:        nil,
@@ -188,7 +183,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "eth_transfer_2",
 			Description: "Transfer 0.5 ETH from dev2 to dev3",
 			TxType:      "transfer",
-			FromKey:     Dev2PrivateKey,
+			FromKey:     config.Dev2PrivateKey,
 			To:          &dev3Addr,
 			Value:       big.NewInt(500000000000000000), // 0.5 ETH
 			Data:        nil,
@@ -199,7 +194,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "eth_transfer_3",
 			Description: "Transfer 2 ETH from dev3 to dev0",
 			TxType:      "transfer",
-			FromKey:     Dev3PrivateKey,
+			FromKey:     config.Dev3PrivateKey,
 			To:          &dev0Addr,
 			Value:       big.NewInt(2000000000000000000), // 2 ETH
 			Data:        nil,
@@ -212,7 +207,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "erc20_transfer_1",
 			Description: "Transfer 100 tokens from dev1 to dev2",
 			TxType:      "erc20_transfer",
-			FromKey:     Dev1PrivateKey,
+			FromKey:     config.Dev1PrivateKey,
 			To:          &evmdContractAddr, // Will be updated per network
 			Value:       big.NewInt(0),
 			Data:        buildERC20TransferData(transferSig, dev2Addr, big.NewInt(100)),
@@ -223,7 +218,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "erc20_approve_1",
 			Description: "Approve dev3 to spend 50 tokens from dev2",
 			TxType:      "erc20_approve",
-			FromKey:     Dev2PrivateKey,
+			FromKey:     config.Dev2PrivateKey,
 			To:          &evmdContractAddr, // Will be updated per network
 			Value:       big.NewInt(0),
 			Data:        buildERC20ApproveData(approveSig, dev3Addr, big.NewInt(50)),
@@ -234,7 +229,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "erc20_transfer_2",
 			Description: "Transfer 25 tokens from dev2 to dev0",
 			TxType:      "erc20_transfer",
-			FromKey:     Dev2PrivateKey,
+			FromKey:     config.Dev2PrivateKey,
 			To:          &evmdContractAddr, // Will be updated per network
 			Value:       big.NewInt(0),
 			Data:        buildERC20TransferData(transferSig, dev0Addr, big.NewInt(25)),
@@ -247,7 +242,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "eth_transfer_insufficient_balance",
 			Description: "Try to transfer 10000 ETH (should fail - insufficient balance)",
 			TxType:      "transfer",
-			FromKey:     Dev0PrivateKey,
+			FromKey:     config.Dev0PrivateKey,
 			To:          &dev1Addr,
 			Value:       new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)), // 10000 ETH
 			Data:        nil,
@@ -258,7 +253,7 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 			Name:        "erc20_transfer_insufficient_tokens",
 			Description: "Try to transfer 1000 tokens (should fail - insufficient balance)",
 			TxType:      "erc20_transfer",
-			FromKey:     Dev0PrivateKey,
+			FromKey:     config.Dev0PrivateKey,
 			To:          &evmdContractAddr, // Will be updated per network
 			Value:       big.NewInt(0),
 			Data:        buildERC20TransferData(transferSig, dev1Addr, big.NewInt(1000)),
@@ -273,34 +268,34 @@ func CreateTransactionScenarios(evmdContractAddr, gethContractAddr common.Addres
 // buildERC20TransferData builds the data payload for ERC20 transfer function call
 func buildERC20TransferData(transferSig []byte, to common.Address, amount *big.Int) []byte {
 	data := make([]byte, 68) // 4 bytes signature + 32 bytes address + 32 bytes amount
-	
+
 	// Function signature
 	copy(data[0:4], transferSig)
-	
+
 	// Recipient address (left-padded to 32 bytes)
 	copy(data[16:36], to.Bytes())
-	
+
 	// Amount (32 bytes)
 	amountBytes := amount.Bytes()
 	copy(data[68-len(amountBytes):68], amountBytes)
-	
+
 	return data
 }
 
 // buildERC20ApproveData builds the data payload for ERC20 approve function call
 func buildERC20ApproveData(approveSig []byte, spender common.Address, amount *big.Int) []byte {
 	data := make([]byte, 68) // 4 bytes signature + 32 bytes address + 32 bytes amount
-	
+
 	// Function signature
 	copy(data[0:4], approveSig)
-	
+
 	// Spender address (left-padded to 32 bytes)
 	copy(data[16:36], spender.Bytes())
-	
+
 	// Amount (32 bytes)
 	amountBytes := amount.Bytes()
 	copy(data[68-len(amountBytes):68], amountBytes)
-	
+
 	return data
 }
 
@@ -362,21 +357,21 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
 		Method:    "eth_gasPrice",
 		Response:  gasPrice.String(),
-		Latency:   time.Since(callStart),
+		Latency:   0,
 		Timestamp: callStart,
 	})
 
 	// Create transaction
-	var tx *types.Transaction
+	var tx *ethtypes.Transaction
 	if scenario.To != nil {
-		tx = types.NewTransaction(nonce, *scenario.To, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+		tx = ethtypes.NewTransaction(nonce, *scenario.To, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
 	} else {
-		tx = types.NewContractCreation(nonce, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+		tx = ethtypes.NewContractCreation(nonce, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
 	}
 
 	// Sign transaction
-	signer := types.NewEIP155Signer(chainID)
-	signedTx, err := types.SignTx(tx, signer, privateKey)
+	signer := ethtypes.NewEIP155Signer(chainID)
+	signedTx, err := ethtypes.SignTx(tx, signer, privateKey)
 	if err != nil {
 		metadata.Error = fmt.Sprintf("failed to sign transaction: %v", err)
 		return metadata, err
@@ -384,7 +379,7 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 
 	// Store transaction details
 	metadata.Transaction = signedTx
-	
+
 	// Track send transaction call
 	callStart = time.Now()
 	err = client.SendTransaction(ctx, signedTx)
@@ -395,7 +390,7 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 			Latency:   time.Since(callStart),
 			Timestamp: callStart,
 		})
-		
+
 		if scenario.ExpectFail {
 			metadata.Success = true
 			metadata.Error = fmt.Sprintf("expected failure: %v", err)
@@ -404,7 +399,7 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 		}
 		return metadata, err
 	}
-	
+
 	metadata.JSONRPCCalls = append(metadata.JSONRPCCalls, JSONRPCCallInfo{
 		Method:    "eth_sendRawTransaction",
 		Response:  signedTx.Hash().Hex(),
@@ -415,7 +410,6 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 	metadata.TxHash = signedTx.Hash()
 
 	// Wait for transaction receipt with detailed tracking
-	callStart = time.Now()
 	receipt, err := waitForTransactionReceiptWithTracking(client, metadata.TxHash, 30*time.Second, &metadata.JSONRPCCalls)
 	if err != nil {
 		metadata.Error = fmt.Sprintf("failed to get receipt: %v", err)
@@ -426,7 +420,7 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 	metadata.GasUsed = receipt.GasUsed
 	metadata.BlockNumber = receipt.BlockNumber
 	metadata.Logs = receipt.Logs
-	
+
 	// Extract contract address if it's a deployment
 	if receipt.ContractAddress != (common.Address{}) {
 		metadata.ContractAddress = &receipt.ContractAddress
@@ -446,7 +440,7 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 			metadata.Error = "expected failure - transaction reverted"
 		} else {
 			metadata.Success = false
-			metadata.Error = "transaction failed - status 0"
+			metadata.Error = types.ErrorTansactionFailed
 		}
 	}
 
@@ -493,16 +487,16 @@ func ExecuteTransactionScenario(client *ethclient.Client, scenario *TransactionS
 	}
 
 	// Create transaction
-	var tx *types.Transaction
+	var tx *ethtypes.Transaction
 	if scenario.To != nil {
-		tx = types.NewTransaction(nonce, *scenario.To, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+		tx = ethtypes.NewTransaction(nonce, *scenario.To, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
 	} else {
-		tx = types.NewContractCreation(nonce, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
+		tx = ethtypes.NewContractCreation(nonce, scenario.Value, scenario.GasLimit, gasPrice, scenario.Data)
 	}
 
 	// Sign transaction
-	signer := types.NewEIP155Signer(chainID)
-	signedTx, err := types.SignTx(tx, signer, privateKey)
+	signer := ethtypes.NewEIP155Signer(chainID)
+	signedTx, err := ethtypes.SignTx(tx, signer, privateKey)
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to sign transaction: %v", err)
 		return result, err
@@ -547,7 +541,7 @@ func ExecuteTransactionScenario(client *ethclient.Client, scenario *TransactionS
 			result.Error = "expected failure - transaction reverted"
 		} else {
 			result.Success = false
-			result.Error = "transaction failed - status 0"
+			result.Error = types.ErrorTansactionFailed
 		}
 	}
 
@@ -555,7 +549,7 @@ func ExecuteTransactionScenario(client *ethclient.Client, scenario *TransactionS
 }
 
 // waitForTransactionReceiptWithTracking waits for a transaction receipt and tracks JSON-RPC calls
-func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash common.Hash, timeout time.Duration, jsonrpcCalls *[]JSONRPCCallInfo) (*types.Receipt, error) {
+func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash common.Hash, timeout time.Duration, jsonrpcCalls *[]JSONRPCCallInfo) (*ethtypes.Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -571,7 +565,7 @@ func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash comm
 			attempts++
 			callStart := time.Now()
 			receipt, err := client.TransactionReceipt(context.Background(), txHash)
-			
+
 			if err != nil {
 				*jsonrpcCalls = append(*jsonrpcCalls, JSONRPCCallInfo{
 					Method:    "eth_getTransactionReceipt",
@@ -582,7 +576,7 @@ func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash comm
 				})
 				continue // Transaction not mined yet
 			}
-			
+
 			*jsonrpcCalls = append(*jsonrpcCalls, JSONRPCCallInfo{
 				Method:    "eth_getTransactionReceipt",
 				Params:    txHash.Hex(),
@@ -590,14 +584,14 @@ func waitForTransactionReceiptWithTracking(client *ethclient.Client, txHash comm
 				Latency:   time.Since(callStart),
 				Timestamp: callStart,
 			})
-			
+
 			return receipt, nil
 		}
 	}
 }
 
 // waitForTransactionReceipt waits for a transaction receipt
-func waitForTransactionReceipt(client *ethclient.Client, txHash common.Hash, timeout time.Duration) (*types.Receipt, error) {
+func waitForTransactionReceipt(client *ethclient.Client, txHash common.Hash, timeout time.Duration) (*ethtypes.Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -628,7 +622,7 @@ func EnhanceTransactionMetadata(metadata *TransactionMetadata) error {
 		}
 		metadata.TransactionRaw = "0x" + hex.EncodeToString(txBytes)
 	}
-	
+
 	// Add JSON-encoded receipt if available
 	if metadata.Receipt != nil {
 		// We don't serialize the entire receipt to avoid circular references
@@ -639,7 +633,6 @@ func EnhanceTransactionMetadata(metadata *TransactionMetadata) error {
 			len(metadata.Receipt.Logs),
 			metadata.Receipt.BlockNumber.String())
 	}
-	
+
 	return nil
 }
-

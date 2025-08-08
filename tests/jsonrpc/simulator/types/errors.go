@@ -1,5 +1,6 @@
 package types
 
 const (
-	ErrorMethodNotFound = "Method not found"
+	ErrorMethodNotFound   = "Method not found"
+	ErrorTansactionFailed = "transaction failed - status 0"
 )

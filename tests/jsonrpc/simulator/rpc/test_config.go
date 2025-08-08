@@ -64,7 +64,7 @@ func GetTestCategories() []types.TestCategory {
 				{Name: ns.MethodNameEthGetTransactionReceipt, Handler: ns.EthGetTransactionReceipt},
 				{Name: ns.MethodNameEthGetBlockTransactionCountByNumber, Handler: ns.EthGetBlockTransactionCountByNumber},
 				{Name: ns.MethodNameEthGetPendingTransactions, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return Legacy(rCtx, ns.MethodNameEthGetPendingTransactions, "eth", "Use eth_newPendingTransactionFilter + eth_getFilterChanges instead")
+					return utils.Legacy(rCtx, ns.MethodNameEthGetPendingTransactions, "eth", "Use eth_newPendingTransactionFilter + eth_getFilterChanges instead")
 				}},
 				// Execute subcategory
 				{Name: ns.MethodNameEthCall, Handler: ns.EthCall},
@@ -100,43 +100,43 @@ func GetTestCategories() []types.TestCategory {
 			Methods: []types.TestMethod{
 				// Account Management subcategory
 				{Name: ns.MethodNamePersonalListAccounts, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return Legacy(rCtx, ns.MethodNamePersonalListAccounts, "personal", "Personal namespace deprecated - use external signers like Clef")
+					return utils.Legacy(rCtx, ns.MethodNamePersonalListAccounts, "personal", "Personal namespace deprecated - use external signers like Clef")
 				}},
 				{Name: ns.MethodNamePersonalNewAccount, Handler: ns.PersonalNewAccount},
 				{Name: ns.MethodNamePersonalDeriveAccount, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNamePersonalDeriveAccount, "personal")
+					return utils.CallEthClient(rCtx, ns.MethodNamePersonalDeriveAccount, "personal")
 				}},
 				// Wallet Management subcategory
 				{Name: ns.MethodNamePersonalListWallets, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return Legacy(rCtx, ns.MethodNamePersonalListWallets, "personal", "Personal namespace deprecated - use external signers like Clef")
+					return utils.Legacy(rCtx, ns.MethodNamePersonalListWallets, "personal", "Personal namespace deprecated - use external signers like Clef")
 				}},
 				{Name: ns.MethodNamePersonalOpenWallet, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNamePersonalOpenWallet, "personal")
+					return utils.CallEthClient(rCtx, ns.MethodNamePersonalOpenWallet, "personal")
 				}},
 				{Name: ns.MethodNamePersonalInitializeWallet, Handler: func(_ *types.RPCContext) (*types.RpcResult, error) {
-					return Skipped(ns.MethodNamePersonalInitializeWallet, "personal", "Cosmos EVM always returns false for personal namespace methods")
+					return utils.Skip(ns.MethodNamePersonalInitializeWallet, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				{Name: ns.MethodNamePersonalUnpair, Handler: func(_ *types.RPCContext) (*types.RpcResult, error) {
-					return Skipped(ns.MethodNamePersonalUnpair, "personal", "Cosmos EVM always returns false for personal namespace methods")
+					return utils.Skip(ns.MethodNamePersonalUnpair, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				// Key Management subcategory
 				{Name: ns.MethodNamePersonalImportRawKey, Handler: ns.PersonalImportRawKey},
 				{Name: ns.MethodNamePersonalUnlockAccount, Handler: func(_ *types.RPCContext) (*types.RpcResult, error) {
-					return Skipped(ns.MethodNamePersonalUnlockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
+					return utils.Skip(ns.MethodNamePersonalUnlockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				{Name: ns.MethodNamePersonalLockAccount, Handler: func(_ *types.RPCContext) (*types.RpcResult, error) {
-					return Skipped(ns.MethodNamePersonalLockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
+					return utils.Skip(ns.MethodNamePersonalLockAccount, "personal", "Cosmos EVM always returns false for personal namespace methods")
 				}},
 				// Signing subcategory
 				{Name: ns.MethodNamePersonalSign, Handler: ns.PersonalSign},
 				{Name: ns.MethodNamePersonalSignTransaction, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNamePersonalSignTransaction, "personal")
+					return utils.CallEthClient(rCtx, ns.MethodNamePersonalSignTransaction, "personal")
 				}},
 				{Name: ns.MethodNamePersonalSignTypedData, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNamePersonalSignTypedData, "personal")
+					return utils.CallEthClient(rCtx, ns.MethodNamePersonalSignTypedData, "personal")
 				}},
 				{Name: ns.MethodNamePersonalEcRecover, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return Legacy(rCtx, ns.MethodNamePersonalEcRecover, "personal", "Personal namespace deprecated - use external signers like Clef")
+					return utils.Legacy(rCtx, ns.MethodNamePersonalEcRecover, "personal", "Personal namespace deprecated - use external signers like Clef")
 				}},
 				// Transaction subcategory
 				{Name: ns.MethodNamePersonalSendTransaction, Handler: ns.PersonalSendTransaction},
@@ -172,48 +172,48 @@ func GetTestCategories() []types.TestCategory {
 				// Tracing subcategory
 				{Name: ns.MethodNameDebugTraceTransaction, Handler: ns.DebugTraceTransaction},
 				{Name: ns.MethodNameDebugTraceBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugTraceBlock, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceBlock, "debug")
 				}},
 				{Name: ns.MethodNameDebugTraceBlockByHash, Handler: ns.DebugTraceBlockByHash},
 				{Name: ns.MethodNameDebugTraceBlockByNumber, Handler: ns.DebugTraceBlockByNumber},
 				{Name: ns.MethodNameDebugTraceCall, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugTraceCall, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceCall, "debug")
 				}},
 				{Name: ns.MethodNameDebugIntermediateRoots, Handler: ns.DebugIntermediateRoots},
 				// Database subcategory
 				{Name: ns.MethodNameDebugDbGet, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugDbGet, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugDbGet, "debug")
 				}},
 				{Name: ns.MethodNameDebugDbAncient, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugDbAncient, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugDbAncient, "debug")
 				}},
 				{Name: ns.MethodNameDebugDbAncients, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugDbAncients, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugDbAncients, "debug")
 				}},
 				{Name: ns.MethodNameDebugChaindbCompact, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugChaindbCompact, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugChaindbCompact, "debug")
 				}},
 				{Name: ns.MethodNameDebugChaindbProperty, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugChaindbProperty, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugChaindbProperty, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetModifiedAccounts, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetModifiedAccounts, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetModifiedAccounts, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetModifiedAccountsByHash, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetModifiedAccountsByHash, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetModifiedAccountsByHash, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetModifiedAccountsByNumber, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetModifiedAccountsByNumber, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetModifiedAccountsByNumber, "debug")
 				}},
 				{Name: ns.MethodNameDebugDumpBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugDumpBlock, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugDumpBlock, "debug")
 				}},
 				// Profiling subcategory
 				{Name: ns.MethodNameDebugBlockProfile, Handler: ns.DebugBlockProfile},
 				{Name: ns.MethodNameDebugCPUProfile, Handler: ns.DebugCPUProfile},
 				{Name: ns.MethodNameDebugGoTrace, Handler: ns.DebugGoTrace},
 				{Name: ns.MethodNameDebugMemStats, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugMemStats, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugMemStats, "debug")
 				}},
 				{Name: ns.MethodNameDebugMutexProfile, Handler: ns.DebugMutexProfile},
 				{Name: ns.MethodNameDebugSetBlockProfileRate, Handler: ns.DebugSetBlockProfileRate},
@@ -221,66 +221,66 @@ func GetTestCategories() []types.TestCategory {
 				{Name: ns.MethodNameDebugGcStats, Handler: ns.DebugGcStats},
 				// Diagnostics subcategory
 				{Name: ns.MethodNameDebugBacktraceAt, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugBacktraceAt, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugBacktraceAt, "debug")
 				}},
 				{Name: ns.MethodNameDebugStacks, Handler: ns.DebugStacks},
 				{Name: ns.MethodNameDebugGetBadBlocks, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetBadBlocks, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetBadBlocks, "debug")
 				}},
 				{Name: ns.MethodNameDebugPreimage, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugPreimage, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugPreimage, "debug")
 				}},
 				{Name: ns.MethodNameDebugFreeOSMemory, Handler: ns.DebugFreeOSMemory},
 				{Name: ns.MethodNameDebugSetHead, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugSetHead, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugSetHead, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetAccessibleState, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetAccessibleState, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetAccessibleState, "debug")
 				}},
 				{Name: ns.MethodNameDebugFreezeClient, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugFreezeClient, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugFreezeClient, "debug")
 				}},
 				// New debug methods (including debug_setGCPercent)
 				{Name: ns.MethodNameDebugSetGCPercent, Handler: ns.DebugSetGCPercent},
 				{Name: ns.MethodNameDebugAccountRange, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugAccountRange, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugAccountRange, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetRawBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetRawBlock, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawBlock, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetRawHeader, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetRawHeader, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawHeader, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetRawTransaction, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetRawTransaction, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawTransaction, "debug")
 				}},
 				{Name: ns.MethodNameDebugGetRawReceipts, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugGetRawReceipts, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawReceipts, "debug")
 				}},
 				{Name: ns.MethodNameDebugPrintBlock, Handler: ns.DebugPrintBlock},
 				// Additional debug methods from Geth documentation
 				{Name: ns.MethodNameDebugStartCPUProfile, Handler: ns.DebugStartCPUProfile, Description: "Start CPU profiling"},
 				{Name: ns.MethodNameDebugStopCPUProfile, Handler: ns.DebugStopCPUProfile, Description: "Stop CPU profiling"},
 				{Name: ns.MethodNameDebugTraceBadBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugTraceBadBlock, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceBadBlock, "debug")
 				}, Description: "Trace bad blocks"},
 				{Name: ns.MethodNameDebugStandardTraceBlockToFile, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugStandardTraceBlockToFile, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugStandardTraceBlockToFile, "debug")
 				}, Description: "Standard trace block to file"},
 				{Name: ns.MethodNameDebugStorageRangeAt, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugStorageRangeAt, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugStorageRangeAt, "debug")
 				}, Description: "Get storage range at specific position"},
 				{Name: ns.MethodNameDebugSetTrieFlushInterval, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugSetTrieFlushInterval, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugSetTrieFlushInterval, "debug")
 				}, Description: "Set trie flush interval"},
 				{Name: ns.MethodNameDebugVmodule, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugVmodule, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugVmodule, "debug")
 				}, Description: "Set logging verbosity pattern"},
 				{Name: ns.MethodNameDebugWriteBlockProfile, Handler: ns.DebugWriteBlockProfile, Description: "Write block profile to file"},
 				{Name: ns.MethodNameDebugWriteMemProfile, Handler: ns.DebugWriteMemProfile, Description: "Write memory profile to file"},
 				{Name: ns.MethodNameDebugWriteMutexProfile, Handler: ns.DebugWriteMutexProfile, Description: "Write mutex profile to file"},
 				{Name: ns.MethodNameDebugVerbosity, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameDebugVerbosity, "debug")
+					return utils.CallEthClient(rCtx, ns.MethodNameDebugVerbosity, "debug")
 				}, Description: "Set log verbosity level"},
 			},
 		},
@@ -302,46 +302,46 @@ func GetTestCategories() []types.TestCategory {
 			Methods: []types.TestMethod{
 				// Test all admin methods to see if they're implemented
 				{Name: ns.MethodNameAdminAddPeer, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminAddPeer, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminAddPeer, "admin")
 				}},
 				{Name: ns.MethodNameAdminAddTrustedPeer, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminAddTrustedPeer, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminAddTrustedPeer, "admin")
 				}},
 				{Name: ns.MethodNameAdminDatadir, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminDatadir, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminDatadir, "admin")
 				}},
 				{Name: ns.MethodNameAdminExportChain, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminExportChain, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminExportChain, "admin")
 				}},
 				{Name: ns.MethodNameAdminImportChain, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminImportChain, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminImportChain, "admin")
 				}},
 				{Name: ns.MethodNameAdminNodeInfo, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminNodeInfo, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminNodeInfo, "admin")
 				}},
 				{Name: ns.MethodNameAdminPeerEvents, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminPeerEvents, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminPeerEvents, "admin")
 				}},
 				{Name: ns.MethodNameAdminPeers, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminPeers, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminPeers, "admin")
 				}},
 				{Name: ns.MethodNameAdminRemovePeer, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminRemovePeer, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminRemovePeer, "admin")
 				}},
 				{Name: ns.MethodNameAdminRemoveTrustedPeer, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminRemoveTrustedPeer, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminRemoveTrustedPeer, "admin")
 				}},
 				{Name: ns.MethodNameAdminStartHTTP, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminStartHTTP, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminStartHTTP, "admin")
 				}},
 				{Name: ns.MethodNameAdminStartWS, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminStartWS, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminStartWS, "admin")
 				}},
 				{Name: ns.MethodNameAdminStopHTTP, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminStopHTTP, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminStopHTTP, "admin")
 				}},
 				{Name: ns.MethodNameAdminStopWS, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameAdminStopWS, "admin")
+					return utils.CallEthClient(rCtx, ns.MethodNameAdminStopWS, "admin")
 				}},
 			},
 		},
@@ -351,31 +351,31 @@ func GetTestCategories() []types.TestCategory {
 			Methods: []types.TestMethod{
 				// Test all LES methods to see if they're implemented
 				{Name: ns.MethodNameLesServerInfo, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesServerInfo, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesServerInfo, "les")
 				}},
 				{Name: ns.MethodNameLesClientInfo, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesClientInfo, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesClientInfo, "les")
 				}},
 				{Name: ns.MethodNameLesPriorityClientInfo, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesPriorityClientInfo, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesPriorityClientInfo, "les")
 				}},
 				{Name: ns.MethodNameLesAddBalance, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesAddBalance, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesAddBalance, "les")
 				}},
 				{Name: ns.MethodNameLesSetClientParams, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesSetClientParams, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesSetClientParams, "les")
 				}},
 				{Name: ns.MethodNameLesSetDefaultParams, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesSetDefaultParams, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesSetDefaultParams, "les")
 				}},
 				{Name: ns.MethodNameLesLatestCheckpoint, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesLatestCheckpoint, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesLatestCheckpoint, "les")
 				}},
 				{Name: ns.MethodNameLesGetCheckpoint, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesGetCheckpoint, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesGetCheckpoint, "les")
 				}},
 				{Name: ns.MethodNameLesGetCheckpointContractAddress, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.GenericTest(rCtx, ns.MethodNameLesGetCheckpointContractAddress, "les")
+					return utils.CallEthClient(rCtx, ns.MethodNameLesGetCheckpointContractAddress, "les")
 				}},
 			},
 		},

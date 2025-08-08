@@ -1,13 +1,10 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"time"
 
@@ -15,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 )
 
 // ContractDeployment represents a deployed contract
@@ -48,7 +47,7 @@ type ContractDeploymentRequest struct {
 
 // GetDev0PrivateKeyAndAddress returns dev0's private key and address for contract deployment
 func GetDev0PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {
-	privateKey, err := crypto.HexToECDSA(Dev0PrivateKey)
+	privateKey, err := crypto.HexToECDSA(config.Dev0PrivateKey)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
@@ -61,49 +60,6 @@ func GetDev0PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {
 
 	address := crypto.PubkeyToAddress(*publicKeyECDSA)
 	return privateKey, address, nil
-}
-
-// deployContractViaRPC deploys a contract using JSON-RPC (for unlocked accounts like geth dev mode)
-func deployContractViaRPC(rpcURL, fromAddress, contractBytecode string, gasLimit *big.Int) (string, error) {
-	deployReq := ContractDeploymentRequest{
-		From: fromAddress,
-		Data: "0x" + contractBytecode,
-		Gas:  fmt.Sprintf("0x%x", gasLimit),
-	}
-
-	rpcReq := JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "eth_sendTransaction",
-		Params:  []any{deployReq},
-		ID:      1,
-	}
-
-	reqData, err := json.Marshal(rpcReq)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.Post(rpcURL, "application/json", bytes.NewReader(reqData))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var rpcResp JSONRPCResponse
-	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
-		return "", err
-	}
-
-	if rpcResp.Error != nil {
-		return "", fmt.Errorf("RPC error: %s", string(*rpcResp.Error))
-	}
-
-	var txHash string
-	if err := json.Unmarshal(rpcResp.Result, &txHash); err != nil {
-		return "", err
-	}
-
-	return txHash, nil
 }
 
 func deployContractViaDynamicFeeTx(client *ethclient.Client, privateKey *ecdsa.PrivateKey, contractByteCode []byte) (string, error) {
@@ -206,7 +162,7 @@ func DeployERC20Contract(evmdURL, gethURL string, contractByteCode []byte) (*Dep
 	}
 
 	fmt.Printf("Deploying ERC20 to evmd using dev0 (%s)...\n", fromAddress.Hex())
-	
+
 	// DEBUG: Check dev0's nonce before deployment on evmd
 	nonce, err := evmdClient.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
@@ -269,7 +225,7 @@ func DeployERC20Contract(evmdURL, gethURL string, contractByteCode []byte) (*Dep
 
 	// Use dev0 on geth as well for state consistency
 	fmt.Printf("Deploying ERC20 to geth using dev0 (%s)...\n", fromAddress.Hex())
-	
+
 	// DEBUG: Check dev0's nonce before deployment on geth
 	gethNonce, err := gethClient.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
@@ -277,7 +233,7 @@ func DeployERC20Contract(evmdURL, gethURL string, contractByteCode []byte) (*Dep
 	} else {
 		fmt.Printf("  dev0 nonce on geth: %d\n", gethNonce)
 	}
-	
+
 	// Use existing gethClient for signed transaction deployment
 	gethTxHash, err := deployContractViaDynamicFeeTx(gethClient, privateKey, contractByteCode)
 	if err != nil {

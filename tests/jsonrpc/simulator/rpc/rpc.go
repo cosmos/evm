@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
@@ -22,47 +23,6 @@ import (
 const GethVersion = "1.15.10"
 
 type CallRPC func(rCtx *types.RPCContext) (*types.RpcResult, error)
-
-func Skipped(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
-	return &types.RpcResult{
-		Method:   methodName,
-		Status:   types.Skipped,
-		ErrMsg:   reason,
-		Category: category,
-	}, nil
-}
-
-func Legacy(rCtx *types.RPCContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
-	// First test if the API is actually implemented
-	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, string(methodName))
-
-	if err != nil {
-		// Check if it's a "method not found" error (API not implemented)
-		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
-			err.Error() == "Method not found" ||
-			err.Error() == string(methodName)+" method not found" {
-			// API is not implemented, so it should be NOT_IMPL, not LEGACY
-			return &types.RpcResult{
-				Method:   methodName,
-				Status:   types.NotImplemented,
-				ErrMsg:   "Method not implemented in Cosmos EVM",
-				Category: category,
-			}, nil
-		}
-		// API exists but failed with parameters (could be legacy with wrong params)
-		// Still mark as legacy since the method exists
-	}
-
-	// API exists (either succeeded or failed with parameter issues), mark as LEGACY
-	return &types.RpcResult{
-		Method:   methodName,
-		Status:   types.Legacy,
-		Value:    fmt.Sprintf("Legacy API implemented in Cosmos EVM. %s", replacementInfo),
-		ErrMsg:   replacementInfo,
-		Category: category,
-	}, nil
-}
 
 // MustLoadContractInfo loads contract information into the RPC context
 func MustLoadContractInfo(rCtx *types.RPCContext) *types.RPCContext {
@@ -113,7 +73,7 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 			Name:        "rpc_test_eth_transfer",
 			Description: "ETH transfer for RPC testing",
 			TxType:      "transfer",
-			FromKey:     utils.Dev1PrivateKey,
+			FromKey:     config.Dev1PrivateKey,
 			To:          &common.Address{0x01},        // Simple test address
 			Value:       big.NewInt(1000000000000000), // 0.001 ETH
 			GasLimit:    21000,

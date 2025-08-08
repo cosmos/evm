@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -671,7 +672,7 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// TODO: Random pick
 	// pick a block with transactions
 	blkNum := rCtx.BlockNumsIncludingTx[0]
-	if blkNum > uint64(int64(0)) {
+	if blkNum > uint64(math.MaxInt64) {
 		return nil, fmt.Errorf("block number %d exceeds int64 max value", blkNum)
 	}
 	rpcBlockNum := ethrpc.BlockNumber(int64(blkNum))
@@ -791,7 +792,7 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 	}
 
 	// Get the block first to get its hash, then get transaction count
-	if targetBlockNum > uint64(int64(0)) {
+	if targetBlockNum > uint64(math.MaxInt64) {
 		return nil, fmt.Errorf("targetBlockNum %d exceeds int64 max value", targetBlockNum)
 	}
 	block, err := rCtx.EthCli.BlockByNumber(context.Background(), big.NewInt(int64(targetBlockNum)))
@@ -1430,7 +1431,7 @@ func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthBlobBaseFee(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	return utils.GenericTest(rCtx, MethodNameEthBlobBaseFee, "eth")
+	return utils.CallEthClient(rCtx, MethodNameEthBlobBaseFee, "eth")
 }
 
 func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {

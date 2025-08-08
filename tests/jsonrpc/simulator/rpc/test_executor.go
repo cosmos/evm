@@ -20,14 +20,14 @@ func ExecuteAllTests(rCtx *types.RPCContext) []*types.RpcResult {
 			if method.Handler == nil {
 				// Handle methods with no handler - only skip engine methods, test others
 				if category.Name == "engine" {
-					result, _ := Skipped(method.Name, category.Name, method.SkipReason)
+					result, _ := utils.Skip(method.Name, category.Name, method.SkipReason)
 					if result != nil {
 						result.Description = method.Description
 					}
 					results = append(results, result)
 				} else {
 					// Test the method to see if it's actually implemented
-					result, _ := utils.GenericTest(rCtx, method.Name, category.Name)
+					result, _ := utils.CallEthClient(rCtx, method.Name, category.Name)
 					if result != nil {
 						result.Description = method.Description
 					}
