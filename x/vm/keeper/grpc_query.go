@@ -246,7 +246,9 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, false, false)
+	// Enforce the gas limit cap
+	gasCap := k.GlobalQueryGasLimit(req)
+	msg, err := args.ToMessage(gasCap, cfg.BaseFee, false, false)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -291,9 +293,8 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo     = ethparams.TxGas - 1
-		hi     uint64
-		gasCap uint64
+		lo = ethparams.TxGas - 1
+		hi uint64
 	)
 
 	// Determine the highest gas limit can be used during the estimation.
@@ -310,11 +311,13 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	}
 
 	// Recap the highest gas allowance with specified gascap.
-	if req.GasCap != 0 && hi > req.GasCap {
-		hi = req.GasCap
+	gasCap := k.GlobalQueryGasLimit(req)
+	if gasCap != 0 && hi > gasCap {
+		hi = gasCap
+	} else {
+		gasCap = hi
 	}
 
-	gasCap = hi
 	cfg, err := k.EVMConfig(ctx, GetProposerAddress(ctx, req.ProposerAddress))
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to load evm config")
@@ -327,7 +330,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// convert the tx args to an ethereum message
-	msg, err := args.ToMessage(req.GasCap, cfg.BaseFee, true, true)
+	msg, err := args.ToMessage(gasCap, cfg.BaseFee, true, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -724,6 +727,19 @@ func (k Keeper) GlobalMinGasPrice(c context.Context, _ *types.QueryGlobalMinGasP
 	ctx := sdk.UnwrapSDKContext(c)
 	minGasPrice := k.GetMinGasPrice(ctx).TruncateInt()
 	return &types.QueryGlobalMinGasPriceResponse{MinGasPrice: minGasPrice}, nil
+}
+
+// GlobalQueryGasLimit return the minimum between server queryGasLimit and request gascap
+func (k Keeper) GlobalQueryGasLimit(req *types.EthCallRequest) uint64 {
+	gasCap := req.GasCap
+	if k.queryGasLimit != GasNoLimit {
+		if gasCap == 0 {
+			gasCap = k.queryGasLimit
+		} else if k.queryGasLimit < gasCap {
+			gasCap = k.queryGasLimit
+		}
+	}
+	return gasCap
 }
 
 // Config implements the Query/Config gRPC method
