@@ -23,7 +23,7 @@ import (
 
 const (
 	// Eth namespace - client subcategory
-	MethodNameEthChainId     types.RpcName = "eth_chainId"
+	MethodNameEthChainID     types.RpcName = "eth_chainId"
 	MethodNameEthSyncing     types.RpcName = "eth_syncing"
 	MethodNameEthCoinbase    types.RpcName = "eth_coinbase"
 	MethodNameEthAccounts    types.RpcName = "eth_accounts"
@@ -193,27 +193,27 @@ func EthMaxPriorityFeePerGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthChainId(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameEthChainId); result != nil {
+func EthChainID(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthChainID); result != nil {
 		return result, nil
 	}
 
-	chainId, err := rCtx.EthCli.ChainID(context.Background())
+	chainID, err := rCtx.EthCli.ChainID(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	// chainId should never be zero
-	if chainId.Cmp(big.NewInt(0)) == 0 {
+	if chainID.Cmp(big.NewInt(0)) == 0 {
 		return nil, fmt.Errorf("chainId is zero")
 	}
 
 	status := types.Ok
 
 	result := &types.RpcResult{
-		Method:   MethodNameEthChainId,
+		Method:   MethodNameEthChainID,
 		Status:   status,
-		Value:    chainId.String(),
+		Value:    chainID.String(),
 		Category: "eth",
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -333,7 +333,7 @@ func EthSendRawTransactionTransferValue(rCtx *types.RPCContext) (*types.RpcResul
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: MethodNameEthChainId,
+		Method: MethodNameEthChainID,
 		Status: types.Ok,
 		Value:  rCtx.ChainID.String(),
 	})
@@ -437,7 +437,7 @@ func EthSendRawTransactionDeployContract(rCtx *types.RPCContext) (*types.RpcResu
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: MethodNameEthChainId,
+		Method: MethodNameEthChainID,
 		Status: types.Ok,
 		Value:  rCtx.ChainID.String(),
 	})
@@ -580,7 +580,7 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 		return nil, err
 	}
 	testedRPCs = append(testedRPCs, &types.RpcResult{
-		Method: MethodNameEthChainId,
+		Method: MethodNameEthChainID,
 		Status: types.Ok,
 		Value:  rCtx.ChainID.String(),
 	})
@@ -671,7 +671,10 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// TODO: Random pick
 	// pick a block with transactions
 	blkNum := rCtx.BlockNumsIncludingTx[0]
-	rpcBlockNum := ethrpc.BlockNumber(blkNum)
+	if blkNum > uint64(int64(0)) {
+		return nil, fmt.Errorf("block number %d exceeds int64 max value", blkNum)
+	}
+	rpcBlockNum := ethrpc.BlockNumber(int64(blkNum))
 	receipts, err := rCtx.EthCli.BlockReceipts(context.Background(), ethrpc.BlockNumberOrHash{BlockNumber: &rpcBlockNum})
 	if err != nil {
 		return nil, err
@@ -788,6 +791,9 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 	}
 
 	// Get the block first to get its hash, then get transaction count
+	if targetBlockNum > uint64(int64(0)) {
+		return nil, fmt.Errorf("targetBlockNum %d exceeds int64 max value", targetBlockNum)
+	}
 	block, err := rCtx.EthCli.BlockByNumber(context.Background(), big.NewInt(int64(targetBlockNum)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block %d: %w", targetBlockNum, err)
@@ -1100,18 +1106,18 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	var rpcId string
-	if err = rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(MethodNameEthNewFilter), args); err != nil {
+	var filterID string
+	if err = rCtx.EthCli.Client().CallContext(context.Background(), &filterID, string(MethodNameEthNewFilter), args); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
 		Method: MethodNameEthNewFilter,
 		Status: types.Ok,
-		Value:  rpcId,
+		Value:  filterID,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
-	rCtx.FilterId = rpcId
+	rCtx.FilterId = filterID
 	rCtx.FilterQuery = fErc20Transfer
 
 	return result, nil
@@ -1150,18 +1156,18 @@ func EthNewBlockFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	var rpcId string
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &rpcId, string(MethodNameEthNewBlockFilter)); err != nil {
+	var filterID string
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &filterID, string(MethodNameEthNewBlockFilter)); err != nil {
 		return nil, err
 	}
 
 	result := &types.RpcResult{
 		Method: MethodNameEthNewBlockFilter,
 		Status: types.Ok,
-		Value:  rpcId,
+		Value:  filterID,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
-	rCtx.BlockFilterId = rpcId
+	rCtx.BlockFilterId = filterID
 
 	return result, nil
 }
@@ -1399,7 +1405,7 @@ func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	if err != nil {
 		if err.Error() == "the method "+string(MethodNameEthFeeHistory)+" does not exist/is not available" ||
-			err.Error() == "Method not found" {
+			err.Error() == types.ErrorMethodNotFound {
 			return &types.RpcResult{
 				Method:   MethodNameEthFeeHistory,
 				Status:   types.NotImplemented,

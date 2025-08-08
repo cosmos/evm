@@ -14,21 +14,21 @@ import (
 
 // WebSocket subscription request/response structures
 type SubscriptionRequest struct {
-	JsonRPC string        `json:"jsonrpc"`
+	JSONRPC string        `json:"jsonrpc"`
 	ID      int           `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 }
 
 type SubscriptionResponse struct {
-	JsonRPC string      `json:"jsonrpc"`
+	JSONRPC string      `json:"jsonrpc"`
 	ID      int         `json:"id"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   interface{} `json:"error,omitempty"`
 }
 
 type NotificationMessage struct {
-	JsonRPC string            `json:"jsonrpc"`
+	JSONRPC string            `json:"jsonrpc"`
 	Method  string            `json:"method"`
 	Params  NotificationParam `json:"params"`
 }
@@ -93,21 +93,22 @@ func EthSubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Determine overall result
-	if len(failedTests) == 0 {
+	switch {
+	case len(failedTests) == 0:
 		return &types.RpcResult{
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Ok,
 			Value:    fmt.Sprintf("All 4 subscription types working: %v", results),
 			Category: "eth",
 		}, nil
-	} else if len(failedTests) < len(subscriptionTypes) {
+	case len(failedTests) < len(subscriptionTypes):
 		return &types.RpcResult{
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Ok,
 			Value:    fmt.Sprintf("Partial support (%d/%d): %v", len(subscriptionTypes)-len(failedTests), len(subscriptionTypes), results),
 			Category: "eth",
 		}, nil
-	} else {
+	default:
 		return &types.RpcResult{
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Error,
@@ -139,14 +140,13 @@ func EthUnsubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Value:    fmt.Sprintf("Successfully unsubscribed from subscription: %s", subscriptionID),
 			Category: "eth",
 		}, nil
-	} else {
-		return &types.RpcResult{
-			Method:   MethodNameEthUnsubscribe,
-			Status:   types.Error,
-			ErrMsg:   fmt.Sprintf("Failed to test unsubscribe: %v", err),
-			Category: "eth",
-		}, nil
 	}
+	return &types.RpcResult{
+		Method:   MethodNameEthUnsubscribe,
+		Status:   types.Error,
+		ErrMsg:   fmt.Sprintf("Failed to test unsubscribe: %v", err),
+		Category: "eth",
+	}, nil
 }
 
 // testWebSocketSubscription tests a specific subscription type
@@ -165,12 +165,18 @@ func testWebSocketSubscription(wsURL string, params []interface{}, description s
 	defer conn.Close()
 
 	// Set connection timeout
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		return false, fmt.Errorf("failed to set read deadline")
+	}
+	err = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		return false, fmt.Errorf("failed to set write deadline")
+	}
 
 	// Send subscription request
 	request := SubscriptionRequest{
-		JsonRPC: "2.0",
+		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "eth_subscribe",
 		Params:  params,
@@ -215,12 +221,18 @@ func testWebSocketUnsubscribe(wsURL string) (bool, string, error) {
 	defer conn.Close()
 
 	// Set connection timeout
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		return false, "", fmt.Errorf("failed to set read deadline")
+	}
+	err = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		return false, "", fmt.Errorf("failed to set write deadline")
+	}
 
 	// First, create a subscription
 	subscribeRequest := SubscriptionRequest{
-		JsonRPC: "2.0",
+		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "eth_subscribe",
 		Params:  []interface{}{"newHeads"}, // Use newHeads as test subscription
@@ -247,7 +259,7 @@ func testWebSocketUnsubscribe(wsURL string) (bool, string, error) {
 
 	// Now test unsubscription
 	unsubscribeRequest := SubscriptionRequest{
-		JsonRPC: "2.0",
+		JSONRPC: "2.0",
 		ID:      2,
 		Method:  "eth_unsubscribe",
 		Params:  []interface{}{subscriptionID},

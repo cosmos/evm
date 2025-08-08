@@ -32,7 +32,7 @@ func GetTestCategories() []types.TestCategory {
 			Description: "Ethereum namespace methods from execution-apis",
 			Methods: []types.TestMethod{
 				// Client subcategory
-				{Name: ns.MethodNameEthChainId, Handler: ns.EthChainId},
+				{Name: ns.MethodNameEthChainID, Handler: ns.EthChainID},
 				{Name: ns.MethodNameEthSyncing, Handler: ns.EthSyncing},
 				{Name: ns.MethodNameEthCoinbase, Handler: ns.EthCoinbase},
 				{Name: ns.MethodNameEthAccounts, Handler: ns.EthAccounts},
@@ -210,7 +210,7 @@ func GetTestCategories() []types.TestCategory {
 				}},
 				// Profiling subcategory
 				{Name: ns.MethodNameDebugBlockProfile, Handler: ns.DebugBlockProfile},
-				{Name: ns.MethodNameDebugCpuProfile, Handler: ns.DebugCpuProfile},
+				{Name: ns.MethodNameDebugCPUProfile, Handler: ns.DebugCPUProfile},
 				{Name: ns.MethodNameDebugGoTrace, Handler: ns.DebugGoTrace},
 				{Name: ns.MethodNameDebugMemStats, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.GenericTest(rCtx, ns.MethodNameDebugMemStats, "debug")

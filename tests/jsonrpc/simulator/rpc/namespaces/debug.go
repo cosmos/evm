@@ -26,7 +26,7 @@ const (
 
 	// Debug namespace - profiling subcategory
 	MethodNameDebugBlockProfile            types.RpcName = "debug_blockProfile"
-	MethodNameDebugCpuProfile              types.RpcName = "debug_cpuProfile"
+	MethodNameDebugCPUProfile              types.RpcName = "debug_cpuProfile"
 	MethodNameDebugGoTrace                 types.RpcName = "debug_goTrace"
 	MethodNameDebugMemStats                types.RpcName = "debug_memStats"
 	MethodNameDebugMutexProfile            types.RpcName = "debug_mutexProfile"
@@ -562,8 +562,8 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugCpuProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugCpuProfile); result != nil {
+func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugCPUProfile); result != nil {
 		return result, nil
 	}
 
@@ -571,10 +571,10 @@ func DebugCpuProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	filename := "/tmp/cpu_profile.out"
 	duration := 1 // 1 second duration for testing
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugCpuProfile), filename, duration)
+	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugCPUProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
-			Method:   MethodNameDebugCpuProfile,
+			Method:   MethodNameDebugCPUProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
 			Category: "debug",
@@ -582,7 +582,7 @@ func DebugCpuProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	result := &types.RpcResult{
-		Method:   MethodNameDebugCpuProfile,
+		Method:   MethodNameDebugCPUProfile,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("CPU profile written to %s for %d seconds", filename, duration),
 		Category: "debug",
