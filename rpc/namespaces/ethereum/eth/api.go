@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -68,7 +69,7 @@ type EthereumAPI interface {
 	//
 	// Allows developers to read data from the blockchain which includes executing
 	// smart contracts. However, no data is published to the Ethereum network.
-	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, override *rpctypes.StateOverride) (hexutil.Bytes, error)
+	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, overrides *json.RawMessage) (hexutil.Bytes, error)
 
 	// Chain Information
 	//
@@ -266,13 +267,14 @@ func (e *PublicAPI) GetProof(address common.Address,
 ///////////////////////////////////////////////////////////////////////////////
 
 // Call performs a raw contract call.
-func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
+func (e *PublicAPI) Call(
+	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
-	override *rpctypes.StateOverride,
+	overrides *json.RawMessage,
 ) (hexutil.Bytes, error) {
 	e.logger.Debug("eth_call", "args", args.String(), "block number or hash", blockNrOrHash)
 
-	if override != nil {
+	if overrides != nil {
 		e.logger.Debug("eth_call", "error", "overrides are unsupported in call queries")
 		return nil, fmt.Errorf("overrides are unsupported in call queries")
 	}
@@ -281,7 +283,7 @@ func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
 	if err != nil {
 		return nil, err
 	}
-	data, err := e.backend.DoCall(args, blockNum)
+	data, err := e.backend.DoCall(args, blockNum, overrides)
 	if err != nil {
 		return []byte{}, err
 	}

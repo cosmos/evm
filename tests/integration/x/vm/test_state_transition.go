@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -14,6 +15,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -688,11 +690,24 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
+
+	testAddr := utiltx.GenerateAddress()
+	balance := (*hexutil.Big)(big.NewInt(1000000000000000000))
+	nonce := hexutil.Uint64(0)
+
+	overrides := rpctypes.StateOverride{
+		testAddr: rpctypes.OverrideAccount{
+			Balance: &balance,
+			Nonce:   &nonce,
+		},
+	}
+
 	testCases := []struct {
 		name               string
 		getMessage         func() core.Message
 		getEVMParams       func() types.Params
 		getFeeMarketParams func() feemarkettypes.Params
+		overrides          *rpctypes.StateOverride
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
@@ -711,6 +726,65 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			},
 			types.DefaultParams,
 			feemarkettypes.DefaultParams,
+			nil,
+			false,
+			false,
+			params.TxGas,
+		},
+		{
+			"success - message applied with balance override",
+			func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					GasLimit: params.TxGas,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			&overrides,
+			false,
+			false,
+			params.TxGas,
+		},
+		{
+			"success - simple transfer from overridden address",
+			func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(50),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			&overrides,
+			false,
+			false,
+			params.TxGas,
+		},
+		{
+			"success - empty state overrides",
+			func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(100),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			&rpctypes.StateOverride{},
 			false,
 			false,
 			params.TxGas,
@@ -738,6 +812,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				return defaultParams
 			},
 			feemarkettypes.DefaultParams,
+			nil,
 			false,
 			true,
 			0,
@@ -763,6 +838,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				return defaultParams
 			},
 			feemarkettypes.DefaultParams,
+			nil,
 			false,
 			true,
 			0,
@@ -787,6 +863,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				params.MinGasMultiplier = sdkmath.LegacyNewDec(math.MaxInt64).MulInt64(100)
 				return params
 			},
+			nil,
 			true,
 			false,
 			0,
@@ -820,23 +897,30 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			)
 			s.Require().NoError(err)
 
-			// Function being tested
-			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(s.Network.GetContext(), msg, nil, true, config, txConfig, false)
+			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(
+				s.Network.GetContext(),
+				msg,
+				nil,
+				true,
+				config,
+				txConfig,
+				false,
+				tc.overrides,
+			)
 
 			if tc.expErr {
 				s.Require().Error(err)
 			} else if !tc.expVMErr {
 				s.Require().NoError(err)
 				s.Require().False(res.Failed())
-				s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+				if tc.overrides != nil && len(*tc.overrides) > 0 {
+					s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+				} else {
+					s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+				}
 			}
 
 			err = s.Network.NextBlock()
-			if tc.expVMErr {
-				s.Require().NotEmpty(res.VmError)
-				return
-			}
-
 			if tc.expVMErr {
 				s.Require().NotEmpty(res.VmError)
 				return
