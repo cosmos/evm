@@ -1,4 +1,4 @@
-package rpc
+package runner
 
 import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
@@ -9,8 +9,11 @@ import (
 func ExecuteAllTests(rCtx *types.RPCContext) []*types.RpcResult {
 	var results []*types.RpcResult
 
+	// Load contract info
+	rCtx = utils.MustLoadContractInfo(rCtx)
+
 	// Get test categories
-	testCategories := GetTestCategories()
+	testCategories := GetTestCases()
 
 	// Execute tests by category
 	for _, category := range testCategories {

@@ -1,4 +1,4 @@
-package rpc
+package utils
 
 import (
 	"encoding/hex"
@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
-	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
 // MustLoadContractInfo loads contract information into the RPC context
@@ -36,7 +35,7 @@ func MustLoadContractInfo(rCtx *types.RPCContext) *types.RPCContext {
 	rCtx.ERC20ByteCode = contractBytecode
 
 	// Load deployed contract addresses from registry
-	evmdContract, _, err := utils.GetContractAddresses()
+	evmdContract, _, err := GetContractAddresses()
 	if err != nil {
 		log.Printf("Warning: Could not load contract addresses from registry: %v", err)
 		log.Printf("Run 'go run main.go setup' first to deploy contracts")
@@ -62,7 +61,7 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 	evmdURL := "http://localhost:8545"
 
 	// Create a few transaction scenarios specifically for RPC testing
-	scenarios := []*utils.TransactionScenario{
+	scenarios := []*TransactionScenario{
 		{
 			Name:        "rpc_test_eth_transfer",
 			Description: "ETH transfer for RPC testing",
@@ -83,7 +82,7 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 
 	// Execute scenarios to generate transaction hashes
 	for _, scenario := range scenarios {
-		result, err := utils.ExecuteTransactionScenario(evmdClient, scenario, "evmd")
+		result, err := ExecuteTransactionScenario(evmdClient, scenario, "evmd")
 		if err != nil {
 			log.Printf("Warning: Failed to execute test transaction %s: %v", scenario.Name, err)
 			continue

@@ -1,15 +1,15 @@
-package rpc
+package runner
 
 import (
-	ns "github.com/cosmos/evm/tests/jsonrpc/simulator/rpc/namespaces"
+	ns "github.com/cosmos/evm/tests/jsonrpc/simulator/namespaces"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
-// GetTestCategories returns the comprehensive test configuration organized by namespace
+// GetTestCase returns the comprehensive test configuration organized by namespace
 // based on the execution-apis structure
-func GetTestCategories() []types.TestCategory {
-	return []types.TestCategory{
+func GetTestCases() []types.TestCase {
+	return []types.TestCase{
 		{
 			Name:        "web3",
 			Description: "Web3 namespace utility methods",

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/report"
-	"github.com/cosmos/evm/tests/jsonrpc/simulator/rpc"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/runner"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
@@ -47,10 +47,8 @@ func main() {
 		log.Fatalf("Failed to create context: %v", err)
 	}
 
-	rCtx = rpc.MustLoadContractInfo(rCtx)
-
 	// Execute all tests
-	results := rpc.ExecuteAllTests(rCtx)
+	results := runner.ExecuteAllTests(rCtx)
 
 	// Generate report
 	report.Results(results, *verbose, *outputExcel)

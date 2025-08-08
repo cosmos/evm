@@ -41,7 +41,7 @@ type CategorySummary struct {
 	Total          int
 }
 
-type TestCategory struct {
+type TestCase struct {
 	Name        string
 	Description string
 	Methods     []TestMethod
