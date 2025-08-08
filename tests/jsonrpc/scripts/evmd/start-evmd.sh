@@ -230,6 +230,7 @@ docker run -d \
     --home /data \
     --minimum-gas-prices=0.0001atest \
     --json-rpc.api eth,txpool,personal,net,debug,web3 \
+    --keyring-backend test \
     --chain-id "$CHAIN_ID"
 
 # Wait for the node to start

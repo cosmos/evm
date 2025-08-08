@@ -1378,23 +1378,11 @@ func EthSendTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	var txHash string
 	err := rCtx.EthCli.Client().Call(&txHash, string(MethodNameEthSendTransaction), tx)
 	if err != nil {
-		// Check for expected "key not found" errors which indicate the API is working
-		// but the account is not managed by the node (which is normal/secure)
-		if strings.Contains(err.Error(), "key not found") ||
-			strings.Contains(err.Error(), "failed to find key in the node's keyring") ||
-			strings.Contains(err.Error(), "account not unlocked") {
-			return &types.RpcResult{
-				Method:   MethodNameEthSendTransaction,
-				Status:   types.Ok, // API works correctly, just account not available
-				Value:    fmt.Sprintf("API functional - expected key management error: %s", err.Error()),
-				Category: "eth",
-			}, nil
-		}
-		// Other errors indicate actual API problems
+		// Key not found errors should now be treated as failures since we have keys in keyring
 		return &types.RpcResult{
 			Method:   MethodNameEthSendTransaction,
 			Status:   types.Error,
-			ErrMsg:   err.Error(),
+			ErrMsg:   fmt.Sprintf("Transaction signing failed - keys should be available in keyring: %s", err.Error()),
 			Category: "eth",
 		}, nil
 	}
@@ -1422,24 +1410,21 @@ func EthSign(rCtx *RpcContext) (*types.RpcResult, error) {
 	var signature string
 	err := rCtx.EthCli.Client().Call(&signature, string(MethodNameEthSign), rCtx.Acc.Address.Hex(), testData)
 	if err != nil {
-		// Check for expected "key not found" errors which indicate the API is working
-		// but the account is not managed by the node (which is normal/secure)
-		if strings.Contains(err.Error(), "key not found") ||
-			strings.Contains(err.Error(), "failed to find key in the node's keyring") ||
-			strings.Contains(err.Error(), "account not unlocked") ||
-			strings.Contains(err.Error(), "eth_sign is disabled") {
+		// Key not found errors should now be treated as failures since we have keys in keyring
+		// eth_sign disabled is still acceptable as some nodes disable it for security
+		if strings.Contains(err.Error(), "eth_sign is disabled") {
 			return &types.RpcResult{
 				Method:   MethodNameEthSign,
-				Status:   types.Ok, // API works correctly, just account not available or disabled
-				Value:    fmt.Sprintf("API functional - expected key management/security error: %s", err.Error()),
+				Status:   types.Ok, // API is disabled for security reasons - this is acceptable
+				Value:    fmt.Sprintf("API disabled for security: %s", err.Error()),
 				Category: "eth",
 			}, nil
 		}
-		// Other errors indicate actual API problems
+		// All other errors (including key not found) should be treated as failures
 		return &types.RpcResult{
 			Method:   MethodNameEthSign,
 			Status:   types.Error,
-			ErrMsg:   err.Error(),
+			ErrMsg:   fmt.Sprintf("Signing failed - keys should be available in keyring: %s", err.Error()),
 			Category: "eth",
 		}, nil
 	}

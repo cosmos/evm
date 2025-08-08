@@ -1,4 +1,4 @@
 rpc_endpoint: "http://localhost:8545"
-rich_privkey: "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305" # addr: 0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101 | cosmos1cml96vmptgw99syqrrz8az79xer2pcgp84pdun
+rich_privkey: "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305" # addr: 0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101 | cosmos1cml96vmptgw99syqrrz8az79xer2pcgp95srxm
 
 timeout: "10s"
