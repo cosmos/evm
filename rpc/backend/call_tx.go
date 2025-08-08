@@ -45,7 +45,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 
 	signer := ethtypes.LatestSigner(cfg)
 
-	matchTx := args.ToTransaction().AsTransaction()
+	matchTx := args.ToTransaction(ethtypes.LegacyTxType)
 
 	// Before replacing the old transaction, ensure the _new_ transaction fee is reasonable.
 	price := matchTx.GasPrice()
@@ -118,7 +118,8 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	ethereumTx := &evmtypes.MsgEthereumTx{}
-	if err := ethereumTx.FromSignedEthereumTx(tx, ethtypes.LatestSignerForChainID(b.EvmChainID)); err != nil {
+	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
+	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
 		b.Logger.Error("transaction converting failed", "error", err.Error())
 		return common.Hash{}, err
 	}

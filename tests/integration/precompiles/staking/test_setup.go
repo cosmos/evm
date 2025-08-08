@@ -44,7 +44,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
 	customGenesis := network.CustomGenesisState{}
 	// mint some coin to fee collector
-	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000)))
+	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000000)))
 	balances := []banktypes.Balance{
 		{
 			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
