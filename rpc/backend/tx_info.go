@@ -511,8 +511,8 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	txHash := msg.AsTransaction().Hash()
 
 	// Find the exact position of the target transaction
-	for txIdx, txBz := range header.Block.Txs {
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+	for txIdx, txBytes := range header.Block.Txs {
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 		if err != nil {
 			continue
 		}
@@ -536,8 +536,8 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	// if tx has already been executed, we need to get the predecessor transactions
 	if isExecuted {
 		for i := 0; i < targetTxIndex; i++ {
-			txBz := header.Block.Txs[i]
-			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+			txBytes := header.Block.Txs[i]
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 			if err != nil {
 				continue
 			}
@@ -552,8 +552,8 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 
 		// Then, get messages from the same transaction but before the target message
 		if targetMsgIndex > 0 {
-			txBz := header.Block.Txs[targetTxIndex]
-			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
+			txBytes := header.Block.Txs[targetTxIndex]
+			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 			if err == nil {
 				for i := 0; i < targetMsgIndex; i++ {
 					ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
