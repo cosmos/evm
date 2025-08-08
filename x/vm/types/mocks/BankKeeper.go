@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	types "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -160,4 +161,160 @@ func NewBankKeeper(t interface {
 	t.Cleanup(func() { mock.AssertExpectations(t) })
 
 	return mock
+}
+
+// GetDenomMetaData provides a mock function with given fields: ctx, denom
+func (_m *BankKeeper) GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool) {
+	ret := _m.Called(ctx, denom)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDenomMetaData")
+	}
+
+	var r0 banktypes.Metadata
+	var r1 bool
+	if rf, ok := ret.Get(0).(func(context.Context, string) (banktypes.Metadata, bool)); ok {
+		return rf(ctx, denom)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) banktypes.Metadata); ok {
+		r0 = rf(ctx, denom)
+	} else {
+		r0 = ret.Get(0).(banktypes.Metadata)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = rf(ctx, denom)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// SpendableCoin provides a mock function with given fields: ctx, addr, denom
+func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, denom string) types.Coin {
+	ret := _m.Called(ctx, addr, denom)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SpendableCoin")
+	}
+
+	var r0 types.Coin
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, string) types.Coin); ok {
+		r0 = rf(ctx, addr, denom)
+	} else {
+		r0 = ret.Get(0).(types.Coin)
+	}
+
+	return r0
+}
+
+// IterateAccountBalances provides a mock function with given fields: ctx, account, cb
+func (_m *BankKeeper) IterateAccountBalances(ctx context.Context, account types.AccAddress, cb func(coin types.Coin) bool) {
+	_m.Called(ctx, account, cb)
+}
+
+// IterateTotalSupply provides a mock function with given fields: ctx, cb
+func (_m *BankKeeper) IterateTotalSupply(ctx context.Context, cb func(coin types.Coin) bool) {
+	_m.Called(ctx, cb)
+}
+
+// GetSupply provides a mock function with given fields: ctx, denom
+func (_m *BankKeeper) GetSupply(ctx context.Context, denom string) types.Coin {
+	ret := _m.Called(ctx, denom)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSupply")
+	}
+
+	var r0 types.Coin
+	if rf, ok := ret.Get(0).(func(context.Context, string) types.Coin); ok {
+		r0 = rf(ctx, denom)
+	} else {
+		r0 = ret.Get(0).(types.Coin)
+	}
+
+	return r0
+}
+
+// SetDenomMetaData provides a mock function with given fields: ctx, denomMetaData
+func (_m *BankKeeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
+	_m.Called(ctx, denomMetaData)
+}
+
+// IsSendEnabledCoin provides a mock function with given fields: ctx, coin
+func (_m *BankKeeper) IsSendEnabledCoin(ctx context.Context, coin types.Coin) bool {
+	ret := _m.Called(ctx, coin)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsSendEnabledCoin")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, types.Coin) bool); ok {
+		r0 = rf(ctx, coin)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GetAllBalances provides a mock function with given fields: ctx, addr
+func (_m *BankKeeper) GetAllBalances(ctx context.Context, addr types.AccAddress) types.Coins {
+	ret := _m.Called(ctx, addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllBalances")
+	}
+
+	var r0 types.Coins
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress) types.Coins); ok {
+		r0 = rf(ctx, addr)
+	} else {
+		r0 = ret.Get(0).(types.Coins)
+	}
+
+	return r0
+}
+
+// BlockedAddr provides a mock function with given fields: addr
+func (_m *BankKeeper) BlockedAddr(addr types.AccAddress) bool {
+	ret := _m.Called(addr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BlockedAddr")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(types.AccAddress) bool); ok {
+		r0 = rf(addr)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SendCoinsFromModuleToModule provides a mock function with given fields: ctx, senderModule, recipientModule, amt
+func (_m *BankKeeper) SendCoinsFromModuleToModule(ctx context.Context, senderModule string, recipientModule string, amt types.Coins) error {
+	ret := _m.Called(ctx, senderModule, recipientModule, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendCoinsFromModuleToModule")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, types.Coins) error); ok {
+		r0 = rf(ctx, senderModule, recipientModule, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// IterateAllBalances provides a mock function with given fields: ctx, cb
+func (_m *BankKeeper) IterateAllBalances(ctx context.Context, cb func(address types.AccAddress, coin types.Coin) (stop bool)) {
+	_m.Called(ctx, cb)
 }

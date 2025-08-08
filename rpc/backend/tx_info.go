@@ -51,7 +51,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &block.Block.Height)
 	if err != nil {
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found: %w", err)
 	}
 
 	if res.EthTxIndex == -1 {
@@ -147,13 +147,13 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	res, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
-		return nil, nil
+		return nil, err
 	}
 
 	resBlock, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		b.Logger.Debug("block not found", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
 	}
 
 	tx, err := b.ClientCtx.TxConfig.TxDecoder()(resBlock.Block.Txs[res.TxIndex])
@@ -174,7 +174,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
 	if err != nil {
 		b.Logger.Debug("failed to retrieve block results", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
 	for _, txResult := range blockRes.TxsResults[0:res.TxIndex] {
@@ -195,7 +195,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, err
 	}
 
-	from, err := ethMsg.GetSender(chainID.ToInt())
+	from, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(chainID.ToInt()))
 	if err != nil {
 		return nil, err
 	}

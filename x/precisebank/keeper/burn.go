@@ -87,6 +87,20 @@ func (k Keeper) burnExtendedCoin(
 	// Get the module address
 	moduleAddr := k.ak.GetModuleAddress(moduleName)
 
+	// Don't create fractional balances for the precisebank module account itself
+	// The precisebank module account is the reserve and should not have fractional balances
+	if moduleName == types.ModuleName {
+		// For the precisebank module account, just burn the integer coins directly
+		integerBurnAmount := amt.Quo(types.ConversionFactor())
+		if integerBurnAmount.IsPositive() {
+			integerBurnCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerBurnAmount)
+			if err := k.bk.BurnCoins(ctx, moduleName, sdk.NewCoins(integerBurnCoin)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	// We only need the fractional balance to burn coins, as integer burns will
 	// return errors on insufficient funds.
 	prevFractionalBalance := k.GetFractionalBalance(ctx, moduleAddr)

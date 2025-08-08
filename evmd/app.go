@@ -479,6 +479,7 @@ func NewExampleApp(
 		app.PreciseBankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
+		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		tracer,
 	)
@@ -488,7 +489,7 @@ func NewExampleApp(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
-		app.BankKeeper,
+		app.PreciseBankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
 		&app.TransferKeeper,
@@ -1043,6 +1044,10 @@ func (app *EVMD) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
 
 func (app *EVMD) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	return app.FeeGrantKeeper
+}
+
+func (app *EVMD) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
+	return app.ConsensusParamsKeeper
 }
 
 func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {

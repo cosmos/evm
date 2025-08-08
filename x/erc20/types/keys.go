@@ -32,15 +32,19 @@ const (
 	prefixTokenPairByDenom
 	prefixSTRv2Addresses
 	prefixAllowance
+	prefixNativePrecompiles
+	prefixDynamicPrecompiles
 )
 
 // KVStore key prefixes
 var (
-	KeyPrefixTokenPair        = []byte{prefixTokenPair}
-	KeyPrefixTokenPairByERC20 = []byte{prefixTokenPairByERC20}
-	KeyPrefixTokenPairByDenom = []byte{prefixTokenPairByDenom}
-	KeyPrefixSTRv2Addresses   = []byte{prefixSTRv2Addresses}
-	KeyPrefixAllowance        = []byte{prefixAllowance}
+	KeyPrefixTokenPair          = []byte{prefixTokenPair}
+	KeyPrefixTokenPairByERC20   = []byte{prefixTokenPairByERC20}
+	KeyPrefixTokenPairByDenom   = []byte{prefixTokenPairByDenom}
+	KeyPrefixSTRv2Addresses     = []byte{prefixSTRv2Addresses}
+	KeyPrefixAllowance          = []byte{prefixAllowance}
+	KeyPrefixNativePrecompiles  = []byte{prefixNativePrecompiles}
+	KeyPrefixDynamicPrecompiles = []byte{prefixDynamicPrecompiles}
 )
 
 func AllowanceKey(

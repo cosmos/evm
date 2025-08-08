@@ -466,7 +466,6 @@ func (s *PrecompileTestSuite) TestRun() {
 				consumed := ctx.GasMeter().GasConsumed()
 				// LessThanOrEqual because the gas is consumed before the error is returned
 				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
-
 			}
 		})
 	}
