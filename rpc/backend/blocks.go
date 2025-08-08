@@ -203,6 +203,9 @@ func (b *Backend) TendermintHeaderByNumber(blockNum rpctypes.BlockNumber) (*tmrp
 // TendermintBlockResultByNumber returns a Tendermint-formatted block result
 // by block number
 func (b *Backend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
+	if height != nil && *height == 0 {
+		height = nil
+	}
 	res, err := b.RPCClient.BlockResults(b.Ctx, height)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch block result from Tendermint %d: %w", *height, err)
