@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	NamespacePersonal = "personal"
+
 	// Personal namespace (deprecated in favor of Clef)
 	MethodNamePersonalListAccounts     types.RpcName = "personal_listAccounts"
 	MethodNamePersonalDeriveAccount    types.RpcName = "personal_deriveAccount"
@@ -34,14 +36,14 @@ func PersonalListAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNamePersonalListAccounts,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalListAccounts,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -59,21 +61,21 @@ func PersonalNewAccount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNamePersonalNewAccount,
 				Status:   types.Legacy,
 				Value:    "Personal namespace deprecated - API functional but security restricted: " + errMsg,
-				Category: "personal",
+				Category: NamespacePersonal,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNamePersonalNewAccount,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalNewAccount,
 		Status:   types.Legacy,
 		Value:    "Personal namespace deprecated - but functional: " + result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -93,21 +95,21 @@ func PersonalSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNamePersonalSign,
 				Status:   types.Legacy,
 				Value:    "Personal namespace deprecated - API functional but key management error: " + errMsg,
-				Category: "personal",
+				Category: NamespacePersonal,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNamePersonalSign,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalSign,
 		Status:   types.Legacy,
 		Value:    "Personal namespace deprecated - but functional: " + result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -126,21 +128,21 @@ func PersonalImportRawKey(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNamePersonalImportRawKey,
 				Status:   types.Legacy,
 				Value:    "Personal namespace deprecated - API functional but security restricted: " + errMsg,
-				Category: "personal",
+				Category: NamespacePersonal,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNamePersonalImportRawKey,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalImportRawKey,
 		Status:   types.Legacy,
 		Value:    "Personal namespace deprecated - but functional: " + result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -164,21 +166,21 @@ func PersonalSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNamePersonalSendTransaction,
 				Status:   types.Legacy,
 				Value:    "Personal namespace deprecated - API functional but key management error: " + errMsg,
-				Category: "personal",
+				Category: NamespacePersonal,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNamePersonalSendTransaction,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalSendTransaction,
 		Status:   types.Legacy,
 		Value:    "Personal namespace deprecated - but functional: " + result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -193,14 +195,14 @@ func PersonalEcRecover(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNamePersonalEcRecover,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalEcRecover,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }
 
@@ -212,13 +214,13 @@ func PersonalListWallets(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNamePersonalListWallets,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "personal",
+			Category: NamespacePersonal,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNamePersonalListWallets,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "personal",
+		Category: NamespacePersonal,
 	}, nil
 }

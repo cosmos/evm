@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	NamespaceDebug = "debug"
+
 	// Debug namespace - tracing subcategory
 	MethodNameDebugTraceTransaction   types.RpcName = "debug_traceTransaction"
 	MethodNameDebugTraceBlock         types.RpcName = "debug_traceBlock"
@@ -83,7 +85,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceTransaction,
 			Status:   types.Error,
 			ErrMsg:   "No processed transactions available for tracing",
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -105,7 +107,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceTransaction,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -169,7 +171,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceTransaction,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Trace validation failed: %s", strings.Join(validationErrors, ", ")),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -177,7 +179,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugTraceTransaction,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Transaction traced and validated (tx: %s, type: %v, gas: %v)", txHash.Hex()[:10]+"...", traceResult["type"], traceResult["gasUsed"]),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -195,7 +197,7 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugPrintBlock,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Failed to get block number: %v", err),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -206,7 +208,7 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugPrintBlock,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -214,7 +216,7 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugPrintBlock,
 		Status:   types.Ok,
 		Value:    "Block printed successfully",
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -234,7 +236,7 @@ func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) 
 			Method:   MethodNameDebugSetBlockProfileRate,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -242,7 +244,7 @@ func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) 
 		Method:   MethodNameDebugSetBlockProfileRate,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Block profile rate set to %d", rate),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -262,7 +264,7 @@ func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, err
 			Method:   MethodNameDebugSetMutexProfileFraction,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -270,7 +272,7 @@ func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, err
 		Method:   MethodNameDebugSetMutexProfileFraction,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Mutex profile fraction set to %d", fraction),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -291,7 +293,7 @@ func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugSetGCPercent,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -299,7 +301,7 @@ func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugSetGCPercent,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("GC percent set to %d (previous: %d)", percent, previousPercent),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -316,7 +318,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugIntermediateRoots,
 			Status:   types.Error,
 			ErrMsg:   "No processed transactions available",
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -326,7 +328,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugIntermediateRoots,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -337,7 +339,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugIntermediateRoots,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -345,7 +347,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugIntermediateRoots,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Retrieved %d intermediate roots", len(roots)),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -362,7 +364,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByHash,
 			Status:   types.Error,
 			ErrMsg:   "No processed transactions available",
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -372,7 +374,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByHash,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -388,7 +390,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByHash,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -398,7 +400,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByHash,
 			Status:   types.Error,
 			ErrMsg:   "trace result is null",
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -406,7 +408,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugTraceBlockByHash,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Block traced successfully (hash: %s)", receipt.BlockHash.Hex()[:10]+"..."),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -424,7 +426,7 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByNumber,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Failed to get block number: %v", err),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -442,7 +444,7 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBlockByNumber,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -450,7 +452,7 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugTraceBlockByNumber,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Traced block by number with %d results", len(traceResults)),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -468,7 +470,7 @@ func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugGcStats,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -476,7 +478,7 @@ func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugGcStats,
 		Status:   types.Ok,
 		Value:    "GC statistics retrieved successfully",
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -493,7 +495,7 @@ func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugFreeOSMemory,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -501,7 +503,7 @@ func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugFreeOSMemory,
 		Status:   types.Ok,
 		Value:    "OS memory freed successfully",
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -519,7 +521,7 @@ func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugStacks,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -527,7 +529,7 @@ func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugStacks,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Stack trace retrieved (%d characters)", len(stacks)),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -548,7 +550,7 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugMutexProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -556,7 +558,7 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugMutexProfile,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Mutex profile written to %s for %d seconds", filename, duration),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -577,7 +579,7 @@ func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugCPUProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -585,7 +587,7 @@ func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugCPUProfile,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("CPU profile written to %s for %d seconds", filename, duration),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -606,7 +608,7 @@ func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugGoTrace,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -614,7 +616,7 @@ func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugGoTrace,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Go trace written to %s for %d seconds", filename, duration),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -635,7 +637,7 @@ func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugBlockProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 
@@ -643,7 +645,7 @@ func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugBlockProfile,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Block profile written to %s for %d seconds", filename, duration),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -660,14 +662,14 @@ func DebugStartCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugStartCPUProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugStartCPUProfile,
 		Status:   types.Ok,
 		Value:    "CPU profiling started",
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -680,14 +682,14 @@ func DebugStopCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugStopCPUProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugStopCPUProfile,
 		Status:   types.Ok,
 		Value:    "CPU profiling stopped",
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -702,14 +704,14 @@ func DebugTraceBadBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugTraceBadBlock,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugTraceBadBlock,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -726,14 +728,14 @@ func DebugStandardTraceBlockToFile(rCtx *types.RPCContext) (*types.RpcResult, er
 			Method:   MethodNameDebugStandardTraceBlockToFile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugStandardTraceBlockToFile,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -753,14 +755,14 @@ func DebugStorageRangeAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugStorageRangeAt,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugStorageRangeAt,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -774,14 +776,14 @@ func DebugSetTrieFlushInterval(rCtx *types.RPCContext) (*types.RpcResult, error)
 			Method:   MethodNameDebugSetTrieFlushInterval,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugSetTrieFlushInterval,
 		Status:   types.Ok,
 		Value:    "Trie flush interval set to " + interval,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -795,14 +797,14 @@ func DebugVmodule(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugVmodule,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugVmodule,
 		Status:   types.Ok,
 		Value:    "Verbosity pattern set to " + pattern,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -816,14 +818,14 @@ func DebugWriteBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugWriteBlockProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugWriteBlockProfile,
 		Status:   types.Ok,
 		Value:    "Block profile written to " + filename,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -837,14 +839,14 @@ func DebugWriteMemProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugWriteMemProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugWriteMemProfile,
 		Status:   types.Ok,
 		Value:    "Memory profile written to " + filename,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -858,14 +860,14 @@ func DebugWriteMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugWriteMutexProfile,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugWriteMutexProfile,
 		Status:   types.Ok,
 		Value:    "Mutex profile written to " + filename,
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }
 
@@ -879,13 +881,13 @@ func DebugVerbosity(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameDebugVerbosity,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "debug",
+			Category: NamespaceDebug,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugVerbosity,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Verbosity level set to %d", level),
-		Category: "debug",
+		Category: NamespaceDebug,
 	}, nil
 }

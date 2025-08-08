@@ -99,21 +99,21 @@ func EthSubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Ok,
 			Value:    fmt.Sprintf("All 4 subscription types working: %v", results),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	case len(failedTests) < len(subscriptionTypes):
 		return &types.RpcResult{
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Ok,
 			Value:    fmt.Sprintf("Partial support (%d/%d): %v", len(subscriptionTypes)-len(failedTests), len(subscriptionTypes), results),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	default:
 		return &types.RpcResult{
 			Method:   MethodNameEthSubscribe,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("All subscription types failed: %v", failedTests),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 }
@@ -138,14 +138,14 @@ func EthUnsubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthUnsubscribe,
 			Status:   types.Ok,
 			Value:    fmt.Sprintf("Successfully unsubscribed from subscription: %s", subscriptionID),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameEthUnsubscribe,
 		Status:   types.Error,
 		ErrMsg:   fmt.Sprintf("Failed to test unsubscribe: %v", err),
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 

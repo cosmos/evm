@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	NamespaceEth = "eth"
+
 	// Eth namespace - client subcategory
 	MethodNameEthChainID     types.RpcName = "eth_chainId"
 	MethodNameEthSyncing     types.RpcName = "eth_syncing"
@@ -107,7 +109,7 @@ func EthCoinbase(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthCoinbase,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -115,7 +117,7 @@ func EthCoinbase(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthCoinbase,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -135,7 +137,7 @@ func EthBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthBlockNumber,
 		Status:   status,
 		Value:    blockNumber,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -163,7 +165,7 @@ func EthGasPrice(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGasPrice,
 		Status:   status,
 		Value:    gasPrice.String(),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -187,7 +189,7 @@ func EthMaxPriorityFeePerGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthMaxPriorityFeePerGas,
 		Status:   status,
 		Value:    maxPriorityFeePerGas.String(),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -215,7 +217,7 @@ func EthChainID(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthChainID,
 		Status:   status,
 		Value:    chainID.String(),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -239,7 +241,7 @@ func EthGetBalance(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetBalance,
 		Status:   status,
 		Value:    balance.String(),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -263,7 +265,7 @@ func EthGetTransactionCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetTransactionCount,
 		Status:   status,
 		Value:    nonce,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -567,7 +569,7 @@ func EthSendRawTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:       fmt.Sprintf("Completed %d scenarios: %s", len(allResults), strings.Join(passedScenarios, ", ")),
 		ErrMsg:      errMsg,
 		Description: fmt.Sprintf("Combined test: %d passed, %d failed", len(passedScenarios), len(failedScenarios)),
-		Category:    "eth",
+		Category:    NamespaceEth,
 	}, nil
 }
 
@@ -807,7 +809,7 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 		Method:   MethodNameEthGetBlockTransactionCountByNumber,
 		Status:   types.Ok,
 		Value:    count,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -848,7 +850,7 @@ func EthGetUncleCountByBlockHash(rCtx *types.RPCContext) (*types.RpcResult, erro
 		Method:   MethodNameEthGetUncleCountByBlockHash,
 		Status:   types.Ok,
 		Value:    uncleCount,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -871,7 +873,7 @@ func EthGetUncleCountByBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, er
 		Method:   MethodNameEthGetUncleCountByBlockNumber,
 		Status:   types.Ok,
 		Value:    uncleCount,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -911,7 +913,7 @@ func EthGetUncleByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcResult, e
 		Method:   MethodNameEthGetUncleByBlockHashAndIndex,
 		Status:   types.Ok,
 		Value:    uncle,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -941,7 +943,7 @@ func EthGetUncleByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcResult,
 		Method:   MethodNameEthGetUncleByBlockNumberAndIndex,
 		Status:   types.Ok,
 		Value:    uncle,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1080,7 +1082,7 @@ func EthGetStorageAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetStorageAt,
 		Status:   status,
 		Value:    hexutils.BytesToHex(storage),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1197,7 +1199,7 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetFilterChanges,
 		Status:   status,
 		Value:    changes,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1264,7 +1266,7 @@ func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetLogs,
 		Status:   status,
 		Value:    utils.MustBeautifyLogs(logs),
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -1280,14 +1282,14 @@ func EthProtocolVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthProtocolVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameEthProtocolVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1299,14 +1301,14 @@ func EthSyncing(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthSyncing,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameEthSyncing,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1318,14 +1320,14 @@ func EthAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthAccounts,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameEthAccounts,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1338,14 +1340,14 @@ func EthMining(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthMining,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameEthMining,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1362,7 +1364,7 @@ func EthCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthCall,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1370,7 +1372,7 @@ func EthCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthCall,
 		Status:   types.Ok,
 		Value:    "0x" + hex.EncodeToString(result),
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1388,7 +1390,7 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthEstimateGas,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1396,7 +1398,7 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthEstimateGas,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("0x%x", gasLimit),
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1411,14 +1413,14 @@ func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNameEthFeeHistory,
 				Status:   types.NotImplemented,
 				ErrMsg:   "Method not implemented in Cosmos EVM",
-				Category: "eth",
+				Category: NamespaceEth,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNameEthFeeHistory,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1426,12 +1428,12 @@ func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthFeeHistory,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
 func EthBlobBaseFee(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	return utils.CallEthClient(rCtx, MethodNameEthBlobBaseFee, "eth")
+	return utils.CallEthClient(rCtx, MethodNameEthBlobBaseFee, NamespaceEth)
 }
 
 func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
@@ -1445,14 +1447,14 @@ func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNameEthGetProof,
 				Status:   types.NotImplemented,
 				ErrMsg:   "Method not implemented in Cosmos EVM",
-				Category: "eth",
+				Category: NamespaceEth,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNameEthGetProof,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1460,7 +1462,7 @@ func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthGetProof,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }
 
@@ -1487,7 +1489,7 @@ func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthSendTransaction,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Transaction signing failed - keys should be available in keyring: %s", err.Error()),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1495,7 +1497,7 @@ func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthSendTransaction,
 		Status:   types.Ok,
 		Value:    txHash,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -1521,7 +1523,7 @@ func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNameEthSign,
 				Status:   types.Ok, // API is disabled for security reasons - this is acceptable
 				Value:    fmt.Sprintf("API disabled for security: %s", err.Error()),
-				Category: "eth",
+				Category: NamespaceEth,
 			}, nil
 		}
 		// All other errors (including key not found) should be treated as failures
@@ -1529,7 +1531,7 @@ func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameEthSign,
 			Status:   types.Error,
 			ErrMsg:   fmt.Sprintf("Signing failed - keys should be available in keyring: %s", err.Error()),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1537,7 +1539,7 @@ func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthSign,
 		Status:   types.Ok,
 		Value:    signature,
-		Category: "eth",
+		Category: NamespaceEth,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
@@ -1558,14 +1560,14 @@ func EthCreateAccessList(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				Method:   MethodNameEthCreateAccessList,
 				Status:   types.NotImplemented,
 				ErrMsg:   "Method not implemented in Cosmos EVM",
-				Category: "eth",
+				Category: NamespaceEth,
 			}, nil
 		}
 		return &types.RpcResult{
 			Method:   MethodNameEthCreateAccessList,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "eth",
+			Category: NamespaceEth,
 		}, nil
 	}
 
@@ -1573,6 +1575,6 @@ func EthCreateAccessList(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameEthCreateAccessList,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "eth",
+		Category: NamespaceEth,
 	}, nil
 }

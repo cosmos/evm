@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	NamespaceNet = "net"
+
 	// Net namespace
 	MethodNameNetVersion   types.RpcName = "net_version"
 	MethodNameNetPeerCount types.RpcName = "net_peerCount"
@@ -22,14 +24,14 @@ func NetVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameNetVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "net",
+			Category: NamespaceNet,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameNetVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "net",
+		Category: NamespaceNet,
 	}, nil
 }
 
@@ -41,14 +43,14 @@ func NetPeerCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameNetPeerCount,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "net",
+			Category: NamespaceNet,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameNetPeerCount,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "net",
+		Category: NamespaceNet,
 	}, nil
 }
 
@@ -60,13 +62,13 @@ func NetListening(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameNetListening,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "net",
+			Category: NamespaceNet,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameNetListening,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "net",
+		Category: NamespaceNet,
 	}, nil
 }

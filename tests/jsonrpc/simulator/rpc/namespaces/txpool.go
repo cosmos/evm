@@ -5,6 +5,8 @@ import (
 )
 
 const (
+	NamespaceTxPool = "txpool"
+
 	// TxPool namespace
 	MethodNameTxPoolContent     types.RpcName = "txpool_content"
 	MethodNameTxPoolContentFrom types.RpcName = "txpool_contentFrom"
@@ -21,14 +23,14 @@ func TxPoolStatus(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameTxPoolStatus,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "txpool",
+			Category: NamespaceTxPool,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameTxPoolStatus,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "txpool",
+		Category: NamespaceTxPool,
 	}, nil
 }
 
@@ -40,14 +42,14 @@ func TxPoolContent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameTxPoolContent,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "txpool",
+			Category: NamespaceTxPool,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameTxPoolContent,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "txpool",
+		Category: NamespaceTxPool,
 	}, nil
 }
 
@@ -59,14 +61,14 @@ func TxPoolInspect(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameTxPoolInspect,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "txpool",
+			Category: NamespaceTxPool,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameTxPoolInspect,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "txpool",
+		Category: NamespaceTxPool,
 	}, nil
 }
 
@@ -81,13 +83,13 @@ func TxPoolContentFrom(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameTxPoolContentFrom,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "txpool",
+			Category: NamespaceTxPool,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameTxPoolContentFrom,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "txpool",
+		Category: NamespaceTxPool,
 	}, nil
 }

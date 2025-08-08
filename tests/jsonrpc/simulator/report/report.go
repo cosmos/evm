@@ -10,7 +10,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/xuri/excelize/v2"
 
-	"github.com/cosmos/evm/tests/jsonrpc/simulator/rpc"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
@@ -25,7 +25,7 @@ func Results(results []*types.RpcResult, verbose bool, outputExcel bool) {
 	}
 	if outputExcel {
 		f := excelize.NewFile()
-		name := fmt.Sprintf("geth%s", rpc.GethVersion)
+		name := fmt.Sprintf("geth%s", config.GethVersion)
 		if err := f.SetSheetName("Sheet1", name); err != nil {
 			log.Fatalf("Failed to set sheet name: %v", err)
 		}

@@ -5,6 +5,8 @@ import (
 )
 
 const (
+	NamespaceWeb3 = "web3"
+
 	// Web3 namespace
 	MethodNameWeb3ClientVersion types.RpcName = "web3_clientVersion"
 	MethodNameWeb3Sha3          types.RpcName = "web3_sha3"
@@ -19,14 +21,14 @@ func Web3ClientVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameWeb3ClientVersion,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "web3",
+			Category: NamespaceWeb3,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameWeb3ClientVersion,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "web3",
+		Category: NamespaceWeb3,
 	}, nil
 }
 
@@ -38,13 +40,13 @@ func Web3Sha3(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Method:   MethodNameWeb3Sha3,
 			Status:   types.Error,
 			ErrMsg:   err.Error(),
-			Category: "web3",
+			Category: NamespaceWeb3,
 		}, nil
 	}
 	return &types.RpcResult{
 		Method:   MethodNameWeb3Sha3,
 		Status:   types.Ok,
 		Value:    result,
-		Category: "web3",
+		Category: NamespaceWeb3,
 	}, nil
 }

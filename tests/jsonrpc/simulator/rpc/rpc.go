@@ -18,12 +18,6 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
-// GethVersion is the version of the Geth client used in the tests
-// Update it when go-ethereum of go.mod is updated
-const GethVersion = "1.15.10"
-
-type CallRPC func(rCtx *types.RPCContext) (*types.RpcResult, error)
-
 // MustLoadContractInfo loads contract information into the RPC context
 func MustLoadContractInfo(rCtx *types.RPCContext) *types.RPCContext {
 	// Read the ABI file
