@@ -32,11 +32,9 @@ func NewEthSigVerificationDecorator(ek anteinterfaces.EVMKeeper) EthSigVerificat
 // Failure in RecheckTx will prevent tx to be included into block, especially when CheckTx succeed, in which case user
 // won't see the error message.
 func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
-	evmParams := esvd.evmKeeper.GetParams(ctx)
 	ethCfg := evmtypes.GetEthChainConfig()
 	blockNum := big.NewInt(ctx.BlockHeight())
 	signer := ethtypes.MakeSigner(ethCfg, blockNum, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
-	allowUnprotectedTxs := evmParams.GetAllowUnprotectedTxs()
 
 	msgs := tx.GetMsgs()
 	if msgs == nil {
@@ -49,7 +47,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
 		}
 
-		err := SignatureVerification(msgEthTx, signer, allowUnprotectedTxs)
+		err := SignatureVerification(msgEthTx, signer)
 		if err != nil {
 			return ctx, err
 		}
@@ -65,24 +63,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 func SignatureVerification(
 	msg *evmtypes.MsgEthereumTx,
 	signer ethtypes.Signer,
-	allowUnprotectedTxs bool,
 ) error {
-	ethTx := msg.AsTransaction()
-	ethCfg := evmtypes.GetEthChainConfig()
-
-	if !allowUnprotectedTxs {
-		if !ethTx.Protected() {
-			return errorsmod.Wrapf(
-				errortypes.ErrNotSupported,
-				"rejected unprotected ethereum transaction; please sign your transaction according to EIP-155 to protect it against replay-attacks")
-		}
-		if ethTx.ChainId().Uint64() != ethCfg.ChainID.Uint64() {
-			return errorsmod.Wrapf(
-				errortypes.ErrInvalidChainID,
-				"rejected ethereum transaction with incorrect chain-id; expected %d, got %d", ethCfg.ChainID, ethTx.ChainId())
-		}
-	}
-
 	if err := msg.VerifySender(signer); err != nil {
 		return errorsmod.Wrapf(errortypes.ErrorInvalidSigner, "signature verification failed: %s", err.Error())
 	}
