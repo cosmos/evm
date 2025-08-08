@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func WaitForTx(rCtx *types.RpcContext, txHash common.Hash, timeout time.Duration) error {
+func WaitForTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 

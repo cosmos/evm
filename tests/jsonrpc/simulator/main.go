@@ -42,7 +42,7 @@ func main() {
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig("config.yaml")
 
-	rCtx, err := types.NewContext(conf)
+	rCtx, err := types.NewRPCContext(conf)
 	if err != nil {
 		log.Fatalf("Failed to create context: %v", err)
 	}

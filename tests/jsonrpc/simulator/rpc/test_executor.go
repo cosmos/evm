@@ -8,7 +8,7 @@ import (
 )
 
 // ExecuteAllTests runs all RPC tests and returns the results
-func ExecuteAllTests(rCtx *types.RpcContext) []*types.RpcResult {
+func ExecuteAllTests(rCtx *types.RPCContext) []*types.RpcResult {
 	var results []*types.RpcResult
 
 	// Get test categories
@@ -37,7 +37,7 @@ func ExecuteAllTests(rCtx *types.RpcContext) []*types.RpcResult {
 			}
 
 			// Execute the test
-			handler := method.Handler.(func(*types.RpcContext) (*types.RpcResult, error))
+			handler := method.Handler.(func(*types.RPCContext) (*types.RpcResult, error))
 			result, err := handler(rCtx)
 			if err != nil {
 				result = &types.RpcResult{
@@ -84,27 +84,28 @@ func ExecuteAllTests(rCtx *types.RpcContext) []*types.RpcResult {
 
 // categorizeMethodByNamespace categorizes RPC methods based on their namespace prefix
 func categorizeMethodByNamespace(methodStr string) string {
-	if strings.HasPrefix(methodStr, "eth_") {
+	switch {
+	case strings.HasPrefix(methodStr, "eth_"):
 		return "eth"
-	} else if strings.HasPrefix(methodStr, "web3_") {
+	case strings.HasPrefix(methodStr, "web3_"):
 		return "web3"
-	} else if strings.HasPrefix(methodStr, "net_") {
+	case strings.HasPrefix(methodStr, "net_"):
 		return "net"
-	} else if strings.HasPrefix(methodStr, "personal_") {
+	case strings.HasPrefix(methodStr, "personal_"):
 		return "personal"
-	} else if strings.HasPrefix(methodStr, "debug_") {
+	case strings.HasPrefix(methodStr, "debug_"):
 		return "debug"
-	} else if strings.HasPrefix(methodStr, "txpool_") {
+	case strings.HasPrefix(methodStr, "txpool_"):
 		return "txpool"
-	} else if strings.HasPrefix(methodStr, "miner_") {
+	case strings.HasPrefix(methodStr, "miner_"):
 		return "miner"
-	} else if strings.HasPrefix(methodStr, "admin_") {
+	case strings.HasPrefix(methodStr, "admin_"):
 		return "admin"
-	} else if strings.HasPrefix(methodStr, "engine_") {
+	case strings.HasPrefix(methodStr, "engine_"):
 		return "engine"
-	} else if strings.HasPrefix(methodStr, "les_") {
+	case strings.HasPrefix(methodStr, "les_"):
 		return "les"
-	} else {
+	default:
 		return "Uncategorized"
 	}
 }

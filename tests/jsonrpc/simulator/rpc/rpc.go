@@ -21,7 +21,7 @@ import (
 // Update it when go-ethereum of go.mod is updated
 const GethVersion = "1.15.10"
 
-type CallRPC func(rCtx *types.RpcContext) (*types.RpcResult, error)
+type CallRPC func(rCtx *types.RPCContext) (*types.RpcResult, error)
 
 func Skipped(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
 	return &types.RpcResult{
@@ -32,7 +32,7 @@ func Skipped(methodName types.RpcName, category string, reason string) (*types.R
 	}, nil
 }
 
-func Legacy(rCtx *types.RpcContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
+func Legacy(rCtx *types.RPCContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
 	// First test if the API is actually implemented
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(methodName))
@@ -65,7 +65,7 @@ func Legacy(rCtx *types.RpcContext, methodName types.RpcName, category string, r
 }
 
 // MustLoadContractInfo loads contract information into the RPC context
-func MustLoadContractInfo(rCtx *types.RpcContext) *types.RpcContext {
+func MustLoadContractInfo(rCtx *types.RPCContext) *types.RPCContext {
 	// Read the ABI file
 	abiFile, err := os.ReadFile("contracts/ERC20Token.abi")
 	if err != nil {
@@ -103,7 +103,7 @@ func MustLoadContractInfo(rCtx *types.RpcContext) *types.RpcContext {
 }
 
 // generateTestTransactionsForRPC creates some test transactions to populate RPC context data
-func generateTestTransactionsForRPC(rCtx *types.RpcContext) error {
+func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 	// Generate a few quick transactions using the transaction generation system
 	evmdURL := "http://localhost:8545"
 

@@ -20,11 +20,11 @@ type Account struct {
 	PrivKey *ecdsa.PrivateKey
 }
 
-type RpcContext struct {
+type RPCContext struct {
 	Conf                  *config.Config
 	EthCli                *ethclient.Client
 	Acc                   *Account
-	ChainId               *big.Int
+	ChainID               *big.Int
 	MaxPriorityFeePerGas  *big.Int
 	GasPrice              *big.Int
 	ProcessedTransactions []common.Hash
@@ -38,7 +38,7 @@ type RpcContext struct {
 	BlockFilterId         string
 }
 
-func NewContext(conf *config.Config) (*RpcContext, error) {
+func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	// Connect to the Ethereum client
 	ethCli, err := ethclient.Dial(conf.RpcEndpoint)
 	if err != nil {
@@ -50,7 +50,7 @@ func NewContext(conf *config.Config) (*RpcContext, error) {
 		return nil, err
 	}
 
-	ctx := &RpcContext{
+	ctx := &RPCContext{
 		Conf:   conf,
 		EthCli: ethCli,
 		Acc: &Account{
@@ -69,7 +69,7 @@ func NewContext(conf *config.Config) (*RpcContext, error) {
 	return ctx, nil
 }
 
-func (rCtx *RpcContext) AlreadyTested(rpc RpcName) *RpcResult {
+func (rCtx *RPCContext) AlreadyTested(rpc RpcName) *RpcResult {
 	for _, testedRPC := range rCtx.AlreadyTestedRPCs {
 		if rpc == testedRPC.Method {
 			return testedRPC
@@ -80,7 +80,7 @@ func (rCtx *RpcContext) AlreadyTested(rpc RpcName) *RpcResult {
 }
 
 // loadExistingState scans the blockchain and creates test transactions if needed
-func (rCtx *RpcContext) loadExistingState() error {
+func (rCtx *RPCContext) loadExistingState() error {
 	// First, scan existing blocks for any transactions
 	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
 	if err != nil {

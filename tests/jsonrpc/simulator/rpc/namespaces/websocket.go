@@ -39,7 +39,7 @@ type NotificationParam struct {
 }
 
 // EthSubscribe tests WebSocket subscription functionality
-func EthSubscribe(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func EthSubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Convert HTTP endpoint to WebSocket endpoint
 	// Cosmos EVM uses port 8546 for WebSocket, not 8545
 	wsURL := strings.Replace(rCtx.Conf.RpcEndpoint, "http://localhost:8545", "ws://localhost:8546", 1)
@@ -118,7 +118,7 @@ func EthSubscribe(rCtx *types.RpcContext) (*types.RpcResult, error) {
 }
 
 // EthUnsubscribe tests WebSocket unsubscription functionality
-func EthUnsubscribe(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func EthUnsubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Convert HTTP endpoint to WebSocket endpoint
 	// Cosmos EVM uses port 8546 for WebSocket, not 8545
 	wsURL := strings.Replace(rCtx.Conf.RpcEndpoint, "http://localhost:8545", "ws://localhost:8546", 1)
@@ -281,7 +281,7 @@ func testWebSocketUnsubscribe(wsURL string) (bool, string, error) {
 }
 
 // Helper function to test if WebSocket endpoint is available
-func IsWebSocketAvailable(rCtx *types.RpcContext) bool {
+func IsWebSocketAvailable(rCtx *types.RPCContext) bool {
 	// Convert HTTP endpoint to WebSocket endpoint
 	// Cosmos EVM uses port 8546 for WebSocket, not 8545
 	wsURL := strings.Replace(rCtx.Conf.RpcEndpoint, "http://localhost:8545", "ws://localhost:8546", 1)

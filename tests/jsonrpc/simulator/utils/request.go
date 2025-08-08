@@ -3,7 +3,7 @@ package utils
 import "github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 
 // Generic test handler that makes an actual RPC call to determine if an API is implemented
-func GenericTest(rCtx *types.RpcContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
+func GenericTest(rCtx *types.RPCContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(methodName))
 

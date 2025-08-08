@@ -19,8 +19,8 @@ type RpcBlock struct {
 	Withdrawals  []*types.Withdrawal
 
 	// Cache fields
-	Hash atomic.Pointer[common.Hash] `json:"hash"`
-	Size atomic.Uint64               `json:"size"`
+	Hash *atomic.Pointer[common.Hash] `json:"hash"`
+	Size *atomic.Uint64               `json:"size"`
 
 	// Metadata fields
 	ReceivedAt   time.Time   `json:"received_at"`
@@ -28,23 +28,23 @@ type RpcBlock struct {
 }
 
 // NewRpcBlock creates a new RpcBlock from a ethereum Block.
-func NewRpcBlock(block *types.Block) *RpcBlock {
+func NewRPCBlock(block *types.Block) *RpcBlock {
 	// Getting private fields via reflection
 	blockValue := reflect.ValueOf(block).Elem()
 
 	// Accessing private fields: hash and size
 	hashField := blockValue.FieldByName("hash")
-	hash := *(*atomic.Pointer[common.Hash])(unsafe.Pointer(hashField.UnsafeAddr()))
+	hashPtr := (*atomic.Pointer[common.Hash])(unsafe.Pointer(hashField.UnsafeAddr()))
 
 	sizeField := blockValue.FieldByName("size")
-	size := *(*atomic.Uint64)(unsafe.Pointer(sizeField.UnsafeAddr()))
+	sizePtr := (*atomic.Uint64)(unsafe.Pointer(sizeField.UnsafeAddr()))
 	return &RpcBlock{
 		Header:       block.Header(),
 		Uncles:       block.Uncles(),
 		Transactions: block.Transactions(),
 		Withdrawals:  block.Withdrawals(),
-		Hash:         hash,
-		Size:         size,
+		Hash:         hashPtr, // Assign pointer directly to avoid copying lock value
+		Size:         sizePtr, // Assign pointer directly to avoid copying lock value
 		ReceivedAt:   blockValue.FieldByName("ReceivedAt").Interface().(time.Time),
 		ReceivedFrom: blockValue.FieldByName("ReceivedFrom").Interface(),
 	}

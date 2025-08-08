@@ -11,7 +11,7 @@ const (
 )
 
 // Web3 method handlers
-func Web3ClientVersion(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func Web3ClientVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "web3_clientVersion")
 	if err != nil {
@@ -30,7 +30,7 @@ func Web3ClientVersion(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func Web3Sha3(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func Web3Sha3(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "web3_sha3", "0x68656c6c6f20776f726c64")
 	if err != nil {

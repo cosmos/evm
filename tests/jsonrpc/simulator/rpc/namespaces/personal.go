@@ -26,7 +26,7 @@ const (
 )
 
 // Personal method handlers
-func PersonalListAccounts(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalListAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result []string
 	err := rCtx.EthCli.Client().Call(&result, "personal_listAccounts")
 	if err != nil {
@@ -46,7 +46,7 @@ func PersonalListAccounts(rCtx *types.RpcContext) (*types.RpcResult, error) {
 }
 
 // PersonalNewAccount tests personal_newAccount with a passphrase
-func PersonalNewAccount(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalNewAccount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "personal_newAccount", "test_passphrase")
 	if err != nil {
@@ -78,7 +78,7 @@ func PersonalNewAccount(rCtx *types.RpcContext) (*types.RpcResult, error) {
 }
 
 // PersonalSign tests personal_sign with test data
-func PersonalSign(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	testData := "0xdeadbeaf"
 	testAccount := "0x7cb61d4117ae31a12e393a1cfa3bac666481d02e" // coinbase address
@@ -112,7 +112,7 @@ func PersonalSign(rCtx *types.RpcContext) (*types.RpcResult, error) {
 }
 
 // PersonalImportRawKey tests personal_importRawKey with a test private key
-func PersonalImportRawKey(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalImportRawKey(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // test private key
 	err := rCtx.EthCli.Client().Call(&result, "personal_importRawKey", testPrivateKey, "test_passphrase")
@@ -145,7 +145,7 @@ func PersonalImportRawKey(rCtx *types.RpcContext) (*types.RpcResult, error) {
 }
 
 // PersonalSendTransaction tests personal_sendTransaction with test transaction
-func PersonalSendTransaction(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	testTx := map[string]interface{}{
 		"from":  "0x7cb61d4117ae31a12e393a1cfa3bac666481d02e", // coinbase
@@ -182,7 +182,7 @@ func PersonalSendTransaction(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func PersonalEcRecover(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalEcRecover(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Test with known data
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "personal_ecRecover",
@@ -204,7 +204,7 @@ func PersonalEcRecover(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func PersonalListWallets(rCtx *types.RpcContext) (*types.RpcResult, error) {
+func PersonalListWallets(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "personal_listWallets")
 	if err != nil {
