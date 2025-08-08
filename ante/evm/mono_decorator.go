@@ -132,7 +132,6 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	if err := SignatureVerification(
 		ethMsg,
 		decUtils.Signer,
-		decUtils.EvmParams.AllowUnprotectedTxs,
 	); err != nil {
 		return ctx, err
 	}
