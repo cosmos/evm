@@ -1,4 +1,4 @@
-package rpc
+package namespaces
 
 import (
 	"context"
@@ -8,8 +8,71 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
+const (
+	// Debug namespace - tracing subcategory
+	MethodNameDebugTraceTransaction   types.RpcName = "debug_traceTransaction"
+	MethodNameDebugTraceBlock         types.RpcName = "debug_traceBlock"
+	MethodNameDebugTraceBlockByHash   types.RpcName = "debug_traceBlockByHash"
+	MethodNameDebugTraceBlockByNumber types.RpcName = "debug_traceBlockByNumber"
+	MethodNameDebugTraceCall          types.RpcName = "debug_traceCall"
+	MethodNameDebugIntermediateRoots  types.RpcName = "debug_intermediateRoots"
+
+	// Debug namespace - database subcategory
+	MethodNameDebugDbGet               types.RpcName = "debug_dbGet"
+	MethodNameDebugDbAncient           types.RpcName = "debug_dbAncient"
+	MethodNameDebugChaindbCompact      types.RpcName = "debug_chaindbCompact"
+	MethodNameDebugGetModifiedAccounts types.RpcName = "debug_getModifiedAccounts"
+	MethodNameDebugDumpBlock           types.RpcName = "debug_dumpBlock"
+
+	// Debug namespace - profiling subcategory
+	MethodNameDebugBlockProfile            types.RpcName = "debug_blockProfile"
+	MethodNameDebugCpuProfile              types.RpcName = "debug_cpuProfile"
+	MethodNameDebugGoTrace                 types.RpcName = "debug_goTrace"
+	MethodNameDebugMemStats                types.RpcName = "debug_memStats"
+	MethodNameDebugMutexProfile            types.RpcName = "debug_mutexProfile"
+	MethodNameDebugSetBlockProfileRate     types.RpcName = "debug_setBlockProfileRate"
+	MethodNameDebugSetMutexProfileFraction types.RpcName = "debug_setMutexProfileFraction"
+
+	// Debug namespace - diagnostics subcategory
+	MethodNameDebugBacktraceAt  types.RpcName = "debug_backtraceAt"
+	MethodNameDebugStacks       types.RpcName = "debug_stacks"
+	MethodNameDebugGetBadBlocks types.RpcName = "debug_getBadBlocks"
+	MethodNameDebugPreimage     types.RpcName = "debug_preimage"
+	MethodNameDebugFreeOSMemory types.RpcName = "debug_freeOSMemory"
+	MethodNameDebugSetHead      types.RpcName = "debug_setHead"
+
+	// Additional debug methods from Geth documentation
+	MethodNameDebugSetGCPercent                types.RpcName = "debug_setGCPercent"
+	MethodNameDebugAccountRange                types.RpcName = "debug_accountRange"
+	MethodNameDebugChaindbProperty             types.RpcName = "debug_chaindbProperty"
+	MethodNameDebugDbAncients                  types.RpcName = "debug_dbAncients"
+	MethodNameDebugFreezeClient                types.RpcName = "debug_freezeClient"
+	MethodNameDebugGcStats                     types.RpcName = "debug_gcStats"
+	MethodNameDebugGetAccessibleState          types.RpcName = "debug_getAccessibleState"
+	MethodNameDebugGetRawBlock                 types.RpcName = "debug_getRawBlock"
+	MethodNameDebugGetRawHeader                types.RpcName = "debug_getRawHeader"
+	MethodNameDebugGetRawTransaction           types.RpcName = "debug_getRawTransaction"
+	MethodNameDebugGetModifiedAccountsByHash   types.RpcName = "debug_getModifiedAccountsByHash"
+	MethodNameDebugGetModifiedAccountsByNumber types.RpcName = "debug_getModifiedAccountsByNumber"
+	MethodNameDebugGetRawReceipts              types.RpcName = "debug_getRawReceipts"
+	MethodNameDebugPrintBlock                  types.RpcName = "debug_printBlock"
+
+	// Missing debug methods from Geth documentation
+	MethodNameDebugStartCPUProfile          types.RpcName = "debug_startCPUProfile"
+	MethodNameDebugStopCPUProfile           types.RpcName = "debug_stopCPUProfile"
+	MethodNameDebugTraceBadBlock            types.RpcName = "debug_traceBadBlock"
+	MethodNameDebugStandardTraceBlockToFile types.RpcName = "debug_standardTraceBlockToFile"
+	MethodNameDebugStorageRangeAt           types.RpcName = "debug_storageRangeAt"
+	MethodNameDebugSetTrieFlushInterval     types.RpcName = "debug_setTrieFlushInterval"
+	MethodNameDebugVmodule                  types.RpcName = "debug_vmodule"
+	MethodNameDebugWriteBlockProfile        types.RpcName = "debug_writeBlockProfile"
+	MethodNameDebugWriteMemProfile          types.RpcName = "debug_writeMemProfile"
+	MethodNameDebugWriteMutexProfile        types.RpcName = "debug_writeMutexProfile"
+	MethodNameDebugVerbosity                types.RpcName = "debug_verbosity"
+)
+
 // Debug API implementations
-func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugTraceTransaction(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugTraceTransaction); result != nil {
 		return result, nil
 	}
@@ -25,12 +88,12 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	txHash := rCtx.ProcessedTransactions[0]
-	
+
 	// Test with callTracer configuration to get structured result
 	traceConfig := map[string]interface{}{
-		"tracer":        "callTracer",
+		"tracer":         "callTracer",
 		"disableStorage": false,
-		"disableMemory":  false, 
+		"disableMemory":  false,
 		"disableStack":   false,
 		"timeout":        "10s",
 	}
@@ -48,7 +111,7 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 
 	// Validate trace result structure based on real network responses
 	validationErrors := []string{}
-	
+
 	if traceResult == nil {
 		validationErrors = append(validationErrors, "trace result is null")
 	} else {
@@ -59,14 +122,14 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 				validationErrors = append(validationErrors, fmt.Sprintf("missing callTracer field '%s'", field))
 			}
 		}
-		
+
 		// Validate specific field types and formats
 		if gasStr, ok := traceResult["gas"].(string); ok {
 			if !strings.HasPrefix(gasStr, "0x") {
 				validationErrors = append(validationErrors, "gas field should be hex string with 0x prefix")
 			}
 		}
-		
+
 		if gasUsedStr, ok := traceResult["gasUsed"].(string); ok {
 			if !strings.HasPrefix(gasUsedStr, "0x") {
 				validationErrors = append(validationErrors, "gasUsed field should be hex string with 0x prefix")
@@ -120,7 +183,7 @@ func DebugTraceTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugPrintBlock(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugPrintBlock(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugPrintBlock); result != nil {
 		return result, nil
 	}
@@ -157,14 +220,14 @@ func DebugPrintBlock(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugSetBlockProfileRate(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugSetBlockProfileRate(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugSetBlockProfileRate); result != nil {
 		return result, nil
 	}
 
 	// Set a test profile rate (1 for enabled, 0 for disabled)
 	rate := 1
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugSetBlockProfileRate), rate)
 	if err != nil {
 		return &types.RpcResult{
@@ -185,14 +248,14 @@ func DebugSetBlockProfileRate(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugSetMutexProfileFraction(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugSetMutexProfileFraction(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugSetMutexProfileFraction); result != nil {
 		return result, nil
 	}
 
 	// Set a test mutex profile fraction (1 for enabled, 0 for disabled)
 	fraction := 1
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugSetMutexProfileFraction), fraction)
 	if err != nil {
 		return &types.RpcResult{
@@ -213,14 +276,14 @@ func DebugSetMutexProfileFraction(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugSetGCPercent(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugSetGCPercent(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugSetGCPercent); result != nil {
 		return result, nil
 	}
 
 	// Set a test GC percentage (100 is default)
 	percent := 100
-	
+
 	var previousPercent int
 	err := rCtx.EthCli.Client().CallContext(context.Background(), &previousPercent, string(MethodNameDebugSetGCPercent), percent)
 	if err != nil {
@@ -242,7 +305,7 @@ func DebugSetGCPercent(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugIntermediateRoots(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugIntermediateRoots(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugIntermediateRoots); result != nil {
 		return result, nil
 	}
@@ -288,7 +351,7 @@ func DebugIntermediateRoots(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugTraceBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugTraceBlockByHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlockByHash); result != nil {
 		return result, nil
 	}
@@ -317,7 +380,7 @@ func DebugTraceBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	traceConfig := map[string]interface{}{
 		"tracer": "callTracer",
 	}
-	
+
 	var traceResults interface{}
 	err = rCtx.EthCli.Client().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByHash), receipt.BlockHash, traceConfig)
 	if err != nil {
@@ -349,7 +412,7 @@ func DebugTraceBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugTraceBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugTraceBlockByNumber(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlockByNumber); result != nil {
 		return result, nil
 	}
@@ -366,13 +429,13 @@ func DebugTraceBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	}
 
 	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
-	
+
 	// Call the debug API
 	var traceResults []interface{}
 	traceConfig := map[string]interface{}{
 		"tracer": "callTracer",
 	}
-	
+
 	err = rCtx.EthCli.Client().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByNumber), blockNumberHex, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
@@ -393,7 +456,7 @@ func DebugTraceBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugGcStats(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugGcStats(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugGcStats); result != nil {
 		return result, nil
 	}
@@ -419,7 +482,7 @@ func DebugGcStats(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugFreeOSMemory(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugFreeOSMemory(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugFreeOSMemory); result != nil {
 		return result, nil
 	}
@@ -444,7 +507,7 @@ func DebugFreeOSMemory(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugStacks(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugStacks(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugStacks); result != nil {
 		return result, nil
 	}
@@ -470,7 +533,7 @@ func DebugStacks(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugMutexProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugMutexProfile); result != nil {
 		return result, nil
 	}
@@ -478,7 +541,7 @@ func DebugMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	// Call debug_mutexProfile with test parameters
 	filename := "/tmp/mutex_profile.out"
 	duration := 1 // 1 second duration for testing
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugMutexProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
@@ -499,7 +562,7 @@ func DebugMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugCpuProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugCpuProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugCpuProfile); result != nil {
 		return result, nil
 	}
@@ -507,7 +570,7 @@ func DebugCpuProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	// Call debug_cpuProfile with test parameters
 	filename := "/tmp/cpu_profile.out"
 	duration := 1 // 1 second duration for testing
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugCpuProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
@@ -528,7 +591,7 @@ func DebugCpuProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugGoTrace(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugGoTrace(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugGoTrace); result != nil {
 		return result, nil
 	}
@@ -536,7 +599,7 @@ func DebugGoTrace(rCtx *RpcContext) (*types.RpcResult, error) {
 	// Call debug_goTrace with test parameters
 	filename := "/tmp/go_trace.out"
 	duration := 1 // 1 second duration for testing
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugGoTrace), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
@@ -557,7 +620,7 @@ func DebugGoTrace(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func DebugBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugBlockProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugBlockProfile); result != nil {
 		return result, nil
 	}
@@ -565,7 +628,7 @@ func DebugBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 	// Call debug_blockProfile with test parameters
 	filename := "/tmp/block_profile.out"
 	duration := 1 // 1 second duration for testing
-	
+
 	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugBlockProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
@@ -589,7 +652,7 @@ func DebugBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 // Additional debug methods from Geth documentation
 
 // DebugStartCPUProfile starts CPU profiling
-func DebugStartCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugStartCPUProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "debug_startCPUProfile", "/tmp/cpu_profile_start.out")
 	if err != nil {
@@ -609,7 +672,7 @@ func DebugStartCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugStopCPUProfile stops CPU profiling
-func DebugStopCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugStopCPUProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "debug_stopCPUProfile")
 	if err != nil {
@@ -629,7 +692,7 @@ func DebugStopCPUProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugTraceBadBlock traces bad blocks
-func DebugTraceBadBlock(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugTraceBadBlock(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// Use a test hash to see if the method is implemented
 	var result interface{}
 	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -651,7 +714,7 @@ func DebugTraceBadBlock(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugStandardTraceBlockToFile traces block to file
-func DebugStandardTraceBlockToFile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugStandardTraceBlockToFile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	config := map[string]interface{}{
@@ -675,7 +738,7 @@ func DebugStandardTraceBlockToFile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugStorageRangeAt returns storage range at a given position
-func DebugStorageRangeAt(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugStorageRangeAt(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	// Test parameters for storage range
 	testBlockHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -683,7 +746,7 @@ func DebugStorageRangeAt(rCtx *RpcContext) (*types.RpcResult, error) {
 	contractAddr := "0x0000000000000000000000000000000000000000"
 	keyStart := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	maxResult := 10
-	
+
 	err := rCtx.EthCli.Client().Call(&result, "debug_storageRangeAt", testBlockHash, txIndex, contractAddr, keyStart, maxResult)
 	if err != nil {
 		return &types.RpcResult{
@@ -702,7 +765,7 @@ func DebugStorageRangeAt(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugSetTrieFlushInterval sets trie flush interval
-func DebugSetTrieFlushInterval(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugSetTrieFlushInterval(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	interval := "10s" // Test interval
 	err := rCtx.EthCli.Client().Call(&result, "debug_setTrieFlushInterval", interval)
@@ -723,7 +786,7 @@ func DebugSetTrieFlushInterval(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugVmodule sets the logging verbosity pattern
-func DebugVmodule(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugVmodule(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	pattern := "eth/*=5" // Test verbosity pattern
 	err := rCtx.EthCli.Client().Call(&result, "debug_vmodule", pattern)
@@ -744,7 +807,7 @@ func DebugVmodule(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugWriteBlockProfile writes block profile to file
-func DebugWriteBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugWriteBlockProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/block_profile_write.out"
 	err := rCtx.EthCli.Client().Call(&result, "debug_writeBlockProfile", filename)
@@ -765,7 +828,7 @@ func DebugWriteBlockProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugWriteMemProfile writes memory profile to file
-func DebugWriteMemProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugWriteMemProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/mem_profile_write.out"
 	err := rCtx.EthCli.Client().Call(&result, "debug_writeMemProfile", filename)
@@ -786,7 +849,7 @@ func DebugWriteMemProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugWriteMutexProfile writes mutex profile to file
-func DebugWriteMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugWriteMutexProfile(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/mutex_profile_write.out"
 	err := rCtx.EthCli.Client().Call(&result, "debug_writeMutexProfile", filename)
@@ -807,7 +870,7 @@ func DebugWriteMutexProfile(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // DebugVerbosity sets the log verbosity level
-func DebugVerbosity(rCtx *RpcContext) (*types.RpcResult, error) {
+func DebugVerbosity(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	level := 3 // Test verbosity level (0-5)
 	err := rCtx.EthCli.Client().Call(&result, "debug_verbosity", level)

@@ -1,11 +1,17 @@
-package rpc
+package namespaces
 
 import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
+const (
+	// Web3 namespace
+	MethodNameWeb3ClientVersion types.RpcName = "web3_clientVersion"
+	MethodNameWeb3Sha3          types.RpcName = "web3_sha3"
+)
+
 // Web3 method handlers
-func Web3ClientVersion(rCtx *RpcContext) (*types.RpcResult, error) {
+func Web3ClientVersion(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "web3_clientVersion")
 	if err != nil {
@@ -24,7 +30,7 @@ func Web3ClientVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func Web3Sha3(rCtx *RpcContext) (*types.RpcResult, error) {
+func Web3Sha3(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "web3_sha3", "0x68656c6c6f20776f726c64")
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/report"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/rpc"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
@@ -41,7 +42,7 @@ func main() {
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig("config.yaml")
 
-	rCtx, err := rpc.NewContext(conf)
+	rCtx, err := types.NewContext(conf)
 	if err != nil {
 		log.Fatalf("Failed to create context: %v", err)
 	}
@@ -54,4 +55,3 @@ func main() {
 	// Generate report
 	report.Results(results, *verbose, *outputExcel)
 }
-

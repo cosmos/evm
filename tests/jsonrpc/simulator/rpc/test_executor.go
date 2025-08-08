@@ -4,10 +4,11 @@ import (
 	"strings"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
 // ExecuteAllTests runs all RPC tests and returns the results
-func ExecuteAllTests(rCtx *RpcContext) []*types.RpcResult {
+func ExecuteAllTests(rCtx *types.RpcContext) []*types.RpcResult {
 	var results []*types.RpcResult
 
 	// Get test categories
@@ -26,7 +27,7 @@ func ExecuteAllTests(rCtx *RpcContext) []*types.RpcResult {
 					results = append(results, result)
 				} else {
 					// Test the method to see if it's actually implemented
-					result, _ := GenericTest(rCtx, method.Name, category.Name)
+					result, _ := utils.GenericTest(rCtx, method.Name, category.Name)
 					if result != nil {
 						result.Description = method.Description
 					}
@@ -36,7 +37,7 @@ func ExecuteAllTests(rCtx *RpcContext) []*types.RpcResult {
 			}
 
 			// Execute the test
-			handler := method.Handler.(func(*RpcContext) (*types.RpcResult, error))
+			handler := method.Handler.(func(*types.RpcContext) (*types.RpcResult, error))
 			result, err := handler(rCtx)
 			if err != nil {
 				result = &types.RpcResult{

@@ -1,4 +1,4 @@
-package rpc
+package namespaces
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	ethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/status-im/keycard-go/hexutils"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
@@ -21,7 +21,104 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
-func EthBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+const (
+	// Eth namespace - client subcategory
+	MethodNameEthChainId     types.RpcName = "eth_chainId"
+	MethodNameEthSyncing     types.RpcName = "eth_syncing"
+	MethodNameEthCoinbase    types.RpcName = "eth_coinbase"
+	MethodNameEthAccounts    types.RpcName = "eth_accounts"
+	MethodNameEthBlockNumber types.RpcName = "eth_blockNumber"
+	MethodNameEthMining      types.RpcName = "eth_mining"
+	MethodNameEthHashrate    types.RpcName = "eth_hashrate"
+
+	// Eth namespace - fee_market subcategory
+	MethodNameEthGasPrice             types.RpcName = "eth_gasPrice"
+	MethodNameEthBlobBaseFee          types.RpcName = "eth_blobBaseFee"
+	MethodNameEthMaxPriorityFeePerGas types.RpcName = "eth_maxPriorityFeePerGas"
+	MethodNameEthFeeHistory           types.RpcName = "eth_feeHistory"
+
+	// Eth namespace - state subcategory
+	MethodNameEthGetBalance          types.RpcName = "eth_getBalance"
+	MethodNameEthGetStorageAt        types.RpcName = "eth_getStorageAt"
+	MethodNameEthGetTransactionCount types.RpcName = "eth_getTransactionCount"
+	MethodNameEthGetCode             types.RpcName = "eth_getCode"
+	MethodNameEthGetProof            types.RpcName = "eth_getProof"
+
+	// Eth namespace - block subcategory
+	MethodNameEthGetBlockByHash                   types.RpcName = "eth_getBlockByHash"
+	MethodNameEthGetBlockByNumber                 types.RpcName = "eth_getBlockByNumber"
+	MethodNameEthGetBlockTransactionCountByHash   types.RpcName = "eth_getBlockTransactionCountByHash"
+	MethodNameEthGetBlockTransactionCountByNumber types.RpcName = "eth_getBlockTransactionCountByNumber"
+	MethodNameEthGetUncleCountByBlockHash         types.RpcName = "eth_getUncleCountByBlockHash"
+	MethodNameEthGetUncleCountByBlockNumber       types.RpcName = "eth_getUncleCountByBlockNumber"
+	MethodNameEthGetUncleByBlockHashAndIndex      types.RpcName = "eth_getUncleByBlockHashAndIndex"
+	MethodNameEthGetUncleByBlockNumberAndIndex    types.RpcName = "eth_getUncleByBlockNumberAndIndex"
+	MethodNameEthGetBlockReceipts                 types.RpcName = "eth_getBlockReceipts"
+
+	// Eth namespace - transaction subcategory
+	MethodNameEthGetTransactionByHash                types.RpcName = "eth_getTransactionByHash"
+	MethodNameEthGetTransactionByBlockHashAndIndex   types.RpcName = "eth_getTransactionByBlockHashAndIndex"
+	MethodNameEthGetTransactionByBlockNumberAndIndex types.RpcName = "eth_getTransactionByBlockNumberAndIndex"
+	MethodNameEthGetTransactionReceipt               types.RpcName = "eth_getTransactionReceipt"
+	MethodNameEthGetTransactionCountByHash           types.RpcName = "eth_getTransactionCountByHash"
+	MethodNameEthGetPendingTransactions              types.RpcName = "eth_getPendingTransactions"
+
+	// Eth namespace - filter subcategory
+	MethodNameEthNewFilter                   types.RpcName = "eth_newFilter"
+	MethodNameEthNewBlockFilter              types.RpcName = "eth_newBlockFilter"
+	MethodNameEthNewPendingTransactionFilter types.RpcName = "eth_newPendingTransactionFilter"
+	MethodNameEthGetFilterChanges            types.RpcName = "eth_getFilterChanges"
+	MethodNameEthGetFilterLogs               types.RpcName = "eth_getFilterLogs"
+	MethodNameEthUninstallFilter             types.RpcName = "eth_uninstallFilter"
+	MethodNameEthGetLogs                     types.RpcName = "eth_getLogs"
+
+	// Eth namespace - execute subcategory
+	MethodNameEthCall        types.RpcName = "eth_call"
+	MethodNameEthEstimateGas types.RpcName = "eth_estimateGas"
+
+	// Eth namespace - submit subcategory
+	MethodNameEthSendTransaction    types.RpcName = "eth_sendTransaction"
+	MethodNameEthSendRawTransaction types.RpcName = "eth_sendRawTransaction"
+
+	// Eth namespace - sign subcategory (deprecated in many clients)
+	MethodNameEthSign            types.RpcName = "eth_sign"
+	MethodNameEthSignTransaction types.RpcName = "eth_signTransaction"
+
+	// Eth namespace - other/deprecated methods
+	MethodNameEthProtocolVersion  types.RpcName = "eth_protocolVersion"
+	MethodNameEthGetCompilers     types.RpcName = "eth_getCompilers"
+	MethodNameEthCompileSolidity  types.RpcName = "eth_compileSolidity"
+	MethodNameEthGetWork          types.RpcName = "eth_getWork"
+	MethodNameEthSubmitWork       types.RpcName = "eth_submitWork"
+	MethodNameEthSubmitHashrate   types.RpcName = "eth_submitHashrate"
+	MethodNameEthCreateAccessList types.RpcName = "eth_createAccessList"
+
+	// Eth namespace - WebSocket-only subscription methods
+	MethodNameEthSubscribe   types.RpcName = "eth_subscribe"
+	MethodNameEthUnsubscribe types.RpcName = "eth_unsubscribe"
+)
+
+func EthCoinbase(rCtx *types.RpcContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "eth_coinbase")
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameEthCoinbase,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: "eth",
+		}, nil
+	}
+
+	return &types.RpcResult{
+		Method:   MethodNameEthCoinbase,
+		Status:   types.Ok,
+		Value:    result,
+		Category: "eth",
+	}, nil
+}
+
+func EthBlockNumber(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthBlockNumber); result != nil {
 		return result, nil
 	}
@@ -44,7 +141,7 @@ func EthBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGasPrice(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGasPrice); result != nil {
 		return result, nil
 	}
@@ -72,7 +169,7 @@ func EthGasPrice(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthMaxPriorityFeePerGas(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthMaxPriorityFeePerGas); result != nil {
 		return result, nil
 	}
@@ -96,7 +193,7 @@ func EthMaxPriorityFeePerGas(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthChainId(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthChainId(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthChainId); result != nil {
 		return result, nil
 	}
@@ -124,7 +221,7 @@ func EthChainId(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBalance(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBalance); result != nil {
 		return result, nil
 	}
@@ -148,7 +245,7 @@ func EthGetBalance(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionCount(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionCount); result != nil {
 		return result, nil
 	}
@@ -169,7 +266,7 @@ func EthGetTransactionCount(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBlockByHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBlockByHash); result != nil {
 		return result, nil
 	}
@@ -201,7 +298,7 @@ func EthGetBlockByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBlockByNumber(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBlockByNumber); result != nil {
 		return result, nil
 	}
@@ -226,7 +323,7 @@ func EthGetBlockByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSendRawTransactionTransferValue(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -313,7 +410,7 @@ func EthSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
 		return nil, err
 	}
 
@@ -330,7 +427,7 @@ func EthSendRawTransactionTransferValue(rCtx *RpcContext) (*types.RpcResult, err
 	return result, nil
 }
 
-func EthSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSendRawTransactionDeployContract(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -400,7 +497,7 @@ func EthSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
 		return nil, err
 	}
 
@@ -414,7 +511,7 @@ func EthSendRawTransactionDeployContract(rCtx *RpcContext) (*types.RpcResult, er
 }
 
 // EthSendRawTransaction unified test that combines all scenarios
-func EthSendRawTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSendRawTransaction(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var allResults []*types.RpcResult
 	var failedScenarios []string
 	var passedScenarios []string
@@ -473,7 +570,7 @@ func EthSendRawTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSendRawTransactionTransferERC20(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// testedRPCs is a slice of RpcResult that will be appended to rCtx.AlreadyTestedRPCs
 	// if the transaction is successfully sent
 	var testedRPCs []*types.RpcResult
@@ -552,7 +649,7 @@ func EthSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
 		return nil, err
 	}
 
@@ -561,7 +658,7 @@ func EthSendRawTransactionTransferERC20(rCtx *RpcContext) (*types.RpcResult, err
 	return result, nil
 }
 
-func EthGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBlockReceipts(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBlockReceipts); result != nil {
 		return result, nil
 	}
@@ -574,8 +671,8 @@ func EthGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
 	// TODO: Random pick
 	// pick a block with transactions
 	blkNum := rCtx.BlockNumsIncludingTx[0]
-	rpcBlockNum := rpc.BlockNumber(blkNum)
-	receipts, err := rCtx.EthCli.BlockReceipts(context.Background(), rpc.BlockNumberOrHash{BlockNumber: &rpcBlockNum})
+	rpcBlockNum := ethrpc.BlockNumber(blkNum)
+	receipts, err := rCtx.EthCli.BlockReceipts(context.Background(), ethrpc.BlockNumberOrHash{BlockNumber: &rpcBlockNum})
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +687,7 @@ func EthGetBlockReceipts(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionByHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionByHash); result != nil {
 		return result, nil
 	}
@@ -616,7 +713,7 @@ func EthGetTransactionByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionByBlockHashAndIndex(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionByBlockHashAndIndex); result != nil {
 		return result, nil
 	}
@@ -647,7 +744,7 @@ func EthGetTransactionByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, e
 	return result, nil
 }
 
-func EthGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionByBlockNumberAndIndex(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionByBlockNumberAndIndex); result != nil {
 		return result, nil
 	}
@@ -673,7 +770,7 @@ func EthGetTransactionByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult,
 	return result, nil
 }
 
-func EthGetBlockTransactionCountByNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBlockTransactionCountByNumber(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBlockTransactionCountByNumber); result != nil {
 		return result, nil
 	}
@@ -711,7 +808,7 @@ func EthGetBlockTransactionCountByNumber(rCtx *RpcContext) (*types.RpcResult, er
 }
 
 // Uncle methods - these should always return 0 or nil in Cosmos EVM (no uncles in PoS)
-func EthGetUncleCountByBlockHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetUncleCountByBlockHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetUncleCountByBlockHash); result != nil {
 		return result, nil
 	}
@@ -751,7 +848,7 @@ func EthGetUncleCountByBlockHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetUncleCountByBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetUncleCountByBlockNumber(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetUncleCountByBlockNumber); result != nil {
 		return result, nil
 	}
@@ -774,7 +871,7 @@ func EthGetUncleCountByBlockNumber(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetUncleByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetUncleByBlockHashAndIndex(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetUncleByBlockHashAndIndex); result != nil {
 		return result, nil
 	}
@@ -814,7 +911,7 @@ func EthGetUncleByBlockHashAndIndex(rCtx *RpcContext) (*types.RpcResult, error) 
 	return result, nil
 }
 
-func EthGetUncleByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetUncleByBlockNumberAndIndex(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetUncleByBlockNumberAndIndex); result != nil {
 		return result, nil
 	}
@@ -844,7 +941,7 @@ func EthGetUncleByBlockNumberAndIndex(rCtx *RpcContext) (*types.RpcResult, error
 	return result, nil
 }
 
-func EthGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionCountByHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionCountByHash); result != nil {
 		return result, nil
 	}
@@ -875,7 +972,7 @@ func EthGetTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetTransactionReceipt(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionReceipt); result != nil {
 		return result, nil
 	}
@@ -900,7 +997,7 @@ func EthGetTransactionReceipt(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetBlockTransactionCountByHash(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetBlockTransactionCountByHash); result != nil {
 		return result, nil
 	}
@@ -930,7 +1027,7 @@ func EthGetBlockTransactionCountByHash(rCtx *RpcContext) (*types.RpcResult, erro
 	return result, nil
 }
 
-func EthGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetCode(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetCode); result != nil {
 		return result, nil
 	}
@@ -954,7 +1051,7 @@ func EthGetCode(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetStorageAt(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetStorageAt); result != nil {
 		return result, nil
 	}
@@ -983,7 +1080,7 @@ func EthGetStorageAt(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthNewFilter(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthNewFilter); result != nil {
 		return result, nil
 	}
@@ -1020,7 +1117,7 @@ func EthNewFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetFilterLogs(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetFilterLogs); result != nil {
 		return result, nil
 	}
@@ -1048,7 +1145,7 @@ func EthGetFilterLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthNewBlockFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthNewBlockFilter(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthNewBlockFilter); result != nil {
 		return result, nil
 	}
@@ -1069,7 +1166,7 @@ func EthNewBlockFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetFilterChanges(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetFilterChanges); result != nil {
 		return result, nil
 	}
@@ -1100,7 +1197,7 @@ func EthGetFilterChanges(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthUninstallFilter(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthUninstallFilter); result != nil {
 		return result, nil
 	}
@@ -1134,7 +1231,7 @@ func EthUninstallFilter(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetLogs(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthGetLogs); result != nil {
 		return result, nil
 	}
@@ -1168,7 +1265,7 @@ func EthGetLogs(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // Additional Eth method handlers
-func EthProtocolVersion(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthProtocolVersion(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "eth_protocolVersion")
 	if err != nil {
@@ -1187,7 +1284,7 @@ func EthProtocolVersion(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthSyncing(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSyncing(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "eth_syncing")
 	if err != nil {
@@ -1206,7 +1303,7 @@ func EthSyncing(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthAccounts(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result []string
 	err := rCtx.EthCli.Client().Call(&result, "eth_accounts")
 	if err != nil {
@@ -1226,7 +1323,7 @@ func EthAccounts(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // Mining method handlers
-func EthMining(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthMining(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result bool
 	err := rCtx.EthCli.Client().Call(&result, "eth_mining")
 	if err != nil {
@@ -1245,7 +1342,7 @@ func EthMining(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthCall(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthCall(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// Simple eth_call test
 	callMsg := ethereum.CallMsg{
 		To:   &rCtx.Acc.Address,
@@ -1270,7 +1367,7 @@ func EthCall(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthEstimateGas(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	// Simple gas estimation test
 	callMsg := ethereum.CallMsg{
 		From:  rCtx.Acc.Address,
@@ -1296,7 +1393,7 @@ func EthEstimateGas(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthFeeHistory(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthFeeHistory(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(MethodNameEthFeeHistory), "0x2", "latest", []float64{25.0, 50.0, 75.0})
 
@@ -1326,11 +1423,11 @@ func EthFeeHistory(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthBlobBaseFee(rCtx *RpcContext) (*types.RpcResult, error) {
-	return GenericTest(rCtx, MethodNameEthBlobBaseFee, "eth")
+func EthBlobBaseFee(rCtx *types.RpcContext) (*types.RpcResult, error) {
+	return utils.GenericTest(rCtx, MethodNameEthBlobBaseFee, "eth")
 }
 
-func EthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthGetProof(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, string(MethodNameEthGetProof), rCtx.Acc.Address.Hex(), []string{}, "latest")
 
@@ -1362,7 +1459,7 @@ func EthGetProof(rCtx *RpcContext) (*types.RpcResult, error) {
 
 // EthSendTransaction sends a transaction using eth_sendTransaction
 // This requires the account to be unlocked or managed by the node
-func EthSendTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSendTransaction(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthSendTransaction); result != nil {
 		return result, nil
 	}
@@ -1399,7 +1496,7 @@ func EthSendTransaction(rCtx *RpcContext) (*types.RpcResult, error) {
 
 // EthSign signs data using eth_sign
 // This requires the account to be unlocked or managed by the node
-func EthSign(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthSign(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthSign); result != nil {
 		return result, nil
 	}
@@ -1439,7 +1536,7 @@ func EthSign(rCtx *RpcContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
-func EthCreateAccessList(rCtx *RpcContext) (*types.RpcResult, error) {
+func EthCreateAccessList(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	callData := map[string]interface{}{
 		"to":   rCtx.Acc.Address.Hex(),

@@ -1,11 +1,19 @@
-package rpc
+package namespaces
 
 import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
+const (
+	// TxPool namespace
+	MethodNameTxPoolContent     types.RpcName = "txpool_content"
+	MethodNameTxPoolContentFrom types.RpcName = "txpool_contentFrom"
+	MethodNameTxPoolInspect     types.RpcName = "txpool_inspect"
+	MethodNameTxPoolStatus      types.RpcName = "txpool_status"
+)
+
 // TxPool method handlers
-func TxPoolStatus(rCtx *RpcContext) (*types.RpcResult, error) {
+func TxPoolStatus(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "txpool_status")
 	if err != nil {
@@ -24,7 +32,7 @@ func TxPoolStatus(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func TxPoolContent(rCtx *RpcContext) (*types.RpcResult, error) {
+func TxPoolContent(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "txpool_content")
 	if err != nil {
@@ -43,7 +51,7 @@ func TxPoolContent(rCtx *RpcContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func TxPoolInspect(rCtx *RpcContext) (*types.RpcResult, error) {
+func TxPoolInspect(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.EthCli.Client().Call(&result, "txpool_inspect")
 	if err != nil {
@@ -63,7 +71,7 @@ func TxPoolInspect(rCtx *RpcContext) (*types.RpcResult, error) {
 }
 
 // RpcTxPoolContentFrom returns the transactions pool content for a specific account
-func TxPoolContentFrom(rCtx *RpcContext) (*types.RpcResult, error) {
+func TxPoolContentFrom(rCtx *types.RpcContext) (*types.RpcResult, error) {
 	var result interface{}
 	// Use a sample address for testing - in real usage this would be parameterized
 	testAddress := "0x407d73d8a49eeb85d32cf465507dd71d507100c1"
