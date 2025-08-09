@@ -8,12 +8,16 @@ import (
 
 // newMonoEVMAnteHandler creates the sdk.AnteHandler implementation for the EVM transactions.
 func newMonoEVMAnteHandler(options HandlerOptions) sdk.AnteHandler {
-	return sdk.ChainAnteDecorators(
+	decorators := []sdk.AnteDecorator{
 		evmante.NewEVMMonoDecorator(
 			options.AccountKeeper,
 			options.FeeMarketKeeper,
 			options.EvmKeeper,
 			options.MaxTxGasWanted,
 		),
-	)
+	}
+	if options.PendingTxListener != nil {
+		decorators = append(decorators, NewTxListenerDecorator(options.PendingTxListener))
+	}
+	return sdk.ChainAnteDecorators(decorators...)
 }
