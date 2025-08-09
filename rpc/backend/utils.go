@@ -3,6 +3,7 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
@@ -73,6 +74,12 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 		return nonce, nil
 	}
 
+	// eip2681 - tx with nonce >= 2^64 is invalid; saturate at 2^64-1
+	// if already at max nonce, don't add to pending
+	if nonce == math.MaxUint64 {
+		return nonce, nil
+	}
+
 	// the account retriever doesn't include the uncommitted transactions on the nonce so we need to
 	// to manually add them.
 	pendingTxs, err := b.PendingTransactions()
@@ -91,12 +98,15 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				break
 			}
 
-			sender, err := ethMsg.GetSender(b.EvmChainID)
+			sender, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(b.EvmChainID))
 			if err != nil {
 				continue
 			}
 			if sender == accAddr {
-				nonce++
+				// saturate - never overflow beyond 2^64-1 when counting pending txs
+				if nonce < math.MaxUint64 {
+					nonce++
+				}
 			}
 		}
 	}
@@ -259,8 +269,11 @@ func (b *Backend) ProcessBlock(
 				continue
 			}
 			tx := ethMsg.AsTransaction()
-			reward := tx.EffectiveGasTipValue(blockBaseFee)
-			if reward == nil {
+			reward, err := tx.EffectiveGasTip(blockBaseFee)
+			if err != nil {
+				b.Logger.Error("failed to calculate effective gas tip", "height", blockHeight, "error", err.Error())
+			}
+			if reward == nil || reward.Sign() < 0 {
 				reward = big.NewInt(0)
 			}
 			sorter = append(sorter, txGasAndReward{gasUsed: txGasUsed, reward: reward})

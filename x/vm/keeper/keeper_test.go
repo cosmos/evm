@@ -41,13 +41,14 @@ import (
 type KeeperTestSuite struct {
 	suite.Suite
 
-	ctx           sdk.Context
-	bankKeeper    *mocks.BankKeeper
-	accKeeper     *mocks.AccountKeeper
-	stakingKeeper *mocks.StakingKeeper
-	fmKeeper      *mocks.FeeMarketKeeper
-	erc20Keeper   *mocks.Erc20Keeper
-	vmKeeper      *vmkeeper.Keeper
+	ctx             sdk.Context
+	bankKeeper      *mocks.BankKeeper
+	accKeeper       *mocks.AccountKeeper
+	stakingKeeper   *mocks.StakingKeeper
+	fmKeeper        *mocks.FeeMarketKeeper
+	erc20Keeper     *mocks.Erc20Keeper
+	vmKeeper        *vmkeeper.Keeper
+	consensusKeeper *mocks.ConsensusParamsKeeper
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -79,6 +80,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.stakingKeeper = mocks.NewStakingKeeper(suite.T())
 	suite.fmKeeper = mocks.NewFeeMarketKeeper(suite.T())
 	suite.erc20Keeper = mocks.NewErc20Keeper(suite.T())
+	suite.consensusKeeper = mocks.NewConsensusParamsKeeper(suite.T())
 	suite.ctx = ctx
 
 	suite.accKeeper.On("GetModuleAddress", vmtypes.ModuleName).Return(sdk.AccAddress("evm"))
@@ -92,6 +94,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.bankKeeper,
 		suite.stakingKeeper,
 		suite.fmKeeper,
+		suite.consensusKeeper,
 		suite.erc20Keeper,
 		"",
 	)

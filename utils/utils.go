@@ -172,9 +172,24 @@ func SortSlice[T cmp.Ordered](slice []T) {
 }
 
 func Uint256FromBigInt(i *big.Int) (*uint256.Int, error) {
+	if i.Sign() < 0 {
+		return nil, fmt.Errorf("trying to convert negative *big.Int (%d) to uint256.Int", i)
+	}
 	result, overflow := uint256.FromBig(i)
 	if overflow {
 		return nil, fmt.Errorf("overflow trying to convert *big.Int (%d) to uint256.Int (%s)", i, result)
 	}
 	return result, nil
+}
+
+// Bytes32ToString converts a bytes32 value to string by trimming null bytes
+func Bytes32ToString(data [32]byte) string {
+	// Find the first null byte
+	var i int
+	for i = 0; i < len(data); i++ {
+		if data[i] == 0 {
+			break
+		}
+	}
+	return string(data[:i])
 }

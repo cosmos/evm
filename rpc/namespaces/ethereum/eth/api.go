@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -67,7 +68,7 @@ type EthereumAPI interface {
 	//
 	// Allows developers to read data from the blockchain which includes executing
 	// smart contracts. However, no data is published to the Ethereum network.
-	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, _ *rpctypes.StateOverride) (hexutil.Bytes, error)
+	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, override *rpctypes.StateOverride) (hexutil.Bytes, error)
 
 	// Chain Information
 	//
@@ -114,7 +115,6 @@ var _ EthereumAPI = (*PublicAPI)(nil)
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PublicAPI struct {
-	ctx     context.Context
 	logger  log.Logger
 	backend backend.EVMBackend
 }
@@ -122,7 +122,6 @@ type PublicAPI struct {
 // NewPublicAPI creates an instance of the public ETH Web3 API.
 func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	api := &PublicAPI{
-		ctx:     context.Background(),
 		logger:  logger.With("client", "json-rpc"),
 		backend: backend,
 	}
@@ -269,9 +268,14 @@ func (e *PublicAPI) GetProof(address common.Address,
 // Call performs a raw contract call.
 func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
-	_ *rpctypes.StateOverride,
+	override *rpctypes.StateOverride,
 ) (hexutil.Bytes, error) {
 	e.logger.Debug("eth_call", "args", args.String(), "block number or hash", blockNrOrHash)
+
+	if override != nil {
+		e.logger.Debug("eth_call", "error", "overrides are unsupported in call queries")
+		return nil, fmt.Errorf("overrides are unsupported in call queries")
+	}
 
 	blockNum, err := e.backend.BlockNumberFromTendermint(blockNrOrHash)
 	if err != nil {

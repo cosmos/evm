@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 # TODO: remove this script and just use the local node script for it, add flag to start node in given directory
 
 CHAINID="${CHAIN_ID:-cosmos_262144-1}"
@@ -111,7 +113,7 @@ sed -i.bak 's/localhost/0.0.0.0/g' "$CONFIG_TOML"
 sed -i.bak 's/127.0.0.1/0.0.0.0/g' "$APP_TOML"
 
 # use timeout_commit 1s to make test faster
-sed -i.bak 's/timeout_commit = "3s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
+sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "100ms"/g' "$CONFIG_TOML"
 
 # Sign genesis transaction
 evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"

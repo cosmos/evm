@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/precompiles/erc20"
@@ -112,9 +112,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// Perform some check before adding the precompile to the suite.
 
 			// Check that WEVMOS is part of the native precompiles.
-			erc20Params := is.network.App.GetErc20Keeper().GetParams(ctx)
-			Expect(erc20Params.NativePrecompiles).To(
-				ContainElement(is.precompileAddrHex),
+			available := is.network.App.GetErc20Keeper().IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(is.precompileAddrHex))
+			Expect(available).To(
+				BeTrue(),
 				"expected wevmos to be in the native precompiles",
 			)
 			_, found := is.network.App.GetBankKeeper().GetDenomMetaData(ctx, evmtypes.GetEVMCoinDenom())

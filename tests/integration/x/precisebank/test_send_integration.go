@@ -863,6 +863,90 @@ func FuzzSendCoins(f *testing.F) {
 	})
 }
 
+func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //nolint:revive // false positive due to file name
+	tests := []struct {
+		name    string
+		chainID testconstants.ChainID
+	}{
+		{
+			name:    "6 decimals",
+			chainID: testconstants.SixDecimalsChainID,
+		},
+		{
+			name:    "12 decimals",
+			chainID: testconstants.TwelveDecimalsChainID,
+		},
+		{
+			name:    "2 decimals",
+			chainID: testconstants.TwoDecimalsChainID,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			s.SetupTestWithChainID(tt.chainID)
+
+			sender := sdk.AccAddress([]byte{1})
+			recipient := sdk.AccAddress([]byte{2})
+
+			// Initial balance large enough to cover many small sends
+			initialBalance := types.ConversionFactor().MulRaw(100)
+			s.MintToAccount(sender, cs(ci(types.ExtendedCoinDenom(), initialBalance)))
+
+			// Setup test parameters
+			maxSendUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			r := rand.New(rand.NewSource(SEED))
+
+			totalSent := sdkmath.ZeroInt()
+			sentCount := 0
+
+			// Continue transfers as long as sender has balance remaining
+			for {
+				// Check current sender balance
+				senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+				if senderAmount.IsZero() {
+					break
+				}
+
+				// Generate random amount within the range of max possible send amount
+				maxPossibleSend := maxSendUnit
+				if maxPossibleSend.GT(senderAmount) {
+					maxPossibleSend = senderAmount
+				}
+				randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxPossibleSend.BigInt())).AddRaw(1)
+
+				sendAmount := cs(ci(types.ExtendedCoinDenom(), randAmount))
+				msgSend := banktypes.MsgSend{
+					FromAddress: sender.String(),
+					ToAddress:   recipient.String(),
+					Amount:      sendAmount,
+				}
+				_, err := s.network.App.GetPreciseBankKeeper().Send(s.network.GetContext(), &msgSend)
+				s.NoError(err)
+				totalSent = totalSent.Add(randAmount)
+				sentCount++
+			}
+
+			s.T().Logf("Completed %d random sends, total sent: %s", sentCount, totalSent.String())
+
+			// Check sender balance
+			senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+			s.Equal(senderAmount.BigInt().Cmp(big.NewInt(0)), 0, "sender balance should be zero")
+
+			// Check recipient balance
+			recipientBal := s.GetAllBalances(recipient)
+			intReceived := recipientBal.AmountOf(types.ExtendedCoinDenom()).Quo(types.ConversionFactor())
+			fracReceived := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipient)
+
+			expectedInt := totalSent.Quo(types.ConversionFactor())
+			expectedFrac := totalSent.Mod(types.ConversionFactor())
+
+			s.Equal(expectedInt.BigInt().Cmp(intReceived.BigInt()), 0, "integer carry mismatch (expected: %s, received: %s)", expectedInt, intReceived)
+			s.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)
+		})
+	}
+}
+
 func blockedAddresses() map[string]bool {
 	blockedAddrs := make(map[string]bool)
 

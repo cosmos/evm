@@ -105,24 +105,6 @@ func GetSentCoin(rawDenom, rawAmt string) sdk.Coin {
 	}
 }
 
-// IsBaseDenomFromSourceChain checks if the given denom has only made a single hop.
-// It returns true if the denomination is single-hop, false otherwise.
-// This function expects to receive a string representing a token like
-// the denom string of the `FungibleTokenPacketData` of a received packet.
-// If the coin denom starts with `factory/` then it is a token factory coin, and we should not convert it
-// NOTE: Check https://docs.osmosis.zone/osmosis-core/modules/tokenfactory/ for more information
-func IsBaseDenomFromSourceChain(rawDenom string) bool {
-	// Parse the raw denomination to get its Denom
-	denom := transfertypes.ExtractDenomFromPath(rawDenom)
-
-	// Split the denom of the Denom into its components
-	denomComponents := strings.Split(denom.Base, "/")
-
-	// Each hop in the path is represented by a pair of port and channel ids
-	// If the number of components in the path is equal to or more than 2, it has hopped multiple chains
-	return len(denom.GetTrace()) == 0 && len(denomComponents) == 1
-}
-
 // GetDenom returns the denomination from the corresponding IBC denomination. If the
 // denomination is not an IBC voucher or the trace is not found, it returns an error.
 func GetDenom(

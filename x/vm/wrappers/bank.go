@@ -63,6 +63,7 @@ func (w BankWrapper) BurnAmountFromAccount(ctx context.Context, account sdk.AccA
 	}
 
 	coinsToBurn := sdk.Coins{convertedCoin}
+
 	if err := w.BankKeeper.SendCoinsFromAccountToModule(ctx, account, types.ModuleName, coinsToBurn); err != nil {
 		return errors.Wrap(err, "failed to burn coins from account in bank wrapper")
 	}
@@ -80,6 +81,15 @@ func (w BankWrapper) GetBalance(ctx context.Context, addr sdk.AccAddress, denom 
 	}
 
 	return w.BankKeeper.GetBalance(ctx, addr, types.GetEVMCoinExtendedDenom())
+}
+
+// SpendableCoin returns the balance of the given account.
+func (w BankWrapper) SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin {
+	if denom != types.GetEVMCoinDenom() {
+		panic(fmt.Sprintf("expected evm denom %s, received %s", types.GetEVMCoinDenom(), denom))
+	}
+
+	return w.BankKeeper.SpendableCoin(ctx, addr, types.GetEVMCoinExtendedDenom())
 }
 
 // SendCoinsFromAccountToModule wraps around the Cosmos SDK x/bank module's
