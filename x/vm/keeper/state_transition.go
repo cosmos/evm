@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"encoding/binary"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,25 +43,14 @@ func (k *Keeper) NewEVM(
 	stateDB vm.StateDB,
 ) *vm.EVM {
 	ctx = k.SetConsensusParamsInCtx(ctx)
-	blockCtx := vm.BlockContext{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-		GetHash:     k.GetHashFn(ctx),
-		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
-		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
-		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
-		BaseFee:     cfg.BaseFee,
-		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
-	}
+	blockCtx := k.BlockContext(ctx, cfg, stateDB)
 
 	ethCfg := types.GetEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
 	}
-	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	vmConfig := k.VMConfig(ctx, cfg, tracer)
 
 	signer := msg.From
 	accessControl := types.NewRestrictedPermissionPolicy(&cfg.Params.AccessControl, signer)
@@ -77,11 +67,26 @@ func (k *Keeper) NewEVM(
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
 }
 
+func (k Keeper) BlockContext(ctx sdk.Context, cfg *statedb.EVMConfig, db vm.StateDB) vm.BlockContext {
+	return vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     k.GetHashFn(ctx, db),
+		Coinbase:    cfg.CoinBase,
+		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
+		BlockNumber: big.NewInt(ctx.BlockHeight()),
+		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
+		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
+		BaseFee:     cfg.BaseFee,
+		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
+	}
+}
+
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
 //  1. The requested height matches the current height from context (and thus same epoch number)
 //  2. The requested height is from an previous height from the same chain epoch
 //  3. The requested height is from a height greater than the latest one
-func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
+func (k Keeper) GetHashFn(ctx sdk.Context, db vm.StateDB) vm.GetHashFunc {
 	return func(height uint64) common.Hash {
 		h, err := cosmosevmtypes.SafeInt64(height)
 		if err != nil {
@@ -111,23 +116,14 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.BytesToHash(headerHash)
 
 		case ctx.BlockHeight() > h:
-			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
-			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, err := k.stakingKeeper.GetHistoricalInfo(ctx, h)
-			if err != nil {
-				k.Logger(ctx).Debug("error while getting historical info", "height", h, "error", err.Error())
-				return common.Hash{}
-			}
-
-			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			return common.BytesToHash(header.Hash())
+			// Case 2: The requested height is historical, query EIP-2935 contract for that
+			// see: https://github.com/cosmos/evm/issues/406
+			ringIndex := height % params.HistoryServeWindow
+			var key common.Hash
+			binary.BigEndian.PutUint64(key[24:], ringIndex)
+			return db.GetState(params.HistoryStorageAddress, key)
 		default:
-			// Case 3: heights greater than the current one returns an empty hash.
+			// Case 3: The requested height is greater than the latest one, return empty hash
 			return common.Hash{}
 		}
 	}

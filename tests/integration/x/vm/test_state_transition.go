@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -161,7 +162,8 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 			ctx := tc.malleate()
 
 			// Function being tested
-			hash := s.Network.App.GetEVMKeeper().GetHashFn(ctx)(tc.height)
+			db := statedb.New(ctx, s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig(common.Hash{}))
+			hash := s.Network.App.GetEVMKeeper().GetHashFn(ctx, db)(tc.height)
 			s.Require().Equal(tc.expHash, hash)
 
 			err := s.Network.NextBlock()
