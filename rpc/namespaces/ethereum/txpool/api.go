@@ -32,7 +32,7 @@ func (api *PublicAPI) Content() (map[string]map[string]map[string]*types.RPCTran
 }
 
 // ContentFrom returns the transactions contained within the transaction pool
-func (api *PublicAPI) ContentFrom(address common.Address) (map[string]map[string]map[string]*types.RPCTransaction, error) {
+func (api *PublicAPI) ContentFrom(address common.Address) (map[string]map[string]*types.RPCTransaction, error) {
 	api.logger.Debug("txpool_contentFrom")
 	return api.backend.ContentFrom(address)
 }

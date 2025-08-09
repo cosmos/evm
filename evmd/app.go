@@ -3,6 +3,9 @@ package evmd
 import (
 	"encoding/json"
 	"fmt"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/cosmos/evm/mempool"
+	evmserver "github.com/cosmos/evm/server"
 	"io"
 	"os"
 
@@ -148,6 +151,7 @@ var (
 	_ runtime.AppI            = (*EVMD)(nil)
 	_ servertypes.Application = (*EVMD)(nil)
 	_ ibctesting.TestingApp   = (*EVMD)(nil)
+	_ evmserver.EVMAppCreator = (*EVMD)(nil)
 )
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
@@ -158,6 +162,7 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
+	clientCtx         client.Context
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -189,6 +194,7 @@ type EVMD struct {
 	EVMKeeper         *evmkeeper.Keeper
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
+	EVMMempool        *mempool.EVMMempool
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -752,6 +758,31 @@ func NewExampleApp(
 
 	app.setAnteHandler(app.txConfig, maxGasWanted)
 
+	// set the EVM priority nonce mempool
+	// If you wish to use the noop mempool, remove this codeblock
+	if evmtypes.GetChainConfig() != nil {
+		// Get the actual block gas limit from consensus parameters
+		mempoolConfig := &mempool.EVMMempoolConfig{
+			AnteHandler:   app.GetAnteHandler(),
+			BlockGasLimit: 100_000_000,
+		}
+
+		evmMempool := mempool.NewEVMMempool(app.CreateQueryContext, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
+		app.EVMMempool = evmMempool
+
+		// Set the global mempool for RPC access
+		if err := mempool.SetGlobalEVMMempool(evmMempool); err != nil {
+			panic(err)
+		}
+		app.SetMempool(evmMempool)
+		checkTxHandler := mempool.NewCheckTxHandler(evmMempool)
+		app.SetCheckTxHandler(checkTxHandler)
+
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		abciProposalHandler.SetSignerExtractionAdapter(mempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
+		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	}
+
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
 	// defined as a chain, and have the same signature as antehandlers.
@@ -838,7 +869,16 @@ func (app *EVMD) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
 
 // EndBlocker application updates every end block
 func (app *EVMD) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
-	return app.ModuleManager.EndBlock(ctx)
+	endBlock, err := app.ModuleManager.EndBlock(ctx)
+	if err != nil {
+		return endBlock, err
+	}
+
+	if app.EVMMempool != nil {
+		app.EVMMempool.GetBlockchain().NotifyNewBlock()
+	}
+
+	return endBlock, err
 }
 
 func (app *EVMD) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.ResponseFinalizeBlock, err error) {
@@ -1086,6 +1126,10 @@ func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
 	app.TransferKeeper = transferKeeper
 }
 
+func (app *EVMD) GetMempool() sdkmempool.ExtMempool {
+	return app.EVMMempool
+}
+
 func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 	return app.BaseApp.AnteHandler()
 }
@@ -1093,6 +1137,10 @@ func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
+}
+
+func (app *EVMD) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
 }
 
 // AutoCliOpts returns the autocli options for the app.

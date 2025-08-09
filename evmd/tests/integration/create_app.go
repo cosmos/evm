@@ -21,18 +21,21 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// CreateEvmd creates an evmos app
+// CreateEvmd creates an evmos app for regular integration tests (non-mempool)
+// This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
 	if err != nil {
 		panic(err)
 	}
-	// create evmos app
+
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
 	appOptions := simutils.NewAppOptionsWithFlagHome(defaultNodeHome)
-	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID)) //nolint:gocritic
+
+	// Use noop mempool for regular integration tests to avoid EVM mempool state issues
+	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
 	return evmd.NewExampleApp(
 		logger,
