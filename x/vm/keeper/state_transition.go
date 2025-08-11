@@ -347,14 +347,14 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 
 	// Allow the tracer captures the tx level events, mainly the gas consumption.
 	vmCfg := evm.Config
-	if vmCfg.Tracer != nil {
+	if vmCfg.Tracer != nil && vmCfg.Tracer.OnTxStart != nil {
 		vmCfg.Tracer.OnTxStart(
 			evm.GetVMContext(),
 			ethtypes.NewTx(&ethtypes.LegacyTx{To: msg.To, Data: msg.Data, Value: msg.Value, Gas: msg.GasLimit}),
 			msg.From,
 		)
 		defer func() {
-			if vmCfg.Tracer.OnTxEnd != nil {
+			if vmCfg.Tracer != nil && vmCfg.Tracer.OnTxEnd != nil {
 				vmCfg.Tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: msg.GasLimit - leftoverGas}, vmErr)
 			}
 		}()
