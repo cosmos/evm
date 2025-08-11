@@ -506,7 +506,7 @@ func (s *TestSuite) TestGetTransactionByTxIndex() {
 	}
 }
 
-func (s *TestSuite) TestQueryTendermintTxIndexer() {
+func (s *TestSuite) TestQueryCometTxIndexer() {
 	testCases := []struct {
 		name         string
 		registerMock func()

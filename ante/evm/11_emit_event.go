@@ -52,7 +52,7 @@ func (eeed EthEmitEventDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 // tx hash (msg.Hash) instead of using events for indexing Eth txs.
 // TxIndex should be included in the header vote extension as part of ABCI++
 func EmitTxHashEvent(ctx sdk.Context, msg *evmtypes.MsgEthereumTx, blockTxIndex, msgIndex uint64) {
-	// emit ethereum tx hash as an event so that it can be indexed by Tendermint for query purposes
+	// emit ethereum tx hash as an event so that it can be indexed by CometBFT for query purposes
 	// it's emitted in ante handler, so we can query failed transaction (out of block gas limit).
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
