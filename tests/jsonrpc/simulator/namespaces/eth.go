@@ -870,32 +870,32 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 		return result, nil
 	}
 
-	// Get current block number
-	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
+	// Use real transaction receipt data to get a valid block hash
+	if len(rCtx.ProcessedTransactions) == 0 {
+		return nil, errors.New("no processed transactions available - run transaction generation first")
+	}
+
+	// Get a receipt from one of our processed transactions to get a real block hash
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get block number: %w", err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
 	}
-
-	// Use a recent block that has transactions
-	targetBlockNum := blockNumber
-	if blockNumber > 1 {
-		targetBlockNum = blockNumber - 1
-	}
-
-	// Get the block first to get its hash, then get transaction count
-	if targetBlockNum > uint64(math.MaxInt64) {
-		return nil, fmt.Errorf("targetBlockNum %d exceeds int64 max value", targetBlockNum)
-	}
-	block, err := rCtx.EthCli.BlockByNumber(context.Background(), big.NewInt(int64(targetBlockNum)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get block %d: %w", targetBlockNum, err)
-	}
-
-	// Get transaction count for the block
-	count := uint64(len(block.Transactions()))
 
 	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthGetBlockTransactionCountByNumber, fmt.Sprintf("0x%x", targetBlockNum))
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockTransactionCountByNumber, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+				return []interface{}{hexutil.EncodeBig(gethReceipt.BlockNumber)}
+			}
+		}
+		return []interface{}{hexutil.EncodeBig(receipt.BlockNumber)}
+	})
+
+	var count interface{}
+	err = rCtx.EthCli.Client().CallContext(context.Background(), &count, string(MethodNameEthGetBlockTransactionCountByNumber), hexutil.EncodeBig(receipt.BlockNumber))
+	if err != nil {
+		return nil, fmt.Errorf("eth_getBlockTransactionCountByNumber call failed: %w", err)
+	}
 
 	result := &types.RpcResult{
 		Method:   MethodNameEthGetBlockTransactionCountByNumber,

@@ -762,9 +762,6 @@ func DebugStandardTraceBadBlockToFile(rCtx *types.RPCContext) (*types.RpcResult,
 		"tracer": "standardTracer",
 	}
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameDebugStandardTraceBadBlockToFile, testHash, config)
-
 	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBadBlockToFile", testHash, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
@@ -801,9 +798,6 @@ func DebugTraceBlockFromFile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	config := map[string]interface{}{
 		"tracer": "callTracer",
 	}
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameDebugTraceBlockFromFile, filename, config)
 
 	err := rCtx.EthCli.Client().Call(&result, "debug_traceBlockFromFile", filename, config)
 	if err != nil {
@@ -843,9 +837,6 @@ func DebugTraceChain(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		"tracer":  "callTracer",
 		"timeout": "10s",
 	}
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameDebugTraceChain, startBlock, endBlock, config)
 
 	err := rCtx.EthCli.Client().Call(&result, "debug_traceChain", startBlock, endBlock, config)
 	if err != nil {
