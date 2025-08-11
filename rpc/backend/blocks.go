@@ -25,8 +25,8 @@ import (
 )
 
 // BlockNumber returns the current block number in abci app state. Because abci
-// app state could lag behind from tendermint latest block, it's more stable for
-// the client to use the latest block number in abci app state than tendermint
+// app state could lag behind from cometbft latest block, it's more stable for
+// the client to use the latest block number in abci app state than cometbft
 // rpc.
 func (b *Backend) BlockNumber() (hexutil.Uint64, error) {
 	// do any grpc query, ignore the response and use the returned block height
@@ -65,7 +65,7 @@ func (b *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (
 
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &resBlock.Block.Height)
 	if err != nil {
-		b.Logger.Debug("failed to fetch block result from Tendermint", "height", blockNum, "error", err.Error())
+		b.Logger.Debug("failed to fetch block result from CometBFT", "height", blockNum, "error", err.Error())
 		return nil, nil
 	}
 
@@ -93,7 +93,7 @@ func (b *Backend) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]inte
 
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &resBlock.Block.Height)
 	if err != nil {
-		b.Logger.Debug("failed to fetch block result from Tendermint", "block-hash", hash.String(), "error", err.Error())
+		b.Logger.Debug("failed to fetch block result from CometBFT", "block-hash", hash.String(), "error", err.Error())
 		return nil, nil
 	}
 
@@ -153,7 +153,7 @@ func (b *Backend) GetBlockTransactionCount(block *tmrpctypes.ResultBlock) *hexut
 	return &n
 }
 
-// TendermintBlockByNumber returns a Tendermint-formatted block for a given
+// TendermintBlockByNumber returns a CometBFT-formatted block for a given
 // block number
 func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpctypes.ResultBlock, error) {
 	height, err := b.getHeightByBlockNum(blockNum)
@@ -162,7 +162,7 @@ func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpc
 	}
 	resBlock, err := b.RPCClient.Block(b.Ctx, &height)
 	if err != nil {
-		b.Logger.Debug("tendermint client failed to get block", "height", height, "error", err.Error())
+		b.Logger.Debug("cometbft client failed to get block", "height", height, "error", err.Error())
 		return nil, err
 	}
 
@@ -177,7 +177,7 @@ func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpc
 func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, error) {
 	height := blockNum.Int64()
 	if height <= 0 {
-		// fetch the latest block number from the app state, more accurate than the tendermint block store state.
+		// fetch the latest block number from the app state, more accurate than the CometBFT block store state.
 		n, err := b.BlockNumber()
 		if err != nil {
 			return 0, err
@@ -190,7 +190,7 @@ func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, err
 	return height, nil
 }
 
-// TendermintHeaderByNumber returns a Tendermint-formatted header for a given
+// TendermintHeaderByNumber returns a CometBFT-formatted header for a given
 // block number
 func (b *Backend) TendermintHeaderByNumber(blockNum rpctypes.BlockNumber) (*tmrpctypes.ResultHeader, error) {
 	height, err := b.getHeightByBlockNum(blockNum)
@@ -200,18 +200,18 @@ func (b *Backend) TendermintHeaderByNumber(blockNum rpctypes.BlockNumber) (*tmrp
 	return b.RPCClient.Header(b.Ctx, &height)
 }
 
-// TendermintBlockResultByNumber returns a Tendermint-formatted block result
+// TendermintBlockResultByNumber returns a CometBFT-formatted block result
 // by block number
 func (b *Backend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
 	res, err := b.RPCClient.BlockResults(b.Ctx, height)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch block result from Tendermint %d: %w", *height, err)
+		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", *height, err)
 	}
 
 	return res, nil
 }
 
-// TendermintBlockByHash returns a Tendermint-formatted block by block number
+// TendermintBlockByHash returns a CometBFT-formatted block by block number
 func (b *Backend) TendermintBlockByHash(blockHash common.Hash) (*tmrpctypes.ResultBlock, error) {
 	resBlock, err := b.RPCClient.BlockByHash(b.Ctx, blockHash.Bytes())
 	if err != nil {
@@ -260,7 +260,7 @@ func (b *Backend) BlockNumberFromTendermintByHash(blockHash common.Hash) (*big.I
 }
 
 // EthMsgsFromTendermintBlock returns all real MsgEthereumTxs from a
-// Tendermint block. It also ensures consistency over the correct txs indexes
+// CometBFT block. It also ensures consistency over the correct txs indexes
 // across RPC endpoints
 func (b *Backend) EthMsgsFromTendermintBlock(
 	resBlock *tmrpctypes.ResultBlock,

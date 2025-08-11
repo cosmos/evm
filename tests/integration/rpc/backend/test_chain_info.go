@@ -365,7 +365,7 @@ func (s *TestSuite) TestFeeHistory() {
 			nil,
 		},
 		{
-			"fail - Tendermint block fetching error ",
+			"fail - CometBFT block fetching error ",
 			func(_ sdk.AccAddress) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2
@@ -382,7 +382,7 @@ func (s *TestSuite) TestFeeHistory() {
 			nil,
 		},
 		{
-			"fail - Tendermint block fetching panic",
+			"fail - CometBFT block fetching panic",
 			func(_ sdk.AccAddress) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				s.backend.Cfg.JSONRPC.FeeHistoryCap = 2

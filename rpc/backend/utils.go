@@ -113,7 +113,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 	return nonce, nil
 }
 
-// ProcessBlock processes a Tendermint block and calculates fee history data for eth_feeHistory RPC.
+// ProcessBlock processes a CometBFT block and calculates fee history data for eth_feeHistory RPC.
 // It extracts gas usage, base fees, and transaction reward percentiles from the block data.
 //
 // The function calculates:
@@ -122,7 +122,7 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //   - Transaction reward percentiles based on effective gas tip values
 //
 // Parameters:
-//   - tendermintBlock: The raw Tendermint block containing transaction data
+//   - tendermintBlock: The raw CometBFT block containing transaction data
 //   - ethBlock: Ethereum-formatted block with gas limit and usage information
 //   - rewardPercentiles: Percentile values (0-100) for reward calculation
 //   - tendermintBlockResult: Block execution results containing gas usage per transaction

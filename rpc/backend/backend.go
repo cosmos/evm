@@ -134,15 +134,15 @@ type EVMBackend interface {
 var _ BackendI = (*Backend)(nil)
 
 // ProcessBlocker is a function type that processes a block and its associated data
-// for fee history calculation. It takes a Tendermint block, its corresponding
+// for fee history calculation. It takes a CometBFT block, its corresponding
 // Ethereum block representation, reward percentiles for fee estimation,
 // block results, and a target fee history entry to populate.
 //
 // Parameters:
-//   - tendermintBlock: The raw Tendermint block data
+//   - tendermintBlock: The raw CometBFT block data
 //   - ethBlock: The Ethereum-formatted block representation
 //   - rewardPercentiles: Percentiles used for fee reward calculation
-//   - tendermintBlockResult: Block execution results from Tendermint
+//   - tendermintBlockResult: Block execution results from CometBFT
 //   - targetOneFeeHistory: The fee history entry to be populated
 //
 // Returns an error if block processing fails.

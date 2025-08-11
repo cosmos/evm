@@ -438,7 +438,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -973,7 +973,7 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 	// Register new tx routes from grpc-gateway.
 	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
-	// Register new tendermint queries routes from grpc-gateway.
+	// Register new cometbft queries routes from grpc-gateway.
 	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
 	// Register node gRPC service for grpc-gateway.
