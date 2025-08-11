@@ -565,12 +565,12 @@ func (_c *Backend_RPCLogsCap_Call) RunAndReturn(run func() int32) *Backend_RPCLo
 	return _c
 }
 
-// TendermintBlockByHash provides a mock function with given fields: hash
-func (_m *Backend) TendermintBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
+// CometBlockByHash provides a mock function with given fields: hash
+func (_m *Backend) CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
 	ret := _m.Called(hash)
 
 	if len(ret) == 0 {
-		panic("no return value specified for TendermintBlockByHash")
+		panic("no return value specified for CometBlockByHash")
 	}
 
 	var r0 *coretypes.ResultBlock
@@ -595,7 +595,7 @@ func (_m *Backend) TendermintBlockByHash(hash common.Hash) (*coretypes.ResultBlo
 	return r0, r1
 }
 
-// Backend_TendermintBlockByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TendermintBlockByHash'
+// Backend_TendermintBlockByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockByHash'
 type Backend_TendermintBlockByHash_Call struct {
 	*mock.Call
 }
@@ -603,7 +603,7 @@ type Backend_TendermintBlockByHash_Call struct {
 // TendermintBlockByHash is a helper method to define mock.On call
 //   - hash common.Hash
 func (_e *Backend_Expecter) TendermintBlockByHash(hash interface{}) *Backend_TendermintBlockByHash_Call {
-	return &Backend_TendermintBlockByHash_Call{Call: _e.mock.On("TendermintBlockByHash", hash)}
+	return &Backend_TendermintBlockByHash_Call{Call: _e.mock.On("CometBlockByHash", hash)}
 }
 
 func (_c *Backend_TendermintBlockByHash_Call) Run(run func(hash common.Hash)) *Backend_TendermintBlockByHash_Call {
@@ -624,11 +624,11 @@ func (_c *Backend_TendermintBlockByHash_Call) RunAndReturn(run func(common.Hash)
 }
 
 // TendermintBlockResultByNumber provides a mock function with given fields: height
-func (_m *Backend) TendermintBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error) {
+func (_m *Backend) CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error) {
 	ret := _m.Called(height)
 
 	if len(ret) == 0 {
-		panic("no return value specified for TendermintBlockResultByNumber")
+		panic("no return value specified for CometBlockResultByNumber")
 	}
 
 	var r0 *coretypes.ResultBlockResults
@@ -653,7 +653,7 @@ func (_m *Backend) TendermintBlockResultByNumber(height *int64) (*coretypes.Resu
 	return r0, r1
 }
 
-// Backend_TendermintBlockResultByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TendermintBlockResultByNumber'
+// Backend_TendermintBlockResultByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockResultByNumber'
 type Backend_TendermintBlockResultByNumber_Call struct {
 	*mock.Call
 }
@@ -661,7 +661,7 @@ type Backend_TendermintBlockResultByNumber_Call struct {
 // TendermintBlockResultByNumber is a helper method to define mock.On call
 //   - height *int64
 func (_e *Backend_Expecter) TendermintBlockResultByNumber(height interface{}) *Backend_TendermintBlockResultByNumber_Call {
-	return &Backend_TendermintBlockResultByNumber_Call{Call: _e.mock.On("TendermintBlockResultByNumber", height)}
+	return &Backend_TendermintBlockResultByNumber_Call{Call: _e.mock.On("CometBlockResultByNumber", height)}
 }
 
 func (_c *Backend_TendermintBlockResultByNumber_Call) Run(run func(height *int64)) *Backend_TendermintBlockResultByNumber_Call {

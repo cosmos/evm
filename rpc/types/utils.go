@@ -51,9 +51,9 @@ func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEt
 	return ethTxs, nil
 }
 
-// EthHeaderFromTendermint is an util function that returns an Ethereum Header
+// EthHeaderFromComet is an util function that returns an Ethereum Header
 // from a tendermint Header.
-func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
+func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
 	txHash := ethtypes.EmptyRootHash
 	if len(header.DataHash) != 0 {
 		txHash = common.BytesToHash(header.DataHash)
@@ -82,11 +82,11 @@ func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseF
 
 // BlockMaxGasFromConsensusParams returns the gas limit for the current block from the chain consensus params.
 func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (int64, error) {
-	tmrpcClient, ok := clientCtx.Client.(cmtrpcclient.Client)
+	cmtrpcclient, ok := clientCtx.Client.(cmtrpcclient.Client)
 	if !ok {
 		panic("incorrect tm rpc client")
 	}
-	resConsParams, err := tmrpcClient.ConsensusParams(goCtx, &blockHeight)
+	resConsParams, err := cmtrpcclient.ConsensusParams(goCtx, &blockHeight)
 	defaultGasLimit := int64(^uint32(0)) // #nosec G115
 	if err != nil {
 		return defaultGasLimit, err

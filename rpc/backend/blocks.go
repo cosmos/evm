@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -53,7 +53,7 @@ func (b *Backend) BlockNumber() (hexutil.Uint64, error) {
 // block number. Depending on fullTx it either returns the full transaction
 // objects or if false only the hashes of the transactions.
 func (b *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error) {
-	resBlock, err := b.TendermintBlockByNumber(blockNum)
+	resBlock, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		return nil, nil
 	}
@@ -69,9 +69,9 @@ func (b *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (
 		return nil, nil
 	}
 
-	res, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, fullTx)
+	res, err := b.RPCBlockFromCometBlock(resBlock, blockRes, fullTx)
 	if err != nil {
-		b.Logger.Debug("GetEthBlockFromTendermint failed", "height", blockNum, "error", err.Error())
+		b.Logger.Debug("RPCBlockFromCometBlock failed", "height", blockNum, "error", err.Error())
 		return nil, err
 	}
 
@@ -81,7 +81,7 @@ func (b *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (
 // GetBlockByHash returns the JSON-RPC compatible Ethereum block identified by
 // hash.
 func (b *Backend) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]interface{}, error) {
-	resBlock, err := b.TendermintBlockByHash(hash)
+	resBlock, err := b.CometBlockByHash(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -97,9 +97,9 @@ func (b *Backend) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]inte
 		return nil, nil
 	}
 
-	res, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, fullTx)
+	res, err := b.RPCBlockFromCometBlock(resBlock, blockRes, fullTx)
 	if err != nil {
-		b.Logger.Debug("GetEthBlockFromTendermint failed", "hash", hash, "error", err.Error())
+		b.Logger.Debug("RPCBlockFromCometBlock failed", "hash", hash, "error", err.Error())
 		return nil, err
 	}
 
@@ -126,7 +126,7 @@ func (b *Backend) GetBlockTransactionCountByHash(hash common.Hash) *hexutil.Uint
 // GetBlockTransactionCountByNumber returns the number of Ethereum transactions
 // in the block identified by number.
 func (b *Backend) GetBlockTransactionCountByNumber(blockNum rpctypes.BlockNumber) *hexutil.Uint {
-	block, err := b.TendermintBlockByNumber(blockNum)
+	block, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		b.Logger.Debug("block not found", "height", blockNum.Int64(), "error", err.Error())
 		return nil
@@ -142,20 +142,20 @@ func (b *Backend) GetBlockTransactionCountByNumber(blockNum rpctypes.BlockNumber
 
 // GetBlockTransactionCount returns the number of Ethereum transactions in a
 // given block.
-func (b *Backend) GetBlockTransactionCount(block *tmrpctypes.ResultBlock) *hexutil.Uint {
+func (b *Backend) GetBlockTransactionCount(block *cmtrpctypes.ResultBlock) *hexutil.Uint {
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &block.Block.Height)
 	if err != nil {
 		return nil
 	}
 
-	ethMsgs := b.EthMsgsFromTendermintBlock(block, blockRes)
+	ethMsgs := b.EthMsgsFromCometBlock(block, blockRes)
 	n := hexutil.Uint(len(ethMsgs))
 	return &n
 }
 
-// TendermintBlockByNumber returns a CometBFT-formatted block for a given
+// CometBlockByNumber returns a CometBFT-formatted block for a given
 // block number
-func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpctypes.ResultBlock, error) {
+func (b *Backend) CometBlockByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctypes.ResultBlock, error) {
 	height, err := b.getHeightByBlockNum(blockNum)
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (b *Backend) TendermintBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpc
 	}
 
 	if resBlock.Block == nil {
-		b.Logger.Debug("TendermintBlockByNumber block not found", "height", height)
+		b.Logger.Debug("CometBlockByNumber block not found", "height", height)
 		return nil, nil
 	}
 
@@ -190,9 +190,9 @@ func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, err
 	return height, nil
 }
 
-// TendermintHeaderByNumber returns a CometBFT-formatted header for a given
+// CometHeaderByNumber returns a CometBFT-formatted header for a given
 // block number
-func (b *Backend) TendermintHeaderByNumber(blockNum rpctypes.BlockNumber) (*tmrpctypes.ResultHeader, error) {
+func (b *Backend) CometHeaderByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctypes.ResultHeader, error) {
 	height, err := b.getHeightByBlockNum(blockNum)
 	if err != nil {
 		return nil, err
@@ -200,9 +200,9 @@ func (b *Backend) TendermintHeaderByNumber(blockNum rpctypes.BlockNumber) (*tmrp
 	return b.RPCClient.Header(b.Ctx, &height)
 }
 
-// TendermintBlockResultByNumber returns a CometBFT-formatted block result
+// CometBlockResultByNumber returns a CometBFT-formatted block result
 // by block number
-func (b *Backend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
+func (b *Backend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBlockResults, error) {
 	res, err := b.RPCClient.BlockResults(b.Ctx, height)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", *height, err)
@@ -211,8 +211,8 @@ func (b *Backend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.Resu
 	return res, nil
 }
 
-// TendermintBlockByHash returns a CometBFT-formatted block by block number
-func (b *Backend) TendermintBlockByHash(blockHash common.Hash) (*tmrpctypes.ResultBlock, error) {
+// CometBlockByHash returns a CometBFT-formatted block by block number
+func (b *Backend) CometBlockByHash(blockHash common.Hash) (*cmtrpctypes.ResultBlock, error) {
 	resBlock, err := b.RPCClient.BlockByHash(b.Ctx, blockHash.Bytes())
 	if err != nil {
 		b.Logger.Debug("tendermint client failed to get block", "blockHash", blockHash.Hex(), "error", err.Error())
@@ -220,20 +220,20 @@ func (b *Backend) TendermintBlockByHash(blockHash common.Hash) (*tmrpctypes.Resu
 	}
 
 	if resBlock == nil || resBlock.Block == nil {
-		b.Logger.Debug("TendermintBlockByHash block not found", "blockHash", blockHash.Hex())
+		b.Logger.Debug("CometBlockByHash block not found", "blockHash", blockHash.Hex())
 		return nil, fmt.Errorf("block not found for hash %s", blockHash.Hex())
 	}
 
 	return resBlock, nil
 }
 
-// BlockNumberFromTendermint returns the BlockNumber from BlockNumberOrHash
-func (b *Backend) BlockNumberFromTendermint(blockNrOrHash rpctypes.BlockNumberOrHash) (rpctypes.BlockNumber, error) {
+// BlockNumberFromComet returns the BlockNumber from BlockNumberOrHash
+func (b *Backend) BlockNumberFromComet(blockNrOrHash rpctypes.BlockNumberOrHash) (rpctypes.BlockNumber, error) {
 	switch {
 	case blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber == nil:
 		return rpctypes.EthEarliestBlockNumber, fmt.Errorf("types BlockHash and BlockNumber cannot be both nil")
 	case blockNrOrHash.BlockHash != nil:
-		blockNumber, err := b.BlockNumberFromTendermintByHash(*blockNrOrHash.BlockHash)
+		blockNumber, err := b.BlockNumberFromCometByHash(*blockNrOrHash.BlockHash)
 		if err != nil {
 			return rpctypes.EthEarliestBlockNumber, err
 		}
@@ -245,8 +245,8 @@ func (b *Backend) BlockNumberFromTendermint(blockNrOrHash rpctypes.BlockNumberOr
 	}
 }
 
-// BlockNumberFromTendermintByHash returns the block height of given block hash
-func (b *Backend) BlockNumberFromTendermintByHash(blockHash common.Hash) (*big.Int, error) {
+// BlockNumberFromCometByHash returns the block height of given block hash
+func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, error) {
 	resHeader, err := b.RPCClient.HeaderByHash(b.Ctx, blockHash.Bytes())
 	if err != nil {
 		return nil, err
@@ -259,12 +259,12 @@ func (b *Backend) BlockNumberFromTendermintByHash(blockHash common.Hash) (*big.I
 	return big.NewInt(resHeader.Header.Height), nil
 }
 
-// EthMsgsFromTendermintBlock returns all real MsgEthereumTxs from a
+// EthMsgsFromCometBlock returns all real MsgEthereumTxs from a
 // CometBFT block. It also ensures consistency over the correct txs indexes
 // across RPC endpoints
-func (b *Backend) EthMsgsFromTendermintBlock(
-	resBlock *tmrpctypes.ResultBlock,
-	blockRes *tmrpctypes.ResultBlockResults,
+func (b *Backend) EthMsgsFromCometBlock(
+	resBlock *cmtrpctypes.ResultBlock,
+	blockRes *cmtrpctypes.ResultBlockResults,
 ) []*evmtypes.MsgEthereumTx {
 	var result []*evmtypes.MsgEthereumTx
 	block := resBlock.Block
@@ -302,7 +302,7 @@ func (b *Backend) EthMsgsFromTendermintBlock(
 
 // HeaderByNumber returns the block header identified by height.
 func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Header, error) {
-	resBlock, err := b.TendermintHeaderByNumber(blockNum)
+	resBlock, err := b.CometHeaderByNumber(blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Heade
 		return nil, errors.Errorf("header not found for height %d", blockNum)
 	}
 
-	blockRes, err := b.TendermintBlockResultByNumber(&resBlock.Header.Height)
+	blockRes, err := b.CometBlockResultByNumber(&resBlock.Header.Height)
 	if err != nil {
 		return nil, fmt.Errorf("header result not found for height %d", resBlock.Header.Height)
 	}
@@ -327,7 +327,7 @@ func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Heade
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", resBlock.Header.Height, "error", err)
 	}
 
-	ethHeader := rpctypes.EthHeaderFromTendermint(*resBlock.Header, bloom, baseFee)
+	ethHeader := rpctypes.EthHeaderFromComet(*resBlock.Header, bloom, baseFee)
 	return ethHeader, nil
 }
 
@@ -360,12 +360,12 @@ func (b *Backend) HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error) 
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", height, "error", err)
 	}
 
-	ethHeader := rpctypes.EthHeaderFromTendermint(*resHeader.Header, bloom, baseFee)
+	ethHeader := rpctypes.EthHeaderFromComet(*resHeader.Header, bloom, baseFee)
 	return ethHeader, nil
 }
 
 // BlockBloom query block bloom filter from block results
-func (b *Backend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
+func (b *Backend) BlockBloom(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
 	for _, event := range blockRes.FinalizeBlockEvents {
 		if event.Type != evmtypes.EventTypeBlockBloom {
 			continue
@@ -380,11 +380,11 @@ func (b *Backend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.
 	return ethtypes.Bloom{}, errors.New("block bloom event is not found")
 }
 
-// RPCBlockFromTendermintBlock returns a JSON-RPC compatible Ethereum block from a
-// given Tendermint block and its block result.
-func (b *Backend) RPCBlockFromTendermintBlock(
-	resBlock *tmrpctypes.ResultBlock,
-	blockRes *tmrpctypes.ResultBlockResults,
+// RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
+// given CometBFT block and its block result.
+func (b *Backend) RPCBlockFromCometBlock(
+	resBlock *cmtrpctypes.ResultBlock,
+	blockRes *cmtrpctypes.ResultBlockResults,
 	fullTx bool,
 ) (map[string]interface{}, error) {
 	ethRPCTxs := []interface{}{}
@@ -396,7 +396,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
 	}
 
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
 	for txIndex, ethMsg := range msgs {
 		if !fullTx {
 			hash := ethMsg.Hash()
@@ -478,7 +478,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 
 // EthBlockByNumber returns the Ethereum Block identified by number.
 func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Block, error) {
-	resBlock, err := b.TendermintBlockByNumber(blockNum)
+	resBlock, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -493,14 +493,14 @@ func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Blo
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}
 
-	return b.EthBlockFromTendermintBlock(resBlock, blockRes)
+	return b.EthBlockFromCometBlock(resBlock, blockRes)
 }
 
-// EthBlockFromTendermintBlock returns an Ethereum Block type from Tendermint block
-// EthBlockFromTendermintBlock
-func (b *Backend) EthBlockFromTendermintBlock(
-	resBlock *tmrpctypes.ResultBlock,
-	blockRes *tmrpctypes.ResultBlockResults,
+// EthBlockFromCometBlock returns an Ethereum Block type from Tendermint block
+// EthBlockFromCometBlock
+func (b *Backend) EthBlockFromCometBlock(
+	resBlock *cmtrpctypes.ResultBlock,
+	blockRes *cmtrpctypes.ResultBlockResults,
 ) (*ethtypes.Block, error) {
 	block := resBlock.Block
 	height := block.Height
@@ -512,11 +512,11 @@ func (b *Backend) EthBlockFromTendermintBlock(
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
 		// handle error for pruned node and log
-		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", height, "error", err)
+		b.Logger.Error("failed to fetch Base Fee from pruned block. Check node pruning configuration", "height", height, "error", err)
 	}
 
-	ethHeader := rpctypes.EthHeaderFromTendermint(block.Header, bloom, baseFee)
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	ethHeader := rpctypes.EthHeaderFromComet(block.Header, bloom, baseFee)
+	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
 
 	txs := make([]*ethtypes.Transaction, len(msgs))
 	for i, ethMsg := range msgs {
@@ -536,12 +536,12 @@ func (b *Backend) EthBlockFromTendermintBlock(
 func (b *Backend) GetBlockReceipts(
 	blockNrOrHash rpctypes.BlockNumberOrHash,
 ) ([]map[string]interface{}, error) {
-	blockNum, err := b.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number from hash: %w", err)
 	}
 
-	resBlock, err := b.TendermintBlockByNumber(blockNum)
+	resBlock, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
@@ -555,7 +555,7 @@ func (b *Backend) GetBlockReceipts(
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}
 
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
 	result := make([]map[string]interface{}, len(msgs))
 	blockHash := common.BytesToHash(resBlock.Block.Header.Hash()).Hex()
 	for i, msg := range msgs {
@@ -580,7 +580,7 @@ func (b *Backend) GetBlockReceipts(
 func (b *Backend) formatTxReceipt(
 	ethMsg *evmtypes.MsgEthereumTx,
 	txResult *cosmosevmtypes.TxResult,
-	blockRes *tmrpctypes.ResultBlockResults,
+	blockRes *cmtrpctypes.ResultBlockResults,
 	blockHeaderHash string,
 ) (map[string]interface{}, error) {
 	ethTx := ethMsg.AsTransaction()

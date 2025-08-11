@@ -145,7 +145,7 @@ func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBala
 	return testnetCmd
 }
 
-// testnetInitFilesCmd returns a cmd to initialize all files for tendermint testnet and application
+// testnetInitFilesCmd returns a cmd to initialize all files for CometBFT testnet and application
 func testnetInitFilesCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init-files",

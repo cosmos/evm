@@ -122,22 +122,22 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 //   - Transaction reward percentiles based on effective gas tip values
 //
 // Parameters:
-//   - tendermintBlock: The raw CometBFT block containing transaction data
+//   - cometBlock: The raw CometBFT block containing transaction data
 //   - ethBlock: Ethereum-formatted block with gas limit and usage information
 //   - rewardPercentiles: Percentile values (0-100) for reward calculation
-//   - tendermintBlockResult: Block execution results containing gas usage per transaction
+//   - cometBlockResult: Block execution results containing gas usage per transaction
 //   - targetOneFeeHistory: Output parameter to populate with calculated fee history data
 //
 // Returns an error if block processing fails due to invalid data types or calculation errors.
 func (b *Backend) ProcessBlock(
-	tendermintBlock *cmtrpctypes.ResultBlock,
+	cometBlock *cmtrpctypes.ResultBlock,
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
-	tendermintBlockResult *cmtrpctypes.ResultBlockResults,
+	cometBlockResult *cmtrpctypes.ResultBlockResults,
 	targetOneFeeHistory *types.OneFeeHistory,
 ) error {
-	blockHeight := tendermintBlock.Block.Height
-	blockBaseFee, err := b.BaseFee(tendermintBlockResult)
+	blockHeight := cometBlock.Block.Height
+	blockBaseFee, err := b.BaseFee(cometBlockResult)
 	if err != nil || blockBaseFee == nil {
 		targetOneFeeHistory.BaseFee = big.NewInt(0)
 	} else {
@@ -195,23 +195,23 @@ func (b *Backend) ProcessBlock(
 		targetOneFeeHistory.Reward[i] = big.NewInt(0)
 	}
 
-	// check tendermintTxs
-	tendermintTxs := tendermintBlock.Block.Txs
-	tendermintTxResults := tendermintBlockResult.TxsResults
-	tendermintTxCount := len(tendermintTxs)
+	// check cometTxs
+	cometTxs := cometBlock.Block.Txs
+	cometTxResults := cometBlockResult.TxsResults
+	CometTxCount := len(cometTxs)
 
 	var sorter sortGasAndReward
 
-	for i := 0; i < tendermintTxCount; i++ {
-		eachTendermintTx := tendermintTxs[i]
-		eachTendermintTxResult := tendermintTxResults[i]
+	for i := 0; i < CometTxCount; i++ {
+		cometTx := cometTxs[i]
+		cometTxResult := cometTxResults[i]
 
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(eachTendermintTx)
+		tx, err := b.ClientCtx.TxConfig.TxDecoder()(cometTx)
 		if err != nil {
 			b.Logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())
 			continue
 		}
-		txGasUsed := uint64(eachTendermintTxResult.GasUsed) // #nosec G115
+		txGasUsed := uint64(cometTxResult.GasUsed) // #nosec G115
 		for _, msg := range tx.GetMsgs() {
 			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
 			if !ok {

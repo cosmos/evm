@@ -74,7 +74,7 @@ func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.T
 		return nil, errors.New("genesis is not traceable")
 	}
 	// Get Tendermint Block
-	resBlock, err := a.backend.TendermintBlockByNumber(height)
+	resBlock, err := a.backend.CometBlockByNumber(height)
 	if err != nil {
 		a.logger.Debug("get block failed", "height", height, "error", err.Error())
 		return nil, err
@@ -88,7 +88,7 @@ func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.T
 func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
 	a.logger.Debug("debug_traceBlockByHash", "hash", hash)
 	// Get Tendermint Block
-	resBlock, err := a.backend.TendermintBlockByHash(hash)
+	resBlock, err := a.backend.CometBlockByHash(hash)
 	if err != nil {
 		a.logger.Debug("get block failed", "hash", hash.Hex(), "error", err.Error())
 		return nil, err

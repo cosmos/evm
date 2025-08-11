@@ -66,7 +66,7 @@ var (
 )
 
 // AppConstructor defines a function which accepts a network configuration and
-// creates an ABCI Application to provide to Tendermint.
+// creates an ABCI Application to provide to CometBFT.
 type AppConstructor = func(val Validator) servertypes.Application
 
 // Config defines the necessary configuration used to bootstrap and start an
@@ -158,7 +158,7 @@ type (
 	// clients. Typically, this test network would be used in client and integration
 	// testing where user input is expected.
 	//
-	// Note, due to Tendermint constraints in regards to RPC functionality, there
+	// Note, due to CometBFT constraints in regards to RPC functionality, there
 	// may only be one test network running at a time. Thus, any caller must be
 	// sure to Cleanup after testing is finished in order to allow other tests
 	// to create networks. In addition, only the first validator will have a valid

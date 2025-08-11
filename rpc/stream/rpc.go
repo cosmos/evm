@@ -162,7 +162,7 @@ func (s *RPCStream) start(
 
 			baseFee := types.BaseFeeFromEvents(data.ResultFinalizeBlock.Events)
 			// TODO: fetch bloom from events
-			header := types.EthHeaderFromTendermint(data.Block.Header, ethtypes.Bloom{}, baseFee)
+			header := types.EthHeaderFromComet(data.Block.Header, ethtypes.Bloom{}, baseFee)
 			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.Block.Header.Hash())})
 
 		case ev, ok := <-chLogs:

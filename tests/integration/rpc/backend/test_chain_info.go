@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cometbft/cometbft/abci/types"
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpc "github.com/cosmos/evm/rpc/types"
@@ -28,14 +28,14 @@ func (s *TestSuite) TestBaseFee() {
 
 	testCases := []struct {
 		name         string
-		blockRes     *tmrpctypes.ResultBlockResults
+		blockRes     *cmtrpctypes.ResultBlockResults
 		registerMock func()
 		expBaseFee   *big.Int
 		expPass      bool
 	}{
 		{
 			"fail - grpc BaseFee error",
-			&tmrpctypes.ResultBlockResults{Height: 1},
+			&cmtrpctypes.ResultBlockResults{Height: 1},
 			func() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeError(QueryClient)
@@ -45,7 +45,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"fail - grpc BaseFee error - with non feemarket block event",
-			&tmrpctypes.ResultBlockResults{
+			&cmtrpctypes.ResultBlockResults{
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
@@ -62,7 +62,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"fail - grpc BaseFee error - with feemarket block event",
-			&tmrpctypes.ResultBlockResults{
+			&cmtrpctypes.ResultBlockResults{
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
@@ -79,7 +79,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"fail - grpc BaseFee error - with feemarket block event with wrong attribute value",
-			&tmrpctypes.ResultBlockResults{
+			&cmtrpctypes.ResultBlockResults{
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
@@ -99,7 +99,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"fail - grpc baseFee error - with feemarket block event with baseFee attribute value",
-			&tmrpctypes.ResultBlockResults{
+			&cmtrpctypes.ResultBlockResults{
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
@@ -119,7 +119,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"fail - base fee or london fork not enabled",
-			&tmrpctypes.ResultBlockResults{Height: 1},
+			&cmtrpctypes.ResultBlockResults{Height: 1},
 			func() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeDisabled(QueryClient)
@@ -129,7 +129,7 @@ func (s *TestSuite) TestBaseFee() {
 		},
 		{
 			"pass",
-			&tmrpctypes.ResultBlockResults{Height: 1},
+			&cmtrpctypes.ResultBlockResults{Height: 1},
 			func() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -578,13 +578,13 @@ func (s *TestSuite) TestFeeHistory() {
 			called := 0
 			if len(tc.targetNewBaseFees) > 0 {
 				s.backend.ProcessBlocker = func(
-					tendermintBlock *tmrpctypes.ResultBlock,
+					cometBlock *cmtrpctypes.ResultBlock,
 					ethBlock *map[string]interface{},
 					rewardPercentiles []float64,
-					tendermintBlockResult *tmrpctypes.ResultBlockResults,
+					cometBlockResult *cmtrpctypes.ResultBlockResults,
 					targetOneFeeHistory *rpc.OneFeeHistory,
 				) error {
-					err := s.backend.ProcessBlock(tendermintBlock, ethBlock, rewardPercentiles, tendermintBlockResult, targetOneFeeHistory)
+					err := s.backend.ProcessBlock(cometBlock, ethBlock, rewardPercentiles, cometBlockResult, targetOneFeeHistory)
 					s.Require().NoError(err)
 					targetOneFeeHistory.NextBaseFee = tc.targetNewBaseFees[called]
 					called++

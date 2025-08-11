@@ -25,7 +25,7 @@ func NewEthEmitEventDecorator(evmKeeper anteinterfaces.EVMKeeper) EthEmitEventDe
 // AnteHandle emits some basic events for the eth messages
 func (eeed EthEmitEventDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
 	// After eth tx passed ante handler, the fee is deducted and nonce increased, it shouldn't be ignored by json-rpc,
-	// we need to emit some basic events at the very end of ante handler to be indexed by tendermint.
+	// we need to emit some basic events at the very end of ante handler to be indexed by CometBFT.
 	blockTxIndex := eeed.evmKeeper.GetTxIndexTransient(ctx)
 
 	msgs := tx.GetMsgs()

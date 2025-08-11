@@ -183,7 +183,7 @@ func (s *TestSuite) TestGetProof() {
 				var header metadata.MD
 				RegisterParams(queryClient, &header, height)
 
-				// Use the IAVL height if a valid tendermint height is passed in.
+				// Use the IAVL height if a valid CometBFT height is passed in.
 				iavlHeight := height
 				RegisterABCIQueryWithOptions(
 					client,

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -316,7 +316,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 	testCases := []struct {
 		name         string
 		registerMock func()
-		block        *tmrpctypes.ResultBlock
+		block        *cmtrpctypes.ResultBlock
 		idx          hexutil.Uint
 		expRPCTx     *rpctypes.RPCTransaction
 		expPass      bool
@@ -328,7 +328,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				_, err := RegisterBlockResults(client, 1)
 				s.Require().NoError(err)
 			},
-			&tmrpctypes.ResultBlock{Block: types.MakeBlock(1, []types.Tx{bz}, nil, nil)},
+			&cmtrpctypes.ResultBlock{Block: types.MakeBlock(1, []types.Tx{bz}, nil, nil)},
 			1,
 			nil,
 			true,
@@ -342,7 +342,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFeeError(QueryClient)
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -362,7 +362,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -376,7 +376,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -535,7 +535,7 @@ func (s *TestSuite) TestQueryTendermintTxIndexer() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := s.backend.QueryTendermintTxIndexer(tc.query, tc.txGetter)
+			txResults, err := s.backend.QueryCometTxIndexer(tc.query, tc.txGetter)
 
 			if tc.expPass {
 				s.Require().NoError(err)
