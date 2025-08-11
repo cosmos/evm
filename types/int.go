@@ -5,6 +5,8 @@ import (
 	math "math"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
@@ -33,4 +35,13 @@ func SafeNewIntFromBigInt(i *big.Int) (sdkmath.Int, error) {
 // IsValidInt256 check the bound of 256 bit number
 func IsValidInt256(i *big.Int) bool {
 	return i == nil || i.BitLen() <= maxBitLen
+}
+
+// SafeHexToInt64 converts a hexutil.Uint64 to int64, returning an error if it exceeds the max int64 value.
+func SafeHexToInt64(value hexutil.Uint64) (int64, error) {
+	if value > math.MaxInt64 {
+		return 0, fmt.Errorf("hexutil.Uint64 value %v cannot exceed %v", value, math.MaxInt64)
+	}
+
+	return int64(value), nil //nolint:gosec // checked
 }

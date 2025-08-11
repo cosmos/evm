@@ -298,7 +298,7 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 		return 0, err
 	}
 
-	header, err := b.TendermintBlockByNumber(blockNr)
+	header, err := b.TendermintHeaderByNumber(blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return 0, errors.New("header not found")
@@ -307,7 +307,7 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 	req := evmtypes.EthCallRequest{
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
-		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
 		ChainId:         b.EvmChainID.Int64(),
 	}
 
@@ -333,7 +333,7 @@ func (b *Backend) DoCall(
 	if err != nil {
 		return nil, err
 	}
-	header, err := b.TendermintBlockByNumber(blockNr)
+	header, err := b.TendermintHeaderByNumber(blockNr)
 	if err != nil {
 		// the error message imitates geth behavior
 		return nil, errors.New("header not found")
@@ -342,7 +342,7 @@ func (b *Backend) DoCall(
 	req := evmtypes.EthCallRequest{
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
-		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
 		ChainId:         b.EvmChainID.Int64(),
 	}
 
