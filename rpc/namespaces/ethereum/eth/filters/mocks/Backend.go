@@ -686,7 +686,8 @@ func (_c *Backend_TendermintBlockResultByNumber_Call) RunAndReturn(run func(*int
 func NewBackend(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *Backend {
+},
+) *Backend {
 	mock := &Backend{}
 	mock.Mock.Test(t)
 
