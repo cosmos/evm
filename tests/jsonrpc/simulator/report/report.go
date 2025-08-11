@@ -18,7 +18,7 @@ import (
 const totalWidth = 63
 
 // Results prints or saves the RPC results based on the verbosity flag and output format
-func Results(results []*types.RpcResult, verbose bool, outputExcel bool) {
+func Results(results []*types.RpcResult, verbose bool, outputExcel bool, rCtx ...*types.RPCContext) {
 	summary := &types.TestSummary{}
 	for _, result := range results {
 		summary.AddResult(result)
@@ -150,6 +150,11 @@ func Results(results []*types.RpcResult, verbose bool, outputExcel bool) {
 	PrintCategorizedResults(results, verbose)
 	PrintCategoryMatrix(summary)
 	PrintSummary(summary)
+	
+	// Print dual API comparison summary if available
+	if len(rCtx) > 0 && rCtx[0] != nil && rCtx[0].EnableComparison {
+		PrintComparisonSummary(rCtx[0])
+	}
 }
 
 func PrintHeader() {
@@ -368,6 +373,77 @@ func PrintSummary(summary *types.TestSummary) {
 	color.Blue("Legacy:          %d", summary.Legacy)
 	color.HiBlack("Skipped:         %d", summary.Skipped)
 	color.Cyan("Total:           %d", summary.Total)
+}
+
+func PrintComparisonSummary(rCtx *types.RPCContext) {
+	summary := rCtx.GetComparisonSummary()
+	if summary == nil || summary["total"] == 0 {
+		return
+	}
+
+	line := strings.Repeat("═", totalWidth)
+	fmt.Printf("\n%s\n", line)
+	fmt.Println("                DUAL API STRUCTURE COMPARISON             ")
+	fmt.Printf("%s\n", line)
+
+	fmt.Printf("Total Comparisons:       %d\n", summary["total"])
+	color.Green("Structure Matches:       %d", summary["structure_matches"])
+	color.Cyan("Type Matches:            %d", summary["type_matches"])
+	color.Blue("Error Consistency:       %d", summary["error_matches"])
+	
+	if summary["differences"] > 0 {
+		color.Yellow("Structural Differences:  %d", summary["differences"])
+		
+		// Show details of methods with differences, separating request failures from structural issues
+		fmt.Printf("\nMethods with Issues:\n")
+		for _, result := range rCtx.ComparisonResults {
+			if len(result.Differences) > 0 {
+				fmt.Printf("  • %s:\n", result.Method)
+				fmt.Printf("    evmd type: %s, geth type: %s\n", result.EvmdType, result.GethType)
+				
+				// Categorize differences
+				isRequestFailure := false
+				for _, diff := range result.Differences {
+					if strings.Contains(diff, "request failed") {
+						isRequestFailure = true
+						color.Cyan("    - %s", diff)
+					} else {
+						fmt.Printf("    - %s\n", diff)
+					}
+				}
+				
+				if isRequestFailure {
+					fmt.Printf("    (This indicates request failure, not structural difference)\n")
+				}
+				fmt.Println()
+			}
+		}
+	} else {
+		color.Green("\n✓ All compared methods have matching structures!")
+	}
+
+	// Calculate structure compatibility percentage
+	if summary["total"] > 0 {
+		structureCompatibilityPercent := float64(summary["structure_matches"]) / float64(summary["total"]) * 100
+		typeCompatibilityPercent := float64(summary["type_matches"]) / float64(summary["total"]) * 100
+		
+		fmt.Printf("\nCompatibility Scores:\n")
+		if structureCompatibilityPercent >= 90 {
+			color.Green("  Structure Compatibility: %.1f%%", structureCompatibilityPercent)
+		} else if structureCompatibilityPercent >= 70 {
+			color.Yellow("  Structure Compatibility: %.1f%%", structureCompatibilityPercent)
+		} else {
+			color.Red("  Structure Compatibility: %.1f%%", structureCompatibilityPercent)
+		}
+		
+		if typeCompatibilityPercent >= 90 {
+			color.Green("  Type Compatibility:      %.1f%%", typeCompatibilityPercent)
+		} else if typeCompatibilityPercent >= 70 {
+			color.Yellow("  Type Compatibility:      %.1f%%", typeCompatibilityPercent)
+		} else {
+			color.Red("  Type Compatibility:      %.1f%%", typeCompatibilityPercent)
+		}
+	}
 }
 
 func ColorPrint(result *types.RpcResult, verbose bool) {
