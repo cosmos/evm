@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/status-im/keycard-go/hexutils"
@@ -351,10 +352,10 @@ func EthGetBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
 			// Get geth receipt to get geth block hash
 			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
-				return []interface{}{"0x" + gethReceipt.BlockNumber.String(), true}
+				return []interface{}{hexutil.EncodeBig(gethReceipt.BlockNumber), true}
 			}
 		}
-		return []interface{}{"0x" + receipt.BlockNumber.String(), true}
+		return []interface{}{hexutil.EncodeBig(receipt.BlockNumber), true}
 	})
 
 	result := &types.RpcResult{
