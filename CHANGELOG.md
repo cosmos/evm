@@ -2,6 +2,10 @@
 
 ## UNRELEASED
 
+### API-Breaking
+
+- [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
+
 ### DEPENDENCIES
 
 - [\#31](https://github.com/cosmos/evm/pull/31) Migrated example_chain to evmd
