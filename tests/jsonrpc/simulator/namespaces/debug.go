@@ -63,8 +63,11 @@ const (
 	MethodNameDebugStartCPUProfile          types.RpcName = "debug_startCPUProfile"
 	MethodNameDebugStopCPUProfile           types.RpcName = "debug_stopCPUProfile"
 	MethodNameDebugTraceBadBlock            types.RpcName = "debug_traceBadBlock"
-	MethodNameDebugStandardTraceBlockToFile types.RpcName = "debug_standardTraceBlockToFile"
-	MethodNameDebugStorageRangeAt           types.RpcName = "debug_storageRangeAt"
+	MethodNameDebugStandardTraceBlockToFile    types.RpcName = "debug_standardTraceBlockToFile"
+	MethodNameDebugStandardTraceBadBlockToFile types.RpcName = "debug_standardTraceBadBlockToFile"
+	MethodNameDebugTraceBlockFromFile          types.RpcName = "debug_traceBlockFromFile"
+	MethodNameDebugTraceChain                  types.RpcName = "debug_traceChain"
+	MethodNameDebugStorageRangeAt              types.RpcName = "debug_storageRangeAt"
 	MethodNameDebugSetTrieFlushInterval     types.RpcName = "debug_setTrieFlushInterval"
 	MethodNameDebugVmodule                  types.RpcName = "debug_vmodule"
 	MethodNameDebugWriteBlockProfile        types.RpcName = "debug_writeBlockProfile"
@@ -724,6 +727,17 @@ func DebugStandardTraceBlockToFile(rCtx *types.RPCContext) (*types.RpcResult, er
 	}
 	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBlockToFile", testHash, config)
 	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(MethodNameDebugStandardTraceBlockToFile)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(MethodNameDebugStandardTraceBlockToFile)+" method not found" {
+			return &types.RpcResult{
+				Method:   MethodNameDebugStandardTraceBlockToFile,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}, nil
+		}
 		return &types.RpcResult{
 			Method:   MethodNameDebugStandardTraceBlockToFile,
 			Status:   types.Error,
@@ -733,6 +747,128 @@ func DebugStandardTraceBlockToFile(rCtx *types.RPCContext) (*types.RpcResult, er
 	}
 	return &types.RpcResult{
 		Method:   MethodNameDebugStandardTraceBlockToFile,
+		Status:   types.Ok,
+		Value:    result,
+		Category: NamespaceDebug,
+	}, nil
+}
+
+// DebugStandardTraceBadBlockToFile executes standard trace on a bad block and outputs to file
+func DebugStandardTraceBadBlockToFile(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	var result interface{}
+	// Test parameters for standard trace bad block to file
+	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	config := map[string]interface{}{
+		"tracer": "standardTracer",
+	}
+	
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameDebugStandardTraceBadBlockToFile, testHash, config)
+	
+	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBadBlockToFile", testHash, config)
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(MethodNameDebugStandardTraceBadBlockToFile)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(MethodNameDebugStandardTraceBadBlockToFile)+" method not found" {
+			return &types.RpcResult{
+				Method:   MethodNameDebugStandardTraceBadBlockToFile,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNameDebugStandardTraceBadBlockToFile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugStandardTraceBadBlockToFile,
+		Status:   types.Ok,
+		Value:    result,
+		Category: NamespaceDebug,
+	}, nil
+}
+
+// DebugTraceBlockFromFile traces a block from file
+func DebugTraceBlockFromFile(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	var result interface{}
+	// Test parameters for trace block from file
+	filename := "/tmp/block.rlp" // Example filename
+	config := map[string]interface{}{
+		"tracer": "callTracer",
+	}
+	
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameDebugTraceBlockFromFile, filename, config)
+	
+	err := rCtx.EthCli.Client().Call(&result, "debug_traceBlockFromFile", filename, config)
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(MethodNameDebugTraceBlockFromFile)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(MethodNameDebugTraceBlockFromFile)+" method not found" {
+			return &types.RpcResult{
+				Method:   MethodNameDebugTraceBlockFromFile,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlockFromFile,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugTraceBlockFromFile,
+		Status:   types.Ok,
+		Value:    result,
+		Category: NamespaceDebug,
+	}, nil
+}
+
+// DebugTraceChain traces a range of blocks in the chain
+func DebugTraceChain(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	var result interface{}
+	// Test parameters for trace chain
+	startBlock := "0x1" // Start from block 1
+	endBlock := "0x2"   // End at block 2
+	config := map[string]interface{}{
+		"tracer": "callTracer",
+		"timeout": "10s",
+	}
+	
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameDebugTraceChain, startBlock, endBlock, config)
+	
+	err := rCtx.EthCli.Client().Call(&result, "debug_traceChain", startBlock, endBlock, config)
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(MethodNameDebugTraceChain)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(MethodNameDebugTraceChain)+" method not found" {
+			return &types.RpcResult{
+				Method:   MethodNameDebugTraceChain,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}, nil
+		}
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceChain,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameDebugTraceChain,
 		Status:   types.Ok,
 		Value:    result,
 		Category: NamespaceDebug,

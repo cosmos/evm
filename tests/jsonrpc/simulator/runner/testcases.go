@@ -264,9 +264,10 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameDebugTraceBadBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceBadBlock, "debug")
 				}, Description: "Trace bad blocks"},
-				{Name: ns.MethodNameDebugStandardTraceBlockToFile, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.CallEthClient(rCtx, ns.MethodNameDebugStandardTraceBlockToFile, "debug")
-				}, Description: "Standard trace block to file"},
+				{Name: ns.MethodNameDebugStandardTraceBlockToFile, Handler: ns.DebugStandardTraceBlockToFile, Description: "Standard trace block to file"},
+				{Name: ns.MethodNameDebugStandardTraceBadBlockToFile, Handler: ns.DebugStandardTraceBadBlockToFile, Description: "Standard trace bad block to file"},
+				{Name: ns.MethodNameDebugTraceBlockFromFile, Handler: ns.DebugTraceBlockFromFile, Description: "Trace block from file"},
+				{Name: ns.MethodNameDebugTraceChain, Handler: ns.DebugTraceChain, Description: "Trace a range of blocks in the chain"},
 				{Name: ns.MethodNameDebugStorageRangeAt, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.CallEthClient(rCtx, ns.MethodNameDebugStorageRangeAt, "debug")
 				}, Description: "Get storage range at specific position"},
