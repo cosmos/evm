@@ -452,17 +452,17 @@ func (rCtx *RPCContext) findStructuralDifferences(evmdType, gethType string, evm
 type ParameterProvider func(isGeth bool) []interface{}
 
 // PerformComparison performs dual API comparison with logging if enabled
-func (rCtx *RPCContext) PerformComparison(methodName RpcName, rpcMethod string, params ...interface{}) {
+func (rCtx *RPCContext) PerformComparison(methodName RpcName, params ...interface{}) {
 	if !rCtx.EnableComparison {
 		return
 	}
 
-	comparisonResult := rCtx.CompareRPCCall(rpcMethod, params...)
+	comparisonResult := rCtx.CompareRPCCall(string(methodName), params...)
 	if comparisonResult != nil {
 		log.Printf("Structure Comparison for %s:", methodName)
-		log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
-		log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
-		log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
+		// log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
+		// log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
+		// log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
 		if len(comparisonResult.Differences) > 0 {
 			log.Printf("  Structural Differences: %v", comparisonResult.Differences)
 		}
@@ -470,17 +470,17 @@ func (rCtx *RPCContext) PerformComparison(methodName RpcName, rpcMethod string, 
 }
 
 // PerformComparisonWithProvider performs dual API comparison using different parameters for each client
-func (rCtx *RPCContext) PerformComparisonWithProvider(methodName RpcName, rpcMethod string, paramProvider ParameterProvider) {
+func (rCtx *RPCContext) PerformComparisonWithProvider(methodName RpcName, paramProvider ParameterProvider) {
 	if !rCtx.EnableComparison {
 		return
 	}
 
-	comparisonResult := rCtx.CompareRPCCallWithProvider(rpcMethod, paramProvider)
+	comparisonResult := rCtx.CompareRPCCallWithProvider(string(methodName), paramProvider)
 	if comparisonResult != nil {
 		log.Printf("Structure Comparison for %s:", methodName)
-		log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
-		log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
-		log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
+		// log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
+		// log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
+		// log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
 		if len(comparisonResult.Differences) > 0 {
 			log.Printf("  Structural Differences: %v", comparisonResult.Differences)
 		}
