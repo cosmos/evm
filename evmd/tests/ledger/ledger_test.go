@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/cosmos/evm/crypto/hd"

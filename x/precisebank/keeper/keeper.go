@@ -39,6 +39,8 @@ func NewKeeper(
 	}
 }
 
+// BANK KEEPER INTERFACE PASSTHROUGHS
+
 func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool) {
 	k.bk.IterateTotalSupply(ctx, cb)
 }

@@ -24,6 +24,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -263,6 +264,19 @@ func (n *IntegrationNetwork) GetBaseDecimal() evmtypes.Decimals {
 // GetContext returns the network's context
 func (n *IntegrationNetwork) GetContext() sdktypes.Context {
 	return n.ctx
+}
+
+// GetQueryContext returns the network's context, but only set the fields that Cosmos SDK sets when it creates a query context.
+// ref: https://github.com/cosmos/cosmos-sdk/blob/fd170b51404b49bda767cf74727cd26329bfd115/baseapp/abci.go#L1298-L1314
+func (n *IntegrationNetwork) GetQueryContext() sdktypes.Context {
+	ctx := sdktypes.NewContext(n.ctx.MultiStore(), n.ctx.BlockHeader(), true, n.ctx.Logger()).
+		WithMinGasPrices(n.ctx.MinGasPrices()).
+		WithGasMeter(storetypes.NewGasMeter(n.ctx.GasMeter().Limit())).
+		WithBlockHeader(n.ctx.BlockHeader()).
+		WithBlockHeight(n.ctx.BlockHeight()).
+		WithBlockTime(n.ctx.BlockTime())
+
+	return ctx
 }
 
 // WithIsCheckTxCtx switches the network's checkTx property

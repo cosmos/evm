@@ -314,6 +314,15 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
+// GetStateAndCommittedState returns the current value and the original value.
+func (s *StateDB) GetStateAndCommittedState(addr common.Address, hash common.Hash) (common.Hash, common.Hash) {
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.GetState(hash), stateObject.GetCommittedState(hash)
+	}
+	return common.Hash{}, common.Hash{}
+}
+
 // GetRefund returns the current value of the refund counter.
 func (s *StateDB) GetRefund() uint64 {
 	return s.refund
@@ -505,7 +514,6 @@ func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 		return uint256.Int{}, false
 	}
 
-	// todo: this is not equivalent to upstream (https://github.com/cosmos/evm/pull/181/#discussion_r2105471095)
 	if stateObject.newContract {
 		return s.SelfDestruct(addr), true
 	}

@@ -24,6 +24,7 @@ const (
 	contractMinterBurner = iota + 1
 	contractDirectBalanceManipulation
 	contractMaliciousDelayed
+	contractBytes32Metadata
 )
 
 const (
@@ -66,6 +67,8 @@ func (s *KeeperTestSuite) setupRegisterERC20Pair(contractType int) (common.Addre
 		contract, err = s.DeployContractDirectBalanceManipulation()
 	case contractMaliciousDelayed:
 		contract, err = s.DeployContractMaliciousDelayed()
+	case contractBytes32Metadata:
+		contract, err = s.DeployBytes32MetadataTokenContract(erc20Name, erc20Symbol)
 	default:
 		contract, err = s.DeployContract(erc20Name, erc20Symbol, erc20Decimals)
 	}

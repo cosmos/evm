@@ -183,7 +183,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 7. can transfer
-	coreMsg, err := ethMsg.AsMessage(decUtils.Signer, decUtils.BaseFee)
+	coreMsg, err := ethMsg.AsMessage(decUtils.BaseFee)
 	if err != nil {
 		return ctx, errorsmod.Wrapf(
 			err,

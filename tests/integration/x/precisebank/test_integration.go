@@ -39,7 +39,7 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTest()
+			s.SetupTestWithChainID(tt.chainID)
 
 			moduleName := evmtypes.ModuleName
 			sender := sdk.AccAddress([]byte{1})
