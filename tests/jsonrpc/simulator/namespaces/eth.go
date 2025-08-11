@@ -102,6 +102,9 @@ const (
 )
 
 func EthCoinbase(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameEthCoinbase, "eth_coinbase")
+
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "eth_coinbase")
 	if err != nil {
@@ -183,6 +186,9 @@ func EthMaxPriorityFeePerGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameEthMaxPriorityFeePerGas); result != nil {
 		return result, nil
 	}
+
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameEthMaxPriorityFeePerGas, "eth_maxPriorityFeePerGas")
 
 	maxPriorityFeePerGas, err := rCtx.EthCli.SuggestGasTipCap(context.Background())
 	if err != nil {
@@ -696,6 +702,16 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
+	// Perform dual API comparison if enabled - use different block numbers for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockReceipts, "eth_getBlockReceipts", func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethBlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.GethBlockNumsIncludingTx[0])}
+		} else if len(rCtx.BlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.BlockNumsIncludingTx[0])}
+		}
+		return []interface{}{"latest"}
+	})
+
 	if len(rCtx.BlockNumsIncludingTx) == 0 {
 		return nil, errors.New("no blocks with transactions")
 
@@ -762,6 +778,22 @@ func EthGetTransactionByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcRes
 	if result := rCtx.AlreadyTested(MethodNameEthGetTransactionByBlockHashAndIndex); result != nil {
 		return result, nil
 	}
+
+	// Perform dual API comparison if enabled - use different transaction data for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetTransactionByBlockHashAndIndex, "eth_getTransactionByBlockHashAndIndex", func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			// Get geth transaction receipt to get block hash and index
+			if receipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+				return []interface{}{receipt.BlockHash.Hex(), fmt.Sprintf("0x%x", receipt.TransactionIndex)}
+			}
+		} else if len(rCtx.ProcessedTransactions) > 0 {
+			// Get evmd transaction receipt to get block hash and index
+			if receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0]); err == nil {
+				return []interface{}{receipt.BlockHash.Hex(), fmt.Sprintf("0x%x", receipt.TransactionIndex)}
+			}
+		}
+		return []interface{}{"0x0", "0x0"} // Fallback that will likely return null
+	})
 
 	if len(rCtx.ProcessedTransactions) == 0 {
 		return nil, errors.New("no processed transactions available - run transaction generation first")
@@ -1404,6 +1436,9 @@ func EthAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 // Mining method handlers
 func EthMining(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameEthMining, "eth_mining")
+
 	var result bool
 	err := rCtx.EthCli.Client().Call(&result, "eth_mining")
 	if err != nil {
@@ -1454,6 +1489,13 @@ func EthCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameEthEstimateGas, "eth_estimateGas", map[string]interface{}{
+		"from":  rCtx.Acc.Address.Hex(),
+		"to":    rCtx.Acc.Address.Hex(),
+		"value": "0x0",
+	})
+
 	// Simple gas estimation test
 	callMsg := ethereum.CallMsg{
 		From:  rCtx.Acc.Address,

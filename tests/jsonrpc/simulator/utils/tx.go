@@ -95,6 +95,12 @@ func createSimilarGethTransaction(rCtx *types.RPCContext, evmdTx *ethtypes.Trans
 		return common.Hash{}, fmt.Errorf("failed to get private key: %w", err)
 	}
 
+	// Check and fund account if necessary
+	fromAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
+	if err := ensureGethAccountFunding(rCtx, fromAddr); err != nil {
+		return common.Hash{}, fmt.Errorf("failed to fund geth account: %w", err)
+	}
+
 	// Get chain ID for geth
 	chainID, err := rCtx.GethCli.ChainID(context.Background())
 	if err != nil {
@@ -102,7 +108,6 @@ func createSimilarGethTransaction(rCtx *types.RPCContext, evmdTx *ethtypes.Trans
 	}
 
 	// Get nonce for geth
-	fromAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 	nonce, err := rCtx.GethCli.PendingNonceAt(context.Background(), fromAddr)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to get nonce: %w", err)
@@ -197,4 +202,57 @@ func waitForGethTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Dura
 			}
 		}
 	}
+}
+
+// ensureGethAccountFunding ensures a geth account has sufficient funds for transactions
+func ensureGethAccountFunding(rCtx *types.RPCContext, targetAddr common.Address) error {
+	// Check current balance
+	balance, err := rCtx.GethCli.BalanceAt(context.Background(), targetAddr, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get balance: %w", err)
+	}
+
+	// If balance is sufficient (>= 10 ETH), no need to fund
+	minBalance := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)) // 10 ETH
+	if balance.Cmp(minBalance) >= 0 {
+		return nil
+	}
+
+	// Silently funding geth account
+
+	// Get geth's pre-funded dev account
+	var accounts []string
+	err = rCtx.GethCli.Client().Call(&accounts, "eth_accounts")
+	if err != nil || len(accounts) == 0 {
+		return fmt.Errorf("no funded accounts available in geth: %w", err)
+	}
+
+	devAccount := common.HexToAddress(accounts[0])
+	// Using geth dev account for funding
+
+	// Transfer 100 ETH from dev account to target account
+	transferAmount := new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18)) // 100 ETH
+	
+	// Send transaction via RPC (since geth dev account is unlocked)
+	var txHash common.Hash
+	err = rCtx.GethCli.Client().Call(&txHash, "eth_sendTransaction", map[string]interface{}{
+		"from":  devAccount.Hex(),
+		"to":    targetAddr.Hex(), 
+		"value": fmt.Sprintf("0x%x", transferAmount),
+		"gas":   "0x5208", // 21000 gas
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to send funding transaction: %w", err)
+	}
+
+	// Wait for the funding transaction to be mined
+	err = waitForGethTx(rCtx, txHash, 30*time.Second)
+	if err != nil {
+		return fmt.Errorf("funding transaction failed: %w", err)
+	}
+
+	// Successfully funded geth account
+	
+	return nil
 }

@@ -318,6 +318,14 @@ func ExecuteTransactionScenarioWithMetadata(client *ethclient.Client, rpcURL str
 
 	ctx := context.Background()
 
+	// Fund account if this is geth and insufficient balance
+	if network == "geth" {
+		if err := fundGethAccountIfNeeded(client, fromAddr); err != nil {
+			metadata.Error = fmt.Sprintf("failed to fund geth account: %v", err)
+			return metadata, err
+		}
+	}
+
 	// Track chain ID call
 	callStart := time.Now()
 	chainID, err := client.ChainID(ctx)
@@ -635,4 +643,90 @@ func EnhanceTransactionMetadata(metadata *TransactionMetadata) error {
 	}
 
 	return nil
+}
+
+// fundGethAccountIfNeeded funds a geth account if it has insufficient balance
+func fundGethAccountIfNeeded(client *ethclient.Client, targetAddr common.Address) error {
+	ctx := context.Background()
+	
+	// Check current balance
+	balance, err := client.BalanceAt(ctx, targetAddr, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get balance: %w", err)
+	}
+
+	// If balance is sufficient (>= 50 ETH), no need to fund
+	minBalance := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e18)) // 50 ETH
+	if balance.Cmp(minBalance) >= 0 {
+		return nil
+	}
+
+	// Silently funding geth account
+
+	// Get geth's pre-funded dev account
+	var accounts []string
+	err = client.Client().Call(&accounts, "eth_accounts")
+	if err != nil || len(accounts) == 0 {
+		return fmt.Errorf("no funded accounts available in geth: %w", err)
+	}
+
+	devAccount := common.HexToAddress(accounts[0])
+	// Using geth dev account for funding
+
+	// Transfer 500 ETH from dev account to target account
+	transferAmount := new(big.Int).Mul(big.NewInt(500), big.NewInt(1e18)) // 500 ETH
+	
+	// Send transaction via RPC (since geth dev account is unlocked)
+	var txHash common.Hash
+	err = client.Client().Call(&txHash, "eth_sendTransaction", map[string]interface{}{
+		"from":  devAccount.Hex(),
+		"to":    targetAddr.Hex(), 
+		"value": fmt.Sprintf("0x%x", transferAmount),
+		"gas":   "0x5208", // 21000 gas
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to send funding transaction: %w", err)
+	}
+
+	// Wait for the funding transaction to be mined properly
+	receipt, err := waitForGethTransactionReceipt(client, txHash, 30*time.Second)
+	if err != nil {
+		return fmt.Errorf("funding transaction failed: %w", err)
+	}
+	
+	if receipt.Status == 0 {
+		return fmt.Errorf("funding transaction reverted")
+	}
+	
+	// Successfully funded geth account
+	
+	return nil
+}
+
+
+// waitForGethTransactionReceipt waits for a geth transaction receipt with proper error handling
+func waitForGethTransactionReceipt(client *ethclient.Client, txHash common.Hash, timeout time.Duration) (*ethtypes.Receipt, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	attempts := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for transaction %s after %d attempts", txHash.Hex(), attempts)
+		case <-ticker.C:
+			attempts++
+			receipt, err := client.TransactionReceipt(context.Background(), txHash)
+			if err != nil {
+				// Transaction not mined yet, continue waiting
+				continue
+			}
+			// Transaction found and mined
+			return receipt, nil
+		}
+	}
 }

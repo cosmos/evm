@@ -99,5 +99,30 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 	}
 
 	log.Printf("Generated %d test transactions for RPC testing", len(rCtx.ProcessedTransactions))
+
+	// Connect to geth
+	gethClient, err := ethclient.Dial("http://localhost:8547")
+	if err != nil {
+		return fmt.Errorf("failed to connect to evmd: %w", err)
+	}
+
+	// Execute scenarios to generate transaction hashes
+	for _, scenario := range scenarios {
+		result, err := ExecuteTransactionScenario(gethClient, scenario, "evmd")
+		if err != nil {
+			log.Printf("Warning: Failed to execute test transaction %s: %v", scenario.Name, err)
+			continue
+		}
+
+		if result.Success {
+			// Add transaction hash to RPC context
+			rCtx.ProcessedTransactions = append(rCtx.ProcessedTransactions, result.TxHash)
+			if result.Receipt != nil {
+				rCtx.BlockNumsIncludingTx = append(rCtx.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
+			}
+			log.Printf("Generated test transaction: %s", result.TxHash.Hex())
+		}
+	}
+
 	return nil
 }

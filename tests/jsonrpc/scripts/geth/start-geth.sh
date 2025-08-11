@@ -62,7 +62,7 @@ docker run -d \
     --datadir /data \
     --networkid $NETWORK_ID \
     --dev \
-    --dev.period 12 \
+    --dev.period 1 \
     --http \
     --http.addr 0.0.0.0 \
     --http.port 8545 \
