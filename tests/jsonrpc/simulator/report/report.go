@@ -154,6 +154,7 @@ func Results(results []*types.RpcResult, verbose bool, outputExcel bool, rCtx ..
 	// Print dual API comparison summary if available
 	if len(rCtx) > 0 && rCtx[0] != nil && rCtx[0].EnableComparison {
 		PrintComparisonSummary(rCtx[0])
+		PrintComparisonToRPCSummaryDiscrepancy(summary, rCtx[0])
 	}
 }
 
@@ -390,42 +391,22 @@ func PrintComparisonSummary(rCtx *types.RPCContext) {
 	color.Green("Structure Matches:       %d", summary["structure_matches"])
 	color.Cyan("Type Matches:            %d", summary["type_matches"])
 	color.Blue("Error Consistency:       %d", summary["error_matches"])
+	color.Yellow("Structural Differences:  %d", summary["differences"])
 	
-	if summary["differences"] > 0 {
-		color.Yellow("Structural Differences:  %d", summary["differences"])
-		
-		// Show details of methods with differences, separating request failures from structural issues
-		fmt.Printf("\nMethods with Issues:\n")
-		for _, result := range rCtx.ComparisonResults {
-			if len(result.Differences) > 0 {
-				fmt.Printf("  • %s:\n", result.Method)
-				fmt.Printf("    evmd type: %s, geth type: %s\n", result.EvmdType, result.GethType)
-				
-				// Categorize differences
-				isRequestFailure := false
-				for _, diff := range result.Differences {
-					if strings.Contains(diff, "request failed") {
-						isRequestFailure = true
-						color.Cyan("    - %s", diff)
-					} else {
-						fmt.Printf("    - %s\n", diff)
-					}
-				}
-				
-				if isRequestFailure {
-					fmt.Printf("    (This indicates request failure, not structural difference)\n")
-				}
-				fmt.Println()
-			}
-		}
-	} else {
-		color.Green("\n✓ All compared methods have matching structures!")
+	// Calculate missing categories to explain the math
+	structureNoMatch := summary["total"] - summary["structure_matches"] - summary["differences"]
+	
+	if structureNoMatch > 0 {
+		color.HiBlack("Structure Unknown:       %d (connection failed/not comparable)", structureNoMatch)
 	}
-
+	
+	PrintDetailedComparisonBreakdown(rCtx)
+	
 	// Calculate structure compatibility percentage
 	if summary["total"] > 0 {
 		structureCompatibilityPercent := float64(summary["structure_matches"]) / float64(summary["total"]) * 100
 		typeCompatibilityPercent := float64(summary["type_matches"]) / float64(summary["total"]) * 100
+		errorCompatibilityPercent := float64(summary["error_matches"]) / float64(summary["total"]) * 100
 		
 		fmt.Printf("\nCompatibility Scores:\n")
 		if structureCompatibilityPercent >= 90 {
@@ -443,7 +424,200 @@ func PrintComparisonSummary(rCtx *types.RPCContext) {
 		} else {
 			color.Red("  Type Compatibility:      %.1f%%", typeCompatibilityPercent)
 		}
+		
+		if errorCompatibilityPercent >= 90 {
+			color.Green("  Error Compatibility:     %.1f%%", errorCompatibilityPercent)
+		} else if errorCompatibilityPercent >= 70 {
+			color.Yellow("  Error Compatibility:     %.1f%%", errorCompatibilityPercent)
+		} else {
+			color.Red("  Error Compatibility:     %.1f%%", errorCompatibilityPercent)
+		}
 	}
+}
+
+func PrintDetailedComparisonBreakdown(rCtx *types.RPCContext) {
+	// Categorize all comparison results
+	var (
+		structureMatches    []string
+		structureDiffs      []string
+		typeMatches         []string
+		typeMismatches      []string
+		errorMatches        []string
+		errorMismatches     []string
+		unknown             []string
+	)
+	
+	for _, result := range rCtx.ComparisonResults {
+		methodName := result.Method
+		
+		if result.StructureMatch {
+			structureMatches = append(structureMatches, methodName)
+		} else if len(result.Differences) > 0 {
+			structureDiffs = append(structureDiffs, methodName)
+		} else {
+			unknown = append(unknown, methodName)
+		}
+		
+		if result.TypeMatch {
+			typeMatches = append(typeMatches, methodName)
+		} else {
+			typeMismatches = append(typeMismatches, methodName)
+		}
+		
+		if result.ErrorsMatch {
+			errorMatches = append(errorMatches, methodName)
+		} else {
+			errorMismatches = append(errorMismatches, methodName)
+		}
+	}
+	
+	fmt.Printf("\n" + strings.Repeat("─", totalWidth) + "\n")
+	fmt.Printf("DETAILED BREAKDOWN:\n")
+	fmt.Printf(strings.Repeat("─", totalWidth) + "\n")
+	
+	// Structure analysis
+	fmt.Printf("\n1. STRUCTURE ANALYSIS (Total: %d):\n", len(rCtx.ComparisonResults))
+	color.Green("   ✓ Structure Matches (%d): %s", len(structureMatches), formatMethodList(structureMatches))
+	color.Yellow("   ⚠ Structure Differences (%d): %s", len(structureDiffs), formatMethodList(structureDiffs))
+	if len(unknown) > 0 {
+		color.HiBlack("   ? Unknown/Failed (%d): %s", len(unknown), formatMethodList(unknown))
+	}
+	
+	// Type analysis
+	fmt.Printf("\n2. TYPE ANALYSIS (Total: %d):\n", len(rCtx.ComparisonResults))
+	color.Green("   ✓ Type Matches (%d): %s", len(typeMatches), formatMethodList(typeMatches))
+	color.Red("   ✗ Type Mismatches (%d): %s", len(typeMismatches), formatMethodList(typeMismatches))
+	
+	// Error analysis
+	fmt.Printf("\n3. ERROR CONSISTENCY ANALYSIS (Total: %d):\n", len(rCtx.ComparisonResults))
+	color.Green("   ✓ Error Consistent (%d): %s", len(errorMatches), formatMethodList(errorMatches))
+	color.Red("   ✗ Error Inconsistent (%d): %s", len(errorMismatches), formatMethodList(errorMismatches))
+	
+	// Detailed issues for type mismatches
+	if len(typeMismatches) > 0 {
+		fmt.Printf("\n" + strings.Repeat("─", 40) + "\n")
+		fmt.Printf("TYPE MISMATCH DETAILS:\n")
+		fmt.Printf(strings.Repeat("─", 40) + "\n")
+		for _, result := range rCtx.ComparisonResults {
+			if !result.TypeMatch {
+				fmt.Printf("  • %s:\n", result.Method)
+				fmt.Printf("    EVMD Type: %s\n", result.EvmdType)
+				fmt.Printf("    Geth Type: %s\n", result.GethType)
+				if result.EvmdError != "" || result.GethError != "" {
+					fmt.Printf("    EVMD Error: %s\n", result.EvmdError)
+					fmt.Printf("    Geth Error: %s\n", result.GethError)
+				}
+				fmt.Println()
+			}
+		}
+	}
+	
+	// Detailed issues for error mismatches
+	if len(errorMismatches) > 0 {
+		fmt.Printf("\n" + strings.Repeat("─", 40) + "\n")
+		fmt.Printf("ERROR INCONSISTENCY DETAILS:\n")
+		fmt.Printf(strings.Repeat("─", 40) + "\n")
+		for _, result := range rCtx.ComparisonResults {
+			if !result.ErrorsMatch {
+				fmt.Printf("  • %s:\n", result.Method)
+				fmt.Printf("    EVMD Error: %s\n", result.EvmdError)
+				fmt.Printf("    Geth Error: %s\n", result.GethError)
+				fmt.Println()
+			}
+		}
+	}
+	
+	// Structure difference details
+	if len(structureDiffs) > 0 {
+		fmt.Printf("\n" + strings.Repeat("─", 40) + "\n")
+		fmt.Printf("STRUCTURAL DIFFERENCE DETAILS:\n")
+		fmt.Printf(strings.Repeat("─", 40) + "\n")
+		for _, result := range rCtx.ComparisonResults {
+			if len(result.Differences) > 0 {
+				fmt.Printf("  • %s:\n", result.Method)
+				for _, diff := range result.Differences {
+					if strings.Contains(diff, "request failed") {
+						color.Cyan("    - %s (connection issue)", diff)
+					} else {
+						fmt.Printf("    - %s\n", diff)
+					}
+				}
+				fmt.Println()
+			}
+		}
+	}
+}
+
+func PrintComparisonToRPCSummaryDiscrepancy(testSummary *types.TestSummary, rCtx *types.RPCContext) {
+	comparisonSummary := rCtx.GetComparisonSummary()
+	if comparisonSummary == nil {
+		return
+	}
+	
+	line := strings.Repeat("═", totalWidth)
+	fmt.Printf("\n%s\n", line)
+	fmt.Println("             COUNT DISCREPANCY ANALYSIS                 ")
+	fmt.Printf("%s\n", line)
+	
+	// Find eth category in test results
+	ethCategory := testSummary.Categories["eth"]
+	if ethCategory == nil {
+		fmt.Println("No eth category found in test summary")
+		return
+	}
+	
+	totalEthAPIs := ethCategory.Total
+	totalComparisons := comparisonSummary["total"]
+	discrepancy := totalEthAPIs - totalComparisons
+	
+	fmt.Printf("Total Eth APIs (Category Summary):  %d\n", totalEthAPIs)
+	fmt.Printf("Total Comparisons (Dual API):       %d\n", totalComparisons)
+	
+	if discrepancy > 0 {
+		color.Yellow("APIs Not Compared:                   %d", discrepancy)
+		fmt.Printf("\nReasons why %d APIs might not be compared:\n", discrepancy)
+		fmt.Println("  • Geth connection failed during comparison")
+		fmt.Println("  • API requires specific state/transactions not available")
+		fmt.Println("  • API marked as not suitable for comparison")
+		fmt.Println("  • API has complex parameter requirements")
+		fmt.Println("  • Network connectivity issues")
+	} else if discrepancy == 0 {
+		color.Green("✓ Perfect match: All eth APIs participated in comparison!")
+	} else {
+		color.Red("⚠ Inconsistency: More comparisons than eth APIs (this shouldn't happen)")
+	}
+	
+	// Analyze the structure match math
+	fmt.Printf("\nStructure Match Math Analysis:\n")
+	fmt.Printf("  Structure Matches:     %d\n", comparisonSummary["structure_matches"])
+	fmt.Printf("  Structure Differences: %d\n", comparisonSummary["differences"])
+	structureUnknown := totalComparisons - comparisonSummary["structure_matches"] - comparisonSummary["differences"]
+	fmt.Printf("  Structure Unknown:     %d\n", structureUnknown)
+	fmt.Printf("  Total:                 %d\n", totalComparisons)
+	
+	if structureUnknown > 0 {
+		color.Yellow("Note: %d APIs have unknown structure status (likely connection/request failures)", structureUnknown)
+	}
+	
+	// Show breakdown by status
+	fmt.Printf("\nType & Error Match Details:\n")
+	typeMatches := comparisonSummary["type_matches"]
+	typeMismatches := totalComparisons - typeMatches
+	errorMatches := comparisonSummary["error_matches"]
+	errorMismatches := totalComparisons - errorMatches
+	
+	fmt.Printf("  Type Matches: %d, Mismatches: %d\n", typeMatches, typeMismatches)
+	fmt.Printf("  Error Matches: %d, Mismatches: %d\n", errorMatches, errorMismatches)
+}
+
+func formatMethodList(methods []string) string {
+	if len(methods) == 0 {
+		return "(none)"
+	}
+	if len(methods) <= 5 {
+		return strings.Join(methods, ", ")
+	}
+	return fmt.Sprintf("%s, ... and %d more", strings.Join(methods[:5], ", "), len(methods)-5)
 }
 
 func ColorPrint(result *types.RpcResult, verbose bool) {

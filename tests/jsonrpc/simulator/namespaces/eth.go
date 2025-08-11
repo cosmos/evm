@@ -105,16 +105,22 @@ func EthCoinbase(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	err := rCtx.EthCli.Client().Call(&result, "eth_coinbase")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get coinbase: %w", err)
+		// Even if it fails, mark as deprecated
+		return &types.RpcResult{
+			Method:   MethodNameEthCoinbase,
+			Status:   types.Legacy,
+			Value:    fmt.Sprintf("API deprecated as of v1.14.0 - call failed: %s", err.Error()),
+			ErrMsg:   "eth_coinbase deprecated as of Ethereum v1.14.0 - use eth_getBalance with miner address instead",
+			Category: NamespaceEth,
+		}, nil
 	}
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthCoinbase)
-
+	// API works but is deprecated
 	return &types.RpcResult{
 		Method:   MethodNameEthCoinbase,
-		Status:   types.Ok,
-		Value:    result,
+		Status:   types.Legacy,
+		Value:    fmt.Sprintf("Deprecated API but functional: %s", result),
+		ErrMsg:   "eth_coinbase deprecated as of Ethereum v1.14.0 - use eth_getBalance with miner address instead",
 		Category: NamespaceEth,
 	}, nil
 }
@@ -1248,6 +1254,34 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
+	if len(rCtx.GethBlockNumsIncludingTx) == 0 {
+		return nil, errors.New("no blocks with transactions")
+	}
+
+	fErc20TransferGeth := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethERC20Addr},
+		Topics: [][]common.Hash{
+			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+		},
+	}
+	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
+	if err != nil {
+		return nil, err
+	}
+	var filterIDGeth string
+	if err = rCtx.GethCli.Client().CallContext(context.Background(), &filterIDGeth, string(MethodNameEthNewFilter), argsGeth); err != nil {
+		return nil, err
+	}
+
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockByHash, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			return []interface{}{argsGeth}
+		}
+		return []interface{}{args}
+	})
+
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparison(MethodNameEthNewFilter, args)
 
@@ -1259,6 +1293,8 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	rCtx.FilterId = filterID
 	rCtx.FilterQuery = fErc20Transfer
+	rCtx.GethFilterId = filterIDGeth
+	rCtx.GethFilterQuery = fErc20TransferGeth
 
 	return result, nil
 }
@@ -1282,7 +1318,12 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthGetFilterLogs, rCtx.FilterId)
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterLogs, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			return []interface{}{rCtx.FilterId}
+		}
+		return []interface{}{rCtx.GethFilterId}
+	})
 
 	result := &types.RpcResult{
 		Method: MethodNameEthGetFilterLogs,
@@ -1335,8 +1376,13 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthGetFilterChanges, rCtx.BlockFilterId)
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterChanges, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			return []interface{}{rCtx.BlockFilterId}
+		}
+		return []interface{}{rCtx.GethBlockFilterId}
+	})
 
 	status := types.Ok
 	// Empty results are valid - no warnings needed
@@ -1497,23 +1543,49 @@ func EthAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 // Mining method handlers
 func EthMining(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthMining)
-
 	var result bool
 	err := rCtx.EthCli.Client().Call(&result, "eth_mining")
 	if err != nil {
+		// Even if it fails, mark as deprecated
 		return &types.RpcResult{
 			Method:   MethodNameEthMining,
-			Status:   types.Error,
-			ErrMsg:   err.Error(),
+			Status:   types.Legacy,
+			Value:    fmt.Sprintf("API deprecated as of v1.14.0 - call failed: %s", err.Error()),
+			ErrMsg:   "eth_mining deprecated as of Ethereum v1.14.0 - PoW mining no longer supported in PoS",
 			Category: NamespaceEth,
 		}, nil
 	}
+
+	// API works but is deprecated
 	return &types.RpcResult{
 		Method:   MethodNameEthMining,
-		Status:   types.Ok,
-		Value:    result,
+		Status:   types.Legacy,
+		Value:    fmt.Sprintf("Deprecated API but functional: %t", result),
+		ErrMsg:   "eth_mining deprecated as of Ethereum v1.14.0 - PoW mining no longer supported in PoS",
+		Category: NamespaceEth,
+	}, nil
+}
+
+func EthHashrate(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	var result string
+	err := rCtx.EthCli.Client().Call(&result, "eth_hashrate")
+	if err != nil {
+		// Even if it fails, mark as deprecated
+		return &types.RpcResult{
+			Method:   MethodNameEthHashrate,
+			Status:   types.Legacy,
+			Value:    fmt.Sprintf("API deprecated as of v1.14.0 - call failed: %s", err.Error()),
+			ErrMsg:   "eth_hashrate deprecated as of Ethereum v1.14.0 - PoW mining no longer supported in PoS",
+			Category: NamespaceEth,
+		}, nil
+	}
+
+	// API works but is deprecated
+	return &types.RpcResult{
+		Method:   MethodNameEthHashrate,
+		Status:   types.Legacy,
+		Value:    fmt.Sprintf("Deprecated API but functional: %s", result),
+		ErrMsg:   "eth_hashrate deprecated as of Ethereum v1.14.0 - PoW mining no longer supported in PoS",
 		Category: NamespaceEth,
 	}, nil
 }

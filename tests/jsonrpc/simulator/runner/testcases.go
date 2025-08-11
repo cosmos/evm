@@ -38,7 +38,7 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameEthAccounts, Handler: ns.EthAccounts},
 				{Name: ns.MethodNameEthBlockNumber, Handler: ns.EthBlockNumber},
 				{Name: ns.MethodNameEthMining, Handler: ns.EthMining},
-				{Name: ns.MethodNameEthHashrate, Handler: nil},
+				{Name: ns.MethodNameEthHashrate, Handler: ns.EthHashrate},
 				// Fee market subcategory
 				{Name: ns.MethodNameEthGasPrice, Handler: ns.EthGasPrice},
 				{Name: ns.MethodNameEthMaxPriorityFeePerGas, Handler: ns.EthMaxPriorityFeePerGas},

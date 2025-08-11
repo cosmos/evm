@@ -71,9 +71,12 @@ type RPCContext struct {
 	ComparisonResults []*ComparisonResult // Store comparison results
 
 	// Separate data for geth client (when comparison enabled)
-	GethProcessedTransactions []common.Hash  // Geth transaction hashes
-	GethBlockNumsIncludingTx  []uint64       // Geth block numbers
-	GethERC20Addr             common.Address // Geth contract address
+	GethProcessedTransactions []common.Hash        // Geth transaction hashes
+	GethBlockNumsIncludingTx  []uint64             // Geth block numbers
+	GethERC20Addr             common.Address       // Geth contract address
+	GethFilterQuery           ethereum.FilterQuery // Geth filter query
+	GethFilterId              string               // Geth filter ID
+	GethBlockFilterId         string               // Geth block filter ID
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {
