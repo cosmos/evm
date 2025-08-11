@@ -77,6 +77,7 @@ type RPCContext struct {
 	GethFilterQuery           ethereum.FilterQuery // Geth filter query
 	GethFilterId              string               // Geth filter ID
 	GethBlockFilterId         string               // Geth block filter ID
+	GetgAcc                   *Account             // Geth account
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {

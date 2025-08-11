@@ -60,20 +60,20 @@ const (
 	MethodNameDebugPrintBlock                  types.RpcName = "debug_printBlock"
 
 	// Missing debug methods from Geth documentation
-	MethodNameDebugStartCPUProfile          types.RpcName = "debug_startCPUProfile"
-	MethodNameDebugStopCPUProfile           types.RpcName = "debug_stopCPUProfile"
-	MethodNameDebugTraceBadBlock            types.RpcName = "debug_traceBadBlock"
+	MethodNameDebugStartCPUProfile             types.RpcName = "debug_startCPUProfile"
+	MethodNameDebugStopCPUProfile              types.RpcName = "debug_stopCPUProfile"
+	MethodNameDebugTraceBadBlock               types.RpcName = "debug_traceBadBlock"
 	MethodNameDebugStandardTraceBlockToFile    types.RpcName = "debug_standardTraceBlockToFile"
 	MethodNameDebugStandardTraceBadBlockToFile types.RpcName = "debug_standardTraceBadBlockToFile"
 	MethodNameDebugTraceBlockFromFile          types.RpcName = "debug_traceBlockFromFile"
 	MethodNameDebugTraceChain                  types.RpcName = "debug_traceChain"
 	MethodNameDebugStorageRangeAt              types.RpcName = "debug_storageRangeAt"
-	MethodNameDebugSetTrieFlushInterval     types.RpcName = "debug_setTrieFlushInterval"
-	MethodNameDebugVmodule                  types.RpcName = "debug_vmodule"
-	MethodNameDebugWriteBlockProfile        types.RpcName = "debug_writeBlockProfile"
-	MethodNameDebugWriteMemProfile          types.RpcName = "debug_writeMemProfile"
-	MethodNameDebugWriteMutexProfile        types.RpcName = "debug_writeMutexProfile"
-	MethodNameDebugVerbosity                types.RpcName = "debug_verbosity"
+	MethodNameDebugSetTrieFlushInterval        types.RpcName = "debug_setTrieFlushInterval"
+	MethodNameDebugVmodule                     types.RpcName = "debug_vmodule"
+	MethodNameDebugWriteBlockProfile           types.RpcName = "debug_writeBlockProfile"
+	MethodNameDebugWriteMemProfile             types.RpcName = "debug_writeMemProfile"
+	MethodNameDebugWriteMutexProfile           types.RpcName = "debug_writeMutexProfile"
+	MethodNameDebugVerbosity                   types.RpcName = "debug_verbosity"
 )
 
 // Debug API implementations
@@ -761,10 +761,10 @@ func DebugStandardTraceBadBlockToFile(rCtx *types.RPCContext) (*types.RpcResult,
 	config := map[string]interface{}{
 		"tracer": "standardTracer",
 	}
-	
+
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparison(MethodNameDebugStandardTraceBadBlockToFile, testHash, config)
-	
+
 	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBadBlockToFile", testHash, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
@@ -801,10 +801,10 @@ func DebugTraceBlockFromFile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	config := map[string]interface{}{
 		"tracer": "callTracer",
 	}
-	
+
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparison(MethodNameDebugTraceBlockFromFile, filename, config)
-	
+
 	err := rCtx.EthCli.Client().Call(&result, "debug_traceBlockFromFile", filename, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
@@ -840,13 +840,13 @@ func DebugTraceChain(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	startBlock := "0x1" // Start from block 1
 	endBlock := "0x2"   // End at block 2
 	config := map[string]interface{}{
-		"tracer": "callTracer",
+		"tracer":  "callTracer",
 		"timeout": "10s",
 	}
-	
+
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparison(MethodNameDebugTraceChain, startBlock, endBlock, config)
-	
+
 	err := rCtx.EthCli.Client().Call(&result, "debug_traceChain", startBlock, endBlock, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)

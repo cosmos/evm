@@ -170,7 +170,7 @@ func EthGasPrice(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	status := types.Ok
 
 	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthGasPrice, "eth_gasPrice")
+	rCtx.PerformComparison(MethodNameEthGasPrice)
 
 	result := &types.RpcResult{
 		Method:   MethodNameEthGasPrice,
@@ -329,23 +329,38 @@ func EthGetBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	blkNum, err := rCtx.EthCli.BlockNumber(context.Background())
-	if err != nil {
-		return nil, err
+	// Use real transaction receipt data to get a valid block hash
+	if len(rCtx.ProcessedTransactions) == 0 {
+		return nil, errors.New("no processed transactions available - run transaction generation first")
 	}
 
-	blk, err := rCtx.EthCli.BlockByNumber(context.Background(), new(big.Int).SetUint64(blkNum))
+	// Get a receipt from one of our processed transactions to get a real block hash
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
-	// Perform dual API comparison if enabled - use "latest" for both clients to compare block structure
-	rCtx.PerformComparison(MethodNameEthGetBlockByNumber, "latest", true)
+	// Use the block hash from the receipt to test getBlockByHash
+	block, err := rCtx.EthCli.BlockByNumber(context.Background(), receipt.BlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("block hash lookup failed for hash %s from receipt: %w", receipt.BlockHash.Hex(), err)
+	}
+
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockByNumber, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			// Get geth receipt to get geth block hash
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+				return []interface{}{"0x" + gethReceipt.BlockNumber.String(), true}
+			}
+		}
+		return []interface{}{"0x" + receipt.BlockNumber.String(), true}
+	})
 
 	result := &types.RpcResult{
 		Method: MethodNameEthGetBlockByNumber,
 		Status: types.Ok,
-		Value:  utils.MustBeautifyBlock(types.NewRPCBlock(blk)),
+		Value:  utils.MustBeautifyBlock(types.NewRPCBlock(block)),
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
@@ -430,9 +445,6 @@ func EthSendRawTransactionTransferValue(rCtx *types.RPCContext) (*types.RpcResul
 	if err = rCtx.EthCli.SendTransaction(context.Background(), signedTx); err != nil {
 		return nil, err
 	}
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthSendRawTransaction, signedTx)
 
 	result := &types.RpcResult{
 		Method: MethodNameEthSendRawTransaction,
@@ -521,9 +533,6 @@ func EthSendRawTransactionDeployContract(rCtx *types.RPCContext) (*types.RpcResu
 	if err = rCtx.EthCli.SendTransaction(context.Background(), signedTx); err != nil {
 		return nil, err
 	}
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthSendRawTransaction, signedTx)
 
 	result := &types.RpcResult{
 		Method: MethodNameEthSendRawTransaction,
@@ -676,9 +685,6 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 	if err = rCtx.EthCli.SendTransaction(context.Background(), signedTx); err != nil {
 		return nil, err
 	}
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthSendRawTransaction, signedTx)
 
 	result := &types.RpcResult{
 		Method: MethodNameEthSendRawTransaction,
@@ -1275,15 +1281,12 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
-	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockByHash, func(isGeth bool) []interface{} {
+	rCtx.PerformComparisonWithProvider(MethodNameEthNewFilter, func(isGeth bool) []interface{} {
 		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
 			return []interface{}{argsGeth}
 		}
 		return []interface{}{args}
 	})
-
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthNewFilter, args)
 
 	result := &types.RpcResult{
 		Method: MethodNameEthNewFilter,
@@ -1317,12 +1320,28 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	// Perform dual API comparison if enabled
+	fErc20TransferGeth := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethERC20Addr},
+		Topics: [][]common.Hash{
+			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+		},
+	}
+	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
+	if err != nil {
+		return nil, err
+	}
+	var filterIDGeth string
+	if err = rCtx.GethCli.Client().CallContext(context.Background(), &filterIDGeth, string(MethodNameEthNewFilter), argsGeth); err != nil {
+		return nil, err
+	}
+
+	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterLogs, func(isGeth bool) []interface{} {
 		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			return []interface{}{rCtx.FilterId}
+			return []interface{}{filterIDGeth}
 		}
-		return []interface{}{rCtx.GethFilterId}
+		return []interface{}{rCtx.FilterId}
 	})
 
 	result := &types.RpcResult{
@@ -1364,24 +1383,33 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if rCtx.BlockFilterId == "" {
-		return nil, errors.New("no block filter id, must create a block filter first")
-	}
-
-	// TODO: Make it configurable
-	time.Sleep(3 * time.Second) // wait for a new block to be mined
-
 	var changes []interface{}
 	if err := rCtx.EthCli.Client().CallContext(context.Background(), &changes, string(MethodNameEthGetFilterChanges), rCtx.BlockFilterId); err != nil {
+		return nil, err
+	}
+
+	fErc20TransferGeth := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethERC20Addr},
+		Topics: [][]common.Hash{
+			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+		},
+	}
+	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
+	if err != nil {
+		return nil, err
+	}
+	var filterIDGeth string
+	if err = rCtx.GethCli.Client().CallContext(context.Background(), &filterIDGeth, string(MethodNameEthNewFilter), argsGeth); err != nil {
 		return nil, err
 	}
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterChanges, func(isGeth bool) []interface{} {
 		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			return []interface{}{rCtx.BlockFilterId}
+			return []interface{}{filterIDGeth}
 		}
-		return []interface{}{rCtx.GethBlockFilterId}
+		return []interface{}{rCtx.BlockFilterId}
 	})
 
 	status := types.Ok
@@ -1457,6 +1485,14 @@ func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Perform dual API comparison if enabled
 	args, _ := utils.ToFilterArg(rCtx.FilterQuery)
 	rCtx.PerformComparison(MethodNameEthGetLogs, args)
+
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetLogs, func(isGeth bool) []interface{} {
+		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+			return []interface{}{rCtx.BlockFilterId}
+		}
+		return []interface{}{rCtx.GethBlockFilterId}
+	})
 
 	status := types.Ok
 	// Empty results are valid - no warnings needed
@@ -1738,10 +1774,11 @@ func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Create a simple transaction object for testing
 	tx := map[string]interface{}{
-		"from":  rCtx.Acc.Address.Hex(),
-		"to":    "0x0100000000000000000000000000000000000000", // Bank precompile
-		"value": "0x1",                                        // 1 wei
-		"gas":   "0x5208",                                     // 21000 gas
+		"from":     rCtx.Acc.Address.Hex(),
+		"to":       "0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17", // Bank precompile
+		"value":    "0x1",                                        // 1 wei
+		"gas":      "0x5208",                                     // 21000 gas
+		"gasPrice": "0x9184e72a000",                              // 10000000000000
 	}
 
 	var txHash string
@@ -1756,8 +1793,27 @@ func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		}, nil
 	}
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthSendTransaction, tx)
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthSendTransaction, func(isGeth bool) []interface{} {
+		tx := map[string]interface{}{
+			"to":       "0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17", // dev1 account address
+			"value":    "0x1",                                        // 1 wei
+			"gas":      "0x5208",                                     // 21000 gas
+			"gasPrice": "0x9184e72a000",                              // 10000000000000
+		}
+
+		if isGeth {
+			var result []string
+			err := rCtx.GethCli.Client().Call(&result, string(MethodNameEthAccounts))
+			if err != nil {
+				return nil
+			}
+			tx["from"] = result[0] // Use the first account address from Geth
+		} else {
+			tx["from"] = rCtx.Acc.Address.Hex() // Use the account address from RPC context
+		}
+		return []interface{}{tx}
+	})
 
 	result := &types.RpcResult{
 		Method:   MethodNameEthSendTransaction,
@@ -1801,8 +1857,21 @@ func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		}, nil
 	}
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthSign, rCtx.Acc.Address.Hex(), testData)
+	// Perform dual API comparison if enabled - use different block hashes for each client
+	rCtx.PerformComparisonWithProvider(MethodNameEthSign, func(isGeth bool) []interface{} {
+		testData := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+		acc := rCtx.Acc.Address.Hex()
+
+		if isGeth {
+			var result []string
+			err := rCtx.GethCli.Client().Call(&result, string(MethodNameEthAccounts))
+			if err != nil {
+				return nil
+			}
+			acc = result[0] // Use the first account address from Geth
+		}
+		return []interface{}{acc, testData}
+	})
 
 	result := &types.RpcResult{
 		Method:   MethodNameEthSign,
