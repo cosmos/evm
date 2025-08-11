@@ -39,6 +39,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		})
 	}
 
+	// set current block hash in the contract storage
 	ethCfg := evmtypes.GetEthChainConfig()
 	if ethCfg.IsPrague(big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) {
 		stateDB := statedb.New(ctx, k, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
@@ -49,14 +50,16 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		}
 		vmConfig := k.VMConfig(ctx, cfg, nil)
 		blockCtx := k.BlockContext(ctx, cfg, stateDB)
+		blockCtx.BlockNumber = blockCtx.BlockNumber.Add(blockCtx.BlockNumber, big.NewInt(1))
 		evm := vm.NewEVM(blockCtx, stateDB, ethCfg, vmConfig)
-		parentHash := ctx.BlockHeader().LastBlockId.Hash
-		if err := ProcessParentBlockHash(common.BytesToHash(parentHash), evm); err != nil {
+		blockHash := ctx.HeaderHash()
+		if err := ProcessParentBlockHash(common.BytesToHash(blockHash), evm); err != nil {
 			logger.Error("error processing parent block hash", "error", err.Error())
 		}
 		if err := stateDB.Commit(); err != nil {
 			logger.Error("error committing stateDB", "error", err.Error())
 		}
+		logger.Info("stored block hash in history storage contract", "hash", blockHash, "height", ctx.BlockHeight())
 	}
 
 	return nil
