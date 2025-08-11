@@ -199,6 +199,9 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	}
 
 	consensusParams := integration.DefaultConsensusParams
+	if n.cfg.customConsensusParams != nil {
+		consensusParams = n.cfg.customConsensusParams
+	}
 	now := time.Now()
 
 	if _, err = evmApp.InitChain(
