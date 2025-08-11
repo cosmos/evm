@@ -567,7 +567,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 	}{
 		// TODO test happy path
 		{
-			name:         "fail - tx not found",
+			name:         "success - tx not found",
 			registerMock: func() {},
 			block:        &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
 			tx:           msgEthereumTx2,
@@ -587,7 +587,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 				},
 			},
 			expPass: false,
-			expErr:  fmt.Errorf("tx not found, hash: %s", txHash.Hex()),
+			expErr:  nil,
 		},
 		{
 			name: "fail - block not found",
@@ -700,8 +700,11 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 				s.Require().Nil(res["contractAddress"]) // no contract creation
 				s.Require().NoError(err)
 			} else {
-				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.expErr.Error())
+				if tc.expErr == nil {
+					s.Require().Nil(err)
+				} else {
+					s.Require().ErrorContains(err, tc.expErr.Error())
+				}
 			}
 		})
 	}

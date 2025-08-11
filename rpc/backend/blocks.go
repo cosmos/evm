@@ -611,7 +611,7 @@ func (b *Backend) formatTxReceipt(ethMsg *evmtypes.MsgEthereumTx, blockMsgs []*e
 
 	// parse tx logs from events
 	msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
-	logs, err := TxLogsFromEvents(blockRes.TxsResults[txResult.TxIndex].Events, msgIndex)
+	logs, err := evmtypes.TxLogsFromEvents(blockRes.TxsResults[txResult.TxIndex].Events, msgIndex)
 	if err != nil {
 		b.Logger.Debug("failed to parse logs", "hash", ethMsg.Hash, "error", err.Error())
 	}
