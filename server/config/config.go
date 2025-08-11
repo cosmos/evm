@@ -100,9 +100,11 @@ const (
 	DefaultAllowUnprotectedTxs = false
 
 	// DefaultBatchRequestLimit is the default maximum batch request limit.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L67
 	DefaultBatchRequestLimit = 1000
 
 	// DefaultBatchResponseMaxSize is the default maximum batch response size.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L68
 	DefaultBatchResponseMaxSize = 25 * 1000 * 1000
 
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)

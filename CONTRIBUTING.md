@@ -12,7 +12,10 @@ We appreciate community contributions! To ensure a smooth process, please follow
    - Issues should include:
       - **Reproducibility**: If the issue is a bug, describe steps to reproduce the problem clearly.
       - **Context & Explanation**: Provide enough background so others can understand the problem or motivation.
-      - **Potential Impact**: Explain how this affects the project or user experience (e.g., severity, user scope, downstream effects).
+      - **Potential Impact**: Explain how this affects the project or user experience, referencing:
+         - severity
+         - user scope
+         - downstream effects
 
 2. **Signed Commits**
    - All commits must be [signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).

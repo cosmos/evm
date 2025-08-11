@@ -3,6 +3,7 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
@@ -73,6 +74,12 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 		return nonce, nil
 	}
 
+	// eip2681 - tx with nonce >= 2^64 is invalid; saturate at 2^64-1
+	// if already at max nonce, don't add to pending
+	if nonce == math.MaxUint64 {
+		return nonce, nil
+	}
+
 	// the account retriever doesn't include the uncommitted transactions on the nonce so we need to
 	// to manually add them.
 	pendingTxs, err := b.PendingTransactions()
@@ -96,7 +103,10 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				continue
 			}
 			if sender == accAddr {
-				nonce++
+				// saturate - never overflow beyond 2^64-1 when counting pending txs
+				if nonce < math.MaxUint64 {
+					nonce++
+				}
 			}
 		}
 	}
