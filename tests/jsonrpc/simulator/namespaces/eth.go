@@ -1482,16 +1482,29 @@ func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	// Perform dual API comparison if enabled
-	args, _ := utils.ToFilterArg(rCtx.FilterQuery)
-	rCtx.PerformComparison(MethodNameEthGetLogs, args)
+	args, err := utils.ToFilterArg(rCtx.FilterQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	fErc20TransferGeth := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethERC20Addr},
+		Topics: [][]common.Hash{
+			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+		},
+	}
+	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
+	if err != nil {
+		return nil, err
+	}
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetLogs, func(isGeth bool) []interface{} {
 		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			return []interface{}{rCtx.BlockFilterId}
+			return []interface{}{argsGeth}
 		}
-		return []interface{}{rCtx.GethBlockFilterId}
+		return []interface{}{args}
 	})
 
 	status := types.Ok
