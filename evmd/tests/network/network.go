@@ -95,7 +95,7 @@ type Config struct {
 	JSONRPCAddress    string // JSON-RPC listen address (including port)
 	APIAddress        string // REST API listen address (including port)
 	GRPCAddress       string // GRPC server listen address (including port)
-	EnableTMLogging   bool   // enable Tendermint logging to STDOUT
+	EnableCMTLogging  bool   // enable CometBFT logging to STDOUT
 	CleanupDir        bool   // remove base temporary directory during cleanup
 	PrintMnemonic     bool   // print the mnemonic of first validator as log output for testing
 }
@@ -171,7 +171,7 @@ type (
 		Config Config
 	}
 
-	// Validator defines an in-process Tendermint validator node. Through this object,
+	// Validator defines an in-process CometBFT validator node. Through this object,
 	// a client can make RPC and API calls and interact with any client command
 	// or handler.
 	Validator struct {
@@ -271,7 +271,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		cmtCfg.Consensus.TimeoutCommit = cfg.TimeoutCommit
 
 		// Only allow the first validator to expose an RPC, API and gRPC
-		// server/client due to Tendermint in-process constraints.
+		// server/client due to CometBFT in-process constraints.
 		apiAddr := ""
 		cmtCfg.RPC.ListenAddress = ""
 		appCfg.GRPC.Enable = false
@@ -332,7 +332,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		}
 
 		logger := log.NewNopLogger()
-		if cfg.EnableTMLogging {
+		if cfg.EnableCMTLogging {
 			logger = log.NewLogger(os.Stdout)
 		}
 
@@ -609,7 +609,7 @@ func (n *Network) WaitForNextBlock() error {
 }
 
 // Cleanup removes the root testing (temporary) directory and stops both the
-// Tendermint and API services. It allows other callers to create and start
+// CometBFT and API services. It allows other callers to create and start
 // test networks. This method must be called when a test is finished, typically
 // in a defer.
 func (n *Network) Cleanup() {

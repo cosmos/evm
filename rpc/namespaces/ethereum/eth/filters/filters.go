@@ -90,13 +90,10 @@ func newFilter(logger log.Logger, backend Backend, criteria filters.FilterCriter
 
 // Logs searches the blockchain for matching log entries, returning all from the
 // first block that contains matches, updating the start of the filter accordingly.
-func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) ([]*ethtypes.Log, error) {
+func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) (logs []*ethtypes.Log, err error) {
 	if blockLimit == 0 {
 		return nil, nil
 	}
-
-	logs := []*ethtypes.Log{}
-	var err error
 
 	// If we're doing singleton block filtering, execute and return
 	if f.criteria.BlockHash != nil && *f.criteria.BlockHash != (common.Hash{}) {
@@ -107,7 +104,7 @@ func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) ([]*eth
 
 		blockRes, err := f.backend.CometBlockResultByNumber(&resBlock.Block.Height)
 		if err != nil {
-			f.logger.Debug("failed to fetch block result from Tendermint", "height", resBlock.Block.Height, "error", err.Error())
+			f.logger.Debug("failed to fetch block result from CometBFT", "height", resBlock.Block.Height, "error", err.Error())
 			return nil, err
 		}
 
@@ -176,8 +173,8 @@ func (f *Filter) Logs(_ context.Context, logLimit int, blockLimit int64) ([]*eth
 		h := int64(height) //#nosec G115
 		blockRes, err := f.backend.CometBlockResultByNumber(&h)
 		if err != nil {
-			f.logger.Debug("failed to fetch block result from Tendermint", "height", height, "error", err.Error())
-			return nil, fmt.Errorf("failed to fetch block result from Tendermint: %w", err)
+			f.logger.Debug("failed to fetch block result from CometBFT", "height", height, "error", err.Error())
+			return nil, fmt.Errorf("failed to fetch block result from CometBFT: %w", err)
 		}
 
 		bloom, err := f.backend.BlockBloom(blockRes)

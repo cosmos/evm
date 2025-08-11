@@ -52,7 +52,7 @@ func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEt
 }
 
 // EthHeaderFromComet is an util function that returns an Ethereum Header
-// from a tendermint Header.
+// from a CometBFT Header.
 func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
 	txHash := ethtypes.EmptyRootHash
 	if len(header.DataHash) != 0 {
@@ -103,7 +103,7 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 	return gasLimit, nil
 }
 
-// FormatBlock creates an ethereum block from a tendermint header and ethereum-formatted
+// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
 // transactions.
 func FormatBlock(
 	header cmttypes.Header, size int, gasLimit int64,
@@ -122,7 +122,7 @@ func FormatBlock(
 		"hash":             hexutil.Bytes(header.Hash()),
 		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		"nonce":            ethtypes.BlockNonce{},   // PoW specific
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in Tendermint
+		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in CometBFT
 		"logsBloom":        bloom,
 		"stateRoot":        hexutil.Bytes(header.AppHash),
 		"miner":            validatorAddr,

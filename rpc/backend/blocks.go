@@ -215,7 +215,7 @@ func (b *Backend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBl
 func (b *Backend) CometBlockByHash(blockHash common.Hash) (*cmtrpctypes.ResultBlock, error) {
 	resBlock, err := b.RPCClient.BlockByHash(b.Ctx, blockHash.Bytes())
 	if err != nil {
-		b.Logger.Debug("tendermint client failed to get block", "blockHash", blockHash.Hex(), "error", err.Error())
+		b.Logger.Debug("CometBFT client failed to get block", "blockHash", blockHash.Hex(), "error", err.Error())
 		return nil, err
 	}
 
@@ -496,8 +496,7 @@ func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Blo
 	return b.EthBlockFromCometBlock(resBlock, blockRes)
 }
 
-// EthBlockFromCometBlock returns an Ethereum Block type from Tendermint block
-// EthBlockFromCometBlock
+// EthBlockFromCometBlock returns an Ethereum Block type from CometBFT block
 func (b *Backend) EthBlockFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
@@ -547,10 +546,10 @@ func (b *Backend) GetBlockReceipts(
 	}
 
 	if resBlock == nil {
-		return nil, fmt.Errorf("block not found for height %d", *blockNum.TmHeight())
+		return nil, fmt.Errorf("block not found for height %d", *blockNum.CmtHeight())
 	}
 
-	blockRes, err := b.RPCClient.BlockResults(b.Ctx, blockNum.TmHeight())
+	blockRes, err := b.RPCClient.BlockResults(b.Ctx, blockNum.CmtHeight())
 	if err != nil {
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}

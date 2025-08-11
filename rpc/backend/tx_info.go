@@ -237,14 +237,14 @@ func (b *Backend) GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNum
 }
 
 // GetTxByEthHash uses `/tx_query` to find transaction by ethereum tx hash
-// TODO: Don't need to convert once hashing is fixed on Tendermint
+// TODO: Don't need to convert once hashing is fixed on CometBFT
 // https://github.com/cometbft/cometbft/issues/6539
 func (b *Backend) GetTxByEthHash(hash common.Hash) (*types.TxResult, error) {
 	if b.Indexer != nil {
 		return b.Indexer.GetByTxHash(hash)
 	}
 
-	// fallback to tendermint tx indexer
+	// fallback to CometBFT tx indexer
 	query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, hash.Hex())
 	txResult, err := b.QueryCometTxIndexer(query, func(txs *rpctypes.ParsedTxs) *rpctypes.ParsedTx {
 		return txs.GetTxByHash(hash)
@@ -262,7 +262,7 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*types.TxResult, err
 		return b.Indexer.GetByBlockAndIndex(height, int32Index)
 	}
 
-	// fallback to tendermint tx indexer
+	// fallback to CometBFT tx indexer
 	query := fmt.Sprintf("tx.height=%d AND %s.%s=%d",
 		height, evmtypes.TypeMsgEthereumTx,
 		evmtypes.AttributeKeyTxIndex, index,
@@ -276,7 +276,7 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*types.TxResult, err
 	return txResult, nil
 }
 
-// QueryCometTxIndexer query tx in tendermint tx indexer
+// QueryCometTxIndexer query tx in CometBFT tx indexer
 func (b *Backend) QueryCometTxIndexer(query string, txGetter func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx) (*types.TxResult, error) {
 	resTxs, err := b.ClientCtx.Client.TxSearch(b.Ctx, query, false, nil, nil, "")
 	if err != nil {

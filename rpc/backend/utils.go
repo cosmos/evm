@@ -258,7 +258,7 @@ func ShouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
 	return res.GetCode() == 11 && strings.Contains(res.GetLog(), "no block gas left to run tx: out of gas")
 }
 
-// GetLogsFromBlockResults returns the list of event logs from the tendermint block result response
+// GetLogsFromBlockResults returns the list of event logs from the CometBFT block result response
 func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*ethtypes.Log, error) {
 	height, err := cosmosevmtypes.SafeUint64(blockRes.Height)
 	if err != nil {

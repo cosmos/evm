@@ -237,7 +237,7 @@ func (b *Backend) FeeHistory(
 					wg.Done()
 				}()
 				// fetch block
-				// tendermint block
+				// CometBFT block
 				blockNum := rpctypes.BlockNumber(blockStart + int64(index))
 				cometBlock, err := b.CometBlockByNumber(blockNum)
 				if cometBlock == nil {
@@ -252,7 +252,7 @@ func (b *Backend) FeeHistory(
 					return
 				}
 
-				// tendermint block result
+				// CometBFT block result
 				cometBlockResult, err := b.CometBlockResultByNumber(&cometBlock.Block.Height)
 				if cometBlockResult == nil {
 					b.Logger.Debug("block result not found", "height", cometBlock.Block.Height, "error", err.Error())

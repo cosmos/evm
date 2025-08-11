@@ -73,7 +73,7 @@ func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.T
 	if height == 0 {
 		return nil, errors.New("genesis is not traceable")
 	}
-	// Get Tendermint Block
+	// Get CometBFT Block
 	resBlock, err := a.backend.CometBlockByNumber(height)
 	if err != nil {
 		a.logger.Debug("get block failed", "height", height, "error", err.Error())
@@ -87,7 +87,7 @@ func (a *API) TraceBlockByNumber(height rpctypes.BlockNumber, config *rpctypes.T
 // EVM and returns them as a JSON object.
 func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
 	a.logger.Debug("debug_traceBlockByHash", "hash", hash)
-	// Get Tendermint Block
+	// Get CometBFT Block
 	resBlock, err := a.backend.CometBlockByHash(hash)
 	if err != nil {
 		a.logger.Debug("get block failed", "hash", hash.Hex(), "error", err.Error())
