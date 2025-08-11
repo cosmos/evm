@@ -23,7 +23,7 @@ var supportedTxs = map[string]func() TxDataV2{
 func getSender(txData TxDataV2) (common.Address, error) {
 	chainID := txData.GetChainID()
 	// legacy tx returns `0` as chainID when EIP-155 is not used
-	// seee: DeriveChainID
+	// see: DeriveChainID
 	if chainID != nil && chainID.Sign() == 0 {
 		chainID = nil
 	}

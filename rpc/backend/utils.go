@@ -3,6 +3,7 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
@@ -10,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,6 +19,7 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -73,6 +73,12 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 		return nonce, nil
 	}
 
+	// eip2681 - tx with nonce >= 2^64 is invalid; saturate at 2^64-1
+	// if already at max nonce, don't add to pending
+	if nonce == math.MaxUint64 {
+		return nonce, nil
+	}
+
 	// the account retriever doesn't include the uncommitted transactions on the nonce so we need to
 	// to manually add them.
 	pendingTxs, err := b.PendingTransactions()
@@ -96,62 +102,15 @@ func (b *Backend) getAccountNonce(accAddr common.Address, pending bool, height i
 				continue
 			}
 			if sender == accAddr {
-				nonce++
+				// saturate - never overflow beyond 2^64-1 when counting pending txs
+				if nonce < math.MaxUint64 {
+					nonce++
+				}
 			}
 		}
 	}
 
 	return nonce, nil
-}
-
-func bigMax(x, y *big.Int) *big.Int {
-	if x.Cmp(y) < 0 {
-		return y
-	}
-	return x
-}
-
-// CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p feemarkettypes.Params) (*big.Int, error) {
-	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
-	if !config.IsLondon(parent.Number) {
-		return new(big.Int).SetUint64(params.InitialBaseFee), nil
-	}
-	if p.ElasticityMultiplier == 0 {
-		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")
-	}
-	parentGasTarget := parent.GasLimit / uint64(p.ElasticityMultiplier)
-	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
-	if parent.GasUsed == parentGasTarget {
-		return new(big.Int).Set(parent.BaseFee), nil
-	}
-
-	var (
-		num   = new(big.Int)
-		denom = new(big.Int)
-	)
-
-	if parent.GasUsed > parentGasTarget {
-		// If the parent block used more gas than its target, the baseFee should increase.
-		// max(1, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-		num.SetUint64(parent.GasUsed - parentGasTarget)
-		num.Mul(num, parent.BaseFee)
-		num.Div(num, denom.SetUint64(parentGasTarget))
-		num.Div(num, denom.SetUint64(uint64(p.BaseFeeChangeDenominator)))
-		baseFeeDelta := bigMax(num, common.Big1)
-
-		return num.Add(parent.BaseFee, baseFeeDelta), nil
-	}
-
-	// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
-	// max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-	num.SetUint64(parentGasTarget - parent.GasUsed)
-	num.Mul(num, parent.BaseFee)
-	num.Div(num, denom.SetUint64(parentGasTarget))
-	num.Div(num, denom.SetUint64(uint64(p.BaseFeeChangeDenominator)))
-	baseFee := num.Sub(parent.BaseFee, num)
-	minGasPrice := p.MinGasPrice.TruncateInt().BigInt()
-	return bigMax(baseFee, minGasPrice), nil
 }
 
 // ProcessBlock processes a Tendermint block and calculates fee history data for eth_feeHistory RPC.
@@ -212,7 +171,7 @@ func (b *Backend) ProcessBlock(
 		if err != nil {
 			return err
 		}
-		nextBaseFee, err := CalcBaseFee(cfg, &header, params.Params)
+		nextBaseFee, err := utils.CalcBaseFee(cfg, &header, params.Params)
 		if err != nil {
 			return err
 		}
@@ -259,9 +218,11 @@ func (b *Backend) ProcessBlock(
 				continue
 			}
 			tx := ethMsg.AsTransaction()
-			reward := tx.EffectiveGasTipValue(blockBaseFee)
+			reward, err := tx.EffectiveGasTip(blockBaseFee)
+			if err != nil {
+				b.Logger.Error("failed to calculate effective gas tip", "height", blockHeight, "error", err.Error())
+			}
 			if reward == nil || reward.Sign() < 0 {
-				b.Logger.Debug("negative or nil reward found in transaction", "height", blockHeight, "txHash", tx.Hash().Hex(), "reward", reward)
 				reward = big.NewInt(0)
 			}
 			sorter = append(sorter, txGasAndReward{gasUsed: txGasUsed, reward: reward})
