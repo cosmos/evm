@@ -121,12 +121,12 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
 	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
 		b.Logger.Error("transaction converting failed", "error", err.Error())
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)
 	}
 
 	if err := ethereumTx.ValidateBasic(); err != nil {
 		b.Logger.Debug("tx failed basic validation", "error", err.Error())
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to validate transaction: %w", err)
 	}
 
 	baseDenom := evmtypes.GetEVMCoinDenom()
@@ -134,14 +134,14 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	if err != nil {
 		b.Logger.Error("failed to build cosmos tx", "error", err.Error())
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to build cosmos tx: %w", err)
 	}
 
 	// Encode transaction by default Tx encoder
 	txBytes, err := b.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
 	if err != nil {
 		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
 	txHash := ethereumTx.AsTransaction().Hash()
@@ -153,7 +153,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 	if err != nil {
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, err
+		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	return txHash, nil
