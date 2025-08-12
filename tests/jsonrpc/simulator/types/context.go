@@ -62,6 +62,8 @@ func (c *TestEthClient) RPCClient() *ethrpc.Client {
 }
 
 type RPCContext struct {
+	context.Context
+
 	Conf                 *config.Config
 	Geth                 *TestEthClient
 	Evmd                 *TestEthClient
@@ -102,6 +104,7 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	}
 
 	ctx := &RPCContext{
+		Context:           context.Background(),
 		Conf:              conf,
 		EnableComparison:  gethCli != nil,
 		ComparisonResults: make([]*ComparisonResult, 0),

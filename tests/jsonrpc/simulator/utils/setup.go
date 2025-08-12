@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
@@ -33,7 +32,7 @@ func RunSetup() (*types.RPCContext, error) {
 	gethURL := "http://localhost:8547"
 
 	log.Println("Step 1: Funding geth dev accounts...")
-	err = fundGethAccounts(rCtx, gethURL)
+	err = fundGethAccounts(rCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fund geth accounts: %w", err)
 	}
@@ -91,15 +90,9 @@ func RunSetup() (*types.RPCContext, error) {
 }
 
 // fundGethAccounts funds the standard dev accounts in geth using coinbase balance
-func fundGethAccounts(rCtx *types.RPCContext, gethURL string) error {
-	// Connect to geth
-	client, err := ethclient.Dial(gethURL)
-	if err != nil {
-		return fmt.Errorf("failed to connect to geth at %s: %w", gethURL, err)
-	}
-
+func fundGethAccounts(rCtx *types.RPCContext) error {
 	// Fund the accounts
-	results, err := fundStandardAccounts(rCtx, client, gethURL)
+	results, err := fundStandardAccounts(rCtx, true)
 	if err != nil {
 		return fmt.Errorf("failed to fund accounts: %w", err)
 	}
@@ -120,7 +113,7 @@ func fundGethAccounts(rCtx *types.RPCContext, gethURL string) error {
 
 	// Check final balances
 	fmt.Println("\nChecking final balances:")
-	balances, err := CheckAccountBalances(client)
+	balances, err := CheckAccountBalances(rCtx.Geth.Client)
 	if err != nil {
 		return fmt.Errorf("failed to check balances: %w", err)
 	}

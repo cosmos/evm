@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,36 +15,6 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
-
-// ContractDeployment represents a deployed contract
-type ContractDeployment struct {
-	Name        string         `json:"name"`
-	Address     common.Address `json:"address"`
-	ABI         *abi.ABI       `json:"abi,omitempty"`
-	ByteCode    []byte         `json:"byteCode,omitempty"`
-	TxHash      common.Hash    `json:"txHash"`
-	BlockNumber *big.Int       `json:"blockNumber,omitempty"`
-	Network     string         `json:"network"` // "evmd" or "geth"
-	Success     bool           `json:"success"`
-	Error       string         `json:"error,omitempty"`
-}
-
-// DeploymentResult holds results for both networks
-type DeploymentResult struct {
-	EvmdDeployment *ContractDeployment `json:"evmdDeployment,omitempty"`
-	GethDeployment *ContractDeployment `json:"gethDeployment,omitempty"`
-	Success        bool                `json:"success"`
-	Error          string              `json:"error,omitempty"`
-}
-
-// ContractDeploymentRequest for JSON-RPC
-type ContractDeploymentRequest struct {
-	From     string `json:"from"`
-	Data     string `json:"data"`
-	Gas      string `json:"gas"`
-	GasPrice string `json:"gasPrice,omitempty"`
-	Value    string `json:"value,omitempty"`
-}
 
 // GetDev0PrivateKeyAndAddress returns dev0's private key and address for contract deployment
 func GetDev0PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {

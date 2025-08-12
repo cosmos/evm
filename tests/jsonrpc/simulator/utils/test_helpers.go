@@ -4,14 +4,21 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
-func SendTransaction(rCtx *types.RPCContext, from, to string, value *big.Int) (string, error) {
+func SendTransaction(rCtx *types.RPCContext, from, to string, value *big.Int, isGeth bool) (string, error) {
+	ethCli := rCtx.Evmd
+	if isGeth {
+		ethCli = rCtx.Geth
+	}
+
 	// Create a simple transaction object for testing
 	tx := map[string]interface{}{
 		"from":     from,
@@ -22,12 +29,68 @@ func SendTransaction(rCtx *types.RPCContext, from, to string, value *big.Int) (s
 	}
 
 	var txHash string
-	err := rCtx.Evmd.RPCClient().Call(&txHash, string("eth_sendTransaction"), tx)
+	err := ethCli.RPCClient().Call(&txHash, string("eth_sendTransaction"), tx)
 	if err != nil {
 		return "", fmt.Errorf("failed to send transaction: %w", err)
 	}
 
 	return txHash, nil
+}
+
+func SendRawTransaction(rCtx *types.RPCContext, privKey string, to common.Address, value *big.Int, data []byte, isGeth bool) (*ethtypes.Receipt, error) {
+	ctx := context.Background()
+
+	ethCli := rCtx.Evmd
+	if isGeth {
+		ethCli = rCtx.Geth
+	}
+
+	// Get chain ID
+	chainID, err := ethCli.ChainID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain ID: %w", err)
+	}
+
+	// Get owner credentials
+	privateKey, ownerAddr, err := GetPrivateKeyAndAddress(privKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owner credentials: %w", err)
+	}
+
+	// Get nonce
+	nonce, err := ethCli.PendingNonceAt(ctx, ownerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
+	}
+
+	// Get gas pricing
+	gasPrice, err := ethCli.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gas price: %w", err)
+	}
+
+	tx := ethtypes.NewTransaction(nonce, ethCli.ERC20Addr, big.NewInt(0), 100000, gasPrice, data)
+
+	// Sign transaction
+	signer := ethtypes.NewEIP155Signer(chainID)
+	signedTx, err := ethtypes.SignTx(tx, signer, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign transaction: %w", err)
+	}
+
+	// Send transaction
+	err = ethCli.SendTransaction(ctx, signedTx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send transfer transaction: %w", err)
+	}
+
+	// Wait for transaction to be mined
+	receipt, err := waitForTransactionReceipt(ethCli.Client, signedTx.Hash(), 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transfer receipt: %w", err)
+	}
+
+	return receipt, nil
 }
 
 func GetAccounts(rCtx *types.RPCContext, isGeth bool) ([]string, error) {
@@ -65,7 +128,7 @@ func NewERC20FilterLogs(rCtx *types.RPCContext, isGeth bool) (ethereum.FilterQue
 		return fErc20Transfer, "", fmt.Errorf("failed to create filter args: %w", err)
 	}
 	var evmdFilterID string
-	if err = ethCli.RPCClient().CallContext(context.Background(), &evmdFilterID, "eth_newFilter", args); err != nil {
+	if err = ethCli.RPCClient().CallContext(rCtx, &evmdFilterID, "eth_newFilter", args); err != nil {
 		return fErc20Transfer, "", fmt.Errorf("failed to create filter on evmd: %w", err)
 	}
 

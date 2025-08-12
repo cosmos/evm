@@ -93,11 +93,11 @@ func GetGethAccounts(rpcURL string) ([]common.Address, error) {
 }
 
 // fundStandardAccounts sends funds from geth coinbase to standard dev accounts
-func fundStandardAccounts(rCtx *types.RPCContext, client *ethclient.Client, rpcURL string) ([]FundingResult, error) {
+func fundStandardAccounts(rCtx *types.RPCContext, isGeth bool) ([]FundingResult, error) {
 	results := make([]FundingResult, 0, len(StandardDevAccounts))
 
 	// Get coinbase account (first account from eth_accounts)
-	accounts, err := GetAccounts(rCtx, true)
+	accounts, err := GetAccounts(rCtx, isGeth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
@@ -117,7 +117,7 @@ func fundStandardAccounts(rCtx *types.RPCContext, client *ethclient.Client, rpcU
 		}
 
 		// Send transaction using eth_sendTransaction (coinbase is unlocked in dev mode)
-		txHash, err := SendTransaction(rCtx, coinbase, address.Hex(), StandardDevBalance)
+		txHash, err := SendTransaction(rCtx, coinbase, address.Hex(), StandardDevBalance, isGeth)
 		if err != nil {
 			result.Success = false
 			result.Error = err.Error()
