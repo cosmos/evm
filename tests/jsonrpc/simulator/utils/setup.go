@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/big"
@@ -8,50 +9,43 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
 // RunSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
-func RunSetup(rCtx *types.RPCContext) error {
+func RunSetup() (*types.RPCContext, error) {
+	// Load configuration from conf.yaml
+	conf := config.MustLoadConfig("config.yaml")
+
+	// Create RPC context
+	rCtx, err := types.NewRPCContext(conf)
+	if err != nil {
+		log.Fatalf("Failed to create context: %v", err)
+	}
+
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
 
 	log.Println("Step 1: Funding geth dev accounts...")
-	err := fundGethAccounts(gethURL)
+	err = fundGethAccounts(gethURL)
 	if err != nil {
-		return fmt.Errorf("failed to fund geth accounts: %w", err)
+		return nil, fmt.Errorf("failed to fund geth accounts: %w", err)
 	}
 	log.Println("✓ Geth accounts funded successfully")
 
 	log.Println("Step 2: Deploying ERC20 contracts to both networks...")
 	result, err := deployContracts(evmdURL, gethURL)
 	if err != nil {
-		return fmt.Errorf("failed to deploy contracts: %w", err)
+		return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 	}
-	log.Println("✓ Contracts deployed successfully")
-
-	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
-	err = MintTokensOnBothNetworks(evmdURL, gethURL,
-		result.EvmdDeployment.Address, result.GethDeployment.Address)
-	if err != nil {
-		return fmt.Errorf("failed to mint tokens: %w", err)
-	}
-	log.Println("✓ Token minting completed successfully")
-
-	log.Println("Step 4: Verifying state synchronization...")
-	err = VerifyTokenBalances(evmdURL, gethURL,
-		result.EvmdDeployment.Address, result.GethDeployment.Address)
-	if err != nil {
-		return fmt.Errorf("state verification failed: %w", err)
-	}
-	log.Println("✓ State synchronization verified")
-
 	// set rpc context
 	rCtx.EvmdCtx.ERC20Addr = result.EvmdDeployment.Address
 	rCtx.EvmdCtx.ERC20Abi = result.EvmdDeployment.ABI
@@ -64,8 +58,51 @@ func RunSetup(rCtx *types.RPCContext) error {
 	rCtx.GethCtx.ERC20ByteCode = result.GethDeployment.ByteCode
 	rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, result.GethDeployment.BlockNumber.Uint64())
 	rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, result.GethDeployment.TxHash)
+	log.Println("✓ Contracts deployed successfully")
 
-	return nil
+	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
+	err = MintTokensOnBothNetworks(evmdURL, gethURL,
+		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mint tokens: %w", err)
+	}
+	log.Println("✓ Token minting completed successfully")
+
+	// create filter query for ERC20 transfers
+	log.Println("Step 4: Creating filter for ERC20 transfers...")
+	filterQuery, filterID, err := NewERC20FilterLogs(rCtx, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create evmd filter: %w", err)
+	}
+	rCtx.EvmdCtx.FilterID = filterID
+	rCtx.EvmdCtx.FilterQuery = filterQuery
+
+	// Create filter on geth
+	filterQuery, filterID, err = NewERC20FilterLogs(rCtx, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create evmd filter: %w", err)
+	}
+	rCtx.GethCtx.FilterID = filterID
+	rCtx.GethCtx.FilterQuery = filterQuery
+	log.Printf("Created filter for ERC20 transfers: evmd=%s, geth=%s\n", rCtx.EvmdCtx.FilterID, rCtx.GethCtx.FilterID)
+
+	log.Println("Step 4: Verifying state synchronization...")
+	err = VerifyTokenBalances(evmdURL, gethURL,
+		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	if err != nil {
+		return nil, fmt.Errorf("state verification failed: %w", err)
+	}
+	log.Println("✓ State synchronization verified")
+
+	// run transaction generation
+	log.Println("Step 5: Generating test transactions...")
+	err = RunTransactionGeneration(rCtx)
+	if err != nil {
+		log.Fatalf("Transaction generation failed: %v", err)
+	}
+	log.Println("✓ Test transactions generated successfully")
+
+	return rCtx, nil
 }
 
 // fundGethAccounts funds the standard dev accounts in geth using coinbase balance
@@ -194,4 +231,33 @@ func RunTransactionGeneration(rCtx *types.RPCContext) error {
 		len(evmdHashes), len(gethHashes))
 
 	return nil
+}
+
+func NewERC20FilterLogs(rCtx *types.RPCContext, isGeth bool) (ethereum.FilterQuery, string, error) {
+	ctx := rCtx.EvmdCtx
+	ethCli := rCtx.EthCli
+	if isGeth {
+		ctx = rCtx.GethCtx
+		ethCli = rCtx.GethCli
+	}
+
+	fErc20Transfer := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(0), // Start from genesis
+		Addresses: []common.Address{ctx.ERC20Addr},
+		Topics: [][]common.Hash{
+			{ctx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+		},
+	}
+
+	// Create filter on evmd
+	args, err := ToFilterArg(fErc20Transfer)
+	if err != nil {
+		return fErc20Transfer, "", fmt.Errorf("failed to create filter args: %w", err)
+	}
+	var evmdFilterID string
+	if err = ethCli.Client().CallContext(context.Background(), &evmdFilterID, "eth_newFilter", args); err != nil {
+		return fErc20Transfer, "", fmt.Errorf("failed to create filter on evmd: %w", err)
+	}
+
+	return fErc20Transfer, evmdFilterID, nil
 }

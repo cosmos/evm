@@ -1222,10 +1222,6 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	if len(rCtx.GethCtx.BlockNumsIncludingTx) == 0 {
-		return nil, errors.New("no blocks with transactions")
-	}
-
 	fErc20TransferGeth := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(rCtx.GethCtx.BlockNumsIncludingTx[0] - 1),
 		Addresses: []common.Address{rCtx.GethCtx.ERC20Addr},
@@ -1256,8 +1252,8 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:  filterID,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
-	rCtx.FilterId = filterID
-	rCtx.FilterQuery = fErc20Transfer
+	rCtx.EvmdCtx.FilterID = filterID
+	rCtx.EvmdCtx.FilterQuery = fErc20Transfer
 	rCtx.GethCtx.FilterID = filterIDGeth
 	rCtx.GethCtx.FilterQuery = fErc20TransferGeth
 
@@ -1269,7 +1265,7 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if rCtx.FilterId == "" {
+	if rCtx.EvmdCtx.FilterID == "" {
 		return nil, errors.New("no filter id, must create a filter first")
 	}
 
@@ -1278,7 +1274,7 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var logs []gethtypes.Log
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &logs, string(MethodNameEthGetFilterLogs), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &logs, string(MethodNameEthGetFilterLogs), rCtx.EvmdCtx.FilterID); err != nil {
 		return nil, err
 	}
 
@@ -1303,7 +1299,7 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		if isGeth && len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			return []interface{}{filterIDGeth}
 		}
-		return []interface{}{rCtx.FilterId}
+		return []interface{}{rCtx.EvmdCtx.FilterID}
 	})
 
 	result := &types.RpcResult{
@@ -1335,7 +1331,7 @@ func EthNewBlockFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:  filterID,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
-	rCtx.BlockFilterId = filterID
+	rCtx.EvmdCtx.BlockFilterID = filterID
 
 	return result, nil
 }
@@ -1346,7 +1342,7 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var changes []interface{}
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &changes, string(MethodNameEthGetFilterChanges), rCtx.BlockFilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &changes, string(MethodNameEthGetFilterChanges), rCtx.EvmdCtx.BlockFilterID); err != nil {
 		return nil, err
 	}
 
@@ -1371,7 +1367,7 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		if isGeth && len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			return []interface{}{filterIDGeth}
 		}
-		return []interface{}{rCtx.BlockFilterId}
+		return []interface{}{rCtx.EvmdCtx.BlockFilterID}
 	})
 
 	status := types.Ok
@@ -1393,19 +1389,20 @@ func EthUninstallFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if rCtx.FilterId == "" {
-		return nil, errors.New("no filter id, must create a filter first")
+	_, filterID, err := utils.NewERC20FilterLogs(rCtx, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create filter logs: %w", err)
 	}
 
 	var res bool
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(MethodNameEthUninstallFilter), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(MethodNameEthUninstallFilter), filterID); err != nil {
 		return nil, err
 	}
 	if !res {
 		return nil, errors.New("uninstall filter failed")
 	}
 
-	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(MethodNameEthUninstallFilter), rCtx.FilterId); err != nil {
+	if err := rCtx.EthCli.Client().CallContext(context.Background(), &res, string(MethodNameEthUninstallFilter), filterID); err != nil {
 		return nil, err
 	}
 	if res {
@@ -1413,12 +1410,12 @@ func EthUninstallFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthUninstallFilter, rCtx.FilterId)
+	rCtx.PerformComparison(MethodNameEthUninstallFilter, filterID)
 
 	result := &types.RpcResult{
 		Method: MethodNameEthUninstallFilter,
 		Status: types.Ok,
-		Value:  rCtx.FilterId,
+		Value:  filterID,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 
