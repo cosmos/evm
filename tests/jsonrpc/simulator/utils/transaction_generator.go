@@ -648,7 +648,7 @@ func EnhanceTransactionMetadata(metadata *TransactionMetadata) error {
 // fundGethAccountIfNeeded funds a geth account if it has insufficient balance
 func fundGethAccountIfNeeded(client *ethclient.Client, targetAddr common.Address) error {
 	ctx := context.Background()
-	
+
 	// Check current balance
 	balance, err := client.BalanceAt(ctx, targetAddr, nil)
 	if err != nil {
@@ -675,12 +675,12 @@ func fundGethAccountIfNeeded(client *ethclient.Client, targetAddr common.Address
 
 	// Transfer 500 ETH from dev account to target account
 	transferAmount := new(big.Int).Mul(big.NewInt(500), big.NewInt(1e18)) // 500 ETH
-	
+
 	// Send transaction via RPC (since geth dev account is unlocked)
 	var txHash common.Hash
 	err = client.Client().Call(&txHash, "eth_sendTransaction", map[string]interface{}{
 		"from":  devAccount.Hex(),
-		"to":    targetAddr.Hex(), 
+		"to":    targetAddr.Hex(),
 		"value": fmt.Sprintf("0x%x", transferAmount),
 		"gas":   "0x5208", // 21000 gas
 	})
@@ -694,16 +694,15 @@ func fundGethAccountIfNeeded(client *ethclient.Client, targetAddr common.Address
 	if err != nil {
 		return fmt.Errorf("funding transaction failed: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		return fmt.Errorf("funding transaction reverted")
 	}
-	
+
 	// Successfully funded geth account
-	
+
 	return nil
 }
-
 
 // waitForGethTransactionReceipt waits for a geth transaction receipt with proper error handling
 func waitForGethTransactionReceipt(client *ethclient.Client, txHash common.Hash, timeout time.Duration) (*ethtypes.Receipt, error) {
