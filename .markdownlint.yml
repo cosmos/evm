@@ -3,8 +3,7 @@
 "MD004": false
 "MD007":
   "indent": 4
-"MD024":
-  "siblings_only": true
+"MD024": false
 "MD025": false
 "MD026":
   "punctuation": ".;:"
