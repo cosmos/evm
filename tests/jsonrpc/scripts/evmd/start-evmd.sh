@@ -70,9 +70,6 @@ USER3_MNEMONIC="will wear settle write dance topic tape sea glory hotel oppose r
 USER4_KEY="dev3"
 USER4_MNEMONIC="doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch"
 
-# Complete initialization (mirroring local_node.sh exactly)
-chmod -R 777 "$DATA_DIR"  # Allow full access for Docker container
-
 # First initialize the chain to create directory structure
 echo -e "${GREEN}Initializing chain...${NC}"
 echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
