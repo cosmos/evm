@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"github.com/spf13/cast"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -17,10 +18,8 @@ func isCPUProfileConfigurationActivated(ctx *server.Context) bool {
 	// TODO: use same constants as server/start.go
 	// constant declared in start.go cannot be imported (cyclical dependency)
 	const flagCPUProfile = "cpu-profile"
-	if cpuProfile := ctx.Viper.GetString(flagCPUProfile); cpuProfile != "" {
-		return true
-	}
-	return false
+	cpuProfile := ctx.Viper.GetString(flagCPUProfile)
+	return cast.ToBool(cpuProfile)
 }
 
 // ExpandHome expands home directory in file paths.
