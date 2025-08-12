@@ -73,6 +73,13 @@ jobs:
         run: |
           echo "🚀 Starting evmd network..."
           cd tests/jsonrpc
+          
+          # Fix Docker permissions for GitHub Actions
+          # Create the data directory with proper permissions
+          sudo mkdir -p .evmd
+          sudo chown -R $(whoami):$(whoami) .evmd
+          
+          # Start evmd
           ./scripts/evmd/start-evmd.sh
           
           # Wait for evmd to be ready
@@ -93,6 +100,12 @@ jobs:
         run: |
           echo "🚀 Starting geth network..."
           cd tests/jsonrpc
+          
+          # Fix Docker permissions for geth data directory
+          sudo mkdir -p .geth-data
+          sudo chown -R $(whoami):$(whoami) .geth-data
+          
+          # Start geth
           ./scripts/geth/start-geth.sh
           
           # Wait for geth to be ready
@@ -211,58 +224,20 @@ jobs:
           docker rm evmd-jsonrpc-test geth-jsonrpc-test 2>/dev/null || true
         if: ${{ env.GIT_DIFF && always() }}
       
-      - name: Comment on PR with test results
-        uses: actions/github-script@v7
-        if: ${{ env.GIT_DIFF && github.event_name == 'pull_request' && (success() || failure()) }}
-        with:
-          script: |
-            const fs = require('fs');
-            const path = 'tests/jsonrpc/simulator/jsonrpc-compatibility-report.txt';
-            
-            let comment = '## 🧪 JSON-RPC Compatibility Test Results\n\n';
-            
-            if (fs.existsSync(path)) {
-              const report = fs.readFileSync(path, 'utf8');
-              const lines = report.split('\n');
-              
-              // Extract summary information
-              const summaryLines = lines.filter(line => 
-                line.includes('FINAL SUMMARY') ||
-                line.includes('Passed:') ||
-                line.includes('Failed:') ||
-                line.includes('Not Implemented:') ||
-                line.includes('Legacy:') ||
-                line.includes('Total:') ||
-                line.includes('Structure Compatibility:') ||
-                line.includes('Type Compatibility:') ||
-                line.includes('Error Compatibility:')
-              );
-              
-              if (summaryLines.length > 0) {
-                comment += '### Test Summary\n```\n' + summaryLines.slice(0, 15).join('\n') + '\n```\n\n';
-              }
-              
-              comment += '### 📊 Full Report\n';
-              comment += 'Download the complete test artifacts from the "Actions" tab for detailed analysis.\n\n';
-              
-              // Add status indicator based on failure criterion
-              const failedMatch = report.match(/Failed:\s*(\d+)/);
-              const failedCount = failedMatch ? parseInt(failedMatch[1]) : 0;
-              
-              if (failedCount === 0) {
-                comment += '✅ **CI PASS: No failed JSON-RPC APIs detected!**\n';
-                comment += '> Tests with status "Not Implemented", "Legacy", or "Skipped" are acceptable.\n';
-              } else {
-                comment += `❌ **CI FAILURE: Found ${failedCount} failed JSON-RPC APIs**\n`;
-                comment += '> Only tests with status "Failed" cause CI failure. Review the detailed report.\n';
-              }
-            } else {
-              comment += '❌ Test report not generated. Check the workflow logs for details.\n';
-            }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+      - name: Display test results summary
+        run: |
+          echo "📊 JSON-RPC Compatibility Test Results Summary"
+          echo "=============================================="
+          cd tests/jsonrpc/simulator
+          
+          if [ -f "jsonrpc-compatibility-report.txt" ]; then
+            echo "✅ Test report generated successfully"
+            echo ""
+            echo "🔍 Final Summary Extract:"
+            grep -A 10 "FINAL SUMMARY" jsonrpc-compatibility-report.txt || echo "Summary not found in expected format"
+            echo ""
+            echo "📋 Complete test artifacts are available in the workflow artifacts for detailed analysis."
+          else
+            echo "❌ Test report not found - check previous steps for errors"
+          fi
+        if: ${{ env.GIT_DIFF && always() }}
