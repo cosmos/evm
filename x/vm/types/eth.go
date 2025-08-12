@@ -15,10 +15,6 @@ type EthereumTx struct {
 	*ethtypes.Transaction
 }
 
-func NewEthereumTx(txData ethtypes.TxData) EthereumTx {
-	return EthereumTx{ethtypes.NewTx(txData)}
-}
-
 func (tx EthereumTx) Size() int {
 	if tx.Transaction == nil {
 		return 0

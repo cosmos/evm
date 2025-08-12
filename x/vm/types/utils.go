@@ -190,7 +190,7 @@ func UnwrapEthereumMsg(tx *sdk.Tx, ethHash common.Hash) (*MsgEthereumTx, error) 
 // UnpackEthMsg unpacks an Ethereum message from a Cosmos SDK message
 func UnpackEthMsg(msg sdk.Msg) (
 	ethMsg *MsgEthereumTx,
-	txData *ethtypes.Transaction,
+	ethTx *ethtypes.Transaction,
 	err error,
 ) {
 	msgEthTx, ok := msg.(*MsgEthereumTx)

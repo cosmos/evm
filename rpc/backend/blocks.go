@@ -583,7 +583,7 @@ func (b *Backend) formatTxReceipt(
 	blockRes *tmrpctypes.ResultBlockResults,
 	blockHeaderHash string,
 ) (map[string]interface{}, error) {
-	txData := ethMsg.AsTransaction()
+	ethTx := ethMsg.AsTransaction()
 	cumulativeGasUsed := uint64(0)
 
 	for _, txResult := range blockRes.TxsResults[0:txResult.TxIndex] {
@@ -632,7 +632,7 @@ func (b *Backend) formatTxReceipt(
 		// They are stored in the chain database.
 		"transactionHash": ethMsg.Hash(),
 		"contractAddress": nil,
-		"gasUsed":         hexutil.Uint64(b.GetGasUsed(txResult, txData.GasPrice(), txData.Gas())),
+		"gasUsed":         hexutil.Uint64(b.GetGasUsed(txResult, ethTx.GasPrice(), ethTx.Gas())),
 
 		// Inclusion information: These fields provide information about the inclusion of the
 		// transaction corresponding to this receipt.
@@ -641,11 +641,11 @@ func (b *Backend) formatTxReceipt(
 		"transactionIndex": hexutil.Uint64(txResult.EthTxIndex), //nolint:gosec // G115 // no int overflow expected here
 
 		// https://github.com/foundry-rs/foundry/issues/7640
-		"effectiveGasPrice": (*hexutil.Big)(txData.GasPrice()),
+		"effectiveGasPrice": (*hexutil.Big)(ethTx.GasPrice()),
 
 		// sender and receiver (contract or EOA) addreses
 		"from": from,
-		"to":   txData.To(),
+		"to":   ethTx.To(),
 		"type": hexutil.Uint(ethMsg.AsTransaction().Type()),
 	}
 
@@ -654,17 +654,17 @@ func (b *Backend) formatTxReceipt(
 	}
 
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
-	if txData.To() == nil {
-		receipt["contractAddress"] = crypto.CreateAddress(from, txData.Nonce())
+	if ethTx.To() == nil {
+		receipt["contractAddress"] = crypto.CreateAddress(from, ethTx.Nonce())
 	}
 
-	if txData.Type() >= ethtypes.DynamicFeeTxType {
+	if ethTx.Type() >= ethtypes.DynamicFeeTxType {
 		baseFee, err := b.BaseFee(blockRes)
 		if err != nil {
 			// tolerate the error for pruned node.
 			b.Logger.Error("fetch basefee failed, node is pruned?", "height", txResult.Height, "error", err)
 		} else {
-			gasTip, _ := txData.EffectiveGasTip(baseFee)
+			gasTip, _ := ethTx.EffectiveGasTip(baseFee)
 			effectiveGasPrice := new(big.Int).Add(gasTip, baseFee)
 			receipt["effectiveGasPrice"] = hexutil.Big(*effectiveGasPrice)
 		}

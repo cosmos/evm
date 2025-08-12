@@ -19,9 +19,9 @@ import (
 // sender has enough funds to pay for the fees and value of the transaction.
 func CheckSenderBalance(
 	balance sdkmath.Int,
-	txData *ethtypes.Transaction,
+	ethTx *ethtypes.Transaction,
 ) error {
-	cost := txData.Cost()
+	cost := ethTx.Cost()
 
 	if cost.Sign() < 0 {
 		return errorsmod.Wrapf(
@@ -65,22 +65,22 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 // gas limit is not reached, the gas limit is higher than the intrinsic gas and that the
 // base fee is higher than the gas fee cap.
 func VerifyFee(
-	txData *ethtypes.Transaction,
+	ethTx *ethtypes.Transaction,
 	denom string,
 	baseFee *big.Int,
 	homestead, istanbul, shanghai, isCheckTx bool,
 ) (sdk.Coins, error) {
-	isContractCreation := txData.To() == nil
+	isContractCreation := ethTx.To() == nil
 
-	gasLimit := txData.Gas()
+	gasLimit := ethTx.Gas()
 
 	var accessList ethtypes.AccessList
-	if txData.AccessList() != nil {
-		accessList = txData.AccessList()
+	if ethTx.AccessList() != nil {
+		accessList = ethTx.AccessList()
 	}
 
-	authList := txData.SetCodeAuthorizations()
-	intrinsicGas, err := core.IntrinsicGas(txData.Data(), accessList, authList, isContractCreation, homestead,
+	authList := ethTx.SetCodeAuthorizations()
+	intrinsicGas, err := core.IntrinsicGas(ethTx.Data(), accessList, authList, isContractCreation, homestead,
 		istanbul, shanghai)
 	if err != nil {
 		return nil, errorsmod.Wrapf(
@@ -98,16 +98,16 @@ func VerifyFee(
 		)
 	}
 
-	if baseFee != nil && txData.GasFeeCap().Cmp(baseFee) < 0 {
+	if baseFee != nil && ethTx.GasFeeCap().Cmp(baseFee) < 0 {
 		return nil, errorsmod.Wrapf(errortypes.ErrInsufficientFee,
 			"the tx gasfeecap is lower than the tx baseFee: %s (gasfeecap), %s (basefee) ",
-			txData.GasFeeCap(),
+			ethTx.GasFeeCap(),
 			baseFee)
 	}
 
-	gasTip, _ := txData.EffectiveGasTip(baseFee)
+	gasTip, _ := ethTx.EffectiveGasTip(baseFee)
 	price := new(big.Int).Add(gasTip, baseFee)
-	gas := new(big.Int).SetUint64(txData.Gas())
+	gas := new(big.Int).SetUint64(ethTx.Gas())
 	feeAmt := gas.Mul(gas, price)
 	if feeAmt.Sign() == 0 {
 		// zero fee, no need to deduct

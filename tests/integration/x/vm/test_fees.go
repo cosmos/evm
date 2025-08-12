@@ -500,14 +500,14 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			tx := evmtypes.NewTx(ethTxParams)
 			tx.From = tc.from
 
-			txData := tx.AsTransaction()
+			ethTx := tx.AsTransaction()
 
 			baseFee := s.Network.App.GetEVMKeeper().GetBaseFee(s.Network.GetContext())
-			priority := evmtypes.GetTxPriority(txData, baseFee)
+			priority := evmtypes.GetTxPriority(ethTx, baseFee)
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(ethTx, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
 			if tc.expectPassVerify {
 				s.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.EnableFeemarket {

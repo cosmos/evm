@@ -218,7 +218,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 		s.Run(fmt.Sprintf("%v_%v_%v", evmtypes.GetTxTypeName(s.EthTxType), s.ChainID, tc.name), func() {
 			// Perform test logic
 			statedbAccount, txArgs := tc.generateAccountAndArgs()
-			txData := txArgs.ToTx()
+			ethTx := txArgs.ToTx()
 
 			//  Function to be tested
 			err := evm.VerifyAccountBalance(
@@ -227,7 +227,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 				unitNetwork.App.GetAccountKeeper(),
 				statedbAccount,
 				senderKey.Addr,
-				txData,
+				ethTx,
 			)
 
 			if tc.expectedError != nil {

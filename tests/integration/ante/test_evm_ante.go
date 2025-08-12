@@ -1334,18 +1334,6 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 	s.Require().Equal(len(sigs), 0)
 
 	msg := tx.GetMsgs()[0]
-	msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
+	_, ok := msg.(*evmtypes.MsgEthereumTx)
 	s.Require().True(ok)
-	txData := msgEthTx.AsTransaction()
-	s.Require().NotNil(txData)
-
-	msgV, msgR, msgS := txData.RawSignatureValues()
-
-	ethTx := msgEthTx.AsTransaction()
-	ethV, ethR, ethS := ethTx.RawSignatureValues()
-
-	// The signatures of MsgEthereumTx should be the same with the corresponding eth tx
-	s.Require().Equal(msgV, ethV)
-	s.Require().Equal(msgR, ethR)
-	s.Require().Equal(msgS, ethS)
 }
