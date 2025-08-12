@@ -13,6 +13,7 @@ import (
 	cmtversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
 
@@ -142,6 +143,14 @@ func RegisterBlockNotFound(
 	return &cmtrpctypes.ResultBlock{Block: nil}, nil
 }
 
+// Block panic
+func RegisterBlockPanic(client *mocks.Client, height int64) {
+	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
+		Return(func(context.Context, *int64) *cmtrpctypes.ResultBlock {
+			panic("Block call panic")
+		}, nil)
+}
+
 func TestRegisterBlock(t *testing.T) {
 	client := mocks.NewClient(t)
 	height := rpc.BlockNumber(1).Int64()
@@ -205,11 +214,18 @@ func RegisterBlockResults(
 	client *mocks.Client,
 	height int64,
 ) (*cmtrpctypes.ResultBlockResults, error) {
+	return RegisterBlockResultsWithTxs(client, height, []*abci.ExecTxResult{{Code: 0, GasUsed: 0}})
+}
+
+func RegisterBlockResultsWithTxs(
+	client *mocks.Client,
+	height int64,
+	txsResults []*abci.ExecTxResult,
+) (*cmtrpctypes.ResultBlockResults, error) {
 	res := &cmtrpctypes.ResultBlockResults{
 		Height:     height,
-		TxsResults: []*abci.ExecTxResult{{Code: 0, GasUsed: 0}},
+		TxsResults: txsResults,
 	}
-
 	client.On("BlockResults", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(res, nil)
 	return res, nil
@@ -283,9 +299,28 @@ func RegisterHeaderByHashError(client *mocks.Client, _ common.Hash, _ []byte) {
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
-func RegisterHeaderByHashNotFound(client *mocks.Client, _ common.Hash, _ []byte) {
-	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}).
-		Return(nil, nil)
+func RegisterHeaderByHashNotFound(client *mocks.Client, hash common.Hash, tx []byte) {
+	client.On("HeaderByHash", rpc.ContextWithHeight(1), bytes.HexBytes(hash.Bytes())).
+		Return(&coretypes.ResultHeader{Header: nil}, nil)
+}
+
+// Header
+func RegisterHeader(client *mocks.Client, height *int64, tx []byte) *coretypes.ResultHeader {
+	block := types.MakeBlock(*height, []types.Tx{tx}, nil, nil)
+	resHeader := &coretypes.ResultHeader{Header: &block.Header}
+	client.On("Header", rpc.ContextWithHeight(*height), mock.AnythingOfType("*int64")).Return(resHeader, nil)
+	return resHeader
+}
+
+func RegisterHeaderError(client *mocks.Client, height *int64) {
+	client.On("Header", rpc.ContextWithHeight(*height), height).Return(nil, errortypes.ErrInvalidRequest)
+}
+
+// Header not found
+func RegisterHeaderNotFound(client *mocks.Client, height int64) {
+	client.On("Header", rpc.ContextWithHeight(height), mock.MatchedBy(func(arg *int64) bool {
+		return arg != nil && height == *arg
+	})).Return(&coretypes.ResultHeader{Header: nil}, nil)
 }
 
 func RegisterABCIQueryWithOptions(client *mocks.Client, height int64, path string, data bytes.HexBytes, opts cmtrpcclient.ABCIQueryOptions) {

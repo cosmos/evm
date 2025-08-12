@@ -165,7 +165,7 @@ func (p Precompile) BalanceOf(
 		return nil, err
 	}
 
-	balance := p.BankKeeper.GetBalance(ctx, account.Bytes(), p.tokenPair.Denom)
+	balance := p.BankKeeper.SpendableCoin(ctx, account.Bytes(), p.tokenPair.Denom)
 
 	return method.Outputs.Pack(balance.Amount.BigInt())
 }

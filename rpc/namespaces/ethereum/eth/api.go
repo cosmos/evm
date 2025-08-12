@@ -2,9 +2,11 @@ package eth
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -66,7 +68,7 @@ type EthereumAPI interface {
 	//
 	// Allows developers to read data from the blockchain which includes executing
 	// smart contracts. However, no data is published to the Ethereum network.
-	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, _ *rpctypes.StateOverride) (hexutil.Bytes, error)
+	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, override *rpctypes.StateOverride) (hexutil.Bytes, error)
 
 	// Chain Information
 	//
@@ -74,7 +76,7 @@ type EthereumAPI interface {
 	ProtocolVersion() hexutil.Uint
 	GasPrice() (*hexutil.Big, error)
 	EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rpctypes.BlockNumber) (hexutil.Uint64, error)
-	FeeHistory(blockCount, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
 	MaxPriorityFeePerGas() (*hexutil.Big, error)
 	ChainId() (*hexutil.Big, error)
 
@@ -113,7 +115,6 @@ var _ EthereumAPI = (*PublicAPI)(nil)
 
 // PublicAPI is the eth_ prefixed set of APIs in the Web3 JSON-RPC spec.
 type PublicAPI struct {
-	ctx     context.Context
 	logger  log.Logger
 	backend backend.EVMBackend
 }
@@ -121,7 +122,6 @@ type PublicAPI struct {
 // NewPublicAPI creates an instance of the public ETH Web3 API.
 func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	api := &PublicAPI{
-		ctx:     context.Background(),
 		logger:  logger.With("client", "json-rpc"),
 		backend: backend,
 	}
@@ -268,9 +268,14 @@ func (e *PublicAPI) GetProof(address common.Address,
 // Call performs a raw contract call.
 func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
-	_ *rpctypes.StateOverride,
+	override *rpctypes.StateOverride,
 ) (hexutil.Bytes, error) {
 	e.logger.Debug("eth_call", "args", args.String(), "block number or hash", blockNrOrHash)
+
+	if override != nil {
+		e.logger.Debug("eth_call", "error", "overrides are unsupported in call queries")
+		return nil, fmt.Errorf("overrides are unsupported in call queries")
+	}
 
 	blockNum, err := e.backend.BlockNumberFromTendermint(blockNrOrHash)
 	if err != nil {
@@ -311,7 +316,8 @@ func (e *PublicAPI) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *
 	return e.backend.EstimateGas(args, blockNrOptional)
 }
 
-func (e *PublicAPI) FeeHistory(blockCount,
+func (e *PublicAPI) FeeHistory(
+	blockCount math.HexOrDecimal64,
 	lastBlock rpc.BlockNumber,
 	rewardPercentiles []float64,
 ) (*rpctypes.FeeHistoryResult, error) {

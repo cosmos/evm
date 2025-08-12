@@ -64,7 +64,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder, create network.CreateEvmApp)
 
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	msg := txBuilder(suite, contractAddr)
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	err := msg.Sign(ethtypes.LatestSignerForChainID(types.GetEthChainConfig().ChainID), krSigner)
 	require.NoError(b, err)
 
@@ -192,7 +192,7 @@ func BenchmarkMessageCall(b *testing.B, create network.CreateEvmApp) {
 	}
 	msg := types.NewTx(ethTxParams)
 
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	err = msg.Sign(ethtypes.LatestSignerForChainID(ethCfg.ChainID), krSigner)
 	require.NoError(b, err)

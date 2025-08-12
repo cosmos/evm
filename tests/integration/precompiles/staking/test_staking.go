@@ -421,7 +421,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				To:        &contractAddr,
 				Amount:    nil,
 				GasLimit:  tc.gas,
-				GasPrice:  chainutil.ExampleMinGasPrices.BigInt(),
+				GasPrice:  chainutil.ExampleMinGasPrices,
 				GasFeeCap: baseFee,
 				GasTipCap: big.NewInt(1),
 				Accesses:  &ethtypes.AccessList{},
@@ -466,7 +466,6 @@ func (s *PrecompileTestSuite) TestRun() {
 				consumed := ctx.GasMeter().GasConsumed()
 				// LessThanOrEqual because the gas is consumed before the error is returned
 				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
-
 			}
 		})
 	}
@@ -761,7 +760,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				To:        &contractAddr,
 				Amount:    nil,
 				GasLimit:  tc.gas,
-				GasPrice:  chainutil.ExampleMinGasPrices.BigInt(),
+				GasPrice:  chainutil.ExampleMinGasPrices,
 				GasFeeCap: baseFee,
 				GasTipCap: big.NewInt(1),
 				Accesses:  &ethtypes.AccessList{},

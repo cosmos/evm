@@ -12,9 +12,11 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
@@ -30,6 +32,8 @@ var f embed.FS
 type Precompile struct {
 	cmn.Precompile
 	slashingKeeper slashingkeeper.Keeper
+	consCodec      runtime.ConsensusAddressCodec
+	valCodec       runtime.ValidatorAddressCodec
 }
 
 // LoadABI loads the slashing ABI from the embedded abi.json file
@@ -42,6 +46,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	slashingKeeper slashingkeeper.Keeper,
+	valCdc, consCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
 	if err != nil {
@@ -55,6 +60,8 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
 		slashingKeeper: slashingKeeper,
+		valCodec:       valCdc,
+		consCodec:      consCdc,
 	}
 
 	// SetAddress defines the address of the slashing precompiled contract.
@@ -112,6 +119,8 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		bz, err = p.GetSigningInfo(ctx, method, contract, args)
 	case GetSigningInfosMethod:
 		bz, err = p.GetSigningInfos(ctx, method, contract, args)
+	case GetParamsMethod:
+		bz, err = p.GetParams(ctx, method, contract, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}

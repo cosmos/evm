@@ -12,6 +12,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/precompiles/testutil"
+	chainutil "github.com/cosmos/evm/testutil"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -152,6 +153,10 @@ func (tf *IntegrationTxFactory) populateEvmTxArgsWithDefault(
 				return evmtypes.EvmTxArgs{}, errorsmod.Wrap(err, "failed to get base fee")
 			}
 			txArgs.GasFeeCap = baseFeeResp.BaseFee.BigInt()
+			// Ensure GasTipCap <= GasFeeCap
+			if txArgs.GasTipCap.Cmp(txArgs.GasFeeCap) > 0 {
+				txArgs.GasTipCap = new(big.Int).Set(txArgs.GasFeeCap)
+			}
 		}
 	}
 
@@ -209,8 +214,7 @@ func (tf *IntegrationTxFactory) checkEthTxResponse(res *abcitypes.ExecTxResult) 
 	}
 
 	if evmRes.Failed() {
-		revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
-		return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
+		return chainutil.DecodeRevertReason(evmRes)
 	}
 	return nil
 }

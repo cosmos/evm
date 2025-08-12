@@ -31,6 +31,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
@@ -109,7 +110,7 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -143,7 +144,7 @@ func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
 			evmChainID,
-			evmdconfig.EvmAppOptions,
+			testconfig.EvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
@@ -189,15 +190,14 @@ type (
 		RPCClient     cmtclient.Client
 		JSONRPCClient *ethclient.Client
 
-		app         servertypes.Application
-		tmNode      *node.Node
-		api         *api.Server
-		grpc        *grpc.Server
-		grpcWeb     *http.Server
-		jsonrpc     *http.Server
-		jsonrpcDone chan struct{}
-		errGroup    *errgroup.Group
-		cancelFn    context.CancelFunc
+		app      servertypes.Application
+		tmNode   *node.Node
+		api      *api.Server
+		grpc     *grpc.Server
+		grpcWeb  *http.Server
+		jsonrpc  *http.Server
+		errGroup *errgroup.Group
+		cancelFn context.CancelFunc
 	}
 )
 
@@ -637,18 +637,7 @@ func (n *Network) Cleanup() {
 		}
 
 		if v.jsonrpc != nil {
-			shutdownCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelFn()
-
-			if err := v.jsonrpc.Shutdown(shutdownCtx); err != nil {
-				v.tmNode.Logger.Error("HTTP server shutdown produced a warning", "error", err.Error())
-			} else {
-				v.tmNode.Logger.Info("HTTP server shut down, waiting 5 sec")
-				select {
-				case <-time.Tick(5 * time.Second):
-				case <-v.jsonrpcDone:
-				}
-			}
+			_ = v.jsonrpc.Close()
 		}
 	}
 

@@ -252,7 +252,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				To:        &contractAddr,
 				Amount:    nil,
 				GasLimit:  100000,
-				GasPrice:  chainutil.ExampleMinGasPrices.BigInt(),
+				GasPrice:  chainutil.ExampleMinGasPrices,
 				GasFeeCap: baseFee,
 				GasTipCap: big.NewInt(1),
 				Accesses:  &gethtypes.AccessList{},
@@ -268,9 +268,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			cfg, err := s.network.App.GetEVMKeeper().EVMConfig(ctx, proposerAddress)
 			s.Require().NoError(err, "failed to instantiate EVM config")
 
-			ethChainID := s.network.GetEIP155ChainID()
-			signer := gethtypes.LatestSignerForChainID(ethChainID)
-			msg, err := signedMsg.AsMessage(signer, baseFee)
+			msg, err := signedMsg.AsMessage(baseFee)
 			s.Require().NoError(err, "failed to instantiate Ethereum message")
 
 			// Instantiate EVM
@@ -480,7 +478,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				To:        &contractAddr,
 				Amount:    nil,
 				GasLimit:  1000000,
-				GasPrice:  chainutil.ExampleMinGasPrices.BigInt(),
+				GasPrice:  chainutil.ExampleMinGasPrices,
 				GasFeeCap: baseFee,
 				GasTipCap: big.NewInt(1),
 				Accesses:  &gethtypes.AccessList{},

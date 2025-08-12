@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
+	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
@@ -17,9 +18,9 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
+	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -31,6 +32,7 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -158,6 +160,8 @@ type EVMD struct {
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
 
+	pendingTxListeners []ante.PendingTxListener
+
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
 	tkeys   map[string]*storetypes.TransientStoreKey
@@ -208,7 +212,7 @@ func NewExampleApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	evmChainID uint64,
-	evmAppOptions evmdconfig.EVMOptionsFn,
+	evmAppOptions evmconfig.EVMOptionsFn,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	encodingConfig := evmosencoding.MakeConfig(evmChainID)
@@ -478,6 +482,7 @@ func NewExampleApp(
 		app.PreciseBankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
+		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		tracer,
 	)
@@ -487,7 +492,7 @@ func NewExampleApp(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
-		app.BankKeeper,
+		app.PreciseBankKeeper,
 		app.EVMKeeper,
 		app.StakingKeeper,
 		&app.TransferKeeper,
@@ -569,7 +574,6 @@ func NewExampleApp(
 			app.EVMKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
-			app.EvidenceKeeper,
 			app.AppCodec(),
 		),
 	)
@@ -808,12 +812,24 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
 		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)
 	}
 
 	app.SetAnteHandler(ante.NewAnteHandler(options))
+}
+
+func (app *EVMD) onPendingTx(hash common.Hash) {
+	for _, listener := range app.pendingTxListeners {
+		listener(hash)
+	}
+}
+
+// RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
+func (app *EVMD) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
 func (app *EVMD) setPostHandler() {
@@ -1043,6 +1059,10 @@ func (app *EVMD) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
 
 func (app *EVMD) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	return app.FeeGrantKeeper
+}
+
+func (app *EVMD) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
+	return app.ConsensusParamsKeeper
 }
 
 func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {

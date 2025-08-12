@@ -6,9 +6,9 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/testutil/integration/base/factory"

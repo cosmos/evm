@@ -51,7 +51,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &block.Block.Height)
 	if err != nil {
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found: %w", err)
 	}
 
 	if res.EthTxIndex == -1 {
@@ -153,7 +153,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	resBlock, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
 	if err != nil {
 		b.Logger.Debug("block not found", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
 	}
 
 	tx, err := b.ClientCtx.TxConfig.TxDecoder()(resBlock.Block.Txs[res.TxIndex])
@@ -174,7 +174,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
 	if err != nil {
 		b.Logger.Debug("failed to retrieve block results", "height", res.Height, "error", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
 	for _, txResult := range blockRes.TxsResults[0:res.TxIndex] {
@@ -195,14 +195,14 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, err
 	}
 
-	from, err := ethMsg.GetSender(chainID.ToInt())
+	from, err := ethMsg.GetSenderLegacy(ethtypes.LatestSignerForChainID(chainID.ToInt()))
 	if err != nil {
 		return nil, err
 	}
 
 	// parse tx logs from events
 	msgIndex := int(res.MsgIndex) // #nosec G115 -- checked for int overflow already
-	logs, err := TxLogsFromEvents(blockRes.TxsResults[res.TxIndex].Events, msgIndex)
+	logs, err := evmtypes.TxLogsFromEvents(blockRes.TxsResults[res.TxIndex].Events, msgIndex)
 	if err != nil {
 		b.Logger.Debug("failed to parse logs", "hash", hexTx, "error", err.Error())
 	}
@@ -304,7 +304,7 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
-	return TxLogsFromEvents(resBlockResult.TxsResults[res.TxIndex].Events, index)
+	return evmtypes.TxLogsFromEvents(resBlockResult.TxsResults[res.TxIndex].Events, index)
 }
 
 // GetTransactionByBlockHashAndIndex returns the transaction identified by hash and index.

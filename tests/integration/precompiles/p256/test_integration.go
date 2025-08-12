@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cometbft/cometbft/crypto"
@@ -104,13 +104,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						rInt, sInt, err := ecdsa.Sign(rand.Reader, s.p256Priv, hash)
 						Expect(err).To(BeNil())
+						pub := privB.PublicKey
 
 						input = make([]byte, p256.VerifyInputLength)
 						copy(input[0:32], hash)
-						copy(input[32:64], rInt.Bytes())
-						copy(input[64:96], sInt.Bytes())
-						copy(input[96:128], privB.PublicKey.X.Bytes())
-						copy(input[128:160], privB.PublicKey.Y.Bytes())
+
+						// ALWAYS left-pad to 32 bytes:
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						pub.X.FillBytes(input[96:128])
+						pub.Y.FillBytes(input[128:160])
 						return input, nil, ""
 					},
 				),
@@ -167,10 +170,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 						input = make([]byte, p256.VerifyInputLength)
 						copy(input[0:32], hash)
-						copy(input[32:64], rInt.Bytes())
-						copy(input[64:96], sInt.Bytes())
-						copy(input[96:128], privB.PublicKey.X.Bytes())
-						copy(input[128:160], privB.PublicKey.Y.Bytes())
+						rInt.FillBytes(input[32:64])
+						sInt.FillBytes(input[64:96])
+						privB.PublicKey.X.FillBytes(input[96:128])
+						privB.PublicKey.Y.FillBytes(input[128:160])
 						return input
 					},
 				),

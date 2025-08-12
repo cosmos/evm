@@ -67,7 +67,7 @@ const (
 	DefaultEVMChainID = 262144
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
-	DefaultGasCap uint64 = 25000000
+	DefaultGasCap uint64 = 25_000_000
 
 	// DefaultJSONRPCAllowInsecureUnlock is true
 	DefaultJSONRPCAllowInsecureUnlock bool = true
@@ -99,11 +99,25 @@ const (
 	// DefaultAllowUnprotectedTxs value is false
 	DefaultAllowUnprotectedTxs = false
 
+	// DefaultBatchRequestLimit is the default maximum batch request limit.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L67
+	DefaultBatchRequestLimit = 1000
+
+	// DefaultBatchResponseMaxSize is the default maximum batch response size.
+	// https://github.com/ethereum/go-ethereum/blob/v1.15.11/node/defaults.go#L68
+	DefaultBatchResponseMaxSize = 25 * 1000 * 1000
+
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)
 	DefaultMaxOpenConnections = 0
 
 	// DefaultGasAdjustment value to use as default in gas-adjustment flag
 	DefaultGasAdjustment = 1.2
+
+	// DefaultWSOrigins is the default origin for WebSocket connections
+	DefaultWSOrigins = "127.0.0.1"
+
+	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
+	DefaultEnableProfiling = false
 )
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
@@ -164,6 +178,10 @@ type JSONRPCConfig struct {
 	// AllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
 	// the node's RPC when global parameter is disabled.
 	AllowUnprotectedTxs bool `mapstructure:"allow-unprotected-txs"`
+	// BatchRequestLimit is the maximum number of requests in a batch.
+	BatchRequestLimit int `mapstructure:"batch-request-limit"`
+	// BatchResponseMaxSize is the maximum number of bytes returned from a batched rpc call.
+	BatchResponseMaxSize int `mapstructure:"batch-response-max-size"`
 	// MaxOpenConnections sets the maximum number of simultaneous connections
 	// for the server listener.
 	MaxOpenConnections int `mapstructure:"max-open-connections"`
@@ -173,6 +191,10 @@ type JSONRPCConfig struct {
 	MetricsAddress string `mapstructure:"metrics-address"`
 	// FixRevertGasRefundHeight defines the upgrade height for fix of revert gas refund logic when transaction reverted
 	FixRevertGasRefundHeight int64 `mapstructure:"fix-revert-gas-refund-height"`
+	// WSOrigins defines the allowed origins for WebSocket connections
+	WSOrigins []string `mapstructure:"ws-origins"`
+	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
+	EnableProfiling bool `mapstructure:"enable-profiling"`
 }
 
 // TLSConfig defines the certificate and matching private key for the server.
@@ -212,6 +234,11 @@ func GetAPINamespaces() []string {
 	return []string{"web3", "eth", "personal", "net", "txpool", "debug", "miner"}
 }
 
+// GetDefaultWSOrigins returns the default WebSocket origins.
+func GetDefaultWSOrigins() []string {
+	return []string{DefaultWSOrigins, "localhost"}
+}
+
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
@@ -230,10 +257,14 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		HTTPTimeout:              DefaultHTTPTimeout,
 		HTTPIdleTimeout:          DefaultHTTPIdleTimeout,
 		AllowUnprotectedTxs:      DefaultAllowUnprotectedTxs,
+		BatchRequestLimit:        DefaultBatchRequestLimit,
+		BatchResponseMaxSize:     DefaultBatchResponseMaxSize,
 		MaxOpenConnections:       DefaultMaxOpenConnections,
 		EnableIndexer:            false,
 		MetricsAddress:           DefaultJSONRPCMetricsAddress,
 		FixRevertGasRefundHeight: DefaultFixRevertGasRefundHeight,
+		WSOrigins:                GetDefaultWSOrigins(),
+		EnableProfiling:          DefaultEnableProfiling,
 	}
 }
 
@@ -273,6 +304,14 @@ func (c JSONRPCConfig) Validate() error {
 
 	if c.HTTPIdleTimeout < 0 {
 		return errors.New("JSON-RPC HTTP idle timeout duration cannot be negative")
+	}
+
+	if c.BatchRequestLimit < 0 {
+		return errors.New("JSON-RPC batch request limit cannot be negative")
+	}
+
+	if c.BatchResponseMaxSize < 0 {
+		return errors.New("JSON-RPC batch response max size cannot be negative")
 	}
 
 	// check for duplicates

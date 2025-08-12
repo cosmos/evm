@@ -1,0 +1,106 @@
+version: "3"
+
+services:
+  evmdnode0:
+    container_name: evmdnode0
+    image: "cosmos/evmd"
+    environment:
+      - DEBUG=0
+      - ID=0
+      - LOG=${LOG:-evmd.log}
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "26656-26657:26656-26657"
+      - "1317:1317"
+      - "9090:9090"
+      - "2345:2345"
+      - "6065:6065"
+      - "8545-8546:8545-8546"
+    volumes:
+      - ./.testnets:/data:Z
+    networks:
+      localnet:
+        ipv4_address: 192.168.10.2
+
+  evmdnode1:
+    container_name: evmdnode1
+    image: "cosmos/evmd"
+    environment:
+      - DEBUG=0
+      - ID=1
+      - LOG=${LOG:-evmd.log}
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "26666-26667:26656-26657"
+      - "1318:1317"
+      - "9091:9090"
+      - "2346:2345"
+      - "6075:6065"
+      - "8555-8556:8545-8546"
+    volumes:
+      - ./.testnets:/data:Z
+    networks:
+      localnet:
+        ipv4_address: 192.168.10.3
+
+  evmdnode2:
+    container_name: evmdnode2
+    image: "cosmos/evmd"
+    environment:
+      - DEBUG=0
+      - ID=2
+      - LOG=${LOG:-evmd.log}
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "26676-26677:26656-26657"
+      - "1319:1317"
+      - "9092:9090"
+      - "2347:2345"
+      - "6085:6065"
+      - "8565-8566:8545-8546"
+    volumes:
+      - ./.testnets:/data:Z
+    networks:
+      localnet:
+        ipv4_address: 192.168.10.4
+
+  evmdnode3:
+    container_name: evmdnode3
+    image: "cosmos/evmd"
+    environment:
+      - DEBUG=0
+      - ID=3
+      - LOG=${LOG:-evmd.log}
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "26686-26687:26656-26657"
+      - "1320:1317"
+      - "9093:9090"
+      - "2348:2345"
+      - "6095:6065"
+      - "8575-8576:8545-8546"
+    volumes:
+      - ./.testnets:/data:Z
+    networks:
+      localnet:
+        ipv4_address: 192.168.10.5
+
+networks:
+  localnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.10.0/25
