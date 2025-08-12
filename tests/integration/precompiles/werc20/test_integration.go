@@ -1,7 +1,6 @@
 package werc20
 
 import (
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"math/big"
 	"testing"
 
@@ -25,6 +24,7 @@ import (
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -631,28 +631,4 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 	// Run Ginkgo integration tests
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "WEVMOS precompile test suite")
-}
-
-// checkAndReturnBalance check that the balance of the address is the same in
-// the smart contract and in the balance and returns the amount.
-func (is *PrecompileIntegrationTestSuite) checkAndReturnBalance(
-	balanceCheck testutil.LogCheckArgs,
-	callsData CallsData,
-	address common.Address,
-) *big.Int {
-	txArgs, balancesArgs := callsData.getTxAndCallArgs(directCall, erc20.BalanceOfMethod, address)
-	txArgs.GasLimit = 1_000_000_000_000
-
-	_, ethRes, err := is.factory.CallContractAndCheckLogs(callsData.sender.Priv, txArgs, balancesArgs, balanceCheck)
-	Expect(err).ToNot(HaveOccurred(), "failed to execute balanceOf")
-	var erc20Balance *big.Int
-	err = is.precompile.UnpackIntoInterface(&erc20Balance, erc20.BalanceOfMethod, ethRes.Ret)
-	Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-
-	addressAcc := sdk.AccAddress(address.Bytes())
-	balanceAfter, err := is.grpcHandler.GetBalanceFromBank(addressAcc, is.wrappedCoinDenom)
-	Expect(err).ToNot(HaveOccurred(), "expected no error getting balance")
-
-	Expect(erc20Balance.String()).To(Equal(balanceAfter.Balance.Amount.BigInt().String()), "expected return balance from contract equal to bank")
-	return erc20Balance
 }
