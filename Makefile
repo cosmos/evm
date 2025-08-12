@@ -209,14 +209,14 @@ benchmark:
 ###                                Linting                                  ###
 ###############################################################################
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.1.6
+golangci_version=v2.2.2
 
 lint: lint-go lint-python lint-contracts
 
 lint-go:
 	@echo "--> Running linter"
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
-	@$(golangci_lint_cmd) run --timeout=10m
+	@$(golangci_lint_cmd) run --timeout=15m
 
 lint-python:
 	find . -name "*.py" -type f -not -path "*/node_modules/*" | xargs pylint
@@ -227,7 +227,7 @@ lint-contracts:
 
 lint-fix:
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
-	@$(golangci_lint_cmd) run --timeout=10m --fix
+	@$(golangci_lint_cmd) run --timeout=15m --fix
 
 lint-fix-contracts:
 	solhint --fix contracts/**/*.sol
@@ -349,3 +349,31 @@ contracts-compile:
 contracts-add:
 	@echo "Adding a new smart contract to be compiled..."
 	@python3 ./scripts/compile_smart_contracts/compile_smart_contracts.py --add $(CONTRACT)
+
+###############################################################################
+###                                Localnet                                 ###
+###############################################################################
+
+localnet-build-env:
+	$(MAKE) -C contrib/images evmd-env
+
+localnet-build-nodes:
+	$(DOCKER) run --rm -v $(CURDIR)/.testnets:/data cosmos/evmd \
+			  testnet init-files --validator-count 4 -o /data --starting-ip-address 192.168.10.2 --keyring-backend=test --chain-id=local-4221 --use-docker=true
+	docker compose up -d
+
+localnet-stop:
+	docker compose down
+
+# localnet-start will run a 4-node testnet locally. The nodes are
+# based off the docker images in: ./contrib/images/simd-env
+localnet-start: localnet-stop localnet-build-env localnet-build-nodes
+
+
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes
+
+test-system: build
+	ulimit -n 1300
+	mkdir -p ./tests/systemtests/binaries/
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
+	$(MAKE) -C tests/systemtests test

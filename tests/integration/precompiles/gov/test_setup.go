@@ -14,6 +14,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -43,7 +44,7 @@ func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.Conf
 }
 
 func (s *PrecompileTestSuite) SetupTest() {
-	keyring := testkeyring.New(2)
+	keyring := testkeyring.New(3)
 
 	// seed the db with one proposal
 	customGen := network.CustomGenesisState{}
@@ -115,6 +116,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		},
 	}
 	govGen.Params.MinDeposit = sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(100)))
+	govGen.Params.ProposalCancelDest = keyring.GetAccAddr(2).String()
 	govGen.Proposals = append(govGen.Proposals, prop)
 	govGen.Proposals = append(govGen.Proposals, prop2)
 	customGen[govtypes.ModuleName] = govGen
@@ -137,6 +139,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	if s.precompile, err = gov.NewPrecompile(
 		s.network.App.GetGovKeeper(),
 		s.network.App.AppCodec(),
+		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	); err != nil {
 		panic(err)
 	}

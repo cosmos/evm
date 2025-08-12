@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	mock "github.com/stretchr/testify/mock"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -37,7 +39,7 @@ func (s *TestSuite) TestTraceTransaction() {
 
 	txEncoder := s.backend.ClientCtx.TxConfig.TxEncoder()
 
-	msgEthereumTx.From = from.String()
+	msgEthereumTx.From = from.Bytes()
 	_ = msgEthereumTx.Sign(ethSigner, s.signer)
 
 	baseDenom := evmtypes.GetEVMCoinDenom()
@@ -45,7 +47,7 @@ func (s *TestSuite) TestTraceTransaction() {
 	tx, _ := msgEthereumTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	txBz, _ := txEncoder(tx)
 
-	msgEthereumTx2.From = from.String()
+	msgEthereumTx2.From = from.Bytes()
 	_ = msgEthereumTx2.Sign(ethSigner, s.signer)
 
 	tx2, _ := msgEthereumTx.BuildTx(s.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
@@ -222,7 +224,7 @@ func (s *TestSuite) TestTraceBlock() {
 		registerMock    func()
 		expTraceResults []*evmtypes.TxTraceResult
 		resBlock        *tmrpctypes.ResultBlock
-		config          *evmtypes.TraceConfig
+		config          *rpctypes.TraceConfig
 		expPass         bool
 	}{
 		{
@@ -230,7 +232,7 @@ func (s *TestSuite) TestTraceBlock() {
 			func() {},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockEmpty,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			true,
 		},
 		{
@@ -240,11 +242,44 @@ func (s *TestSuite) TestTraceBlock() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterTraceBlock(QueryClient, []*evmtypes.MsgEthereumTx{msgEthTx})
 				RegisterConsensusParams(client, 1)
+				_, err := RegisterBlockResults(client, 1)
+				s.Require().NoError(err)
 			},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockFilled,
-			&evmtypes.TraceConfig{},
+			&rpctypes.TraceConfig{},
 			false,
+		},
+		{
+			"fail - TendermintBlockResultByNumber returns error",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterBlockResultsError(client, 1)
+			},
+			nil,
+			&resBlockFilled,
+			&rpctypes.TraceConfig{},
+			true,
+		},
+		{
+			"skip invalid tx result code - transaction failed",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				_, err := RegisterBlockResultsWithTxs(client, 1, []*abci.ExecTxResult{{Code: 0}, {Code: 1}, {Code: 0}})
+				s.Require().NoError(err)
+				RegisterConsensusParams(client, 1)
+				traceResult := &evmtypes.QueryTraceBlockResponse{
+					Data: []byte(`[{"result": "trace1"}, {"result": "trace2"}]`),
+				}
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				queryClient.On("TraceBlock", mock.Anything, mock.AnythingOfType("*types.QueryTraceBlockRequest")).
+					Return(traceResult, nil).
+					Once()
+			},
+			[]*evmtypes.TxTraceResult{{Result: "trace1"}, {Result: "trace2"}},
+			&resBlockFilled,
+			&rpctypes.TraceConfig{},
+			true,
 		},
 	}
 

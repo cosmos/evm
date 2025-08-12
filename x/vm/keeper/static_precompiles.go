@@ -43,5 +43,5 @@ func (k *Keeper) GetStaticPrecompileInstance(params *types.Params, address commo
 // This function assumes that the Berlin precompiles cannot be disabled.
 func (k Keeper) IsAvailableStaticPrecompile(params *types.Params, address common.Address) bool {
 	return slices.Contains(params.ActiveStaticPrecompiles, address.String()) ||
-		slices.Contains(vm.PrecompiledAddressesBerlin, address)
+		slices.Contains(vm.PrecompiledAddressesPrague, address)
 }

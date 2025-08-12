@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/cosmos/evm/testutil/constants"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -50,7 +50,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	tokenPairs := make([]erc20types.TokenPair, 0, len(denoms)+1)
 	tokenPairs = append(tokenPairs,
 		// NOTE: the example token pairs are being added in the integration test utils
-		constants.ExampleTokenPairs...,
+		testconstants.ExampleTokenPairs...,
 	)
 
 	dynPrecAddr := make([]string, 0, len(denoms))
@@ -68,10 +68,10 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 
 	// STR v2: update the NativePrecompiles and DynamicPrecompiles
 	// with the WEVMOS (default is mainnet) and 'xmpl' tokens in the erc20 params
-	erc20GenesisState := NewErc20GenesisState()
+	erc20GenesisState := erc20types.DefaultGenesisState()
 	erc20GenesisState.TokenPairs = tokenPairs
-	erc20GenesisState.Params.NativePrecompiles = []string{constants.WEVMOSContractMainnet}
-	erc20GenesisState.Params.DynamicPrecompiles = dynPrecAddr
+	erc20GenesisState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenesisState.DynamicPrecompiles = dynPrecAddr
 
 	// Combine module genesis states
 	return network.CustomGenesisState{
@@ -86,8 +86,8 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = constants.ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, constants.WEVMOSContractMainnet)
+	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
 
 	return erc20GenState
 }

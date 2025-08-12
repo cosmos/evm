@@ -16,9 +16,9 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics20"
+	chainutil "github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
@@ -299,8 +299,10 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				"INVALID-DENOM-HASH",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
-			revertErr := evmtypes.NewExecErrorWithReason(evmRes.Ret)
-			suite.Require().Contains(revertErr.ErrorData(), "invalid denom trace hash")
+
+			revertErr := chainutil.DecodeRevertReason(*evmRes)
+			suite.Require().Contains(revertErr.Error(), "invalid denom trace hash")
+			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 
 			// denomHash query method
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
@@ -347,8 +349,10 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				"",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
-			revertErr = evmtypes.NewExecErrorWithReason(evmRes.Ret)
-			suite.Require().Contains(revertErr.ErrorData(), "invalid denomination for cross-chain transfer")
+
+			revertErr = chainutil.DecodeRevertReason(*evmRes)
+			suite.Require().Contains(revertErr.Error(), "invalid denomination for cross-chain transfer")
+			ctxB.GasMeter().RefundGas(ctxB.GasMeter().Limit(), "refund after error")
 		})
 	}
 }
