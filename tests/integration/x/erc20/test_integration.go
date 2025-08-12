@@ -188,16 +188,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("ERC20 bytes32-metadata tokens", Ordered, func() {
-			var (
-				s        *KeeperTestSuite
-				contract common.Address
-			)
-
-			BeforeEach(func() {
-				s = new(KeeperTestSuite)
-				s.SetupTest()
-			})
-
 			Context("with a bytes32-metadata ERC20", func() {
 				BeforeEach(func() {
 					var err error
