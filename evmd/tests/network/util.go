@@ -90,7 +90,7 @@ func startInProcess(cfg Config, val *Validator) error {
 		// Add the tx service in the gRPC router.
 		app.RegisterTxService(val.ClientCtx)
 
-		// Add the tendermint queries service in the gRPC router.
+		// Add the CometBFT queries service in the gRPC router.
 		app.RegisterTendermintService(val.ClientCtx)
 		app.RegisterNodeService(val.ClientCtx, val.AppConfig.Config)
 	}

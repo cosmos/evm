@@ -23,7 +23,7 @@ func (app *EVMD) ExportAppStateAndValidators(forZeroHeight bool, jailAllowedAddr
 	ctx := app.NewContextLegacy(true, tmproto.Header{Height: app.LastBlockHeight()})
 
 	// We export at last height + 1, because that's the height at which
-	// Tendermint will start InitChain.
+	// CometBFT will start InitChain.
 	height := app.LastBlockHeight() + 1
 	if forZeroHeight {
 		height = 0
