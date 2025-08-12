@@ -2,9 +2,11 @@
 
 ## UNRELEASED
 
-## v0.4.x
+## v0.4.0 
 
 ### DEPENDENCIES
+
+- [\#435](https://github.com/cosmos/evm/pull/435) Update Cosmos SDK to `v0.53.4` and CometBFT to `v0.38.18`.
 
 ### BUG FIXES
 
