@@ -264,13 +264,17 @@ for i in {1..12}; do
     fi
 done
 
-# Final check - ensure container is actually running
-if ! docker ps | grep -q "$CONTAINER_ID"; then
-    echo -e "${RED}Error: Container not in running state after 60 seconds${NC}"
+# Give the container a moment to fully stabilize after confirming it's running
+sleep 2
+
+# Double-check container is still running (since we confirmed it was running in the loop above)
+FINAL_STATUS=$(docker inspect "$CONTAINER_ID" --format='{{.State.Status}}' 2>/dev/null || echo "unknown")
+if [ "$FINAL_STATUS" != "running" ]; then
+    echo -e "${RED}Error: Container stopped running after startup (status: $FINAL_STATUS)${NC}"
     echo -e "${YELLOW}Final container logs:${NC}"
     docker logs "$CONTAINER_ID" 2>&1 || echo "No logs available"
-    echo -e "${YELLOW}Final container status:${NC}"
-    docker inspect "$CONTAINER_ID" --format='{{.State.Status}}: {{.State.Error}}' 2>&1 || echo "Cannot inspect container"
+    echo -e "${YELLOW}Container exit code:${NC}"
+    docker inspect "$CONTAINER_ID" --format='{{.State.ExitCode}}' 2>/dev/null || echo "Cannot get exit code"
     exit 1
 fi
 
