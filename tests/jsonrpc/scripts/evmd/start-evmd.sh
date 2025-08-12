@@ -73,38 +73,31 @@ USER4_MNEMONIC="doll midnight silk carpet brush boring pluck office gown inquiry
 # Complete initialization (mirroring local_node.sh exactly)
 # First initialize the chain to create directory structure
 echo -e "${GREEN}Initializing chain...${NC}"
-
-# Debug: show current user and check directory permissions
-echo "Current user: $(id -u):$(id -g)"
-echo "Data directory: $DATA_DIR"
-ls -la "$DATA_DIR" || echo "Data directory doesn't exist yet"
-
-# Try a more permissive approach for GitHub Actions
-echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
-    sh -c "ls -la /data && whoami && evmd init localtestnet -o --chain-id $CHAIN_ID --recover --home /data"
+echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
+    evmd init localtestnet -o --chain-id "$CHAIN_ID" --recover --home /data
 
 # Set client config (after init creates the directory structure)
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd config set client chain-id "$CHAIN_ID" --home /data
 
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd config set client keyring-backend "$KEYRING" --home /data
 
 # Import keys from mnemonics
 echo -e "${GREEN}Adding standard test keys...${NC}"
-echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd keys add "$VAL_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
-echo "$USER1_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+echo "$USER1_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd keys add "$USER1_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
-echo "$USER2_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+echo "$USER2_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd keys add "$USER2_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
-echo "$USER3_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+echo "$USER3_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd keys add "$USER3_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
-echo "$USER4_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+echo "$USER4_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd keys add "$USER4_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
 # Configure genesis file using jq directly on host (simpler approach)
@@ -137,31 +130,31 @@ jq '.consensus.params.block.max_gas="10000000"' "$DATA_DIR/config/genesis.json" 
 echo -e "${GREEN}Setting up genesis accounts and validator...${NC}"
 
 # Allocate genesis accounts (cosmos formatted addresses)
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$USER1_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$USER2_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
 # Sign genesis transaction
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices "${BASEFEE}atest" --keyring-backend "$KEYRING" --chain-id "$CHAIN_ID" --home /data
 
 # Collect genesis tx
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis collect-gentxs --home /data
 
 # Run this to ensure everything worked and that the genesis file is setup correctly
-docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
+docker run --rm -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
     evmd genesis validate-genesis --home /data
 
 # Configure timeout settings and enable all APIs (like local_node.sh)
