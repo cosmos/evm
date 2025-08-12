@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test/web3js_compatability.test.js --timeout 60000"
+    "test": "mocha test/web3js_compatibility.test.js --timeout 60000"
   },
   "keywords": [],
   "author": "",
