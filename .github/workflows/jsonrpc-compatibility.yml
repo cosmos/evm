@@ -1,0 +1,268 @@
+name: JSON-RPC Compatibility Test
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/jsonrpc-compatibility.yml'
+      - 'tests/jsonrpc/**'
+      - 'rpc/**'
+      - 'evmd/**'
+      - '**/**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'evmd/go.mod'
+      - 'evmd/go.sum'
+  merge_group:
+  push:
+    branches:
+      - main
+      - release/**
+permissions: read-all
+
+jobs:
+  cleanup-runs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: rokroskar/workflow-run-cleanup-action@master
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
+
+  jsonrpc-compatibility-test:
+    runs-on: depot-ubuntu-22.04-8
+    timeout-minutes: 45
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          check-latest: true
+      
+      - uses: actions/checkout@v4
+      
+      - uses: technote-space/get-diff-action@v6.1.2
+        with:
+          PATTERNS: |
+            .github/workflows/jsonrpc-compatibility.yml
+            tests/jsonrpc/**
+            rpc/**
+            evmd/**
+            **/**.go
+            go.mod
+            go.sum
+            evmd/go.mod
+            evmd/go.sum
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Build localnet image
+        run: |
+          echo "🏗️ Building localnet Docker image..."
+          make localnet-build-env
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Build JSON-RPC simulator
+        run: |
+          echo "🏗️ Building JSON-RPC compatibility simulator..."
+          cd tests/jsonrpc/simulator
+          go build -o simulator .
+          chmod +x simulator
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Start evmd network
+        run: |
+          echo "🚀 Starting evmd network..."
+          cd tests/jsonrpc
+          ./scripts/evmd/start-evmd.sh
+          
+          # Wait for evmd to be ready
+          echo "⏳ Waiting for evmd to be ready..."
+          timeout 120 bash -c 'until curl -s -f http://localhost:8545 > /dev/null; do
+            echo "Waiting for evmd JSON-RPC server..."
+            sleep 5
+          done'
+          
+          # Verify evmd is responding
+          echo "✅ Testing evmd connectivity..."
+          curl -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+            http://localhost:8545
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Start geth network
+        run: |
+          echo "🚀 Starting geth network..."
+          cd tests/jsonrpc
+          ./scripts/geth/start-geth.sh
+          
+          # Wait for geth to be ready
+          echo "⏳ Waiting for geth to be ready..."
+          timeout 120 bash -c 'until curl -s -f http://localhost:8547 > /dev/null; do
+            echo "Waiting for geth JSON-RPC server..."
+            sleep 5
+          done'
+          
+          # Verify geth is responding
+          echo "✅ Testing geth connectivity..."
+          curl -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+            http://localhost:8547
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Run JSON-RPC compatibility tests
+        run: |
+          echo "🧪 Running JSON-RPC compatibility tests..."
+          cd tests/jsonrpc/simulator
+          
+          # Run the simulator with dual API comparison enabled
+          echo "Starting comprehensive JSON-RPC compatibility testing..."
+          timeout 1800 ./simulator > test_output.log 2>&1 || {
+            # Check if it's a timeout or actual failure
+            if [ $? -eq 124 ]; then
+              echo "❌ JSON-RPC compatibility test timed out after 30 minutes"
+              cat test_output.log
+              exit 1
+            fi
+            echo "⚠️ Simulator exited with non-zero code, checking results..."
+          }
+          
+          # Display the test output
+          cat test_output.log
+          
+          # Check for failure criterion: count of "Failed" tests > 0
+          failed_count=$(grep -o "Failed:.*[0-9]" test_output.log | grep -o "[0-9]\+" | head -1 || echo "0")
+          
+          echo "📊 Test Results Summary:"
+          echo "  Failed tests: $failed_count"
+          
+          if [ "$failed_count" -gt 0 ]; then
+            echo "❌ CI FAILURE: Found $failed_count failed tests"
+            echo "   Criterion: CI fails when any test has status 'Failed' (not 'Not Implemented', 'Legacy', or 'Skipped')"
+            exit 1
+          else
+            echo "✅ CI PASS: No failed tests found"
+            echo "   Note: 'Not Implemented', 'Legacy', and 'Skipped' tests are acceptable and don't cause CI failure"
+          fi
+        if: ${{ env.GIT_DIFF }}
+      
+      - name: Generate test artifacts
+        run: |
+          echo "📊 Generating test artifacts..."
+          cd tests/jsonrpc/simulator
+          
+          # Copy the test output as the main report
+          if [ -f "test_output.log" ]; then
+            cp test_output.log jsonrpc-compatibility-report.txt
+            echo "📋 Test report copied from execution log"
+          else
+            # Fallback: generate a new verbose report
+            ./simulator -verbose > jsonrpc-compatibility-report.txt 2>&1 || true
+            echo "📋 Generated fallback verbose report"
+          fi
+          
+          # Generate Excel report if test data exists
+          if [ -f "rpc_results_*.xlsx" ]; then
+            echo "📋 Excel report generated"
+          fi
+        if: ${{ env.GIT_DIFF && (success() || failure()) }}
+      
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsonrpc-compatibility-results
+          path: |
+            tests/jsonrpc/simulator/jsonrpc-compatibility-report.txt
+            tests/jsonrpc/simulator/rpc_results_*.xlsx
+          retention-days: 7
+        if: ${{ env.GIT_DIFF && (success() || failure()) }}
+      
+      - name: Collect container logs
+        run: |
+          echo "📋 Collecting container logs..."
+          mkdir -p logs
+          
+          # Collect evmd logs
+          if docker ps | grep -q evmd-jsonrpc-test; then
+            docker logs evmd-jsonrpc-test > logs/evmd.log 2>&1 || true
+          fi
+          
+          # Collect geth logs
+          if docker ps | grep -q geth-jsonrpc-test; then
+            docker logs geth-jsonrpc-test > logs/geth.log 2>&1 || true
+          fi
+        if: ${{ env.GIT_DIFF && (success() || failure()) }}
+      
+      - name: Upload container logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs
+          path: logs/
+          retention-days: 7
+        if: ${{ env.GIT_DIFF && (success() || failure()) }}
+      
+      - name: Cleanup networks
+        run: |
+          echo "🧹 Cleaning up test networks..."
+          cd tests/jsonrpc
+          ./scripts/stop-networks.sh || true
+          
+          # Force cleanup if needed
+          docker stop evmd-jsonrpc-test geth-jsonrpc-test 2>/dev/null || true
+          docker rm evmd-jsonrpc-test geth-jsonrpc-test 2>/dev/null || true
+        if: ${{ env.GIT_DIFF && always() }}
+      
+      - name: Comment on PR with test results
+        uses: actions/github-script@v7
+        if: ${{ env.GIT_DIFF && github.event_name == 'pull_request' && (success() || failure()) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'tests/jsonrpc/simulator/jsonrpc-compatibility-report.txt';
+            
+            let comment = '## 🧪 JSON-RPC Compatibility Test Results\n\n';
+            
+            if (fs.existsSync(path)) {
+              const report = fs.readFileSync(path, 'utf8');
+              const lines = report.split('\n');
+              
+              // Extract summary information
+              const summaryLines = lines.filter(line => 
+                line.includes('FINAL SUMMARY') ||
+                line.includes('Passed:') ||
+                line.includes('Failed:') ||
+                line.includes('Not Implemented:') ||
+                line.includes('Legacy:') ||
+                line.includes('Total:') ||
+                line.includes('Structure Compatibility:') ||
+                line.includes('Type Compatibility:') ||
+                line.includes('Error Compatibility:')
+              );
+              
+              if (summaryLines.length > 0) {
+                comment += '### Test Summary\n```\n' + summaryLines.slice(0, 15).join('\n') + '\n```\n\n';
+              }
+              
+              comment += '### 📊 Full Report\n';
+              comment += 'Download the complete test artifacts from the "Actions" tab for detailed analysis.\n\n';
+              
+              // Add status indicator based on failure criterion
+              const failedMatch = report.match(/Failed:\s*(\d+)/);
+              const failedCount = failedMatch ? parseInt(failedMatch[1]) : 0;
+              
+              if (failedCount === 0) {
+                comment += '✅ **CI PASS: No failed JSON-RPC APIs detected!**\n';
+                comment += '> Tests with status "Not Implemented", "Legacy", or "Skipped" are acceptable.\n';
+              } else {
+                comment += `❌ **CI FAILURE: Found ${failedCount} failed JSON-RPC APIs**\n`;
+                comment += '> Only tests with status "Failed" cause CI failure. Review the detailed report.\n';
+              }
+            } else {
+              comment += '❌ Test report not generated. Check the workflow logs for details.\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
