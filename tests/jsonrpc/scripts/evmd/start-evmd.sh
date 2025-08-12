@@ -203,6 +203,7 @@ echo -e "${GREEN}Starting evmd container...${NC}"
 docker run -d \
     --name "$CONTAINER_NAME" \
     --rm \
+    --user root \
     -p 8545:8545 \
     -p 8546:8546 \
     -p 26657:26657 \
@@ -225,6 +226,18 @@ sleep 5
 # Check if container is running
 if ! docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
     echo -e "${RED}Error: Container failed to start${NC}"
+    echo -e "${YELLOW}Container logs:${NC}"
+    docker logs "$CONTAINER_NAME" 2>&1 || echo "No logs available"
+    exit 1
+fi
+
+# Additional check - ensure container is actually running (not just created)
+if ! docker ps | grep -q "$CONTAINER_NAME"; then
+    echo -e "${RED}Error: Container created but not running${NC}"
+    echo -e "${YELLOW}Container logs:${NC}"
+    docker logs "$CONTAINER_NAME" 2>&1 || echo "No logs available"
+    echo -e "${YELLOW}Container status:${NC}"
+    docker ps -a | grep "$CONTAINER_NAME" || echo "Container not found"
     exit 1
 fi
 

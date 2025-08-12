@@ -77,6 +77,13 @@ jobs:
           # Start evmd (script handles directory creation)
           ./scripts/evmd/start-evmd.sh
           
+          # Check container logs if startup failed
+          if ! docker ps | grep -q evmd-jsonrpc-test; then
+            echo "❌ Container failed to start, checking logs..."
+            docker logs evmd-jsonrpc-test || echo "No logs available"
+            exit 1
+          fi
+          
           # Wait for evmd to be ready
           echo "⏳ Waiting for evmd to be ready..."
           timeout 120 bash -c 'until curl -s -f http://localhost:8545 > /dev/null; do
