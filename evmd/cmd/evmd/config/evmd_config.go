@@ -71,7 +71,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range corevm.PrecompiledAddressesBerlin {
+	for _, addr := range corevm.PrecompiledAddressesPrague {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
 
@@ -126,8 +126,7 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
-	customAppTemplate := serverconfig.DefaultConfigTemplate +
-		cosmosevmserverconfig.DefaultEVMConfigTemplate
-
-	return customAppTemplate, customAppConfig
+	return EVMAppTemplate, customAppConfig
 }
+
+const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate

@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -384,7 +385,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 		expPass      bool
 	}{
 		{
-			"fail - block not found",
+			"fail - header not found",
 			common.BytesToHash(emptyBlock.Hash()),
 			func(hash common.Hash) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
@@ -531,7 +532,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 }
 
 func (s *TestSuite) TestTendermintBlockByNumber() {
-	var expResultBlock *cmtrpctypes.ResultBlock
+	var expResultHeader *cmtrpctypes.ResultBlock
 
 	testCases := []struct {
 		name         string
@@ -552,7 +553,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 			false,
 		},
 		{
-			"noop - block not found",
+			"noop - header not found",
 			ethrpc.BlockNumber(1),
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
@@ -586,7 +587,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 
 				tmHeight := appHeight
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, tmHeight, nil)
+				expResultHeader, _ = RegisterBlock(client, tmHeight, nil)
 			},
 			true,
 			true,
@@ -597,7 +598,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, height, nil)
+				expResultHeader, _ = RegisterBlock(client, height, nil)
 			},
 			true,
 			true,
@@ -608,7 +609,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, height, nil)
+				expResultHeader, _ = RegisterBlock(client, height, nil)
 			},
 			true,
 			true,
@@ -627,8 +628,8 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 				if !tc.found {
 					s.Require().Nil(resultBlock)
 				} else {
-					s.Require().Equal(expResultBlock, resultBlock)
-					s.Require().Equal(expResultBlock.Block.Header.Height, resultBlock.Block.Header.Height)
+					s.Require().Equal(expResultHeader, resultBlock)
+					s.Require().Equal(expResultHeader.Block.Height, resultBlock.Block.Height)
 				}
 			} else {
 				s.Require().Error(err)
@@ -1109,7 +1110,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 					s.Require().NoError(err)
 					ethRPCTxs = []interface{}{rpcTx}
 				} else {
-					ethRPCTxs = []interface{}{common.HexToHash(msgEthereumTx.Hash)}
+					ethRPCTxs = []interface{}{msgEthereumTx.Hash()}
 				}
 			}
 
@@ -1193,13 +1194,19 @@ func (s *TestSuite) TestEthMsgsFromTendermintBlock() {
 			s.SetupTest() // reset test and queries
 
 			msgs := s.backend.EthMsgsFromTendermintBlock(tc.resBlock, tc.blockRes)
-			s.Require().Equal(tc.expMsgs, msgs)
+			for i, expMsg := range tc.expMsgs {
+				expBytes, err := json.Marshal(expMsg)
+				s.Require().Nil(err)
+				bytes, err := json.Marshal(msgs[i])
+				s.Require().Nil(err)
+				s.Require().Equal(expBytes, bytes)
+			}
 		})
 	}
 }
 
 func (s *TestSuite) TestHeaderByNumber() {
-	var expResultBlock *cmtrpctypes.ResultBlock
+	var expResultHeader *cmtrpctypes.ResultHeader
 
 	_, bz := s.buildEthereumTx()
 
@@ -1217,31 +1224,29 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlockError(client, height)
+				RegisterHeaderError(client, &height)
 			},
 			false,
 		},
 		{
-			"fail - block not found for height",
+			"fail - header not found for height",
 			ethrpc.BlockNumber(1),
 			math.NewInt(1).BigInt(),
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockNotFound(client, height)
-				s.Require().NoError(err)
+				RegisterHeaderNotFound(client, height)
 			},
 			false,
 		},
 		{
-			"fail - block not found for height",
+			"fail - header not found for height",
 			ethrpc.BlockNumber(1),
 			math.NewInt(1).BigInt(),
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, nil)
-				s.Require().NoError(err)
+				RegisterHeader(client, &height, nil)
 				RegisterBlockResultsError(client, height)
 			},
 			false,
@@ -1253,7 +1258,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, height, nil)
+				expResultHeader = RegisterHeader(client, &height, nil)
 				_, err := RegisterBlockResults(client, height)
 				s.Require().NoError(err)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1268,7 +1273,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, height, nil)
+				expResultHeader = RegisterHeader(client, &height, nil)
 				_, err := RegisterBlockResults(client, height)
 				s.Require().NoError(err)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1283,7 +1288,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultBlock, _ = RegisterBlock(client, height, bz)
+				expResultHeader = RegisterHeader(client, &height, bz)
 				_, err := RegisterBlockResults(client, height)
 				s.Require().NoError(err)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1300,7 +1305,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			header, err := s.backend.HeaderByNumber(tc.blockNumber)
 
 			if tc.expPass {
-				expHeader := ethrpc.EthHeaderFromTendermint(expResultBlock.Block.Header, ethtypes.Bloom{}, tc.baseFee)
+				expHeader := ethrpc.EthHeaderFromTendermint(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
 				s.Require().NoError(err)
 				s.Require().Equal(expHeader, header)
 			} else {
@@ -1335,7 +1340,7 @@ func (s *TestSuite) TestHeaderByHash() {
 			false,
 		},
 		{
-			"fail - block not found for height",
+			"fail - header not found for height",
 			common.BytesToHash(block.Hash()),
 			math.NewInt(1).BigInt(),
 			func(hash common.Hash, _ math.Int) {
@@ -1345,7 +1350,7 @@ func (s *TestSuite) TestHeaderByHash() {
 			false,
 		},
 		{
-			"fail - block not found for height",
+			"fail - header not found for height",
 			common.BytesToHash(block.Hash()),
 			math.NewInt(1).BigInt(),
 			func(hash common.Hash, _ math.Int) {
