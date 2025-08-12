@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
+	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
@@ -30,6 +31,7 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
+
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
@@ -158,6 +160,8 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
+
+	pendingTxListeners []ante.PendingTxListener
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -810,12 +814,24 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
 		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {
 		panic(err)
 	}
 
 	app.SetAnteHandler(ante.NewAnteHandler(options))
+}
+
+func (app *EVMD) onPendingTx(hash common.Hash) {
+	for _, listener := range app.pendingTxListeners {
+		listener(hash)
+	}
+}
+
+// RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
+func (app *EVMD) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
 func (app *EVMD) setPostHandler() {

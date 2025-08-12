@@ -127,8 +127,8 @@ type EVMBackend interface {
 	Status() (map[string]hexutil.Uint, error)
 
 	// Tracing
-	TraceTransaction(hash common.Hash, config *evmtypes.TraceConfig) (interface{}, error)
-	TraceBlock(height rpctypes.BlockNumber, config *evmtypes.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
+	TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (interface{}, error)
+	TraceBlock(height rpctypes.BlockNumber, config *rpctypes.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
 }
 
 var _ BackendI = (*Backend)(nil)

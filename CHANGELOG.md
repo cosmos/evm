@@ -15,6 +15,7 @@
 - Added RPC support for `--legacy` transactions (Non EIP-1559)
 - [\#368](https://github.com/cosmos/evm/pull/368) Support query gas limit flag
 - [\#296](https://github.com/cosmos/evm/pull/296) Sanity checks for TraceTx
+- [\#408](https://github.com/cosmos/evm/pull/408) Enforce EIP-2681 nonce upper bound
 
 ### IMPROVEMENTS
 
