@@ -28,22 +28,22 @@ func WaitForTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Duration
 		case <-ctx.Done():
 			return fmt.Errorf("timeout exceeded while waiting for transaction %s", txHash.Hex())
 		case <-ticker.C:
-			receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
+			receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), txHash)
 			if err != nil && !errors.Is(err, ethereum.NotFound) {
 				return err
 			}
 			if err == nil {
-				rCtx.EvmdCtx.ProcessedTransactions = append(rCtx.EvmdCtx.ProcessedTransactions, txHash)
-				rCtx.EvmdCtx.BlockNumsIncludingTx = append(rCtx.EvmdCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
+				rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, txHash)
+				rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
 				if receipt.ContractAddress != (common.Address{}) {
-					rCtx.EvmdCtx.ERC20Addr = receipt.ContractAddress
+					rCtx.Evmd.ERC20Addr = receipt.ContractAddress
 				}
 				if receipt.Status == 0 {
 					return fmt.Errorf("transaction %s failed", txHash.Hex())
 				}
 
 				// If dual API comparison is enabled, create equivalent transaction on geth
-				if rCtx.EnableComparison && rCtx.GethCli != nil {
+				if rCtx.EnableComparison && rCtx.Geth != nil {
 					go createEquivalentGethTransaction(rCtx, txHash)
 				}
 
@@ -56,14 +56,14 @@ func WaitForTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Duration
 // createEquivalentGethTransaction creates a similar transaction on geth for comparison
 func createEquivalentGethTransaction(rCtx *types.RPCContext, evmdTxHash common.Hash) {
 	// Get the original transaction from evmd
-	evmdTx, isPending, err := rCtx.EthCli.TransactionByHash(context.Background(), evmdTxHash)
+	evmdTx, isPending, err := rCtx.Evmd.TransactionByHash(context.Background(), evmdTxHash)
 	if err != nil || isPending {
 		log.Printf("Warning: Could not get evmd transaction %s for geth replication: %v", evmdTxHash.Hex(), err)
 		return
 	}
 
 	// Get the transaction receipt to understand what it did
-	evmdReceipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), evmdTxHash)
+	evmdReceipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), evmdTxHash)
 	if err != nil {
 		log.Printf("Warning: Could not get evmd receipt %s for geth replication: %v", evmdTxHash.Hex(), err)
 		return
@@ -102,19 +102,19 @@ func createSimilarGethTransaction(rCtx *types.RPCContext, evmdTx *ethtypes.Trans
 	}
 
 	// Get chain ID for geth
-	chainID, err := rCtx.GethCli.ChainID(context.Background())
+	chainID, err := rCtx.Geth.ChainID(context.Background())
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to get geth chain ID: %w", err)
 	}
 
 	// Get nonce for geth
-	nonce, err := rCtx.GethCli.PendingNonceAt(context.Background(), fromAddr)
+	nonce, err := rCtx.Geth.PendingNonceAt(context.Background(), fromAddr)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to get nonce: %w", err)
 	}
 
 	// Get gas price for geth
-	gasPrice, err := rCtx.GethCli.SuggestGasPrice(context.Background())
+	gasPrice, err := rCtx.Geth.SuggestGasPrice(context.Background())
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to get gas price: %w", err)
 	}
@@ -136,8 +136,8 @@ func createSimilarGethTransaction(rCtx *types.RPCContext, evmdTx *ethtypes.Trans
 		var data []byte
 
 		// If it was a contract call, use geth contract if available
-		if rCtx.GethCtx.ERC20Addr != (common.Address{}) && evmdTx.To() != nil && *evmdTx.To() == rCtx.EvmdCtx.ERC20Addr {
-			toAddr = rCtx.GethCtx.ERC20Addr
+		if rCtx.Geth.ERC20Addr != (common.Address{}) && evmdTx.To() != nil && *evmdTx.To() == rCtx.Evmd.ERC20Addr {
+			toAddr = rCtx.Geth.ERC20Addr
 			data = evmdTx.Data() // Keep the same contract call data
 		} else {
 			// Simple value transfer to the same address used by evmd tests
@@ -159,7 +159,7 @@ func createSimilarGethTransaction(rCtx *types.RPCContext, evmdTx *ethtypes.Trans
 	}
 
 	// Send the transaction
-	err = rCtx.GethCli.SendTransaction(context.Background(), signedTx)
+	err = rCtx.Geth.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to send transaction: %w", err)
 	}
@@ -180,18 +180,18 @@ func waitForGethTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Dura
 		case <-ctx.Done():
 			return fmt.Errorf("timeout exceeded while waiting for geth transaction %s", txHash.Hex())
 		case <-ticker.C:
-			receipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), txHash)
+			receipt, err := rCtx.Geth.TransactionReceipt(context.Background(), txHash)
 			if err != nil && !errors.Is(err, ethereum.NotFound) {
 				return err
 			}
 			if err == nil {
 				// Update geth state in the context
-				rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, txHash)
-				rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
+				rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, txHash)
+				rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
 
 				// Update geth contract address if this was a deployment
 				if receipt.ContractAddress != (common.Address{}) {
-					rCtx.GethCtx.ERC20Addr = receipt.ContractAddress
+					rCtx.Geth.ERC20Addr = receipt.ContractAddress
 					log.Printf("Geth contract deployed at: %s", receipt.ContractAddress.Hex())
 				}
 
@@ -207,7 +207,7 @@ func waitForGethTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Dura
 // ensureGethAccountFunding ensures a geth account has sufficient funds for transactions
 func ensureGethAccountFunding(rCtx *types.RPCContext, targetAddr common.Address) error {
 	// Check current balance
-	balance, err := rCtx.GethCli.BalanceAt(context.Background(), targetAddr, nil)
+	balance, err := rCtx.Geth.BalanceAt(context.Background(), targetAddr, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get balance: %w", err)
 	}
@@ -222,7 +222,7 @@ func ensureGethAccountFunding(rCtx *types.RPCContext, targetAddr common.Address)
 
 	// Get geth's pre-funded dev account
 	var accounts []string
-	err = rCtx.GethCli.Client().Call(&accounts, "eth_accounts")
+	err = rCtx.Geth.RPCClient().Call(&accounts, "eth_accounts")
 	if err != nil || len(accounts) == 0 {
 		return fmt.Errorf("no funded accounts available in geth: %w", err)
 	}
@@ -235,7 +235,7 @@ func ensureGethAccountFunding(rCtx *types.RPCContext, targetAddr common.Address)
 
 	// Send transaction via RPC (since geth dev account is unlocked)
 	var txHash common.Hash
-	err = rCtx.GethCli.Client().Call(&txHash, "eth_sendTransaction", map[string]interface{}{
+	err = rCtx.Geth.RPCClient().Call(&txHash, "eth_sendTransaction", map[string]interface{}{
 		"from":  devAccount.Hex(),
 		"to":    targetAddr.Hex(),
 		"value": fmt.Sprintf("0x%x", transferAmount),

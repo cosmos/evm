@@ -9,7 +9,7 @@ import (
 // Generic test handler that makes an actual RPC call to determine if an API is implemented
 func CallEthClient(rCtx *types.RPCContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, string(methodName))
+	err := rCtx.Evmd.RPCClient().Call(&result, string(methodName))
 
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
@@ -44,7 +44,7 @@ func CallEthClient(rCtx *types.RPCContext, methodName types.RpcName, category st
 func Legacy(rCtx *types.RPCContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
 	// First test if the API is actually implemented
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, string(methodName))
+	err := rCtx.Evmd.RPCClient().Call(&result, string(methodName))
 
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)

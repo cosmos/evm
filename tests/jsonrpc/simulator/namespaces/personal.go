@@ -30,7 +30,7 @@ const (
 // Personal method handlers
 func PersonalListAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result []string
-	err := rCtx.EthCli.Client().Call(&result, "personal_listAccounts")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_listAccounts")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNamePersonalListAccounts,
@@ -50,7 +50,7 @@ func PersonalListAccounts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 // PersonalNewAccount tests personal_newAccount with a passphrase
 func PersonalNewAccount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
-	err := rCtx.EthCli.Client().Call(&result, "personal_newAccount", "test_passphrase")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_newAccount", "test_passphrase")
 	if err != nil {
 		// Check for expected security/key management errors
 		errMsg := err.Error()
@@ -84,7 +84,7 @@ func PersonalSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	testData := "0xdeadbeaf"
 	testAccount := "0x7cb61d4117ae31a12e393a1cfa3bac666481d02e" // coinbase address
-	err := rCtx.EthCli.Client().Call(&result, "personal_sign", testData, testAccount, "test_passphrase")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_sign", testData, testAccount, "test_passphrase")
 	if err != nil {
 		// Check for expected key management errors
 		errMsg := err.Error()
@@ -117,7 +117,7 @@ func PersonalSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func PersonalImportRawKey(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
 	testPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // test private key
-	err := rCtx.EthCli.Client().Call(&result, "personal_importRawKey", testPrivateKey, "test_passphrase")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_importRawKey", testPrivateKey, "test_passphrase")
 	if err != nil {
 		// Check for expected security/passphrase errors
 		errMsg := err.Error()
@@ -155,7 +155,7 @@ func PersonalSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		"value": "0x1000",                                     // small amount
 		"gas":   "0x5208",                                     // 21000 gas
 	}
-	err := rCtx.EthCli.Client().Call(&result, "personal_sendTransaction", testTx, "test_passphrase")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_sendTransaction", testTx, "test_passphrase")
 	if err != nil {
 		// Check for expected key management errors
 		errMsg := err.Error()
@@ -187,7 +187,7 @@ func PersonalSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func PersonalEcRecover(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Test with known data
 	var result string
-	err := rCtx.EthCli.Client().Call(&result, "personal_ecRecover",
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_ecRecover",
 		"0xdeadbeaf",
 		"0xf9ff74c86aefeb5f6019d77280bbb44fb695b4d45cfe97e6eed7acd62905f4a85034d5c68ed25a2e7a8eeb9baf1b8401e4f865d92ec48c1763bf649e354d900b1c")
 	if err != nil {
@@ -208,7 +208,7 @@ func PersonalEcRecover(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func PersonalListWallets(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "personal_listWallets")
+	err := rCtx.Evmd.RPCClient().Call(&result, "personal_listWallets")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNamePersonalListWallets,

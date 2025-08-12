@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	ethrpc "github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 )
@@ -38,7 +39,9 @@ type ComparisonResult struct {
 	Differences    []string          `json:"differences,omitempty"`
 }
 
-type TestContext struct {
+type TestEthClient struct {
+	*ethclient.Client
+
 	Acc *Account // account
 
 	ERC20Addr     common.Address //  contract address
@@ -54,23 +57,25 @@ type TestContext struct {
 	BlockFilterID string               //  block filter ID
 }
 
+func (c *TestEthClient) RPCClient() *ethrpc.Client {
+	return c.Client.Client()
+}
+
 type RPCContext struct {
 	Conf                 *config.Config
-	EthCli               *ethclient.Client // evmd client (primary)
-	GethCli              *ethclient.Client // geth client (for comparison)
-	Acc                  *Account
+	Geth                 *TestEthClient
+	Evmd                 *TestEthClient
 	ChainID              *big.Int
 	MaxPriorityFeePerGas *big.Int
 	GasPrice             *big.Int
-	AlreadyTestedRPCs    []*RpcResult
-	FilterQuery          ethereum.FilterQuery
+
+	// test results
+	AlreadyTestedRPCs []*RpcResult
 
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
 
-	GethCtx *TestContext
-	EvmdCtx *TestContext
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {
@@ -97,16 +102,11 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	}
 
 	ctx := &RPCContext{
-		Conf:             conf,
-		EthCli:           ethCli,
-		GethCli:          gethCli,
-		EnableComparison: gethCli != nil,
-		Acc: &Account{
-			Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey),
-			PrivKey: ecdsaPrivKey,
-		},
+		Conf:              conf,
+		EnableComparison:  gethCli != nil,
 		ComparisonResults: make([]*ComparisonResult, 0),
-		EvmdCtx: &TestContext{
+		Evmd: &TestEthClient{
+			Client:                ethCli,
 			Acc:                   &Account{Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey), PrivKey: ecdsaPrivKey},
 			ERC20Addr:             common.Address{},
 			ProcessedTransactions: make([]common.Hash, 0),
@@ -115,7 +115,8 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 			FilterID:              "",
 			BlockFilterID:         "",
 		},
-		GethCtx: &TestContext{
+		Geth: &TestEthClient{
+			Client:                gethCli,
 			Acc:                   &Account{Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey), PrivKey: ecdsaPrivKey},
 			ERC20Addr:             common.Address{},
 			ProcessedTransactions: make([]common.Hash, 0),
@@ -151,14 +152,14 @@ func (rCtx *RPCContext) CompareRPCCall(method string, params ...interface{}) *Co
 
 	// Call evmd
 	var evmdResponse interface{}
-	evmdErr := rCtx.EthCli.Client().CallContext(context.Background(), &evmdResponse, method, params...)
+	evmdErr := rCtx.Evmd.RPCClient().CallContext(context.Background(), &evmdResponse, method, params...)
 	if evmdErr != nil {
 		result.EvmdError = evmdErr.Error()
 	}
 
 	// Call geth
 	var gethResponse interface{}
-	gethErr := rCtx.GethCli.Client().CallContext(context.Background(), &gethResponse, method, params...)
+	gethErr := rCtx.Geth.RPCClient().CallContext(context.Background(), &gethResponse, method, params...)
 	if gethErr != nil {
 		result.GethError = gethErr.Error()
 	}
@@ -204,14 +205,14 @@ func (rCtx *RPCContext) CompareRPCCallWithProvider(method string, paramProvider 
 
 	// Call evmd
 	var evmdResponse interface{}
-	evmdErr := rCtx.EthCli.Client().CallContext(context.Background(), &evmdResponse, method, evmdParams...)
+	evmdErr := rCtx.Evmd.RPCClient().CallContext(context.Background(), &evmdResponse, method, evmdParams...)
 	if evmdErr != nil {
 		result.EvmdError = evmdErr.Error()
 	}
 
 	// Call geth
 	var gethResponse interface{}
-	gethErr := rCtx.GethCli.Client().CallContext(context.Background(), &gethResponse, method, gethParams...)
+	gethErr := rCtx.Geth.RPCClient().CallContext(context.Background(), &gethResponse, method, gethParams...)
 	if gethErr != nil {
 		result.GethError = gethErr.Error()
 	}
@@ -463,14 +464,14 @@ func (rCtx *RPCContext) GetComparisonSummary() map[string]int {
 
 // LoadGethState populates geth with equivalent transactions for comparison using existing utilities
 func (rCtx *RPCContext) LoadGethState() error {
-	if !rCtx.EnableComparison || rCtx.GethCli == nil {
+	if !rCtx.EnableComparison || rCtx.Geth == nil {
 		return nil
 	}
 
 	log.Println("Populating geth blockchain state for comparison...")
 
 	// First, check if geth already has transactions (maybe from previous runs)
-	blockNumber, err := rCtx.GethCli.BlockNumber(context.Background())
+	blockNumber, err := rCtx.Geth.BlockNumber(context.Background())
 	if err != nil {
 		log.Printf("Warning: Could not get geth block number: %v", err)
 		return nil
@@ -486,7 +487,7 @@ func (rCtx *RPCContext) LoadGethState() error {
 	}
 
 	// If we don't have enough geth transactions, create them using existing utilities
-	if len(rCtx.GethCtx.ProcessedTransactions) < 3 {
+	if len(rCtx.Geth.ProcessedTransactions) < 3 {
 		log.Printf("Creating equivalent transactions in geth using ExecuteTransactionBatch...")
 		if err := rCtx.populateGethStateWithBatch(); err != nil {
 			log.Printf("Warning: Could not populate geth state: %v", err)
@@ -495,7 +496,7 @@ func (rCtx *RPCContext) LoadGethState() error {
 	}
 
 	log.Printf("Geth state populated: %d transactions, contract at %s",
-		len(rCtx.GethCtx.ProcessedTransactions), rCtx.GethCtx.ERC20Addr.Hex())
+		len(rCtx.Geth.ProcessedTransactions), rCtx.Geth.ERC20Addr.Hex())
 	return nil
 }
 
@@ -509,31 +510,31 @@ func (rCtx *RPCContext) scanExistingGethTransactions(blockNumber uint64) error {
 	log.Printf("Scanning existing geth blocks %d to %d...", startBlock, blockNumber)
 
 	for i := startBlock; i <= blockNumber; i++ {
-		block, err := rCtx.GethCli.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+		block, err := rCtx.Geth.BlockByNumber(context.Background(), big.NewInt(int64(i)))
 		if err != nil {
 			continue
 		}
 
 		for _, tx := range block.Transactions() {
 			txHash := tx.Hash()
-			receipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), txHash)
+			receipt, err := rCtx.Geth.TransactionReceipt(context.Background(), txHash)
 			if err != nil {
 				continue
 			}
 
 			if receipt.Status == 1 {
-				rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, txHash)
-				rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
+				rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, txHash)
+				rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
 
 				if receipt.ContractAddress != (common.Address{}) {
-					rCtx.GethCtx.ERC20Addr = receipt.ContractAddress
+					rCtx.Geth.ERC20Addr = receipt.ContractAddress
 					log.Printf("Found existing geth contract: %s", receipt.ContractAddress.Hex())
 				}
 			}
 		}
 	}
 
-	log.Printf("Found %d existing geth transactions", len(rCtx.GethCtx.ProcessedTransactions))
+	log.Printf("Found %d existing geth transactions", len(rCtx.Geth.ProcessedTransactions))
 	return nil
 }
 
@@ -558,16 +559,16 @@ func (rCtx *RPCContext) UpdateGethStateFromBatch(gethHashes []common.Hash, gethC
 	}
 
 	// Update geth transaction hashes
-	rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, gethHashes...)
+	rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, gethHashes...)
 
 	// Update geth contract address if provided
 	if gethContract != (common.Address{}) {
-		rCtx.GethCtx.ERC20Addr = gethContract
-		log.Printf("Geth contract address updated: %s", rCtx.GethCtx.ERC20Addr.Hex())
+		rCtx.Geth.ERC20Addr = gethContract
+		log.Printf("Geth contract address updated: %s", rCtx.Geth.ERC20Addr.Hex())
 	}
 
 	// Update geth block numbers
-	rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, gethBlocks...)
+	rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, gethBlocks...)
 
 	log.Printf("Successfully updated geth state with %d transactions", len(gethHashes))
 }

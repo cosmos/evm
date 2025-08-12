@@ -17,7 +17,7 @@ const (
 // TxPool method handlers
 func TxPoolStatus(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "txpool_status")
+	err := rCtx.Evmd.RPCClient().Call(&result, "txpool_status")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameTxPoolStatus,
@@ -36,7 +36,7 @@ func TxPoolStatus(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func TxPoolContent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "txpool_content")
+	err := rCtx.Evmd.RPCClient().Call(&result, "txpool_content")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameTxPoolContent,
@@ -55,7 +55,7 @@ func TxPoolContent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func TxPoolInspect(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "txpool_inspect")
+	err := rCtx.Evmd.RPCClient().Call(&result, "txpool_inspect")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameTxPoolInspect,
@@ -77,7 +77,7 @@ func TxPoolContentFrom(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	// Use a sample address for testing - in real usage this would be parameterized
 	testAddress := "0x407d73d8a49eeb85d32cf465507dd71d507100c1"
-	err := rCtx.EthCli.Client().Call(&result, "txpool_contentFrom", testAddress)
+	err := rCtx.Evmd.RPCClient().Call(&result, "txpool_contentFrom", testAddress)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameTxPoolContentFrom,

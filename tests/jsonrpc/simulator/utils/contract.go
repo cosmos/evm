@@ -47,15 +47,15 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 
 		if result.Success {
 			// Add transaction hash to RPC context
-			rCtx.EvmdCtx.ProcessedTransactions = append(rCtx.EvmdCtx.ProcessedTransactions, result.TxHash)
+			rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, result.TxHash)
 			if result.Receipt != nil {
-				rCtx.EvmdCtx.BlockNumsIncludingTx = append(rCtx.EvmdCtx.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
+				rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
 			}
 			log.Printf("Generated test transaction: %s", result.TxHash.Hex())
 		}
 	}
 
-	log.Printf("Generated %d test transactions for RPC testing", len(rCtx.EvmdCtx.ProcessedTransactions))
+	log.Printf("Generated %d test transactions for RPC testing", len(rCtx.Evmd.ProcessedTransactions))
 
 	// Connect to geth
 	gethClient, err := ethclient.Dial("http://localhost:8547")
@@ -73,9 +73,9 @@ func generateTestTransactionsForRPC(rCtx *types.RPCContext) error {
 
 		if result.Success {
 			// Add transaction hash to RPC context
-			rCtx.EvmdCtx.ProcessedTransactions = append(rCtx.EvmdCtx.ProcessedTransactions, result.TxHash)
+			rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, result.TxHash)
 			if result.Receipt != nil {
-				rCtx.EvmdCtx.BlockNumsIncludingTx = append(rCtx.EvmdCtx.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
+				rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, result.Receipt.BlockNumber.Uint64())
 			}
 			log.Printf("Generated test transaction: %s", result.TxHash.Hex())
 		}

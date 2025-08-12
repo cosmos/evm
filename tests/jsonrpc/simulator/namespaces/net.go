@@ -18,7 +18,7 @@ const (
 // Net method handlers
 func NetVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result string
-	err := rCtx.EthCli.Client().Call(&result, "net_version")
+	err := rCtx.Evmd.RPCClient().Call(&result, "net_version")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameNetVersion,
@@ -37,7 +37,7 @@ func NetVersion(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func NetPeerCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().CallContext(context.Background(), &result, "net_peerCount")
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &result, "net_peerCount")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameNetPeerCount,
@@ -56,7 +56,7 @@ func NetPeerCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func NetListening(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result bool
-	err := rCtx.EthCli.Client().Call(&result, "net_listening")
+	err := rCtx.Evmd.RPCClient().Call(&result, "net_listening")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameNetListening,

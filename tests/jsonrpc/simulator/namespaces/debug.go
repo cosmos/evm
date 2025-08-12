@@ -82,7 +82,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	txHash := rCtx.EvmdCtx.ProcessedTransactions[0]
+	txHash := rCtx.Evmd.ProcessedTransactions[0]
 
 	// Test with callTracer configuration to get structured result
 	traceConfig := map[string]interface{}{
@@ -94,7 +94,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var traceResult map[string]interface{}
-	err := rCtx.EthCli.Client().CallContext(context.Background(), &traceResult, string(MethodNameDebugTraceTransaction), txHash, traceConfig)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResult, string(MethodNameDebugTraceTransaction), txHash, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceTransaction,
@@ -147,7 +147,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Get transaction receipt to validate consistency
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), txHash)
 	if err == nil && receipt != nil {
 		// Validate that trace gas matches receipt gas
 		if gasUsedStr, ok := traceResult["gasUsed"].(string); ok {
@@ -184,7 +184,7 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Get current block number
-	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
+	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugPrintBlock,
@@ -195,7 +195,7 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var blockString string
-	err = rCtx.EthCli.Client().CallContext(context.Background(), &blockString, string(MethodNameDebugPrintBlock), blockNumber)
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &blockString, string(MethodNameDebugPrintBlock), blockNumber)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugPrintBlock,
@@ -223,7 +223,7 @@ func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) 
 	// Set a test profile rate (1 for enabled, 0 for disabled)
 	rate := 1
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugSetBlockProfileRate), rate)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugSetBlockProfileRate), rate)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugSetBlockProfileRate,
@@ -251,7 +251,7 @@ func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, err
 	// Set a test mutex profile fraction (1 for enabled, 0 for disabled)
 	fraction := 1
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugSetMutexProfileFraction), fraction)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugSetMutexProfileFraction), fraction)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugSetMutexProfileFraction,
@@ -280,7 +280,7 @@ func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	percent := 100
 
 	var previousPercent int
-	err := rCtx.EthCli.Client().CallContext(context.Background(), &previousPercent, string(MethodNameDebugSetGCPercent), percent)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &previousPercent, string(MethodNameDebugSetGCPercent), percent)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugSetGCPercent,
@@ -305,7 +305,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugIntermediateRoots,
@@ -316,7 +316,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var roots []string
-	err = rCtx.EthCli.Client().CallContext(context.Background(), &roots, string(MethodNameDebugIntermediateRoots), receipt.BlockHash, nil)
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &roots, string(MethodNameDebugIntermediateRoots), receipt.BlockHash, nil)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugIntermediateRoots,
@@ -341,7 +341,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBlockByHash,
@@ -357,7 +357,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var traceResults interface{}
-	err = rCtx.EthCli.Client().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByHash), receipt.BlockHash, traceConfig)
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByHash), receipt.BlockHash, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBlockByHash,
@@ -393,7 +393,7 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	// Get current block number
-	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
+	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBlockByNumber,
@@ -411,7 +411,7 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		"tracer": "callTracer",
 	}
 
-	err = rCtx.EthCli.Client().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByNumber), blockNumberHex, traceConfig)
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlockByNumber), blockNumberHex, traceConfig)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBlockByNumber,
@@ -437,7 +437,7 @@ func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var gcStats interface{}
-	err := rCtx.EthCli.Client().CallContext(context.Background(), &gcStats, string(MethodNameDebugGcStats))
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &gcStats, string(MethodNameDebugGcStats))
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugGcStats,
@@ -462,7 +462,7 @@ func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugFreeOSMemory))
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugFreeOSMemory))
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugFreeOSMemory,
@@ -488,7 +488,7 @@ func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	var stacks string
-	err := rCtx.EthCli.Client().CallContext(context.Background(), &stacks, string(MethodNameDebugStacks))
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &stacks, string(MethodNameDebugStacks))
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugStacks,
@@ -517,7 +517,7 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	filename := "/tmp/mutex_profile.out"
 	duration := 1 // 1 second duration for testing
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugMutexProfile), filename, duration)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugMutexProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugMutexProfile,
@@ -546,7 +546,7 @@ func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	filename := "/tmp/cpu_profile.out"
 	duration := 1 // 1 second duration for testing
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugCPUProfile), filename, duration)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugCPUProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugCPUProfile,
@@ -575,7 +575,7 @@ func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	filename := "/tmp/go_trace.out"
 	duration := 1 // 1 second duration for testing
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugGoTrace), filename, duration)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugGoTrace), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugGoTrace,
@@ -604,7 +604,7 @@ func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	filename := "/tmp/block_profile.out"
 	duration := 1 // 1 second duration for testing
 
-	err := rCtx.EthCli.Client().CallContext(context.Background(), nil, string(MethodNameDebugBlockProfile), filename, duration)
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugBlockProfile), filename, duration)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugBlockProfile,
@@ -629,7 +629,7 @@ func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 // DebugStartCPUProfile starts CPU profiling
 func DebugStartCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "debug_startCPUProfile", "/tmp/cpu_profile_start.out")
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_startCPUProfile", "/tmp/cpu_profile_start.out")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugStartCPUProfile,
@@ -649,7 +649,7 @@ func DebugStartCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 // DebugStopCPUProfile stops CPU profiling
 func DebugStopCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.EthCli.Client().Call(&result, "debug_stopCPUProfile")
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_stopCPUProfile")
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugStopCPUProfile,
@@ -671,7 +671,7 @@ func DebugTraceBadBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	// Use a test hash to see if the method is implemented
 	var result interface{}
 	testHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
-	err := rCtx.EthCli.Client().Call(&result, "debug_traceBadBlock", testHash)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_traceBadBlock", testHash)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBadBlock,
@@ -695,7 +695,7 @@ func DebugStandardTraceBlockToFile(rCtx *types.RPCContext) (*types.RpcResult, er
 	config := map[string]interface{}{
 		"tracer": "standardTracer",
 	}
-	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBlockToFile", testHash, config)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_standardTraceBlockToFile", testHash, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
 		if err.Error() == "the method "+string(MethodNameDebugStandardTraceBlockToFile)+" does not exist/is not available" ||
@@ -732,7 +732,7 @@ func DebugStandardTraceBadBlockToFile(rCtx *types.RPCContext) (*types.RpcResult,
 		"tracer": "standardTracer",
 	}
 
-	err := rCtx.EthCli.Client().Call(&result, "debug_standardTraceBadBlockToFile", testHash, config)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_standardTraceBadBlockToFile", testHash, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
 		if err.Error() == "the method "+string(MethodNameDebugStandardTraceBadBlockToFile)+" does not exist/is not available" ||
@@ -769,7 +769,7 @@ func DebugTraceBlockFromFile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		"tracer": "callTracer",
 	}
 
-	err := rCtx.EthCli.Client().Call(&result, "debug_traceBlockFromFile", filename, config)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_traceBlockFromFile", filename, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
 		if err.Error() == "the method "+string(MethodNameDebugTraceBlockFromFile)+" does not exist/is not available" ||
@@ -808,7 +808,7 @@ func DebugTraceChain(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		"timeout": "10s",
 	}
 
-	err := rCtx.EthCli.Client().Call(&result, "debug_traceChain", startBlock, endBlock, config)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_traceChain", startBlock, endBlock, config)
 	if err != nil {
 		// Check if it's a "method not found" error (API not implemented)
 		if err.Error() == "the method "+string(MethodNameDebugTraceChain)+" does not exist/is not available" ||
@@ -846,7 +846,7 @@ func DebugStorageRangeAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	keyStart := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	maxResult := 10
 
-	err := rCtx.EthCli.Client().Call(&result, "debug_storageRangeAt", testBlockHash, txIndex, contractAddr, keyStart, maxResult)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_storageRangeAt", testBlockHash, txIndex, contractAddr, keyStart, maxResult)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugStorageRangeAt,
@@ -867,7 +867,7 @@ func DebugStorageRangeAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func DebugSetTrieFlushInterval(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	interval := "10s" // Test interval
-	err := rCtx.EthCli.Client().Call(&result, "debug_setTrieFlushInterval", interval)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_setTrieFlushInterval", interval)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugSetTrieFlushInterval,
@@ -888,7 +888,7 @@ func DebugSetTrieFlushInterval(rCtx *types.RPCContext) (*types.RpcResult, error)
 func DebugVmodule(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	pattern := "eth/*=5" // Test verbosity pattern
-	err := rCtx.EthCli.Client().Call(&result, "debug_vmodule", pattern)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_vmodule", pattern)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugVmodule,
@@ -909,7 +909,7 @@ func DebugVmodule(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func DebugWriteBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/block_profile_write.out"
-	err := rCtx.EthCli.Client().Call(&result, "debug_writeBlockProfile", filename)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_writeBlockProfile", filename)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugWriteBlockProfile,
@@ -930,7 +930,7 @@ func DebugWriteBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func DebugWriteMemProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/mem_profile_write.out"
-	err := rCtx.EthCli.Client().Call(&result, "debug_writeMemProfile", filename)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_writeMemProfile", filename)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugWriteMemProfile,
@@ -951,7 +951,7 @@ func DebugWriteMemProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func DebugWriteMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	filename := "/tmp/mutex_profile_write.out"
-	err := rCtx.EthCli.Client().Call(&result, "debug_writeMutexProfile", filename)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_writeMutexProfile", filename)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugWriteMutexProfile,
@@ -972,7 +972,7 @@ func DebugWriteMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func DebugVerbosity(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	level := 3 // Test verbosity level (0-5)
-	err := rCtx.EthCli.Client().Call(&result, "debug_verbosity", level)
+	err := rCtx.Evmd.RPCClient().Call(&result, "debug_verbosity", level)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugVerbosity,

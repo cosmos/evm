@@ -47,17 +47,17 @@ func RunSetup() (*types.RPCContext, error) {
 		return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 	}
 	// set rpc context
-	rCtx.EvmdCtx.ERC20Addr = result.EvmdDeployment.Address
-	rCtx.EvmdCtx.ERC20Abi = result.EvmdDeployment.ABI
-	rCtx.EvmdCtx.ERC20ByteCode = result.EvmdDeployment.ByteCode
-	rCtx.EvmdCtx.BlockNumsIncludingTx = append(rCtx.EvmdCtx.BlockNumsIncludingTx, result.EvmdDeployment.BlockNumber.Uint64())
-	rCtx.EvmdCtx.ProcessedTransactions = append(rCtx.EvmdCtx.ProcessedTransactions, result.EvmdDeployment.TxHash)
+	rCtx.Evmd.ERC20Addr = result.EvmdDeployment.Address
+	rCtx.Evmd.ERC20Abi = result.EvmdDeployment.ABI
+	rCtx.Evmd.ERC20ByteCode = result.EvmdDeployment.ByteCode
+	rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, result.EvmdDeployment.BlockNumber.Uint64())
+	rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, result.EvmdDeployment.TxHash)
 
-	rCtx.GethCtx.ERC20Addr = result.GethDeployment.Address
-	rCtx.GethCtx.ERC20Abi = result.GethDeployment.ABI
-	rCtx.GethCtx.ERC20ByteCode = result.GethDeployment.ByteCode
-	rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, result.GethDeployment.BlockNumber.Uint64())
-	rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, result.GethDeployment.TxHash)
+	rCtx.Geth.ERC20Addr = result.GethDeployment.Address
+	rCtx.Geth.ERC20Abi = result.GethDeployment.ABI
+	rCtx.Geth.ERC20ByteCode = result.GethDeployment.ByteCode
+	rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, result.GethDeployment.BlockNumber.Uint64())
+	rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, result.GethDeployment.TxHash)
 	log.Println("✓ Contracts deployed successfully")
 
 	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
@@ -74,17 +74,17 @@ func RunSetup() (*types.RPCContext, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create evmd filter: %w", err)
 	}
-	rCtx.EvmdCtx.FilterID = filterID
-	rCtx.EvmdCtx.FilterQuery = filterQuery
+	rCtx.Evmd.FilterID = filterID
+	rCtx.Evmd.FilterQuery = filterQuery
 
 	// Create filter on geth
 	filterQuery, filterID, err = NewERC20FilterLogs(rCtx, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create evmd filter: %w", err)
 	}
-	rCtx.GethCtx.FilterID = filterID
-	rCtx.GethCtx.FilterQuery = filterQuery
-	log.Printf("Created filter for ERC20 transfers: evmd=%s, geth=%s\n", rCtx.EvmdCtx.FilterID, rCtx.GethCtx.FilterID)
+	rCtx.Geth.FilterID = filterID
+	rCtx.Geth.FilterQuery = filterQuery
+	log.Printf("Created filter for ERC20 transfers: evmd=%s, geth=%s\n", rCtx.Evmd.FilterID, rCtx.Geth.FilterID)
 
 	log.Println("Step 4: Verifying state synchronization...")
 	err = VerifyTokenBalances(evmdURL, gethURL,
@@ -210,8 +210,8 @@ func RunTransactionGeneration(rCtx *types.RPCContext) error {
 
 	log.Println("Step 1: Loading contract addresses from registry...")
 
-	evmdContract := rCtx.EvmdCtx.ERC20Addr
-	gethContract := rCtx.GethCtx.ERC20Addr
+	evmdContract := rCtx.Evmd.ERC20Addr
+	gethContract := rCtx.Geth.ERC20Addr
 
 	log.Printf("Loaded contracts - evmd: %s, geth: %s\n", evmdContract.Hex(), gethContract.Hex())
 
@@ -234,18 +234,16 @@ func RunTransactionGeneration(rCtx *types.RPCContext) error {
 }
 
 func NewERC20FilterLogs(rCtx *types.RPCContext, isGeth bool) (ethereum.FilterQuery, string, error) {
-	ctx := rCtx.EvmdCtx
-	ethCli := rCtx.EthCli
+	ethCli := rCtx.Evmd
 	if isGeth {
-		ctx = rCtx.GethCtx
-		ethCli = rCtx.GethCli
+		ethCli = rCtx.Geth
 	}
 
 	fErc20Transfer := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(0), // Start from genesis
-		Addresses: []common.Address{ctx.ERC20Addr},
+		Addresses: []common.Address{ethCli.ERC20Addr},
 		Topics: [][]common.Hash{
-			{ctx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{ethCli.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 
@@ -255,7 +253,7 @@ func NewERC20FilterLogs(rCtx *types.RPCContext, isGeth bool) (ethereum.FilterQue
 		return fErc20Transfer, "", fmt.Errorf("failed to create filter args: %w", err)
 	}
 	var evmdFilterID string
-	if err = ethCli.Client().CallContext(context.Background(), &evmdFilterID, "eth_newFilter", args); err != nil {
+	if err = ethCli.RPCClient().CallContext(context.Background(), &evmdFilterID, "eth_newFilter", args); err != nil {
 		return fErc20Transfer, "", fmt.Errorf("failed to create filter on evmd: %w", err)
 	}
 
