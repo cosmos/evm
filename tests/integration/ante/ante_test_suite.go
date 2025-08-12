@@ -116,6 +116,7 @@ func (s *AnteTestSuite) SetupTest() {
 	// when resetting the chain config
 	denom := evmtypes.GetEVMCoinDenom()
 	extendedDenom := evmtypes.GetEVMCoinExtendedDenom()
+	displayDenom := evmtypes.GetEVMCoinDisplayDenom()
 	decimals := evmtypes.GetEVMCoinDecimals()
 
 	configurator := evmtypes.NewEVMConfigurator()
@@ -125,6 +126,7 @@ func (s *AnteTestSuite) SetupTest() {
 		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
 			Denom:         denom,
 			ExtendedDenom: extendedDenom,
+			DisplayDenom:  displayDenom,
 			Decimals:      decimals,
 		}).
 		Configure()
