@@ -8,6 +8,10 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const SEED = int64(42)
@@ -47,4 +51,10 @@ func (s *KeeperIntegrationTestSuite) SetupTestWithChainID(chainID testconstants.
 
 	s.network = nw
 	s.factory = tf
+
+	// Clear all fractional balances to ensure no leftover balances persist between tests
+	s.network.App.GetPreciseBankKeeper().IterateFractionalBalances(s.network.GetContext(), func(addr sdk.AccAddress, bal sdkmath.Int) bool {
+		s.network.App.GetPreciseBankKeeper().DeleteFractionalBalance(s.network.GetContext(), addr)
+		return false
+	})
 }

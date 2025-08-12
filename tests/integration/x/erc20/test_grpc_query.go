@@ -129,7 +129,8 @@ func (s *KeeperTestSuite) TestTokenPair() {
 			func() {
 				addr := utiltx.GenerateAddress()
 				pair := types.NewTokenPair(addr, "coin", types.OWNER_MODULE)
-				s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+				err := s.network.App.GetErc20Keeper().SetToken(ctx, pair)
+				s.Require().NoError(err)
 				req = &types.QueryTokenPairRequest{
 					Token: pair.Erc20Address,
 				}

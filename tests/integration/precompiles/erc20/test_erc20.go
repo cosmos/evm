@@ -24,10 +24,6 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 	// Transactions
 	method = s.precompile.Methods[erc20.ApproveMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.IncreaseAllowanceMethod]
-	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.DecreaseAllowanceMethod]
-	s.Require().True(s.precompile.IsTransaction(&method))
 	method = s.precompile.Methods[erc20.TransferMethod]
 	s.Require().True(s.precompile.IsTransaction(&method))
 	method = s.precompile.Methods[erc20.TransferFromMethod]
@@ -95,24 +91,6 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 				return bz
 			},
 			expGas: erc20.GasApprove,
-		},
-		{
-			name: erc20.IncreaseAllowanceMethod,
-			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.IncreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
-				s.Require().NoError(err, "expected no error packing ABI")
-				return bz
-			},
-			expGas: erc20.GasIncreaseAllowance,
-		},
-		{
-			name: erc20.DecreaseAllowanceMethod,
-			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.DecreaseAllowanceMethod, s.keyring.GetAddr(0), big.NewInt(1))
-				s.Require().NoError(err, "expected no error packing ABI")
-				return bz
-			},
-			expGas: erc20.GasDecreaseAllowance,
 		},
 		{
 			name: erc20.TransferMethod,

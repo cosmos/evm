@@ -19,6 +19,12 @@ message GenesisState {
   // allowances is a slice of the registered allowances at genesis
   repeated Allowance allowances = 3
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // native_precompiles is a slice of registered native precompiles at genesis
+  repeated string native_precompiles = 4
+      [ (gogoproto.nullable) = true, (amino.dont_omitempty) = true ];
+  // dynamic_precompiles is a slice of registered dynamic precompiles at genesis
+  repeated string dynamic_precompiles = 5
+      [ (gogoproto.nullable) = true, (amino.dont_omitempty) = true ];
 }
 
 // Params defines the erc20 module params
@@ -28,13 +34,6 @@ message Params {
   bool enable_erc20 = 1;
   // enable_evm_hook is now depecrated
   reserved 2;
-  // native_precompiles defines the slice of hex addresses of the
-  // active precompiles that are used to interact with native staking coins as
-  // ERC20s
-  repeated string native_precompiles = 3;
-  // dynamic_precompiles defines the slice of hex addresses of the
-  // active precompiles that are used to interact with Bank coins as ERC20s
-  repeated string dynamic_precompiles = 4;
   // permissionless_registration is the parameter that allows ERC20s to be
   // permissionlessly registered to be converted to bank tokens and vice versa
   bool permissionless_registration = 5;

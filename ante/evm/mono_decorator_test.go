@@ -54,13 +54,14 @@ func (k *ExtendedEVMKeeper) DeductTxCostsFromUserBalance(_ sdk.Context, _ sdk.Co
 	return nil
 }
 
-func (k *ExtendedEVMKeeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
+func (k *ExtendedEVMKeeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int {
 	account := k.GetAccount(ctx, addr)
 	if account != nil {
 		return account.Balance
 	}
 	return uint256.NewInt(0)
 }
+
 func (k *ExtendedEVMKeeper) ResetTransientGasUsed(_ sdk.Context) {}
 func (k *ExtendedEVMKeeper) GetParams(_ sdk.Context) evmsdktypes.Params {
 	return evmsdktypes.DefaultParams()

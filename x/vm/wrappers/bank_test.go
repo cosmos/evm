@@ -716,3 +716,150 @@ func TestGetBalance(t *testing.T) {
 		})
 	}
 }
+
+// ----------------------------------------QUERIES-------------------------------------------------
+
+func TestSppendableCoin(t *testing.T) {
+	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+
+	maxInt64 := int64(9223372036854775807)
+	account := sdk.AccAddress([]byte("test_address"))
+
+	testCases := []struct {
+		name      string
+		coinInfo  evmtypes.EvmCoinInfo
+		evmDenom  string
+		expCoin   sdk.Coin
+		expErr    string
+		expPanic  string
+		mockSetup func(*testutil.MockBankWrapper)
+	}{
+		{
+			name:     "success - convert 6 decimals amount to 18 decimals",
+			coinInfo: sixDecimalsCoinInfo,
+			evmDenom: sixDecimalsCoinInfo.Denom,
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+			expErr:   "",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+
+				mbk.EXPECT().
+					SpendableCoin(
+						gomock.Any(),
+						account,
+						sixDecimalsCoinInfo.ExtendedDenom,
+					).Return(returnedCoin)
+			},
+		},
+		{
+			name:     "success - convert max int 6 decimals amount to 18 decimals",
+			coinInfo: sixDecimalsCoinInfo,
+			evmDenom: sixDecimalsCoinInfo.Denom,
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64)),
+			expErr:   "",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64))
+
+				mbk.EXPECT().
+					SpendableCoin(
+						gomock.Any(),
+						account,
+						sixDecimalsCoinInfo.ExtendedDenom,
+					).Return(returnedCoin)
+			},
+		},
+		{
+			name:     "success - does not convert 18 decimals amount",
+			coinInfo: eighteenDecimalsCoinInfo,
+			evmDenom: eighteenDecimalsCoinInfo.Denom,
+			expCoin:  sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+			expErr:   "",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {
+				returnedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18))
+
+				mbk.EXPECT().
+					SpendableCoin(
+						gomock.Any(),
+						account,
+						eighteenDecimalsCoinInfo.Denom,
+					).Return(returnedCoin)
+			},
+		},
+		{
+			name:     "success - zero balance",
+			coinInfo: sixDecimalsCoinInfo,
+			evmDenom: sixDecimalsCoinInfo.Denom,
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0)),
+			expErr:   "",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0))
+
+				mbk.EXPECT().
+					SpendableCoin(
+						gomock.Any(),
+						account,
+						sixDecimalsCoinInfo.ExtendedDenom,
+					).Return(returnedCoin)
+			},
+		},
+		{
+			name:     "success - small amount (less than 1 full token)",
+			coinInfo: sixDecimalsCoinInfo,
+			evmDenom: sixDecimalsCoinInfo.Denom,
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)), // 0.0001 token in 18 decimals
+			expErr:   "",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)) // 0.0001 token in 6 decimals
+
+				mbk.EXPECT().
+					SpendableCoin(
+						gomock.Any(),
+						account,
+						sixDecimalsCoinInfo.ExtendedDenom,
+					).Return(returnedCoin)
+			},
+		},
+		{
+			name:      "panic - wrong evm denom",
+			coinInfo:  eighteenDecimalsCoinInfo,
+			evmDenom:  "wrong_denom",
+			expPanic:  "expected evm denom",
+			mockSetup: func(mbk *testutil.MockBankWrapper) {},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup EVM configurator to have access to the EVM coin info.
+			configurator := evmtypes.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
+			require.NoError(t, err, "failed to configure EVMConfigurator")
+
+			// Setup mock controller
+			ctrl := gomock.NewController(t)
+
+			mockBankKeeper := testutil.NewMockBankWrapper(ctrl)
+			tc.mockSetup(mockBankKeeper)
+
+			bankWrapper := wrappers.NewBankWrapper(mockBankKeeper)
+
+			// When calling the function with a denom different than the evm one, it should panic
+			defer func() {
+				if r := recover(); r != nil {
+					require.Contains(t, fmt.Sprint(r), tc.expPanic)
+				}
+			}()
+
+			balance := bankWrapper.SpendableCoin(context.Background(), account, tc.evmDenom)
+
+			if tc.expErr != "" {
+				require.ErrorContains(t, err, tc.expErr)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expCoin, balance, "expected a different balance")
+			}
+		})
+	}
+}
