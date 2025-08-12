@@ -6,6 +6,8 @@
 
 ### DEPENDENCIES
 
+- [\#435](https://github.com/cosmos/evm/pull/435) Update Cosmos SDK to `v0.53.4` and CometBFT to `v0.38.18`.
+
 ### BUG FIXES
 
 - [\#179](https://github.com/cosmos/evm/pull/179) Fix compilation error in server/start.go
