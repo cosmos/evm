@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/log"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,6 +17,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkerrors "cosmossdk.io/errors"
+	"cosmossdk.io/log"
 	sdktypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -142,11 +141,12 @@ func (b Blockchain) GetBlock(_ common.Hash, _ uint64) *types.Block {
 
 	b.logger.Debug("GetBlock called", "block_number", blockNumber)
 
-	if blockNumber == 0 {
+	switch blockNumber {
+	case 0:
 		b.logger.Debug("returning genesis block", "block_number", blockNumber)
 		currBlock.ParentHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 		return types.NewBlockWithHeader(currBlock)
-	} else if blockNumber == 1 {
+	case 1:
 		b.logger.Debug("returning block 1", "block_number", blockNumber)
 		return types.NewBlockWithHeader(currBlock)
 	}
