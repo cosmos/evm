@@ -156,63 +156,45 @@ docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
 docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
     evmd genesis validate-genesis --home /data
 
-# Configure timeout settings and enable all APIs (like local_node.sh)
+# Configure timeout settings and enable all APIs using Docker to avoid permission issues
 echo -e "${GREEN}Configuring timeout settings and APIs...${NC}"
 
-# Fix permissions for config files after Docker initialization (Docker created them as root)
-chmod -R 755 "$DATA_DIR/config"
-chown -R "$(id -u):$(id -g)" "$DATA_DIR/config" 2>/dev/null || true
-if [[ "$OSTYPE" == "darwin"* ]]; then
+# Use Docker to perform configuration changes to avoid host permission issues
+docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
     # Configure consensus timeouts for faster block times
-    sed -i '' 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_prevote = "1s"/timeout_prevote = "500ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_precommit = "1s"/timeout_precommit = "500ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$DATA_DIR/config/config.toml"
+    sed -i 's/timeout_propose = \"3s\"/timeout_propose = \"2s\"/g' /data/config/config.toml
+    sed -i 's/timeout_propose_delta = \"500ms\"/timeout_propose_delta = \"200ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_prevote = \"1s\"/timeout_prevote = \"500ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_prevote_delta = \"500ms\"/timeout_prevote_delta = \"200ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_precommit = \"1s\"/timeout_precommit = \"500ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_precommit_delta = \"500ms\"/timeout_precommit_delta = \"200ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_commit = \"5s\"/timeout_commit = \"1s\"/g' /data/config/config.toml
+    sed -i 's/timeout_broadcast_tx_commit = \"10s\"/timeout_broadcast_tx_commit = \"5s\"/g' /data/config/config.toml
     
     # Enable prometheus metrics and all APIs for dev node
-    sed -i '' 's/prometheus = false/prometheus = true/' "$DATA_DIR/config/config.toml"
-    sed -i '' 's/prometheus-retention-time = 0/prometheus-retention-time  = 1000000000000/g' "$DATA_DIR/config/app.toml"
-    sed -i '' 's/enabled = false/enabled = true/g' "$DATA_DIR/config/app.toml"
-    sed -i '' 's/enable = false/enable = true/g' "$DATA_DIR/config/app.toml"
+    sed -i 's/prometheus = false/prometheus = true/' /data/config/config.toml
+    sed -i 's/prometheus-retention-time = 0/prometheus-retention-time = 1000000000000/g' /data/config/app.toml
+    sed -i 's/prometheus-retention-time  = \"0\"/prometheus-retention-time = \"1000000000000\"/g' /data/config/app.toml
+    sed -i 's/enabled = false/enabled = true/g' /data/config/app.toml
+    sed -i 's/enable = false/enable = true/g' /data/config/app.toml
     
     # Configure JSON-RPC for external access
-    sed -i '' 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/' "$DATA_DIR/config/app.toml"
-    sed -i '' 's/ws-address = "127.0.0.1:8546"/ws-address = "0.0.0.0:8546"/' "$DATA_DIR/config/app.toml"
-else
-    # Configure consensus timeouts for faster block times  
-    sed -i 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_prevote = "1s"/timeout_prevote = "500ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_precommit = "1s"/timeout_precommit = "500ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$DATA_DIR/config/config.toml"
-    sed -i 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$DATA_DIR/config/config.toml"
-    
-    # Enable prometheus metrics and all APIs for dev node
-    sed -i 's/prometheus = false/prometheus = true/' "$DATA_DIR/config/config.toml"
-    sed -i 's/prometheus-retention-time  = "0"/prometheus-retention-time  = "1000000000000"/g' "$DATA_DIR/config/app.toml"
-    sed -i 's/enabled = false/enabled = true/g' "$DATA_DIR/config/app.toml"
-    sed -i 's/enable = false/enable = true/g' "$DATA_DIR/config/app.toml"
-    
-    # Configure JSON-RPC for external access
-    sed -i 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/' "$DATA_DIR/config/app.toml"
-    sed -i 's/ws-address = "127.0.0.1:8546"/ws-address = "0.0.0.0:8546"/' "$DATA_DIR/config/app.toml"
-fi
+    sed -i 's/address = \"127.0.0.1:8545\"/address = \"0.0.0.0:8545\"/' /data/config/app.toml
+    sed -i 's/ws-address = \"127.0.0.1:8546\"/ws-address = \"0.0.0.0:8546\"/' /data/config/app.toml
+"
 
-# Change proposal periods to pass within a reasonable time for local testing
-sed -i.bak 's/"max_deposit_period": "172800s"/"max_deposit_period": "30s"/g' "$DATA_DIR/config/genesis.json"
-sed -i.bak 's/"voting_period": "172800s"/"voting_period": "30s"/g' "$DATA_DIR/config/genesis.json"
-sed -i.bak 's/"expedited_voting_period": "86400s"/"expedited_voting_period": "15s"/g' "$DATA_DIR/config/genesis.json"
-
-# Set pruning to nothing to preserve all blocks for debug APIs
-sed -i.bak 's/pruning = "default"/pruning = "nothing"/g' "$DATA_DIR/config/app.toml"
-sed -i.bak 's/pruning-keep-recent = "0"/pruning-keep-recent = "0"/g' "$DATA_DIR/config/app.toml"
-sed -i.bak 's/pruning-interval = "0"/pruning-interval = "0"/g' "$DATA_DIR/config/app.toml"
+# Configure governance and pruning settings using Docker
+docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
+    # Change proposal periods to pass within a reasonable time for local testing
+    sed -i 's/\"max_deposit_period\": \"172800s\"/\"max_deposit_period\": \"30s\"/g' /data/config/genesis.json
+    sed -i 's/\"voting_period\": \"172800s\"/\"voting_period\": \"30s\"/g' /data/config/genesis.json
+    sed -i 's/\"expedited_voting_period\": \"86400s\"/\"expedited_voting_period\": \"15s\"/g' /data/config/genesis.json
+    
+    # Set pruning to nothing to preserve all blocks for debug APIs
+    sed -i 's/pruning = \"default\"/pruning = \"nothing\"/g' /data/config/app.toml
+    sed -i 's/pruning-keep-recent = \"0\"/pruning-keep-recent = \"0\"/g' /data/config/app.toml
+    sed -i 's/pruning-interval = \"0\"/pruning-interval = \"0\"/g' /data/config/app.toml
+"
 
 echo -e "${GREEN}Configuration completed${NC}"
 
