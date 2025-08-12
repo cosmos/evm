@@ -173,8 +173,8 @@ func (b *Backend) Status() (map[string]hexutil.Uint, error) {
 
 	pending, queued := evmMempool.GetTxPool().Stats()
 	return map[string]hexutil.Uint{
-		StatusPending: hexutil.Uint(pending), // #nosec G115 -- overflow not a concern for tx counts
-		StatusQueued:  hexutil.Uint(queued),  // #nosec G115 -- overflow not a concern for tx counts
+		StatusPending: hexutil.Uint(pending), // #nosec G115 -- overflow not a concern for tx counts, as the mempool will limit far before this number is hit. This is taken directly from Geth.
+		StatusQueued:  hexutil.Uint(queued),  // #nosec G115 -- overflow not a concern for tx counts, as the mempool will limit far before this number is hit. This is taken directly from Geth.
 	}, nil
 }
 
