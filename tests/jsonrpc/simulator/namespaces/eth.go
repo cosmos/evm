@@ -287,15 +287,10 @@ func EthGetBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	// Use real transaction receipt data to get a valid block hash
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return nil, errors.New("no processed transactions available - run transaction generation first")
-	}
-
 	// Get a receipt from one of our processed transactions to get a real block hash
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.EvmdCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
 	// Use the block hash from the receipt to test getBlockByHash
@@ -306,9 +301,9 @@ func EthGetBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockByHash, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
 			// Get geth receipt to get geth block hash
-			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{gethReceipt.BlockHash.Hex(), true}
 			}
 		}
@@ -330,15 +325,10 @@ func EthGetBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	// Use real transaction receipt data to get a valid block hash
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return nil, errors.New("no processed transactions available - run transaction generation first")
-	}
-
 	// Get a receipt from one of our processed transactions to get a real block hash
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.EvmdCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
 	// Use the block hash from the receipt to test getBlockByHash
@@ -349,9 +339,9 @@ func EthGetBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockByNumber, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
 			// Get geth receipt to get geth block hash
-			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{hexutil.EncodeBig(gethReceipt.BlockNumber), true}
 			}
 		}
@@ -548,7 +538,7 @@ func EthSendRawTransactionDeployContract(rCtx *types.RPCContext) (*types.RpcResu
 		return nil, err
 	}
 
-	if rCtx.ERC20Addr == (common.Address{}) {
+	if rCtx.EvmdCtx.ERC20Addr == (common.Address{}) {
 		return nil, errors.New("contract address is empty, failed to deploy")
 	}
 
@@ -660,7 +650,7 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 	})
 
 	randomRecipient := utils.MustCreateRandomAccount().Address
-	data, err := rCtx.ERC20Abi.Pack("transfer", randomRecipient, new(big.Int).SetUint64(1))
+	data, err := rCtx.EvmdCtx.ERC20Abi.Pack("transfer", randomRecipient, new(big.Int).SetUint64(1))
 	if err != nil {
 		log.Fatalf("Failed to pack transaction data: %v", err)
 	}
@@ -672,7 +662,7 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 		GasTipCap: rCtx.MaxPriorityFeePerGas,
 		GasFeeCap: new(big.Int).Add(rCtx.GasPrice, big.NewInt(1000000000)),
 		Gas:       10000000,
-		To:        &rCtx.ERC20Addr,
+		To:        &rCtx.EvmdCtx.ERC20Addr,
 		Data:      data,
 	})
 
@@ -710,13 +700,9 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if len(rCtx.BlockNumsIncludingTx) == 0 {
-		return nil, errors.New("no blocks with transactions")
-	}
-
 	// TODO: Random pick
 	// pick a block with transactions
-	blkNum := rCtx.BlockNumsIncludingTx[0]
+	blkNum := rCtx.EvmdCtx.BlockNumsIncludingTx[0]
 	if blkNum > uint64(math.MaxInt64) {
 		return nil, fmt.Errorf("block number %d exceeds int64 max value", blkNum)
 	}
@@ -728,10 +714,10 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block numbers for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockReceipts, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethBlockNumsIncludingTx) > 0 {
-			return []interface{}{fmt.Sprintf("0x%x", rCtx.GethBlockNumsIncludingTx[0])}
-		} else if len(rCtx.BlockNumsIncludingTx) > 0 {
-			return []interface{}{fmt.Sprintf("0x%x", rCtx.BlockNumsIncludingTx[0])}
+		if isGeth && len(rCtx.GethCtx.BlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.GethCtx.BlockNumsIncludingTx[0])}
+		} else if len(rCtx.EvmdCtx.BlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.EvmdCtx.BlockNumsIncludingTx[0])}
 		}
 		return []interface{}{"latest"}
 	})
@@ -751,12 +737,8 @@ func EthGetTransactionByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return nil, errors.New("no transactions")
-	}
-
 	// TODO: Random pick
-	txHash := rCtx.ProcessedTransactions[0]
+	txHash := rCtx.EvmdCtx.ProcessedTransactions[0]
 
 	tx, _, err := rCtx.EthCli.TransactionByHash(context.Background(), txHash)
 	if err != nil {
@@ -765,8 +747,8 @@ func EthGetTransactionByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different transaction hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetTransactionByHash, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			return []interface{}{rCtx.GethProcessedTransactions[0].Hex()}
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
+			return []interface{}{rCtx.GethCtx.ProcessedTransactions[0].Hex()}
 		}
 		return []interface{}{txHash.Hex()}
 	})
@@ -786,14 +768,10 @@ func EthGetTransactionByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcRes
 		return result, nil
 	}
 
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return nil, errors.New("no processed transactions available - run transaction generation first")
-	}
-
 	// Get a receipt from one of our processed transactions to get a real block hash
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.EvmdCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
 	// Use the transaction index from the receipt and block hash from the receipt
@@ -804,14 +782,14 @@ func EthGetTransactionByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcRes
 
 	// Perform dual API comparison if enabled - use different transaction data for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetTransactionByBlockHashAndIndex, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
 			// Get geth transaction receipt to get block hash and index
-			if receipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+			if receipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{receipt.BlockHash.Hex(), fmt.Sprintf("0x%x", receipt.TransactionIndex)}
 			}
-		} else if len(rCtx.ProcessedTransactions) > 0 {
+		} else if len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			// Get evmd transaction receipt to get block hash and index
-			if receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0]); err == nil {
+			if receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{receipt.BlockHash.Hex(), fmt.Sprintf("0x%x", receipt.TransactionIndex)}
 			}
 		}
@@ -833,12 +811,8 @@ func EthGetTransactionByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcR
 		return result, nil
 	}
 
-	if len(rCtx.BlockNumsIncludingTx) == 0 {
-		return nil, errors.New("no blocks with transactions")
-	}
-
 	// TODO: Random pick
-	blkNum := rCtx.BlockNumsIncludingTx[0]
+	blkNum := rCtx.EvmdCtx.BlockNumsIncludingTx[0]
 	var tx gethtypes.Transaction
 	if err := rCtx.EthCli.Client().CallContext(context.Background(), &tx, string(MethodNameEthGetTransactionByBlockNumberAndIndex), blkNum, "0x0"); err != nil {
 		return nil, err
@@ -846,11 +820,11 @@ func EthGetTransactionByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcR
 
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetTransactionByBlockNumberAndIndex, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethBlockNumsIncludingTx) > 0 {
-			return []interface{}{fmt.Sprintf("0x%x", rCtx.GethBlockNumsIncludingTx[0]), "0x0"}
+		if isGeth && len(rCtx.GethCtx.BlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.GethCtx.BlockNumsIncludingTx[0]), "0x0"}
 		}
-		if len(rCtx.BlockNumsIncludingTx) > 0 {
-			return []interface{}{fmt.Sprintf("0x%x", rCtx.BlockNumsIncludingTx[0]), "0x0"}
+		if len(rCtx.EvmdCtx.BlockNumsIncludingTx) > 0 {
+			return []interface{}{fmt.Sprintf("0x%x", rCtx.EvmdCtx.BlockNumsIncludingTx[0]), "0x0"}
 		}
 		return []interface{}{"latest", "0x0"}
 	})
@@ -870,21 +844,16 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 		return result, nil
 	}
 
-	// Use real transaction receipt data to get a valid block hash
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return nil, errors.New("no processed transactions available - run transaction generation first")
-	}
-
 	// Get a receipt from one of our processed transactions to get a real block hash
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.EvmdCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockTransactionCountByNumber, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{hexutil.EncodeBig(gethReceipt.BlockNumber)}
 			}
 		}
@@ -916,8 +885,8 @@ func EthGetUncleCountByBlockHash(rCtx *types.RPCContext) (*types.RpcResult, erro
 
 	// Get a block hash - try from processed transactions first, fallback to latest block
 	var blockHash common.Hash
-	if len(rCtx.ProcessedTransactions) > 0 {
-		receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	if len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
+		receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get receipt: %w", err)
 		}
@@ -939,8 +908,8 @@ func EthGetUncleCountByBlockHash(rCtx *types.RPCContext) (*types.RpcResult, erro
 
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetUncleCountByBlockHash, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{gethReceipt.BlockHash.Hex()}
 			}
 		}
@@ -992,8 +961,8 @@ func EthGetUncleByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcResult, e
 
 	// Get a block hash - try from processed transactions first, fallback to latest block
 	var blockHash common.Hash
-	if len(rCtx.ProcessedTransactions) > 0 {
-		receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	if len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
+		receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get receipt: %w", err)
 		}
@@ -1066,12 +1035,8 @@ func EthGetTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult, err
 		return result, nil
 	}
 
-	if len(rCtx.BlockNumsIncludingTx) == 0 {
-		return nil, errors.New("no transactions")
-	}
-
 	// get block
-	blkNum := rCtx.BlockNumsIncludingTx[0]
+	blkNum := rCtx.EvmdCtx.BlockNumsIncludingTx[0]
 	blk, err := rCtx.EthCli.BlockByNumber(context.Background(), new(big.Int).SetUint64(blkNum))
 	if err != nil {
 		return nil, err
@@ -1100,11 +1065,11 @@ func EthGetTransactionReceipt(rCtx *types.RPCContext) (*types.RpcResult, error) 
 		return result, nil
 	}
 
-	if len(rCtx.ProcessedTransactions) == 0 {
+	if len(rCtx.EvmdCtx.ProcessedTransactions) == 0 {
 		return nil, errors.New("no transactions")
 	}
 
-	txHash := rCtx.ProcessedTransactions[0]
+	txHash := rCtx.EvmdCtx.ProcessedTransactions[0]
 
 	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
@@ -1113,8 +1078,8 @@ func EthGetTransactionReceipt(rCtx *types.RPCContext) (*types.RpcResult, error) 
 
 	// Perform dual API comparison if enabled - use different transaction hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetTransactionReceipt, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			return []interface{}{rCtx.GethProcessedTransactions[0].Hex()}
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
+			return []interface{}{rCtx.GethCtx.ProcessedTransactions[0].Hex()}
 		}
 		return []interface{}{txHash.Hex()}
 	})
@@ -1134,14 +1099,14 @@ func EthGetBlockTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult
 		return result, nil
 	}
 
-	if len(rCtx.ProcessedTransactions) == 0 {
+	if len(rCtx.EvmdCtx.ProcessedTransactions) == 0 {
 		return nil, errors.New("no processed transactions available - run transaction generation first")
 	}
 
 	// Get a receipt from one of our processed transactions to get a real block hash
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.ProcessedTransactions[0].Hex(), err)
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", rCtx.EvmdCtx.ProcessedTransactions[0].Hex(), err)
 	}
 
 	count, err := rCtx.EthCli.TransactionCount(context.Background(), receipt.BlockHash)
@@ -1151,8 +1116,8 @@ func EthGetBlockTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult
 
 	// Perform dual API comparison if enabled
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetBlockTransactionCountByHash, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
-			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethProcessedTransactions[0]); err == nil {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
+			if gethReceipt, err := rCtx.GethCli.TransactionReceipt(context.Background(), rCtx.GethCtx.ProcessedTransactions[0]); err == nil {
 				return []interface{}{gethReceipt.BlockHash.Hex()}
 			}
 		}
@@ -1174,21 +1139,21 @@ func EthGetCode(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if rCtx.ERC20Addr == (common.Address{}) {
+	if rCtx.EvmdCtx.ERC20Addr == (common.Address{}) {
 		return nil, errors.New("no contract address, must be deployed first")
 	}
 
-	code, err := rCtx.EthCli.CodeAt(context.Background(), rCtx.ERC20Addr, nil)
+	code, err := rCtx.EthCli.CodeAt(context.Background(), rCtx.EvmdCtx.ERC20Addr, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Perform dual API comparison if enabled - use different contract addresses for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetCode, func(isGeth bool) []interface{} {
-		if isGeth && rCtx.GethERC20Addr != (common.Address{}) {
-			return []interface{}{rCtx.GethERC20Addr.Hex(), "latest"}
+		if isGeth && rCtx.GethCtx.ERC20Addr != (common.Address{}) {
+			return []interface{}{rCtx.GethCtx.ERC20Addr.Hex(), "latest"}
 		}
-		return []interface{}{rCtx.ERC20Addr.Hex(), "latest"}
+		return []interface{}{rCtx.EvmdCtx.ERC20Addr.Hex(), "latest"}
 	})
 
 	result := &types.RpcResult{
@@ -1206,7 +1171,7 @@ func EthGetStorageAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if rCtx.ERC20Addr == (common.Address{}) {
+	if rCtx.EvmdCtx.ERC20Addr == (common.Address{}) {
 		return nil, errors.New("no contract address, must be deployed first")
 	}
 
@@ -1214,13 +1179,13 @@ func EthGetStorageAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different contract addresses for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetStorageAt, func(isGeth bool) []interface{} {
-		if isGeth && rCtx.GethERC20Addr != (common.Address{}) {
-			return []interface{}{rCtx.GethERC20Addr.Hex(), fmt.Sprintf("0x%x", key), "latest"}
+		if isGeth && rCtx.GethCtx.ERC20Addr != (common.Address{}) {
+			return []interface{}{rCtx.GethCtx.ERC20Addr.Hex(), fmt.Sprintf("0x%x", key), "latest"}
 		}
-		return []interface{}{rCtx.ERC20Addr.Hex(), fmt.Sprintf("0x%x", key), "latest"}
+		return []interface{}{rCtx.EvmdCtx.ERC20Addr.Hex(), fmt.Sprintf("0x%x", key), "latest"}
 	})
 
-	storage, err := rCtx.EthCli.StorageAt(context.Background(), rCtx.ERC20Addr, key, nil)
+	storage, err := rCtx.EthCli.StorageAt(context.Background(), rCtx.EvmdCtx.ERC20Addr, key, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1241,15 +1206,11 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	if len(rCtx.BlockNumsIncludingTx) == 0 {
-		return nil, errors.New("no blocks with transactions")
-	}
-
 	fErc20Transfer := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(rCtx.BlockNumsIncludingTx[0] - 1),
-		Addresses: []common.Address{rCtx.ERC20Addr},
+		FromBlock: new(big.Int).SetUint64(rCtx.EvmdCtx.BlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.EvmdCtx.ERC20Addr},
 		Topics: [][]common.Hash{
-			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{rCtx.EvmdCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 	args, err := utils.ToFilterArg(fErc20Transfer)
@@ -1261,15 +1222,15 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return nil, err
 	}
 
-	if len(rCtx.GethBlockNumsIncludingTx) == 0 {
+	if len(rCtx.GethCtx.BlockNumsIncludingTx) == 0 {
 		return nil, errors.New("no blocks with transactions")
 	}
 
 	fErc20TransferGeth := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
-		Addresses: []common.Address{rCtx.GethERC20Addr},
+		FromBlock: new(big.Int).SetUint64(rCtx.GethCtx.BlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethCtx.ERC20Addr},
 		Topics: [][]common.Hash{
-			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{rCtx.EvmdCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
@@ -1283,7 +1244,7 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthNewFilter, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.GethCtx.ProcessedTransactions) > 0 {
 			return []interface{}{argsGeth}
 		}
 		return []interface{}{args}
@@ -1297,8 +1258,8 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	rCtx.FilterId = filterID
 	rCtx.FilterQuery = fErc20Transfer
-	rCtx.GethFilterId = filterIDGeth
-	rCtx.GethFilterQuery = fErc20TransferGeth
+	rCtx.GethCtx.FilterID = filterIDGeth
+	rCtx.GethCtx.FilterQuery = fErc20TransferGeth
 
 	return result, nil
 }
@@ -1322,10 +1283,10 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	fErc20TransferGeth := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
-		Addresses: []common.Address{rCtx.GethERC20Addr},
+		FromBlock: new(big.Int).SetUint64(rCtx.GethCtx.BlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethCtx.ERC20Addr},
 		Topics: [][]common.Hash{
-			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{rCtx.EvmdCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
@@ -1339,7 +1300,7 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterLogs, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			return []interface{}{filterIDGeth}
 		}
 		return []interface{}{rCtx.FilterId}
@@ -1390,10 +1351,10 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	fErc20TransferGeth := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
-		Addresses: []common.Address{rCtx.GethERC20Addr},
+		FromBlock: new(big.Int).SetUint64(rCtx.EvmdCtx.BlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.EvmdCtx.ERC20Addr},
 		Topics: [][]common.Hash{
-			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{rCtx.EvmdCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
@@ -1407,7 +1368,7 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetFilterChanges, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			return []interface{}{filterIDGeth}
 		}
 		return []interface{}{rCtx.BlockFilterId}
@@ -1489,10 +1450,10 @@ func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 
 	fErc20TransferGeth := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(rCtx.GethBlockNumsIncludingTx[0] - 1),
-		Addresses: []common.Address{rCtx.GethERC20Addr},
+		FromBlock: new(big.Int).SetUint64(rCtx.GethCtx.BlockNumsIncludingTx[0] - 1),
+		Addresses: []common.Address{rCtx.GethCtx.ERC20Addr},
 		Topics: [][]common.Hash{
-			{rCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
+			{rCtx.EvmdCtx.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
 		},
 	}
 	argsGeth, err := utils.ToFilterArg(fErc20TransferGeth)
@@ -1502,7 +1463,7 @@ func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Perform dual API comparison if enabled - use different block hashes for each client
 	rCtx.PerformComparisonWithProvider(MethodNameEthGetLogs, func(isGeth bool) []interface{} {
-		if isGeth && len(rCtx.GethProcessedTransactions) > 0 {
+		if isGeth && len(rCtx.EvmdCtx.ProcessedTransactions) > 0 {
 			return []interface{}{argsGeth}
 		}
 		return []interface{}{args}

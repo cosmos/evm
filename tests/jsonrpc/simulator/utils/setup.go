@@ -4,16 +4,20 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
 // RunSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
-func RunSetup() error {
+func RunSetup(rCtx *types.RPCContext) error {
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
@@ -48,15 +52,18 @@ func RunSetup() error {
 	}
 	log.Println("✓ State synchronization verified")
 
-	log.Println("Step 5: Saving contract addresses for future use...")
-	err = SaveContractAddresses(
-		result.EvmdDeployment.Address,
-		result.GethDeployment.Address,
-		"dev0")
-	if err != nil {
-		return fmt.Errorf("failed to save contract addresses: %w", err)
-	}
-	log.Println("✓ Contract addresses saved")
+	// set rpc context
+	rCtx.EvmdCtx.ERC20Addr = result.EvmdDeployment.Address
+	rCtx.EvmdCtx.ERC20Abi = result.EvmdDeployment.ABI
+	rCtx.EvmdCtx.ERC20ByteCode = result.EvmdDeployment.ByteCode
+	rCtx.EvmdCtx.BlockNumsIncludingTx = append(rCtx.EvmdCtx.BlockNumsIncludingTx, result.EvmdDeployment.BlockNumber.Uint64())
+	rCtx.EvmdCtx.ProcessedTransactions = append(rCtx.EvmdCtx.ProcessedTransactions, result.EvmdDeployment.TxHash)
+
+	rCtx.GethCtx.ERC20Addr = result.GethDeployment.Address
+	rCtx.GethCtx.ERC20Abi = result.GethDeployment.ABI
+	rCtx.GethCtx.ERC20ByteCode = result.GethDeployment.ByteCode
+	rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, result.GethDeployment.BlockNumber.Uint64())
+	rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, result.GethDeployment.TxHash)
 
 	return nil
 }
@@ -115,6 +122,17 @@ func fundGethAccounts(gethURL string) error {
 
 // deployContracts deploys the ERC20 contract to both evmd and geth
 func deployContracts(evmdURL, gethURL string) (*DeploymentResult, error) {
+	// Read the ABI file
+	abiFile, err := os.ReadFile("contracts/ERC20Token.abi")
+	if err != nil {
+		log.Fatalf("Failed to read ABI file: %v", err)
+	}
+	// Parse the ABI
+	parsedABI, err := abi.JSON(strings.NewReader(string(abiFile)))
+	if err != nil {
+		log.Fatalf("Failed to parse ERC20 ABI: %v", err)
+	}
+
 	// The embedded .bin file contains hex-encoded text, need to decode it to bytes
 	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
 	result, err := DeployERC20Contract(evmdURL, gethURL, contractBytecode)
@@ -132,29 +150,31 @@ func deployContracts(evmdURL, gethURL string) (*DeploymentResult, error) {
 			result.EvmdDeployment.Address.Hex(),
 			result.EvmdDeployment.TxHash.Hex(),
 			result.EvmdDeployment.BlockNumber.String())
+		result.EvmdDeployment.ABI = &parsedABI
+		result.EvmdDeployment.ByteCode = contractBytecode
 	}
 	if result.GethDeployment != nil {
 		fmt.Printf("  geth: %s (tx: %s, block: %s)\n",
 			result.GethDeployment.Address.Hex(),
 			result.GethDeployment.TxHash.Hex(),
 			result.GethDeployment.BlockNumber.String())
+		result.GethDeployment.ABI = &parsedABI
+		result.GethDeployment.ByteCode = contractBytecode
 	}
 
 	return result, nil
 }
 
 // RunTransactionGeneration generates test transactions on both networks
-func RunTransactionGeneration() error {
+func RunTransactionGeneration(rCtx *types.RPCContext) error {
 	// URLs for both networks
 	evmdURL := "http://localhost:8545"
 	gethURL := "http://localhost:8547"
 
 	log.Println("Step 1: Loading contract addresses from registry...")
 
-	evmdContract, gethContract, err := GetContractAddresses()
-	if err != nil {
-		return fmt.Errorf("failed to load contract addresses: %w", err)
-	}
+	evmdContract := rCtx.EvmdCtx.ERC20Addr
+	gethContract := rCtx.GethCtx.ERC20Addr
 
 	log.Printf("Loaded contracts - evmd: %s, geth: %s\n", evmdContract.Hex(), gethContract.Hex())
 

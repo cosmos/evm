@@ -38,46 +38,50 @@ type ComparisonResult struct {
 	Differences    []string          `json:"differences,omitempty"`
 }
 
-type GethContext struct {
-	ProcessedTransactions []common.Hash
-	BlockNumsIncludingTx  []uint64
-}
+type TestContext struct {
+	Acc *Account // account
 
-type EvmdContext struct {
-	ProcessedTransactions []common.Hash
-	BlockNumsIncludingTx  []uint64
+	ERC20Addr     common.Address //  contract address
+	ERC20Abi      *abi.ABI       // contract ABI
+	ERC20ByteCode []byte         // contract bytecode
+
+	ProcessedTransactions []common.Hash // txHashes
+	BlockNumsIncludingTx  []uint64      // Block numbers including txHashes
+
+	// Filter
+	FilterQuery   ethereum.FilterQuery //  filter query
+	FilterID      string               //  filter ID
+	BlockFilterID string               //  block filter ID
 }
 
 type RPCContext struct {
-	Conf                  *config.Config
-	EthCli                *ethclient.Client // evmd client (primary)
-	GethCli               *ethclient.Client // geth client (for comparison)
-	Acc                   *Account
-	ChainID               *big.Int
-	MaxPriorityFeePerGas  *big.Int
-	GasPrice              *big.Int
-	ProcessedTransactions []common.Hash
-	BlockNumsIncludingTx  []uint64
-	AlreadyTestedRPCs     []*RpcResult
-	ERC20Abi              *abi.ABI
-	ERC20ByteCode         []byte
-	ERC20Addr             common.Address
-	FilterQuery           ethereum.FilterQuery
-	FilterId              string
-	BlockFilterId         string
+	Conf                 *config.Config
+	EthCli               *ethclient.Client // evmd client (primary)
+	GethCli              *ethclient.Client // geth client (for comparison)
+	Acc                  *Account
+	ChainID              *big.Int
+	MaxPriorityFeePerGas *big.Int
+	GasPrice             *big.Int
+	AlreadyTestedRPCs    []*RpcResult
+	FilterQuery          ethereum.FilterQuery
+	FilterId             string
+	BlockFilterId        string
 
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
 
 	// Separate data for geth client (when comparison enabled)
-	GethProcessedTransactions []common.Hash        // Geth transaction hashes
-	GethBlockNumsIncludingTx  []uint64             // Geth block numbers
-	GethERC20Addr             common.Address       // Geth contract address
-	GethFilterQuery           ethereum.FilterQuery // Geth filter query
-	GethFilterId              string               // Geth filter ID
-	GethBlockFilterId         string               // Geth block filter ID
-	GetgAcc                   *Account             // Geth account
+	// GethProcessedTransactions []common.Hash        // Geth transaction hashes
+	// GethBlockNumsIncludingTx  []uint64             // Geth block numbers
+	// GethERC20Addr             common.Address       // Geth contract address
+	// GethFilterQuery           ethereum.FilterQuery // Geth filter query
+	// GethFilterId              string               // Geth filter ID
+	// GethBlockFilterId         string               // Geth block filter ID
+	// GetgAcc                   *Account             // Geth account
+
+	GethCtx *TestContext
+	EvmdCtx *TestContext
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {
@@ -113,13 +117,24 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 			PrivKey: ecdsaPrivKey,
 		},
 		ComparisonResults: make([]*ComparisonResult, 0),
-	}
-
-	// Scan existing blockchain state to populate initial data
-	err = ctx.loadExistingState()
-	if err != nil {
-		// Not a fatal error - we can continue with empty state
-		fmt.Printf("Warning: Could not load existing blockchain state: %v\n", err)
+		EvmdCtx: &TestContext{
+			Acc:                   &Account{Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey), PrivKey: ecdsaPrivKey},
+			ERC20Addr:             common.Address{},
+			ProcessedTransactions: make([]common.Hash, 0),
+			BlockNumsIncludingTx:  make([]uint64, 0),
+			FilterQuery:           ethereum.FilterQuery{},
+			FilterID:              "",
+			BlockFilterID:         "",
+		},
+		GethCtx: &TestContext{
+			Acc:                   &Account{Address: crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey), PrivKey: ecdsaPrivKey},
+			ERC20Addr:             common.Address{},
+			ProcessedTransactions: make([]common.Hash, 0),
+			BlockNumsIncludingTx:  make([]uint64, 0),
+			FilterQuery:           ethereum.FilterQuery{},
+			FilterID:              "",
+			BlockFilterID:         "",
+		},
 	}
 
 	return ctx, nil
@@ -133,72 +148,6 @@ func (rCtx *RPCContext) AlreadyTested(rpc RpcName) *RpcResult {
 	}
 	return nil
 
-}
-
-// loadExistingState scans the blockchain and creates test transactions if needed
-func (rCtx *RPCContext) loadExistingState() error {
-	// First, scan existing blocks for any transactions
-	blockNumber, err := rCtx.EthCli.BlockNumber(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to get block number: %v", err)
-	}
-
-	// Scan recent blocks for any existing transactions
-	startBlock := uint64(1) // Start from block 1 (genesis is 0)
-	if blockNumber > 50 {
-		startBlock = blockNumber - 50
-	}
-
-	fmt.Printf("Scanning blocks %d to %d for existing transactions...\n", startBlock, blockNumber)
-
-	for i := startBlock; i <= blockNumber; i++ {
-		block, err := rCtx.EthCli.BlockByNumber(context.Background(), big.NewInt(int64(i)))
-		if err != nil {
-			continue // Skip blocks we can't read
-		}
-
-		// Process transactions in this block
-		for _, tx := range block.Transactions() {
-			txHash := tx.Hash()
-
-			// Get transaction receipt
-			receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), txHash)
-			if err != nil {
-				continue // Skip transactions without receipts
-			}
-
-			// Add successful transactions to our list
-			if receipt.Status == 1 {
-				rCtx.ProcessedTransactions = append(rCtx.ProcessedTransactions, txHash)
-				rCtx.BlockNumsIncludingTx = append(rCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
-
-				// If this transaction created a contract, save the address
-				if receipt.ContractAddress != (common.Address{}) {
-					rCtx.ERC20Addr = receipt.ContractAddress
-					fmt.Printf("Found contract at address: %s (tx: %s)\n", receipt.ContractAddress.Hex(), txHash.Hex())
-				}
-			}
-		}
-	}
-
-	fmt.Printf("Loaded %d existing transactions\n", len(rCtx.ProcessedTransactions))
-
-	// If we don't have enough transactions, create some test transactions now
-	if len(rCtx.ProcessedTransactions) < 3 {
-		fmt.Printf("Note: Only %d transactions found. Consider running more transactions for comprehensive API testing.\n", len(rCtx.ProcessedTransactions))
-		// TODO: Implement createTestTransactions method
-	}
-
-	if rCtx.ERC20Addr != (common.Address{}) {
-		fmt.Printf("Contract available at: %s\n", rCtx.ERC20Addr.Hex())
-	}
-
-	// Load geth state for comparison if enabled
-	if err := rCtx.LoadGethState(); err != nil {
-		log.Printf("Warning: Could not load geth state: %v", err)
-	}
-
-	return nil
 }
 
 // CompareRPCCall performs a dual API call and compares response structures
@@ -548,7 +497,7 @@ func (rCtx *RPCContext) LoadGethState() error {
 	}
 
 	// If we don't have enough geth transactions, create them using existing utilities
-	if len(rCtx.GethProcessedTransactions) < 3 {
+	if len(rCtx.GethCtx.ProcessedTransactions) < 3 {
 		log.Printf("Creating equivalent transactions in geth using ExecuteTransactionBatch...")
 		if err := rCtx.populateGethStateWithBatch(); err != nil {
 			log.Printf("Warning: Could not populate geth state: %v", err)
@@ -557,7 +506,7 @@ func (rCtx *RPCContext) LoadGethState() error {
 	}
 
 	log.Printf("Geth state populated: %d transactions, contract at %s",
-		len(rCtx.GethProcessedTransactions), rCtx.GethERC20Addr.Hex())
+		len(rCtx.GethCtx.ProcessedTransactions), rCtx.GethCtx.ERC20Addr.Hex())
 	return nil
 }
 
@@ -584,18 +533,18 @@ func (rCtx *RPCContext) scanExistingGethTransactions(blockNumber uint64) error {
 			}
 
 			if receipt.Status == 1 {
-				rCtx.GethProcessedTransactions = append(rCtx.GethProcessedTransactions, txHash)
-				rCtx.GethBlockNumsIncludingTx = append(rCtx.GethBlockNumsIncludingTx, receipt.BlockNumber.Uint64())
+				rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, txHash)
+				rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, receipt.BlockNumber.Uint64())
 
 				if receipt.ContractAddress != (common.Address{}) {
-					rCtx.GethERC20Addr = receipt.ContractAddress
+					rCtx.GethCtx.ERC20Addr = receipt.ContractAddress
 					log.Printf("Found existing geth contract: %s", receipt.ContractAddress.Hex())
 				}
 			}
 		}
 	}
 
-	log.Printf("Found %d existing geth transactions", len(rCtx.GethProcessedTransactions))
+	log.Printf("Found %d existing geth transactions", len(rCtx.GethCtx.ProcessedTransactions))
 	return nil
 }
 
@@ -620,16 +569,16 @@ func (rCtx *RPCContext) UpdateGethStateFromBatch(gethHashes []common.Hash, gethC
 	}
 
 	// Update geth transaction hashes
-	rCtx.GethProcessedTransactions = append(rCtx.GethProcessedTransactions, gethHashes...)
+	rCtx.GethCtx.ProcessedTransactions = append(rCtx.GethCtx.ProcessedTransactions, gethHashes...)
 
 	// Update geth contract address if provided
 	if gethContract != (common.Address{}) {
-		rCtx.GethERC20Addr = gethContract
-		log.Printf("Geth contract address updated: %s", rCtx.GethERC20Addr.Hex())
+		rCtx.GethCtx.ERC20Addr = gethContract
+		log.Printf("Geth contract address updated: %s", rCtx.GethCtx.ERC20Addr.Hex())
 	}
 
 	// Update geth block numbers
-	rCtx.GethBlockNumsIncludingTx = append(rCtx.GethBlockNumsIncludingTx, gethBlocks...)
+	rCtx.GethCtx.BlockNumsIncludingTx = append(rCtx.GethCtx.BlockNumsIncludingTx, gethBlocks...)
 
 	log.Printf("Successfully updated geth state with %d transactions", len(gethHashes))
 }

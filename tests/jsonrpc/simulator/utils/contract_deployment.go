@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,6 +21,8 @@ import (
 type ContractDeployment struct {
 	Name        string         `json:"name"`
 	Address     common.Address `json:"address"`
+	ABI         *abi.ABI       `json:"abi,omitempty"`
+	ByteCode    []byte         `json:"byteCode,omitempty"`
 	TxHash      common.Hash    `json:"txHash"`
 	BlockNumber *big.Int       `json:"blockNumber,omitempty"`
 	Network     string         `json:"network"` // "evmd" or "geth"

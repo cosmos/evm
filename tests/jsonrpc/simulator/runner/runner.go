@@ -9,9 +9,6 @@ import (
 func ExecuteAllTests(rCtx *types.RPCContext) []*types.RpcResult {
 	var results []*types.RpcResult
 
-	// Load contract info
-	rCtx = utils.MustLoadContractInfo(rCtx)
-
 	// Get test categories
 	testCategories := GetTestCases()
 

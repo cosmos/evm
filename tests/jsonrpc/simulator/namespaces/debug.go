@@ -82,17 +82,7 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	// Need a transaction hash - use one from our processed transactions
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return &types.RpcResult{
-			Method:   MethodNameDebugTraceTransaction,
-			Status:   types.Error,
-			ErrMsg:   "No processed transactions available for tracing",
-			Category: NamespaceDebug,
-		}, nil
-	}
-
-	txHash := rCtx.ProcessedTransactions[0]
+	txHash := rCtx.EvmdCtx.ProcessedTransactions[0]
 
 	// Test with callTracer configuration to get structured result
 	traceConfig := map[string]interface{}{
@@ -315,17 +305,7 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	// Need a block hash - use one from our processed transactions
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return &types.RpcResult{
-			Method:   MethodNameDebugIntermediateRoots,
-			Status:   types.Error,
-			ErrMsg:   "No processed transactions available",
-			Category: NamespaceDebug,
-		}, nil
-	}
-
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugIntermediateRoots,
@@ -361,17 +341,7 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		return result, nil
 	}
 
-	// Need a block hash - use one from our processed transactions
-	if len(rCtx.ProcessedTransactions) == 0 {
-		return &types.RpcResult{
-			Method:   MethodNameDebugTraceBlockByHash,
-			Status:   types.Error,
-			ErrMsg:   "No processed transactions available",
-			Category: NamespaceDebug,
-		}, nil
-	}
-
-	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.ProcessedTransactions[0])
+	receipt, err := rCtx.EthCli.TransactionReceipt(context.Background(), rCtx.EvmdCtx.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameDebugTraceBlockByHash,
