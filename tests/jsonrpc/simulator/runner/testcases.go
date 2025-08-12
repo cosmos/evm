@@ -52,6 +52,8 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameEthGetBlockByNumber, Handler: ns.EthGetBlockByNumber},
 				{Name: ns.MethodNameEthGetBlockTransactionCountByHash, Handler: ns.EthGetBlockTransactionCountByHash},
 				{Name: ns.MethodNameEthGetBlockReceipts, Handler: ns.EthGetBlockReceipts},
+				{Name: ns.MethodNameEthGetHeaderByHash, Handler: ns.EthGetHeaderByHash},
+				{Name: ns.MethodNameEthGetHeaderByNumber, Handler: ns.EthGetHeaderByNumber},
 				// Uncle subcategory (uncles don't exist in CometBFT, should return 0/nil)
 				{Name: ns.MethodNameEthGetUncleCountByBlockHash, Handler: ns.EthGetUncleCountByBlockHash},
 				{Name: ns.MethodNameEthGetUncleCountByBlockNumber, Handler: ns.EthGetUncleCountByBlockNumber},
@@ -69,6 +71,7 @@ func GetTestCases() []types.TestCase {
 				// Execute subcategory
 				{Name: ns.MethodNameEthCall, Handler: ns.EthCall},
 				{Name: ns.MethodNameEthEstimateGas, Handler: ns.EthEstimateGas},
+				{Name: ns.MethodNameEthSimulateV1, Handler: ns.EthSimulateV1},
 				// Submit subcategory
 				{Name: ns.MethodNameEthSendRawTransaction, Handler: ns.EthSendRawTransaction, Description: "Combined test: Transfer value, Deploy contract, Transfer ERC20"},
 				// Filter subcategory

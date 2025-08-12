@@ -58,6 +58,8 @@ const (
 	MethodNameEthGetUncleByBlockHashAndIndex      types.RpcName = "eth_getUncleByBlockHashAndIndex"
 	MethodNameEthGetUncleByBlockNumberAndIndex    types.RpcName = "eth_getUncleByBlockNumberAndIndex"
 	MethodNameEthGetBlockReceipts                 types.RpcName = "eth_getBlockReceipts"
+	MethodNameEthGetHeaderByHash                  types.RpcName = "eth_getHeaderByHash"
+	MethodNameEthGetHeaderByNumber                types.RpcName = "eth_getHeaderByNumber"
 
 	// Eth namespace - transaction subcategory
 	MethodNameEthGetTransactionByHash                types.RpcName = "eth_getTransactionByHash"
@@ -79,6 +81,7 @@ const (
 	// Eth namespace - execute subcategory
 	MethodNameEthCall        types.RpcName = "eth_call"
 	MethodNameEthEstimateGas types.RpcName = "eth_estimateGas"
+	MethodNameEthSimulateV1  types.RpcName = "eth_simulateV1"
 
 	// Eth namespace - submit subcategory
 	MethodNameEthSendTransaction    types.RpcName = "eth_sendTransaction"
@@ -1890,4 +1893,247 @@ func EthCreateAccessList(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    result,
 		Category: NamespaceEth,
 	}, nil
+}
+
+func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthGetHeaderByHash); result != nil {
+		return result, nil
+	}
+
+	// Get a block hash from processed transactions
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByHash,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
+			Category: NamespaceEth,
+		}, nil
+	}
+
+	var header any
+	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByHash), receipt.BlockHash.Hex())
+
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") {
+			result := &types.RpcResult{
+				Method:   MethodNameEthGetHeaderByHash,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceEth,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+			return result, nil
+		}
+		result := &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByHash,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	// Validate header structure
+	validationErrors := []string{}
+	if header == nil {
+		validationErrors = append(validationErrors, "header is null")
+	} else if headerMap, ok := header.(map[string]any); ok {
+		// Check for required header fields
+		requiredFields := []string{"number", "hash", "parentHash", "timestamp", "gasUsed", "gasLimit"}
+		for _, field := range requiredFields {
+			if _, exists := headerMap[field]; !exists {
+				validationErrors = append(validationErrors, fmt.Sprintf("missing header field '%s'", field))
+			}
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		result := &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByHash,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Header validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameEthGetHeaderByHash,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Header retrieved successfully for hash %s", receipt.BlockHash.Hex()[:10]+"..."),
+		Category: NamespaceEth,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthGetHeaderByNumber); result != nil {
+		return result, nil
+	}
+
+	// Get current block number
+	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByNumber,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get block number: %v", err),
+			Category: NamespaceEth,
+		}, nil
+	}
+
+	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
+
+	var header any
+	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByNumber), blockNumberHex)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") {
+			result := &types.RpcResult{
+				Method:   MethodNameEthGetHeaderByNumber,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceEth,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+			return result, nil
+		}
+		result := &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByNumber,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	// Validate header structure
+	validationErrors := []string{}
+	if header == nil {
+		validationErrors = append(validationErrors, "header is null")
+	} else if headerMap, ok := header.(map[string]any); ok {
+		// Check for required header fields
+		requiredFields := []string{"number", "hash", "parentHash", "timestamp", "gasUsed", "gasLimit"}
+		for _, field := range requiredFields {
+			if _, exists := headerMap[field]; !exists {
+				validationErrors = append(validationErrors, fmt.Sprintf("missing header field '%s'", field))
+			}
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		result := &types.RpcResult{
+			Method:   MethodNameEthGetHeaderByNumber,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Header validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameEthGetHeaderByNumber,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Header retrieved successfully for block %s", blockNumberHex),
+		Category: NamespaceEth,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthSimulateV1); result != nil {
+		return result, nil
+	}
+
+	// Create a simulation request with test parameters
+	simulationReq := map[string]any{
+		"blockStateCalls": []map[string]any{
+			{
+				"blockOverrides": map[string]any{
+					"gasLimit": "0x1c9c380", // 30M gas limit
+				},
+				"calls": []map[string]any{
+					{
+						"from":  rCtx.Evmd.Acc.Address.Hex(),
+						"to":    rCtx.Evmd.Acc.Address.Hex(),
+						"gas":   "0x5208", // 21000 gas
+						"data":  "0x",
+						"value": "0x0",
+					},
+				},
+			},
+		},
+		"traceTransfers": true,
+		"validation":     true,
+	}
+
+	var result any
+	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthSimulateV1), simulationReq)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") ||
+			strings.Contains(err.Error(), "method not found") {
+			result := &types.RpcResult{
+				Method:   MethodNameEthSimulateV1,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM - eth_simulateV1 is a newer Ethereum API",
+				Category: NamespaceEth,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+			return result, nil
+		}
+		rpcResult := &types.RpcResult{
+			Method:   MethodNameEthSimulateV1,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+		return rpcResult, nil
+	}
+
+	// Validate simulation result structure
+	validationErrors := []string{}
+	if result == nil {
+		validationErrors = append(validationErrors, "simulation result is null")
+	} else if resultMap, ok := result.(map[string]any); ok {
+		// Check for expected simulation result fields
+		if blockResults, exists := resultMap["blockResults"]; !exists {
+			validationErrors = append(validationErrors, "missing 'blockResults' in simulation response")
+		} else if blockResultsArray, ok := blockResults.([]any); ok {
+			if len(blockResultsArray) == 0 {
+				validationErrors = append(validationErrors, "blockResults array is empty")
+			}
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		rpcResult := &types.RpcResult{
+			Method:   MethodNameEthSimulateV1,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Simulation validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+		return rpcResult, nil
+	}
+
+	rpcResult := &types.RpcResult{
+		Method:   MethodNameEthSimulateV1,
+		Status:   types.Ok,
+		Value:    "Simulation executed successfully with validation and trace transfers",
+		Category: NamespaceEth,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+	return rpcResult, nil
 }
