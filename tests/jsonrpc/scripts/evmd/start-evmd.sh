@@ -71,6 +71,13 @@ USER4_KEY="dev3"
 USER4_MNEMONIC="doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch"
 
 # Complete initialization (mirroring local_node.sh exactly)
+# Pre-create the directory structure with proper permissions to avoid Docker permission issues
+echo -e "${GREEN}Creating directory structure...${NC}"
+mkdir -p "$DATA_DIR/config"
+mkdir -p "$DATA_DIR/data" 
+mkdir -p "$DATA_DIR/keyring-test"
+chmod -R 755 "$DATA_DIR"
+
 # First initialize the chain to create directory structure
 echo -e "${GREEN}Initializing chain...${NC}"
 echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --entrypoint="" cosmos/evmd \
