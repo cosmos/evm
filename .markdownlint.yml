@@ -3,8 +3,7 @@
 "MD004": false
 "MD007":
   "indent": 4
-"MD024":
-  "siblings_only": true
+"MD024": false
 "MD025": false
 "MD026":
   "punctuation": ".;:"
@@ -18,7 +17,10 @@
 "MD049":
   "style": "asterisk"
 "MD013":
-  "line_length": 120
-  "code_blocks": false
-  "tables": false
+  "line_length": 999
+  "code_blocks": true
+  "tables": true
+  "code_block_line_length": 120
+  "table_line_length": 120
+"MD047": true
 "no-hard-tabs": false

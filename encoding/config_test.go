@@ -37,7 +37,7 @@ func TestTxEncoding(t *testing.T) {
 	_, err = cfg.TxConfig.TxEncoder()(msg)
 	require.Error(t, err, "encoding failed")
 
-	// FIXME: transaction hashing is hardcoded on Tendermint:
+	// FIXME: transaction hashing is hardcoded on CometBFT:
 	// See https://github.com/cometbft/cometbft/issues/6539 for reference
 	// txHash := msg.AsTransaction().Hash()
 	// tmTx := cmttypes.Tx(bz)

@@ -83,10 +83,10 @@ func (s *EvmAnteTestSuite) CreateTxBuilder(privKey cryptotypes.PrivKey, txArgs e
 	err = builder.SetMsgs(&signedMsg)
 	s.Require().NoError(err)
 
-	txData, err := evmtypes.UnpackTxData(signedMsg.Data)
-	s.Require().NoError(err)
+	ethTx := signedMsg.AsTransaction()
+	s.Require().NotNil(ethTx)
 
-	fees := sdk.NewCoins(sdk.NewCoin(s.GetNetwork().GetBaseDenom(), sdkmath.NewIntFromBigInt(txData.Fee())))
+	fees := sdk.NewCoins(sdk.NewCoin(s.GetNetwork().GetBaseDenom(), sdkmath.NewIntFromBigInt(signedMsg.GetFee())))
 	builder.SetFeeAmount(fees)
 	builder.SetGasLimit(signedMsg.GetGas())
 	return builder

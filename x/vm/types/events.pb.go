@@ -32,7 +32,7 @@ type EventEthereumTx struct {
 	Index string `protobuf:"bytes,3,opt,name=index,proto3" json:"index,omitempty"`
 	// gas_used is the amount of gas used by the transaction
 	GasUsed string `protobuf:"bytes,4,opt,name=gas_used,json=gasUsed,proto3" json:"gas_used,omitempty"`
-	// hash is the Tendermint hash of the transaction
+	// hash is the CometBFT hash of the transaction
 	Hash string `protobuf:"bytes,5,opt,name=hash,proto3" json:"hash,omitempty"`
 	// recipient of the transaction
 	Recipient string `protobuf:"bytes,6,opt,name=recipient,proto3" json:"recipient,omitempty"`

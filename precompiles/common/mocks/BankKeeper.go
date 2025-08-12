@@ -137,7 +137,8 @@ func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

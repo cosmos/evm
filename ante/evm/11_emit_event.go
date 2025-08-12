@@ -25,7 +25,7 @@ func NewEthEmitEventDecorator(evmKeeper anteinterfaces.EVMKeeper) EthEmitEventDe
 // AnteHandle emits some basic events for the eth messages
 func (eeed EthEmitEventDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
 	// After eth tx passed ante handler, the fee is deducted and nonce increased, it shouldn't be ignored by json-rpc,
-	// we need to emit some basic events at the very end of ante handler to be indexed by tendermint.
+	// we need to emit some basic events at the very end of ante handler to be indexed by CometBFT.
 	blockTxIndex := eeed.evmKeeper.GetTxIndexTransient(ctx)
 
 	msgs := tx.GetMsgs()
@@ -52,12 +52,12 @@ func (eeed EthEmitEventDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 // tx hash (msg.Hash) instead of using events for indexing Eth txs.
 // TxIndex should be included in the header vote extension as part of ABCI++
 func EmitTxHashEvent(ctx sdk.Context, msg *evmtypes.MsgEthereumTx, blockTxIndex, msgIndex uint64) {
-	// emit ethereum tx hash as an event so that it can be indexed by Tendermint for query purposes
+	// emit ethereum tx hash as an event so that it can be indexed by CometBFT for query purposes
 	// it's emitted in ante handler, so we can query failed transaction (out of block gas limit).
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			evmtypes.EventTypeEthereumTx,
-			sdk.NewAttribute(evmtypes.AttributeKeyEthereumTxHash, msg.Hash),
+			sdk.NewAttribute(evmtypes.AttributeKeyEthereumTxHash, msg.Hash().String()),
 			sdk.NewAttribute(evmtypes.AttributeKeyTxIndex, strconv.FormatUint(blockTxIndex+msgIndex, 10)), // #nosec G115
 		),
 	)

@@ -119,7 +119,7 @@ which accepts a path for the resulting pprof file.
 
 			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
 			if !withTM {
-				serverCtx.Logger.Info("starting ABCI without Tendermint")
+				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
 					return startStandAlone(serverCtx, opts)
 				})

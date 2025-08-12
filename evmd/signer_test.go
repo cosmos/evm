@@ -30,6 +30,7 @@ func (m *mockHasExtOptions) GetMsgs() []sdk.Msg { return []sdk.Msg{m.msg} }
 func (m *mockHasExtOptions) GetMsgsV2() ([]protov2.Message, error) {
 	return []protov2.Message{}, nil
 }
+
 func (m *mockHasExtOptions) GetExtensionOptions() []*codectypes.Any {
 	return []*codectypes.Any{
 		{

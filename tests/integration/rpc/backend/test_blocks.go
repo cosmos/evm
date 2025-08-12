@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -102,7 +103,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 		expPass      bool
 	}{
 		{
-			"pass - tendermint block not found",
+			"pass - CometBFT block not found",
 			ethrpc.BlockNumber(1),
 			true,
 			math.NewInt(1).BigInt(),
@@ -247,7 +248,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 		expPass      bool
 	}{
 		{
-			"fail - tendermint failed to get block",
+			"fail - CometBFT failed to get block",
 			common.BytesToHash(block.Hash()),
 			true,
 			math.NewInt(1).BigInt(),
@@ -262,7 +263,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 			false,
 		},
 		{
-			"fail - tendermint blockres not found",
+			"fail - CometBFT blockres not found",
 			common.BytesToHash(block.Hash()),
 			true,
 			math.NewInt(1).BigInt(),
@@ -277,7 +278,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 			false,
 		},
 		{
-			"noop - tendermint failed to fetch block result",
+			"noop - CometBFT failed to fetch block result",
 			common.BytesToHash(block.Hash()),
 			true,
 			math.NewInt(1).BigInt(),
@@ -394,7 +395,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			false,
 		},
 		{
-			"fail - tendermint client failed to get block result",
+			"fail - CometBFT client failed to get block result",
 			common.BytesToHash(emptyBlock.Hash()),
 			func(hash common.Hash) {
 				height := int64(1)
@@ -474,7 +475,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			false,
 		},
 		{
-			"fail - tendermint client failed to get block result",
+			"fail - CometBFT client failed to get block result",
 			ethrpc.BlockNumber(emptyBlock.Height),
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
@@ -530,7 +531,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 	}
 }
 
-func (s *TestSuite) TestTendermintBlockByNumber() {
+func (s *TestSuite) TestCometBlockByNumber() {
 	var expResultHeader *cmtrpctypes.ResultBlock
 
 	testCases := []struct {
@@ -592,7 +593,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 			true,
 		},
 		{
-			"pass - blockNum = 0 (defaults to blockNum = 1 due to a difference between tendermint heights and geth heights)",
+			"pass - blockNum = 0 (defaults to blockNum = 1 due to a difference between CometBFT heights and geth heights)",
 			ethrpc.BlockNumber(0),
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
@@ -619,7 +620,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.blockNumber)
-			resultBlock, err := s.backend.TendermintBlockByNumber(tc.blockNumber)
+			resultBlock, err := s.backend.CometBlockByNumber(tc.blockNumber)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -628,7 +629,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 					s.Require().Nil(resultBlock)
 				} else {
 					s.Require().Equal(expResultHeader, resultBlock)
-					s.Require().Equal(expResultHeader.Block.Header.Height, resultBlock.Block.Header.Height)
+					s.Require().Equal(expResultHeader.Block.Height, resultBlock.Block.Height)
 				}
 			} else {
 				s.Require().Error(err)
@@ -637,7 +638,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 	}
 }
 
-func (s *TestSuite) TestTendermintBlockResultByNumber() {
+func (s *TestSuite) TestCometBlockResultByNumber() {
 	var expBlockRes *cmtrpctypes.ResultBlockResults
 
 	testCases := []struct {
@@ -688,7 +689,7 @@ func (s *TestSuite) TestTendermintBlockResultByNumber() {
 	}
 }
 
-func (s *TestSuite) TestBlockNumberFromTendermint() {
+func (s *TestSuite) TestBlockNumberFromComet() {
 	var resHeader *cmtrpctypes.ResultHeader
 
 	_, bz := s.buildEthereumTx()
@@ -711,7 +712,7 @@ func (s *TestSuite) TestBlockNumberFromTendermint() {
 			false,
 		},
 		{
-			"error - with blockHash, tendermint client failed to get block",
+			"error - with blockHash, CometBFT client failed to get block",
 			nil,
 			&blockHash,
 			func(hash *common.Hash) {
@@ -748,7 +749,7 @@ func (s *TestSuite) TestBlockNumberFromTendermint() {
 			}
 
 			tc.registerMock(tc.hash)
-			blockNum, err := s.backend.BlockNumberFromTendermint(blockNrOrHash)
+			blockNum, err := s.backend.BlockNumberFromComet(blockNrOrHash)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -765,7 +766,7 @@ func (s *TestSuite) TestBlockNumberFromTendermint() {
 	}
 }
 
-func (s *TestSuite) TestBlockNumberFromTendermintByHash() {
+func (s *TestSuite) TestBlockNumberFromCometByHash() {
 	var resHeader *cmtrpctypes.ResultHeader
 
 	_, bz := s.buildEthereumTx()
@@ -779,7 +780,7 @@ func (s *TestSuite) TestBlockNumberFromTendermintByHash() {
 		expPass      bool
 	}{
 		{
-			"fail - tendermint client failed to get block",
+			"fail - CometBFT client failed to get block",
 			common.BytesToHash(block.Hash()),
 			func(hash common.Hash) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
@@ -811,7 +812,7 @@ func (s *TestSuite) TestBlockNumberFromTendermintByHash() {
 			s.SetupTest() // reset test and queries
 
 			tc.registerMock(tc.hash)
-			blockNum, err := s.backend.BlockNumberFromTendermintByHash(tc.hash)
+			blockNum, err := s.backend.BlockNumberFromCometByHash(tc.hash)
 			if tc.expPass {
 				expHeight := big.NewInt(resHeader.Header.Height)
 				s.Require().NoError(err)
@@ -889,7 +890,7 @@ func (s *TestSuite) TestBlockBloom() {
 	}
 }
 
-func (s *TestSuite) TestGetEthBlockFromTendermint() {
+func (s *TestSuite) TestGetEthBlockFromComet() {
 	msgEthereumTx, bz := s.buildEthereumTx()
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
@@ -1083,7 +1084,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.validator, tc.height)
 
-			block, err := s.backend.RPCBlockFromTendermintBlock(tc.resBlock, tc.blockRes, tc.fullTx)
+			block, err := s.backend.RPCBlockFromCometBlock(tc.resBlock, tc.blockRes, tc.fullTx)
 
 			var expBlock map[string]interface{}
 			header := tc.resBlock.Block.Header
@@ -1109,7 +1110,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 					s.Require().NoError(err)
 					ethRPCTxs = []interface{}{rpcTx}
 				} else {
-					ethRPCTxs = []interface{}{common.HexToHash(msgEthereumTx.Hash)}
+					ethRPCTxs = []interface{}{msgEthereumTx.Hash()}
 				}
 			}
 
@@ -1134,7 +1135,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 	}
 }
 
-func (s *TestSuite) TestEthMsgsFromTendermintBlock() {
+func (s *TestSuite) TestEthMsgsFromCometBlock() {
 	msgEthereumTx, bz := s.buildEthereumTx()
 
 	testCases := []struct {
@@ -1192,8 +1193,14 @@ func (s *TestSuite) TestEthMsgsFromTendermintBlock() {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			s.SetupTest() // reset test and queries
 
-			msgs := s.backend.EthMsgsFromTendermintBlock(tc.resBlock, tc.blockRes)
-			s.Require().Equal(tc.expMsgs, msgs)
+			msgs := s.backend.EthMsgsFromCometBlock(tc.resBlock, tc.blockRes)
+			for i, expMsg := range tc.expMsgs {
+				expBytes, err := json.Marshal(expMsg)
+				s.Require().Nil(err)
+				bytes, err := json.Marshal(msgs[i])
+				s.Require().Nil(err)
+				s.Require().Equal(expBytes, bytes)
+			}
 		})
 	}
 }
@@ -1211,7 +1218,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 		expPass      bool
 	}{
 		{
-			"fail - tendermint client failed to get block",
+			"fail - CometBFT client failed to get block",
 			ethrpc.BlockNumber(1),
 			math.NewInt(1).BigInt(),
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
@@ -1298,7 +1305,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			header, err := s.backend.HeaderByNumber(tc.blockNumber)
 
 			if tc.expPass {
-				expHeader := ethrpc.EthHeaderFromTendermint(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
+				expHeader := ethrpc.EthHeaderFromComet(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
 				s.Require().NoError(err)
 				s.Require().Equal(expHeader, header)
 			} else {
@@ -1323,7 +1330,7 @@ func (s *TestSuite) TestHeaderByHash() {
 		expPass      bool
 	}{
 		{
-			"fail - tendermint client failed to get block",
+			"fail - CometBFT client failed to get block",
 			common.BytesToHash(block.Hash()),
 			math.NewInt(1).BigInt(),
 			func(hash common.Hash, _ math.Int) {
@@ -1409,7 +1416,7 @@ func (s *TestSuite) TestHeaderByHash() {
 			header, err := s.backend.HeaderByHash(tc.hash)
 
 			if tc.expPass {
-				expHeader := ethrpc.EthHeaderFromTendermint(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
+				expHeader := ethrpc.EthHeaderFromComet(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
 				s.Require().NoError(err)
 				s.Require().Equal(expHeader, header)
 			} else {
@@ -1431,7 +1438,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 		expPass      bool
 	}{
 		{
-			"fail - tendermint client failed to get block",
+			"fail - CometBFT client failed to get block",
 			ethrpc.BlockNumber(1),
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
@@ -1469,7 +1476,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromTendermint(
+				ethrpc.EthHeaderFromComet(
 					emptyBlock.Header,
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
@@ -1495,7 +1502,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromTendermint(
+				ethrpc.EthHeaderFromComet(
 					emptyBlock.Header,
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
@@ -1532,7 +1539,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 	}
 }
 
-func (s *TestSuite) TestEthBlockFromTendermintBlock() {
+func (s *TestSuite) TestEthBlockFromCometBlock() {
 	msgEthereumTx, bz := s.buildEthereumTx()
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
@@ -1560,7 +1567,7 @@ func (s *TestSuite) TestEthBlockFromTendermintBlock() {
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromTendermint(
+				ethrpc.EthHeaderFromComet(
 					emptyBlock.Header,
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
@@ -1594,7 +1601,7 @@ func (s *TestSuite) TestEthBlockFromTendermintBlock() {
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromTendermint(
+				ethrpc.EthHeaderFromComet(
 					emptyBlock.Header,
 					ethtypes.Bloom{},
 					math.NewInt(1).BigInt(),
@@ -1611,7 +1618,7 @@ func (s *TestSuite) TestEthBlockFromTendermintBlock() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.blockRes.Height)
 
-			ethBlock, err := s.backend.EthBlockFromTendermintBlock(tc.resBlock, tc.blockRes)
+			ethBlock, err := s.backend.EthBlockFromCometBlock(tc.resBlock, tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)
