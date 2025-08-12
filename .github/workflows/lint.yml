@@ -1,13 +1,14 @@
 name: Lint
 # Lint runs golangci-lint over the entire Cosmos EVM repository
-# This workflow runs on every pull request and push to main
+# This workflow runs on every pull request and merge queue
 
 on:
   pull_request:
+  merge_group:
 
 # cancel superseded runs
 concurrency:
-  group: lint-${{ github.ref }}
+  group: lint-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions: read-all
@@ -51,19 +52,26 @@ jobs:
           make lint-go
 
   markdown-lint:
-    name: markdownlint (cli2, minimal)
+    name: markdownlint (cli2, minimal, non-blocking)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: write   # allows auto-fix pushes on same-repo PRs; forks stay read-only
     steps:
-      - uses: actions/checkout@v4
+      # Same-repo PRs: checkout the head branch so fixes can be pushed back
+      - name: Checkout PR head (same-repo)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # operate on head when applicable
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
-      # only run if markdown or configs changed
+      # Fork PRs, merge queue, and any other case: default checkout (safe merge ref)
+      - name: Checkout (default)
+        if: github.event_name == 'merge_group' || github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v4
+
+      # Only run if markdown or configs changed
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
@@ -71,24 +79,26 @@ jobs:
             .markdownlint.yml
             .markdownlintignore
 
-      # stable Node
+      # Stable Node
       - uses: actions/setup-node@v4
         if: env.GIT_DIFF
         with:
           node-version: "20"
 
-      # single pass: check; auto-fix for same-repo PRs (forks will fail)
+      # Lint (non-blocking): auto-fix on same-repo PRs, never fail the job
       - name: markdownlint (check or fix)
+        id: md_lint
         if: env.GIT_DIFF
+        continue-on-error: true
         uses: DavidAnson/markdownlint-cli2-action@v16
         with:
           globs: "**/*.md"
           config: .markdownlint.yml
           fix: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
-      # if fixes applied, commit & push
-      - name: Push auto-fixes (PRs only)
-        if: env.GIT_DIFF && github.event_name == 'pull_request'
+      # If fixes applied, commit & push (same-repo PRs only, not merge queue)
+      - name: Push auto-fixes (same-repo PRs only)
+        if: env.GIT_DIFF && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           if [[ -n $(git status -s) ]]; then
             git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -97,3 +107,10 @@ jobs:
             git commit -m "Auto-fix markdown lint issues"
             git push
           fi
+
+      # Warn if any issues remain after auto-fix (or on forks)
+      - name: Report remaining markdown issues (non-blocking)
+        if: env.GIT_DIFF && steps.md_lint.outcome == 'failure'
+        run: |
+          echo "::warning::Markdown lint issues remain after the check/fix step. For local fixes, run:"
+          echo "  npx markdownlint-cli2 --config .markdownlint.yml --fix '**/*.md'"
