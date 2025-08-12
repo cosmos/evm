@@ -9,7 +9,6 @@ import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
-import "google/protobuf/any.proto";
 
 option go_package = "github.com/cosmos/evm/x/vm/types";
 
