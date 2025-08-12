@@ -767,7 +767,7 @@ func NewExampleApp(
 			BlockGasLimit: 100_000_000,
 		}
 
-		evmMempool := evmmempool.NewEVMMempool(app.CreateQueryContext, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
+		evmMempool := evmmempool.NewEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
 		app.EVMMempool = evmMempool
 
 		// Set the global mempool for RPC access

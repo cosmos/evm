@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"cosmossdk.io/log"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -42,6 +44,7 @@ type (
 		cosmosPool   sdkmempool.ExtMempool
 
 		/** Utils **/
+		logger        log.Logger
 		txConfig      client.TxConfig
 		blockchain    *Blockchain
 		bondDenom     string
@@ -71,7 +74,7 @@ type EVMMempoolConfig struct {
 // It initializes both EVM and Cosmos transaction pools, sets up blockchain interfaces,
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
-func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *EVMMempool {
+func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *EVMMempool {
 	var (
 		txPool      *txpool.TxPool
 		cosmosPool  sdkmempool.ExtMempool
@@ -82,6 +85,11 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 	bondDenom := evmtypes.GetEVMCoinDenom()
 	evmDenom := types.ExtendedCoinDenom()
 
+	// add the mempool name to the logger
+	logger = logger.With(log.ModuleKey, "EVMMempool")
+
+	logger.Debug("creating new EVM mempool")
+
 	if config == nil {
 		panic("config must not be nil")
 	}
@@ -89,13 +97,14 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 	anteHandler = config.AnteHandler
 
 	if config.BlockGasLimit == 0 {
+		logger.Debug("block gas limit is 0, setting default", "default_limit", 100_000_000)
 		config.BlockGasLimit = 100_000_000
 	}
 
 	// Default txPool
 	txPool = config.TxPool
 	if txPool == nil {
-		blockchain = newBlockchain(getCtxCallback, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
+		blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 		legacyPool := legacypool.New(legacypool.DefaultConfig, blockchain)
 
 		// Set up broadcast function using clientCtx
@@ -106,6 +115,7 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 			// The EVM mempool will broadcast transactions when it promotes them
 			// from queued into pending, noting their readiness to be executed.
 			legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
+				logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
 				return broadcastEVMTransactions(clientCtx, txConfig, txs)
 			}
 		}
@@ -153,6 +163,7 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 		txPool:        txPool,
 		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
 		cosmosPool:    cosmosPool,
+		logger:        logger,
 		txConfig:      txConfig,
 		blockchain:    blockchain,
 		bondDenom:     bondDenom,
@@ -183,23 +194,37 @@ func (m *EVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	defer m.mtx.Unlock()
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if ctx.BlockHeight() < 2 {
+	blockHeight := ctx.BlockHeight()
+
+	m.logger.Debug("inserting transaction into mempool", "block_height", blockHeight)
+
+	if blockHeight < 2 {
 		return errorsmod.Wrap(sdkerrors.ErrInvalidHeight, "Mempool is not ready. Please wait for block 1 to finalize.")
 	}
 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Insert into EVM pool
+		m.logger.Debug("inserting EVM transaction", "tx_hash", ethMsg.Hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
 		errs := m.txPool.Add(ethTxs, true)
 		if len(errs) > 0 && errs[0] != nil {
+			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", ethMsg.Hash)
 			return errs[0]
 		}
+		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", ethMsg.Hash)
 		return nil
 	}
 
 	// Insert into cosmos pool for non-EVM transactions
-	return m.cosmosPool.Insert(goCtx, tx)
+	m.logger.Debug("inserting Cosmos transaction", "error", err)
+	err = m.cosmosPool.Insert(goCtx, tx)
+	if err != nil {
+		m.logger.Error("failed to insert Cosmos transaction", "error", err)
+	} else {
+		m.logger.Debug("Cosmos transaction inserted successfully")
+	}
+	return err
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -243,7 +268,7 @@ func (m *EVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterat
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID)
 
 	return combinedIterator
 }
@@ -262,6 +287,8 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	m.logger.Debug("removing transaction from mempool")
+
 	msg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Comet will attempt to remove transactions from the mempool after completing successfully.
@@ -269,7 +296,10 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 		// be dequeued as temporarily invalid, only to be requeued a block later.
 		// The EVM mempool handles removal based on account nonce automatically.
 		if m.shouldRemoveFromEVMPool(tx) {
+			m.logger.Debug("manually removing EVM transaction", "tx_hash", msg.Hash)
 			m.legacyTxPool.RemoveTx(common.HexToHash(msg.Hash), false, true)
+		} else {
+			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", msg.Hash)
 		}
 		return nil
 	}
@@ -278,7 +308,14 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 		return err
 	}
 
-	return m.cosmosPool.Remove(tx)
+	m.logger.Debug("removing Cosmos transaction")
+	err = m.cosmosPool.Remove(tx)
+	if err != nil {
+		m.logger.Error("failed to remove Cosmos transaction", "error", err)
+	} else {
+		m.logger.Debug("Cosmos transaction removed successfully")
+	}
+	return err
 }
 
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
@@ -286,6 +323,7 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 // other than nonce gaps or successful execution, in which case manual removal is needed.
 func (m *EVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 	if m.anteHandler == nil {
+		m.logger.Debug("no ante handler available, keeping transaction")
 		return false
 	}
 
@@ -293,16 +331,24 @@ func (m *EVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 	// If it was any other Cosmos or antehandler related issue, then we remove it.
 	ctx, err := m.blockchain.GetLatestCtx()
 	if err != nil {
+		m.logger.Debug("cannot get latest context for validation, keeping transaction", "error", err)
 		return false // Cannot validate, keep transaction
 	}
 
 	_, err = m.anteHandler(ctx, tx, true)
 	// Keep nonce gap transactions, remove others that fail validation
 	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) || errors.Is(err, sdkerrors.ErrOutOfGas) {
+		m.logger.Debug("nonce gap detected, keeping transaction", "error", err)
 		return false
 	}
 
-	return true
+	if err != nil {
+		m.logger.Debug("transaction validation failed, should be removed", "error", err)
+	} else {
+		m.logger.Debug("transaction validation succeeded, should be kept")
+	}
+
+	return err != nil
 }
 
 // SelectBy iterates through transactions until the provided filter function returns false.
@@ -314,7 +360,7 @@ func (m *EVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) 
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID)
 
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()
@@ -348,6 +394,8 @@ func (m *EVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.Tra
 	if baseFee != nil {
 		baseFeeUint = uint256.MustFromBig(baseFee)
 	}
+
+	m.logger.Debug("getting iterators")
 
 	pendingFilter := txpool.PendingFilter{
 		MinTip:       nil,

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"cosmossdk.io/log"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -33,6 +35,7 @@ var (
 // specifically designed for instant finality chains where reorgs never occur.
 type Blockchain struct {
 	getCtxCallback     func(height int64, prove bool) (sdk.Context, error)
+	logger             log.Logger
 	vmKeeper           VMKeeperI
 	feeMarketKeeper    FeeMarketKeeperI
 	chainHeadFeed      *event.Feed
@@ -44,9 +47,15 @@ type Blockchain struct {
 // newBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
 // The getCtxCallback function provides access to Cosmos SDK contexts at different heights, vmKeeper manages EVM state,
 // and feeMarketKeeper handles fee market operations like base fee calculations.
-func newBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, blockGasLimit uint64) *Blockchain {
+func newBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, blockGasLimit uint64) *Blockchain {
+	// Add the blockchain name to the logger
+	logger = logger.With(log.ModuleKey, "Blockchain")
+
+	logger.Debug("creating new blockchain instance", "block_gas_limit", blockGasLimit)
+
 	return &Blockchain{
 		getCtxCallback:  ctx,
+		logger:          logger,
 		vmKeeper:        vmKeeper,
 		feeMarketKeeper: feeMarketKeeper,
 		chainHeadFeed:   new(event.Feed),
@@ -73,17 +82,23 @@ func (b Blockchain) CurrentBlock() *types.Header {
 	ctx, err := b.GetLatestCtx()
 	// This should only error out on the first block.
 	if err != nil {
+		b.logger.Debug("failed to get latest context, returning zero header", "error", err)
 		return b.zeroHeader
 	}
 
+	blockHeight := ctx.BlockHeight()
+	blockTime := ctx.BlockTime().Unix()
+	gasUsed := b.feeMarketKeeper.GetBlockGasWanted(ctx)
+	appHash := common.BytesToHash(ctx.BlockHeader().AppHash)
+
 	header := &types.Header{
-		Number:     big.NewInt(ctx.BlockHeight()),
-		Time:       uint64(ctx.BlockTime().Unix()), // #nosec G115 -- overflow not a concern with unix time
+		Number:     big.NewInt(blockHeight),
+		Time:       uint64(blockTime), // #nosec G115 -- overflow not a concern with unix time
 		GasLimit:   b.blockGasLimit,
-		GasUsed:    b.feeMarketKeeper.GetBlockGasWanted(ctx),
+		GasUsed:    gasUsed,
 		ParentHash: b.previousHeaderHash,
-		Root:       common.BytesToHash(ctx.BlockHeader().AppHash), // we actually don't care that this isn't the getCtxCallback header, as long as we properly track roots and parent roots to prevent the reorg from triggering
-		Difficulty: big.NewInt(0),                                 // 0 difficulty on PoS
+		Root:       appHash,       // we actually don't care that this isn't the getCtxCallback header, as long as we properly track roots and parent roots to prevent the reorg from triggering
+		Difficulty: big.NewInt(0), // 0 difficulty on PoS
 	}
 
 	chainConfig := evmtypes.GetEthChainConfig()
@@ -91,9 +106,29 @@ func (b Blockchain) CurrentBlock() *types.Header {
 		baseFee := b.vmKeeper.GetBaseFee(ctx)
 		if baseFee != nil {
 			header.BaseFee = baseFee
+			b.logger.Debug("added base fee to header", "base_fee", baseFee.String())
+		} else {
+			b.logger.Debug("no base fee available for London fork")
 		}
+	} else {
+		b.logger.Debug("London fork not active for current block", "block_number", header.Number.String())
 	}
 
+	b.logger.Debug("current block header constructed",
+		"header_hash", header.Hash().Hex(),
+		"number", header.Number.String(),
+		"time", header.Time,
+		"gas_limit", header.GasLimit,
+		"gas_used", header.GasUsed,
+		"parent_hash", header.ParentHash.Hex(),
+		"root", header.Root.Hex(),
+		"difficulty", header.Difficulty.String(),
+		"base_fee", func() string {
+			if header.BaseFee != nil {
+				return header.BaseFee.String()
+			}
+			return "nil"
+		}())
 	return header
 }
 
@@ -103,27 +138,44 @@ func (b Blockchain) CurrentBlock() *types.Header {
 // Panics if called for blocks beyond block 1, as this would indicate an attempted reorg.
 func (b Blockchain) GetBlock(_ common.Hash, _ uint64) *types.Block {
 	currBlock := b.CurrentBlock()
-	if currBlock.Number.Cmp(big.NewInt(0)) == 0 {
+	blockNumber := currBlock.Number.Int64()
+
+	b.logger.Debug("GetBlock called", "block_number", blockNumber)
+
+	if blockNumber == 0 {
+		b.logger.Debug("returning genesis block", "block_number", blockNumber)
 		currBlock.ParentHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 		return types.NewBlockWithHeader(currBlock)
-	} else if currBlock.Number.Cmp(big.NewInt(1)) == 0 {
+	} else if blockNumber == 1 {
+		b.logger.Debug("returning block 1", "block_number", blockNumber)
 		return types.NewBlockWithHeader(currBlock)
 	}
 
+	b.logger.Error("GetBlock called for invalid block number - this indicates a reorg attempt", "block_number", blockNumber)
 	panic("GetBlock should never be called on a Cosmos chain due to instant finality - this indicates a reorg is being attempted")
 }
 
 // SubscribeChainHeadEvent allows subscribers to receive notifications when new blocks are finalized.
 // Returns a subscription that will receive ChainHeadEvent notifications via the provided channel.
 func (b Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+	b.logger.Debug("new chain head event subscription created")
 	return b.chainHeadFeed.Subscribe(ch)
 }
 
 // NotifyNewBlock sends a chain head event when a new block is finalized
 func (b *Blockchain) NotifyNewBlock() {
 	header := b.CurrentBlock()
-	b.previousHeaderHash = header.Hash()
+	headerHash := header.Hash()
+
+	b.logger.Debug("notifying new block",
+		"block_number", header.Number.String(),
+		"block_hash", headerHash.Hex(),
+		"previous_hash", b.previousHeaderHash.Hex())
+
+	b.previousHeaderHash = headerHash
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Header: header})
+
+	b.logger.Debug("chain head event sent to feed")
 }
 
 // StateAt returns the StateDB object for a given block hash.
@@ -131,8 +183,11 @@ func (b *Blockchain) NotifyNewBlock() {
 // only needs current state for validation. Historical state access is not supported
 // as it's never required by the txpool.
 func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
+	b.logger.Debug("StateAt called", "requested_hash", hash.Hex())
+
 	// This is returned at block 0, before the context is available.
 	if hash == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000") || hash == types.EmptyCodeHash {
+		b.logger.Debug("returning nil StateDB for zero hash or empty code hash")
 		return vm.StateDB(nil), nil
 	}
 
@@ -143,16 +198,28 @@ func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 		return nil, fmt.Errorf("failed to get latest context for StateAt: %w", err)
 	}
 
-	return statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig(common.Hash(ctx.BlockHeader().AppHash))), nil
+	appHash := ctx.BlockHeader().AppHash
+	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig(common.Hash(appHash)))
+
+	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
+	return stateDB, nil
 }
 
 // GetLatestCtx retrieves the most recent query context from the application.
 // This provides access to the current blockchain state for transaction validation and execution.
 func (b Blockchain) GetLatestCtx() (sdk.Context, error) {
+	b.logger.Debug("getting latest context")
+
 	ctx, err := b.getCtxCallback(0, false)
 	if err != nil {
-		return sdk.Context{}, sdkerrors.Wrapf(err, "getting latest context")
+		return sdk.Context{}, sdkerrors.Wrapf(err, "failed to get latest context")
 	}
+
 	ctx = ctx.WithBlockGasMeter(sdktypes.NewGasMeter(b.blockGasLimit))
+
+	b.logger.Debug("latest context retrieved successfully",
+		"block_height", ctx.BlockHeight(),
+		"gas_limit", b.blockGasLimit)
+
 	return ctx, nil
 }
