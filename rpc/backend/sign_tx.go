@@ -62,7 +62,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	// the corresponding EvmChainID validation, we need to sign the transaction before calling it
 
 	// Sign transaction
-	msg := args.ToTransaction()
+	msg := evmtypes.NewTxFromArgs(&args)
 	if err := msg.Sign(signer, b.ClientCtx.Keyring); err != nil {
 		b.Logger.Debug("failed to sign tx", "error", err.Error())
 		return common.Hash{}, err

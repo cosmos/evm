@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -628,7 +629,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 					s.Require().Nil(resultBlock)
 				} else {
 					s.Require().Equal(expResultHeader, resultBlock)
-					s.Require().Equal(expResultHeader.Block.Header.Height, resultBlock.Block.Header.Height)
+					s.Require().Equal(expResultHeader.Block.Height, resultBlock.Block.Height)
 				}
 			} else {
 				s.Require().Error(err)
@@ -1109,7 +1110,7 @@ func (s *TestSuite) TestGetEthBlockFromTendermint() {
 					s.Require().NoError(err)
 					ethRPCTxs = []interface{}{rpcTx}
 				} else {
-					ethRPCTxs = []interface{}{common.HexToHash(msgEthereumTx.Hash)}
+					ethRPCTxs = []interface{}{msgEthereumTx.Hash()}
 				}
 			}
 
@@ -1193,7 +1194,13 @@ func (s *TestSuite) TestEthMsgsFromTendermintBlock() {
 			s.SetupTest() // reset test and queries
 
 			msgs := s.backend.EthMsgsFromTendermintBlock(tc.resBlock, tc.blockRes)
-			s.Require().Equal(tc.expMsgs, msgs)
+			for i, expMsg := range tc.expMsgs {
+				expBytes, err := json.Marshal(expMsg)
+				s.Require().Nil(err)
+				bytes, err := json.Marshal(msgs[i])
+				s.Require().Nil(err)
+				s.Require().Equal(expBytes, bytes)
+			}
 		})
 	}
 }
