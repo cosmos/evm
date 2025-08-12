@@ -13,7 +13,7 @@ import (
 // It wraps the standard transaction execution flow to handle EVM-specific nonce gap errors by routing
 // transactions with higher tx sequence numbers to the mempool for potential future execution.
 // Returns a handler function that processes ABCI CheckTx requests and manages EVM transaction sequencing.
-func NewCheckTxHandler(mempool *EVMMempool) types.CheckTxHandler {
+func NewCheckTxHandler(mempool *ExperimentalEVMMempool) types.CheckTxHandler {
 	return func(runTx types.RunTx, request *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
 		gInfo, result, anteEvents, err := runTx(request.Tx, nil)
 		if err != nil {

@@ -25,14 +25,14 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = &EVMMempool{}
+var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
 type (
-	// EVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
+	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
 	// It provides a single interface for transaction insertion, selection, and removal while
 	// maintaining separate pools for EVM and Cosmos transactions. The mempool handles
 	// fee-based transaction prioritization and manages nonce sequencing for EVM transactions.
-	EVMMempool struct {
+	ExperimentalEVMMempool struct {
 		/** Keepers **/
 		vmKeeper VMKeeperI
 
@@ -68,11 +68,11 @@ type EVMMempoolConfig struct {
 	BlockGasLimit uint64 // Block gas limit from consensus parameters
 }
 
-// NewEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
+// NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
 // It initializes both EVM and Cosmos transaction pools, sets up blockchain interfaces,
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
-func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *EVMMempool {
+func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
 	var (
 		txPool      *txpool.TxPool
 		cosmosPool  sdkmempool.ExtMempool
@@ -84,7 +84,7 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 	evmDenom := types.ExtendedCoinDenom()
 
 	// add the mempool name to the logger
-	logger = logger.With(log.ModuleKey, "EVMMempool")
+	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")
 
 	logger.Debug("creating new EVM mempool")
 
@@ -156,7 +156,7 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 		cosmosPool = sdkmempool.NewPriorityMempool(priorityConfig)
 	}
 
-	evmMempool := &EVMMempool{
+	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:      vmKeeper,
 		txPool:        txPool,
 		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
@@ -177,13 +177,13 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
 // This is primarily used to notify the mempool when new blocks are finalized.
-func (m *EVMMempool) GetBlockchain() *Blockchain {
+func (m *ExperimentalEVMMempool) GetBlockchain() *Blockchain {
 	return m.blockchain
 }
 
 // GetTxPool returns the underlying EVM txpool.
 // This provides direct access to the EVM-specific transaction management functionality.
-func (m *EVMMempool) GetTxPool() *txpool.TxPool {
+func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 	return m.txPool
 }
 
@@ -191,7 +191,7 @@ func (m *EVMMempool) GetTxPool() *txpool.TxPool {
 // EVM transactions are routed to the EVM transaction pool, while all other
 // transactions are inserted into the Cosmos sdkmempool. The method assumes
 // transactions have already passed CheckTx validation.
-func (m *EVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -233,7 +233,7 @@ func (m *EVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
 // It attempts to insert EVM transactions into the pool as non-local transactions,
 // allowing them to be queued for future execution when the nonce gap is filled.
 // Non-EVM transactions are discarded as regular Cosmos flows do not support nonce gaps.
-func (m *EVMMempool) InsertInvalidNonce(txBytes []byte) error {
+func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 	tx, err := m.txConfig.TxDecoder()(txBytes)
 	if err != nil {
 		return err
@@ -264,7 +264,7 @@ func (m *EVMMempool) InsertInvalidNonce(txBytes []byte) error {
 // Select returns a unified iterator over both EVM and Cosmos transactions.
 // The iterator prioritizes transactions based on their fees and manages proper
 // sequencing. The i parameter contains transaction hashes to exclude from selection.
-func (m *EVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
+func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -277,7 +277,7 @@ func (m *EVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterat
 
 // CountTx returns the total number of transactions in both EVM and Cosmos pools.
 // This provides a combined count across all mempool types.
-func (m *EVMMempool) CountTx() int {
+func (m *ExperimentalEVMMempool) CountTx() int {
 	pending, _ := m.txPool.Stats()
 	return m.cosmosPool.CountTx() + pending
 }
@@ -285,7 +285,7 @@ func (m *EVMMempool) CountTx() int {
 // Remove removes a transaction from the appropriate sdkmempool.
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
-func (m *EVMMempool) Remove(tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -323,7 +323,7 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 // shouldRemoveFromEVMPool determines whether an EVM transaction should be manually removed.
 // It uses the AnteHandler to check if the transaction failed for reasons
 // other than nonce gaps or successful execution, in which case manual removal is needed.
-func (m *EVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
+func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 	if m.anteHandler == nil {
 		m.logger.Debug("no ante handler available, keeping transaction")
 		return false
@@ -356,7 +356,7 @@ func (m *EVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 // SelectBy iterates through transactions until the provided filter function returns false.
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
-func (m *EVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
+func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -371,7 +371,7 @@ func (m *EVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) 
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
 // Returns an error if the transaction has no messages, multiple messages, or the single message is not an EVM transaction.
-func (m *EVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
+func (m *ExperimentalEVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 	msgs := tx.GetMsgs()
 	if len(msgs) == 0 {
 		return nil, ErrNoMessages
@@ -389,7 +389,7 @@ func (m *EVMMempool) getEVMMessage(tx sdk.Tx) (*evmtypes.MsgEthereumTx, error) {
 // getIterators prepares iterators over pending EVM and Cosmos transactions.
 // It configures EVM transactions with proper base fee filtering and priority ordering,
 // while setting up the Cosmos iterator with the provided exclusion list.
-func (m *EVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
+func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.TransactionsByPriceAndNonce, sdkmempool.Iterator) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	baseFee := m.vmKeeper.GetBaseFee(ctx)
 	var baseFeeUint *uint256.Int

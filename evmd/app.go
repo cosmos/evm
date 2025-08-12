@@ -198,7 +198,7 @@ type EVMD struct {
 	EVMKeeper         *evmkeeper.Keeper
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
-	EVMMempool        *evmmempool.EVMMempool
+	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -771,7 +771,7 @@ func NewExampleApp(
 			BlockGasLimit: 100_000_000,
 		}
 
-		evmMempool := evmmempool.NewEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
+		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
 		app.EVMMempool = evmMempool
 
 		// Set the global mempool for RPC access

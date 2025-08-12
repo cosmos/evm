@@ -79,7 +79,7 @@ type Keeper struct {
 
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
-	evmMempool *evmmempool.EVMMempool
+	evmMempool *evmmempool.ExperimentalEVMMempool
 }
 
 // NewKeeper generates new evm module keeper
@@ -393,11 +393,11 @@ func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
 }
 
 // SetEvmMempool sets the evm mempool
-func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.EVMMempool) {
+func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.ExperimentalEVMMempool) {
 	k.evmMempool = evmMempool
 }
 
 // GetEvmMempool returns the evm mempool
-func (k Keeper) GetEvmMempool() *evmmempool.EVMMempool {
+func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
 	return k.evmMempool
 }
