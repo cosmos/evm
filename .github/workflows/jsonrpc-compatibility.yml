@@ -73,13 +73,6 @@ jobs:
         run: |
           echo "🚀 Starting evmd network..."
           cd tests/jsonrpc
-          
-          # Fix Docker permissions for GitHub Actions
-          # Create the data directory with proper permissions
-          sudo mkdir -p .evmd
-          sudo chown -R $(whoami):$(whoami) .evmd
-          
-          # Start evmd
           ./scripts/evmd/start-evmd.sh
           
           # Wait for evmd to be ready
@@ -100,12 +93,6 @@ jobs:
         run: |
           echo "🚀 Starting geth network..."
           cd tests/jsonrpc
-          
-          # Fix Docker permissions for geth data directory
-          sudo mkdir -p .geth-data
-          sudo chown -R $(whoami):$(whoami) .geth-data
-          
-          # Start geth
           ./scripts/geth/start-geth.sh
           
           # Wait for geth to be ready
