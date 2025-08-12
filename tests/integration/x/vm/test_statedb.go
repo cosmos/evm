@@ -828,7 +828,7 @@ func (s *KeeperTestSuite) TestAddAddressToAccessList() {
 			vmdb := s.StateDB()
 			vmdb.AddAddressToAccessList(tc.addr)
 			addrOk := vmdb.AddressInAccessList(tc.addr)
-			s.Require().True(addrOk, tc.addr.Hex())
+			s.Require().True(addrOk, tc.addr.Bytes())
 		})
 	}
 }
@@ -850,7 +850,7 @@ func (s *KeeperTestSuite) TestAddSlotToAccessList() {
 			vmdb := s.StateDB()
 			vmdb.AddSlotToAccessList(tc.addr, tc.slot)
 			addrOk, slotOk := vmdb.SlotInAccessList(tc.addr, tc.slot)
-			s.Require().True(addrOk, tc.addr.Hex())
+			s.Require().True(addrOk, tc.addr.Bytes())
 			s.Require().True(slotOk, tc.slot.Hex())
 		})
 	}

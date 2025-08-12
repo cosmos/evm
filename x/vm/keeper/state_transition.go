@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -397,6 +398,24 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
 	} else {
+		// Apply EIP-7702 authorizations.
+		if msg.SetCodeAuthorizations != nil {
+			for _, auth := range msg.SetCodeAuthorizations {
+				// Note errors are ignored, we simply skip invalid authorizations here.
+				if err := k.applyAuthorization(&auth, stateDB, ethCfg.ChainID); err != nil {
+					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
+				}
+			}
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := ethtypes.ParseDelegation(stateDB.GetCode(*msg.To)); ok {
+			stateDB.AddAddressToAccessList(addr)
+		}
 		ret, leftoverGas, vmErr = evm.Call(sender.Address(), *msg.To, msg.Data, leftoverGas, convertedValue)
 	}
 
@@ -485,4 +504,62 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 		return ctx
 	}
 	return ctx.WithConsensusParams(*res.Params)
+}
+
+// applyAuthorization applies an EIP-7702 code delegation to the state.
+func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) error {
+	authority, err := k.validateAuthorization(auth, state, chainID)
+	if err != nil {
+		return err
+	}
+
+	// If the account already exists in state, refund the new account cost
+	// charged in the intrinsic calculation.
+	if state.Exist(authority) {
+		state.AddRefund(params.CallNewAccountGas - params.TxAuthTupleGas)
+	}
+
+	// Update nonce and account code.
+	state.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
+	if auth.Address == (common.Address{}) {
+		// Delegation to zero address means clear.
+		state.SetCode(authority, nil)
+		return nil
+	}
+
+	// Otherwise install delegation to auth.Address.
+	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address))
+
+	return nil
+}
+
+// validateAuthorization validates an EIP-7702 authorization against the state.
+func (k *Keeper) validateAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+	// Verify chain ID is null or equal to current chain ID.
+	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
+		return authority, core.ErrAuthorizationWrongChainID
+	}
+	// Limit nonce to 2^64-1 per EIP-2681.
+	if auth.Nonce+1 < auth.Nonce {
+		return authority, core.ErrAuthorizationNonceOverflow
+	}
+	// Validate signature values and recover authority.
+	authority, err = auth.Authority()
+	if err != nil {
+		return authority, fmt.Errorf("%w: %v", core.ErrAuthorizationInvalidSignature, err)
+	}
+	// Check the authority account
+	//  1) doesn't have code or has exisiting delegation
+	//  2) matches the auth's nonce
+	//
+	// Note it is added to the access list even if the authorization is invalid.
+	state.AddAddressToAccessList(authority)
+	code := state.GetCode(authority)
+	if _, ok := ethtypes.ParseDelegation(code); len(code) != 0 && !ok {
+		return authority, core.ErrAuthorizationDestinationHasCode
+	}
+	if have := state.GetNonce(authority); have != auth.Nonce {
+		return authority, core.ErrAuthorizationNonceMismatch
+	}
+	return authority, nil
 }
