@@ -73,6 +73,13 @@ jobs:
         run: |
           echo "🚀 Starting evmd network..."
           cd tests/jsonrpc
+          
+          # Pre-create the directory structure with proper permissions
+          mkdir -p .evmd/config
+          mkdir -p .evmd/data
+          chmod -R 755 .evmd
+          
+          # Start evmd
           ./scripts/evmd/start-evmd.sh
           
           # Wait for evmd to be ready

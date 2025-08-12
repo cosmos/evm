@@ -73,8 +73,15 @@ USER4_MNEMONIC="doll midnight silk carpet brush boring pluck office gown inquiry
 # Complete initialization (mirroring local_node.sh exactly)
 # First initialize the chain to create directory structure
 echo -e "${GREEN}Initializing chain...${NC}"
+
+# Debug: show current user and check directory permissions
+echo "Current user: $(id -u):$(id -g)"
+echo "Data directory: $DATA_DIR"
+ls -la "$DATA_DIR" || echo "Data directory doesn't exist yet"
+
+# Try a more permissive approach for GitHub Actions
 echo "$VAL_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
-    evmd init localtestnet -o --chain-id "$CHAIN_ID" --recover --home /data
+    sh -c "ls -la /data && whoami && evmd init localtestnet -o --chain-id $CHAIN_ID --recover --home /data"
 
 # Set client config (after init creates the directory structure)
 docker run --rm -v "$DATA_DIR:/data" --user "$(id -u):$(id -g)" --entrypoint="" cosmos/evmd \
