@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -299,8 +298,8 @@ func (m *EVMMempool) Remove(tx sdk.Tx) error {
 		// be dequeued as temporarily invalid, only to be requeued a block later.
 		// The EVM mempool handles removal based on account nonce automatically.
 		if m.shouldRemoveFromEVMPool(tx) {
-			m.logger.Debug("manually removing EVM transaction", "tx_hash", msg.Hash)
-			m.legacyTxPool.RemoveTx(common.HexToHash(msg.Hash), false, true)
+			m.logger.Debug("manually removing EVM transaction", "tx_hash", msg.Hash())
+			m.legacyTxPool.RemoveTx(msg.Hash(), false, true)
 		} else {
 			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", msg.Hash)
 		}
@@ -421,9 +420,7 @@ func (m *EVMMempool) getIterators(goCtx context.Context, i [][]byte) (*miner.Tra
 func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
 	for _, ethTx := range ethTxs {
 		msg := &evmtypes.MsgEthereumTx{}
-		if err := msg.FromEthereumTx(ethTx); err != nil {
-			return fmt.Errorf("failed to convert EVM tx to Cosmos msg: %w", err)
-		}
+		msg.FromEthereumTx(ethTx)
 
 		txBuilder := txConfig.NewTxBuilder()
 		if err := txBuilder.SetMsgs(msg); err != nil {

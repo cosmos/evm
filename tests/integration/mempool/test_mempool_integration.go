@@ -40,8 +40,8 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -53,8 +53,8 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -70,8 +70,8 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -111,7 +111,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				s.Require().NoError(err)
 
 				msgEthTx1 := &evmtypes.MsgEthereumTx{}
-				err = msgEthTx1.FromEthereumTx(signedTx1)
+				msgEthTx1.FromEthereumTx(signedTx1)
 				s.Require().NoError(err)
 
 				// Create second EVM message
@@ -129,7 +129,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				s.Require().NoError(err)
 
 				msgEthTx2 := &evmtypes.MsgEthereumTx{}
-				err = msgEthTx2.FromEthereumTx(signedTx2)
+				msgEthTx2.FromEthereumTx(signedTx2)
 				s.Require().NoError(err)
 
 				// Set both EVM messages
@@ -154,9 +154,9 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
-			mempool := s.network.App.GetMempool()
+			mpool := s.network.App.GetMempool()
 
-			err := mempool.Insert(s.network.GetContext(), tx)
+			err := mpool.Insert(s.network.GetContext(), tx)
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -193,8 +193,8 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			insertFirst: true,
 			wantError:   false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(0, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 		{
@@ -207,8 +207,8 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			insertFirst: true,
 			wantError:   false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(0, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 		{
@@ -232,8 +232,8 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			wantError:     true, // Remove should error for non-existent transactions
 			errorContains: "tx not found in mempool",
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(0, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(0, mpool.CountTx())
 			},
 		},
 	}
@@ -246,15 +246,15 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
-			mempool := s.network.App.GetMempool()
+			mpool := s.network.App.GetMempool()
 
 			if tc.insertFirst {
-				err := mempool.Insert(s.network.GetContext(), tx)
+				err := mpool.Insert(s.network.GetContext(), tx)
 				require.NoError(s.T(), err)
-				require.Equal(s.T(), 1, mempool.CountTx())
+				require.Equal(s.T(), 1, mpool.CountTx())
 			}
 
-			err := mempool.Remove(tx)
+			err := mpool.Remove(tx)
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -291,8 +291,8 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			name: "single cosmos transaction",
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTransaction(2000)
-				mempool := s.network.App.GetMempool()
-				err := mempool.Insert(s.network.GetContext(), cosmosTx)
+				mpool := s.network.App.GetMempool()
+				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -306,8 +306,8 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			setupTxs: func() {
 				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
 				s.Require().NoError(err)
-				mempool := s.network.App.GetMempool()
-				err = mempool.Insert(s.network.GetContext(), evmTx)
+				mpool := s.network.App.GetMempool()
+				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -333,8 +333,8 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 
 			tc.setupTxs()
 
-			mempool := s.network.App.GetMempool()
-			iterator := mempool.Select(s.network.GetContext(), nil)
+			mpool := s.network.App.GetMempool()
+			iterator := mpool.Select(s.network.GetContext(), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -360,8 +360,8 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			name: "single cosmos transaction iteration",
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTransaction(2000)
-				mempool := s.network.App.GetMempool()
-				err := mempool.Insert(s.network.GetContext(), cosmosTx)
+				mpool := s.network.App.GetMempool()
+				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -374,8 +374,8 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
 				s.Require().NoError(err)
-				mempool := s.network.App.GetMempool()
-				err = mempool.Insert(s.network.GetContext(), evmTx)
+				mpool := s.network.App.GetMempool()
+				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -394,14 +394,14 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 		{
 			name: "multiple cosmos transactions iteration",
 			setupTxs: func() {
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				cosmosTx1 := s.createCosmosSendTransaction(1000)
-				err := mempool.Insert(s.network.GetContext(), cosmosTx1)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx1)
 				s.Require().NoError(err)
 
 				cosmosTx2 := s.createCosmosSendTransaction(2000)
-				err = mempool.Insert(s.network.GetContext(), cosmosTx2)
+				err = mpool.Insert(s.network.GetContext(), cosmosTx2)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -418,17 +418,17 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 		{
 			name: "mixed EVM and cosmos transactions iteration",
 			setupTxs: func() {
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Add EVM transaction
 				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), evmTx)
+				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 
 				// Add Cosmos transaction
 				cosmosTx := s.createCosmosSendTransaction(2000)
-				err = mempool.Insert(s.network.GetContext(), cosmosTx)
+				err = mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -450,8 +450,8 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 
 			tc.setupTxs()
 
-			mempool := s.network.App.GetMempool()
-			iterator := mempool.Select(s.network.GetContext(), nil)
+			mpool := s.network.App.GetMempool()
+			iterator := mpool.Select(s.network.GetContext(), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -476,14 +476,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mediumFeeCosmosTx := s.createCosmosSendTransaction(3000000000) // 3 gwei
 				lowFeeCosmosTx := s.createCosmosSendTransaction(1000000000)    // 1 gwei
 
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Insert in non-priority order
-				err = mempool.Insert(s.network.GetContext(), lowFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext(), lowFeeCosmosTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), highFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), mediumFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext(), mediumFeeCosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -509,12 +509,12 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				highFeeEVMTx, err := s.createEVMTransaction(big.NewInt(5000000000)) // 5 gwei
 				s.Require().NoError(err)
 
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err = mempool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), highFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -541,12 +541,12 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				highFeeEVMTx, err := s.createEVMTransactionWithNonce(key, big.NewInt(5000000000), 0) // 5 gwei
 				s.Require().NoError(err)
 
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err = mempool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), highFeeEVMTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -576,14 +576,14 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				lowFeeTx := s.createCosmosSendTransaction(1000000000)    // 1 gwei
 				mediumFeeTx := s.createCosmosSendTransaction(3000000000) // 3 gwei
 
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err := mempool.Insert(s.network.GetContext(), mediumFeeTx)
+				err := mpool.Insert(s.network.GetContext(), mediumFeeTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), lowFeeTx)
+				err = mpool.Insert(s.network.GetContext(), lowFeeTx)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), highFeeTx)
+				err = mpool.Insert(s.network.GetContext(), highFeeTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -604,8 +604,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 
 			tc.setupTxs()
 
-			mempool := s.network.App.GetMempool()
-			iterator := mempool.Select(s.network.GetContext(), nil)
+			mpool := s.network.App.GetMempool()
+			iterator := mpool.Select(s.network.GetContext(), nil)
 			tc.verifyFunc(iterator)
 		})
 	}
@@ -634,8 +634,8 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			name: "single cosmos transaction - terminates properly",
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTransaction(2000)
-				mempool := s.network.App.GetMempool()
-				err := mempool.Insert(s.network.GetContext(), cosmosTx)
+				mpool := s.network.App.GetMempool()
+				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -643,8 +643,8 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			},
 			expectedCalls: 1,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -652,8 +652,8 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			setupTxs: func() {
 				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
 				s.Require().NoError(err)
-				mempool := s.network.App.GetMempool()
-				err = mempool.Insert(s.network.GetContext(), evmTx)
+				mpool := s.network.App.GetMempool()
+				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -661,19 +661,19 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			},
 			expectedCalls: 1,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
 			name: "accept high fee transactions until low fee encountered",
 			setupTxs: func() {
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Add transactions with different fees
 				for i := 5; i >= 1; i-- { // Create in reverse order so highest fee is processed first
 					cosmosTx := s.createCosmosSendTransaction(int64(i * 1000)) // 5000, 4000, 3000, 2000, 1000
-					err := mempool.Insert(s.network.GetContext(), cosmosTx)
+					err := mpool.Insert(s.network.GetContext(), cosmosTx)
 					s.Require().NoError(err)
 				}
 			},
@@ -689,14 +689,14 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			},
 			expectedCalls: -1, // Don't check exact count due to priority ordering complexity
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx()) // Only one transaction should remain after filtering
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx()) // Only one transaction should remain after filtering
 			},
 		},
 		{
 			name: "filter EVM transactions by gas price",
 			setupTxs: func() {
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 
 				// Add EVM transactions with different gas prices using different keys to avoid nonce conflicts
 				for i := 5; i >= 1; i-- { // Create in reverse order so highest gas price is processed first
@@ -708,7 +708,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 					// Use the helper method with specific nonce
 					evmTx, err := s.createEVMTransactionWithNonce(key, big.NewInt(int64(i)*1000000000), i)
 					s.Require().NoError(err)
-					err = mempool.Insert(s.network.GetContext(), evmTx)
+					err = mpool.Insert(s.network.GetContext(), evmTx)
 					s.Require().NoError(err)
 				}
 			},
@@ -722,9 +722,9 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			},
 			expectedCalls: -1, // Don't check exact count due to priority ordering complexity
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
+				mpool := s.network.App.GetMempool()
 				// Should have filtered out some transactions
-				s.Require().True(mempool.CountTx() < 5, "Should have filtered out some transactions")
+				s.Require().True(mpool.CountTx() < 5, "Should have filtered out some transactions")
 			},
 		},
 	}
@@ -736,7 +736,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 			tc.setupTxs()
 
-			mempool := s.network.App.GetMempool()
+			mpool := s.network.App.GetMempool()
 
 			// Track filter function calls to ensure we don't have infinite loops
 			callCount := 0
@@ -750,7 +750,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			}
 
 			// Test SelectBy directly
-			mempool.SelectBy(s.network.GetContext(), nil, wrappedFilter)
+			mpool.SelectBy(s.network.GetContext(), nil, wrappedFilter)
 
 			// Assert that SelectBy completed without hanging
 			if tc.expectedCalls > 0 {
@@ -784,11 +784,11 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 	// Verify we're at block 1
 	s.Require().Equal(int64(2), nw.GetContext().BlockHeight())
 
-	mempool := nw.App.GetMempool()
+	mpool := nw.App.GetMempool()
 	tx := s.createCosmosSendTransaction(1000)
 
 	// Should fail because mempool requires block height >= 2
-	err = mempool.Insert(nw.GetContext(), tx)
+	err = mpool.Insert(nw.GetContext(), tx)
 	// The mempool might not enforce height requirements in this context
 	// Just check that the operation completes (either success or error)
 	s.Require().True(err == nil || err != nil)
@@ -814,8 +814,8 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -827,8 +827,8 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -845,8 +845,8 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -863,8 +863,8 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			},
 			wantError: false,
 			verifyFunc: func() {
-				mempool := s.network.App.GetMempool()
-				s.Require().Equal(1, mempool.CountTx())
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 	}
@@ -878,9 +878,9 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
-			mempool := s.network.App.GetMempool()
+			mpool := s.network.App.GetMempool()
 
-			err := mempool.Insert(s.network.GetContext(), tx)
+			err := mpool.Insert(s.network.GetContext(), tx)
 
 			if tc.wantError {
 				require.Error(s.T(), err)
@@ -906,7 +906,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 	testCases := []struct {
 		name       string
 		setupTxs   func() ([]sdk.Tx, []int) // Returns transactions and their expected nonces
-		verifyFunc func(mempool mempool.Mempool)
+		verifyFunc func(mpool mempool.Mempool)
 	}{
 		{
 			name: "insert transactions with nonce gaps",
@@ -925,10 +925,10 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// Only nonce 0 should be pending (the first consecutive transaction)
 				// nonces 2, 4, 6 should be queued
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(1, count, "Only nonce 0 should be pending, others should be queued")
 			},
 		},
@@ -955,10 +955,10 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// After filling nonce 1, transactions 0, 1, 2 should be pending
 				// nonce 4 should still be queued
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(3, count, "After filling gap, nonces 0, 1, 2 should be pending")
 			},
 		},
@@ -989,9 +989,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// After filling all gaps, all transactions should be pending
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(10, count, "After filling all gaps, all 10 transactions should be pending")
 			},
 		},
@@ -1023,11 +1023,11 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// Account 1: nonce 0 pending, nonce 2 queued
 				// Account 2: nonce 0 pending, nonce 3 queued
 				// Total: 2 pending transactions
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(2, count, "Only nonce 0 from each account should be pending")
 			},
 		},
@@ -1058,9 +1058,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// After replacement, both nonces 0 and 1 should be pending
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(2, count, "After replacement, both transactions should be pending")
 			},
 		},
@@ -1091,9 +1091,9 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// After filling all gaps, all transactions should be pending
-				count := mempool.CountTx()
+				count := mpool.CountTx()
 				s.Require().Equal(10, count, "After filling all gaps, all 10 transactions should be pending")
 			},
 		},
@@ -1116,40 +1116,40 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				return txs, nonces
 			},
-			verifyFunc: func(mempool mempool.Mempool) {
+			verifyFunc: func(mpool mempool.Mempool) {
 				// Initially: nonces 0 should be pending, nonces 2, 3, 4, 5, 6, 7 should be queued
-				initialCount := mempool.CountTx()
+				initialCount := mpool.CountTx()
 				s.Require().Equal(1, initialCount, "Initially only nonces 0, 1 should be pending")
 				key := s.keyring.GetKey(0)
 
 				// Fill gap by inserting nonce 1
 				tx1, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), tx1)
+				err = mpool.Insert(s.network.GetContext(), tx1)
 				s.Require().NoError(err)
 
 				// After filling gap: all nonce transactions should be in pending
-				countAfterFilling := mempool.CountTx()
+				countAfterFilling := mpool.CountTx()
 				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
 
 				// Remove nonce 1 transaction, dropping the rest (except for 0) into queued
 				tx1, err = s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
 				s.Require().NoError(err)
-				err = mempool.Remove(tx1)
+				err = mpool.Remove(tx1)
 				s.Require().NoError(err)
 
 				// After removal: only nonce 0 should be pending, the rest get dropped to queued
-				countAfterRemoval := mempool.CountTx()
+				countAfterRemoval := mpool.CountTx()
 				s.Require().Equal(1, countAfterRemoval, "After removing nonce 1, only nonce 0 should be pending")
 
 				// Fill gap by inserting nonce 1
 				tx1, err = s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
 				s.Require().NoError(err)
-				err = mempool.Insert(s.network.GetContext(), tx1)
+				err = mpool.Insert(s.network.GetContext(), tx1)
 				s.Require().NoError(err)
 
 				// After filling gap: all transactions should be re-promoted and places into pending
-				countAfterFilling = mempool.CountTx()
+				countAfterFilling = mpool.CountTx()
 				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
 			},
 		},
@@ -1164,21 +1164,21 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			txs, nonces := tc.setupTxs()
-			mempool := s.network.App.GetMempool()
+			mpool := s.network.App.GetMempool()
 
 			// Insert transactions and track count changes
-			initialCount := mempool.CountTx()
+			initialCount := mpool.CountTx()
 			fmt.Printf("DEBUG: Initial mempool count: %d\n", initialCount)
 
 			for i, tx := range txs {
-				err := mempool.Insert(s.network.GetContext(), tx)
+				err := mpool.Insert(s.network.GetContext(), tx)
 				s.Require().NoError(err)
 
-				currentCount := mempool.CountTx()
+				currentCount := mpool.CountTx()
 				fmt.Printf("DEBUG: After inserting nonce %d: count = %d\n", nonces[i], currentCount)
 			}
 
-			tc.verifyFunc(mempool)
+			tc.verifyFunc(mpool)
 			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
 		fmt.Printf("DEBUG: TestNonceGappedEVMTransactions - Completed test case %d/%d: %s\n", i+1, len(testCases), tc.name)
@@ -1261,10 +1261,7 @@ func (s *IntegrationTestSuite) createEVMTransactionWithKey(key keyring.Key, gasP
 	}
 
 	msgEthTx := &evmtypes.MsgEthereumTx{}
-	err = msgEthTx.FromEthereumTx(signedTx)
-	if err != nil {
-		return nil, err
-	}
+	msgEthTx.FromEthereumTx(signedTx)
 
 	txBuilder := s.network.App.GetTxConfig().NewTxBuilder()
 	err = txBuilder.SetMsgs(msgEthTx)
@@ -1319,10 +1316,7 @@ func (s *IntegrationTestSuite) createEVMContractDeployment(key keyring.Key, gasP
 	}
 
 	msgEthTx := &evmtypes.MsgEthereumTx{}
-	err = msgEthTx.FromEthereumTx(signedTx)
-	if err != nil {
-		return nil, err
-	}
+	msgEthTx.FromEthereumTx(signedTx)
 
 	txBuilder := s.network.App.GetTxConfig().NewTxBuilder()
 	err = txBuilder.SetMsgs(msgEthTx)
@@ -1371,7 +1365,7 @@ func (s *IntegrationTestSuite) createEVMValueTransfer(key keyring.Key, gasPrice 
 	}
 
 	msgEthTx := &evmtypes.MsgEthereumTx{}
-	err = msgEthTx.FromEthereumTx(signedTx)
+	msgEthTx.FromEthereumTx(signedTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1424,7 +1418,7 @@ func (s *IntegrationTestSuite) createEVMTransactionWithNonce(key keyring.Key, ga
 	}
 
 	msgEthTx := &evmtypes.MsgEthereumTx{}
-	err = msgEthTx.FromEthereumTx(signedTx)
+	msgEthTx.FromEthereumTx(signedTx)
 	if err != nil {
 		return nil, err
 	}
