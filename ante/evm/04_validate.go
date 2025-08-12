@@ -22,13 +22,13 @@ import (
 // - If the transaction is a contract creation or call, the corresponding operation must be enabled in the EVM parameters
 func ValidateMsg(
 	evmParams evmtypes.Params,
-	txData *ethtypes.Transaction,
+	ethTx *ethtypes.Transaction,
 ) error {
-	if txData == nil {
+	if ethTx == nil {
 		return errorsmod.Wrap(errortypes.ErrInvalidRequest, "transaction is nil")
 	}
 	return checkDisabledCreateCall(
-		txData,
+		ethTx,
 		&evmParams.AccessControl,
 	)
 }
@@ -36,10 +36,10 @@ func ValidateMsg(
 // checkDisabledCreateCall checks if the transaction is a contract creation or call,
 // and if those actions are disabled through governance.
 func checkDisabledCreateCall(
-	txData *ethtypes.Transaction,
+	ethTx *ethtypes.Transaction,
 	permissions *evmtypes.AccessControl,
 ) error {
-	to := txData.To()
+	to := ethTx.To()
 	blockCreate := permissions.Create.AccessType == evmtypes.AccessTypeRestricted
 	blockCall := permissions.Call.AccessType == evmtypes.AccessTypeRestricted
 
