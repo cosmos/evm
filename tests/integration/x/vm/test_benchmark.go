@@ -23,6 +23,7 @@ import (
 func SetupContract(b *testing.B, create network.CreateEvmApp) (*KeeperTestSuite, common.Address) {
 	b.Helper()
 	suite := KeeperTestSuite{Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	amt := sdk.Coins{sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 1000000000000000000)}
