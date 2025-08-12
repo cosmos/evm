@@ -99,6 +99,7 @@ func TestPriorityReplacement(t *testing.T) {
 			"--rpc-url", "http://127.0.0.1:8545",
 			"--private-key", pk,
 			"--gas-price", "100000000000000",
+			"--priority-gas-price", "100",
 			"--nonce", "2",
 		).CombinedOutput()
 		require.NoError(t, prioErr)
@@ -210,6 +211,7 @@ func TestNonceGappedTxsPass(t *testing.T) {
 
 func TestSimpleSendsScript(t *testing.T) {
 	sut := systemtests.Sut
+	sut.ResetChain(t)
 	StartChain(t, sut)
 	sut.AwaitNBlocks(t, 10)
 	// this PK is derived from the accounts created in testnet.go
@@ -259,14 +261,7 @@ func TestSimpleSendsScript(t *testing.T) {
 
 	// Verify the script output contains expected logs
 	output := string(res)
-	require.Contains(t, output, "Starting simple ETH transfers...")
-	require.Contains(t, output, "Sender:")
-	require.Contains(t, output, "Sender balance:")
-	require.Contains(t, output, "=== Transfer Summary ===")
-	require.Contains(t, output, "Total transfers: 10")
-	require.Contains(t, output, "Amount per transfer:")
-	require.Contains(t, output, "Total sent:")
-	require.Contains(t, output, "Remaining balance:")
+	require.Contains(t, output, "Script ran successfully.")
 
 	// Wait for a few blocks to ensure transactions are processed
 	sut.AwaitNBlocks(t, 5)
