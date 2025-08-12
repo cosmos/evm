@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math/big"
@@ -9,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -35,34 +33,22 @@ func RunSetup() (*types.RPCContext, error) {
 	gethURL := "http://localhost:8547"
 
 	log.Println("Step 1: Funding geth dev accounts...")
-	err = fundGethAccounts(gethURL)
+	err = fundGethAccounts(rCtx, gethURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fund geth accounts: %w", err)
 	}
 	log.Println("✓ Geth accounts funded successfully")
 
 	log.Println("Step 2: Deploying ERC20 contracts to both networks...")
-	result, err := deployContracts(evmdURL, gethURL)
+	err = deployContracts(rCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 	}
-	// set rpc context
-	rCtx.Evmd.ERC20Addr = result.EvmdDeployment.Address
-	rCtx.Evmd.ERC20Abi = result.EvmdDeployment.ABI
-	rCtx.Evmd.ERC20ByteCode = result.EvmdDeployment.ByteCode
-	rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, result.EvmdDeployment.BlockNumber.Uint64())
-	rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, result.EvmdDeployment.TxHash)
 
-	rCtx.Geth.ERC20Addr = result.GethDeployment.Address
-	rCtx.Geth.ERC20Abi = result.GethDeployment.ABI
-	rCtx.Geth.ERC20ByteCode = result.GethDeployment.ByteCode
-	rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, result.GethDeployment.BlockNumber.Uint64())
-	rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, result.GethDeployment.TxHash)
 	log.Println("✓ Contracts deployed successfully")
 
 	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
-	err = MintTokensOnBothNetworks(evmdURL, gethURL,
-		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	err = MintTokensOnBothNetworks(rCtx, evmdURL, gethURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mint tokens: %w", err)
 	}
@@ -87,8 +73,7 @@ func RunSetup() (*types.RPCContext, error) {
 	log.Printf("Created filter for ERC20 transfers: evmd=%s, geth=%s\n", rCtx.Evmd.FilterID, rCtx.Geth.FilterID)
 
 	log.Println("Step 4: Verifying state synchronization...")
-	err = VerifyTokenBalances(evmdURL, gethURL,
-		result.EvmdDeployment.Address, result.GethDeployment.Address)
+	err = VerifyTokenBalances(rCtx, evmdURL, gethURL)
 	if err != nil {
 		return nil, fmt.Errorf("state verification failed: %w", err)
 	}
@@ -106,7 +91,7 @@ func RunSetup() (*types.RPCContext, error) {
 }
 
 // fundGethAccounts funds the standard dev accounts in geth using coinbase balance
-func fundGethAccounts(gethURL string) error {
+func fundGethAccounts(rCtx *types.RPCContext, gethURL string) error {
 	// Connect to geth
 	client, err := ethclient.Dial(gethURL)
 	if err != nil {
@@ -114,7 +99,7 @@ func fundGethAccounts(gethURL string) error {
 	}
 
 	// Fund the accounts
-	results, err := FundStandardAccounts(client, gethURL)
+	results, err := fundStandardAccounts(rCtx, client, gethURL)
 	if err != nil {
 		return fmt.Errorf("failed to fund accounts: %w", err)
 	}
@@ -123,16 +108,9 @@ func fundGethAccounts(gethURL string) error {
 	fmt.Println("\nFunding Results:")
 	for _, result := range results {
 		if result.Success {
-			fmt.Printf("✓ %s (%s): %s ETH - TX: %s\n",
-				result.Account,
-				result.Address.Hex(),
-				"1000", // We know it's 1000 ETH
-				result.TxHash.Hex())
+			fmt.Printf("✓ %s (%s): %s ETH - TX: %s\n", result.Account, result.Address.Hex(), "1000", result.TxHash.Hex())
 		} else {
-			fmt.Printf("✗ %s (%s): Failed - %s\n",
-				result.Account,
-				result.Address.Hex(),
-				result.Error)
+			fmt.Printf("✗ %s (%s): Failed - %s\n", result.Account, result.Address.Hex(), result.Error)
 		}
 	}
 
@@ -158,7 +136,7 @@ func fundGethAccounts(gethURL string) error {
 }
 
 // deployContracts deploys the ERC20 contract to both evmd and geth
-func deployContracts(evmdURL, gethURL string) (*DeploymentResult, error) {
+func deployContracts(rCtx *types.RPCContext) error {
 	// Read the ABI file
 	abiFile, err := os.ReadFile("contracts/ERC20Token.abi")
 	if err != nil {
@@ -170,36 +148,29 @@ func deployContracts(evmdURL, gethURL string) (*DeploymentResult, error) {
 		log.Fatalf("Failed to parse ERC20 ABI: %v", err)
 	}
 
-	// The embedded .bin file contains hex-encoded text, need to decode it to bytes
 	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
-	result, err := DeployERC20Contract(evmdURL, gethURL, contractBytecode)
+	addr, txHash, blockNum, err := DeployERC20Contract(rCtx, contractBytecode, false)
 	if err != nil {
-		return nil, fmt.Errorf("deployment failed: %w", err)
+		return fmt.Errorf("deployment failed: %w", err)
 	}
+	rCtx.Evmd.ERC20Addr = addr
+	rCtx.Evmd.ERC20Abi = &parsedABI
+	rCtx.Evmd.ERC20ByteCode = contractBytecode
+	rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, blockNum.Uint64())
+	rCtx.Evmd.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, common.HexToHash(txHash))
 
-	if !result.Success {
-		return nil, fmt.Errorf("deployment unsuccessful: %s", result.Error)
+	addr, txHash, blockNum, err = DeployERC20Contract(rCtx, contractBytecode, true)
+	if err != nil {
+		return fmt.Errorf("deployment failed: %w", err)
 	}
+	rCtx.Geth.ERC20Addr = addr
+	rCtx.Geth.ERC20Abi = &parsedABI
+	rCtx.Geth.ERC20ByteCode = contractBytecode
+	rCtx.Geth.BlockNumsIncludingTx = append(rCtx.Geth.BlockNumsIncludingTx, blockNum.Uint64())
+	rCtx.Geth.ProcessedTransactions = append(rCtx.Geth.ProcessedTransactions, common.HexToHash(txHash))
 
 	fmt.Printf("\n✓ ERC20 Contract Deployment Summary:\n")
-	if result.EvmdDeployment != nil {
-		fmt.Printf("  evmd: %s (tx: %s, block: %s)\n",
-			result.EvmdDeployment.Address.Hex(),
-			result.EvmdDeployment.TxHash.Hex(),
-			result.EvmdDeployment.BlockNumber.String())
-		result.EvmdDeployment.ABI = &parsedABI
-		result.EvmdDeployment.ByteCode = contractBytecode
-	}
-	if result.GethDeployment != nil {
-		fmt.Printf("  geth: %s (tx: %s, block: %s)\n",
-			result.GethDeployment.Address.Hex(),
-			result.GethDeployment.TxHash.Hex(),
-			result.GethDeployment.BlockNumber.String())
-		result.GethDeployment.ABI = &parsedABI
-		result.GethDeployment.ByteCode = contractBytecode
-	}
-
-	return result, nil
+	return nil
 }
 
 // RunTransactionGeneration generates test transactions on both networks
@@ -231,31 +202,4 @@ func RunTransactionGeneration(rCtx *types.RPCContext) error {
 		len(evmdHashes), len(gethHashes))
 
 	return nil
-}
-
-func NewERC20FilterLogs(rCtx *types.RPCContext, isGeth bool) (ethereum.FilterQuery, string, error) {
-	ethCli := rCtx.Evmd
-	if isGeth {
-		ethCli = rCtx.Geth
-	}
-
-	fErc20Transfer := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetUint64(0), // Start from genesis
-		Addresses: []common.Address{ethCli.ERC20Addr},
-		Topics: [][]common.Hash{
-			{ethCli.ERC20Abi.Events["Transfer"].ID}, // Filter for Transfer event
-		},
-	}
-
-	// Create filter on evmd
-	args, err := ToFilterArg(fErc20Transfer)
-	if err != nil {
-		return fErc20Transfer, "", fmt.Errorf("failed to create filter args: %w", err)
-	}
-	var evmdFilterID string
-	if err = ethCli.RPCClient().CallContext(context.Background(), &evmdFilterID, "eth_newFilter", args); err != nil {
-		return fErc20Transfer, "", fmt.Errorf("failed to create filter on evmd: %w", err)
-	}
-
-	return fErc20Transfer, evmdFilterID, nil
 }

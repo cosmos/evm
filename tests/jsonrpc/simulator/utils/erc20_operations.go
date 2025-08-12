@@ -30,7 +30,7 @@ type ERC20MintResult struct {
 }
 
 // MintTokensOnBothNetworks distributes ERC20 tokens to specified accounts on both evmd and geth
-func MintTokensOnBothNetworks(evmdURL, gethURL string, evmdContract, gethContract common.Address) error {
+func MintTokensOnBothNetworks(rCtx *types.RPCContext, evmdURL, gethURL string) error {
 	fmt.Printf("\n=== Distributing ERC20 Tokens for State Synchronization ===\n")
 
 	// Define accounts and amounts to distribute (dev0 keeps remaining balance)
@@ -42,15 +42,15 @@ func MintTokensOnBothNetworks(evmdURL, gethURL string, evmdContract, gethContrac
 	}
 
 	// Distribute on evmd (from dev0 who deployed the contract)
-	fmt.Printf("Distributing tokens on evmd (contract: %s)...\n", evmdContract.Hex())
-	evmdResults, err := distributeTokensOnNetwork(evmdURL, evmdContract, "evmd", distributionTargets, config.Dev0PrivateKey)
+	fmt.Printf("Distributing tokens on evmd (contract: %s)...\n", rCtx.Evmd.ERC20Addr.Hex())
+	evmdResults, err := distributeTokensOnNetwork(evmdURL, rCtx.Evmd.ERC20Addr, "evmd", distributionTargets, config.Dev0PrivateKey)
 	if err != nil {
 		return fmt.Errorf("failed to distribute tokens on evmd: %w", err)
 	}
 
 	// Distribute on geth (need to first transfer from coinbase to dev1, then distribute)
-	fmt.Printf("Distributing tokens on geth (contract: %s)...\n", gethContract.Hex())
-	gethResults, err := distributeTokensOnGeth(gethURL, gethContract, distributionTargets)
+	fmt.Printf("Distributing tokens on geth (contract: %s)...\n", rCtx.Geth.ERC20Addr.Hex())
+	gethResults, err := distributeTokensOnGeth(gethURL, rCtx.Geth.ERC20Addr, distributionTargets)
 	if err != nil {
 		return fmt.Errorf("failed to distribute tokens on geth: %w", err)
 	}
@@ -257,7 +257,7 @@ func distributeTokensOnGeth(rpcURL string, contractAddr common.Address, distribu
 }
 
 // VerifyTokenBalances verifies that token balances are identical on both networks
-func VerifyTokenBalances(evmdURL, gethURL string, evmdContract, gethContract common.Address) error {
+func VerifyTokenBalances(rCtx *types.RPCContext, evmdURL, gethURL string) error {
 	fmt.Printf("\n=== Verifying Token Balance Synchronization ===\n")
 
 	accounts := []string{config.Dev0PrivateKey, config.Dev1PrivateKey, config.Dev2PrivateKey, config.Dev3PrivateKey}
@@ -269,13 +269,13 @@ func VerifyTokenBalances(evmdURL, gethURL string, evmdContract, gethContract com
 		}
 
 		// Get balance on evmd
-		evmdBalance, err := getTokenBalance(evmdURL, evmdContract, addr)
+		evmdBalance, err := getTokenBalance(evmdURL, rCtx.Evmd.ERC20Addr, addr)
 		if err != nil {
 			return fmt.Errorf("failed to get evmd balance for %s: %w", addr.Hex(), err)
 		}
 
 		// Get balance on geth
-		gethBalance, err := getTokenBalance(gethURL, gethContract, addr)
+		gethBalance, err := getTokenBalance(gethURL, rCtx.Geth.ERC20Addr, addr)
 		if err != nil {
 			return fmt.Errorf("failed to get geth balance for %s: %w", addr.Hex(), err)
 		}

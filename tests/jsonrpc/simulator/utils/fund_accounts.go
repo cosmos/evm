@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -26,12 +26,12 @@ var StandardDevBalance = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 
 // FundingResult holds information about a funding transaction
 type FundingResult struct {
-	Account     string      `json:"account"`
-	Address     common.Address `json:"address"`
-	Amount      *big.Int    `json:"amount"`
-	TxHash      common.Hash `json:"txHash"`
-	Success     bool        `json:"success"`
-	Error       string      `json:"error,omitempty"`
+	Account string         `json:"account"`
+	Address common.Address `json:"address"`
+	Amount  *big.Int       `json:"amount"`
+	TxHash  common.Hash    `json:"txHash"`
+	Success bool           `json:"success"`
+	Error   string         `json:"error,omitempty"`
 }
 
 // JSONRPCRequest represents a JSON-RPC request
@@ -44,10 +44,10 @@ type JSONRPCRequest struct {
 
 // JSONRPCResponse represents a JSON-RPC response
 type JSONRPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	Result  json.RawMessage `json:"result"`
+	JSONRPC string           `json:"jsonrpc"`
+	Result  json.RawMessage  `json:"result"`
 	Error   *json.RawMessage `json:"error"`
-	ID      int             `json:"id"`
+	ID      int              `json:"id"`
 }
 
 // GetGethAccounts gets accounts from geth using JSON-RPC
@@ -92,68 +92,12 @@ func GetGethAccounts(rpcURL string) ([]common.Address, error) {
 	return accounts, nil
 }
 
-// SendTransactionRequest represents the eth_sendTransaction request parameters
-type SendTransactionRequest struct {
-	From  string `json:"from"`
-	To    string `json:"to"`
-	Value string `json:"value"`
-	Gas   string `json:"gas"`
-}
-
-// sendEthTransaction sends a transaction using eth_sendTransaction (for unlocked accounts)
-func sendEthTransaction(rpcURL string, from, to common.Address, value *big.Int) (string, error) {
-	// Create transaction request
-	txReq := SendTransactionRequest{
-		From:  from.Hex(),
-		To:    to.Hex(),
-		Value: fmt.Sprintf("0x%x", value), // Convert to hex string
-		Gas:   "0x5208",                   // 21000 gas for simple transfer
-	}
-
-	// Create JSON-RPC request
-	rpcReq := JSONRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "eth_sendTransaction",
-		Params:  []interface{}{txReq},
-		ID:      1,
-	}
-
-	reqData, err := json.Marshal(rpcReq)
-	if err != nil {
-		return "", err
-	}
-
-	// Send request
-	resp, err := http.Post(rpcURL, "application/json", bytes.NewReader(reqData))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	// Parse response
-	var rpcResp JSONRPCResponse
-	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
-		return "", err
-	}
-
-	if rpcResp.Error != nil {
-		return "", fmt.Errorf("RPC error: %s", string(*rpcResp.Error))
-	}
-
-	var txHash string
-	if err := json.Unmarshal(rpcResp.Result, &txHash); err != nil {
-		return "", err
-	}
-
-	return txHash, nil
-}
-
-// FundStandardAccounts sends funds from geth coinbase to standard dev accounts
-func FundStandardAccounts(client *ethclient.Client, rpcURL string) ([]FundingResult, error) {
+// fundStandardAccounts sends funds from geth coinbase to standard dev accounts
+func fundStandardAccounts(rCtx *types.RPCContext, client *ethclient.Client, rpcURL string) ([]FundingResult, error) {
 	results := make([]FundingResult, 0, len(StandardDevAccounts))
 
 	// Get coinbase account (first account from eth_accounts)
-	accounts, err := GetGethAccounts(rpcURL)
+	accounts, err := GetAccounts(rCtx, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
@@ -173,7 +117,7 @@ func FundStandardAccounts(client *ethclient.Client, rpcURL string) ([]FundingRes
 		}
 
 		// Send transaction using eth_sendTransaction (coinbase is unlocked in dev mode)
-		txHash, err := sendEthTransaction(rpcURL, coinbase, address, StandardDevBalance)
+		txHash, err := SendTransaction(rCtx, coinbase, address.Hex(), StandardDevBalance)
 		if err != nil {
 			result.Success = false
 			result.Error = err.Error()
