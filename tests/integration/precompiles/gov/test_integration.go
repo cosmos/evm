@@ -81,7 +81,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				ContractABI: s.precompile.ABI,
 			}
 			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.ABI.Events,
+				ABIEvents: s.precompile.Events,
 			}
 			passCheck = defaultLogCheck.WithExpPass(true)
 			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())

@@ -628,7 +628,7 @@ func (s *TestSuite) TestTendermintBlockByNumber() {
 					s.Require().Nil(resultBlock)
 				} else {
 					s.Require().Equal(expResultHeader, resultBlock)
-					s.Require().Equal(expResultHeader.Block.Header.Height, resultBlock.Block.Header.Height)
+					s.Require().Equal(expResultHeader.Block.Height, resultBlock.Block.Height)
 				}
 			} else {
 				s.Require().Error(err)
