@@ -18,7 +18,7 @@ describe("Web3.js Compatibility Test", function () {
   });
 
   it("Should get chain ID", async function () {
-    expect(chainId).to.equal(4221); // Adjust chainId as needed
+    expect(chainId).to.equal(262144); // Adjust chainId as needed
   });
 
   it("Should fetch accounts", async function () {
