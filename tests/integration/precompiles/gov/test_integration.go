@@ -1845,6 +1845,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("testCancel with transfer (multiple deposits & refund)", func() {
+			var cancelDest sdk.AccAddress
+
 			BeforeEach(func() {
 				// Submit a proposal with deposit from depositor0
 				denom := s.network.GetBaseDenom()
@@ -1892,6 +1894,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				params, err := s.network.App.GetGovKeeper().Params.Get(s.network.GetContext())
 				Expect(err).To(BeNil())
 				rate := math.LegacyMustNewDecFromStr(params.ProposalCancelRatio)
+				cancelDest = sdk.MustAccAddressFromBech32(params.ProposalCancelDest)
 				proposalDeposits, err := s.network.App.GetGovKeeper().GetDeposits(s.network.GetContext(), proposalID)
 				Expect(err).To(BeNil())
 				Expect(proposalDeposits).To(HaveLen(2))
@@ -1936,6 +1939,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					contractBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 					depositor1Bal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), depositor1, baseDenom)
 					txSenderBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+					cancelDestBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 
 					res, evmRes, err := s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, eventCheck)
 					Expect(err).To(BeNil())
@@ -1949,6 +1953,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					afterContractBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), contractAccAddr, baseDenom)
 					afterDepositor1Bal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), depositor1, baseDenom)
 					afterTxSenderBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), txSenderAddr.Bytes(), baseDenom)
+					afterCancelDestBal := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), cancelDest, baseDenom)
 					amtFromContract := math.ZeroInt()
 					for _, transferred := range []bool{tc.before, tc.after} {
 						if transferred {
@@ -1965,6 +1970,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(afterDepositor1Bal.Amount).To(Equal(
 						depositor1Bal.Amount.
 							Add(remainingFees[depositor1.String()]),
+					))
+					Expect(afterCancelDestBal.Amount).To(Equal(
+						cancelDestBal.Amount.
+							Add(cancelFees[depositor1.String()]).
+							Add(cancelFees[contractAccAddr.String()]),
 					))
 					Expect(afterContractBal.Amount).To(Equal(
 						contractBal.Amount.
