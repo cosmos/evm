@@ -115,7 +115,7 @@ var xxx_messageInfo_ExtensionOptionsEthereumTx proto.InternalMessageInfo
 // MsgEthereumTxResponse defines the Msg/EthereumTx response type.
 type MsgEthereumTxResponse struct {
 	// hash of the ethereum transaction in hex format. This hash differs from the
-	// Tendermint sha256 hash of the transaction bytes. See
+	// CometBFT sha256 hash of the transaction bytes. See
 	// https://github.com/tendermint/tendermint/issues/6539 for reference
 	Hash string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
 	// logs contains the transaction hash and the proto-compatible ethereum

@@ -32,7 +32,7 @@ be in the future. The coordinator also contains functions to do basic setup of c
 between two chains.
 
 A chain is an SDK application (as represented by an app.go file). Inside the chain is an `TestingApp` which allows
-the chain to simulate block production and transaction processing. The chain contains by default a single tendermint
+the chain to simulate block production and transaction processing. The chain contains by default a single CometBFT
 validator. A chain is used to process SDK messages.
 
 A path connects two channel endpoints. It contains all the information needed to relay between two endpoints.

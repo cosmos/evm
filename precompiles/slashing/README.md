@@ -172,7 +172,7 @@ contract ValidatorManager {
 The precompile uses different address types:
 
 - **Validator Address**: Standard Ethereum address (operator address)
-- **Consensus Address**: Derived from validator's Tendermint public key
+- **Consensus Address**: Derived from validator's CometBFT public key
 
 Consensus addresses are typically found in:
 

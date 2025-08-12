@@ -871,7 +871,7 @@ const (
 )
 
 // PubKey defines a type alias for an ecdsa.PublicKey that implements
-// Tendermint's PubKey interface. It represents the 33-byte compressed public
+// CometBFT's PubKey interface. It represents the 33-byte compressed public
 // key format.
 type PubKey struct {
 	state         protoimpl.MessageState
@@ -910,7 +910,7 @@ func (x *PubKey) GetKey() []byte {
 }
 
 // PrivKey defines a type alias for an ecdsa.PrivateKey that implements
-// Tendermint's PrivateKey interface.
+// CometBFT's PrivateKey interface.
 type PrivKey struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -37,14 +37,15 @@ message MsgEthereumTx {
 
   option (gogoproto.goproto_getters) = false;
 
-  reserved 1,2,3,4;
+  reserved 1, 2, 3, 4;
 
   // from is the bytes of ethereum signer address. This address value is checked
   // against the address derived from the signature (V, R, S) using the
   // secp256k1 elliptic curve
   bytes from = 5;
   // raw is the raw ethereum transaction
-  bytes raw = 6 [(gogoproto.customtype) = "EthereumTx", (gogoproto.nullable) = false];
+  bytes raw = 6
+      [ (gogoproto.customtype) = "EthereumTx", (gogoproto.nullable) = false ];
 }
 
 // ExtensionOptionsEthereumTx is an extension option for ethereum transactions
@@ -57,7 +58,7 @@ message MsgEthereumTxResponse {
   option (gogoproto.goproto_getters) = false;
 
   // hash of the ethereum transaction in hex format. This hash differs from the
-  // Tendermint sha256 hash of the transaction bytes. See
+  // CometBFT sha256 hash of the transaction bytes. See
   // https://github.com/tendermint/tendermint/issues/6539 for reference
   string hash = 1;
   // logs contains the transaction hash and the proto-compatible ethereum

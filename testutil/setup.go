@@ -11,7 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// NewHeader creates a new Tendermint header for testing purposes.
+// NewHeader creates a new CometBFT header for testing purposes.
 func NewHeader(
 	height int64,
 	blockTime time.Time,

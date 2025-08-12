@@ -29,7 +29,7 @@ func AddCommands(
 ) {
 	cometbftCmd := &cobra.Command{
 		Use:     "comet",
-		Aliases: []string{"cometbft", "tendermint"},
+		Aliases: []string{"cometbft"},
 		Short:   "CometBFT subcommands",
 	}
 

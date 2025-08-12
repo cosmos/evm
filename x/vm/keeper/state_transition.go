@@ -104,7 +104,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			contextBlockHeader := ctx.BlockHeader()
 			header, err := cmttypes.HeaderFromProto(&contextBlockHeader)
 			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
 				return common.Hash{}
 			}
 
@@ -122,7 +122,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 
 			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
 			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
 				return common.Hash{}
 			}
 
@@ -456,7 +456,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 	}
 
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
-	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
+	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
 	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)

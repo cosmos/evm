@@ -50,7 +50,7 @@ func NewIndexTxCmd() *cobra.Command {
 			}
 			idxer := indexer.NewKVIndexer(idxDB, logger.With("module", "evmindex"), clientCtx)
 
-			// open local tendermint db, because the local rpc won't be available.
+			// open local CometBFT db, because the local rpc won't be available.
 			tmdb, err := cmtconfig.DefaultDBProvider(&cmtconfig.DBContext{ID: "blockstore", Config: cfg})
 			if err != nil {
 				return err

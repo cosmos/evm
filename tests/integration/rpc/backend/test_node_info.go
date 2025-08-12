@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/metadata"
 
-	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
+	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/rpc/backend/mocks"
@@ -271,7 +271,7 @@ func (s *TestSuite) TestSetEtherbase() {
 					client,
 					"/cosmos.auth.v1beta1.Query/Account",
 					requestMarshal,
-					tmrpcclient.ABCIQueryOptions{Height: int64(1), Prove: false},
+					cmtrpcclient.ABCIQueryOptions{Height: int64(1), Prove: false},
 				)
 			},
 			common.Address{},
@@ -295,7 +295,7 @@ func (s *TestSuite) TestSetEtherbase() {
 		//		RegisterABCIQueryAccount(
 		//			client,
 		//			requestMarshal,
-		//			tmrpcclient.ABCIQueryOptions{Height: int64(1), Prove: false},
+		//			cmtrpcclient.ABCIQueryOptions{Height: int64(1), Prove: false},
 		//			account,
 		//		)
 		//	},

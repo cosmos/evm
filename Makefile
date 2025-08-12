@@ -377,3 +377,9 @@ test-system: build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	$(MAKE) -C tests/systemtests test
+
+mocks:
+	@echo "--> generating mocks"
+	@go get github.com/vektra/mockery/v2
+	@go generate ./...
+	@make format-go

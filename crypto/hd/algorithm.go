@@ -22,11 +22,11 @@ const (
 var (
 	// SupportedAlgorithms defines the list of signing algorithms used on Cosmos EVM:
 	//  - eth_secp256k1 (Ethereum)
-	//  - secp256k1 (Tendermint)
+	//  - secp256k1 (CometBFT)
 	SupportedAlgorithms = keyring.SigningAlgoList{EthSecp256k1, hd.Secp256k1}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used on Cosmos EVM for the Ledger device:
 	//  - eth_secp256k1 (Ethereum)
-	//  - secp256k1 (Tendermint)
+	//  - secp256k1 (CometBFT)
 	SupportedAlgorithmsLedger = keyring.SigningAlgoList{EthSecp256k1, hd.Secp256k1}
 )
 

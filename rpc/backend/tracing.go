@@ -33,7 +33,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfi
 		return nil, errors.New("genesis is not traceable")
 	}
 
-	blk, err := b.TendermintBlockByNumber(rpctypes.BlockNumber(transaction.Height))
+	blk, err := b.CometBlockByNumber(rpctypes.BlockNumber(transaction.Height))
 	if err != nil {
 		b.Logger.Debug("block not found", "height", transaction.Height)
 		return nil, err
@@ -159,7 +159,7 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		return []*evmtypes.TxTraceResult{}, nil
 	}
 
-	blockRes, err := b.TendermintBlockResultByNumber(&block.Block.Height)
+	blockRes, err := b.CometBlockResultByNumber(&block.Block.Height)
 	if err != nil {
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
 		return nil, nil
