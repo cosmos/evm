@@ -62,6 +62,8 @@ const (
 	// Missing debug methods from Geth documentation
 	MethodNameDebugStartCPUProfile             types.RpcName = "debug_startCPUProfile"
 	MethodNameDebugStopCPUProfile              types.RpcName = "debug_stopCPUProfile"
+	MethodNameDebugStartGoTrace                types.RpcName = "debug_startGoTrace"
+	MethodNameDebugStopGoTrace                 types.RpcName = "debug_stopGoTrace"
 	MethodNameDebugTraceBadBlock               types.RpcName = "debug_traceBadBlock"
 	MethodNameDebugStandardTraceBlockToFile    types.RpcName = "debug_standardTraceBlockToFile"
 	MethodNameDebugStandardTraceBadBlockToFile types.RpcName = "debug_standardTraceBadBlockToFile"
@@ -987,4 +989,89 @@ func DebugVerbosity(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Verbosity level set to %d", level),
 		Category: NamespaceDebug,
 	}, nil
+}
+
+// DebugStartGoTrace starts Go execution tracing
+func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugStartGoTrace); result != nil {
+		return result, nil
+	}
+
+	// Call debug_startGoTrace with test parameters
+	filename := "/tmp/go_trace_start.out"
+	
+	var result any
+	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStartGoTrace), filename)
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") ||
+			strings.Contains(err.Error(), "method not found") {
+			rpcResult := &types.RpcResult{
+				Method:   MethodNameDebugStartGoTrace,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+			return rpcResult, nil
+		}
+		rpcResult := &types.RpcResult{
+			Method:   MethodNameDebugStartGoTrace,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+		return rpcResult, nil
+	}
+	
+	rpcResult := &types.RpcResult{
+		Method:   MethodNameDebugStartGoTrace,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Go tracing started, output to %s", filename),
+		Category: NamespaceDebug,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+	return rpcResult, nil
+}
+
+// DebugStopGoTrace stops Go execution tracing
+func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugStopGoTrace); result != nil {
+		return result, nil
+	}
+
+	var result any
+	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStopGoTrace))
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") ||
+			strings.Contains(err.Error(), "method not found") {
+			rpcResult := &types.RpcResult{
+				Method:   MethodNameDebugStopGoTrace,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: NamespaceDebug,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+			return rpcResult, nil
+		}
+		rpcResult := &types.RpcResult{
+			Method:   MethodNameDebugStopGoTrace,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+		return rpcResult, nil
+	}
+	
+	rpcResult := &types.RpcResult{
+		Method:   MethodNameDebugStopGoTrace,
+		Status:   types.Ok,
+		Value:    "Go tracing stopped successfully",
+		Category: NamespaceDebug,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
+	return rpcResult, nil
 }

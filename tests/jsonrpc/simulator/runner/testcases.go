@@ -264,6 +264,8 @@ func GetTestCases() []types.TestCase {
 				// Additional debug methods from Geth documentation
 				{Name: ns.MethodNameDebugStartCPUProfile, Handler: ns.DebugStartCPUProfile, Description: "Start CPU profiling"},
 				{Name: ns.MethodNameDebugStopCPUProfile, Handler: ns.DebugStopCPUProfile, Description: "Stop CPU profiling"},
+				{Name: ns.MethodNameDebugStartGoTrace, Handler: ns.DebugStartGoTrace, Description: "Start Go execution tracing"},
+				{Name: ns.MethodNameDebugStopGoTrace, Handler: ns.DebugStopGoTrace, Description: "Stop Go execution tracing"},
 				{Name: ns.MethodNameDebugTraceBadBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceBadBlock, "debug")
 				}, Description: "Trace bad blocks"},
