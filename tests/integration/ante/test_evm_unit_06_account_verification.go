@@ -39,6 +39,10 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 	txFactory := factory.New(unitNetwork, grpcHandler)
 	senderKey := keyring.GetKey(1)
 
+	testCodeHash := common.BytesToHash([]byte("test_code_hash"))
+	keeper := unitNetwork.App.GetEVMKeeper()
+	keeper.SetCode(unitNetwork.GetContext(), testCodeHash.Bytes(), []byte("test_code"))
+
 	testCases := []struct {
 		name                   string
 		expectedError          error
@@ -52,7 +56,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 				txArgs, err := txFactory.GenerateDefaultTxTypeArgs(senderKey.Addr, s.EthTxType)
 				s.Require().NoError(err)
 
-				statedbAccount.CodeHash = []byte("test")
+				statedbAccount.CodeHash = testCodeHash.Bytes()
 				s.Require().NoError(err)
 				return statedbAccount, txArgs
 			},
@@ -214,16 +218,16 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 		s.Run(fmt.Sprintf("%v_%v_%v", evmtypes.GetTxTypeName(s.EthTxType), s.ChainID, tc.name), func() {
 			// Perform test logic
 			statedbAccount, txArgs := tc.generateAccountAndArgs()
-			txData, err := txArgs.ToTxData()
-			s.Require().NoError(err)
+			ethTx := txArgs.ToTx()
 
 			//  Function to be tested
-			err = evm.VerifyAccountBalance(
+			err := evm.VerifyAccountBalance(
 				unitNetwork.GetContext(),
+				unitNetwork.App.GetEVMKeeper(),
 				unitNetwork.App.GetAccountKeeper(),
 				statedbAccount,
 				senderKey.Addr,
-				txData,
+				ethTx,
 			)
 
 			if tc.expectedError != nil {
