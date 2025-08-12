@@ -20,7 +20,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
-const ACCEPTED_TX_TYPE = 0 |
+const AcceptedTxType = 0 |
 	1<<ethtypes.LegacyTxType |
 	1<<ethtypes.AccessListTxType |
 	1<<ethtypes.DynamicFeeTxType |
@@ -100,14 +100,15 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	// call go-ethereum transaction validation
 	header := ethtypes.Header{
-		GasLimit: ctx.BlockGasMeter().Limit(),
-		BaseFee:  decUtils.BaseFee,
-		Number:   big.NewInt(ctx.BlockHeight()),
-		Time:     uint64(ctx.BlockTime().Unix()),
+		GasLimit:   ctx.BlockGasMeter().Limit(),
+		BaseFee:    decUtils.BaseFee,
+		Number:     big.NewInt(ctx.BlockHeight()),
+		Time:       uint64(ctx.BlockTime().Unix()), //nolint:gosec
+		Difficulty: big.NewInt(0),
 	}
 	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
 		Config:  evmtypes.GetEthChainConfig(),
-		Accept:  ACCEPTED_TX_TYPE,
+		Accept:  AcceptedTxType,
 		MaxSize: math.MaxUint64, // tx size is checked in cometbft
 		MinTip:  new(big.Int),
 	}); err != nil {
