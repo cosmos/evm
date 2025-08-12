@@ -475,8 +475,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics)
 
 	if config.JSONRPC.Enable {
-		cmtEndpoint := "/websocket"
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, cfg.RPC.ListenAddress, cmtEndpoint, &config, idxer)
+		txApp, ok := app.(AppWithPendingTxStream)
+		if !ok {
+			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
+		}
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp)
 		if err != nil {
 			return err
 		}
