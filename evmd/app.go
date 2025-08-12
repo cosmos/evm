@@ -869,16 +869,7 @@ func (app *EVMD) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
 
 // EndBlocker application updates every end block
 func (app *EVMD) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
-	endBlock, err := app.ModuleManager.EndBlock(ctx)
-	if err != nil {
-		return endBlock, err
-	}
-
-	if app.EVMMempool != nil {
-		app.EVMMempool.GetBlockchain().NotifyNewBlock()
-	}
-
-	return endBlock, err
+	return app.ModuleManager.EndBlock(ctx)
 }
 
 func (app *EVMD) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.ResponseFinalizeBlock, err error) {

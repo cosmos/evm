@@ -40,7 +40,6 @@ func StartChain(t *testing.T, sut *systemtests.SystemUnderTest) {
 // set 2 vals, one with lots of stake, other v little
 
 func TestPriorityReplacement(t *testing.T) {
-	t.Skip("not yet supported")
 	sut := systemtests.Sut
 	sut.ResetChain(t)
 	StartChain(t, sut)
@@ -133,7 +132,6 @@ func TestPriorityReplacement(t *testing.T) {
 
 // todo: check that the other nodes dont have this tx. check ethtxpool.
 func TestNonceGappedTxsPass(t *testing.T) {
-	t.Skip("nonce gaps are not yet supported")
 	sut := systemtests.Sut
 	sut.ResetChain(t)
 	StartChain(t, sut)
@@ -211,7 +209,6 @@ func TestNonceGappedTxsPass(t *testing.T) {
 }
 
 func TestSimpleSendsScript(t *testing.T) {
-	t.Skip()
 	sut := systemtests.Sut
 	StartChain(t, sut)
 	sut.AwaitNBlocks(t, 10)

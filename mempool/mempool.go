@@ -158,7 +158,7 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 		cosmosPool = sdkmempool.NewPriorityMempool(priorityConfig)
 	}
 
-	return &EVMMempool{
+	evmMempool := &EVMMempool{
 		vmKeeper:      vmKeeper,
 		txPool:        txPool,
 		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
@@ -171,6 +171,10 @@ func NewEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, e
 		blockGasLimit: config.BlockGasLimit,
 		anteHandler:   anteHandler,
 	}
+
+	vmKeeper.SetEvmMempool(evmMempool)
+
+	return evmMempool
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.

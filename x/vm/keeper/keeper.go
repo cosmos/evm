@@ -3,6 +3,8 @@ package keeper
 import (
 	"math/big"
 
+	evmmempool "github.com/cosmos/evm/mempool"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -75,6 +77,10 @@ type Keeper struct {
 	// Some of these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
+
+	// evmMempool is the custom EVM appside mempool
+	// if it is nil, the default comet mempool will be used
+	evmMempool *evmmempool.EVMMempool
 }
 
 // NewKeeper generates new evm module keeper
@@ -385,4 +391,14 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // KVStoreKeys returns KVStore keys injected to keeper
 func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
 	return k.storeKeys
+}
+
+// SetEvmMempool sets the evm mempool
+func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.EVMMempool) {
+	k.evmMempool = evmMempool
+}
+
+// GetEvmMempool returns the evm mempool
+func (k Keeper) GetEvmMempool() *evmmempool.EVMMempool {
+	return k.evmMempool
 }
