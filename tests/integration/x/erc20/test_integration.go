@@ -186,6 +186,56 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				})
 			})
 		})
+
+		Describe("ERC20 bytes32-metadata tokens", Ordered, func() {
+			Context("with a bytes32-metadata ERC20", func() {
+				BeforeEach(func() {
+					var err error
+					// Deploy a contract like Bytes32MetadataToken.sol that returns name()/symbol() as bytes32
+					contract, err = s.setupRegisterERC20Pair(contractBytes32Metadata)
+					Expect(err).To(BeNil())
+				})
+
+				It("should query name/symbol as proper UTF-8 strings", func() {
+					// Call the Keeper layer directly
+					data, err := s.network.App.GetErc20Keeper().QueryERC20(
+						s.network.GetContext(),
+						contract,
+					)
+					Expect(err).To(BeNil())
+					// Hardcoded name/symbol in Bytes32MetadataToken.sol
+					Expect(data.Name).To(Equal(erc20Name))
+					Expect(data.Symbol).To(Equal(erc20Symbol))
+					Expect(data.Decimals).To(Equal(erc20Decimals))
+				})
+
+				It("should convert and transfer correctly", func() {
+					// Basic ERC20 test flow: mint, convert, balance check
+					amt := math.NewInt(100)
+					// Mint tokens
+					res, err := s.MintERC20Token(contract, s.keyring.GetAddr(0), big.NewInt(amt.Int64()))
+					Expect(err).To(BeNil())
+					Expect(res.IsOK()).To(BeTrue())
+
+					// Convert to Cosmos coin
+					msg := types.NewMsgConvertERC20(amt, s.keyring.GetAccAddr(0), contract, s.keyring.GetAddr(0))
+					cres, err := s.factory.CommitCosmosTx(s.keyring.GetPrivKey(0),
+						factory.CosmosTxArgs{Msgs: []sdk.Msg{msg}})
+					Expect(err).To(BeNil())
+					Expect(cres.IsOK()).To(BeTrue())
+
+					// ERC20 balance should be 0
+					balERC, err := s.BalanceOf(contract, common.BytesToAddress(s.keyring.GetAccAddr(0).Bytes()))
+					Expect(err).To(BeNil())
+					Expect(balERC.(*big.Int).Int64()).To(Equal(int64(0)))
+
+					// Bank balance should increase
+					balCoin, err := s.handler.GetBalanceFromBank(s.keyring.GetAccAddr(0), types.CreateDenom(contract.Hex()))
+					Expect(err).To(BeNil())
+					Expect(balCoin.Balance.Amount).To(Equal(amt))
+				})
+			})
+		})
 	})
 
 	// Run Ginkgo integration tests

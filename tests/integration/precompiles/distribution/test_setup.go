@@ -12,9 +12,12 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -51,6 +54,18 @@ func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
 	s.validatorsKeys = generateKeys(3)
 	customGen := network.CustomGenesisState{}
+
+	// mint some coin to fee collector
+	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000000)))
+	balances := []banktypes.Balance{
+		{
+			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
+			Coins:   coins,
+		},
+	}
+	bankGenesis := banktypes.DefaultGenesisState()
+	bankGenesis.Balances = balances
+	customGen[banktypes.ModuleName] = bankGenesis
 
 	// set some slashing events for integration test
 	distrGen := distrtypes.DefaultGenesisState()

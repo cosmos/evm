@@ -15,24 +15,19 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
+
+	args := types.EvmTxArgs{
+		// Have insufficient gas
+		GasLimit: 10,
+	}
+	_, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), args)
+	s.Require().Error(err)
+
 	testCases := []struct {
 		name        string
 		getMsg      func() *types.MsgEthereumTx
 		expectedErr error
 	}{
-		{
-			"fail - insufficient gas",
-			func() *types.MsgEthereumTx {
-				args := types.EvmTxArgs{
-					// Have insufficient gas
-					GasLimit: 10,
-				}
-				tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), args)
-				s.Require().NoError(err)
-				return tx.GetMsgs()[0].(*types.MsgEthereumTx)
-			},
-			types.ErrInvalidGasCap,
-		},
 		{
 			"success - transfer funds tx",
 			func() *types.MsgEthereumTx {

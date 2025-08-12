@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -21,7 +22,7 @@ import (
 type validateMsgParams struct {
 	evmParams evmtypes.Params
 	from      sdktypes.AccAddress
-	txData    evmtypes.TxData
+	ethTx     *ethtypes.Transaction
 }
 
 func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
@@ -38,7 +39,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			getFunctionParams: func() validateMsgParams {
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    nil,
+					ethTx:     nil,
 					from:      keyring.GetAccAddr(0),
 				}
 			},
@@ -48,11 +49,10 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: nil,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("transfer", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -62,16 +62,14 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: evmtypes.ErrCallDisabled,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("transfer", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
-
+				ethTx := txArgs.ToTx()
 				params := evmtypes.DefaultParams()
 				params.AccessControl.Call.AccessType = evmtypes.AccessTypeRestricted
 				params.AccessControl.Create.AccessType = evmtypes.AccessTypeRestricted
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -81,11 +79,10 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: nil,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("call", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -95,15 +92,14 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: nil,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("call", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 
 				params := evmtypes.DefaultParams()
 				params.AccessControl.Create.AccessType = evmtypes.AccessTypeRestricted
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -113,15 +109,14 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: evmtypes.ErrCallDisabled,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("call", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 
 				params := evmtypes.DefaultParams()
 				params.AccessControl.Call.AccessType = evmtypes.AccessTypeRestricted
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -131,11 +126,10 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: nil,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("create", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -145,15 +139,14 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: nil,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("create", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 
 				params := evmtypes.DefaultParams()
 				params.AccessControl.Call.AccessType = evmtypes.AccessTypeRestricted
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -163,15 +156,14 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			expectedError: evmtypes.ErrCreateDisabled,
 			getFunctionParams: func() validateMsgParams {
 				txArgs := getTxByType("create", keyring.GetAddr(1))
-				txData, err := txArgs.ToTxData()
-				s.Require().NoError(err)
+				ethTx := txArgs.ToTx()
 
 				params := evmtypes.DefaultParams()
 				params.AccessControl.Create.AccessType = evmtypes.AccessTypeRestricted
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     ethTx,
 					from:      nil,
 				}
 			},
@@ -185,8 +177,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			// Function under test
 			err := evm.ValidateMsg(
 				params.evmParams,
-				params.txData,
-				params.from,
+				params.ethTx,
 			)
 
 			if tc.expectedError != nil {
