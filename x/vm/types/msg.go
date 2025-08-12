@@ -47,24 +47,12 @@ var MsgEthereumTxCustomGetSigner = txsigning.CustomGetSigner{
 	Fn:      evmapi.GetSigners,
 }
 
-func NewTxWithData(txData ethtypes.TxData) *MsgEthereumTx {
-	return &MsgEthereumTx{Raw: NewEthereumTx(txData)}
-}
-
 // NewTx returns a reference to a new Ethereum transaction message.
-func NewTx(
-	tx *EvmTxArgs,
-) *MsgEthereumTx {
-	return newMsgEthereumTx(tx)
+func NewTx(tx *EvmTxArgs) *MsgEthereumTx {
+	return NewTxFromArgs(tx.ToTxData())
 }
 
-func newMsgEthereumTx(
-	tx *EvmTxArgs,
-) *MsgEthereumTx {
-	return NewTxFromTransactionArgs(tx.ToTxData())
-}
-
-func NewTxFromTransactionArgs(args *TransactionArgs) *MsgEthereumTx {
+func NewTxFromArgs(args *TransactionArgs) *MsgEthereumTx {
 	var msg MsgEthereumTx
 	msg.FromEthereumTx(args.ToTransaction(ethtypes.LegacyTxType))
 	if args.From != nil {

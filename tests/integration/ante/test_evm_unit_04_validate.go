@@ -22,7 +22,7 @@ import (
 type validateMsgParams struct {
 	evmParams evmtypes.Params
 	from      sdktypes.AccAddress
-	txData    *ethtypes.Transaction
+	ethTx     *ethtypes.Transaction
 }
 
 func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
@@ -39,7 +39,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			getFunctionParams: func() validateMsgParams {
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    nil,
+					ethTx:     nil,
 					from:      keyring.GetAccAddr(0),
 				}
 			},
@@ -52,7 +52,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 				txData := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -69,7 +69,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -82,7 +82,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 				txData := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -99,7 +99,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -116,7 +116,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -129,7 +129,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 				txData := txArgs.ToTx()
 				return validateMsgParams{
 					evmParams: evmtypes.DefaultParams(),
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -146,7 +146,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -163,7 +163,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 
 				return validateMsgParams{
 					evmParams: params,
-					txData:    txData,
+					ethTx:     txData,
 					from:      nil,
 				}
 			},
@@ -177,7 +177,7 @@ func (s *EvmUnitAnteTestSuite) TestValidateMsg() {
 			// Function under test
 			err := evm.ValidateMsg(
 				params.evmParams,
-				params.txData,
+				params.ethTx,
 			)
 
 			if tc.expectedError != nil {
