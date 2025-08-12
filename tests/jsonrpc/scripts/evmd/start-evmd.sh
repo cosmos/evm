@@ -200,7 +200,7 @@ echo -e "${GREEN}Configuration completed${NC}"
 
 # Start the evmd container
 echo -e "${GREEN}Starting evmd container...${NC}"
-docker run -d \
+CONTAINER_ID=$(docker run -d \
     --name "$CONTAINER_NAME" \
     --rm \
     --user root \
@@ -217,27 +217,60 @@ docker run -d \
     --minimum-gas-prices=0.0001atest \
     --json-rpc.api eth,txpool,personal,net,debug,web3 \
     --keyring-backend test \
-    --chain-id "$CHAIN_ID"
+    --chain-id "$CHAIN_ID" 2>&1)
 
-# Wait for the node to start
-echo -e "${GREEN}Waiting for node to start...${NC}"
-sleep 5
-
-# Check if container is running
-if ! docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
-    echo -e "${RED}Error: Container failed to start${NC}"
-    echo -e "${YELLOW}Container logs:${NC}"
-    docker logs "$CONTAINER_NAME" 2>&1 || echo "No logs available"
+# Check if docker run command succeeded
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Error: Failed to start Docker container${NC}"
+    echo -e "${YELLOW}Docker error output:${NC}"
+    echo "$CONTAINER_ID"
     exit 1
 fi
 
-# Additional check - ensure container is actually running (not just created)
-if ! docker ps | grep -q "$CONTAINER_NAME"; then
-    echo -e "${RED}Error: Container created but not running${NC}"
-    echo -e "${YELLOW}Container logs:${NC}"
-    docker logs "$CONTAINER_NAME" 2>&1 || echo "No logs available"
-    echo -e "${YELLOW}Container status:${NC}"
-    docker ps -a | grep "$CONTAINER_NAME" || echo "Container not found"
+echo "Container started with ID: $CONTAINER_ID"
+
+# Wait for the node to start with progressive checking
+echo -e "${GREEN}Waiting for node to start...${NC}"
+
+# Wait up to 60 seconds for the container to be running
+for i in {1..12}; do
+    echo "Checking container status (attempt $i/12)..."
+    
+    # Check if container exists and get its status
+    if docker container inspect "$CONTAINER_ID" >/dev/null 2>&1; then
+        CONTAINER_STATUS=$(docker inspect "$CONTAINER_ID" --format='{{.State.Status}}' 2>/dev/null)
+        echo "Container status: $CONTAINER_STATUS"
+        
+        if [ "$CONTAINER_STATUS" = "running" ]; then
+            echo -e "${GREEN}Container is running successfully!${NC}"
+            break
+        elif [ "$CONTAINER_STATUS" = "exited" ] || [ "$CONTAINER_STATUS" = "dead" ]; then
+            echo -e "${RED}Container failed to start properly${NC}"
+            echo -e "${YELLOW}Container logs:${NC}"
+            docker logs "$CONTAINER_ID" 2>&1 || echo "No logs available"
+            echo -e "${YELLOW}Container exit code:${NC}"
+            docker inspect "$CONTAINER_ID" --format='{{.State.ExitCode}}' 2>/dev/null || echo "Cannot get exit code"
+            exit 1
+        fi
+    else
+        echo -e "${RED}Error: Container not found${NC}"
+        exit 1
+    fi
+    
+    # Wait 5 seconds before next check (total 60 seconds max)
+    if [ $i -lt 12 ]; then
+        echo "Waiting 5 seconds before next check..."
+        sleep 5
+    fi
+done
+
+# Final check - ensure container is actually running
+if ! docker ps | grep -q "$CONTAINER_ID"; then
+    echo -e "${RED}Error: Container not in running state after 60 seconds${NC}"
+    echo -e "${YELLOW}Final container logs:${NC}"
+    docker logs "$CONTAINER_ID" 2>&1 || echo "No logs available"
+    echo -e "${YELLOW}Final container status:${NC}"
+    docker inspect "$CONTAINER_ID" --format='{{.State.Status}}: {{.State.Error}}' 2>&1 || echo "Cannot inspect container"
     exit 1
 fi
 
