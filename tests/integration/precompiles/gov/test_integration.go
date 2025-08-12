@@ -1191,7 +1191,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("deposit as contract proposer", func() {
-			BeforeEach(func() { callArgs.MethodName = "testDepositFromContract" })
+			BeforeEach(func() { callArgs.MethodName = testDepositFromContract })
 			It("should deposit successfully", func() {
 				// submit a proposal
 				toAddr := s.keyring.GetAccAddr(1)
