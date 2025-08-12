@@ -158,6 +158,10 @@ docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
 
 # Configure timeout settings and enable all APIs (like local_node.sh)
 echo -e "${GREEN}Configuring timeout settings and APIs...${NC}"
+
+# Fix permissions for config files after Docker initialization (Docker created them as root)
+chmod -R 755 "$DATA_DIR/config"
+chown -R "$(id -u):$(id -g)" "$DATA_DIR/config" 2>/dev/null || true
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # Configure consensus timeouts for faster block times
     sed -i '' 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$DATA_DIR/config/config.toml"
