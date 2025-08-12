@@ -668,7 +668,11 @@ func (k *Keeper) traceTx(
 	}
 
 	if traceConfig.Tracer != "" {
-		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, jsonTracerConfig,
+		var cfg json.RawMessage
+		if traceConfig.TracerJsonConfig != "" {
+			cfg = json.RawMessage(traceConfig.TracerJsonConfig)
+		}
+		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg,
 			types.GetEthChainConfig()); err != nil {
 			return nil, 0, status.Error(codes.Internal, err.Error())
 		}

@@ -193,7 +193,7 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
-	return TxLogsFromEvents(resBlockResult.TxsResults[res.TxIndex].Events, index)
+	return evmtypes.TxLogsFromEvents(resBlockResult.TxsResults[res.TxIndex].Events, index)
 }
 
 // GetTransactionByBlockHashAndIndex returns the transaction identified by hash and index.
