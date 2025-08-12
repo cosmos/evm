@@ -1,12 +1,13 @@
 package debug
 
 import (
-	"github.com/spf13/cast"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime/pprof"
 	"strings"
+
+	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
 
