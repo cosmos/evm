@@ -1720,9 +1720,9 @@ func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		if isGeth {
 			blockNumber := rCtx.Geth.BlockNumsIncludingTx[0]
 			blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
-			return []interface{}{[]string{}, rCtx.Geth.Acc.Address, blockNumberHex}
+			return []interface{}{rCtx.Geth.Acc.Address.Hex(), []string{}, blockNumberHex}
 		}
-		return []interface{}{rCtx.Evmd.Acc.Address, []string{}, blockNumberHex}
+		return []interface{}{rCtx.Evmd.Acc.Address.Hex(), []string{}, blockNumberHex}
 	})
 
 	if err != nil {
