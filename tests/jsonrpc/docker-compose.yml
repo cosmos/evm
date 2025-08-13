@@ -31,11 +31,11 @@ services:
       --keyring-backend test
       --chain-id local-4221
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8545"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --timeout=5 --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}' --header='Content-Type: application/json' -O- http://localhost:8545 | grep -q result || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
 
   geth:
     container_name: geth-compat-test
