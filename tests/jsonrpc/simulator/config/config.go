@@ -1,12 +1,13 @@
 package config
 
 import (
+	"crypto/ecdsa"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -38,19 +39,33 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func MustLoadConfig(filename string) *Config {
-	var config Config
-	file, err := os.ReadFile(filename)
-	if err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
+func MustLoadConfig() *Config {
+	// Use environment variable if set, otherwise default to localhost
+	evmdURL := os.Getenv("EVMD_URL")
+	if evmdURL == "" {
+		evmdURL = "http://localhost:8545"
 	}
-	err = yaml.Unmarshal(file, &config)
+	
+	return &Config{
+		RpcEndpoint: evmdURL,
+		RichPrivKey: Dev0PrivateKey, // Default to dev0's private key
+		Timeout:     "10s",
+	}
+}
+
+// GetDev0PrivateKeyAndAddress returns dev0's private key and address for contract deployment
+func GetDev0PrivateKeyAndAddress() (*ecdsa.PrivateKey, common.Address, error) {
+	privateKey, err := crypto.HexToECDSA(Dev0PrivateKey)
 	if err != nil {
-		log.Fatalf("Failed to parse config file: %v", err)
+		return nil, common.Address{}, err
 	}
 
-	if err = config.Validate(); err != nil {
-		log.Fatalf("Invalid config: %v", err)
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, common.Address{}, fmt.Errorf("error casting public key to ECDSA")
 	}
-	return &config
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return privateKey, address, nil
 }

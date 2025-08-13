@@ -20,7 +20,7 @@ import (
 // RunSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
 func RunSetup() (*types.RPCContext, error) {
 	// Load configuration from conf.yaml
-	conf := config.MustLoadConfig("config.yaml")
+	conf := config.MustLoadConfig()
 
 	// Create RPC context
 	rCtx, err := types.NewRPCContext(conf)
@@ -120,7 +120,7 @@ func deployContracts(rCtx *types.RPCContext) error {
 	}
 
 	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
-	addr, txHash, blockNum, err := DeployERC20Contract(rCtx, contractBytecode, false)
+	addr, txHash, blockNum, err := DeployContract(rCtx, contractBytecode, false)
 	if err != nil {
 		return fmt.Errorf("deployment failed: %w", err)
 	}
@@ -130,7 +130,7 @@ func deployContracts(rCtx *types.RPCContext) error {
 	rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, blockNum.Uint64())
 	rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, common.HexToHash(txHash))
 
-	addr, txHash, blockNum, err = DeployERC20Contract(rCtx, contractBytecode, true)
+	addr, txHash, blockNum, err = DeployContract(rCtx, contractBytecode, true)
 	if err != nil {
 		return fmt.Errorf("deployment failed: %w", err)
 	}
