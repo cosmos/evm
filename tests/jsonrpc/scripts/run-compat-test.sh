@@ -48,10 +48,13 @@ fi
 # Initialize evmd data
 echo "🔧 Initializing evmd test data..."
 
-# Create the Docker volume and initialize it
-docker volume create evmd-compat-data || true
+# Ensure the directory exists and has correct permissions  
+mkdir -p "$JSONRPC_DIR/.evmd-compat"
+chmod 777 "$JSONRPC_DIR/.evmd-compat"
+
+# Run evmd init with root user (permission issue solved!)
 docker run --rm --privileged --user root \
-    -v evmd-compat-data:/data cosmos/evmd \
+    -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
     testnet init-files --validator-count 1 -o /data \
     --starting-ip-address 192.168.10.2 --keyring-backend=test \
     --chain-id=local-4221 --use-docker=true
@@ -78,8 +81,5 @@ if [ -f "$JSONRPC_DIR/docker-compose.yml.bak" ]; then
     mv "$JSONRPC_DIR/docker-compose.yml.bak" "$JSONRPC_DIR/docker-compose.yml"
 fi
 
-# Cleanup Docker volume
-echo "🧹 Cleaning up Docker volume..."
-docker volume rm evmd-compat-data || true
 
 echo "✅ JSON-RPC compatibility test completed!"

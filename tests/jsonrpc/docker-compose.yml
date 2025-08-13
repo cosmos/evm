@@ -18,7 +18,7 @@ services:
       - "8545:8545"
       - "8546:8546"
     volumes:
-      - evmd-compat-data:/data
+      - ./.evmd-compat:/data:Z
     networks:
       - jsonrpc-test
     command: >
@@ -96,6 +96,3 @@ services:
 networks:
   jsonrpc-test:
     driver: bridge
-
-volumes:
-  evmd-compat-data:
