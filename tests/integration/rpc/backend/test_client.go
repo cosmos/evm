@@ -27,14 +27,15 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
-// Client defines a mocked object that implements the Tendermint JSON-RPC Client
+// Client defines a mocked object that implements the CometBFT JSON-RPC Client
 // interface. It allows for performing Client queries without having to run a
-// Tendermint RPC Client server.
+// CometBFT RPC Client server.
 //
 // To use a mock method it has to be registered in a given test.
 var _ cmtrpcclient.Client = &mocks.Client{}
 
 // Tx Search
+
 func RegisterTxSearch(client *mocks.Client, query string, txBz []byte) {
 	resulTxs := []*cmtrpctypes.ResultTx{{Tx: txBz}}
 	client.On("TxSearch", rpc.ContextWithHeight(1), query, false, (*int)(nil), (*int)(nil), "").
@@ -52,6 +53,7 @@ func RegisterTxSearchError(client *mocks.Client, query string) {
 }
 
 // Broadcast Tx
+
 func RegisterBroadcastTx(client *mocks.Client, tx types.Tx) {
 	client.On("BroadcastTxSync", context.Background(), tx).
 		Return(&cmtrpctypes.ResultBroadcastTx{}, nil)
@@ -63,6 +65,7 @@ func RegisterBroadcastTxError(client *mocks.Client, tx types.Tx) {
 }
 
 // Unconfirmed Transactions
+
 func RegisterUnconfirmedTxs(client *mocks.Client, limit *int, txs []types.Tx) {
 	client.On("UnconfirmedTxs", rpc.ContextWithHeight(1), limit).
 		Return(&cmtrpctypes.ResultUnconfirmedTxs{Txs: txs}, nil)
@@ -81,6 +84,7 @@ func RegisterUnconfirmedTxsError(client *mocks.Client, limit *int) {
 }
 
 // Status
+
 func RegisterStatus(client *mocks.Client) {
 	client.On("Status", rpc.ContextWithHeight(1)).
 		Return(&cmtrpctypes.ResultStatus{}, nil)
@@ -92,6 +96,7 @@ func RegisterStatusError(client *mocks.Client) {
 }
 
 // Block
+
 func RegisterBlockMultipleTxs(
 	client *mocks.Client,
 	height int64,
@@ -127,12 +132,14 @@ func RegisterBlock(
 }
 
 // Block returns error
+
 func RegisterBlockError(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(nil, errortypes.ErrInvalidRequest)
 }
 
 // Block not found
+
 func RegisterBlockNotFound(
 	client *mocks.Client,
 	height int64,
@@ -144,6 +151,7 @@ func RegisterBlockNotFound(
 }
 
 // Block panic
+
 func RegisterBlockPanic(client *mocks.Client, height int64) {
 	client.On("Block", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
 		Return(func(context.Context, *int64) *cmtrpctypes.ResultBlock {
@@ -167,6 +175,7 @@ func TestRegisterBlock(t *testing.T) {
 }
 
 // ConsensusParams
+
 func RegisterConsensusParams(client *mocks.Client, height int64) {
 	consensusParams := types.DefaultConsensusParams()
 	client.On("ConsensusParams", rpc.ContextWithHeight(height), mock.AnythingOfType("*int64")).
@@ -252,6 +261,7 @@ func TestRegisterBlockResults(t *testing.T) {
 }
 
 // BlockByHash
+
 func RegisterBlockByHash(
 	client *mocks.Client,
 	_ common.Hash,
@@ -276,6 +286,7 @@ func RegisterBlockByHashNotFound(client *mocks.Client, _ common.Hash, _ []byte) 
 }
 
 // HeaderByHash
+
 func RegisterHeaderByHash(
 	client *mocks.Client,
 	_ common.Hash,
@@ -305,6 +316,7 @@ func RegisterHeaderByHashNotFound(client *mocks.Client, hash common.Hash, tx []b
 }
 
 // Header
+
 func RegisterHeader(client *mocks.Client, height *int64, tx []byte) *coretypes.ResultHeader {
 	block := types.MakeBlock(*height, []types.Tx{tx}, nil, nil)
 	resHeader := &coretypes.ResultHeader{Header: &block.Header}
@@ -317,6 +329,7 @@ func RegisterHeaderError(client *mocks.Client, height *int64) {
 }
 
 // Header not found
+
 func RegisterHeaderNotFound(client *mocks.Client, height int64) {
 	client.On("Header", rpc.ContextWithHeight(height), mock.MatchedBy(func(arg *int64) bool {
 		return arg != nil && height == *arg

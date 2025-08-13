@@ -25,7 +25,7 @@ func (d TxListenerDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate boo
 	if ctx.IsCheckTx() && !simulate && d.pendingTxListener != nil {
 		for _, msg := range tx.GetMsgs() {
 			if ethTx, ok := msg.(*evmtypes.MsgEthereumTx); ok {
-				d.pendingTxListener(common.HexToHash(ethTx.Hash))
+				d.pendingTxListener(ethTx.Hash())
 			}
 		}
 	}
