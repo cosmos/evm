@@ -765,7 +765,7 @@ func NewExampleApp(
 	// set the EVM priority nonce mempool
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
-		// Get the actual block gas limit from consensus parameters
+		// TODO: Get the actual block gas limit from consensus parameters
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),
 			BlockGasLimit: 100_000_000,
