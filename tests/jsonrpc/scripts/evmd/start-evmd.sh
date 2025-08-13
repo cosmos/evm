@@ -99,35 +99,31 @@ echo "$USER3_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user root --e
 echo "$USER4_MNEMONIC" | docker run --rm -i -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
     evmd keys add "$USER4_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
 
-# Configure genesis file using Docker to avoid permission issues
+# Configure genesis file using jq directly on host (simpler approach)
 echo -e "${GREEN}Configuring genesis file...${NC}"
+# Change parameter token denominations to desired value
+jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 
-# Use Docker with jq to modify genesis file (avoiding host permission issues)
-docker run --rm -v "$DATA_DIR:/data" --user root --entrypoint="" --workdir="/data/config" alpine/jq bash -c "
-    # Change parameter token denominations to desired value
-    jq '.app_state[\"staking\"][\"params\"][\"bond_denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state[\"gov\"][\"deposit_params\"][\"min_deposit\"][0][\"denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state[\"gov\"][\"params\"][\"min_deposit\"][0][\"denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state[\"gov\"][\"params\"][\"expedited_min_deposit\"][0][\"denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state[\"evm\"][\"params\"][\"evm_denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state[\"mint\"][\"params\"][\"mint_denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    
-    # Add default token metadata to genesis
-    jq '.app_state[\"bank\"][\"denom_metadata\"]=[{\"description\":\"The native staking token for evmd.\",\"denom_units\":[{\"denom\":\"atest\",\"exponent\":0,\"aliases\":[\"attotest\"]},{\"denom\":\"test\",\"exponent\":18,\"aliases\":[]}],\"base\":\"atest\",\"display\":\"test\",\"name\":\"Test Token\",\"symbol\":\"TEST\",\"uri\":\"\",\"uri_hash\":\"\"}]' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    
-    # Enable precompiles in EVM params
-    jq '.app_state[\"evm\"][\"params\"][\"active_static_precompiles\"]=[\"0x0000000000000000000000000000000000000100\",\"0x0000000000000000000000000000000000000400\",\"0x0000000000000000000000000000000000000800\",\"0x0000000000000000000000000000000000000801\",\"0x0000000000000000000000000000000000000802\",\"0x0000000000000000000000000000000000000803\",\"0x0000000000000000000000000000000000000804\",\"0x0000000000000000000000000000000000000805\", \"0x0000000000000000000000000000000000000806\", \"0x0000000000000000000000000000000000000807\"]' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    
-    # Set EVM config (duplicate but keeping for consistency)
-    jq '.app_state[\"evm\"][\"params\"][\"evm_denom\"]=\"atest\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    
-    # Enable native denomination as a token pair for STRv2
-    jq '.app_state.erc20.params.native_precompiles=[\"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE\"]' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:\"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE\",denom:\"atest\",enabled:true}]' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-    
-    # Set gas limit in genesis
-    jq '.consensus.params.block.max_gas=\"10000000\"' genesis.json > tmp_genesis.json && mv tmp_genesis.json genesis.json
-"
+# Add default token metadata to genesis
+jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+
+# Enable precompiles in EVM params
+jq '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805", "0x0000000000000000000000000000000000000806", "0x0000000000000000000000000000000000000807"]' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+
+# Set EVM config
+jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+
+# Enable native denomination as a token pair for STRv2
+jq '.app_state.erc20.params.native_precompiles=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"atest",enabled:true}]' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
+
+# Set gas limit in genesis
+jq '.consensus.params.block.max_gas="10000000"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 
 # Add genesis accounts and generate validator transaction
 echo -e "${GREEN}Setting up genesis accounts and validator...${NC}"
