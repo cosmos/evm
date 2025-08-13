@@ -23,6 +23,7 @@ services:
       start
       --home /data/node0/evmd
       --minimum-gas-prices=0.0001atest
+      --json-rpc.enable
       --json-rpc.api eth,txpool,personal,net,debug,web3
       --json-rpc.address 0.0.0.0:8545
       --json-rpc.ws-address 0.0.0.0:8546
@@ -30,11 +31,11 @@ services:
       --keyring-backend test
       --chain-id local-4221
     healthcheck:
-      test: ["CMD", "sh", "-c", "echo '' | nc localhost 8545 || exit 1"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8545"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
 
   geth:
     container_name: geth-compat-test
@@ -78,6 +79,7 @@ services:
         condition: service_healthy
       geth:
         condition: service_healthy
+    restart: on-failure
     networks:
       - jsonrpc-test
     environment:
@@ -85,6 +87,7 @@ services:
       - GETH_URL=http://geth:8545
     volumes:
       - ./simulator:/app/results:Z
+    command: ["sh", "-c", "sleep 5 && ./simulator"]
 
 networks:
   jsonrpc-test:
