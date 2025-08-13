@@ -59,8 +59,9 @@ if [ "${CI:-false}" = "true" ] || [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
         --starting-ip-address 192.168.10.2 --keyring-backend=test \
         --chain-id=local-4221 --use-docker=true
     
-    # Update docker-compose to use the volume
-    sed -i.bak 's|./.evmd-compat:/data:Z|evmd-compat-data:/data|g' "$JSONRPC_DIR/docker-compose.yml"
+    # Update docker-compose to use the volume instead of bind mount
+    cp "$JSONRPC_DIR/docker-compose.yml" "$JSONRPC_DIR/docker-compose.yml.bak"
+    sed -i 's|./.evmd-compat:/data:Z|evmd-compat-data:/data|g' "$JSONRPC_DIR/docker-compose.yml"
 else
     echo "🔧 Local environment, using bind mount..."
     # Ensure the directory exists and has correct permissions  

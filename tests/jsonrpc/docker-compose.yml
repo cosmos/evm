@@ -96,3 +96,6 @@ services:
 networks:
   jsonrpc-test:
     driver: bridge
+
+volumes:
+  evmd-compat-data:
