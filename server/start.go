@@ -57,6 +57,7 @@ type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendTyp
 type Application interface {
 	types.Application
 	AppWithPendingTxStream
+	SetClientCtx(clientCtx client.Context)
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
@@ -132,7 +133,7 @@ which accepts a path for the resulting pprof file.
 			if !withTM {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, opts)
+					return startStandAlone(serverCtx, clientCtx, opts)
 				})
 			}
 
@@ -231,7 +232,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -262,6 +263,12 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
+
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
@@ -375,6 +382,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
