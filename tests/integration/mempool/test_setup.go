@@ -44,7 +44,7 @@ func (s *IntegrationTestSuite) SetupTest() {
 
 // SetupTestWithChainID initializes the test environment with a specific chain ID.
 func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
-	s.keyring = keyring.New(3)
+	s.keyring = keyring.New(20)
 
 	options := []network.ConfigOption{
 		network.WithChainID(chainID),

@@ -3,6 +3,8 @@ package mempool
 import (
 	"math/big"
 
+	"cosmossdk.io/math"
+
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -35,13 +37,16 @@ type EVMMempoolIterator struct {
 	/** Chain Params **/
 	bondDenom string
 	chainID   *big.Int
+
+	/** Blockchain Access **/
+	blockchain *Blockchain
 }
 
 // NewEVMMempoolIterator creates a new unified iterator over EVM and Cosmos transactions.
 // It combines iterators from both transaction pools and selects transactions based on fee priority.
 // Returns nil if both iterators are empty or nil. The bondDenom parameter specifies the native
 // token denomination for fee comparisons, and chainId is used for EVM transaction conversion.
-func NewEVMMempoolIterator(evmIterator *miner.TransactionsByPriceAndNonce, cosmosIterator mempool.Iterator, logger log.Logger, txConfig client.TxConfig, bondDenom string, chainID *big.Int) mempool.Iterator {
+func NewEVMMempoolIterator(evmIterator *miner.TransactionsByPriceAndNonce, cosmosIterator mempool.Iterator, logger log.Logger, txConfig client.TxConfig, bondDenom string, chainID *big.Int, blockchain *Blockchain) mempool.Iterator {
 	// Check if we have any transactions at all
 	hasEVM := evmIterator != nil && !evmIterator.Empty()
 	hasCosmos := cosmosIterator != nil && cosmosIterator.Tx() != nil
@@ -61,6 +66,7 @@ func NewEVMMempoolIterator(evmIterator *miner.TransactionsByPriceAndNonce, cosmo
 		txConfig:       txConfig,
 		bondDenom:      bondDenom,
 		chainID:        chainID,
+		blockchain:     blockchain,
 	}
 }
 
@@ -166,7 +172,7 @@ func (i *EVMMempoolIterator) getNextEVMTx() (*txpool.LazyTransaction, *uint256.I
 	return i.evmIterator.Peek()
 }
 
-// getNextCosmosTx retrieves the next Cosmos transaction and its fee
+// getNextCosmosTx retrieves the next Cosmos transaction and its effective gas tip
 func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 	if i.cosmosIterator == nil {
 		return nil, nil
@@ -177,19 +183,13 @@ func (i *EVMMempoolIterator) getNextCosmosTx() (sdk.Tx, *uint256.Int) {
 		return nil, nil
 	}
 
-	// Extract fee from the transaction
-	cosmosFee := i.extractCosmosFee(tx)
-	if cosmosFee == nil {
+	// Extract effective gas tip from the transaction (gas price - base fee)
+	cosmosEffectiveTip := i.extractCosmosEffectiveTip(tx)
+	if cosmosEffectiveTip == nil {
 		return tx, uint256.NewInt(0) // Return zero fee if no valid fee found
 	}
 
-	// Convert fee to uint256
-	cosmosAmount, overflow := uint256.FromBig(cosmosFee.Amount.BigInt())
-	if overflow {
-		return tx, uint256.NewInt(0) // Return zero fee if overflow
-	}
-
-	return tx, cosmosAmount
+	return tx, cosmosEffectiveTip
 }
 
 // getPreferredTransaction returns the preferred transaction based on fee priority.
@@ -247,24 +247,81 @@ func (i *EVMMempoolIterator) advanceCurrentIterator() {
 	}
 }
 
-// extractCosmosFee extracts the fee in bond denomination from a Cosmos transaction
-func (i *EVMMempoolIterator) extractCosmosFee(tx sdk.Tx) *sdk.Coin {
+// extractCosmosEffectiveTip extracts the effective gas tip from a Cosmos transaction
+// This aligns with EVM transaction prioritization by calculating: gas_price - base_fee
+func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
 	feeTx, ok := tx.(sdk.FeeTx)
 	if !ok {
 		i.logger.Debug("Cosmos transaction doesn't implement FeeTx interface")
 		return nil // Transaction doesn't implement FeeTx interface
 	}
 
+	var bondDenomFeeAmount math.Int
 	fees := feeTx.GetFee()
 	for _, coin := range fees {
 		if coin.Denom == i.bondDenom {
 			i.logger.Debug("found fee in bond denomination", "denom", coin.Denom, "amount", coin.Amount.String())
-			return &coin
+			bondDenomFeeAmount = coin.Amount
 		}
 	}
 
-	i.logger.Debug("no fee found in bond denomination", "bond_denom", i.bondDenom, "available_fees", fees)
-	return nil // No fee in bond denomination
+	// Calculate gas price: fee_amount / gas_limit
+	gasPrice, overflow := uint256.FromBig(bondDenomFeeAmount.Quo(math.NewIntFromUint64(feeTx.GetGas())).BigInt())
+	if overflow {
+		i.logger.Debug("overflowed on gas price calculation")
+		return nil
+	}
+
+	// Get current base fee from blockchain StateDB
+	baseFee := i.getCurrentBaseFee()
+	if baseFee == nil {
+		// No base fee, return gas price as effective tip
+		i.logger.Debug("no base fee available, using gas price as effective tip", "gas_price", gasPrice.String())
+		return gasPrice
+	}
+
+	// Calculate effective tip: gas_price - base_fee
+	if gasPrice.Cmp(baseFee) < 0 {
+		// Gas price is lower than base fee, return zero effective tip
+		i.logger.Debug("gas price lower than base fee, effective tip is zero", "gas_price", gasPrice.String(), "base_fee", baseFee.String())
+		return uint256.NewInt(0)
+	}
+
+	effectiveTip := new(uint256.Int).Sub(gasPrice, baseFee)
+	i.logger.Debug("calculated effective tip", "gas_price", gasPrice.String(), "base_fee", baseFee.String(), "effective_tip", effectiveTip.String())
+	return effectiveTip
+}
+
+// getCurrentBaseFee retrieves the current base fee from the blockchain StateDB
+func (i *EVMMempoolIterator) getCurrentBaseFee() *uint256.Int {
+	if i.blockchain == nil {
+		i.logger.Debug("blockchain not available, cannot get base fee")
+		return nil
+	}
+
+	// Get the current block header to access the base fee
+	header := i.blockchain.CurrentBlock()
+	if header == nil {
+		i.logger.Debug("failed to get current block header")
+		return nil
+	}
+
+	// Get base fee from the header
+	baseFee := header.BaseFee
+	if baseFee == nil {
+		i.logger.Debug("no base fee in current block header")
+		return nil
+	}
+
+	// Convert to uint256
+	baseFeeUint, overflow := uint256.FromBig(baseFee)
+	if overflow {
+		i.logger.Debug("base fee overflow when converting to uint256")
+		return nil
+	}
+
+	i.logger.Debug("retrieved current base fee from blockchain", "base_fee", baseFeeUint.String())
+	return baseFeeUint
 }
 
 // hasMoreTransactions checks if there are more transactions available in either iterator
