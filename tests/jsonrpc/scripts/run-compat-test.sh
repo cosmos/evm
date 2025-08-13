@@ -45,19 +45,14 @@ else
     fi
 fi
 
-# Initialize evmd data
-echo "🔧 Initializing evmd test data..."
+# Initialize evmd data directory
+echo "🔧 Preparing evmd data directory..."
 
 # Ensure the directory exists and has correct permissions  
 mkdir -p "$JSONRPC_DIR/.evmd-compat"
 chmod 777 "$JSONRPC_DIR/.evmd-compat"
 
-# Run evmd init with root user using the same approach as start-evmd.sh
-docker run --rm --privileged --user root --entrypoint="" \
-    -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
-    evmd testnet init-files --validator-count 1 -o /data \
-    --starting-ip-address 192.168.10.2 --keyring-backend=test \
-    --chain-id=local-4221 --use-docker=true
+echo "🔧 evmd will auto-initialize when container starts..."
 
 # Run the compatibility tests - only use --build if we need to build new image
 echo "🚀 Running JSON-RPC compatibility tests..."

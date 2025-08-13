@@ -21,17 +21,28 @@ services:
       - ./.evmd-compat:/data:Z
     networks:
       - jsonrpc-test
+    entrypoint: ["/bin/sh", "-c"]
     command: >
-      start
-      --home /data/node0/evmd
-      --minimum-gas-prices=0.0001atest
-      --json-rpc.enable
-      --json-rpc.api eth,txpool,personal,net,debug,web3
-      --json-rpc.address 0.0.0.0:8545
-      --json-rpc.ws-address 0.0.0.0:8546
-      --json-rpc.enable-profiling
-      --keyring-backend test
-      --chain-id local-4221
+      "if [ ! -f /data/node0/evmd/config/genesis.json ]; then
+         echo 'Initializing evmd data...';
+         evmd testnet init-files --validator-count 1 -o /data 
+           --starting-ip-address 192.168.10.2 --keyring-backend=test
+           --chain-id=local-4221 --use-docker=true;
+         echo 'Initialization complete.';
+       else
+         echo 'evmd data already initialized, skipping...';
+       fi &&
+       echo 'Starting evmd with home=/data/node0/evmd...' &&
+       exec evmd start
+         --home /data/node0/evmd
+         --minimum-gas-prices=0.0001atest
+         --json-rpc.enable
+         --json-rpc.api eth,txpool,personal,net,debug,web3
+         --json-rpc.address 0.0.0.0:8545
+         --json-rpc.ws-address 0.0.0.0:8546
+         --json-rpc.enable-profiling
+         --keyring-backend test
+         --chain-id local-4221"
     healthcheck:
       test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --timeout=5 --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}' --header='Content-Type: application/json' -O- http://localhost:8545 | grep -q result || exit 1"]
       interval: 10s
