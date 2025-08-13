@@ -41,6 +41,7 @@ services:
   geth:
     container_name: geth-compat-test
     image: "ethereum/client-go:latest"
+    privileged: true
     ports:
       - "8547:8545"
       - "8548:8546"
@@ -72,6 +73,7 @@ services:
 
   simulator:
     container_name: simulator-compat-test
+    privileged: true
     build:
       context: ../../
       dockerfile: tests/jsonrpc/Dockerfile

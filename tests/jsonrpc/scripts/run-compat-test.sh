@@ -47,7 +47,7 @@ fi
 
 # Initialize evmd data
 echo "🔧 Initializing evmd test data..."
-docker run --rm -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
+docker run --rm -v --privileged "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
     testnet init-files --validator-count 1 -o /data \
     --starting-ip-address 192.168.10.2 --keyring-backend=test \
     --chain-id=local-4221 --use-docker=true
