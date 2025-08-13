@@ -149,10 +149,10 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
 docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
     evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
 
-# Debug: Check ERC20 structure in genesis.json before gentx
-echo -e "${YELLOW}Debug: Checking ERC20 structure in genesis.json before gentx...${NC}"
-echo "ERC20 section in genesis.json:"
-jq '.app_state.erc20' "$DATA_DIR/config/genesis.json" || echo "No erc20 section found"
+# Debug: Check entire genesis.json structure before gentx
+echo -e "${YELLOW}Debug: Checking entire genesis.json before gentx...${NC}"
+echo "Complete genesis.json:"
+jq '.' "$DATA_DIR/config/genesis.json"
 
 # Sign genesis transaction
 docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
