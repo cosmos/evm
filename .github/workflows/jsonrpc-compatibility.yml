@@ -95,6 +95,28 @@ jobs:
           
           # Wait for evmd to be ready
           echo "⏳ Waiting for evmd to be ready..."
+          
+          # Debug: Check container status and logs
+          echo "🔍 Debugging container status..."
+          docker ps | grep evmd-jsonrpc-test || echo "❌ Container not found in ps"
+          
+          echo "📋 Container logs (last 50 lines):"
+          docker logs --tail 50 evmd-jsonrpc-test || echo "❌ No logs available"
+          
+          # Debug: Check if port is listening inside container
+          echo "🔍 Checking if port 8545 is listening inside container..."
+          docker exec evmd-jsonrpc-test netstat -tlnp 2>/dev/null | grep 8545 || echo "⚠️ Port 8545 not listening inside container"
+          
+          # Debug: Check container network interfaces
+          echo "🔍 Container network interfaces:"
+          docker exec evmd-jsonrpc-test ip addr show || echo "❌ Cannot check network interfaces"
+          
+          # Debug: Try to curl from inside the container
+          echo "🔍 Testing JSON-RPC from inside container..."
+          docker exec evmd-jsonrpc-test curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+            http://localhost:8545 || echo "⚠️ JSON-RPC not responding inside container"
+          
           timeout 120 bash -c 'until curl -s -f http://localhost:8545 > /dev/null; do
             echo "Waiting for evmd JSON-RPC server..."
             sleep 5
