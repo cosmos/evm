@@ -1,7 +1,6 @@
 package ante
 
 import (
-	evmante "github.com/cosmos/evm/ante"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
@@ -32,7 +31,7 @@ type HandlerOptions struct {
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	MaxTxGasWanted         uint64
 	TxFeeChecker           ante.TxFeeChecker
-	PendingTxListener      evmante.PendingTxListener
+	PendingTxListener      PendingTxListener
 }
 
 // Validate checks if the keepers are defined
