@@ -34,7 +34,6 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	loadLatest := true
 	appOptions := simutils.NewAppOptionsWithFlagHome(defaultNodeHome)
 
-	// Use noop mempool for regular integration tests to avoid EVM mempool state issues
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
 	return evmd.NewExampleApp(
