@@ -9,7 +9,11 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
 
+	"cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
 func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
@@ -22,6 +26,7 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 		nonce         uint64 = 10
 		balance              = uint256.NewInt(100)
 		emptyCodeHash        = crypto.Keccak256(nil)
+		totalBalance         = math.NewInt(100)
 	)
 
 	account := utiltx.GenerateAddress()
@@ -30,11 +35,13 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 		name     string
 		malleate func()
 		existent bool
+		vesting  bool
 	}{
 		{
 			"ok",
 			func() {
 			},
+			false,
 			false,
 		},
 		{
@@ -47,6 +54,45 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 				})
 				s.Require().NoError(err)
 			},
+			true,
+			false,
+		},
+		{
+			"existent vesting account",
+			func() {
+				accountAddr := sdk.AccAddress(account.Bytes())
+				err := s.network.App.GetBankKeeper().SendCoins(ctx, s.keyring.GetAccAddr(0), accountAddr, sdk.NewCoins(sdk.NewCoin(s.network.GetBaseDenom(), math.NewInt(balance.ToBig().Int64()))))
+				s.Require().NoError(err)
+				// replace with vesting account
+				balanceResp, err := s.handler.GetBalanceFromEVM(accountAddr)
+				s.Require().NoError(err)
+
+				bal, ok := math.NewIntFromString(balanceResp.Balance)
+				s.Require().True(ok)
+
+				baseAccount := s.network.App.GetAccountKeeper().GetAccount(ctx, accountAddr).(*authtypes.BaseAccount)
+				baseDenom := s.network.GetBaseDenom()
+				currTime := s.network.GetContext().BlockTime().Unix()
+				acc, err := vestingtypes.NewContinuousVestingAccount(baseAccount, sdk.NewCoins(sdk.NewCoin(baseDenom, bal)), s.network.GetContext().BlockTime().Unix(), currTime+100)
+				s.Require().NoError(err)
+				s.network.App.GetAccountKeeper().SetAccount(ctx, acc)
+
+				spendable := s.network.App.GetBankKeeper().SpendableCoin(ctx, accountAddr, baseDenom).Amount
+				s.Require().Equal(spendable.String(), "0")
+
+				evmBalanceRes, err := s.handler.GetBalanceFromEVM(accountAddr)
+				s.Require().NoError(err)
+				evmBalance := evmBalanceRes.Balance
+				s.Require().Equal(evmBalance, "0")
+
+				err = s.network.App.GetEVMKeeper().SetAccount(ctx, account, statedb.Account{
+					CodeHash: codeHash,
+					Nonce:    nonce,
+					Balance:  balance,
+				})
+				s.Require().NoError(err)
+			},
+			true,
 			true,
 		},
 	}
@@ -63,6 +109,10 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 		if tc.existent {
 			s.Require().Equal(balance, acc.Balance)
 			s.Require().Equal(nonce, acc.Nonce)
+			if tc.vesting {
+				totalBalance = s.network.App.GetBankKeeper().GetBalance(ctx, account.Bytes(), s.network.GetBaseDenom()).Amount
+				s.Require().Equal(totalBalance.BigInt(), common.U2560.Add(balance, balance).ToBig())
+			}
 		} else {
 			s.Require().Equal(common.U2560, acc.Balance)
 			s.Require().Equal(uint64(0), acc.Nonce)
@@ -76,6 +126,10 @@ func (s *KeeperTestSuite) TestRegisterERC20CodeHash() {
 		if tc.existent {
 			s.Require().Equal(balance, acc.Balance)
 			s.Require().Equal(nonce, acc.Nonce)
+			if tc.vesting {
+				totalBalance = s.network.App.GetBankKeeper().GetBalance(ctx, account.Bytes(), s.network.GetBaseDenom()).Amount
+				s.Require().Equal(totalBalance.BigInt(), common.U2560.Add(balance, balance).ToBig())
+			}
 		} else {
 			s.Require().Equal(common.U2560, acc.Balance)
 			s.Require().Equal(uint64(0), acc.Nonce)

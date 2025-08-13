@@ -1,6 +1,8 @@
 package evm
 
 import (
+	"math"
+
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 
 	errorsmod "cosmossdk.io/errors"
@@ -23,6 +25,14 @@ func IncrementNonce(
 		return errorsmod.Wrapf(
 			errortypes.ErrInvalidSequence,
 			"invalid nonce; got %d, expected %d", txNonce, nonce,
+		)
+	}
+
+	// EIP-2681 / state safety: refuse to overflow beyond 2^64-1.
+	if nonce == math.MaxUint64 {
+		return errorsmod.Wrap(
+			errortypes.ErrInvalidSequence,
+			"nonce overflow: increment beyond 2^64-1 violates EIP-2681",
 		)
 	}
 

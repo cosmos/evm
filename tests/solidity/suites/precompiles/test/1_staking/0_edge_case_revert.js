@@ -2,7 +2,8 @@ const { expect } = require('chai');
 const hre = require('hardhat');
 const {
     STAKING_PRECOMPILE_ADDRESS,
-    LARGE_GAS_LIMIT
+    LARGE_GAS_LIMIT,
+    waitWithTimeout, RETRY_DELAY_FUNC
 } = require('../common');
 
 describe('Staking – edge case revert test', function () {
@@ -23,8 +24,8 @@ describe('Staking – edge case revert test', function () {
             value: hre.ethers.parseEther('1.0'), // Fund contract with 1 ETH
             gasLimit: GAS_LIMIT
         });
-        await stakingReverter.waitForDeployment();
-        
+        await waitWithTimeout(stakingReverter.deploymentTransaction(), 20000, RETRY_DELAY_FUNC)
+
         validatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql';
         
         console.log('StakingReverter deployed at:', await stakingReverter.getAddress());
@@ -47,6 +48,7 @@ describe('Staking – edge case revert test', function () {
             const tx = await stakingReverter.callPrecompileBeforeAndAfterRevert(1, validatorAddress, {
                 gasLimit: GAS_LIMIT
             });
+            await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC);
             const receipt = await tx.wait();
             
             console.log('Transaction hash:', receipt.hash);

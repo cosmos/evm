@@ -42,7 +42,7 @@ func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (*t
 		labels = append(labels, telemetry.NewLabel("execution", "call"))
 	}
 
-	response, err := k.ApplyTransaction(ctx, msg)
+	response, err := k.ApplyTransaction(ctx, msg.AsTransaction())
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to apply transaction")
 	}
@@ -86,7 +86,7 @@ func (k *Keeper) EthereumTx(goCtx context.Context, msg *types.MsgEthereumTx) (*t
 	}
 
 	if len(ctx.TxBytes()) > 0 {
-		// add event for tendermint transaction hash format
+		// add event for CometBFT transaction hash format
 		hash := cmttypes.Tx(ctx.TxBytes()).Hash()
 		attrs = append(attrs, sdk.NewAttribute(types.AttributeKeyTxHash, hex.EncodeToString(hash)))
 	}

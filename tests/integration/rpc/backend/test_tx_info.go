@@ -1,15 +1,17 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -74,7 +76,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			},
 			msgEthereumTx,
 			nil,
-			true,
+			false,
 		},
 		{
 			"pass - Base fee error",
@@ -118,7 +120,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			err := s.backend.Indexer.IndexBlock(block, responseDeliver)
 			s.Require().NoError(err)
 
-			rpcTx, err := s.backend.GetTransactionByHash(common.HexToHash(tc.tx.Hash))
+			rpcTx, err := s.backend.GetTransactionByHash(tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -178,7 +180,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTransactionByHashPending(common.HexToHash(tc.tx.Hash))
+			rpcTx, err := s.backend.GetTransactionByHashPending(tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -206,7 +208,7 @@ func (s *TestSuite) TestGetTxByEthHash() {
 			func() {
 				s.backend.Indexer = nil
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, common.HexToHash(msgEthereumTx.Hash).Hex())
+				query := fmt.Sprintf("%s.%s='%s'", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash, msgEthereumTx.Hash().Hex())
 				RegisterTxSearch(client, query, bz)
 			},
 			msgEthereumTx,
@@ -220,7 +222,7 @@ func (s *TestSuite) TestGetTxByEthHash() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			rpcTx, err := s.backend.GetTxByEthHash(common.HexToHash(tc.tx.Hash))
+			rpcTx, err := s.backend.GetTxByEthHash(tc.tx.Hash())
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -292,7 +294,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			Code: 0,
 			Events: []abci.Event{
 				{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
-					{Key: "ethereumTxHash", Value: common.HexToHash(msgEthTx.Hash).Hex()},
+					{Key: "ethereumTxHash", Value: msgEthTx.Hash().Hex()},
 					{Key: "txIndex", Value: "0"},
 					{Key: "amount", Value: "1000"},
 					{Key: "txGasUsed", Value: "21000"},
@@ -314,7 +316,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 	testCases := []struct {
 		name         string
 		registerMock func()
-		block        *tmrpctypes.ResultBlock
+		block        *cmtrpctypes.ResultBlock
 		idx          hexutil.Uint
 		expRPCTx     *rpctypes.RPCTransaction
 		expPass      bool
@@ -326,7 +328,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				_, err := RegisterBlockResults(client, 1)
 				s.Require().NoError(err)
 			},
-			&tmrpctypes.ResultBlock{Block: types.MakeBlock(1, []types.Tx{bz}, nil, nil)},
+			&cmtrpctypes.ResultBlock{Block: types.MakeBlock(1, []types.Tx{bz}, nil, nil)},
 			1,
 			nil,
 			true,
@@ -340,7 +342,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFeeError(QueryClient)
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -360,7 +362,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -374,7 +376,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
-			&tmrpctypes.ResultBlock{Block: defaultBlock},
+			&cmtrpctypes.ResultBlock{Block: defaultBlock},
 			0,
 			txFromMsg,
 			true,
@@ -504,7 +506,7 @@ func (s *TestSuite) TestGetTransactionByTxIndex() {
 	}
 }
 
-func (s *TestSuite) TestQueryTendermintTxIndexer() {
+func (s *TestSuite) TestQueryCometTxIndexer() {
 	testCases := []struct {
 		name         string
 		registerMock func()
@@ -533,7 +535,7 @@ func (s *TestSuite) TestQueryTendermintTxIndexer() {
 			s.SetupTest() // reset
 			tc.registerMock()
 
-			txResults, err := s.backend.QueryTendermintTxIndexer(tc.query, tc.txGetter)
+			txResults, err := s.backend.QueryCometTxIndexer(tc.query, tc.txGetter)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -547,7 +549,10 @@ func (s *TestSuite) TestQueryTendermintTxIndexer() {
 
 func (s *TestSuite) TestGetTransactionReceipt() {
 	msgEthereumTx, _ := s.buildEthereumTx()
+	msgEthereumTx2, _ := s.buildEthereumTx()
 	txHash := msgEthereumTx.AsTransaction().Hash()
+	txHash2 := msgEthereumTx2.AsTransaction().Hash()
+	_ = txHash2
 
 	txBz := s.signAndEncodeEthTx(msgEthereumTx)
 
@@ -557,11 +562,90 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 		tx           *evmtypes.MsgEthereumTx
 		block        *types.Block
 		blockResult  []*abci.ExecTxResult
-		expTxReceipt map[string]interface{}
 		expPass      bool
+		expErr       error
 	}{
+		// TODO test happy path
 		{
-			"fail - Receipts do not match",
+			name:         "success - tx not found",
+			registerMock: func() {},
+			block:        &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
+			tx:           msgEthereumTx2,
+			blockResult: []*abci.ExecTxResult{
+				{
+					Code: 0,
+					Events: []abci.Event{
+						{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+							{Key: "ethereumTxHash", Value: txHash.Hex()},
+							{Key: "txIndex", Value: "0"},
+							{Key: "amount", Value: "1000"},
+							{Key: "txGasUsed", Value: "21000"},
+							{Key: "txHash", Value: txHash.Hex()},
+							{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
+						}},
+					},
+				},
+			},
+			expPass: false,
+			expErr:  nil,
+		},
+		{
+			name: "fail - block not found",
+			registerMock: func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				client.On("Block", mock.Anything, mock.Anything).Return(nil, errors.New("some error"))
+			},
+			block: &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
+			tx:    msgEthereumTx,
+			blockResult: []*abci.ExecTxResult{
+				{
+					Code: 0,
+					Events: []abci.Event{
+						{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+							{Key: "ethereumTxHash", Value: txHash.Hex()},
+							{Key: "txIndex", Value: "0"},
+							{Key: "amount", Value: "1000"},
+							{Key: "txGasUsed", Value: "21000"},
+							{Key: "txHash", Value: txHash.Hex()},
+							{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
+						}},
+					},
+				},
+			},
+			expPass: false,
+			expErr:  fmt.Errorf("block not found at height 1: some error"),
+		},
+		{
+			name: "fail - block result error",
+			registerMock: func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				_, err := RegisterBlock(client, 1, txBz)
+				s.Require().NoError(err)
+				client.On("BlockResults", mock.Anything, mock.AnythingOfType("*int64")).
+					Return(nil, errors.New("some error"))
+			},
+			tx:    msgEthereumTx,
+			block: &types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
+			blockResult: []*abci.ExecTxResult{
+				{
+					Code: 0,
+					Events: []abci.Event{
+						{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+							{Key: "ethereumTxHash", Value: txHash.Hex()},
+							{Key: "txIndex", Value: "0"},
+							{Key: "amount", Value: "1000"},
+							{Key: "txGasUsed", Value: "21000"},
+							{Key: "txHash", Value: ""},
+							{Key: "recipient", Value: "0x775b87ef5D82ca211811C1a02CE0fE0CA3a455d7"},
+						}},
+					},
+				},
+			},
+			expPass: false,
+			expErr:  fmt.Errorf("block result not found at height 1: some error"),
+		},
+		{
+			"happy path",
 			func() {
 				var header metadata.MD
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -589,8 +673,8 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 					},
 				},
 			},
-			map[string]interface{}(nil),
-			false,
+			true,
+			nil,
 		},
 	}
 
@@ -604,12 +688,22 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			err := s.backend.Indexer.IndexBlock(tc.block, tc.blockResult)
 			s.Require().NoError(err)
 
-			txReceipt, err := s.backend.GetTransactionReceipt(common.HexToHash(tc.tx.Hash))
+			res, err := s.backend.GetTransactionReceipt(tc.tx.Hash())
 			if tc.expPass {
+				s.Require().Equal(res["transactionHash"], tc.tx.Hash())
+				s.Require().Equal(res["blockNumber"], hexutil.Uint64(tc.block.Height)) //nolint: gosec // G115
+				requiredFields := []string{"status", "cumulativeGasUsed", "logsBloom", "logs", "gasUsed", "blockHash", "blockNumber", "transactionIndex", "effectiveGasPrice", "from", "to", "type"}
+				for _, field := range requiredFields {
+					s.Require().NotNil(res[field], "field was empty %s", field)
+				}
+				s.Require().Nil(res["contractAddress"]) // no contract creation
 				s.Require().NoError(err)
-				s.Require().Equal(txReceipt, tc.expTxReceipt)
 			} else {
-				s.Require().NotEqual(txReceipt, tc.expTxReceipt)
+				if tc.expErr == nil {
+					s.Require().Nil(err)
+				} else {
+					s.Require().ErrorContains(err, tc.expErr.Error())
+				}
 			}
 		})
 	}

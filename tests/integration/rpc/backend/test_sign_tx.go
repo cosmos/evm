@@ -22,9 +22,11 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
 
+const MinIntrinsicGas = 21000
+
 func (s *TestSuite) TestSendTransaction() {
 	gasPrice := new(hexutil.Big)
-	gas := hexutil.Uint64(1)
+	gas := hexutil.Uint64(MinIntrinsicGas)
 	zeroGas := hexutil.Uint64(0)
 	toAddr := utiltx.GenerateAddress()
 	priv, _ := ethsecp256k1.GenerateKey()
@@ -40,7 +42,7 @@ func (s *TestSuite) TestSendTransaction() {
 	}
 
 	hash := common.Hash{}
-
+	height := int64(1)
 	testCases := []struct {
 		name         string
 		registerMock func()
@@ -64,8 +66,8 @@ func (s *TestSuite) TestSendTransaction() {
 				armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
-				RegisterParams(QueryClient, &header, 1)
-				RegisterBlockError(client, 1)
+				RegisterParams(QueryClient, &header, height)
+				RegisterHeaderError(client, &height)
 			},
 			callArgsDefault,
 			hash,
@@ -80,9 +82,8 @@ func (s *TestSuite) TestSendTransaction() {
 				armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
-				RegisterParams(QueryClient, &header, 1)
-				_, err = RegisterBlock(client, 1, nil)
-				s.Require().NoError(err)
+				RegisterParams(QueryClient, &header, height)
+				RegisterHeader(client, &height, nil)
 				_, err = RegisterBlockResults(client, 1)
 				s.Require().NoError(err)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -128,7 +129,7 @@ func (s *TestSuite) TestSendTransaction() {
 				// Sign the transaction and get the hash
 
 				ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
-				msg := callArgsDefault.ToTransaction()
+				msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 				err := msg.Sign(ethSigner, s.backend.ClientCtx.Keyring)
 				s.Require().NoError(err)
 				tc.expHash = msg.AsTransaction().Hash()
@@ -247,14 +248,14 @@ func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int,
 	client = suite.backend.ClientCtx.Client.(*mocks.Client)
 	armor := crypto.EncryptArmorPrivKey(priv, "", "eth_secp256k1")
 	_ = suite.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
-	RegisterParams(QueryClient, &header, 1)
-	_, err := RegisterBlock(client, 1, nil)
-	suite.Require().NoError(err)
-	_, err = RegisterBlockResults(client, 1)
+	height := int64(1)
+	RegisterParams(QueryClient, &header, height)
+	RegisterHeader(client, &height, nil)
+	_, err := RegisterBlockResults(client, height)
 	suite.Require().NoError(err)
 	RegisterBaseFee(QueryClient, baseFee)
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
-	msg := callArgsDefault.ToTransaction()
+	msg := evmtypes.NewTxFromArgs(&callArgsDefault)
 	err = msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
 	suite.Require().NoError(err)
 	baseDenom := evmtypes.GetEVMCoinDenom()

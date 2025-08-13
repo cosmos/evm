@@ -81,6 +81,7 @@ func (s *TestSuite) TestGetCode() {
 func (s *TestSuite) TestGetProof() {
 	blockNrInvalid := rpctypes.NewBlockNumber(big.NewInt(1))
 	blockNr := rpctypes.NewBlockNumber(big.NewInt(4))
+	blockNrZero := rpctypes.NewBlockNumber(big.NewInt(0))
 	address1 := utiltx.GenerateAddress()
 
 	testCases := []struct {
@@ -99,8 +100,8 @@ func (s *TestSuite) TestGetProof() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrInvalid},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				height := bn.Int64()
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterAccount(QueryClient, addr, blockNrInvalid.Int64())
 			},
@@ -114,7 +115,8 @@ func (s *TestSuite) TestGetProof() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrInvalid},
 			func(bn rpctypes.BlockNumber, _ common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlockError(client, bn.Int64())
+				height := bn.Int64()
+				RegisterHeaderError(client, &height)
 			},
 			false,
 			&rpctypes.AccountResult{},
@@ -125,15 +127,14 @@ func (s *TestSuite) TestGetProof() {
 			[]string{"0x0"},
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
-				s.backend.Ctx = rpctypes.ContextWithHeight(bn.Int64())
-
+				height := bn.Int64()
+				s.backend.Ctx = rpctypes.ContextWithHeight(height)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				RegisterAccount(QueryClient, addr, bn.Int64())
+				RegisterAccount(QueryClient, addr, height)
 
-				// Use the IAVL height if a valid tendermint height is passed in.
+				// Use the IAVL height if a valid CometBFT height is passed in.
 				iavlHeight := bn.Int64()
 				RegisterABCIQueryWithOptions(
 					client,
@@ -145,6 +146,55 @@ func (s *TestSuite) TestGetProof() {
 				RegisterABCIQueryWithOptions(
 					client,
 					bn.Int64(),
+					"store/acc/key",
+					bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address1.Bytes()...)),
+					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},
+				)
+			},
+			true,
+			&rpctypes.AccountResult{
+				Address:      address1,
+				AccountProof: []string{""},
+				Balance:      (*hexutil.Big)(big.NewInt(0)),
+				CodeHash:     common.HexToHash(""),
+				Nonce:        0x0,
+				StorageHash:  common.Hash{},
+				StorageProof: []rpctypes.StorageResult{
+					{
+						Key:   "0x0",
+						Value: (*hexutil.Big)(big.NewInt(2)),
+						Proof: []string{""},
+					},
+				},
+			},
+		},
+		{
+			"pass, 0 height",
+			address1,
+			[]string{"0x0"},
+			rpctypes.BlockNumberOrHash{BlockNumber: &blockNrZero},
+			func(bn rpctypes.BlockNumber, addr common.Address) {
+				height := int64(4)
+				s.backend.Ctx = rpctypes.ContextWithHeight(height)
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				RegisterHeader(client, &height, nil)
+				queryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterAccount(queryClient, addr, height)
+				var header metadata.MD
+				RegisterParams(queryClient, &header, height)
+
+				// Use the IAVL height if a valid CometBFT height is passed in.
+				iavlHeight := height
+				RegisterABCIQueryWithOptions(
+					client,
+					iavlHeight,
+					"store/evm/key",
+					evmtypes.StateKey(address1, common.HexToHash("0x0").Bytes()),
+					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},
+				)
+				RegisterABCIQueryWithOptions(
+					client,
+					iavlHeight,
 					"store/acc/key",
 					bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address1.Bytes()...)),
 					cmtrpcclient.ABCIQueryOptions{Height: iavlHeight, Prove: true},
@@ -268,12 +318,13 @@ func (s *TestSuite) TestGetBalance() {
 			nil,
 		},
 		{
-			"fail - tendermint client failed to get block",
+			"fail - CometBFT client failed to get block",
 			utiltx.GenerateAddress(),
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, _ common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlockError(client, bn.Int64())
+				height := bn.Int64()
+				RegisterHeaderError(client, &height)
 			},
 			false,
 			nil,
@@ -284,10 +335,10 @@ func (s *TestSuite) TestGetBalance() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				height := bn.Int64()
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				RegisterBalanceError(QueryClient, addr, bn.Int64())
+				RegisterBalanceError(QueryClient, addr, height)
 			},
 			false,
 			nil,
@@ -298,10 +349,10 @@ func (s *TestSuite) TestGetBalance() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				height := bn.Int64()
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				RegisterBalanceInvalid(QueryClient, addr, bn.Int64())
+				RegisterBalanceInvalid(QueryClient, addr, height)
 			},
 			false,
 			nil,
@@ -312,10 +363,10 @@ func (s *TestSuite) TestGetBalance() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				height := bn.Int64()
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				RegisterBalanceNegative(QueryClient, addr, bn.Int64())
+				RegisterBalanceNegative(QueryClient, addr, height)
 			},
 			false,
 			nil,
@@ -326,10 +377,10 @@ func (s *TestSuite) TestGetBalance() {
 			rpctypes.BlockNumberOrHash{BlockNumber: &blockNr},
 			func(bn rpctypes.BlockNumber, addr common.Address) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, bn.Int64(), nil)
-				s.Require().NoError(err)
+				height := bn.Int64()
+				RegisterHeader(client, &height, nil)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				RegisterBalance(QueryClient, addr, bn.Int64())
+				RegisterBalance(QueryClient, addr, height)
 			},
 			true,
 			(*hexutil.Big)(big.NewInt(1)),

@@ -216,7 +216,7 @@ lint: lint-go lint-python lint-contracts
 lint-go:
 	@echo "--> Running linter"
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
-	@$(golangci_lint_cmd) run --timeout=10m
+	@$(golangci_lint_cmd) run --timeout=15m
 
 lint-python:
 	find . -name "*.py" -type f -not -path "*/node_modules/*" | xargs pylint
@@ -227,7 +227,7 @@ lint-contracts:
 
 lint-fix:
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
-	@$(golangci_lint_cmd) run --timeout=10m --fix
+	@$(golangci_lint_cmd) run --timeout=15m --fix
 
 lint-fix-contracts:
 	solhint --fix contracts/**/*.sol
@@ -377,3 +377,9 @@ test-system: build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	$(MAKE) -C tests/systemtests test
+
+mocks:
+	@echo "--> generating mocks"
+	@go get github.com/vektra/mockery/v2
+	@go generate ./...
+	@make format-go

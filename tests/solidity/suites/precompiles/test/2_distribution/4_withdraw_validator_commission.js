@@ -1,6 +1,6 @@
 const { expect } = require('chai')
 const { ethers } = require('hardhat')
-const { findEvent } = require('../common')
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 describe('Distribution – withdraw validator commission', function () {
     const DIST_ADDRESS = '0x0000000000000000000000000000000000000801'
@@ -27,7 +27,7 @@ describe('Distribution – withdraw validator commission', function () {
         const tx      = await distribution
             .connect(validator)
             .withdrawValidatorCommission(valBech32, { gasLimit: GAS_LIMIT })
-        const receipt = await tx.wait(2)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
 
         // 3) parse the event
         const parsedEvt = findEvent(receipt.logs, distribution.interface, 'WithdrawValidatorCommission')
