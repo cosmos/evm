@@ -39,6 +39,7 @@
 - [\#389](https://github.com/cosmos/evm/pull/389) Post-audit security fixes (batch 3)
 - [\#392](https://github.com/cosmos/evm/pull/392) Post-audit security fixes (batch 5)
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
+- [\#](https://github.com/cosmos/evm/pull/) Prevent nil pointer by checking error in gov precompile FromResponse.
 
 ### FEATURES
 
