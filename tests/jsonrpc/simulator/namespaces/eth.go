@@ -68,6 +68,7 @@ const (
 	MethodNameEthGetTransactionReceipt               types.RpcName = "eth_getTransactionReceipt"
 	MethodNameEthGetTransactionCountByHash           types.RpcName = "eth_getTransactionCountByHash"
 	MethodNameEthGetPendingTransactions              types.RpcName = "eth_getPendingTransactions"
+	MethodNameEthPendingTransactions                 types.RpcName = "eth_pendingTransactions"
 
 	// Eth namespace - filter subcategory
 	MethodNameEthNewFilter                   types.RpcName = "eth_newFilter"
@@ -2136,4 +2137,93 @@ func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 	return rpcResult, nil
+}
+
+func EthPendingTransactions(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameEthPendingTransactions); result != nil {
+		return result, nil
+	}
+
+	var pendingTxs any
+	err := rCtx.Evmd.RPCClient().Call(&pendingTxs, string(MethodNameEthPendingTransactions))
+
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist/is not available") ||
+			strings.Contains(err.Error(), "Method not found") ||
+			strings.Contains(err.Error(), "method not found") {
+			result := &types.RpcResult{
+				Method:   MethodNameEthPendingTransactions,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM - use eth_getPendingTransactions instead",
+				Category: NamespaceEth,
+			}
+			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+			return result, nil
+		}
+		result := &types.RpcResult{
+			Method:   MethodNameEthPendingTransactions,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	// Validate response structure (same validation as eth_getPendingTransactions)
+	validationErrors := []string{}
+	var txCount int
+
+	if pendingTxs == nil {
+		// null response is valid (no pending transactions)
+		txCount = 0
+	} else if txArray, ok := pendingTxs.([]any); ok {
+		txCount = len(txArray)
+
+		// Validate transaction structure if there are pending transactions
+		if txCount > 0 {
+			for i, tx := range txArray {
+				if txMap, ok := tx.(map[string]any); ok {
+					// Check for required transaction fields
+					requiredFields := []string{"hash", "from", "gas", "gasPrice", "nonce"}
+					for _, field := range requiredFields {
+						if _, exists := txMap[field]; !exists {
+							validationErrors = append(validationErrors, fmt.Sprintf("missing field '%s' in transaction %d", field, i))
+							break // Only report first missing field per transaction
+						}
+					}
+				} else {
+					validationErrors = append(validationErrors, fmt.Sprintf("transaction %d is not a valid object", i))
+					break // Don't check more if structure is wrong
+				}
+
+				// Only validate first few transactions to avoid spam
+				if i >= 2 {
+					break
+				}
+			}
+		}
+	} else {
+		validationErrors = append(validationErrors, "response is not an array or null")
+	}
+
+	if len(validationErrors) > 0 {
+		result := &types.RpcResult{
+			Method:   MethodNameEthPendingTransactions,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Response validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: NamespaceEth,
+		}
+		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+		return result, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameEthPendingTransactions,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Retrieved %d pending transactions (go-ethereum compatible method)", txCount),
+		Category: NamespaceEth,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
 }

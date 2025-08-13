@@ -68,6 +68,7 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameEthGetPendingTransactions, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.Legacy(rCtx, ns.MethodNameEthGetPendingTransactions, "eth", "Use eth_newPendingTransactionFilter + eth_getFilterChanges instead")
 				}},
+				{Name: ns.MethodNameEthPendingTransactions, Handler: ns.EthPendingTransactions, Description: "Go-ethereum compatible pending transactions method"},
 				// Execute subcategory
 				{Name: ns.MethodNameEthCall, Handler: ns.EthCall},
 				{Name: ns.MethodNameEthEstimateGas, Handler: ns.EthEstimateGas},
