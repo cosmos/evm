@@ -5,6 +5,7 @@ services:
     container_name: evmd-compat-test
     image: "cosmos/evmd"
     privileged: true
+    user: root
     environment:
       - DEBUG=0
       - ID=0

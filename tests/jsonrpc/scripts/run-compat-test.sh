@@ -48,11 +48,11 @@ fi
 # Initialize evmd data
 echo "🔧 Initializing evmd test data..."
 
-# Ensure the directory exists and has correct permissions
+# Ensure the directory exists and has correct permissions  
 mkdir -p "$JSONRPC_DIR/.evmd-compat"
 chmod 777 "$JSONRPC_DIR/.evmd-compat"
 
-# Run evmd init with proper user mapping
+# Run evmd init with root user
 docker run --rm --privileged --user root \
     -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
     testnet init-files --validator-count 1 -o /data \
