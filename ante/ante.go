@@ -17,7 +17,6 @@ import (
 
 // HandlerOptions defines the list of module keepers required to run the Cosmos EVM
 // AnteHandler decorators.
-// TODO: should we move this out of evmd and export as a library function?
 type HandlerOptions struct {
 	Cdc                    codec.BinaryCodec
 	AccountKeeper          anteinterfaces.AccountKeeper
