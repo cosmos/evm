@@ -175,14 +175,17 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 	cfg.Seal()
 
 	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
+	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
+		return newApp(l, d, w, ao)
+	}
 	rootCmd.AddCommand(
 		genutilcli.InitCmd(evmApp.BasicModuleManager, defaultNodeHome),
 		genutilcli.Commands(evmApp.TxConfig(), evmApp.BasicModuleManager, defaultNodeHome),
 		cmtcli.NewCompletionCmd(rootCmd, true),
 		debug.Cmd(),
 		confixcmd.ConfigCommand(),
-		pruning.Cmd(newApp, defaultNodeHome),
-		snapshot.Cmd(newApp),
+		pruning.Cmd(sdkAppCreator, defaultNodeHome),
+		snapshot.Cmd(sdkAppCreator),
 		NewTestnetCmd(evmApp.BasicModuleManager, banktypes.GenesisBalancesIterator{}, appCreator{}),
 	)
 
@@ -272,7 +275,7 @@ func newApp(
 	db dbm.DB,
 	traceStore io.Writer,
 	appOpts servertypes.AppOptions,
-) servertypes.Application {
+) cosmosevmserver.Application {
 	var cache storetypes.MultiStorePersistentCache
 
 	if cast.ToBool(appOpts.Get(sdkserver.FlagInterBlockCache)) {

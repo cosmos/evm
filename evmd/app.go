@@ -132,6 +132,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	cosmosevmserver "github.com/cosmos/evm/server"
 )
 
 func init() {
@@ -147,9 +148,9 @@ const appName = "evmd"
 var defaultNodeHome string
 
 var (
-	_ runtime.AppI            = (*EVMD)(nil)
-	_ servertypes.Application = (*EVMD)(nil)
-	_ ibctesting.TestingApp   = (*EVMD)(nil)
+	_ runtime.AppI                = (*EVMD)(nil)
+	_ cosmosevmserver.Application = (*EVMD)(nil)
+	_ ibctesting.TestingApp       = (*EVMD)(nil)
 )
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
@@ -161,7 +162,7 @@ type EVMD struct {
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
 
-	pendingTxListeners []ante.PendingTxListener
+	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -438,7 +439,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -800,7 +801,7 @@ func NewExampleApp(
 }
 
 func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
-	options := ante.HandlerOptions{
+	options := evmante.HandlerOptions{
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
