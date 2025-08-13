@@ -34,6 +34,7 @@ import (
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -53,9 +54,14 @@ import (
 // DBOpener is a function to open `application.db`, potentially with customized options.
 type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendType) (dbm.DB, error)
 
-type EVMAppCreator interface {
+type Application interface {
+	types.Application
+	AppWithPendingTxStream
 	SetClientCtx(clientCtx client.Context)
 }
+
+// AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
+type AppCreator func(log.Logger, dbm.DB, io.Writer, types.AppOptions) Application
 
 // StartOptions defines options that can be customized in `StartCmd`
 type StartOptions struct {
@@ -65,9 +71,11 @@ type StartOptions struct {
 }
 
 // NewDefaultStartOptions use the default db opener provided in tm-db.
-func NewDefaultStartOptions(appCreator types.AppCreator, defaultNodeHome string) StartOptions {
+func NewDefaultStartOptions(appCreator AppCreator, defaultNodeHome string) StartOptions {
 	return StartOptions{
-		AppCreator:      appCreator,
+		AppCreator: func(l log.Logger, d dbm.DB, w io.Writer, ao types.AppOptions) types.Application {
+			return appCreator(l, d, w, ao)
+		},
 		DefaultNodeHome: defaultNodeHome,
 		DBOpener:        cosmosevmserverconfig.OpenDB,
 	}
@@ -255,7 +263,7 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
-	evmApp, ok := app.(EVMAppCreator)
+	evmApp, ok := app.(Application)
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
@@ -374,7 +382,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			logger.Error("close application failed", "error", err.Error())
 		}
 	}()
-	evmApp, ok := app.(EVMAppCreator)
+	evmApp, ok := app.(Application)
 	if !ok {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
 	}
