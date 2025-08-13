@@ -200,7 +200,10 @@ echo -e "${GREEN}Configuration completed${NC}"
 
 # Start the evmd container
 echo -e "${GREEN}Starting evmd container...${NC}"
-CONTAINER_ID=$(docker run -d \
+
+# Run docker command and capture both success and error cases
+set +e  # Allow command to fail so we can check exit code
+DOCKER_OUTPUT=$(docker run -d \
     --name "$CONTAINER_NAME" \
     --rm \
     --user root \
@@ -218,16 +221,31 @@ CONTAINER_ID=$(docker run -d \
     --json-rpc.api eth,txpool,personal,net,debug,web3 \
     --keyring-backend test \
     --chain-id "$CHAIN_ID" 2>&1)
+DOCKER_EXIT_CODE=$?
+set -e  # Re-enable exit on error
 
 # Check if docker run command succeeded
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Error: Failed to start Docker container${NC}"
+if [ $DOCKER_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}Error: Failed to start Docker container (exit code: $DOCKER_EXIT_CODE)${NC}"
     echo -e "${YELLOW}Docker error output:${NC}"
-    echo "$CONTAINER_ID"
+    echo "$DOCKER_OUTPUT"
     exit 1
 fi
 
+# If successful, DOCKER_OUTPUT should be the container ID
+CONTAINER_ID="$DOCKER_OUTPUT"
 echo "Container started with ID: $CONTAINER_ID"
+
+# Immediately check if container is still running (to catch quick exits)
+sleep 1
+if ! docker ps -q --filter "id=$CONTAINER_ID" | grep -q "$CONTAINER_ID"; then
+    echo -e "${RED}Error: Container exited immediately after starting${NC}"
+    echo -e "${YELLOW}Container logs:${NC}"
+    docker logs "$CONTAINER_ID" 2>&1 || echo "No logs available"
+    echo -e "${YELLOW}Container exit status:${NC}"
+    docker inspect "$CONTAINER_ID" --format='{{.State.Status}}: {{.State.ExitCode}}' 2>&1 || echo "Cannot inspect container"
+    exit 1
+fi
 
 # Wait for the node to start with progressive checking
 echo -e "${GREEN}Waiting for node to start...${NC}"
