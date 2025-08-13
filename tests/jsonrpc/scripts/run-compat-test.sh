@@ -48,9 +48,15 @@ fi
 # Initialize evmd data directory
 echo "🔧 Preparing evmd data directory..."
 
-# Ensure the directory exists and has correct permissions  
-mkdir -p "$JSONRPC_DIR/.evmd-compat"
-chmod 777 "$JSONRPC_DIR/.evmd-compat"
+# Clear existing directory to avoid key conflicts
+if [ -d "$JSONRPC_DIR/.evmd" ]; then
+    echo "🧹 Removing existing .evmd directory..."
+    rm -rf "$JSONRPC_DIR/.evmd"
+fi
+
+# Create fresh directory with correct permissions  
+mkdir -p "$JSONRPC_DIR/.evmd"
+chmod 777 "$JSONRPC_DIR/.evmd"
 
 echo "🔧 evmd will auto-initialize when container starts..."
 
