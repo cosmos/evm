@@ -132,6 +132,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	cosmosevmserver "github.com/cosmos/evm/server"
 )
 
 func init() {
@@ -147,9 +148,9 @@ const appName = "evmd"
 var defaultNodeHome string
 
 var (
-	_ runtime.AppI            = (*EVMD)(nil)
-	_ servertypes.Application = (*EVMD)(nil)
-	_ ibctesting.TestingApp   = (*EVMD)(nil)
+	_ runtime.AppI                = (*EVMD)(nil)
+	_ cosmosevmserver.Application = (*EVMD)(nil)
+	_ ibctesting.TestingApp       = (*EVMD)(nil)
 )
 
 // EVMD extends an ABCI application, but with most of its parameters exported.
