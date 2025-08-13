@@ -52,7 +52,7 @@
 
 ### API-BREAKING
 
-- [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to 
+- [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
 be exported as a library.
 - [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
 - [\#305](https://github.com/cosmos/evm/pull/305) Remove evidence precompile due to lack of use cases
