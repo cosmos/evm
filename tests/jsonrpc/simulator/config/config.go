@@ -70,11 +70,22 @@ func MustLoadConfig() *Config {
 		gethURL = GethHttpEndpoint
 	}
 
+	// Handle WebSocket URLs - derive from HTTP URLs or use environment variables
+	evmdWsURL := os.Getenv("EVMD_WS_URL")
+	if evmdWsURL == "" {
+		evmdWsURL = EvmdWsEndpoint
+	}
+
+	gethWsURL := os.Getenv("GETH_WS_URL")
+	if gethWsURL == "" {
+		gethWsURL = GethWsEndpoint
+	}
+
 	return &Config{
 		EvmdHttpEndpoint: evmdURL,
-		EvmdWsEndpoint:   EvmdWsEndpoint,
+		EvmdWsEndpoint:   evmdWsURL,
 		GethHttpEndpoint: gethURL,
-		GethWsEndpoint:   GethWsEndpoint,
+		GethWsEndpoint:   gethWsURL,
 		RichPrivKey:      Dev0PrivateKey, // Default to dev0's private key
 		Timeout:          "10s",
 	}

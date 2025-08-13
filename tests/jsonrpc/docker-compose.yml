@@ -81,7 +81,9 @@ services:
       - jsonrpc-test
     environment:
       - EVMD_URL=http://evmd:8545
+      - EVMD_WS_URL=ws://evmd:8546
       - GETH_URL=http://geth:8545
+      - GETH_WS_URL=ws://geth:8546
     volumes:
       - ./simulator:/app/results:Z
     command: ["sh", "-c", "sleep 5 && ./simulator"]
