@@ -1,6 +1,7 @@
 package ante
 
 import (
+	evmante "github.com/cosmos/evm/ante"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
@@ -17,6 +18,7 @@ import (
 
 // HandlerOptions defines the list of module keepers required to run the Cosmos EVM
 // AnteHandler decorators.
+// TODO: should we move this out of evmd and export as a library function?
 type HandlerOptions struct {
 	Cdc                    codec.BinaryCodec
 	AccountKeeper          anteinterfaces.AccountKeeper
@@ -30,7 +32,7 @@ type HandlerOptions struct {
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	MaxTxGasWanted         uint64
 	TxFeeChecker           ante.TxFeeChecker
-	PendingTxListener      PendingTxListener
+	PendingTxListener      evmante.PendingTxListener
 }
 
 // Validate checks if the keepers are defined
@@ -62,5 +64,10 @@ func (options HandlerOptions) Validate() error {
 	if options.TxFeeChecker == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
 	}
+
+	if options.PendingTxListener == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "pending tx listener is required for AnteHandler")
+	}
+
 	return nil
 }

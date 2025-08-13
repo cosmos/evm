@@ -1,6 +1,7 @@
 package ante
 
 import (
+	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -17,7 +18,7 @@ func newMonoEVMAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		),
 	}
 	if options.PendingTxListener != nil {
-		decorators = append(decorators, NewTxListenerDecorator(options.PendingTxListener))
+		decorators = append(decorators, ante.NewTxListenerDecorator(options.PendingTxListener))
 	}
 	return sdk.ChainAnteDecorators(decorators...)
 }
