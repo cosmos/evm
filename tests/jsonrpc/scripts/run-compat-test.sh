@@ -52,10 +52,10 @@ echo "🔧 Initializing evmd test data..."
 mkdir -p "$JSONRPC_DIR/.evmd-compat"
 chmod 777 "$JSONRPC_DIR/.evmd-compat"
 
-# Run evmd init with root user (permission issue solved!)
-docker run --rm --privileged --user root \
+# Run evmd init with root user using the same approach as start-evmd.sh
+docker run --rm --privileged --user root --entrypoint="" \
     -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
-    testnet init-files --validator-count 1 -o /data \
+    evmd testnet init-files --validator-count 1 -o /data \
     --starting-ip-address 192.168.10.2 --keyring-backend=test \
     --chain-id=local-4221 --use-docker=true
 

@@ -82,5 +82,3 @@ jobs:
             echo "   Note: 'Not Implemented', 'Legacy', and 'Skipped' tests are acceptable and don't cause CI failure"
           fi
         if: ${{ env.GIT_DIFF }}
-
-      
