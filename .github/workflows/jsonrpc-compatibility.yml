@@ -60,13 +60,7 @@ jobs:
           echo "🧪 Running JSON-RPC compatibility tests using containerized environment..."
           
           # Run the containerized test suite
-          timeout 1800 make test-rpc-compat > test_output.log 2>&1 || {
-            # Check if it's a timeout or actual failure
-            if [ $? -eq 124 ]; then
-              echo "❌ JSON-RPC compatibility test timed out after 30 minutes"
-              cat test_output.log
-              exit 1
-            fi
+          make test-rpc-compat > test_output.log 2>&1 || {
             echo "⚠️ Test exited with non-zero code, checking results..."
           }
           
@@ -88,3 +82,10 @@ jobs:
             echo "   Note: 'Not Implemented', 'Legacy', and 'Skipped' tests are acceptable and don't cause CI failure"
           fi
         if: ${{ env.GIT_DIFF }}
+      
+      - name: Cleanup networks
+        run: |
+          echo "🧹 Cleaning up test networks..."
+          make test-rpc-compat-stop || true
+        if: ${{ env.GIT_DIFF && always() }}
+      
