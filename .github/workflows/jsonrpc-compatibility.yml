@@ -80,6 +80,9 @@ jobs:
           echo "🚀 Starting evmd network..."
           cd tests/jsonrpc
           
+          # Add debugging for genesis.json state
+          echo "🔍 Debugging genesis.json creation process..."
+          
           # Start evmd (script handles directory creation)
           ./scripts/evmd/start-evmd.sh
           
