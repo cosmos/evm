@@ -3,8 +3,6 @@ package mempool
 import (
 	"math/big"
 
-	"cosmossdk.io/math"
-
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -13,6 +11,7 @@ import (
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
+	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"

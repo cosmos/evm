@@ -509,7 +509,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 
 				// Should be Cosmos transaction with high fee
 				feeTx := tx2.(sdk.FeeTx)
-				cosmosGasPrice := new(big.Int).Div(feeTx.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx.GetGas())))
+				cosmosGasPrice := new(big.Int).Div(feeTx.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx.GetGas()))) //#nosec G115 -- not concern, test
 				s.Require().Equal(big.NewInt(5000000000), cosmosGasPrice, "Second transaction should be Cosmos with 25000 aatom gas price")
 			},
 		},
@@ -608,7 +608,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Calculate gas price: fee_amount / gas_limit = 5000000000 / 200000 = 25000
 				expectedGasPrice := big.NewInt(5000000000)
 				feeTx := tx1.(sdk.FeeTx)
-				actualGasPrice := new(big.Int).Div(feeTx.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx.GetGas())))
+				actualGasPrice := new(big.Int).Div(feeTx.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx.GetGas()))) //#nosec G115 -- not concern, test
 				s.Require().Equal(expectedGasPrice, actualGasPrice, "Expected gas price should match fee_amount/gas_limit")
 				iterator = iterator.Next()
 				s.Require().Nil(iterator)
@@ -795,7 +795,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
 				feeTx2 := tx2.(sdk.FeeTx)
-				cosmosGasPrice2 := new(big.Int).Div(feeTx2.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx2.GetGas())))
+				cosmosGasPrice2 := new(big.Int).Div(feeTx2.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx2.GetGas()))) //#nosec G115 -- not concern, test
 				s.Require().Equal(big.NewInt(6000000000), cosmosGasPrice2, "Second transaction should be Cosmos with 6000 aatom/gas")
 
 				// Third: EVM 4
@@ -814,7 +814,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx4 := iterator.Tx()
 				s.Require().NotNil(tx4)
 				feeTx4 := tx4.(sdk.FeeTx)
-				cosmosGasPrice4 := new(big.Int).Div(feeTx4.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx4.GetGas())))
+				cosmosGasPrice4 := new(big.Int).Div(feeTx4.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx4.GetGas()))) //#nosec G115 -- not concern, test
 				s.Require().Equal(big.NewInt(3000000000), cosmosGasPrice4, "Fourth transaction should be Cosmos with 3000 aatom/gas")
 
 				// Fifth: EVM 2
@@ -833,7 +833,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx6 := iterator.Tx()
 				s.Require().NotNil(tx6)
 				feeTx6 := tx6.(sdk.FeeTx)
-				cosmosGasPrice6 := new(big.Int).Div(feeTx6.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx6.GetGas())))
+				cosmosGasPrice6 := new(big.Int).Div(feeTx6.GetFee().AmountOf("aatom").BigInt(), big.NewInt(int64(feeTx6.GetGas()))) //#nosec G115 -- not concern, test
 				s.Require().Equal(big.NewInt(1000000000), cosmosGasPrice6, "Sixth transaction should be Cosmos with 1000 aatom/gas")
 
 				// No more transactions
@@ -1465,7 +1465,7 @@ func (s *IntegrationTestSuite) createCosmosSendTransaction(gasPrice *big.Int) sd
 
 // calculateCosmosGasPrice calculates the gas price for a Cosmos transaction
 func (s *IntegrationTestSuite) calculateCosmosGasPrice(feeAmount int64, gasLimit uint64) *big.Int {
-	return new(big.Int).Div(big.NewInt(feeAmount), big.NewInt(int64(gasLimit)))
+	return new(big.Int).Div(big.NewInt(feeAmount), big.NewInt(int64(gasLimit))) //#nosec G115 -- not concern, test
 }
 
 // calculateCosmosEffectiveTip calculates the effective tip for a Cosmos transaction
