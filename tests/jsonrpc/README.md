@@ -4,7 +4,14 @@ This directory contains tools and scripts for testing JSON-RPC API compatibility
 
 ## Quick Start
 
-### 1. Build the Docker Image
+```bash
+# From project root
+make test-rpc-compat
+```
+
+## Test Guide
+
+### 1. Build EVMD Docker Image
 
 ```bash
 # From project root
