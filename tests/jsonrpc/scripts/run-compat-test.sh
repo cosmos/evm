@@ -48,16 +48,32 @@ fi
 # Initialize evmd data
 echo "🔧 Initializing evmd test data..."
 
-# Ensure the directory exists and has correct permissions  
-mkdir -p "$JSONRPC_DIR/.evmd-compat"
-chmod 777 "$JSONRPC_DIR/.evmd-compat"
-
-# Run evmd init with root user
-docker run --rm --privileged --user root \
-    -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
-    testnet init-files --validator-count 1 -o /data \
-    --starting-ip-address 192.168.10.2 --keyring-backend=test \
-    --chain-id=local-4221 --use-docker=true
+# For CI environments, use a different approach to avoid permission issues
+if [ "${CI:-false}" = "true" ] || [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    echo "🔧 CI environment detected, using Docker volume for evmd data..."
+    # Create a named volume and initialize it
+    docker volume create evmd-compat-data || true
+    docker run --rm --privileged --user root \
+        -v evmd-compat-data:/data cosmos/evmd \
+        testnet init-files --validator-count 1 -o /data \
+        --starting-ip-address 192.168.10.2 --keyring-backend=test \
+        --chain-id=local-4221 --use-docker=true
+    
+    # Update docker-compose to use the volume
+    sed -i.bak 's|./.evmd-compat:/data:Z|evmd-compat-data:/data|g' "$JSONRPC_DIR/docker-compose.yml"
+else
+    echo "🔧 Local environment, using bind mount..."
+    # Ensure the directory exists and has correct permissions  
+    mkdir -p "$JSONRPC_DIR/.evmd-compat"
+    chmod 777 "$JSONRPC_DIR/.evmd-compat"
+    
+    # Run evmd init with root user
+    docker run --rm --privileged --user root \
+        -v "$JSONRPC_DIR/.evmd-compat:/data" cosmos/evmd \
+        testnet init-files --validator-count 1 -o /data \
+        --starting-ip-address 192.168.10.2 --keyring-backend=test \
+        --chain-id=local-4221 --use-docker=true
+fi
 
 # Run the compatibility tests - only use --build if we need to build new image
 echo "🚀 Running JSON-RPC compatibility tests..."
@@ -79,6 +95,12 @@ fi
 if [ -f "$JSONRPC_DIR/docker-compose.yml.bak" ]; then
     echo "🔄 Restoring original docker-compose.yml..."
     mv "$JSONRPC_DIR/docker-compose.yml.bak" "$JSONRPC_DIR/docker-compose.yml"
+fi
+
+# Cleanup CI volume if we created it
+if [ "${CI:-false}" = "true" ] || [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    echo "🧹 Cleaning up CI Docker volume..."
+    docker volume rm evmd-compat-data || true
 fi
 
 echo "✅ JSON-RPC compatibility test completed!"
