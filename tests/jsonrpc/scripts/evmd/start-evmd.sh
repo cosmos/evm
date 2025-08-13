@@ -232,6 +232,8 @@ CONTAINER_ID=$(docker run -d \
     --home /data \
     --minimum-gas-prices=0.0001atest \
     --json-rpc.api eth,txpool,personal,net,debug,web3 \
+    --json-rpc.address 0.0.0.0:8545 \
+    --json-rpc.ws-address 0.0.0.0:8546 \
     --json-rpc.enable-profiling \
     --keyring-backend test \
     --chain-id "$CHAIN_ID" 2>&1)
