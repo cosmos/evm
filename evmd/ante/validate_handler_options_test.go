@@ -3,6 +3,7 @@ package ante_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
@@ -118,6 +119,25 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 			false,
 		},
 		{
+			"fail - empty pending tx listener",
+			ante.HandlerOptions{
+				Cdc:                    nw.App.AppCodec(),
+				AccountKeeper:          nw.App.GetAccountKeeper(),
+				BankKeeper:             nw.App.GetBankKeeper(),
+				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				EvmKeeper:              nw.App.GetEVMKeeper(),
+				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
+				IBCKeeper:              nw.App.GetIBCKeeper(),
+				FeeMarketKeeper:        nw.App.GetFeeMarketKeeper(),
+				SignModeHandler:        nw.GetEncodingConfig().TxConfig.SignModeHandler(),
+				SigGasConsumer:         ante.SigVerificationGasConsumer,
+				MaxTxGasWanted:         40000000,
+				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				PendingTxListener:      nil,
+			},
+			false,
+		},
+		{
 			"success - default app options",
 			ante.HandlerOptions{
 				Cdc:                    nw.App.AppCodec(),
@@ -132,6 +152,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				SigGasConsumer:         ante.SigVerificationGasConsumer,
 				MaxTxGasWanted:         40000000,
 				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				PendingTxListener:      func(hash common.Hash) {},
 			},
 			true,
 		},
