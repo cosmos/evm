@@ -93,6 +93,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	}
 
 	anteHandler = config.AnteHandler
+	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	if config.BlockGasLimit == 0 {
 		logger.Debug("block gas limit is 0, setting default", "default_limit", 100_000_000)
@@ -102,7 +103,6 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	// Default txPool
 	txPool = config.TxPool
 	if txPool == nil {
-		blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 		legacyPool := legacypool.New(legacypool.DefaultConfig, blockchain)
 
 		// Set up broadcast function using clientCtx
