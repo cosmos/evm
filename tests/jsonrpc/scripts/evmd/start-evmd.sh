@@ -189,8 +189,14 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
     sed -i 's/enable = false/enable = true/g' /data/config/app.toml
     
     # Configure JSON-RPC for external access
+    echo 'Debug: JSON-RPC config BEFORE sed:'
+    grep -n '8545\|8546' /data/config/app.toml || echo 'No 8545/8546 lines found'
+    
     sed -i 's/address = \"127.0.0.1:8545\"/address = \"0.0.0.0:8545\"/' /data/config/app.toml
     sed -i 's/ws-address = \"127.0.0.1:8546\"/ws-address = \"0.0.0.0:8546\"/' /data/config/app.toml
+    
+    echo 'Debug: JSON-RPC config AFTER sed:'
+    grep -n '8545\|8546' /data/config/app.toml || echo 'No 8545/8546 lines found'
 "
 
 # Configure governance and pruning settings using Docker
