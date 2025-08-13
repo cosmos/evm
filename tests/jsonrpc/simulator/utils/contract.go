@@ -13,8 +13,8 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
 )
 
-// transferTokensToAccount transfers ERC20 tokens from owner to a specific account
-func transferTokensToAccount(rCtx *types.RPCContext, recipient common.Address, amount *big.Int, ownerPrivateKey string, isGeth bool) (*ethtypes.Receipt, error) {
+// TransferTokensToAccount transfers ERC20 tokens from owner to a specific account
+func TransferTokensToAccount(rCtx *types.RPCContext, recipient common.Address, amount *big.Int, ownerPrivateKey string, isGeth bool) (*ethtypes.Receipt, error) {
 	ethCli := rCtx.Evmd
 	if isGeth {
 		ethCli = rCtx.Geth
@@ -29,7 +29,7 @@ func transferTokensToAccount(rCtx *types.RPCContext, recipient common.Address, a
 }
 
 // VerifyTokenBalances verifies that token balances are identical on both networks
-func verifyTokenBalances(rCtx *types.RPCContext) error {
+func VerifyTokenBalances(rCtx *types.RPCContext) error {
 	fmt.Printf("\n=== Verifying Token Balance Synchronization ===\n")
 
 	accounts := []string{config.Dev0PrivateKey, config.Dev1PrivateKey, config.Dev2PrivateKey, config.Dev3PrivateKey}

@@ -1,4 +1,4 @@
-package utils
+package runner
 
 import (
 	"fmt"
@@ -15,10 +15,11 @@ import (
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/config"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/types"
+	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
-// RunSetup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
-func RunSetup() (*types.RPCContext, error) {
+// Setup performs the complete setup: fund geth accounts, deploy contracts, and mint tokens
+func Setup() (*types.RPCContext, error) {
 	// Load configuration from conf.yaml
 	conf := config.MustLoadConfig()
 
@@ -50,7 +51,7 @@ func RunSetup() (*types.RPCContext, error) {
 	log.Println("✓ Token minting completed successfully")
 
 	log.Println("Step 4: Verifying state synchronization...")
-	err = verifyTokenBalances(rCtx)
+	err = utils.VerifyTokenBalances(rCtx)
 	if err != nil {
 		return nil, fmt.Errorf("state verification failed: %w", err)
 	}
@@ -70,7 +71,7 @@ func RunSetup() (*types.RPCContext, error) {
 // fundGethAccounts funds the standard dev accounts in geth using coinbase balance
 func fundGethAccounts(rCtx *types.RPCContext) error {
 	// Fund the accounts
-	results, err := fundStandardAccounts(rCtx, true)
+	results, err := utils.FundStandardAccounts(rCtx, true)
 	if err != nil {
 		return fmt.Errorf("failed to fund accounts: %w", err)
 	}
@@ -91,13 +92,13 @@ func fundGethAccounts(rCtx *types.RPCContext) error {
 
 	// Check final balances
 	fmt.Println("\nChecking final balances:")
-	balances, err := Balances(rCtx.Geth.Client)
+	balances, err := utils.Balances(rCtx.Geth.Client)
 	if err != nil {
 		return fmt.Errorf("failed to check balances: %w", err)
 	}
 
 	for name, balance := range balances {
-		address := StandardDevAccounts[name]
+		address := utils.StandardDevAccounts[name]
 		ethBalance := new(big.Int).Div(balance, big.NewInt(1e18)) // Convert wei to ETH
 		fmt.Printf("%s (%s): %s ETH\n", name, address.Hex(), ethBalance.String())
 	}
@@ -120,7 +121,7 @@ func deployContracts(rCtx *types.RPCContext) error {
 	}
 
 	contractBytecode := common.FromHex(string(contracts.ContractByteCode))
-	addr, txHash, blockNum, err := DeployContract(rCtx, contractBytecode, false)
+	addr, txHash, blockNum, err := utils.DeployContract(rCtx, contractBytecode, false)
 	if err != nil {
 		return fmt.Errorf("deployment failed: %w", err)
 	}
@@ -130,7 +131,7 @@ func deployContracts(rCtx *types.RPCContext) error {
 	rCtx.Evmd.BlockNumsIncludingTx = append(rCtx.Evmd.BlockNumsIncludingTx, blockNum.Uint64())
 	rCtx.Evmd.ProcessedTransactions = append(rCtx.Evmd.ProcessedTransactions, common.HexToHash(txHash))
 
-	addr, txHash, blockNum, err = DeployContract(rCtx, contractBytecode, true)
+	addr, txHash, blockNum, err = utils.DeployContract(rCtx, contractBytecode, true)
 	if err != nil {
 		return fmt.Errorf("deployment failed: %w", err)
 	}
@@ -200,7 +201,7 @@ func distributeTokensOnNetwork(rCtx *types.RPCContext, distributionTargets map[s
 
 	for privateKeyHex, amount := range distributionTargets {
 		// Get recipient address
-		_, recipientAddr, err := GetPrivateKeyAndAddress(privateKeyHex)
+		_, recipientAddr, err := utils.GetPrivateKeyAndAddress(privateKeyHex)
 		if err != nil {
 			continue
 		}
@@ -210,7 +211,7 @@ func distributeTokensOnNetwork(rCtx *types.RPCContext, distributionTargets map[s
 			recipientAddr.Hex()[:10]+"...")
 
 		// Transfer tokens from owner to recipient
-		receipt, err := transferTokensToAccount(rCtx, recipientAddr, amount, ownerPrivateKey, isGeth)
+		receipt, err := utils.TransferTokensToAccount(rCtx, recipientAddr, amount, ownerPrivateKey, isGeth)
 		if err != nil {
 			fmt.Printf("    ✗ Error: %v\n", err)
 		} else {
@@ -227,7 +228,7 @@ func distributeTokensOnNetwork(rCtx *types.RPCContext, distributionTargets map[s
 }
 
 func newFilter(rCtx *types.RPCContext) error {
-	filterQuery, filterID, err := NewERC20FilterLogs(rCtx, false)
+	filterQuery, filterID, err := utils.NewERC20FilterLogs(rCtx, false)
 	if err != nil {
 		return fmt.Errorf("failed to create evmd filter: %w", err)
 	}
@@ -235,7 +236,7 @@ func newFilter(rCtx *types.RPCContext) error {
 	rCtx.Evmd.FilterQuery = filterQuery
 
 	// Create filter on geth
-	filterQuery, filterID, err = NewERC20FilterLogs(rCtx, true)
+	filterQuery, filterID, err = utils.NewERC20FilterLogs(rCtx, true)
 	if err != nil {
 		return fmt.Errorf("failed to create evmd filter: %w", err)
 	}

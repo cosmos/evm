@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"os"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum"
@@ -83,24 +82,14 @@ type RPCContext struct {
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	// Connect to the primary Ethereum client (evmd)
-	ethCli, err := ethclient.Dial(conf.RpcEndpoint)
+	ethCli, err := ethclient.Dial(conf.EvmdHttpEndpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	// Try to connect to geth for comparison (optional)
-	var gethCli *ethclient.Client
-	// Use environment variable if set, otherwise default to localhost:8547
-	gethEndpoint := os.Getenv("GETH_URL")
-	if gethEndpoint == "" {
-		gethEndpoint = "http://localhost:8547"
-	}
-	if gethClient, err := ethclient.Dial(gethEndpoint); err == nil {
-		gethCli = gethClient
-		fmt.Println("✓ Connected to geth for dual API comparison")
-	} else {
-		fmt.Printf("Note: Could not connect to geth at %s: %v\n", gethEndpoint, err)
-		fmt.Println("  Dual API comparison will be disabled")
+	gethCli, err := ethclient.Dial(conf.GethHttpEndpoint)
+	if err == nil {
+		log.Printf("Connected to geth at %s", conf.GethHttpEndpoint)
 	}
 
 	ecdsaPrivKey, err := crypto.HexToECDSA(conf.RichPrivKey)

@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"net/url"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
+	"github.com/gorilla/websocket"
 	"github.com/status-im/keycard-go/hexutils"
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/contracts"
@@ -2236,4 +2238,266 @@ func EthPendingTransactions(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
+}
+
+// WebSocket subscription request/response structures
+type SubscriptionRequest struct {
+	JSONRPC string        `json:"jsonrpc"`
+	ID      int           `json:"id"`
+	Method  string        `json:"method"`
+	Params  []interface{} `json:"params"`
+}
+
+type SubscriptionResponse struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      int         `json:"id"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
+}
+
+type NotificationMessage struct {
+	JSONRPC string            `json:"jsonrpc"`
+	Method  string            `json:"method"`
+	Params  NotificationParam `json:"params"`
+}
+
+type NotificationParam struct {
+	Subscription string      `json:"subscription"`
+	Result       interface{} `json:"result"`
+}
+
+// EthSubscribe tests WebSocket subscription functionality
+func EthSubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	wsURL := rCtx.Conf.EvmdWsEndpoint
+
+	// Test all 4 subscription types
+	subscriptionTypes := []struct {
+		name        string
+		params      []interface{}
+		description string
+	}{
+		{
+			name:        "newHeads",
+			params:      []interface{}{"newHeads"},
+			description: "New block headers subscription",
+		},
+		{
+			name:        "logs",
+			params:      []interface{}{"logs", map[string]interface{}{}}, // Empty filter for all logs
+			description: "Event logs subscription",
+		},
+		{
+			name:        "newPendingTransactions",
+			params:      []interface{}{"newPendingTransactions"},
+			description: "Pending transactions subscription",
+		},
+		{
+			name:        "syncing",
+			params:      []interface{}{"syncing"},
+			description: "Synchronization status subscription",
+		},
+	}
+
+	var results []string
+	var failedTests []string
+
+	for _, subType := range subscriptionTypes {
+		success, err := testWebSocketSubscription(wsURL, subType.params)
+		if success {
+			results = append(results, fmt.Sprintf("✓ %s", subType.name))
+		} else {
+			failedTests = append(failedTests, fmt.Sprintf("✗ %s: %v", subType.name, err))
+			results = append(results, fmt.Sprintf("✗ %s", subType.name))
+		}
+	}
+
+	// Determine overall result
+	switch {
+	case len(failedTests) == 0:
+		return &types.RpcResult{
+			Method:   MethodNameEthSubscribe,
+			Status:   types.Ok,
+			Value:    fmt.Sprintf("All 4 subscription types working: %v", results),
+			Category: NamespaceEth,
+		}, nil
+	case len(failedTests) < len(subscriptionTypes):
+		return &types.RpcResult{
+			Method:   MethodNameEthSubscribe,
+			Status:   types.Ok,
+			Value:    fmt.Sprintf("Partial support (%d/%d): %v", len(subscriptionTypes)-len(failedTests), len(subscriptionTypes), results),
+			Category: NamespaceEth,
+		}, nil
+	default:
+		return &types.RpcResult{
+			Method:   MethodNameEthSubscribe,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("All subscription types failed: %v", failedTests),
+			Category: NamespaceEth,
+		}, nil
+	}
+}
+
+// EthUnsubscribe tests WebSocket unsubscription functionality
+func EthUnsubscribe(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	wsURL := rCtx.Conf.EvmdWsEndpoint
+
+	// Test unsubscription by creating a subscription first, then unsubscribing
+	success, subscriptionID, err := testWebSocketUnsubscribe(wsURL)
+	if success {
+		return &types.RpcResult{
+			Method:   MethodNameEthUnsubscribe,
+			Status:   types.Ok,
+			Value:    fmt.Sprintf("Successfully unsubscribed from subscription: %s", subscriptionID),
+			Category: NamespaceEth,
+		}, nil
+	}
+	return &types.RpcResult{
+		Method:   MethodNameEthUnsubscribe,
+		Status:   types.Error,
+		ErrMsg:   fmt.Sprintf("Failed to test unsubscribe: %v", err),
+		Category: NamespaceEth,
+	}, nil
+}
+
+// testWebSocketSubscription tests a specific subscription type
+func testWebSocketSubscription(wsURL string, params []interface{}) (bool, error) {
+	// Parse the WebSocket URL
+	u, err := url.Parse(wsURL)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse WebSocket URL: %v", err)
+	}
+
+	// Connect to WebSocket
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect to WebSocket: %v", err)
+	}
+	defer conn.Close()
+
+	// Set connection timeout
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		return false, fmt.Errorf("failed to set read deadline")
+	}
+	err = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		return false, fmt.Errorf("failed to set write deadline")
+	}
+
+	// Send subscription request
+	request := SubscriptionRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "eth_subscribe",
+		Params:  params,
+	}
+
+	if err := conn.WriteJSON(request); err != nil {
+		return false, fmt.Errorf("failed to send subscription request: %v", err)
+	}
+
+	// Read response
+	var response SubscriptionResponse
+	if err := conn.ReadJSON(&response); err != nil {
+		return false, fmt.Errorf("failed to read subscription response: %v", err)
+	}
+
+	// Check if subscription was successful
+	if response.Error != nil {
+		return false, fmt.Errorf("subscription failed: %v", response.Error)
+	}
+
+	if response.Result == nil {
+		return false, fmt.Errorf("no subscription ID returned")
+	}
+
+	// Subscription was successful
+	return true, nil
+}
+
+// testWebSocketUnsubscribe tests unsubscription functionality
+func testWebSocketUnsubscribe(wsURL string) (bool, string, error) {
+	// Parse the WebSocket URL
+	u, err := url.Parse(wsURL)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to parse WebSocket URL: %v", err)
+	}
+
+	// Connect to WebSocket
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to connect to WebSocket: %v", err)
+	}
+	defer conn.Close()
+
+	// Set connection timeout
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		return false, "", fmt.Errorf("failed to set read deadline")
+	}
+	err = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		return false, "", fmt.Errorf("failed to set write deadline")
+	}
+
+	// First, create a subscription
+	subscribeRequest := SubscriptionRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "eth_subscribe",
+		Params:  []interface{}{"newHeads"}, // Use newHeads as test subscription
+	}
+
+	if err := conn.WriteJSON(subscribeRequest); err != nil {
+		return false, "", fmt.Errorf("failed to send subscription request: %v", err)
+	}
+
+	// Read subscription response
+	var subscribeResponse SubscriptionResponse
+	if err := conn.ReadJSON(&subscribeResponse); err != nil {
+		return false, "", fmt.Errorf("failed to read subscription response: %v", err)
+	}
+
+	if subscribeResponse.Error != nil {
+		return false, "", fmt.Errorf("subscription failed: %v", subscribeResponse.Error)
+	}
+
+	subscriptionID, ok := subscribeResponse.Result.(string)
+	if !ok {
+		return false, "", fmt.Errorf("invalid subscription ID type")
+	}
+
+	// Now test unsubscription
+	unsubscribeRequest := SubscriptionRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "eth_unsubscribe",
+		Params:  []interface{}{subscriptionID},
+	}
+
+	if err := conn.WriteJSON(unsubscribeRequest); err != nil {
+		return false, subscriptionID, fmt.Errorf("failed to send unsubscribe request: %v", err)
+	}
+
+	// Read unsubscribe response
+	var unsubscribeResponse SubscriptionResponse
+	if err := conn.ReadJSON(&unsubscribeResponse); err != nil {
+		return false, subscriptionID, fmt.Errorf("failed to read unsubscribe response: %v", err)
+	}
+
+	if unsubscribeResponse.Error != nil {
+		return false, subscriptionID, fmt.Errorf("unsubscribe failed: %v", unsubscribeResponse.Error)
+	}
+
+	// Check if unsubscribe returned true
+	result, ok := unsubscribeResponse.Result.(bool)
+	if !ok {
+		return false, subscriptionID, fmt.Errorf("invalid unsubscribe result type")
+	}
+
+	if !result {
+		return false, subscriptionID, fmt.Errorf("unsubscribe returned false")
+	}
+
+	return true, subscriptionID, nil
 }

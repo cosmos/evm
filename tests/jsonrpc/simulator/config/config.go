@@ -17,19 +17,38 @@ const (
 	Dev1PrivateKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544" // dev1
 	Dev2PrivateKey = "3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9" // dev2
 	Dev3PrivateKey = "8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b" // dev3
+
+	EvmdHttpEndpoint = "http://localhost:8545"
+	EvmdWsEndpoint   = "ws://localhost:8546"
+	GethHttpEndpoint = "http://localhost:8547"
+	GethWsEndpoint   = "ws://localhost:8548"
 )
 
 type Config struct {
-	RpcEndpoint string `yaml:"rpc_endpoint"`
+	EvmdHttpEndpoint string `yaml:"evmd_http_endpoint"`
+	EvmdWsEndpoint   string `yaml:"evmd_ws_endpoint"`
+	GethHttpEndpoint string `yaml:"geth_http_endpoint"`
+	GethWsEndpoint   string `yaml:"geth_ws_endpoint"`
+
 	RichPrivKey string `yaml:"rich_privkey"`
 	// Timeout is the timeout for the RPC (e.g. 5s, 1m)
 	Timeout string `yaml:"timeout"`
 }
 
 func (c *Config) Validate() error {
-	if c.RpcEndpoint == "" {
+	if c.EvmdHttpEndpoint == "" {
 		return fmt.Errorf("rpc_endpoint must be set")
 	}
+	if c.EvmdWsEndpoint == "" {
+		return fmt.Errorf("ws_endpoint must be set")
+	}
+	if c.GethHttpEndpoint == "" {
+		return fmt.Errorf("geth_http_endpoint must be set")
+	}
+	if c.GethWsEndpoint == "" {
+		return fmt.Errorf("geth_ws_endpoint must be set")
+	}
+
 	if c.RichPrivKey == "" {
 		return fmt.Errorf("rich_privkey must be set")
 	}
@@ -43,13 +62,21 @@ func MustLoadConfig() *Config {
 	// Use environment variable if set, otherwise default to localhost
 	evmdURL := os.Getenv("EVMD_URL")
 	if evmdURL == "" {
-		evmdURL = "http://localhost:8545"
+		evmdURL = EvmdHttpEndpoint
 	}
-	
+
+	gethURL := os.Getenv("GETH_URL")
+	if gethURL == "" {
+		gethURL = GethHttpEndpoint
+	}
+
 	return &Config{
-		RpcEndpoint: evmdURL,
-		RichPrivKey: Dev0PrivateKey, // Default to dev0's private key
-		Timeout:     "10s",
+		EvmdHttpEndpoint: evmdURL,
+		EvmdWsEndpoint:   EvmdWsEndpoint,
+		GethHttpEndpoint: gethURL,
+		GethWsEndpoint:   GethWsEndpoint,
+		RichPrivKey:      Dev0PrivateKey, // Default to dev0's private key
+		Timeout:          "10s",
 	}
 }
 

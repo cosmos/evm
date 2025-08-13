@@ -7,7 +7,6 @@ import (
 
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/report"
 	"github.com/cosmos/evm/tests/jsonrpc/simulator/runner"
-	"github.com/cosmos/evm/tests/jsonrpc/simulator/utils"
 )
 
 func main() {
@@ -15,7 +14,7 @@ func main() {
 	outputExcel := flag.Bool("xlsx", false, "Save output as xlsx")
 	flag.Parse()
 
-	rCtx, err := utils.RunSetup()
+	rCtx, err := runner.Setup()
 	if err != nil {
 		log.Fatalf("Setup failed: %v", err)
 	}

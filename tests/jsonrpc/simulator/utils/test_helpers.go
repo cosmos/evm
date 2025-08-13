@@ -97,6 +97,33 @@ func SendRawTransaction(rCtx *types.RPCContext, privKey string, to common.Addres
 	return receipt, nil
 }
 
+// waitForTransactionReceipt waits for a transaction receipt
+func WaitForTx(rCtx *types.RPCContext, txHash common.Hash, timeout time.Duration, isGeth bool) (*ethtypes.Receipt, error) {
+	ethCli := rCtx.Evmd
+	if isGeth {
+		ethCli = rCtx.Geth
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for transaction %s", txHash.Hex())
+		case <-ticker.C:
+			receipt, err := ethCli.TransactionReceipt(context.Background(), txHash)
+			if err != nil {
+				continue // Transaction not mined yet
+			}
+			return receipt, nil
+		}
+	}
+}
+
 func GetAccounts(rCtx *types.RPCContext, isGeth bool) ([]string, error) {
 	ethCli := rCtx.Evmd
 	if isGeth {
@@ -160,8 +187,8 @@ type FundingResult struct {
 	Error   string         `json:"error,omitempty"`
 }
 
-// fundStandardAccounts sends funds from geth coinbase to standard dev accounts
-func fundStandardAccounts(rCtx *types.RPCContext, isGeth bool) ([]FundingResult, error) {
+// FundStandardAccounts sends funds from geth coinbase to standard dev accounts
+func FundStandardAccounts(rCtx *types.RPCContext, isGeth bool) ([]FundingResult, error) {
 	results := make([]FundingResult, 0, len(StandardDevAccounts))
 
 	// Get coinbase account (first account from eth_accounts)
@@ -327,4 +354,73 @@ func waitForContractDeployment(client *ethclient.Client, txHashStr string, timeo
 			return receipt.ContractAddress, receipt.BlockNumber, nil
 		}
 	}
+}
+
+// Generic test handler that makes an actual RPC call to determine if an API is implemented
+func CallEthClient(rCtx *types.RPCContext, methodName types.RpcName, category string) (*types.RpcResult, error) {
+	var result interface{}
+	err := rCtx.Evmd.RPCClient().Call(&result, string(methodName))
+
+	status := types.Ok
+	errMsg := ""
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(methodName)+" method not found" {
+
+			status = types.NotImplemented
+			errMsg = "Method not implemented in Cosmos EVM"
+		} else {
+			status = types.Error
+			errMsg = err.Error()
+		}
+	}
+
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   status,
+		Value:    result,
+		ErrMsg:   errMsg,
+		Category: category,
+	}, nil
+}
+
+func Legacy(rCtx *types.RPCContext, methodName types.RpcName, category string, replacementInfo string) (*types.RpcResult, error) {
+	// First test if the API is actually implemented
+	var result interface{}
+	err := rCtx.Evmd.RPCClient().Call(&result, string(methodName))
+
+	if err != nil {
+		// Check if it's a "method not found" error (API not implemented)
+		if err.Error() == "the method "+string(methodName)+" does not exist/is not available" ||
+			err.Error() == "Method not found" ||
+			err.Error() == string(methodName)+" method not found" {
+			// API is not implemented, so it should be NOT_IMPL, not LEGACY
+			return &types.RpcResult{
+				Method:   methodName,
+				Status:   types.NotImplemented,
+				ErrMsg:   "Method not implemented in Cosmos EVM",
+				Category: category,
+			}, nil
+		}
+	}
+
+	// API exists (either succeeded or failed with parameter issues), mark as LEGACY
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Legacy,
+		Value:    fmt.Sprintf("Legacy API implemented in Cosmos EVM. %s", replacementInfo),
+		ErrMsg:   replacementInfo,
+		Category: category,
+	}, nil
+}
+
+func Skip(methodName types.RpcName, category string, reason string) (*types.RpcResult, error) {
+	return &types.RpcResult{
+		Method:   methodName,
+		Status:   types.Skipped,
+		ErrMsg:   reason,
+		Category: category,
+	}, nil
 }

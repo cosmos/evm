@@ -70,42 +70,27 @@ USER3_MNEMONIC="will wear settle write dance topic tape sea glory hotel oppose r
 USER4_KEY="dev3"
 USER4_MNEMONIC="doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch"
 
-# First initialize the chain to create directory structure
-echo -e "${GREEN}Initializing chain...${NC}"
-echo "$VAL_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd init localtestnet -o --chain-id "$CHAIN_ID" --recover --home /data
+# Initialize using single Docker container with initialization script
+echo -e "${GREEN}Initializing chain with single Docker container...${NC}"
 
-# Set client config (after init creates the directory structure)
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd config set client chain-id "$CHAIN_ID" --home /data
-
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd config set client keyring-backend "$KEYRING" --home /data
-
-# Import keys from mnemonics
-echo -e "${GREEN}Adding standard test keys...${NC}"
-echo "$VAL_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd keys add "$VAL_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
-
-echo "$USER1_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd keys add "$USER1_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
-
-echo "$USER2_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd keys add "$USER2_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
-
-echo "$USER3_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd keys add "$USER3_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
-
-echo "$USER4_MNEMONIC" | docker run --rm -i --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd keys add "$USER4_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home /data
-
-# Configure genesis file using jq directly on host (simpler approach)
-echo -e "${GREEN}Configuring genesis file...${NC}"
-
-# Fix permissions on the data directory so host can write to it using privileged Docker
-docker run --rm --privileged -v "$DATA_DIR:/data" --entrypoint="" ubuntu:20.04 bash -c "
-    chown -R $(id -u):$(id -g) /data
+docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
+    # Initialize chain
+    echo '$VAL_MNEMONIC' | evmd init localtestnet -o --chain-id '$CHAIN_ID' --recover --home /data
+    
+    # Set client config
+    evmd config set client chain-id '$CHAIN_ID' --home /data
+    evmd config set client keyring-backend '$KEYRING' --home /data
+    
+    # Import keys from mnemonics
+    echo '$VAL_MNEMONIC' | evmd keys add '$VAL_KEY' --recover --keyring-backend '$KEYRING' --algo '$KEYALGO' --home /data
+    echo '$USER1_MNEMONIC' | evmd keys add '$USER1_KEY' --recover --keyring-backend '$KEYRING' --algo '$KEYALGO' --home /data  
+    echo '$USER2_MNEMONIC' | evmd keys add '$USER2_KEY' --recover --keyring-backend '$KEYRING' --algo '$KEYALGO' --home /data
+    echo '$USER3_MNEMONIC' | evmd keys add '$USER3_KEY' --recover --keyring-backend '$KEYRING' --algo '$KEYALGO' --home /data
+    echo '$USER4_MNEMONIC' | evmd keys add '$USER4_KEY' --recover --keyring-backend '$KEYRING' --algo '$KEYALGO' --home /data
 "
+
+# Configure genesis file using jq directly on host
+echo -e "${GREEN}Configuring genesis file...${NC}"
 # Change parameter token denominations to desired value
 jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
 jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$DATA_DIR/config/genesis.json" > "$DATA_DIR/config/tmp_genesis.json" && mv "$DATA_DIR/config/tmp_genesis.json" "$DATA_DIR/config/genesis.json"
@@ -133,52 +118,32 @@ jq '.consensus.params.block.max_gas="10000000"' "$DATA_DIR/config/genesis.json" 
 # Add genesis accounts and generate validator transaction
 echo -e "${GREEN}Setting up genesis accounts and validator...${NC}"
 
-# Allocate genesis accounts (cosmos formatted addresses)
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home /data
-
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis add-genesis-account "$USER1_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
-
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis add-genesis-account "$USER2_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
-
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis add-genesis-account "$USER3_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
-
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis add-genesis-account "$USER4_KEY" 1000000000000000000000atest --keyring-backend "$KEYRING" --home /data
-
-# Debug: Check entire genesis.json structure before gentx
-echo -e "${YELLOW}Debug: Checking entire genesis.json before gentx...${NC}"
-echo "Complete genesis.json:"
-jq '.' "$DATA_DIR/config/genesis.json"
-
-# Sign genesis transaction
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices "${BASEFEE}atest" --keyring-backend "$KEYRING" --chain-id "$CHAIN_ID" --home /data
-
-# Collect genesis tx
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis collect-gentxs --home /data
-
-# Run this to ensure everything worked and that the genesis file is setup correctly
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd \
-    evmd genesis validate-genesis --home /data
-
-# Configure timeout settings and enable all APIs using Docker to avoid permission issues
-echo -e "${GREEN}Configuring timeout settings and APIs...${NC}"
-
-# Use Docker to perform configuration changes to avoid host permission issues
 docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
-    # Configure consensus timeouts for faster block times
-    sed -i 's/timeout_propose = \"3s\"/timeout_propose = \"2s\"/g' /data/config/config.toml
-    sed -i 's/timeout_propose_delta = \"500ms\"/timeout_propose_delta = \"200ms\"/g' /data/config/config.toml
-    sed -i 's/timeout_prevote = \"1s\"/timeout_prevote = \"500ms\"/g' /data/config/config.toml
-    sed -i 's/timeout_prevote_delta = \"500ms\"/timeout_prevote_delta = \"200ms\"/g' /data/config/config.toml
-    sed -i 's/timeout_precommit = \"1s\"/timeout_precommit = \"500ms\"/g' /data/config/config.toml
-    sed -i 's/timeout_precommit_delta = \"500ms\"/timeout_precommit_delta = \"200ms\"/g' /data/config/config.toml
-    sed -i 's/timeout_commit = \"5s\"/timeout_commit = \"1s\"/g' /data/config/config.toml
+    # Allocate genesis accounts
+    evmd genesis add-genesis-account '$VAL_KEY' 100000000000000000000000000atest --keyring-backend '$KEYRING' --home /data
+    evmd genesis add-genesis-account '$USER1_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
+    evmd genesis add-genesis-account '$USER2_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
+    evmd genesis add-genesis-account '$USER3_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
+    evmd genesis add-genesis-account '$USER4_KEY' 1000000000000000000000atest --keyring-backend '$KEYRING' --home /data
+    
+    # Generate and collect validator transaction
+    evmd genesis gentx '$VAL_KEY' 1000000000000000000000atest --gas-prices '${BASEFEE}atest' --keyring-backend '$KEYRING' --chain-id '$CHAIN_ID' --home /data
+    evmd genesis collect-gentxs --home /data
+    evmd genesis validate-genesis --home /data
+"
+
+# Configure node settings using Docker
+echo -e "${GREEN}Configuring node settings...${NC}"
+
+docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
+    # Configure consensus timeouts for faster block times (500ms block time)
+    sed -i 's/timeout_propose = \"3s\"/timeout_propose = \"1s\"/g' /data/config/config.toml
+    sed -i 's/timeout_propose_delta = \"500ms\"/timeout_propose_delta = \"100ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_prevote = \"1s\"/timeout_prevote = \"300ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_prevote_delta = \"500ms\"/timeout_prevote_delta = \"100ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_precommit = \"1s\"/timeout_precommit = \"300ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_precommit_delta = \"500ms\"/timeout_precommit_delta = \"100ms\"/g' /data/config/config.toml
+    sed -i 's/timeout_commit = \"5s\"/timeout_commit = \"500ms\"/g' /data/config/config.toml
     sed -i 's/timeout_broadcast_tx_commit = \"10s\"/timeout_broadcast_tx_commit = \"5s\"/g' /data/config/config.toml
     
     # Enable prometheus metrics and all APIs for dev node
@@ -189,19 +154,10 @@ docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" co
     sed -i 's/enable = false/enable = true/g' /data/config/app.toml
     
     # Configure JSON-RPC for external access
-    echo 'Debug: JSON-RPC config BEFORE sed:'
-    grep -n '8545\|8546' /data/config/app.toml || echo 'No 8545/8546 lines found'
-    
     sed -i 's/address = \"127.0.0.1:8545\"/address = \"0.0.0.0:8545\"/' /data/config/app.toml
     sed -i 's/ws-address = \"127.0.0.1:8546\"/ws-address = \"0.0.0.0:8546\"/' /data/config/app.toml
     
-    echo 'Debug: JSON-RPC config AFTER sed:'
-    grep -n '8545\|8546' /data/config/app.toml || echo 'No 8545/8546 lines found'
-"
-
-# Configure governance and pruning settings using Docker
-docker run --rm --privileged -v "$DATA_DIR:/data" --user root --entrypoint="" cosmos/evmd bash -c "
-    # Change proposal periods to pass within a reasonable time for local testing
+    # Change proposal periods for fast testing
     sed -i 's/\"max_deposit_period\": \"172800s\"/\"max_deposit_period\": \"30s\"/g' /data/config/genesis.json
     sed -i 's/\"voting_period\": \"172800s\"/\"voting_period\": \"30s\"/g' /data/config/genesis.json
     sed -i 's/\"expedited_voting_period\": \"86400s\"/\"expedited_voting_period\": \"15s\"/g' /data/config/genesis.json
