@@ -28,10 +28,6 @@ func RunSetup() (*types.RPCContext, error) {
 		log.Fatalf("Failed to create context: %v", err)
 	}
 
-	// URLs for both networks
-	evmdURL := "http://localhost:8545"
-	gethURL := "http://localhost:8547"
-
 	log.Println("Step 1: Funding geth dev accounts...")
 	err = fundGethAccounts(rCtx)
 	if err != nil {
@@ -47,14 +43,14 @@ func RunSetup() (*types.RPCContext, error) {
 	log.Println("✓ Contracts deployed successfully")
 
 	log.Println("Step 3: Minting ERC20 tokens to synchronize state...")
-	err = mintTokensOnBothNetworks(rCtx, evmdURL, gethURL)
+	err = mintTokensOnBothNetworks(rCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mint tokens: %w", err)
 	}
 	log.Println("✓ Token minting completed successfully")
 
 	log.Println("Step 4: Verifying state synchronization...")
-	err = verifyTokenBalances(rCtx, evmdURL, gethURL)
+	err = verifyTokenBalances(rCtx)
 	if err != nil {
 		return nil, fmt.Errorf("state verification failed: %w", err)
 	}
@@ -149,7 +145,7 @@ func deployContracts(rCtx *types.RPCContext) error {
 }
 
 // mintTokensOnBothNetworks distributes ERC20 tokens to specified accounts on both evmd and geth
-func mintTokensOnBothNetworks(rCtx *types.RPCContext, evmdURL, gethURL string) error {
+func mintTokensOnBothNetworks(rCtx *types.RPCContext) error {
 	fmt.Printf("\n=== Distributing ERC20 Tokens for State Synchronization ===\n")
 
 	// Define accounts and amounts to distribute (dev0 keeps remaining balance)

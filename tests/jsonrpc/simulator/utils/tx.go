@@ -218,17 +218,13 @@ func ensureGethAccountFunding(rCtx *types.RPCContext, targetAddr common.Address)
 		return nil
 	}
 
-	// Silently funding geth account
-
 	// Get geth's pre-funded dev account
 	var accounts []string
 	err = rCtx.Geth.RPCClient().Call(&accounts, "eth_accounts")
 	if err != nil || len(accounts) == 0 {
 		return fmt.Errorf("no funded accounts available in geth: %w", err)
 	}
-
 	devAccount := common.HexToAddress(accounts[0])
-	// Using geth dev account for funding
 
 	// Transfer 100 ETH from dev account to target account
 	transferAmount := new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18)) // 100 ETH
