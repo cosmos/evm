@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum"
@@ -89,7 +90,11 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 
 	// Try to connect to geth for comparison (optional)
 	var gethCli *ethclient.Client
-	gethEndpoint := "http://localhost:8547" // Default geth endpoint
+	// Use environment variable if set, otherwise default to localhost:8547
+	gethEndpoint := os.Getenv("GETH_URL")
+	if gethEndpoint == "" {
+		gethEndpoint = "http://localhost:8547"
+	}
 	if gethClient, err := ethclient.Dial(gethEndpoint); err == nil {
 		gethCli = gethClient
 		fmt.Println("✓ Connected to geth for dual API comparison")

@@ -1,0 +1,91 @@
+version: "3"
+
+services:
+  evmd:
+    container_name: evmd-compat-test
+    image: "cosmos/evmd"
+    environment:
+      - DEBUG=0
+      - ID=0
+      - LOG=${LOG:-evmd.log}
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+    volumes:
+      - ./.evmd-compat:/data:Z
+    networks:
+      - jsonrpc-test
+    command: >
+      start
+      --home /data/node0/evmd
+      --minimum-gas-prices=0.0001atest
+      --json-rpc.api eth,txpool,personal,net,debug,web3
+      --json-rpc.address 0.0.0.0:8545
+      --json-rpc.ws-address 0.0.0.0:8546
+      --json-rpc.enable-profiling
+      --keyring-backend test
+      --chain-id local-4221
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo '' | nc localhost 8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  geth:
+    container_name: geth-compat-test
+    image: "ethereum/client-go:latest"
+    ports:
+      - "8547:8545"
+      - "8548:8546"
+    networks:
+      - jsonrpc-test
+    command: >
+      --dev
+      --dev.period 1
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,personal,admin,debug,miner,txpool
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.api eth,net,web3,personal,admin,debug,miner,txpool
+      --ws.origins "*"
+      --allow-insecure-unlock
+      --rpc.allow-unprotected-txs
+      --nodiscover
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  simulator:
+    container_name: simulator-compat-test
+    build:
+      context: ../../
+      dockerfile: tests/jsonrpc/Dockerfile
+    depends_on:
+      evmd:
+        condition: service_healthy
+      geth:
+        condition: service_healthy
+    networks:
+      - jsonrpc-test
+    environment:
+      - EVMD_URL=http://evmd:8545
+      - GETH_URL=http://geth:8545
+    volumes:
+      - ./simulator:/app/results:Z
+
+networks:
+  jsonrpc-test:
+    driver: bridge
