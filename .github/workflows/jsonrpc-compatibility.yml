@@ -88,11 +88,3 @@ jobs:
             echo "   Note: 'Not Implemented', 'Legacy', and 'Skipped' tests are acceptable and don't cause CI failure"
           fi
         if: ${{ env.GIT_DIFF }}
-      
-      
-      - name: Cleanup networks
-        run: |
-          echo "🧹 Cleaning up test networks..."
-          make test-rpc-compat-stop || true
-        if: ${{ env.GIT_DIFF && always() }}
-      
