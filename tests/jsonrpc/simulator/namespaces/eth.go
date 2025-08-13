@@ -450,7 +450,7 @@ func EthSendRawTransactionTransferValue(rCtx *types.RPCContext) (*types.RpcResul
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if _, err = utils.WaitForTx(rCtx, signedTx.Hash(), tout, false); err != nil {
 		return nil, err
 	}
 
@@ -538,7 +538,7 @@ func EthSendRawTransactionDeployContract(rCtx *types.RPCContext) (*types.RpcResu
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if _, err = utils.WaitForTx(rCtx, signedTx.Hash(), tout, false); err != nil {
 		return nil, err
 	}
 
@@ -690,7 +690,7 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 
 	// wait for the transaction to be mined
 	tout, _ := time.ParseDuration(rCtx.Conf.Timeout)
-	if err = utils.WaitForTx(rCtx, signedTx.Hash(), tout); err != nil {
+	if _, err = utils.WaitForTx(rCtx, signedTx.Hash(), tout, false); err != nil {
 		return nil, err
 	}
 

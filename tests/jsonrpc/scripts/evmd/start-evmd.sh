@@ -21,25 +21,25 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting evmd for JSON-RPC testing...${NC}"
 
-# # Check if Docker image exists
-# if ! docker image inspect cosmos/evmd >/dev/null 2>&1; then
-#     echo -e "${RED}Error: cosmos/evmd Docker image not found${NC}"
-#     echo -e "${YELLOW}Please run: make localnet-build-env${NC}"
-#     exit 1
-# fi
+# Check if Docker image exists
+if ! docker image inspect cosmos/evmd >/dev/null 2>&1; then
+    echo -e "${RED}Error: cosmos/evmd Docker image not found${NC}"
+    echo -e "${YELLOW}Please run: make localnet-build-env${NC}"
+    exit 1
+fi
 
-# # Stop existing container if running
-# if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
-#     echo -e "${YELLOW}Stopping existing container...${NC}"
-#     docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
-#     docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
-# fi
+# Stop existing container if running
+if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+    echo -e "${YELLOW}Stopping existing container...${NC}"
+    docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+fi
 
-# # Clean up existing data
-# if [ -d "$DATA_DIR" ]; then
-#     echo -e "${YELLOW}Cleaning up existing testnet data...${NC}"
-#     rm -rf "$DATA_DIR"
-# fi
+# Clean up existing data
+if [ -d "$DATA_DIR" ]; then
+    echo -e "${YELLOW}Cleaning up existing testnet data...${NC}"
+    rm -rf "$DATA_DIR"
+fi
 
 # Initialize single-node testnet using standard test keys (complete local_node.sh setup)
 echo -e "${GREEN}Initializing single-node testnet with complete local_node.sh configuration...${NC}"

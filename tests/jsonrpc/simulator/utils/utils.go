@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -156,4 +157,21 @@ func toBlockNumArg(number *big.Int) string {
 	}
 	// It's negative and large, which is invalid.
 	return fmt.Sprintf("<invalid %d>", number)
+}
+
+// GetPrivateKeyAndAddress returns the private key and address for a given private key string
+func GetPrivateKeyAndAddress(privateKeyHex string) (*ecdsa.PrivateKey, common.Address, error) {
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return nil, common.Address{}, err
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, common.Address{}, fmt.Errorf("error casting public key to ECDSA")
+	}
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return privateKey, address, nil
 }

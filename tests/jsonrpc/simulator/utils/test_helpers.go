@@ -89,7 +89,7 @@ func SendRawTransaction(rCtx *types.RPCContext, privKey string, to common.Addres
 	}
 
 	// Wait for transaction to be mined
-	receipt, err := waitForTransactionReceipt(ethCli.Client, signedTx.Hash(), 30*time.Second)
+	receipt, err := WaitForTx(rCtx, signedTx.Hash(), 30*time.Second, isGeth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transfer receipt: %w", err)
 	}

@@ -70,6 +70,16 @@ evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices "${BASEFE
 evmd genesis collect-gentxs --home "$CHAINDIR"
 evmd genesis validate-genesis --home "$CHAINDIR"
 
+# Reduce block time by adjusting consensus timeouts
+CONFIG_TOML="$CHAINDIR/config/config.toml"
+sed -i 's/timeout_commit = "5s"/timeout_commit = "500ms"/g' "$CONFIG_TOML"
+sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' "$CONFIG_TOML"
+sed -i 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "100ms"/g' "$CONFIG_TOML"
+sed -i 's/timeout_prevote = "1s"/timeout_prevote = "300ms"/g' "$CONFIG_TOML"
+sed -i 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "100ms"/g' "$CONFIG_TOML"
+sed -i 's/timeout_precommit = "1s"/timeout_precommit = "300ms"/g' "$CONFIG_TOML"
+sed -i 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "100ms"/g' "$CONFIG_TOML"
+
 echo "🚀 Starting evmd..."
 exec evmd start \
     --home "$CHAINDIR" \
