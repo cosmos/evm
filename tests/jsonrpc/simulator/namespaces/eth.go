@@ -1710,10 +1710,20 @@ func EthBlobBaseFee(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
-	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthGetProof), rCtx.Evmd.Acc.Address.Hex(), []string{}, "latest")
 
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthGetProof, rCtx.Evmd.Acc.Address.Hex(), []string{}, "latest")
+	blockNumber := rCtx.Evmd.BlockNumsIncludingTx[0]
+	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
+
+	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthGetProof), rCtx.Evmd.Acc.Address.Hex(), []string{}, blockNumberHex)
+
+	rCtx.PerformComparisonWithProvider(MethodNameEthGetProof, func(isGeth bool) []interface{} {
+		if isGeth {
+			blockNumber := rCtx.Geth.BlockNumsIncludingTx[0]
+			blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
+			return []interface{}{[]string{}, rCtx.Geth.Acc.Address, blockNumberHex}
+		}
+		return []interface{}{rCtx.Evmd.Acc.Address, []string{}, blockNumberHex}
+	})
 
 	if err != nil {
 		if err.Error() == "the method "+string(MethodNameEthGetProof)+" does not exist/is not available" ||
