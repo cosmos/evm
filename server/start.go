@@ -59,6 +59,7 @@ type Application interface {
 	AppWithPendingTxStream
 }
 
+// AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
 type AppCreator func(log.Logger, dbm.DB, io.Writer, types.AppOptions) Application
 
 // StartOptions defines options that can be customized in `StartCmd`

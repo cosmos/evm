@@ -45,6 +45,7 @@
 - [\#301](https://github.com/cosmos/evm/pull/301) Add 4-node localnet infrastructure for testing multi-validator setups
 - [\#304](https://github.com/cosmos/evm/pull/304) Add system test framework for integration testing
 - [\#344](https://github.com/cosmos/evm/pull/344) Add txpool RPC namespace stubs in preparation for app-side mempool implementation
+- [\#440](https://github.com/cosmos/evm/pull/440) Enforce app creator returning application implement AppWithPendingTxStream in build time.
 
 ### STATE BREAKING
 
