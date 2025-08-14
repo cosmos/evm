@@ -53,7 +53,7 @@
 
 ### API-BREAKING
 
-- [\#456](https://github.com/cosmos/evm/pull456) Remove non–go-ethereum JSON-RPC methods to align with Geth’s surface
+- [\#456](https://github.com/cosmos/evm/pull/456) Remove non–go-ethereum JSON-RPC methods to align with Geth’s surface
 - [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
 be exported as a library.
 - [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
