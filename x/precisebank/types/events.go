@@ -29,7 +29,7 @@ func NewEventFractionalBalanceChange(
 	)
 }
 
-func EmitFractionalBalanceChange(
+func EmitEventFractionalBalanceChange(
 	ctx sdk.Context,
 	address sdk.AccAddress,
 	beforeAmount sdkmath.Int,

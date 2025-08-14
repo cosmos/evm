@@ -243,8 +243,8 @@ func (k Keeper) sendExtendedCoins(
 	k.SetFractionalBalance(ctx, to, recipientNewFracBal)
 
 	// Emit event for fractional balance change
-	types.EmitFractionalBalanceChange(ctx, from, senderFracBal, senderNewFracBal)
-	types.EmitFractionalBalanceChange(ctx, to, recipientFracBal, recipientNewFracBal)
+	types.EmitEventFractionalBalanceChange(ctx, from, senderFracBal, senderNewFracBal)
+	types.EmitEventFractionalBalanceChange(ctx, to, recipientFracBal, recipientNewFracBal)
 
 	return nil
 }

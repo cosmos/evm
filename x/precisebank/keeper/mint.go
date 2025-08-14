@@ -216,7 +216,7 @@ func (k Keeper) mintExtendedCoin(
 	k.SetRemainderAmount(ctx, newRemainder)
 
 	// Emit event for fractional balance change
-	types.EmitFractionalBalanceChange(ctx, moduleAddr, fractionalAmount, newFractionalBalance)
+	types.EmitEventFractionalBalanceChange(ctx, moduleAddr, fractionalAmount, newFractionalBalance)
 
 	return nil
 }

@@ -187,7 +187,7 @@ func (k Keeper) burnExtendedCoin(
 	k.SetRemainderAmount(ctx, newRemainder)
 
 	// Emit event for fractional balance change
-	types.EmitFractionalBalanceChange(ctx, moduleAddr, prevFractionalBalance, newFractionalBalance)
+	types.EmitEventFractionalBalanceChange(ctx, moduleAddr, prevFractionalBalance, newFractionalBalance)
 
 	return nil
 }
