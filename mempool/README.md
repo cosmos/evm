@@ -195,7 +195,7 @@ mempoolConfig := &evmmempool.EVMMempoolConfig{
 
 ### Problem Statement
 
-The default CometBFT mempool is incompatible with Ethereum tooling (Forge, Hardhat, deployment scripts) due to fundamental differences in transaction ordering expectations:
+The default CometBFT mempool is incompatible with Ethereum tooling ([Forge](https://getfoundry.sh/), [Hardhat](https://hardhat.org/), [deployment scripts](https://devdocs.optimism.io/op-deployer/reference-guide/custom-deployments.html)) due to fundamental differences in transaction ordering expectations:
 
 1. **FIFO vs Priority Ordering**: CometBFT uses strict FIFO ordering, while Ethereum tools expect fee-based prioritization
 2. **Nonce Gap Rejection**: CometBFT immediately rejects out-of-order nonces, while Ethereum tools expect such transactions to queue until executable
@@ -207,6 +207,8 @@ ERROR unable to publish transaction nonce=39 expected=12: invalid sequence
 ERROR unable to publish transaction nonce=40 expected=12: invalid sequence
 ERROR unable to publish transaction nonce=41 expected=12: invalid sequence
 ```
+
+**Real-World Testing**: The [`tests/systemtests/Counter/script/SimpleSends.s.sol`](../../tests/systemtests/Counter/script/SimpleSends.s.sol) script demonstrates typical Ethereum tooling behavior - it sends 10 sequential transactions in a batch, which naturally arrive out of order and create nonce gaps. With the default Cosmos mempool, this script would fail with sequence errors. With the EVM mempool, all transactions are queued locally and promoted as gaps are filled, allowing the script to succeed.
 
 ### Design Principles
 
