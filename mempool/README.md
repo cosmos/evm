@@ -161,9 +161,15 @@ Adapter providing go-ethereum compatibility over Cosmos SDK state.
 
 ## Transaction Flow
 
-The following diagram illustrates the complete transaction flow architecture, showing how transactions move through the system from initial RPC calls to block inclusion:
+The following diagrams illustrate the complete transaction flow architecture, showing how transactions move through the system from initial RPC calls to block inclusion:
+
+### Architecture Overview
 
 ![EVM Mempool Architecture](img/mempool_architecture.jpg)
+
+### Transaction Flow
+
+![Transaction Flow Comparison](img/mempool_transaction_flow.jpg)
 
 ### Flow Descriptions
 
