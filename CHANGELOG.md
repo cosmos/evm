@@ -22,6 +22,7 @@
 - [\#376](https://github.com/cosmos/evm/pull/376) Fix precompile initialization for local node development script
 - [\#384](https://github.com/cosmos/evm/pull/384) Fix debug_traceTransaction RPC failing with block height mismatch errors
 - [\#441](https://github.com/cosmos/evm/pull/441) Align precompiles map with available static check to Prague.
+- [\#](https://github.com/cosmos/evm/pull/) Cleanup unused cancel function in filter.
 
 ### IMPROVEMENTS
 
