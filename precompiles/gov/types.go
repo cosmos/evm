@@ -373,12 +373,12 @@ func ParseVotesArgs(method *abi.Method, args []interface{}) (*govv1.QueryVotesRe
 	}, nil
 }
 
-func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) *VotesOutput {
+func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) (*VotesOutput, error) {
 	vo.Votes = make([]WeightedVote, len(res.Votes))
 	for i, v := range res.Votes {
 		hexAddr, err := utils.HexAddressFromBech32String(v.Voter)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		options := make([]WeightedVoteOption, len(v.Options))
 		for j, opt := range v.Options {
@@ -400,7 +400,7 @@ func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) *VotesOutput 
 			Total:   res.Pagination.Total,
 		}
 	}
-	return vo
+	return vo, nil
 }
 
 // ParseVoteArgs parses the arguments for the Votes query.
@@ -429,10 +429,10 @@ func ParseVoteArgs(args []interface{}, addrCdc address.Codec) (*govv1.QueryVoteR
 	}, nil
 }
 
-func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) *VoteOutput {
+func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) (*VoteOutput, error) {
 	hexVoter, err := utils.HexAddressFromBech32String(res.Vote.Voter)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	vo.Vote.Voter = hexVoter
 	vo.Vote.Metadata = res.Vote.Metadata
@@ -446,7 +446,7 @@ func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) *VoteOutput {
 		}
 	}
 	vo.Vote.Options = options
-	return vo
+	return vo, nil
 }
 
 // ParseDepositArgs parses the arguments for the Deposit query.
@@ -508,10 +508,10 @@ func ParseTallyResultArgs(args []interface{}) (*govv1.QueryTallyResultRequest, e
 	}, nil
 }
 
-func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) *DepositOutput {
+func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) (*DepositOutput, error) {
 	hexDepositor, err := utils.HexAddressFromBech32String(res.Deposit.Depositor)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	coins := make([]cmn.Coin, len(res.Deposit.Amount))
 	for i, c := range res.Deposit.Amount {
@@ -525,15 +525,15 @@ func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) *DepositO
 		Depositor:  hexDepositor,
 		Amount:     coins,
 	}
-	return do
+	return do, nil
 }
 
-func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) *DepositsOutput {
+func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) (*DepositsOutput, error) {
 	do.Deposits = make([]DepositData, len(res.Deposits))
 	for i, d := range res.Deposits {
 		hexDepositor, err := utils.HexAddressFromBech32String(d.Depositor)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		coins := make([]cmn.Coin, len(d.Amount))
 		for j, c := range d.Amount {
@@ -554,7 +554,7 @@ func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) *Deposi
 			Total:   res.Pagination.Total,
 		}
 	}
-	return do
+	return do, nil
 }
 
 func (tro *TallyResultOutput) FromResponse(res *govv1.QueryTallyResultResponse) *TallyResultOutput {
@@ -656,7 +656,7 @@ func ParseProposalsArgs(method *abi.Method, args []interface{}, addrCdc address.
 	}, nil
 }
 
-func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) *ProposalOutput {
+func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*ProposalOutput, error) {
 	msgs := make([]string, len(res.Proposal.Messages))
 	for i, msg := range res.Proposal.Messages {
 		msgs[i] = msg.TypeUrl
@@ -672,7 +672,7 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) *Propos
 
 	proposer, err := utils.HexAddressFromBech32String(res.Proposal.Proposer)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	po.Proposal = ProposalData{
@@ -700,10 +700,10 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) *Propos
 	if res.Proposal.VotingEndTime != nil {
 		po.Proposal.VotingEndTime = uint64(res.Proposal.VotingEndTime.Unix()) //nolint:gosec // G115
 	}
-	return po
+	return po, nil
 }
 
-func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *ProposalsOutput {
+func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*ProposalsOutput, error) {
 	po.Proposals = make([]ProposalData, len(res.Proposals))
 	for i, p := range res.Proposals {
 		msgs := make([]string, len(p.Messages))
@@ -721,7 +721,7 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 
 		proposer, err := utils.HexAddressFromBech32String(p.Proposer)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		proposalData := ProposalData{
@@ -760,7 +760,7 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) *Prop
 			Total:   res.Pagination.Total,
 		}
 	}
-	return po
+	return po, nil
 }
 
 // ParamsOutput contains the output data for the governance parameters query

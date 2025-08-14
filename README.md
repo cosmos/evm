@@ -144,11 +144,15 @@ thus moving the standard forward.
 ## Getting started
 
 To run the example `evmd` chain, run the script using `./local_node.sh`
-from the root folder of the respository.
+from the root folder of the repository.
+
+### Migrations
+
+We provide upgrade guides [here](./docs/migrations) for upgrading your chain from various Cosmos EVM versions.
 
 ### Testing
 
-All of the test scripts are found in `Makefile` in the root of the repository.
+All test scripts are found in `Makefile` in the root of the repository.
 Listed below are the commands for various tests:
 
 #### Unit Testing
