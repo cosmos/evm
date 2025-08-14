@@ -192,12 +192,45 @@ The precompile uses standard gas configuration for storage operations.
 ## Events
 
 ```solidity
-event CreateValidator(address indexed validatorAddress, uint256 value);
-event EditValidator(address indexed validatorAddress, int256 commissionRate, int256 minSelfDelegation);
-event Delegate(address indexed delegatorAddress, string indexed validatorAddress, uint256 amount, uint256 shares);
-event Unbond(address indexed delegatorAddress, string indexed validatorAddress, uint256 amount, int64 completionTime);
-event Redelegate(address indexed delegatorAddress, string indexed validatorSrcAddress, string indexed validatorDstAddress, uint256 amount, int64 completionTime);
-event CancelUnbondingDelegation(address indexed delegatorAddress, string indexed validatorAddress, uint256 amount, uint256 creationHeight);
+event CreateValidator(
+    address indexed validatorAddress,
+    uint256 value
+);
+
+event EditValidator(
+    address indexed validatorAddress,
+    int256 commissionRate,
+    int256 minSelfDelegation
+);
+
+event Delegate(
+    address indexed delegatorAddress,
+    string indexed validatorAddress,
+    uint256 amount,
+    uint256 shares
+);
+
+event Unbond(
+    address indexed delegatorAddress,
+    string indexed validatorAddress,
+    uint256 amount,
+    int64 completionTime
+);
+
+event Redelegate(
+    address indexed delegatorAddress,
+    string indexed validatorSrcAddress,
+    string indexed validatorDstAddress,
+    uint256 amount,
+    int64 completionTime
+);
+
+event CancelUnbondingDelegation(
+    address indexed delegatorAddress,
+    string indexed validatorAddress,
+    uint256 amount,
+    uint256 creationHeight
+);
 ```
 
 ## Security Considerations
