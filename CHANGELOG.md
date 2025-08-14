@@ -40,6 +40,7 @@
 - [\#392](https://github.com/cosmos/evm/pull/392) Post-audit security fixes (batch 5)
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
+- [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
 
 ### FEATURES
 
@@ -53,5 +54,7 @@
 
 ### API-BREAKING
 
+- [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
+be exported as a library.
 - [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
 - [\#305](https://github.com/cosmos/evm/pull/305) Remove evidence precompile due to lack of use cases
