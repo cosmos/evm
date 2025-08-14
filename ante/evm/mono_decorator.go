@@ -91,7 +91,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 	msgIndex := 0
 
-	ethMsg, txData, err := evmtypes.UnpackEthMsg(msgs[msgIndex])
+	ethMsg, ethTx, err := evmtypes.UnpackEthMsg(msgs[msgIndex])
 	if err != nil {
 		return ctx, err
 	}
@@ -115,8 +115,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	feeAmt := txData.Fee()
-	gas := txData.GetGas()
+	feeAmt := ethMsg.GetFee()
+	gas := ethTx.Gas()
 	fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 	gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(gas))
 
@@ -131,13 +131,13 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		}
 	}
 
-	if txData.TxType() == ethtypes.DynamicFeeTxType && decUtils.BaseFee != nil {
+	if ethTx.Type() >= ethtypes.DynamicFeeTxType && decUtils.BaseFee != nil {
 		// If the base fee is not empty, we compute the effective gas price
 		// according to current base fee price. The gas limit is specified
 		// by the user, while the price is given by the minimum between the
 		// max price paid for the entire tx, and the sum between the price
 		// for the tip and the base fee.
-		feeAmt = txData.EffectiveFee(decUtils.BaseFee)
+		feeAmt = ethMsg.GetEffectiveFee(decUtils.BaseFee)
 		fee = sdkmath.LegacyNewDecFromBigInt(feeAmt)
 	}
 
@@ -149,8 +149,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// 4. validate msg contents
 	if err := ValidateMsg(
 		decUtils.EvmParams,
-		txData,
-		ethMsg.GetFrom(),
+		ethTx,
 	); err != nil {
 		return ctx, err
 	}
@@ -175,23 +174,17 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	account := md.evmKeeper.GetAccount(ctx, fromAddr)
 	if err := VerifyAccountBalance(
 		ctx,
+		md.evmKeeper,
 		md.accountKeeper,
 		account,
 		fromAddr,
-		txData,
+		ethTx,
 	); err != nil {
 		return ctx, err
 	}
 
 	// 7. can transfer
-	coreMsg, err := ethMsg.AsMessage(decUtils.BaseFee)
-	if err != nil {
-		return ctx, errorsmod.Wrapf(
-			err,
-			"failed to create an ethereum core.Message from signer %T", decUtils.Signer,
-		)
-	}
-
+	coreMsg := ethMsg.AsMessage(decUtils.BaseFee)
 	if err := CanTransfer(
 		ctx,
 		md.evmKeeper,
@@ -205,7 +198,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	// 8. gas consumption
 	msgFees, err := evmkeeper.VerifyFee(
-		txData,
+		ethTx,
 		evmDenom,
 		decUtils.BaseFee,
 		decUtils.Rules.IsHomestead,
@@ -236,7 +229,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	decUtils.GasWanted = gasWanted
 
 	minPriority := GetMsgPriority(
-		txData,
+		ethTx,
 		decUtils.MinPriority,
 		decUtils.BaseFee,
 	)
@@ -244,7 +237,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	// Update the fee to be paid for the tx adding the fee specified for the
 	// current message.
-	decUtils.TxFee.Add(decUtils.TxFee, txData.Fee())
+	decUtils.TxFee.Add(decUtils.TxFee, ethMsg.GetFee())
 
 	// Update the transaction gas limit adding the gas specified in the
 	// current message.
@@ -261,7 +254,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		)
 	}
 
-	if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
+	if err := IncrementNonce(ctx, md.accountKeeper, acc, ethTx.Nonce()); err != nil {
 		return ctx, err
 	}
 

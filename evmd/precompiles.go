@@ -91,7 +91,7 @@ func NewAvailableStaticPrecompiles(
 		opt(&options)
 	}
 	// Clone the mapping from the latest EVM fork.
-	precompiles := maps.Clone(vm.PrecompiledContractsBerlin)
+	precompiles := maps.Clone(vm.PrecompiledContractsPrague)
 
 	// secp256r1 precompile as per EIP-7212
 	p256Precompile := &p256.Precompile{}

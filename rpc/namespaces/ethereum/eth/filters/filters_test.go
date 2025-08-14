@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
+	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
 
 	filtermocks "github.com/cosmos/evm/rpc/namespaces/ethereum/eth/filters/mocks"
@@ -57,17 +57,17 @@ func (m *MockBackend) RPCBlockRangeCap() int32 {
 	panic("implement me")
 }
 
-func (m *MockBackend) TendermintBlockByHash(hash common.Hash) (*tmrpctypes.ResultBlock, error) {
+func (m *MockBackend) CometBlockByHash(hash common.Hash) (*cmtrpctypes.ResultBlock, error) {
 	args := m.Called(hash)
-	return args.Get(0).(*tmrpctypes.ResultBlock), args.Error(1)
+	return args.Get(0).(*cmtrpctypes.ResultBlock), args.Error(1)
 }
 
-func (m *MockBackend) TendermintBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
+func (m *MockBackend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBlockResults, error) {
 	args := m.Called(height)
-	return args.Get(0).(*tmrpctypes.ResultBlockResults), args.Error(1)
+	return args.Get(0).(*cmtrpctypes.ResultBlockResults), args.Error(1)
 }
 
-func (m *MockBackend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
+func (m *MockBackend) BlockBloom(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
 	args := m.Called(blockRes)
 	return args.Get(0).(ethtypes.Bloom), args.Error(1)
 }
@@ -80,10 +80,10 @@ func (m *MockBackend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.H
 func TestLogs(t *testing.T) {
 	blockHeight := int64(100)
 	fakeHeader := &ethtypes.Header{Number: big.NewInt(blockHeight)}
-	fakeBlockRes := &tmrpctypes.ResultBlockResults{Height: blockHeight}
+	fakeBlockRes := &cmtrpctypes.ResultBlockResults{Height: blockHeight}
 	fakeBloom := ethtypes.Bloom{}
 	blockHash := common.HexToHash("0xabc")
-	fakeBlock := &tmrpctypes.ResultBlock{Block: &comettypes.Block{Header: comettypes.Header{Height: blockHeight}}}
+	fakeBlock := &cmtrpctypes.ResultBlock{Block: &comettypes.Block{Header: comettypes.Header{Height: blockHeight}}}
 
 	tests := []struct {
 		name      string
@@ -109,12 +109,12 @@ func TestLogs(t *testing.T) {
 			expectMsg: "header error",
 		},
 		{
-			name:      "TendermintBlockResultByNumber returns error",
-			errorStep: "TendermintBlockResultByNumber",
+			name:      "CometBlockResultByNumber returns error",
+			errorStep: "CometBlockResultByNumber",
 			prepare: func() *MockBackend {
 				backend := &MockBackend{}
 				backend.On("HeaderByNumber", mock.Anything).Return(fakeHeader, nil)
-				backend.On("TendermintBlockResultByNumber", &blockHeight).Return((*tmrpctypes.ResultBlockResults)(nil), errors.New("block result error"))
+				backend.On("CometBlockResultByNumber", &blockHeight).Return((*cmtrpctypes.ResultBlockResults)(nil), errors.New("block result error"))
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -130,7 +130,7 @@ func TestLogs(t *testing.T) {
 			prepare: func() *MockBackend {
 				backend := &MockBackend{}
 				backend.On("HeaderByNumber", mock.Anything).Return(fakeHeader, nil)
-				backend.On("TendermintBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
+				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
 				backend.On("BlockBloom", fakeBlockRes).Return(ethtypes.Bloom{}, errors.New("bloom error"))
 				return backend
 			},
@@ -146,8 +146,8 @@ func TestLogs(t *testing.T) {
 			errorStep: "none",
 			prepare: func() *MockBackend {
 				backend := &MockBackend{}
-				backend.On("TendermintBlockByHash", blockHash).Return(fakeBlock, nil)
-				backend.On("TendermintBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
+				backend.On("CometBlockByHash", blockHash).Return(fakeBlock, nil)
+				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
 				backend.On("BlockBloom", fakeBlockRes).Return(fakeBloom, nil)
 				return backend
 			},

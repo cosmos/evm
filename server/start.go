@@ -34,6 +34,7 @@ import (
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -53,6 +54,15 @@ import (
 // DBOpener is a function to open `application.db`, potentially with customized options.
 type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendType) (dbm.DB, error)
 
+type Application interface {
+	types.Application
+	AppWithPendingTxStream
+	SetClientCtx(clientCtx client.Context)
+}
+
+// AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
+type AppCreator func(log.Logger, dbm.DB, io.Writer, types.AppOptions) Application
+
 // StartOptions defines options that can be customized in `StartCmd`
 type StartOptions struct {
 	AppCreator      types.AppCreator
@@ -61,9 +71,11 @@ type StartOptions struct {
 }
 
 // NewDefaultStartOptions use the default db opener provided in tm-db.
-func NewDefaultStartOptions(appCreator types.AppCreator, defaultNodeHome string) StartOptions {
+func NewDefaultStartOptions(appCreator AppCreator, defaultNodeHome string) StartOptions {
 	return StartOptions{
-		AppCreator:      appCreator,
+		AppCreator: func(l log.Logger, d dbm.DB, w io.Writer, ao types.AppOptions) types.Application {
+			return appCreator(l, d, w, ao)
+		},
 		DefaultNodeHome: defaultNodeHome,
 		DBOpener:        cosmosevmserverconfig.OpenDB,
 	}
@@ -119,9 +131,9 @@ which accepts a path for the resulting pprof file.
 
 			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
 			if !withTM {
-				serverCtx.Logger.Info("starting ABCI without Tendermint")
+				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, opts)
+					return startStandAlone(serverCtx, clientCtx, opts)
 				})
 			}
 
@@ -220,7 +232,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -251,6 +263,12 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
+
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
@@ -364,6 +382,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {

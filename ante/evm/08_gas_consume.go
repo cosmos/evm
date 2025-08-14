@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/types"
@@ -84,11 +85,11 @@ func deductFees(
 
 // GetMsgPriority returns the priority of an Eth Tx capped by the minimum priority
 func GetMsgPriority(
-	txData evmtypes.TxData,
+	ethTx *ethtypes.Transaction,
 	minPriority int64,
 	baseFee *big.Int,
 ) int64 {
-	priority := evmtypes.GetTxPriority(txData, baseFee)
+	priority := evmtypes.GetTxPriority(ethTx, baseFee)
 
 	if priority < minPriority {
 		minPriority = priority

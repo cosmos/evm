@@ -43,8 +43,8 @@ type Backend interface {
 	GetBlockByNumber(blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
 	HeaderByNumber(blockNum types.BlockNumber) (*ethtypes.Header, error)
 	HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error)
-	TendermintBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error)
-	TendermintBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error)
+	CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error)
+	CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error)
 	GetLogs(blockHash common.Hash) ([][]*ethtypes.Log, error)
 	GetLogsByHeight(*int64) ([][]*ethtypes.Log, error)
 	BlockBloom(blockRes *coretypes.ResultBlockResults) (ethtypes.Bloom, error)
@@ -65,7 +65,6 @@ type filter struct {
 	typ      filters.Type
 	deadline *time.Timer // filter is inactive when deadline triggers
 	crit     filters.FilterCriteria
-	cancel   context.CancelFunc
 	offset   int // offset for stream subscription
 }
 
@@ -128,7 +127,6 @@ func (api *PublicFilterAPI) timeoutLoop() {
 		for id, f := range api.filters {
 			select {
 			case <-f.deadline.C:
-				f.cancel()
 				delete(api.filters, id)
 			default:
 				continue
