@@ -22,6 +22,7 @@
 - [\#376](https://github.com/cosmos/evm/pull/376) Fix precompile initialization for local node development script
 - [\#384](https://github.com/cosmos/evm/pull/384) Fix debug_traceTransaction RPC failing with block height mismatch errors
 - [\#441](https://github.com/cosmos/evm/pull/441) Align precompiles map with available static check to Prague.
+- [\#454](https://github.com/cosmos/evm/pull/454) Align multi decode functions instead of string contains check in HexAddressFromBech32String.
 
 ### IMPROVEMENTS
 
@@ -53,6 +54,7 @@
 
 ### API-BREAKING
 
+- [\#456](https://github.com/cosmos/evm/pull/456) Remove non–go-ethereum JSON-RPC methods to align with Geth’s surface
 - [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
 be exported as a library.
 - [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
