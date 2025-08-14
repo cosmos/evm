@@ -17,27 +17,27 @@ The mempool implements a two-tier architecture: a local transaction pool for que
 ## Contents
 
 - [Integration](#integration)
-  - [Quick Start](#quick-start)
-  - [Configuration Options](#configuration-options)
-  - [Prerequisites](#prerequisites)
+    - [Quick Start](#quick-start)
+    - [Configuration Options](#configuration-options)
+    - [Prerequisites](#prerequisites)
 - [Concepts](#concepts)
-  - [Problem Statement](#problem-statement)
-  - [Design Principles](#design-principles)
-  - [Dual-Pool Transaction Management](#dual-pool-transaction-management)
-  - [Transaction States](#transaction-states)
-  - [Fee Prioritization](#fee-prioritization)
+    - [Problem Statement](#problem-statement)
+    - [Design Principles](#design-principles)
+    - [Dual-Pool Transaction Management](#dual-pool-transaction-management)
+    - [Transaction States](#transaction-states)
+    - [Fee Prioritization](#fee-prioritization)
 - [Architecture](#architecture)
-  - [ExperimentalEVMMempool](#experimentalevmmempool)
-  - [TxPool](#txpool)
-  - [PriorityNonceMempool](#prioritynoncemempool)
-  - [Miner](#miner)
-  - [Iterator](#iterator)
-  - [CheckTx Handler](#checktx-handler)
-  - [Blockchain Interface](#blockchain-interface)
+    - [ExperimentalEVMMempool](#experimentalevmmempool)
+    - [TxPool](#txpool)
+    - [PriorityNonceMempool](#prioritynoncemempool)
+    - [Miner](#miner)
+    - [Iterator](#iterator)
+    - [CheckTx Handler](#checktx-handler)
+    - [Blockchain Interface](#blockchain-interface)
 - [Transaction Flow](#transaction-flow)
 - [State](#state)
 - [Client](#client)
-  - [JSON-RPC](#json-rpc)
+    - [JSON-RPC](#json-rpc)
 
 ## Integration
 
@@ -59,7 +59,7 @@ type App struct {
 }
 ```
 
-#### 2. Configure Mempool in NewApp Constructor 
+#### 2. Configure Mempool in NewApp Constructor
 
 > The mempool must be initialized *after* the antehandler has been set in the app.
 
@@ -129,6 +129,7 @@ type EVMMempoolConfig struct {
 ```
 
 **Minimal Configuration**:
+
 ```go
 mempoolConfig := &evmmempool.EVMMempoolConfig{
     AnteHandler:   app.GetAnteHandler(),
@@ -177,6 +178,7 @@ mempoolConfig := &evmmempool.EVMMempoolConfig{
 ```
 
 **Custom Block Gas Limit**:
+
 ```go
 // Example: 50M gas limit for lower capacity chains
 mempoolConfig := &evmmempool.EVMMempoolConfig{
@@ -202,6 +204,7 @@ The default CometBFT mempool is incompatible with Ethereum tooling ([Forge](http
 3. **Base Fee Dynamics**: Transactions may become temporarily invalid due to base fee increases but should remain in the mempool
 
 Example incompatibility from OP Stack deployment:
+
 ```
 ERROR unable to publish transaction nonce=39 expected=12: invalid sequence
 ERROR unable to publish transaction nonce=40 expected=12: invalid sequence
@@ -224,13 +227,15 @@ The mempool manages both Cosmos and Ethereum transactions through a unified two-
 #### Transaction Type Routing
 
 **Ethereum Transactions** (`MsgEthereumTx`):
+
 - **Tier 1 (Local)**: EVM TxPool handles nonce gaps and promotion logic
-  - Queued state for nonce-gapped transactions (stored locally, not broadcast)
-  - Pending state for immediately executable transactions
-  - Background promotion when gaps are filled
+    - Queued state for nonce-gapped transactions (stored locally, not broadcast)
+    - Pending state for immediately executable transactions
+    - Background promotion when gaps are filled
 - **Tier 2 (Network)**: CometBFT mempool broadcasts executable transactions
 
 **Cosmos Transactions** (Bank, Staking, Gov, etc.):
+
 - **Direct to Tier 2**: Always go directly to CometBFT mempool (no local queuing)
 - **Standard Flow**: Follow normal Cosmos SDK validation and broadcasting
 - **Priority-Based**: Use `PriorityNonceMempool` for fee-based ordering
@@ -250,6 +255,7 @@ func SelectTransactions() Iterator {
 ```
 
 **Fee Comparison**:
+
 - **EVM**: `gas_tip_cap` or `gas_fee_cap - base_fee`
 - **Cosmos**: `(fee_amount / gas_limit) - base_fee`
 - **Winner**: Higher effective tip gets selected first (regardless of type)
@@ -280,6 +286,7 @@ The main coordinator implementing Cosmos SDK's `ExtMempool` interface.
 **Location**: `mempool/mempool.go`
 
 **Methods**:
+
 - `Insert(ctx, tx)`: Routes transactions to appropriate pools
 - `Select(ctx, filter)`: Returns unified iterator over all transactions  
 - `Remove(tx)`: Handles transaction removal with EVM-specific logic
@@ -287,6 +294,7 @@ The main coordinator implementing Cosmos SDK's `ExtMempool` interface.
 A special failure case is sent via CheckTx, and the transaction is stored locally until it either gets included or evicted.
 
 **Configuration**:
+
 ```go
 type EVMMempoolConfig struct {
     TxPool        *txpool.TxPool
@@ -304,6 +312,7 @@ Ethereum transaction pool forked from go-ethereum v1.15.11 with Cosmos adaptatio
 **Location**: `mempool/txpool/`
 
 **Modifications**:
+
 - Uses `vm.StateDB` interface instead of go-ethereum's StateDB
 - Implements `BroadcastTxFn` callback for transaction promotion. When nonce gaps are filled, the callback broadcasts
 via the Comet mempool
@@ -319,12 +328,14 @@ Standard Cosmos SDK mempool for handling non-EVM transactions with fee-based pri
 **Purpose**: Manages all Cosmos SDK transactions (bank, staking, governance, etc.) separate from EVM transactions
 
 **Features**:
+
 - Fee-based transaction prioritization using configurable priority functions
 - Standard Cosmos nonce validation (strict sequential ordering)
 - Direct integration with CometBFT broadcasting (no local queuing)
 - Compatible with all existing Cosmos SDK transaction types
 
 **Default Priority Calculation**:
+
 ```go
 // Default implementation calculates effective gas price
 priority = (fee_amount / gas_limit) - base_fee
@@ -341,6 +352,7 @@ Transaction ordering mechanism from go-ethereum v1.15.11, unchanged from upstrea
 **Location**: `mempool/miner/ordering.go`
 
 **Functionality**:
+
 - Priority heap-based transaction selection (`TransactionsByPriceAndNonce`)
 - Per-account nonce ordering
 - Base fee consideration for effective tip calculation
@@ -352,6 +364,7 @@ Unified iterator combining EVM and Cosmos transaction streams.
 **Location**: `mempool/iterator.go`
 
 **Selection Logic**:
+
 ```go
 func (i *EVMMempoolIterator) shouldUseEVM() bool {
     // 1. Availability check
@@ -375,6 +388,7 @@ Adapter providing go-ethereum compatibility over Cosmos SDK state.
 **Location**: `mempool/blockchain.go`
 
 **Features**:
+
 - Block height synchronization (requires block 1+ for operation)
 - State database interface translation
 - Reorg protection (panics on reorg attempts)
@@ -391,7 +405,6 @@ The following diagrams illustrate the complete transaction flow architecture, sh
 
 ![Transaction Flow Comparison](img/mempool_transaction_flow.jpg)
 
-
 ## State
 
 The mempool module maintains the following state:
@@ -406,7 +419,6 @@ The mempool module maintains the following state:
    - Fee-based prioritization
 
 3. **Block Height**: Requires block 1+ before accepting transactions
-
 
 ## Client
 
@@ -425,6 +437,7 @@ curl -X POST -H "Content-Type: application/json" \
 ```
 
 Example Output:
+
 ```json
 {
   "jsonrpc": "2.0",
