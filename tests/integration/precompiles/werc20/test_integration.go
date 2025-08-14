@@ -1,7 +1,6 @@
 package werc20
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -31,7 +30,6 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -51,12 +49,6 @@ type PrecompileIntegrationTestSuite struct {
 	precompileAddrHex string
 }
 
-// BalanceSnapshot represents a snapshot of account balances for testing
-type BalanceSnapshot struct {
-	IntegerBalance    *big.Int
-	FractionalBalance *big.Int
-}
-
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	_ = DescribeTableSubtree("a user interact with the WEVMOS precompiled contract", func(chainId testconstants.ChainID) {
 		var (
@@ -70,27 +62,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			revertContractAddr common.Address
 
-			precisebankModuleAccAddr sdk.AccAddress
-
-			// Shared balance snapshots for common test scenarios
-			senderBeforeSnapshot            *BalanceSnapshot
-			receiverBeforeSnapshot          *BalanceSnapshot
-			precompileBeforeSnapshot        *BalanceSnapshot
-			contractBeforeSnapshot          *BalanceSnapshot
-			precisebankModuleBeforeSnapshot *BalanceSnapshot
-
-			// Expected balance changes (set by individual tests)
-			senderIntegerDelta         *big.Int
-			senderFractionalDelta      *big.Int
-			receiverIntegerDelta       *big.Int
-			receiverFractionalDelta    *big.Int
-			precompileIntegerDelta     *big.Int
-			precompileFractionalDelta  *big.Int
-			contractIntegerDelta       *big.Int
-			contractFractionalDelta    *big.Int
-			precisebankIntegerDelta    *big.Int
-			precisebankFractionalDelta *big.Int
-			precisebankRemainder       *big.Int
+			// Account balance tracking
+			accountBalances      []*AccountBalanceInfo
+			precisebankRemainder *big.Int
 		)
 
 		// Configure deposit amounts with integer and fractional components to test
@@ -114,65 +88,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		withdrawAmount := depositAmount
 		transferAmount := big.NewInt(10) // Start with 10 integer units
 
-		// Helper functions for balance snapshot management
-		resetExpectedDeltas := func() {
-			senderIntegerDelta = big.NewInt(0)
-			senderFractionalDelta = big.NewInt(0)
-
-			receiverIntegerDelta = big.NewInt(0)
-			receiverFractionalDelta = big.NewInt(0)
-
-			precompileIntegerDelta = big.NewInt(0)
-			precompileFractionalDelta = big.NewInt(0)
-
-			contractIntegerDelta = big.NewInt(0)
-			contractFractionalDelta = big.NewInt(0)
-
-			precisebankIntegerDelta = big.NewInt(0)
-			precisebankFractionalDelta = big.NewInt(0)
-			precisebankRemainder = big.NewInt(0)
-		}
-
-		takeSnapshots := func() {
-			var err error
-
-			senderBeforeSnapshot, err = is.getBalanceSnapshot(txSender.AccAddr)
-			Expect(err).ToNot(HaveOccurred(), "failed to get sender balance snapshot")
-
-			receiverBeforeSnapshot, err = is.getBalanceSnapshot(user.AccAddr)
-			Expect(err).ToNot(HaveOccurred(), "failed to get receiver balance snapshot")
-
-			precompileBeforeSnapshot, err = is.getBalanceSnapshot(callsData.precompileAddr.Bytes())
-			Expect(err).ToNot(HaveOccurred(), "failed to get precompile balance snapshot")
-
-			contractBeforeSnapshot, err = is.getBalanceSnapshot(revertContractAddr.Bytes())
-			Expect(err).ToNot(HaveOccurred(), "failed to get contract balance snapshot")
-
-			precisebankModuleAccAddr = authtypes.NewModuleAddress(precisebanktypes.ModuleName)
-			precisebankModuleBeforeSnapshot, err = is.getBalanceSnapshot(precisebankModuleAccAddr)
-			Expect(err).ToNot(HaveOccurred(), "failed to get precisebank module balance snapshot")
-		}
-
-		verifyBalanceChanges := func() {
-			is.expectBalanceChange(txSender.AccAddr, senderBeforeSnapshot,
-				senderIntegerDelta, senderFractionalDelta, "sender")
-
-			is.expectBalanceChange(user.AccAddr, receiverBeforeSnapshot,
-				receiverIntegerDelta, receiverFractionalDelta, "receiver")
-
-			is.expectBalanceChange(callsData.precompileAddr.Bytes(), precompileBeforeSnapshot,
-				precompileIntegerDelta, precompileFractionalDelta, "precompile")
-
-			is.expectBalanceChange(revertContractAddr.Bytes(), contractBeforeSnapshot,
-				contractIntegerDelta, contractFractionalDelta, "contract")
-
-			is.expectBalanceChange(precisebankModuleAccAddr, precisebankModuleBeforeSnapshot,
-				precisebankIntegerDelta, precisebankFractionalDelta, "precisebank module")
-
-			res, err := is.grpcHandler.Remainder()
-			Expect(err).ToNot(HaveOccurred(), "failed to get precisebank module remainder")
-			actualRemainder := res.Remainder.Amount.BigInt()
-			Expect(actualRemainder).To(Equal(precisebankRemainder))
+		// Helper function to get account balance info by type
+		balanceOf := func(accountType AccountType) *AccountBalanceInfo {
+			return GetAccountBalance(accountBalances, accountType)
 		}
 
 		BeforeEach(func() {
@@ -290,18 +208,25 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			depositCheck = passCheck.WithExpEvents(werc20.EventTypeDeposit)
 			transferCheck = passCheck.WithExpEvents(erc20.EventTypeTransfer)
 
-			// Reset balance tracking state for each test
-			resetExpectedDeltas()
+			// Initialize and reset balance tracking state for each test
+			accountBalances = InitializeAccountBalances(
+				txSender.AccAddr, user.AccAddr,
+				callsData.precompileAddr, revertContractAddr,
+			)
+
+			// Reset expected balance change of accounts
+			ResetExpectedDeltas(accountBalances)
+			precisebankRemainder = big.NewInt(0)
 		})
 
 		// JustBeforeEach takes snapshots after individual test setup
 		JustBeforeEach(func() {
-			takeSnapshots()
+			TakeBalanceSnapshots(accountBalances, is.grpcHandler)
 		})
 
 		// AfterEach verifies balance changes
 		AfterEach(func() {
-			verifyBalanceChanges()
+			VerifyBalanceChanges(accountBalances, is.grpcHandler, precisebankRemainder)
 		})
 
 		Context("calling a specific wrapped coin method", func() {
@@ -502,13 +427,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						borrow = big.NewInt(1)
 					}
 
-					senderIntegerDelta = new(big.Int).Sub(new(big.Int).Neg((new(big.Int).Quo(depositAmount, conversionFactor))), borrow)
-					senderFractionalDelta = new(big.Int).Mod(new(big.Int).Sub(conversionFactor, depositFractional), conversionFactor)
+					balanceOf(Sender).IntegerDelta = new(big.Int).Sub(new(big.Int).Neg((new(big.Int).Quo(depositAmount, conversionFactor))), borrow)
+					balanceOf(Sender).FractionalDelta = new(big.Int).Mod(new(big.Int).Sub(conversionFactor, depositFractional), conversionFactor)
 
-					contractIntegerDelta = new(big.Int).Quo(depositAmount, conversionFactor)
-					contractFractionalDelta = depositFractional
+					balanceOf(Contract).IntegerDelta = new(big.Int).Quo(depositAmount, conversionFactor)
+					balanceOf(Contract).FractionalDelta = depositFractional
 
-					precisebankIntegerDelta = borrow
+					balanceOf(PrecisebankModule).IntegerDelta = borrow
 
 					txArgs, callArgs := callsData.getTxAndCallArgs(contractCall, "depositWithRevert", false, false)
 					txArgs.Amount = depositAmount
@@ -533,10 +458,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		Context("calling an erc20 method", func() {
 			When("transferring tokens", func() {
 				It("it should transfer tokens to a receiver using `transfer`", func() {
-					senderIntegerDelta = new(big.Int).Neg(transferAmount)
-					senderFractionalDelta = big.NewInt(0)
-					receiverIntegerDelta = transferAmount
-					receiverFractionalDelta = big.NewInt(0)
+					balanceOf(Sender).IntegerDelta = new(big.Int).Neg(transferAmount)
+					balanceOf(Sender).FractionalDelta = big.NewInt(0)
+					balanceOf(Receiver).IntegerDelta = transferAmount
+					balanceOf(Receiver).FractionalDelta = big.NewInt(0)
 
 					// First, sender needs to deposit to get WERC20 tokens
 					// Use a larger deposit amount to ensure sufficient balance for transfer
@@ -646,47 +571,4 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 	// Run Ginkgo integration tests
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "WEVMOS precompile test suite")
-}
-
-// expectBalanceChange verifies expected balance changes after operations
-func (is *PrecompileIntegrationTestSuite) expectBalanceChange(
-	addr sdk.AccAddress,
-	beforeSnapshot *BalanceSnapshot,
-	expectedIntegerDelta *big.Int,
-	expectedFractionalDelta *big.Int,
-	description string,
-) {
-	afterSnapshot, err := is.getBalanceSnapshot(addr)
-	Expect(err).ToNot(HaveOccurred(), "failed to get balance snapshot for %s", description)
-
-	actualIntegerDelta := new(big.Int).Sub(afterSnapshot.IntegerBalance, beforeSnapshot.IntegerBalance)
-	actualFractionalDelta := new(big.Int).Sub(afterSnapshot.FractionalBalance, beforeSnapshot.FractionalBalance)
-
-	Expect(actualIntegerDelta.Cmp(expectedIntegerDelta)).To(Equal(0),
-		"integer balance delta mismatch for %s: expected %s, got %s",
-		description, expectedIntegerDelta.String(), actualIntegerDelta.String())
-
-	Expect(actualFractionalDelta.Cmp(expectedFractionalDelta)).To(Equal(0),
-		"fractional balance delta mismatch for %s: expected %s, got %s",
-		description, expectedFractionalDelta.String(), actualFractionalDelta.String())
-}
-
-// getBalanceSnapshot gets complete balance information using grpcHandler
-func (is *PrecompileIntegrationTestSuite) getBalanceSnapshot(addr sdk.AccAddress) (*BalanceSnapshot, error) {
-	// Get integer balance (uatom)
-	intRes, err := is.grpcHandler.GetBalanceFromBank(addr, evmtypes.GetEVMCoinDenom())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get integer balance: %w", err)
-	}
-
-	// Get fractional balance using the new grpcHandler method
-	fracRes, err := is.grpcHandler.FractionalBalance(addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get fractional balance: %w", err)
-	}
-
-	return &BalanceSnapshot{
-		IntegerBalance:    intRes.Balance.Amount.BigInt(),
-		FractionalBalance: fracRes.FractionalBalance.Amount.BigInt(),
-	}, nil
 }
