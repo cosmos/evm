@@ -18,7 +18,10 @@ withdrawing, and funding.
 #### setWithdrawAddress
 
 ```solidity
-function setWithdrawAddress(address delegator, string memory withdrawerAddress) external returns (bool)
+function setWithdrawAddress(
+    address delegator,
+    string memory withdrawerAddress
+) external returns (bool);
 ```
 
 Sets the address authorized to withdraw rewards for a delegator.
@@ -35,7 +38,10 @@ Sets the address authorized to withdraw rewards for a delegator.
 #### withdrawDelegatorRewards
 
 ```solidity
-function withdrawDelegatorRewards(address delegator, string memory validator) external returns (Coin[] memory)
+function withdrawDelegatorRewards(
+    address delegator,
+    string memory validator
+) external returns (Coin[] memory);
 ```
 
 Withdraws pending rewards from a specific validator.
@@ -56,7 +62,9 @@ Withdraws pending rewards from a specific validator.
 #### withdrawValidatorCommission
 
 ```solidity
-function withdrawValidatorCommission(string memory validator) external returns (Coin[] memory)
+function withdrawValidatorCommission(
+    string memory validator
+) external returns (Coin[] memory);
 ```
 
 Withdraws accumulated commission for a validator.
@@ -76,7 +84,10 @@ Withdraws accumulated commission for a validator.
 #### claimRewards
 
 ```solidity
-function claimRewards(address delegator, uint32 maxRetrieve) external returns (bool)
+function claimRewards(
+    address delegator,
+    uint32 maxRetrieve
+) external returns (bool);
 ```
 
 Claims rewards from all validators at once (custom batch operation).
@@ -93,7 +104,10 @@ Claims rewards from all validators at once (custom batch operation).
 #### fundCommunityPool
 
 ```solidity
-function fundCommunityPool(address depositor, Coin[] memory coins) external returns (bool)
+function fundCommunityPool(
+    address depositor,
+    Coin[] memory coins
+) external returns (bool);
 ```
 
 Deposits tokens into the community pool.
@@ -110,7 +124,10 @@ Deposits tokens into the community pool.
 #### depositValidatorRewardsPool
 
 ```solidity
-function depositValidatorRewardsPool(string memory validator, Coin[] memory coins) external returns (bool)
+function depositValidatorRewardsPool(
+    string memory validator,
+    Coin[] memory coins
+) external returns (bool);
 ```
 
 Deposits tokens into a validator's rewards pool.
@@ -127,7 +144,12 @@ Deposits tokens into a validator's rewards pool.
 #### delegationTotalRewards
 
 ```solidity
-function delegationTotalRewards(address delegator) external view returns (DelegatorTotal[] memory, DecCoin[] memory)
+function delegationTotalRewards(
+    address delegator
+) external view returns (
+    DelegatorTotal[] memory,
+    DecCoin[] memory
+);
 ```
 
 Returns total rewards across all validators for a delegator.
@@ -146,7 +168,10 @@ Returns total rewards across all validators for a delegator.
 #### delegationRewards
 
 ```solidity
-function delegationRewards(address delegator, string memory validator) external view returns (DecCoin[] memory)
+function delegationRewards(
+    address delegator,
+    string memory validator
+) external view returns (DecCoin[] memory);
 ```
 
 Returns rewards for a specific delegator-validator pair.
@@ -165,7 +190,9 @@ Returns rewards for a specific delegator-validator pair.
 #### delegatorValidators
 
 ```solidity
-function delegatorValidators(address delegator) external view returns (string[] memory)
+function delegatorValidators(
+    address delegator
+) external view returns (string[] memory);
 ```
 
 Lists all validators from which a delegator can claim rewards.
@@ -183,7 +210,9 @@ Lists all validators from which a delegator can claim rewards.
 #### delegatorWithdrawAddress
 
 ```solidity
-function delegatorWithdrawAddress(address delegator) external view returns (string memory)
+function delegatorWithdrawAddress(
+    address delegator
+) external view returns (string memory);
 ```
 
 Returns the configured withdraw address for a delegator.
@@ -201,7 +230,7 @@ Returns the configured withdraw address for a delegator.
 #### communityPool
 
 ```solidity
-function communityPool() external view returns (DecCoin[] memory)
+function communityPool() external view returns (DecCoin[] memory);
 ```
 
 Returns the current balance of the community pool.
@@ -215,7 +244,9 @@ Returns the current balance of the community pool.
 #### validatorCommission
 
 ```solidity
-function validatorCommission(string memory validator) external view returns (DecCoin[] memory)
+function validatorCommission(
+    string memory validator
+) external view returns (DecCoin[] memory);
 ```
 
 Returns accumulated commission for a validator.
@@ -233,7 +264,9 @@ Returns accumulated commission for a validator.
 #### validatorDistributionInfo
 
 ```solidity
-function validatorDistributionInfo(string memory validator) external view returns (DistInfo memory)
+function validatorDistributionInfo(
+    string memory validator
+) external view returns (DistInfo memory);
 ```
 
 Returns comprehensive distribution information for a validator.
@@ -251,7 +284,9 @@ Returns comprehensive distribution information for a validator.
 #### validatorOutstandingRewards
 
 ```solidity
-function validatorOutstandingRewards(string memory validator) external view returns (DecCoin[] memory)
+function validatorOutstandingRewards(
+    string memory validator
+) external view returns (DecCoin[] memory);
 ```
 
 Returns outstanding (undistributed) rewards for a validator.
@@ -269,7 +304,15 @@ Returns outstanding (undistributed) rewards for a validator.
 #### validatorSlashes
 
 ```solidity
-function validatorSlashes(string memory validator, uint64 startingHeight, uint64 endingHeight, PageRequest memory pageRequest) external view returns (ValidatorSlashEvent[] memory, PageResponse memory)
+function validatorSlashes(
+    string memory validator,
+    uint64 startingHeight,
+    uint64 endingHeight,
+    PageRequest memory pageRequest
+) external view returns (
+    ValidatorSlashEvent[] memory,
+    PageResponse memory
+);
 ```
 
 Returns slashing events for a validator within a height range.

@@ -21,6 +21,7 @@ import (
 	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
+	evmmempool "github.com/cosmos/evm/mempool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -88,6 +89,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	testdata_pulsar "github.com/cosmos/cosmos-sdk/testutil/testdata/testpb"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -161,6 +163,7 @@ type EVMD struct {
 	appCodec          codec.Codec
 	interfaceRegistry types.InterfaceRegistry
 	txConfig          client.TxConfig
+	clientCtx         client.Context
 
 	pendingTxListeners []evmante.PendingTxListener
 
@@ -194,6 +197,7 @@ type EVMD struct {
 	EVMKeeper         *evmkeeper.Keeper
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
+	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -232,7 +236,7 @@ func NewExampleApp(
 	// Example:
 	//
 	// bApp := baseapp.NewBaseApp(...)
-	// nonceMempool := mempool.NewSenderNonceMempool()
+	// nonceMempool := evmmempool.NewSenderNonceMempool()
 	// abciPropHandler := NewDefaultProposalHandler(nonceMempool, bApp)
 	//
 	// bApp.SetMempool(nonceMempool)
@@ -439,7 +443,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -756,6 +760,31 @@ func NewExampleApp(
 	app.SetEndBlocker(app.EndBlocker)
 
 	app.setAnteHandler(app.txConfig, maxGasWanted)
+
+	// set the EVM priority nonce mempool
+	// If you wish to use the noop mempool, remove this codeblock
+	if evmtypes.GetChainConfig() != nil {
+		// TODO: Get the actual block gas limit from consensus parameters
+		mempoolConfig := &evmmempool.EVMMempoolConfig{
+			AnteHandler:   app.GetAnteHandler(),
+			BlockGasLimit: 100_000_000,
+		}
+
+		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
+		app.EVMMempool = evmMempool
+
+		// Set the global mempool for RPC access
+		if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
+			panic(err)
+		}
+		app.SetMempool(evmMempool)
+		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
+		app.SetCheckTxHandler(checkTxHandler)
+
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
+		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	}
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
@@ -1103,6 +1132,10 @@ func (app *EVMD) SetTransferKeeper(transferKeeper transferkeeper.Keeper) {
 	app.TransferKeeper = transferKeeper
 }
 
+func (app *EVMD) GetMempool() sdkmempool.ExtMempool {
+	return app.EVMMempool
+}
+
 func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 	return app.BaseApp.AnteHandler()
 }
@@ -1110,6 +1143,10 @@ func (app *EVMD) GetAnteHandler() sdk.AnteHandler {
 // GetTxConfig implements the TestingApp interface.
 func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
+}
+
+func (app *EVMD) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
 }
 
 // AutoCliOpts returns the autocli options for the app.
