@@ -15,17 +15,27 @@ const (
 	AttributeKeyDelta   = "delta"
 )
 
+func NewEventFractionalBalanceChange(
+	address sdk.AccAddress,
+	beforeAmount sdkmath.Int,
+	afterAmount sdkmath.Int,
+) sdk.Event {
+	delta := afterAmount.Sub(beforeAmount)
+
+	return sdk.NewEvent(
+		EventTypeFractionalBalanceChange,
+		sdk.NewAttribute(AttributeKeyAddress, address.String()),
+		sdk.NewAttribute(AttributeKeyDelta, delta.String()),
+	)
+}
+
 func EmitFractionalBalanceChange(
 	ctx sdk.Context,
 	address sdk.AccAddress,
 	beforeAmount sdkmath.Int,
 	afterAmount sdkmath.Int,
 ) {
-	delta := afterAmount.Sub(beforeAmount)
-
-	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		EventTypeFractionalBalanceChange,
-		sdk.NewAttribute(AttributeKeyAddress, address.String()),
-		sdk.NewAttribute(AttributeKeyDelta, delta.String()),
-	))
+	ctx.EventManager().EmitEvent(
+		NewEventFractionalBalanceChange(address, beforeAmount, afterAmount),
+	)
 }
