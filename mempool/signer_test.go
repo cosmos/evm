@@ -1,16 +1,18 @@
-package evmd_test
+package mempool_test
 
 import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	protov2 "google.golang.org/protobuf/proto"
+
+	mempool2 "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/x/vm/types"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	mempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/x/vm/types"
-	"github.com/stretchr/testify/require"
-	protov2 "google.golang.org/protobuf/proto"
 )
 
 type mockFallback struct {
@@ -57,7 +59,7 @@ func TestGetSigners(t *testing.T) {
 		msg: ethMsg,
 	}
 	fallback := &mockFallback{}
-	adapter := evmd.NewEthSignerExtractionAdapter(fallback)
+	adapter := mempool2.NewEthSignerExtractionAdapter(fallback)
 	signers, err := adapter.GetSigners(txWithEth)
 	require.NoError(t, err)
 	require.Equal(t, []mempool.SignerData{
@@ -70,7 +72,7 @@ func TestGetSigners(t *testing.T) {
 
 	fallback = &mockFallback{}
 	txWithEth = &mockHasExtOptions{}
-	adapter = evmd.NewEthSignerExtractionAdapter(fallback)
+	adapter = mempool2.NewEthSignerExtractionAdapter(fallback)
 	signers, err = adapter.GetSigners(txWithEth)
 	require.NoError(t, err)
 	fallbackSigners, err := new(mockFallback).GetSigners(txWithEth)
