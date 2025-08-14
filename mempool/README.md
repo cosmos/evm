@@ -1,6 +1,6 @@
 # `mempool`
 
-> **⚠️ EXPERIMENTAL**
+> [!WARNING]
 >
 > This mempool implementation is **experimental** and under active development. It is intended for testing and evaluation purposes. Use in production environments is **not recommended** without thorough testing and risk assessment.
 >
