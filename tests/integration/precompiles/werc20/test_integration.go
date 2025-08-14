@@ -233,7 +233,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Context("and funds are part of the transaction", func() {
 				When("the method is deposit", func() {
 					It("it should return funds to sender and emit the event", func() {
-
 						txArgs, callArgs := callsData.getTxAndCallArgs(directCall, werc20.DepositMethod)
 						txArgs.Amount = depositAmount
 
