@@ -96,8 +96,6 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	ethTx := ethMsg.AsTransaction()
-
 	// call go-ethereum transaction validation
 	header := ethtypes.Header{
 		GasLimit:   ctx.BlockGasMeter().Limit(),
