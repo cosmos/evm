@@ -6,6 +6,7 @@
 
 ### DEPENDENCIES
 
+- [\#459](https://github.com/cosmos/evm/pull/459) Update `cosmossdk.io/log` to `v1.6.1` to support Go `v1.25.0+`.
 - [\#435](https://github.com/cosmos/evm/pull/435) Update Cosmos SDK to `v0.53.4` and CometBFT to `v0.38.18`.
 
 ### BUG FIXES
