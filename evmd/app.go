@@ -774,9 +774,7 @@ func NewExampleApp(
 		app.EVMMempool = evmMempool
 
 		// Set the global mempool for RPC access
-		if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
-			panic(err)
-		}
+		evmmempool.SetGlobalEVMMempool(evmMempool)
 		app.SetMempool(evmMempool)
 		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 		app.SetCheckTxHandler(checkTxHandler)
