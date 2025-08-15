@@ -299,6 +299,10 @@ func initTestnetFiles(
 	for i := 0; i < args.numValidators; i++ {
 		var portOffset int
 		var evmPortOffset int
+		evmCfg.JSONRPC.Enable = true
+		evmCfg.JSONRPC.EnableIndexer = true
+		evmCfg.JSONRPC.API = []string{"eth", "txpool", "personal", "net", "debug", "web3"}
+		evmCfg.API.Enable = true
 		if args.singleMachine {
 			portOffset = i
 			evmPortOffset = i * 10
@@ -313,10 +317,9 @@ func initTestnetFiles(
 			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
 			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
-			evmCfg.JSONRPC.Enable = true
-			evmCfg.JSONRPC.EnableIndexer = true
-			evmCfg.JSONRPC.API = []string{"eth", "txpool", "personal", "net", "debug", "web3"}
-			evmCfg.API.Enable = true
+		} else {
+			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("0.0.0.0:%d", evmJSONRPCWS)
+			evmCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%d", evmJSONRPC)
 		}
 		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
 		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
