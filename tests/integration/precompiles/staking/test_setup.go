@@ -82,6 +82,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
+		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	); err != nil {
 		panic(err)

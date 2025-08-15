@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // BurnCoins burns coins deletes coins from the balance of the module account.
@@ -64,16 +63,6 @@ func (k Keeper) BurnCoins(goCtx context.Context, moduleName string, amt sdk.Coin
 			return err
 		}
 	}
-
-	fullEmissionCoins := sdk.NewCoins(types.SumExtendedCoin(amt))
-	if fullEmissionCoins.IsZero() {
-		return nil
-	}
-
-	ctx.EventManager().EmitEvents(sdk.Events{
-		banktypes.NewCoinBurnEvent(acc.GetAddress(), fullEmissionCoins),
-		banktypes.NewCoinSpentEvent(acc.GetAddress(), fullEmissionCoins),
-	})
 
 	return nil
 }
@@ -196,6 +185,9 @@ func (k Keeper) burnExtendedCoin(
 
 	// Update remainder for burned fractional coins
 	k.SetRemainderAmount(ctx, newRemainder)
+
+	// Emit event for fractional balance change
+	types.EmitEventFractionalBalanceChange(ctx, moduleAddr, prevFractionalBalance, newFractionalBalance)
 
 	return nil
 }

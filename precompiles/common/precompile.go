@@ -226,8 +226,9 @@ func (p Precompile) standardCallData(contract *vm.Contract) (method *abi.Method,
 }
 
 func (p *Precompile) GetBalanceHandler() *BalanceHandler {
-	if p.balanceHandler == nil {
-		p.balanceHandler = NewBalanceHandler()
-	}
 	return p.balanceHandler
+}
+
+func (p *Precompile) SetBalanceHandler(bankKeeper BankKeeper) {
+	p.balanceHandler = NewBalanceHandler(bankKeeper)
 }

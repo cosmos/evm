@@ -43,6 +43,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	stakingKeeper stakingkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	addrCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
@@ -61,6 +62,9 @@ func NewPrecompile(
 	}
 	// SetAddress defines the address of the staking precompiled contract.
 	p.SetAddress(common.HexToAddress(evmtypes.StakingPrecompileAddress))
+
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
 
 	return p, nil
 }

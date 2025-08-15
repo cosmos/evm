@@ -2,29 +2,33 @@ package common
 
 import (
 	"fmt"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/utils"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func ParseHexAddress(event sdk.Event, key string) (common.Address, error) {
+// ParseAddress parses the address from the event attributes
+func ParseAddress(event sdk.Event, key string) (sdk.AccAddress, error) {
 	attr, ok := event.GetAttribute(key)
 	if !ok {
-		return common.Address{}, fmt.Errorf("event %q missing attribute %q", event.Type, key)
+		return sdk.AccAddress{}, fmt.Errorf("event %q missing attribute %q", event.Type, key)
 	}
 
 	accAddr, err := sdk.AccAddressFromBech32(attr.Value)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("invalid address %q: %w", attr.Value, err)
+		return sdk.AccAddress{}, fmt.Errorf("invalid address %q: %w", attr.Value, err)
 	}
 
-	return common.BytesToAddress(accAddr), nil
+	return accAddr, nil
 }
 
 func ParseAmount(event sdk.Event) (*uint256.Int, error) {
@@ -44,4 +48,18 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 		return nil, fmt.Errorf("failed to convert coin amount to Uint256: %w", err)
 	}
 	return amount, nil
+}
+
+func ParseFractionalAmount(event sdk.Event) (*big.Int, error) {
+	deltaAttr, ok := event.GetAttribute(precisebanktypes.AttributeKeyDelta)
+	if !ok {
+		return nil, fmt.Errorf("event %q missing attribute %q", precisebanktypes.EventTypeFractionalBalanceChange, sdk.AttributeKeyAmount)
+	}
+
+	delta, ok := sdkmath.NewIntFromString(deltaAttr.Value)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse coins from %q", deltaAttr.Value)
+	}
+
+	return delta.BigInt(), nil
 }

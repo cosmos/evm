@@ -56,6 +56,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = slashing.NewPrecompile(
 		s.network.App.GetSlashingKeeper(),
+		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	); err != nil {

@@ -69,6 +69,9 @@ func NewPrecompile(
 	// SetAddress defines the address of the ICS-20 compile contract.
 	p.SetAddress(common.HexToAddress(evmtypes.ICS20PrecompileAddress))
 
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
+
 	return p, nil
 }
 
