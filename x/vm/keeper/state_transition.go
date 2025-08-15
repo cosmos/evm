@@ -79,21 +79,6 @@ func (k *Keeper) NewEVM(
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
 }
 
-func (k Keeper) BlockContext(ctx sdk.Context, cfg *statedb.EVMConfig, db vm.StateDB) vm.BlockContext {
-	return vm.BlockContext{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-		GetHash:     k.GetHashFn(ctx, db),
-		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
-		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
-		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
-		BaseFee:     cfg.BaseFee,
-		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
-	}
-}
-
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
 //  1. The requested height matches the current height from context (and thus same epoch number)
 //  2. The requested height is from an previous height from the same chain epoch
