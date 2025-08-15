@@ -202,7 +202,11 @@ func (b *Backend) CometHeaderByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctyp
 
 // CometBlockResultByNumber returns a CometBFT-formatted block result
 // by block number
-func (b *Backend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBlockResults, error) {
+func (b *Backend) CometBlockResultByNumber(height *int64) (*tmrpctypes.ResultBlockResults, error) {
+	if height != nil && *height == 0 {
+		height = nil
+	}
+
 	res, err := b.RPCClient.BlockResults(b.Ctx, height)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", *height, err)
