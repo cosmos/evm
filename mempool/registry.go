@@ -1,18 +1,23 @@
-//go:build test
-// +build test
-
 package mempool
+
+import (
+	"sync"
+)
 
 // globalEVMMempool holds the global reference to the ExperimentalEVMMempool instance.
 // It can only be set during application initialization.
-var globalEVMMempool *ExperimentalEVMMempool
+var (
+	globalEVMMempool     *ExperimentalEVMMempool
+	globalEVMMempoolSync sync.Once
+)
 
 // SetGlobalEVMMempool sets the global ExperimentalEVMMempool instance.
-// This should only be called during application initialization.
-// In testing builds, it allows resetting by not returning an error.
-func SetGlobalEVMMempool(mempool *ExperimentalEVMMempool) error {
-	globalEVMMempool = mempool
-	return nil
+// This is guaranteed to only set the instance once for the lifetime of the process,
+// even if called multiple times. Should only be called during application initialization.
+func SetGlobalEVMMempool(mempool *ExperimentalEVMMempool) {
+	globalEVMMempoolSync.Do(func() {
+		globalEVMMempool = mempool
+	})
 }
 
 // GetGlobalEVMMempool returns the global ExperimentalEVMMempool instance.
