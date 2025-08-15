@@ -701,3 +701,64 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 		})
 	}
 }
+
+func (s *PrecompileTestSuite) TestGetParams() {
+	method := s.precompile.Methods[staking.GetParamsMethod]
+
+	testCases := []struct {
+		name        string
+		malleate    func() []interface{}
+		expPass     bool
+		errContains string
+	}{
+		{
+			"fail - not empty input args",
+			func() []interface{} {
+				return []interface{}{""}
+			},
+			false,
+			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
+		},
+		{
+			"success - get all params",
+			func() []interface{} {
+				return []interface{}{}
+			},
+			true,
+			"",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx := s.network.GetContext()
+			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), 100000, nil)
+
+			bz, err := s.precompile.GetParams(ctx, contract, &method, tc.malleate())
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().NotEmpty(bz)
+
+				var output struct {
+					Params staking.GetParamsOutput `json:"params"`
+				}
+				err = s.precompile.UnpackIntoInterface(&output, staking.GetParamsMethod, bz)
+				s.Require().NoError(err, "failed to unpack output")
+
+				// Verify the parameters are valid
+				s.Require().Greater(output.Params.UnbondingTime, uint64(0))
+				s.Require().Greater(output.Params.MaxValidators, uint32(0))
+				s.Require().Greater(output.Params.MaxEntries, uint32(0))
+				s.Require().GreaterOrEqual(output.Params.HistoricalEntries, uint32(0))
+				s.Require().NotEmpty(output.Params.BondDenom)
+				s.Require().NotNil(output.Params.MinCommissionRate.Value)
+				s.Require().Equal(uint8(18), output.Params.MinCommissionRate.Precision)
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.errContains)
+			}
+		})
+	}
+}
