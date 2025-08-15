@@ -7,7 +7,7 @@ import (
 	cmtypes "github.com/cometbft/cometbft/types"
 )
 
-// DefaultConsensusParams defines the default Tendermint consensus params used in
+// DefaultConsensusParams defines the default CometBFT consensus params used in
 // Cosmos EVM testing.
 var DefaultConsensusParams = &tmproto.ConsensusParams{
 	Block: &tmproto.BlockParams{

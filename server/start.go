@@ -119,7 +119,7 @@ which accepts a path for the resulting pprof file.
 
 			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
 			if !withTM {
-				serverCtx.Logger.Info("starting ABCI without Tendermint")
+				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
 					return startStandAlone(serverCtx, opts)
 				})
@@ -475,8 +475,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics)
 
 	if config.JSONRPC.Enable {
-		cmtEndpoint := "/websocket"
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, cmtEndpoint, cmtEndpoint, &config, idxer)
+		txApp, ok := app.(AppWithPendingTxStream)
+		if !ok {
+			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
+		}
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp)
 		if err != nil {
 			return err
 		}

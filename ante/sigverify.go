@@ -9,6 +9,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -29,6 +30,8 @@ const (
 //
 // - ethsecp256k1 (Ethereum keys)
 //
+// - secp256k1 (Cosmos keys)
+//
 // - ed25519 (Validators)
 //
 // - multisig (Cosmos SDK multisigs)
@@ -41,6 +44,10 @@ func SigVerificationGasConsumer(
 	case *ethsecp256k1.PubKey:
 		// Ethereum keys
 		meter.ConsumeGas(Secp256k1VerifyCost, "ante verify: eth_secp256k1")
+		return nil
+	case *secp256k1.PubKey:
+		// Cosmos keys
+		meter.ConsumeGas(params.SigVerifyCostSecp256k1, "ante verify: secp256k1")
 		return nil
 	case *ed25519.PubKey:
 		// Validator keys

@@ -31,7 +31,7 @@ import (
 
 var erc20Denom = "erc20:0xdac17f958d2ee523a2206206994597c13d831ec7"
 
-func (s *KeeperTestSuite) TestOnRecvPacket() {
+func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 	var ctx sdk.Context
 	// secp256k1 account
 	secpPk := secp256k1.GenPrivKey()
