@@ -9,6 +9,9 @@
 // correctly mints/burns/escrows tokens according to ICS-20 standards.
 //
 
+//go:build test
+// +build test
+
 package ibc
 
 import (

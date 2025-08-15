@@ -17,6 +17,10 @@ import (
 // any.
 type EVMOptionsFn func(uint64) error
 
+// EVMAppOptionsFn defines a function type for setting app options with access to
+// the app options for dynamic configuration.
+type EVMAppOptionsFn func(uint64, map[uint64]evmtypes.EvmCoinInfo) error
+
 var sealed = false
 
 func EvmAppOptionsWithConfig(
@@ -63,6 +67,56 @@ func EvmAppOptionsWithConfigWithReset(
 		WithChainConfig(ethCfg).
 		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(coinInfo).
+		Configure()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EvmAppOptionsWithDynamicConfig sets up EVM configuration using dynamic chain configuration
+// from app.toml instead of static maps. This is the new approach that should be preferred.
+func EvmAppOptionsWithDynamicConfig(
+	chainID uint64,
+	chainCoinInfo evmtypes.EvmCoinInfo,
+	cosmosEVMActivators map[int]func(*vm.JumpTable),
+) error {
+	if sealed {
+		return nil
+	}
+
+	if err := EvmAppOptionsWithDynamicConfigWithReset(chainID, chainCoinInfo, cosmosEVMActivators, false); err != nil {
+		return err
+	}
+
+	sealed = true
+	return nil
+}
+
+// EvmAppOptionsWithDynamicConfigWithReset sets up EVM configuration using dynamic chain configuration
+// with an optional reset flag to allow reconfiguration during testing.
+func EvmAppOptionsWithDynamicConfigWithReset(
+	chainID uint64,
+	chainCoinInfo evmtypes.EvmCoinInfo,
+	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	withReset bool,
+) error {
+	// set the denom info for the chain
+	if err := setBaseDenom(chainCoinInfo); err != nil {
+		return err
+	}
+
+	ethCfg := evmtypes.DefaultChainConfig(chainID)
+	configurator := evmtypes.NewEVMConfigurator()
+	if withReset {
+		// reset configuration to set the new one
+		configurator.ResetTestConfig()
+	}
+	err := configurator.
+		WithExtendedEips(cosmosEVMActivators).
+		WithChainConfig(ethCfg).
+		WithEVMCoinInfo(chainCoinInfo).
 		Configure()
 	if err != nil {
 		return err

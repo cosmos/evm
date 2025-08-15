@@ -3,6 +3,9 @@
 // This test suite was imported to validate that ExampleChain (an EVM-based chain)
 // correctly supports IBC v1 token transfers using ibc-go’s Transfer module logic.
 // The test ensures that multi-hop transfers (A → B → C → B) behave as expected across channels.
+//go:build test
+// +build test
+
 package ibc
 
 import (

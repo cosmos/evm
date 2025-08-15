@@ -113,4 +113,22 @@ certificate-path = "{{ .TLS.CertificatePath }}"
 
 # Key path defines the key.pem file path for the TLS configuration.
 key-path = "{{ .TLS.KeyPath }}"
+
+###############################################################################
+###                            Chain Configuration                          ###
+###############################################################################
+
+[chain]
+
+# Denom defines the base denomination used in the chain
+denom = "{{ .Chain.Denom }}"
+
+# ExtendedDenom defines the extended denomination (typically atto-denom for 18 decimals)
+extended-denom = "{{ .Chain.ExtendedDenom }}"
+
+# DisplayDenom defines the display denomination shown to users
+display-denom = "{{ .Chain.DisplayDenom }}"
+
+# Decimals defines the precision/decimals for the base denomination (1-18)
+decimals = {{ .Chain.Decimals }}
 `
