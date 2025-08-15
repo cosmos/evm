@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -141,9 +142,29 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	hexTx := hash.Hex()
 	b.Logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
-	res, err := b.GetTxByEthHash(hash)
+	// Retry logic for transaction lookup with exponential backoff
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	var res *types.TxResult
+	var err error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		res, err = b.GetTxByEthHash(hash)
+		if err == nil {
+			break // Found the transaction
+		}
+
+		if attempt < maxRetries {
+			// Exponential backoff: 50ms, 100ms, 200ms
+			delay := time.Duration(1<<attempt) * baseDelay
+			b.Logger.Debug("tx not found, retrying", "hash", hexTx, "attempt", attempt+1, "delay", delay)
+			time.Sleep(delay)
+		}
+	}
+
 	if err != nil {
-		b.Logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
+		b.Logger.Debug("tx not found after retries", "hash", hexTx, "error", err.Error())
 		return nil, nil
 	}
 
