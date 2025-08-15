@@ -370,7 +370,13 @@ localnet-stop:
 localnet-start: localnet-stop localnet-build-env localnet-build-nodes
 
 
-.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes
+test-rpc-compat:
+	@./tests/jsonrpc/scripts/run-compat-test.sh
+
+test-rpc-compat-stop:
+	cd tests/jsonrpc && docker compose down
+
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
 
 test-system: build
 	ulimit -n 1300
