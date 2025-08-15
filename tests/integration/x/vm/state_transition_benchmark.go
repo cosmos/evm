@@ -11,6 +11,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -175,8 +176,9 @@ func newNativeMessage(
 	return msg.AsMessage(baseFee), nil
 }
 
-func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
-	suite := KeeperTestSuite{EnableLondonHF: true}
+func BenchmarkApplyTransaction(b *testing.B, create network.CreateEvmApp) { //nolint:dupl
+	suite := KeeperTestSuite{EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
@@ -204,8 +206,9 @@ func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
 	}
 }
 
-func BenchmarkApplyTransactionWithLegacyTx(b *testing.B) { //nolint:dupl
-	suite := KeeperTestSuite{EnableLondonHF: true}
+func BenchmarkApplyTransactionWithLegacyTx(b *testing.B, create network.CreateEvmApp) { //nolint:dupl
+	suite := KeeperTestSuite{EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
@@ -233,8 +236,9 @@ func BenchmarkApplyTransactionWithLegacyTx(b *testing.B) { //nolint:dupl
 	}
 }
 
-func BenchmarkApplyTransactionWithDynamicFeeTx(b *testing.B) {
-	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true}
+func BenchmarkApplyTransactionWithDynamicFeeTx(b *testing.B, create network.CreateEvmApp) {
+	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
@@ -262,8 +266,9 @@ func BenchmarkApplyTransactionWithDynamicFeeTx(b *testing.B) {
 	}
 }
 
-func BenchmarkApplyMessage(b *testing.B) {
-	suite := KeeperTestSuite{EnableLondonHF: true}
+func BenchmarkApplyMessage(b *testing.B, create network.CreateEvmApp) { //nolint:dupl
+	suite := KeeperTestSuite{EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethCfg := evmtypes.GetEthChainConfig()
@@ -296,8 +301,9 @@ func BenchmarkApplyMessage(b *testing.B) {
 	}
 }
 
-func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
-	suite := KeeperTestSuite{EnableLondonHF: true}
+func BenchmarkApplyMessageWithLegacyTx(b *testing.B, create network.CreateEvmApp) {
+	suite := KeeperTestSuite{EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethCfg := evmtypes.GetEthChainConfig()
@@ -330,8 +336,9 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 	}
 }
 
-func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B) {
-	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true}
+func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B, create network.CreateEvmApp) {
+	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true, Create: create}
+	suite.SetT(&testing.T{})
 	suite.SetupTest()
 
 	ethCfg := evmtypes.GetEthChainConfig()
