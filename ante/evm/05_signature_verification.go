@@ -49,7 +49,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
 		}
 
-		err := SignatureVerification(msgEthTx, signer, allowUnprotectedTxs)
+		err := SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer, allowUnprotectedTxs)
 		if err != nil {
 			return ctx, err
 		}
@@ -64,10 +64,10 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 // computed from the signature of the Ethereum transaction.
 func SignatureVerification(
 	msg *evmtypes.MsgEthereumTx,
+	ethTx *ethtypes.Transaction,
 	signer ethtypes.Signer,
 	allowUnprotectedTxs bool,
 ) error {
-	ethTx := msg.AsTransaction()
 	ethCfg := evmtypes.GetEthChainConfig()
 
 	if !allowUnprotectedTxs {
