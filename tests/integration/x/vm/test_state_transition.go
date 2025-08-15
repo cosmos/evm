@@ -103,14 +103,14 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 			common.BytesToHash(tmhash.Sum([]byte("header"))),
 		},
 		{
-			"case 1.2: failed to cast CometBFT header",
+			"case 1.2: works for invalid CometBFT header",
 			uint64(s.Network.GetContext().BlockHeight()), //nolint:gosec // G115
 			func() sdk.Context {
 				header := tmproto.Header{}
 				header.Height = s.Network.GetContext().BlockHeight()
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
-			common.Hash{},
+			common.BytesToHash(tmhash.Sum([]byte("header"))),
 		},
 		{
 			"case 1.3: hash calculated from CometBFT header",
@@ -118,7 +118,7 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 			func() sdk.Context {
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
-			common.BytesToHash(hash),
+			common.BytesToHash(tmhash.Sum([]byte("header"))),
 		},
 		{
 			"case 2.1: height lower than current one, hist info not found",
@@ -147,7 +147,7 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 				s.Require().NoError(s.Network.App.GetStakingKeeper().SetHistoricalInfo(s.Network.GetContext(), 1, histInfo))
 				return s.Network.GetContext().WithBlockHeight(10)
 			},
-			common.BytesToHash(hash),
+			common.BytesToHash(tmhash.Sum([]byte("header"))),
 		},
 		{
 			"case 3: height greater than current one",
