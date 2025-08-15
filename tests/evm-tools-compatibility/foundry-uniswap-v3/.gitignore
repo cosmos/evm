@@ -1,0 +1,21 @@
+# Foundry build artifacts
+cache/
+out/
+broadcast/
+
+# Dependency directories
+node_modules/
+
+# Log files
+*.log
+
+# Environment variables (if any local overrides)
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db

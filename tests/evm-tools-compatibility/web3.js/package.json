@@ -1,0 +1,17 @@
+{
+  "name": "web3",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test/web3js_compatibility.test.js --timeout 60000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "chai": "^4.5.0",
+    "mocha": "^10.2.0",
+    "web3": "^1.10.0"
+  }
+}

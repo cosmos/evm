@@ -1,3 +1,6 @@
 {
-  "extends": "solhint:default"
+  "extends": "solhint:default",
+  "excludedFiles": [
+    "tests/evm-tools-compatibility/**/*.sol"
+  ]
 }

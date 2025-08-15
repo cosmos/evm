@@ -225,6 +225,7 @@ fi
 
 # Start the node
 evmd start "$TRACE" \
+	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0.0001atest \
 	--home "$CHAINDIR" \
