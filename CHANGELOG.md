@@ -6,6 +6,7 @@
 
 ### DEPENDENCIES
 
+- [\#459](https://github.com/cosmos/evm/pull/459) Update `cosmossdk.io/log` to `v1.6.1` to support Go `v1.25.0+`.
 - [\#435](https://github.com/cosmos/evm/pull/435) Update Cosmos SDK to `v0.53.4` and CometBFT to `v0.38.18`.
 
 ### BUG FIXES
@@ -22,6 +23,8 @@
 - [\#376](https://github.com/cosmos/evm/pull/376) Fix precompile initialization for local node development script
 - [\#384](https://github.com/cosmos/evm/pull/384) Fix debug_traceTransaction RPC failing with block height mismatch errors
 - [\#441](https://github.com/cosmos/evm/pull/441) Align precompiles map with available static check to Prague.
+- [\#452](https://github.com/cosmos/evm/pull/452) Cleanup unused cancel function in filter.
+- [\#454](https://github.com/cosmos/evm/pull/454) Align multi decode functions instead of string contains check in HexAddressFromBech32String.
 
 ### IMPROVEMENTS
 
@@ -39,6 +42,7 @@
 - [\#389](https://github.com/cosmos/evm/pull/389) Post-audit security fixes (batch 3)
 - [\#392](https://github.com/cosmos/evm/pull/392) Post-audit security fixes (batch 5)
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
+- [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
 
 ### FEATURES
@@ -53,6 +57,7 @@
 
 ### API-BREAKING
 
+- [\#456](https://github.com/cosmos/evm/pull/456) Remove non–go-ethereum JSON-RPC methods to align with Geth’s surface
 - [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
 be exported as a library.
 - [\#422](https://github.com/cosmos/evm/pull/422) Align function and package names for consistency.
