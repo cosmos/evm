@@ -3,12 +3,15 @@ package keeper
 import (
 	"encoding/binary"
 
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethparams "github.com/ethereum/go-ethereum/params"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // BeginBlock emits a base fee event which will be adjusted to the evm decimals
@@ -33,7 +36,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		})
 	}
 
-	// set current block hash in the contract storage, compatibel with EIP-2935
+	// set current block hash in the contract storage, compatible with EIP-2935
 	ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow) //nolint:gosec // G115 // won't exceed uint64
 	var key common.Hash
 	binary.BigEndian.PutUint64(key[24:], ringIndex)
