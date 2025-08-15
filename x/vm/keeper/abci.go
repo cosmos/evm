@@ -1,15 +1,12 @@
 package keeper
 
 import (
-	"math/big"
+	"encoding/binary"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/vm"
 	ethparams "github.com/ethereum/go-ethereum/params"
 
 	storetypes "cosmossdk.io/store/types"
@@ -40,28 +37,10 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 	}
 
 	// set current block hash in the contract storage
-	ethCfg := evmtypes.GetEthChainConfig()
-	if ethCfg.IsPrague(big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) {
-		stateDB := statedb.New(ctx, k, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
-		// can't get current coinbase address here
-		cfg := &statedb.EVMConfig{
-			Params:  k.GetParams(ctx),
-			BaseFee: res.BaseFee.BigInt(),
-		}
-		vmConfig := k.VMConfig(ctx, cfg, nil)
-		blockCtx := k.BlockContext(ctx, cfg, stateDB)
-		blockCtx.BlockNumber = blockCtx.BlockNumber.Add(blockCtx.BlockNumber, big.NewInt(1))
-		evm := vm.NewEVM(blockCtx, stateDB, ethCfg, vmConfig)
-		blockHash := ctx.HeaderHash()
-		if err := ProcessParentBlockHash(common.BytesToHash(blockHash), evm); err != nil {
-			logger.Error("error processing parent block hash", "error", err.Error())
-		}
-		if err := stateDB.Commit(); err != nil {
-			logger.Error("error committing stateDB", "error", err.Error())
-		}
-		logger.Info("stored block hash in history storage contract", "hash", blockHash, "height", ctx.BlockHeight())
-	}
-
+	ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow)
+	var key common.Hash
+	binary.BigEndian.PutUint64(key[24:], ringIndex)
+	k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
 	return nil
 }
 
@@ -75,29 +54,5 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	bloom := ethtypes.BytesToBloom(k.GetBlockBloomTransient(infCtx).Bytes())
 	k.EmitBlockBloomEvent(infCtx, bloom)
 
-	return nil
-}
-
-// ProcessParentBlockHash stores the parent block hash in the history storage contract
-// as per EIP-2935/7709.
-func ProcessParentBlockHash(prevHash common.Hash, evm *vm.EVM) error {
-	msg := &core.Message{
-		From:      ethparams.SystemAddress,
-		GasLimit:  30_000_000,
-		GasPrice:  common.Big0,
-		GasFeeCap: common.Big0,
-		GasTipCap: common.Big0,
-		To:        &ethparams.HistoryStorageAddress,
-		Data:      prevHash.Bytes(),
-	}
-	evm.SetTxContext(core.NewEVMTxContext(msg))
-	evm.StateDB.AddAddressToAccessList(ethparams.HistoryStorageAddress)
-	_, _, err := evm.Call(msg.From, *msg.To, msg.Data, 30_000_000, common.U2560)
-	if err != nil {
-		return err
-	}
-	if evm.StateDB.AccessEvents() != nil {
-		evm.StateDB.AccessEvents().Merge(evm.AccessEvents)
-	}
 	return nil
 }
