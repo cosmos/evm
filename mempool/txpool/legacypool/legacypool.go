@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/mempool/txpool"
 )
 
@@ -133,6 +134,8 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (vm.StateDB, error)
+
+	GetLatestCtx() (sdk.Context, error)
 }
 
 // Config are the configuration parameters of the transaction pool.
@@ -256,6 +259,8 @@ type LegacyPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
 	BroadcastTxFn func(txs []*types.Transaction) error
+
+	SpendableCoin func(ctx sdk.Context, addr common.Address) *uint256.Int
 }
 
 type txpoolResetRequest struct {
@@ -601,6 +606,8 @@ func (pool *LegacyPool) validateTx(tx *types.Transaction) error {
 			}
 			return nil
 		},
+		SpendableCoin: pool.SpendableCoin,
+		GetLatestCtx:  pool.chain.GetLatestCtx,
 	}
 	if err := txpool.ValidateTransactionWithState(tx, pool.signer, opts); err != nil {
 		return err

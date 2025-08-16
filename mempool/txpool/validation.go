@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/big"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
@@ -29,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 )
 
 // blobTxMinBlobGasPrice is the big.Int version of the configured protocol
@@ -206,6 +208,9 @@ type ValidationOptionsWithState struct {
 	// ExistingCost is a mandatory callback to retrieve an already pooled
 	// transaction's cost with the given nonce to check for overdrafts.
 	ExistingCost func(addr common.Address, nonce uint64) *big.Int
+
+	SpendableCoin func(ctx sdk.Context, addr common.Address) *uint256.Int
+	GetLatestCtx  func() (sdk.Context, error)
 }
 
 // ValidateTransactionWithState is a helper method to check whether a transaction
@@ -232,8 +237,12 @@ func ValidateTransactionWithState(tx *types.Transaction, signer types.Signer, op
 		}
 	}
 	// Ensure the transactor has enough funds to cover the transaction costs
+	ctx, err := opts.GetLatestCtx()
+	if err != nil {
+		return err
+	}
 	var (
-		balance = opts.State.GetBalance(from).ToBig()
+		balance = opts.SpendableCoin(ctx, from).ToBig()
 		cost    = tx.Cost()
 	)
 	if balance.Cmp(cost) < 0 {
