@@ -193,7 +193,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 
 	# set custom pruning settings
 	sed -i.bak 's/pruning = "default"/pruning = "custom"/g' "$APP_TOML"
-	sed -i.bak 's/pruning-keep-recent = "0"/pruning-keep-recent = "2"/g' "$APP_TOML"
+	sed -i.bak 's/pruning-keep-recent = "0"/pruning-keep-recent = "100"/g' "$APP_TOML"
 	sed -i.bak 's/pruning-interval = "0"/pruning-interval = "10"/g' "$APP_TOML"
 
 	# Allocate genesis accounts (cosmos formatted addresses)
@@ -225,6 +225,7 @@ fi
 
 # Start the node
 evmd start "$TRACE" \
+	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0.0001atest \
 	--home "$CHAINDIR" \

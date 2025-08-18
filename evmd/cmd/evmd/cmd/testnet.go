@@ -65,6 +65,8 @@ var (
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
 
+const TEST_DENOM = "atest"
+
 var mnemonics = []string{
 	"copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom",
 	"maximum display century economy unlock van census kite error heart snow filter midnight usage egg venture cash kick motor survey drastic edge muffin visual",
@@ -297,6 +299,10 @@ func initTestnetFiles(
 	for i := 0; i < args.numValidators; i++ {
 		var portOffset int
 		var evmPortOffset int
+		evmCfg.JSONRPC.Enable = true
+		evmCfg.JSONRPC.EnableIndexer = true
+		evmCfg.JSONRPC.API = []string{"eth", "txpool", "personal", "net", "debug", "web3"}
+		evmCfg.API.Enable = true
 		if args.singleMachine {
 			portOffset = i
 			evmPortOffset = i * 10
@@ -311,10 +317,9 @@ func initTestnetFiles(
 			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
 			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
-			evmCfg.JSONRPC.Enable = true
-			evmCfg.JSONRPC.EnableIndexer = true
-			evmCfg.JSONRPC.API = []string{"eth", "txpool", "personal", "net", "debug", "web3"}
-			evmCfg.API.Enable = true
+		} else {
+			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("0.0.0.0:%d", evmJSONRPCWS)
+			evmCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%d", evmJSONRPC)
 		}
 		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
 		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
@@ -384,7 +389,7 @@ func initTestnetFiles(
 		accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
 		accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
 		coins := sdk.Coins{
-			sdk.NewCoin("atest", accTokens),
+			sdk.NewCoin(TEST_DENOM, accTokens),
 			sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
 		}
 
@@ -462,7 +467,7 @@ func addExtraAccounts(kb keyring.Keyring, algo keyring.SignatureAlgo) ([]banktyp
 	accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
 	accStakingTokens := sdk.TokensFromConsensusPower(500, sdk.DefaultPowerReduction)
 	coins := sdk.Coins{
-		sdk.NewCoin("atest", accTokens),
+		sdk.NewCoin(TEST_DENOM, accTokens),
 		sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
 	}
 	coins = coins.Sort()
