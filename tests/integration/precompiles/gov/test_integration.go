@@ -109,7 +109,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() { callArgs.MethodName = method })
 
 			It("fails with low gas", func() {
-				txArgs.GasLimit = 30_000
+				txArgs.GasLimit = 37_790 // meed the requirement of floor data gas cost
 				jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "50")
 				callArgs.Args = []interface{}{proposerAddr, jsonBlob, minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
 
