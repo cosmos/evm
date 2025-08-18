@@ -160,6 +160,7 @@ func TestAfterBalanceChange(t *testing.T) {
 	require.NoError(t, err)
 	spenderAcc := addrs[0]
 	receiverAcc := addrs[1]
+
 	spender := common.BytesToAddress(spenderAcc)
 	receiver := common.BytesToAddress(receiverAcc)
 

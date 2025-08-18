@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,8 +21,10 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
 // NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters
@@ -39,6 +42,7 @@ func (k *Keeper) NewEVM(
 	tracer *tracing.Hooks,
 	stateDB vm.StateDB,
 ) *vm.EVM {
+	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
@@ -100,7 +104,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			contextBlockHeader := ctx.BlockHeader()
 			header, err := cmttypes.HeaderFromProto(&contextBlockHeader)
 			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
 				return common.Hash{}
 			}
 
@@ -118,7 +122,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 
 			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
 			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
 				return common.Hash{}
 			}
 
@@ -128,6 +132,29 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.Hash{}
 		}
 	}
+}
+
+func (k *Keeper) initializeBloomFromLogs(ctx sdk.Context, ethLogs []*ethtypes.Log) (bloom *big.Int, bloomReceipt ethtypes.Bloom) {
+	// Compute block bloom filter
+	if len(ethLogs) > 0 {
+		bloom = k.GetBlockBloomTransient(ctx)
+		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: ethLogs}).Bytes()))
+		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
+	}
+
+	return
+}
+
+func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types.MsgEthereumTxResponse) uint64 {
+	cumulativeGasUsed := res.GasUsed
+	if meter != nil {
+		limit := meter.Limit()
+		cumulativeGasUsed += meter.GasConsumed()
+		if cumulativeGasUsed > limit {
+			cumulativeGasUsed = limit
+		}
+	}
+	return cumulativeGasUsed
 }
 
 // ApplyTransaction runs and attempts to perform a state transition with the given transaction (i.e Message), that will
@@ -141,19 +168,14 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 // result.
 //
 // Prior to the execution, the starting tx gas meter is saved and replaced with an infinite gas meter in a new context
-// in order to ignore the SDK gas consumption config values (read, write, has, delete).
+// to ignore the SDK gas consumption config values (read, write, has, delete).
 // After the execution, the gas used from the message execution will be added to the starting gas consumed, taking into
 // consideration the amount of gas returned. Finally, the context is updated with the EVM gas consumed value prior to
 // returning.
 //
 // For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
 func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
-	var (
-		bloom        *big.Int
-		bloomReceipt ethtypes.Bloom
-	)
-
-	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
+	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
@@ -169,10 +191,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	// create a cache context to revert state. The cache context is only committed when both tx and hooks executed successfully.
 	// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
 	// thus restricted to be used only inside `ApplyMessage`.
-	tmpCtx, commit := ctx.CacheContext()
+	tmpCtx, commitFn := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig, false)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -180,14 +202,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		return nil, errorsmod.Wrap(err, "failed to apply ethereum core message")
 	}
 
-	logs := types.LogsToEthereum(res.Logs)
-
-	// Compute block bloom filter
-	if len(logs) > 0 {
-		bloom = k.GetBlockBloomTransient(ctx)
-		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs}).Bytes()))
-		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
-	}
+	ethLogs := types.LogsToEthereum(res.Logs)
+	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
 
 	if !res.Failed() {
 		var contractAddr common.Address
@@ -195,21 +211,12 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
 		}
 
-		cumulativeGasUsed := res.GasUsed
-		if ctx.BlockGasMeter() != nil {
-			limit := ctx.BlockGasMeter().Limit()
-			cumulativeGasUsed += ctx.BlockGasMeter().GasConsumed()
-			if cumulativeGasUsed > limit {
-				cumulativeGasUsed = limit
-			}
-		}
-
 		receipt := &ethtypes.Receipt{
 			Type:              tx.Type(),
 			PostState:         nil,
-			CumulativeGasUsed: cumulativeGasUsed,
+			CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
 			Bloom:             bloomReceipt,
-			Logs:              logs,
+			Logs:              ethLogs,
 			TxHash:            txConfig.TxHash,
 			ContractAddress:   contractAddr,
 			GasUsed:           res.GasUsed,
@@ -223,38 +230,48 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
 		}
 
+		eventsLen := len(tmpCtx.EventManager().Events())
+
 		// Note: PostTxProcessing hooks currently do not charge for gas
 		// and function similar to EndBlockers in abci, but for EVM transactions
 		if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
 			// If hooks returns an error, revert the whole tx.
 			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
-			// If the tx failed in post processing hooks, we should clear the logs
+			// If the tx failed in post processing hooks, we should clear all log-related data
+			// to match EVM behavior where transaction reverts clear all effects including logs
 			res.Logs = nil
-		} else if commit != nil {
-			commit()
+			receipt.Logs = nil
+			receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
+		} else if commitFn != nil {
+			commitFn()
 
 			// Since the post-processing can alter the log, we need to update the result
 			res.Logs = types.NewLogsFromEth(receipt.Logs)
-			ctx.EventManager().EmitEvents(tmpCtx.EventManager().Events())
+			events := tmpCtx.EventManager().Events()
+			if len(events) > eventsLen {
+				ctx.EventManager().EmitEvents(events[eventsLen:])
+			}
 		}
 	}
 
-	evmDenom := types.GetEVMCoinDenom()
+	// update logs and bloom for full view if post processing updated them
+	ethLogs = types.LogsToEthereum(res.Logs)
+	bloom, _ := k.initializeBloomFromLogs(ctx, ethLogs)
 
-	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
+	// refund gas to match the Ethereum gas consumption instead of the default SDK one.
 	remainingGas := uint64(0)
 	if msg.GasLimit > res.GasUsed {
 		remainingGas = msg.GasLimit - res.GasUsed
 	}
-	if err = k.RefundGas(ctx, *msg, remainingGas, evmDenom); err != nil {
+	if err = k.RefundGas(ctx, *msg, remainingGas, types.GetEVMCoinDenom()); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
-	if len(logs) > 0 {
+	if len(ethLogs) > 0 {
 		// Update transient block bloom filter
 		k.SetBlockBloomTransient(ctx, bloom)
-		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(logs)))
+		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(ethLogs)))
 	}
 
 	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
@@ -270,16 +287,14 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
-func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks,
-	commit bool,
-) (*types.MsgEthereumTxResponse, error) {
-	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress))
+func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit bool, internal bool) (*types.MsgEthereumTxResponse, error) {
+	cfg, err := k.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
-	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig)
+	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -320,14 +335,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 // # Commit parameter
 //
 // If commit is true, the `StateDB` will be committed, otherwise discarded.
-func (k *Keeper) ApplyMessageWithConfig(
-	ctx sdk.Context,
-	msg core.Message,
-	tracer *tracing.Hooks,
-	commit bool,
-	cfg *statedb.EVMConfig,
-	txConfig statedb.TxConfig,
-) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit bool, cfg *statedb.EVMConfig, txConfig statedb.TxConfig, internal bool) (*types.MsgEthereumTxResponse, error) {
 	var (
 		ret   []byte // return bytes from evm execution
 		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
@@ -390,6 +398,24 @@ func (k *Keeper) ApplyMessageWithConfig(
 		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
 	} else {
+		// Apply EIP-7702 authorizations.
+		if msg.SetCodeAuthorizations != nil {
+			for _, auth := range msg.SetCodeAuthorizations {
+				// Note errors are ignored, we simply skip invalid authorizations here.
+				if err := k.applyAuthorization(&auth, stateDB, ethCfg.ChainID); err != nil {
+					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
+				}
+			}
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := ethtypes.ParseDelegation(stateDB.GetCode(*msg.To)); ok {
+			stateDB.AddAddressToAccessList(addr)
+		}
 		ret, leftoverGas, vmErr = evm.Call(sender.Address(), *msg.To, msg.Data, leftoverGas, convertedValue)
 	}
 
@@ -398,6 +424,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// After EIP-3529: refunds are capped to gasUsed / 5
 	if isLondon {
 		refundQuotient = params.RefundQuotientEIP3529
+	}
+
+	if internal {
+		refundQuotient = 1 // full refund on internal calls
 	}
 
 	// calculate gas refund
@@ -426,7 +456,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
-	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
+	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
 	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
@@ -440,15 +470,96 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
 	}
 
-	gasUsed := math.LegacyMaxDec(minimumGasUsed, math.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //#nosec G115 -- int overflow is not a concern here
+	gasUsed := math.LegacyNewDec(int64(temporaryGasUsed)) //#nosec G115 -- int overflow is not a concern here
+	if !internal {
+		gasUsed = math.LegacyMaxDec(gasUsed, minimumGasUsed)
+	}
 	// reset leftoverGas, to be used by the tracer
-	leftoverGas = msg.GasLimit - gasUsed
+	leftoverGas = msg.GasLimit - gasUsed.TruncateInt().Uint64()
+
+	// if the execution reverted, we return the revert reason as the return data
+	if vmError == vm.ErrExecutionReverted.Error() {
+		ret = evm.Interpreter().ReturnData()
+	}
 
 	return &types.MsgEthereumTxResponse{
-		GasUsed: gasUsed,
+		GasUsed: gasUsed.TruncateInt().Uint64(),
 		VmError: vmError,
 		Ret:     ret,
 		Logs:    types.NewLogsFromEth(stateDB.Logs()),
 		Hash:    txConfig.TxHash.Hex(),
 	}, nil
+}
+
+// SetConsensusParamsInCtx will return the original context if consensus params already exist in it, otherwise, it will
+// query the consensus params from the consensus params keeper and then set it in context.
+func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
+	cp := ctx.ConsensusParams()
+	if cp.Block != nil {
+		return ctx
+	}
+
+	res, err := k.consensusKeeper.Params(ctx, &consensustypes.QueryParamsRequest{})
+	if err != nil {
+		return ctx
+	}
+	return ctx.WithConsensusParams(*res.Params)
+}
+
+// applyAuthorization applies an EIP-7702 code delegation to the state.
+func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) error {
+	authority, err := k.validateAuthorization(auth, state, chainID)
+	if err != nil {
+		return err
+	}
+
+	// If the account already exists in state, refund the new account cost
+	// charged in the intrinsic calculation.
+	if state.Exist(authority) {
+		state.AddRefund(params.CallNewAccountGas - params.TxAuthTupleGas)
+	}
+
+	// Update nonce and account code.
+	state.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
+	if auth.Address == (common.Address{}) {
+		// Delegation to zero address means clear.
+		state.SetCode(authority, nil)
+		return nil
+	}
+
+	// Otherwise install delegation to auth.Address.
+	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address))
+
+	return nil
+}
+
+// validateAuthorization validates an EIP-7702 authorization against the state.
+func (k *Keeper) validateAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+	// Verify chain ID is null or equal to current chain ID.
+	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
+		return authority, core.ErrAuthorizationWrongChainID
+	}
+	// Limit nonce to 2^64-1 per EIP-2681.
+	if auth.Nonce+1 < auth.Nonce {
+		return authority, core.ErrAuthorizationNonceOverflow
+	}
+	// Validate signature values and recover authority.
+	authority, err = auth.Authority()
+	if err != nil {
+		return authority, fmt.Errorf("%w: %v", core.ErrAuthorizationInvalidSignature, err)
+	}
+	// Check the authority account
+	//  1) doesn't have code or has exisiting delegation
+	//  2) matches the auth's nonce
+	//
+	// Note it is added to the access list even if the authorization is invalid.
+	state.AddAddressToAccessList(authority)
+	code := state.GetCode(authority)
+	if _, ok := ethtypes.ParseDelegation(code); len(code) != 0 && !ok {
+		return authority, core.ErrAuthorizationDestinationHasCode
+	}
+	if have := state.GetNonce(authority); have != auth.Nonce {
+		return authority, core.ErrAuthorizationNonceMismatch
+	}
+	return authority, nil
 }

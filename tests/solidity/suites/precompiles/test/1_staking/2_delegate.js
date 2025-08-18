@@ -1,6 +1,6 @@
 const {expect} = require('chai')
 const hre = require('hardhat')
-const { findEvent } = require('../common')
+const { findEvent, waitWithTimeout, RETRY_DELAY_FUNC} = require('../common')
 
 describe('Staking – delegate with event assertion', function () {
     const STAKING_ADDRESS = '0x0000000000000000000000000000000000000800'
@@ -41,7 +41,7 @@ describe('Staking – delegate with event assertion', function () {
         const tx = await staking
             .connect(signer)
             .delegate(signer.address, valBech32, stakeAmount, {gasLimit: GAS_LIMIT})
-        const receipt = await tx.wait(2)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('Delegate tx hash:', receipt.hash, 'gas used:', receipt.gasUsed.toString())
 
         // parse the Delegate event from logs

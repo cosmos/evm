@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive,ST1001 // dot imports are fine for Ginkgo
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -1351,7 +1351,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.ABI.Events,
+				ABIEvents: stkPrecompile.Events,
 				ExpEvents: []string{staking.EventTypeDelegate},
 			}
 			delegateAmt := big.NewInt(1e18)
@@ -1875,7 +1875,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2062,7 +2062,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2329,7 +2329,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.ABI.Events,
+					ABIEvents: stkPrecompile.Events,
 					ExpEvents: []string{staking.EventTypeDelegate},
 				}
 				txArgs.GasLimit = 500_000

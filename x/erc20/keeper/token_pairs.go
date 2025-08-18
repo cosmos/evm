@@ -19,15 +19,28 @@ func (k Keeper) CreateNewTokenPair(ctx sdk.Context, denom string) (types.TokenPa
 	if err != nil {
 		return types.TokenPair{}, err
 	}
-	k.SetToken(ctx, pair)
+	if account := k.evmKeeper.GetAccount(ctx, pair.GetERC20Contract()); account != nil && account.IsContract() {
+		return types.TokenPair{}, errorsmod.Wrapf(types.ErrTokenPairAlreadyExists, "token already exists for token %s", pair.Erc20Address)
+	}
+	err = k.SetToken(ctx, pair)
+	if err != nil {
+		return types.TokenPair{}, err
+	}
 	return pair, nil
 }
 
 // SetToken stores a token pair, denom map and erc20 map.
-func (k Keeper) SetToken(ctx sdk.Context, pair types.TokenPair) {
+func (k *Keeper) SetToken(ctx sdk.Context, pair types.TokenPair) error {
+	if k.IsDenomRegistered(ctx, pair.Denom) {
+		return errorsmod.Wrapf(types.ErrTokenPairAlreadyExists, "token already exists for denom %s", pair.Denom)
+	}
+	if k.IsERC20Registered(ctx, pair.GetERC20Contract()) {
+		return errorsmod.Wrapf(types.ErrTokenPairAlreadyExists, "token already exists for token %s", pair.Erc20Address)
+	}
 	k.SetTokenPair(ctx, pair)
 	k.SetDenomMap(ctx, pair.Denom, pair.GetID())
 	k.SetERC20Map(ctx, pair.GetERC20Contract(), pair.GetID())
+	return nil
 }
 
 // GetTokenPairs gets all registered token tokenPairs.

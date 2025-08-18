@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testtx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -27,7 +29,8 @@ type Config struct {
 	chainID       string
 	eip155ChainID *big.Int
 
-	customGenesisState CustomGenesisState
+	customGenesisState    CustomGenesisState
+	customConsensusParams *cmtproto.ConsensusParams
 
 	customBaseAppOpts []func(*baseapp.BaseApp)
 
@@ -199,5 +202,14 @@ func WithValidatorOperators(keys []sdktypes.AccAddress) ConfigOption {
 func WithCustomBaseAppOpts(opts ...func(*baseapp.BaseApp)) ConfigOption {
 	return func(cfg *Config) {
 		cfg.customBaseAppOpts = opts
+	}
+}
+
+// WithConsensusParams sets the custom consensus parameters for the network.
+func WithConsensusParams(params *cmtproto.ConsensusParams) ConfigOption {
+	return func(cfg *Config) {
+		if params != nil {
+			cfg.customConsensusParams = params
+		}
 	}
 }

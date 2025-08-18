@@ -19,9 +19,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
@@ -51,6 +53,7 @@ type EvmApp interface { //nolint:revive
 	GetMintKeeper() mintkeeper.Keeper
 	GetPreciseBankKeeper() *precisebankkeeper.Keeper
 	GetFeeGrantKeeper() feegrantkeeper.Keeper
+	GetConsensusParamsKeeper() consensusparamkeeper.Keeper
 	GetCallbackKeeper() keeper.ContractKeeper
 	GetTransferKeeper() transferkeeper.Keeper
 	SetTransferKeeper(transferKeeper transferkeeper.Keeper)
@@ -59,4 +62,5 @@ type EvmApp interface { //nolint:revive
 	GetAnteHandler() sdk.AnteHandler
 	GetSubspace(moduleName string) paramstypes.Subspace
 	MsgServiceRouter() *baseapp.MsgServiceRouter
+	GetMempool() mempool.ExtMempool
 }

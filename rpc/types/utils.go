@@ -46,15 +46,14 @@ func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEt
 		if !ok {
 			return nil, fmt.Errorf("invalid message type %T, expected %T", msg, &evmtypes.MsgEthereumTx{})
 		}
-		ethTx.Hash = ethTx.AsTransaction().Hash().Hex()
 		ethTxs[i] = ethTx
 	}
 	return ethTxs, nil
 }
 
-// EthHeaderFromTendermint is an util function that returns an Ethereum Header
-// from a tendermint Header.
-func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
+// EthHeaderFromComet is an util function that returns an Ethereum Header
+// from a CometBFT Header.
+func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
 	txHash := ethtypes.EmptyRootHash
 	if len(header.DataHash) != 0 {
 		txHash = common.BytesToHash(header.DataHash)
@@ -83,11 +82,11 @@ func EthHeaderFromTendermint(header cmttypes.Header, bloom ethtypes.Bloom, baseF
 
 // BlockMaxGasFromConsensusParams returns the gas limit for the current block from the chain consensus params.
 func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Context, blockHeight int64) (int64, error) {
-	tmrpcClient, ok := clientCtx.Client.(cmtrpcclient.Client)
+	cmtrpcclient, ok := clientCtx.Client.(cmtrpcclient.Client)
 	if !ok {
 		panic("incorrect tm rpc client")
 	}
-	resConsParams, err := tmrpcClient.ConsensusParams(goCtx, &blockHeight)
+	resConsParams, err := cmtrpcclient.ConsensusParams(goCtx, &blockHeight)
 	defaultGasLimit := int64(^uint32(0)) // #nosec G115
 	if err != nil {
 		return defaultGasLimit, err
@@ -104,7 +103,7 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 	return gasLimit, nil
 }
 
-// FormatBlock creates an ethereum block from a tendermint header and ethereum-formatted
+// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
 // transactions.
 func FormatBlock(
 	header cmttypes.Header, size int, gasLimit int64,
@@ -123,7 +122,7 @@ func FormatBlock(
 		"hash":             hexutil.Bytes(header.Hash()),
 		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
 		"nonce":            ethtypes.BlockNonce{},   // PoW specific
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in Tendermint
+		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in CometBFT
 		"logsBloom":        bloom,
 		"stateRoot":        hexutil.Bytes(header.AppHash),
 		"miner":            validatorAddr,
@@ -158,31 +157,34 @@ func NewTransactionFromMsg(
 	baseFee *big.Int,
 	chainID *big.Int,
 ) (*RPCTransaction, error) {
-	tx := msg.AsTransaction()
-	return NewRPCTransaction(tx, blockHash, blockNumber, index, baseFee, chainID)
+	return NewRPCTransaction(msg, blockHash, blockNumber, index, baseFee, chainID)
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func NewRPCTransaction(
-	tx *ethtypes.Transaction,
+	msg *evmtypes.MsgEthereumTx,
 	blockHash common.Hash,
 	blockNumber,
 	index uint64,
 	baseFee,
 	chainID *big.Int,
 ) (*RPCTransaction, error) {
+	tx := msg.AsTransaction()
 	// Determine the signer. For replay-protected transactions, use the most permissive
 	// signer, because we assume that signers are backwards-compatible with old
-	// transactions. For non-protected transactions, the homestead signer signer is used
-	// because the return value of ChainId is zero for those transactions.
+	// transactions. For non-protected transactions, the frontier signer is used
+	// because the latest signer will reject the unprotected transactions.
 	var signer ethtypes.Signer
 	if tx.Protected() {
 		signer = ethtypes.LatestSignerForChainID(tx.ChainId())
 	} else {
-		signer = ethtypes.HomesteadSigner{}
+		signer = ethtypes.FrontierSigner{}
 	}
-	from, _ := ethtypes.Sender(signer, tx) // #nosec G703
+	from, err := msg.GetSenderLegacy(signer)
+	if err != nil {
+		return nil, err
+	}
 	v, r, s := tx.RawSignatureValues()
 	result := &RPCTransaction{
 		Type:     hexutil.Uint64(tx.Type()),
@@ -226,9 +228,54 @@ func NewRPCTransaction(
 		} else {
 			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
 		}
+
+	case ethtypes.BlobTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if baseFee != nil && blockHash != (common.Hash{}) {
+			result.GasPrice = (*hexutil.Big)(effectiveGasPrice(tx, baseFee))
+		} else {
+			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
+		}
+		result.MaxFeePerBlobGas = (*hexutil.Big)(tx.BlobGasFeeCap())
+		result.BlobVersionedHashes = tx.BlobHashes()
+
+	case ethtypes.SetCodeTxType:
+		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if baseFee != nil && blockHash != (common.Hash{}) {
+			result.GasPrice = (*hexutil.Big)(effectiveGasPrice(tx, baseFee))
+		} else {
+			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
+		}
+		result.AuthorizationList = tx.SetCodeAuthorizations()
 	}
 
 	return result, nil
+}
+
+// effectiveGasPrice computes the transaction gas fee, based on the given basefee value.
+//
+//	price = min(gasTipCap + baseFee, gasFeeCap)
+func effectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
+	fee := tx.GasTipCap()
+	fee = fee.Add(fee, baseFee)
+	if tx.GasFeeCapIntCmp(fee) < 0 {
+		return tx.GasFeeCap()
+	}
+	return fee
 }
 
 // BaseFeeFromEvents parses the feemarket basefee from cosmos events

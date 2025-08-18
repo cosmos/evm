@@ -78,3 +78,30 @@ func (s *KeeperTestSuite) DeployContractDirectBalanceManipulation() (common.Addr
 
 	return addr, s.network.NextBlock()
 }
+
+func (s *KeeperTestSuite) DeployBytes32MetadataTokenContract(name, symbol string) (common.Address, error) {
+	bytes32MetadataTokenContract, err := testdata.LoadBytes32MetadataTokenContract()
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	// Convert strings to bytes32 format for the Solidity constructor
+	nameBytes32 := [32]byte{}
+	symbolBytes32 := [32]byte{}
+	copy(nameBytes32[:], []byte(name))
+	copy(symbolBytes32[:], []byte(symbol))
+
+	addr, err := s.factory.DeployContract(
+		s.keyring.GetPrivKey(0),
+		evmtypes.EvmTxArgs{},
+		testutiltypes.ContractDeploymentData{
+			Contract:        bytes32MetadataTokenContract,
+			ConstructorArgs: []interface{}{nameBytes32, symbolBytes32},
+		},
+	)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return addr, s.network.NextBlock()
+}

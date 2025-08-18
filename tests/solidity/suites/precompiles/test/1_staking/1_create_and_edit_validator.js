@@ -4,7 +4,7 @@ const {
     STAKING_PRECOMPILE_ADDRESS,
     DEFAULT_GAS_LIMIT,
     parseValidator,
-    findEvent
+    findEvent, waitWithTimeout, RETRY_DELAY_FUNC
 } = require('../common')
 
 describe('StakingI – createValidator', function () {
@@ -53,7 +53,7 @@ describe('StakingI – createValidator', function () {
         )
 
         // Wait for 2 confirmations and log the transaction hash
-        const receipt = await tx.wait(2)
+        const receipt = await waitWithTimeout(tx, 20000, RETRY_DELAY_FUNC)
         console.log('Transaction hash:', receipt.hash)
 
         // Find and parse the CreateValidator event from the transaction logs
@@ -108,7 +108,7 @@ describe('StakingI – createValidator', function () {
             DO_NOT_MODIFY,    // leave minSelfDelegation unchanged
             {gasLimit: GAS_LIMIT}
         )
-        const editReceipt = await editTx.wait(2)
+        const editReceipt = await waitWithTimeout(editTx, 20000, RETRY_DELAY_FUNC)
         console.log('EditValidator tx hash:', editTx.hash)
 
         // parse EditValidator event

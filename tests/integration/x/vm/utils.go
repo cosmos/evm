@@ -80,7 +80,7 @@ func (s *KeeperTestSuite) DeployTestContract(t require.TestingT, ctx sdk.Context
 	}
 
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	erc20DeployTx.From = addr.Hex()
+	erc20DeployTx.From = addr.Bytes()
 	err = erc20DeployTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, erc20DeployTx)
@@ -137,7 +137,7 @@ func (s *KeeperTestSuite) TransferERC20Token(t require.TestingT, contractAddr, f
 
 	addr := s.Keyring.GetAddr(0)
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	ercTransferTx.From = addr.Hex()
+	ercTransferTx.From = addr.Bytes()
 	err = ercTransferTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, ercTransferTx)
@@ -196,7 +196,7 @@ func (s *KeeperTestSuite) DeployTestMessageCall(t require.TestingT) common.Addre
 	}
 
 	krSigner := utiltx.NewSigner(s.Keyring.GetPrivKey(0))
-	erc20DeployTx.From = addr.Hex()
+	erc20DeployTx.From = addr.Bytes()
 	err = erc20DeployTx.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(t, err)
 	rsp, err := s.Network.App.GetEVMKeeper().EthereumTx(ctx, erc20DeployTx)

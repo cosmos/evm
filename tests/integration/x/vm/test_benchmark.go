@@ -63,7 +63,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	msg := txBuilder(suite, contractAddr)
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	err := msg.Sign(ethtypes.LatestSignerForChainID(types.GetEthChainConfig().ChainID), krSigner)
 	require.NoError(b, err)
 
@@ -72,11 +72,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		// deduct fee first
-		txData, err := types.UnpackTxData(msg.Data)
-		require.NoError(b, err)
-
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
+		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
 		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
@@ -191,7 +187,7 @@ func BenchmarkMessageCall(b *testing.B) {
 	}
 	msg := types.NewTx(ethTxParams)
 
-	msg.From = suite.Keyring.GetAddr(0).Hex()
+	msg.From = suite.Keyring.GetAddr(0).Bytes()
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	err = msg.Sign(ethtypes.LatestSignerForChainID(ethCfg.ChainID), krSigner)
 	require.NoError(b, err)
@@ -201,11 +197,7 @@ func BenchmarkMessageCall(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		// deduct fee first
-		txData, err := types.UnpackTxData(msg.Data)
-		require.NoError(b, err)
-
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
+		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
 		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 

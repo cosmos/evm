@@ -107,10 +107,10 @@ func (bn BlockNumber) Int64() int64 {
 	return int64(bn)
 }
 
-// TmHeight is a util function used for the Tendermint RPC client. It returns
+// CmtHeight is a util function used for the CometBFT RPC client. It returns
 // nil if the block number is "latest". Otherwise, it returns the pointer of the
 // int64 value of the height.
-func (bn BlockNumber) TmHeight() *int64 {
+func (bn BlockNumber) CmtHeight() *int64 {
 	if bn < 0 {
 		return nil
 	}

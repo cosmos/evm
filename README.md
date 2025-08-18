@@ -110,7 +110,7 @@ Based on these powerful defaults, the feature set is easily and highly customiza
 - *JSON-RPC Server*
 
   There is full control over the exposed namespaces and fine-grained control of the
-  [JSON-RPC server](https://docs.evmos.org/develop/api/ethereum-json-rpc).
+  [JSON-RPC server](https://cosmos-docs.mintlify.app/docs/api-reference/ethereum-json-rpc).
   Adjust the configuration to your liking,
   including custom timeouts for EVM calls or HTTP requests,
   maximum block gas, the number of maximum open connections, and more.
@@ -123,13 +123,13 @@ Based on these powerful defaults, the feature set is easily and highly customiza
 - *Custom Improvement Proposals (Opcodes)*
 
   Any Cosmos EVM user is provided the opportunity to customize bits of their EVM opcodes and add new ones.
-  Read more on [custom operations here](https://docs.evmos.org/develop/smart-contracts/custom-improvement-proposals).
+  Read more on [custom operations here](https://cosmos-docs.mintlify.app/docs/documentation/smart-contracts/custom-improvement-proposals#custom-improvement-proposals).
 
 ### Forward-compatibility with Ethereum
 
 Ethereum-equivalence describes any EVM solution,
 that is identical in transaction execution to the Ethereum client.
-It does not more, but also not less than that.  
+It does not more, but also not less than that.
 Ethereum-compatible means,
 that the EVM can be set up to run every transaction that is valid on Ethereum,
 while the handling of the transactions can diverge in e.g. result or cost.
@@ -144,11 +144,15 @@ thus moving the standard forward.
 ## Getting started
 
 To run the example `evmd` chain, run the script using `./local_node.sh`
-from the root folder of the respository.
+from the root folder of the repository.
+
+### Migrations
+
+We provide upgrade guides [here](./docs/migrations) for upgrading your chain from various Cosmos EVM versions.
 
 ### Testing
 
-All of the test scripts are found in `Makefile` in the root of the repository.
+All test scripts are found in `Makefile` in the root of the repository.
 Listed below are the commands for various tests:
 
 #### Unit Testing
@@ -183,6 +187,10 @@ make test-solidity
 ```bash
 make benchmark
 ```
+
+## Contributing
+
+We welcome open source contributions and discussions! For more on contributing, read our [guide](./CONTRIBUTING.md).
 
 ## Open-source License & Credits
 

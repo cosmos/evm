@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
+	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -20,18 +21,20 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// CreateEvmd creates an evmos app
+// CreateEvmd creates an evm app for regular integration tests (non-mempool)
+// This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
 	if err != nil {
 		panic(err)
 	}
-	// create evmos app
+
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
 	appOptions := simutils.NewAppOptionsWithFlagHome(defaultNodeHome)
-	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID)) //nolint:gocritic
+
+	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
 	return evmd.NewExampleApp(
 		logger,
@@ -54,7 +57,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		nil,
 		true,
 		simutils.EmptyAppOptions{},
-		9001,
+		constants.ExampleEIP155ChainID,
 		testconfig.EvmAppOptions,
 	)
 	// disable base fee for testing
