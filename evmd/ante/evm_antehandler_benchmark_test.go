@@ -142,9 +142,9 @@ func (s *benchmarkSuite) generateTxType(txType string) (sdktypes.Tx, error) {
 	}
 }
 
-func (s *benchmarkSuite) generateHandlerOptions() evmdante.HandlerOptions {
+func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 	encCfg := s.network.GetEncodingConfig()
-	return evmdante.HandlerOptions{
+	return ante.HandlerOptions{
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
 		BankKeeper:             s.network.App.GetBankKeeper(),

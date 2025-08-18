@@ -93,6 +93,8 @@ linters:
         text: 'ST1001:'
     paths:
       - x/vm/core
+      - mempool/txpool
+      - mempool/miner
       - third_party$
       - builtin$
       - examples$
@@ -121,6 +123,8 @@ formatters:
     generated: lax
     paths:
       - x/vm/core
+      - mempool/txpool
+      - mempool/miner
       - third_party$
       - builtin$
       - examples$

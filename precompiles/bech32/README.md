@@ -16,7 +16,10 @@ This enables smart contracts to interact with Cosmos SDK modules that require be
 #### hexToBech32
 
 ```solidity
-function hexToBech32(address addr, string memory prefix) external returns (string memory bech32Address)
+function hexToBech32(
+    address addr,
+    string memory prefix
+) external returns (string memory bech32Address);
 ```
 
 Converts an Ethereum hex address to bech32 format with the specified human-readable prefix (HRP).
@@ -39,7 +42,9 @@ Converts an Ethereum hex address to bech32 format with the specified human-reada
 #### bech32ToHex
 
 ```solidity
-function bech32ToHex(string memory bech32Address) external returns (address addr)
+function bech32ToHex(
+    string memory bech32Address
+) external returns (address addr);
 ```
 
 Converts a bech32-formatted address to Ethereum hex format.

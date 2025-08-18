@@ -1,9 +1,11 @@
 package systemtests
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -38,7 +40,6 @@ func StartChain(t *testing.T, sut *systemtests.SystemUnderTest) {
 // set 2 vals, one with lots of stake, other v little
 
 func TestPriorityReplacement(t *testing.T) {
-	t.Skip("not yet supported")
 	sut := systemtests.Sut
 	sut.ResetChain(t)
 	StartChain(t, sut)
@@ -98,6 +99,7 @@ func TestPriorityReplacement(t *testing.T) {
 			"--rpc-url", "http://127.0.0.1:8545",
 			"--private-key", pk,
 			"--gas-price", "100000000000000",
+			"--priority-gas-price", "100",
 			"--nonce", "2",
 		).CombinedOutput()
 		require.NoError(t, prioErr)
@@ -131,7 +133,6 @@ func TestPriorityReplacement(t *testing.T) {
 
 // todo: check that the other nodes dont have this tx. check ethtxpool.
 func TestNonceGappedTxsPass(t *testing.T) {
-	t.Skip("nonce gaps are not yet supported")
 	sut := systemtests.Sut
 	sut.ResetChain(t)
 	StartChain(t, sut)
@@ -206,6 +207,68 @@ func TestNonceGappedTxsPass(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, receipt.Status, uint64(1))
 	}
+}
+
+func TestSimpleSendsScript(t *testing.T) {
+	sut := systemtests.Sut
+	sut.ResetChain(t)
+	StartChain(t, sut)
+	sut.AwaitNBlocks(t, 10)
+	// this PK is derived from the accounts created in testnet.go
+	pk := "0x88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305"
+
+	// get the directory of the counter project to run commands from
+	_, filename, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(filename)
+	counterDir := filepath.Join(testDir, "Counter")
+
+	// Wait for the RPC endpoint to be fully ready
+	time.Sleep(3 * time.Second)
+
+	// First, let's test if forge is available and the script compiles
+	compileCmd := exec.Command(
+		"forge",
+		"build",
+	)
+	compileCmd.Dir = counterDir
+	compileRes, err := compileCmd.CombinedOutput()
+	require.NoError(t, err, "Forge build failed: %s", string(compileRes))
+
+	// Set the private key as an environment variable for the script
+	cmd := exec.Command(
+		"forge",
+		"script",
+		"script/SimpleSends.s.sol:SimpleSendsScript",
+		"--rpc-url", "http://127.0.0.1:8545",
+		"--broadcast",
+		"--private-key", pk,
+		"--gas-limit", "5000000", // Reduced gas limit
+		"--timeout", "60", // Add timeout
+	)
+	cmd.Dir = counterDir
+	cmd.Env = append(cmd.Env, "PRIVATE_KEY="+pk)
+	// Set a timeout for the command execution
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd = exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
+	cmd.Dir = counterDir
+	cmd.Env = append(os.Environ(), "PRIVATE_KEY="+pk)
+
+	res, err := cmd.CombinedOutput()
+	require.NoError(t, err, "Script execution failed: %s", string(res))
+	require.NotEmpty(t, string(res))
+
+	// Verify the script output contains expected logs
+	output := string(res)
+	require.Contains(t, output, "Script ran successfully.")
+
+	// Wait for a few blocks to ensure transactions are processed
+	sut.AwaitNBlocks(t, 5)
+
+	// Verify that the script executed without errors
+	require.NotContains(t, output, "Error:")
+	require.NotContains(t, output, "Failed:")
 }
 
 func parseContractAddress(output string) string {

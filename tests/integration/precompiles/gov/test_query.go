@@ -95,6 +95,38 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 			args:        []interface{}{"string argument 1", 2},
 			errContains: "error while unpacking args to VotesInput",
 		},
+		{
+			name: "fail - internal error from response",
+			malleate: func() []gov.WeightedVote {
+				proposalID := uint64(1)
+				voter := sdk.AccAddress{}
+				voteOption := &govv1.WeightedVoteOption{
+					Option: govv1.OptionYes,
+					Weight: "1.0",
+				}
+				err := s.network.App.GetGovKeeper().AddVote(
+					s.network.GetContext(),
+					proposalID,
+					voter,
+					[]*govv1.WeightedVoteOption{voteOption},
+					"",
+				)
+				s.Require().NoError(err)
+				return []gov.WeightedVote{{
+					ProposalId: proposalID,
+					Voter:      common.Address{},
+					Options: []gov.WeightedVoteOption{
+						{
+							Option: uint8(voteOption.Option), //nolint:gosec // G115 -- integer overflow is not happening here
+							Weight: voteOption.Weight,
+						},
+					},
+				}}
+			},
+			args:        []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			expPass:     false,
+			errContains: "empty address string is not allowed",
+		},
 	}
 
 	for _, tc := range testCases {

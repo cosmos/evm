@@ -47,7 +47,10 @@ func (p *Precompile) GetVotes(
 		return nil, err
 	}
 
-	output := new(VotesOutput).FromResponse(res)
+	output, err := new(VotesOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Votes, output.PageResponse)
 }
 
@@ -69,8 +72,10 @@ func (p *Precompile) GetVote(
 		return nil, err
 	}
 
-	output := new(VoteOutput).FromResponse(res)
-
+	output, err := new(VoteOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Vote)
 }
 
@@ -92,7 +97,10 @@ func (p *Precompile) GetDeposit(
 		return nil, err
 	}
 
-	output := new(DepositOutput).FromResponse(res)
+	output, err := new(DepositOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Deposit)
 }
 
@@ -114,7 +122,10 @@ func (p *Precompile) GetDeposits(
 		return nil, err
 	}
 
-	output := new(DepositsOutput).FromResponse(res)
+	output, err := new(DepositsOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Deposits, output.PageResponse)
 }
 
@@ -158,7 +169,10 @@ func (p *Precompile) GetProposal(
 		return nil, err
 	}
 
-	output := new(ProposalOutput).FromResponse(res)
+	output, err := new(ProposalOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Proposal)
 }
 
@@ -180,8 +194,10 @@ func (p *Precompile) GetProposals(
 		return nil, err
 	}
 
-	output := new(ProposalsOutput).FromResponse(res)
-
+	output, err := new(ProposalsOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Proposals, output.PageResponse)
 }
 

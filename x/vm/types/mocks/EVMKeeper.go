@@ -124,3 +124,7 @@ func (k EVMKeeper) Clone() *EVMKeeper {
 func (k EVMKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
 	return k.storeKeys
 }
+
+func (k EVMKeeper) GetCodeHash(_ sdk.Context, _ common.Address) common.Hash {
+	return common.Hash{}
+}

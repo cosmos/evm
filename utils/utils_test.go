@@ -742,3 +742,35 @@ func TestCalcBaseFee(t *testing.T) {
 		})
 	}
 }
+
+func TestHexAddressFromBech32String(t *testing.T) {
+	accAddr := "cosmos16val7w9lc7wltqvpt0kscaul4xd6l2l43nhcq4"
+	valAddr := "cosmosvaloper16val7w9lc7wltqvpt0kscaul4xd6l2l458rdvx"
+	consAddr := "cosmosvalcons16val7w9lc7wltqvpt0kscaul4xd6l2l4q5s3q8"
+	invalidAddr := "invalid1address"
+	expectedHex := "0xd33bFF38Bfc79df581815BED0c779FA99BaFAbf5"
+
+	testCases := []struct {
+		name      string
+		input     string
+		wantHex   string
+		wantError bool
+	}{
+		{"account address", accAddr, expectedHex, false},
+		{"validator address", valAddr, expectedHex, false},
+		{"consensus address", consAddr, expectedHex, false},
+		{"invalid address", invalidAddr, "", true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			addr, err := utils.HexAddressFromBech32String(tc.input)
+			if tc.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.wantHex, addr.Hex())
+			}
+		})
+	}
+}

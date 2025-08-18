@@ -62,5 +62,10 @@ func (options HandlerOptions) Validate() error {
 	if options.TxFeeChecker == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
 	}
+
+	if options.PendingTxListener == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "pending tx listener is required for AnteHandler")
+	}
+
 	return nil
 }

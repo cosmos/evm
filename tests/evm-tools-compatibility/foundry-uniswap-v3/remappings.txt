@@ -1,0 +1,8 @@
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+ds-test/=lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
+@uniswap/v3-core/=lib/v3-core/
+@uniswap/v3-periphery/=lib/v3-periphery/
+@uniswap/lib/contracts/libraries=lib/solidity-lib/contracts/libraries
+base64-sol/=lib/base64-sol/

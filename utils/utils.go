@@ -63,21 +63,40 @@ func Bech32StringFromHexAddress(hexAddr string) string {
 }
 
 // HexAddressFromBech32String converts a hex address to a bech32 encoded address.
-func HexAddressFromBech32String(addr string) (res common.Address, err error) {
-	if strings.Contains(addr, sdk.PrefixValidator) {
-		valAddr, err := sdk.ValAddressFromBech32(addr)
-		if err != nil {
-			return res, err
+func HexAddressFromBech32String(addr string) (common.Address, error) {
+	decodeFns := []func(string) ([]byte, error){
+		func(s string) ([]byte, error) {
+			accAddr, err := sdk.AccAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return accAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			valAddr, err := sdk.ValAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return valAddr.Bytes(), nil
+		},
+		func(s string) ([]byte, error) {
+			consAddr, err := sdk.ConsAddressFromBech32(s)
+			if err != nil {
+				return nil, err
+			}
+			return consAddr.Bytes(), nil
+		},
+	}
+
+	var lastErr error
+	for _, fn := range decodeFns {
+		bz, err := fn(addr)
+		if err == nil {
+			return common.BytesToAddress(bz), nil
 		}
-		return common.BytesToAddress(valAddr.Bytes()), nil
+		lastErr = err
 	}
-
-	accAddr, err := sdk.AccAddressFromBech32(addr)
-	if err != nil {
-		return res, err
-	}
-
-	return common.BytesToAddress(accAddr), nil
+	return common.Address{}, errorsmod.Wrapf(lastErr, "failed to convert bech32 string to address")
 }
 
 // IsSupportedKey returns true if the pubkey type is supported by the chain
