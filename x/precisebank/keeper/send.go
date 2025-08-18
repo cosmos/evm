@@ -90,29 +90,6 @@ func (k Keeper) SendCoins(
 		}
 	}
 
-	// Get a full extended coin amount (passthrough integer + fractional) ONLY
-	// for event attributes.
-	fullEmissionCoins := sdk.NewCoins(types.SumExtendedCoin(amt))
-
-	// If no passthrough integer nor fractional coins, then no event emission.
-	// We also want to emit the event with the whole equivalent extended coin
-	// if only integer coins are sent.
-	if fullEmissionCoins.IsZero() {
-		return nil
-	}
-
-	// Emit transfer event of extended denom for the FULL equivalent value.
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			banktypes.EventTypeTransfer,
-			sdk.NewAttribute(banktypes.AttributeKeyRecipient, to.String()),
-			sdk.NewAttribute(banktypes.AttributeKeySender, from.String()),
-			sdk.NewAttribute(sdk.AttributeKeyAmount, fullEmissionCoins.String()),
-		),
-		banktypes.NewCoinSpentEvent(from, fullEmissionCoins),
-		banktypes.NewCoinReceivedEvent(to, fullEmissionCoins),
-	})
-
 	return nil
 }
 
@@ -264,6 +241,10 @@ func (k Keeper) sendExtendedCoins(
 	// Persist new fractional balances to store.
 	k.SetFractionalBalance(ctx, from, senderNewFracBal)
 	k.SetFractionalBalance(ctx, to, recipientNewFracBal)
+
+	// Emit event for fractional balance change
+	types.EmitEventFractionalBalanceChange(ctx, from, senderFracBal, senderNewFracBal)
+	types.EmitEventFractionalBalanceChange(ctx, to, recipientFracBal, recipientNewFracBal)
 
 	return nil
 }

@@ -16,4 +16,5 @@ type BankKeeper interface {
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	SendCoins(ctx context.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error
 	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
+	BlockedAddr(addr sdk.AccAddress) bool
 }
