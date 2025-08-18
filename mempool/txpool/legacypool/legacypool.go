@@ -1377,6 +1377,12 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 
 	// Iterate over all accounts and promote any executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
+	ctx, err := pool.chain.GetLatestCtx()
+	if err != nil {
+		log.Debug("GetLatestCtx fails", "err", err)
+		return promoted
+	}
+
 	for _, addr := range accounts {
 		list := pool.queue[addr]
 		if list == nil {
@@ -1389,7 +1395,7 @@ func (pool *LegacyPool) promoteExecutables(accounts []common.Address) []*types.T
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
+		drops, _ := list.Filter(pool.SpendableCoin(ctx, addr), gasLimit)
 		for _, tx := range drops {
 			pool.all.Remove(tx.Hash())
 		}
@@ -1564,6 +1570,11 @@ func (pool *LegacyPool) truncateQueue() {
 // is always explicitly triggered by SetBaseFee and it would be unnecessary and wasteful
 // to trigger a re-heap is this function
 func (pool *LegacyPool) demoteUnexecutables() {
+	ctx, err := pool.chain.GetLatestCtx()
+	if err != nil {
+		log.Debug("GetLatestCtx fails", "err", err)
+		return
+	}
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
@@ -1577,7 +1588,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			log.Trace("Removed old pending transaction", "hash", hash)
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), gasLimit)
+		drops, invalids := list.Filter(pool.SpendableCoin(ctx, addr), gasLimit)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
