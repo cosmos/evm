@@ -1,12 +1,14 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 
@@ -649,6 +651,174 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 			balanceAfterRefund := s.Network.App.GetBankKeeper().GetBalance(ctx, s.Keyring.GetAccAddr(0), "aatom")
 			expectedRefund := new(big.Int).Mul(new(big.Int).SetUint64(6e6/2), s.Network.App.GetEVMKeeper().GetBaseFee(ctx))
 			s.Require().Equal(balanceAfterRefund.Sub(initialBalance).Amount, sdkmath.NewIntFromBigInt(expectedRefund))
+		})
+	}
+}
+
+type testHooks struct {
+	postProcessing func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error
+}
+
+func (h *testHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+	return h.postProcessing(ctx, sender, msg, receipt)
+}
+
+func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+
+	testCases := []struct {
+		name  string
+		setup func(s *KeeperTestSuite)
+		do    func(s *KeeperTestSuite)
+		after func(s *KeeperTestSuite)
+	}{
+		{
+			"pass - evm tx succeeds, post processing is called, the balance is changed",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+								return nil
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := big.NewInt(100)
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt,
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().False(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore.Sub(sdkmath.NewIntFromBigInt(transferAmt)), senderAfter)
+				s.Require().Equal(recipientBefore.Add(sdkmath.NewIntFromBigInt(transferAmt)), recipientAfter)
+			},
+			func(s *KeeperTestSuite) {},
+		},
+		{
+			"pass - evm tx succeeds, post processing is called but fails, the balance is unchanged",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+								return errors.New("post processing failed :(")
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := big.NewInt(100)
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt,
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().True(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore, senderAfter)
+				s.Require().Equal(recipientBefore, recipientAfter)
+			},
+			func(s *KeeperTestSuite) {},
+		},
+		{
+			"evm tx fails, post processing is called and persisted, the balance is not changed",
+			func(s *KeeperTestSuite) {
+				s.Network.App.GetEVMKeeper().SetHooks(
+					keeper.NewMultiEvmHooks(
+						&testHooks{
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+								s.Network.App.GetMintKeeper().MintCoins(
+									ctx, sdk.NewCoins(sdk.NewCoin("arandomcoin", sdkmath.NewInt(100))),
+								)
+								return nil
+							},
+						},
+					),
+				)
+			},
+			func(s *KeeperTestSuite) {
+				senderBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientBefore := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+
+				// Generate a transfer tx message
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				transferAmt := senderBefore.Add(sdkmath.NewInt(100)) // transfer more than the balance
+
+				tx, err := s.Factory.GenerateSignedEthTx(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: transferAmt.BigInt(),
+				})
+				s.Require().NoError(err)
+
+				ethMsg := tx.GetMsgs()[0].(*types.MsgEthereumTx)
+				res, err := s.Network.App.GetEVMKeeper().ApplyTransaction(s.Network.GetContext(), ethMsg.AsTransaction())
+				s.Require().NoError(err)
+				s.Require().True(res.Failed())
+
+				senderAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(0), "aatom").Amount
+				recipientAfter := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Keyring.GetAccAddr(1), "aatom").Amount
+				s.Require().Equal(senderBefore, senderAfter)
+				s.Require().Equal(recipientBefore, recipientAfter)
+			},
+			func(s *KeeperTestSuite) {
+				// check if the mint module has "arandomcoin" in its balance, it was minted in the post processing, proving that the post processing was called
+				// and that it can persist state even when the tx fails
+				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), s.Network.App.GetAccountKeeper().GetModuleAddress("mint"), "arandomcoin")
+				s.Require().Equal(sdkmath.NewInt(100), balance.Amount)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
+			s.SetupTest()
+
+			tc.setup(s)
+
+			// set bounded cosmos block gas limit
+			ctx := s.Network.GetContext().WithBlockGasMeter(storetypes.NewGasMeter(1e6))
+			err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+			s.Require().NoError(err)
+			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", sdk.NewCoins(sdk.NewCoin("aatom", sdkmath.NewInt(3e18))))
+			s.Require().NoError(err)
+
+			tc.do(s)
+
+			tc.after(s)
 		})
 	}
 }
