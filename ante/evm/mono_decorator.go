@@ -1,9 +1,11 @@
 package evm
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
@@ -17,6 +19,12 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
+
+const AcceptedTxType = 0 |
+	1<<ethtypes.LegacyTxType |
+	1<<ethtypes.AccessListTxType |
+	1<<ethtypes.DynamicFeeTxType |
+	1<<ethtypes.SetCodeTxType
 
 // MonoDecorator is a single decorator that handles all the prechecks for
 // ethereum transactions.
@@ -88,6 +96,23 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
+	// call go-ethereum transaction validation
+	header := ethtypes.Header{
+		GasLimit:   ethTx.Gas(),
+		BaseFee:    decUtils.BaseFee,
+		Number:     big.NewInt(ctx.BlockHeight()),
+		Time:       uint64(ctx.BlockTime().Unix()), //nolint:gosec
+		Difficulty: big.NewInt(0),
+	}
+	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
+		Config:  evmtypes.GetEthChainConfig(),
+		Accept:  AcceptedTxType,
+		MaxSize: math.MaxUint64, // tx size is checked in cometbft
+		MinTip:  new(big.Int),
+	}); err != nil {
+		return ctx, err
+	}
+
 	feeAmt := ethMsg.GetFee()
 	gas := ethTx.Gas()
 	fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
@@ -130,6 +155,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// 5. signature verification
 	if err := SignatureVerification(
 		ethMsg,
+		ethTx,
 		decUtils.Signer,
 	); err != nil {
 		return ctx, err

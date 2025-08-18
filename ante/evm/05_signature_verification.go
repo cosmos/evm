@@ -62,6 +62,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 // computed from the signature of the Ethereum transaction.
 func SignatureVerification(
 	msg *evmtypes.MsgEthereumTx,
+	ethTx *ethtypes.Transaction,
 	signer ethtypes.Signer,
 ) error {
 	if err := msg.VerifySender(signer); err != nil {
