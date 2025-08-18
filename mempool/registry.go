@@ -30,4 +30,5 @@ func GetGlobalEVMMempool() *ExperimentalEVMMempool {
 // This is intended for testing purposes only.
 func ResetGlobalEVMMempool() {
 	globalEVMMempool = nil
+	globalEVMMempoolSync = sync.Once{}
 }
