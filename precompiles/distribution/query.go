@@ -38,7 +38,7 @@ const (
 	// CommunityPoolMethod defines the ABI method name for the
 	// CommunityPool query.
 	CommunityPoolMethod = "communityPool"
-	// GetParmsMethod defines the ABI method name for the
+	// GetParamsMethod defines the ABI method name for the
 	// GetParams query.
 	GetParamsMethod = "getParams"
 )
