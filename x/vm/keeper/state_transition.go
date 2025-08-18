@@ -394,11 +394,21 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
+	// Gas limit suffices for the floor data cost (EIP-7623)
+	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	if rules.IsPrague {
+		floorDataGas, err := core.FloorDataGas(msg.Data)
+		if err != nil {
+			return nil, err
+		}
+		if msg.GasLimit < floorDataGas {
+			return nil, fmt.Errorf("%w: have %d, want %d", core.ErrFloorDataGas, msg.GasLimit, floorDataGas)
+		}
+	}
 	leftoverGas -= intrinsicGas
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
 
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)

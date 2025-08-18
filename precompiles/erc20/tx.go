@@ -27,12 +27,6 @@ const (
 	// ApproveMethod defines the ABI method name for ERC-20 Approve
 	// transaction.
 	ApproveMethod = "approve"
-	// DecreaseAllowanceMethod defines the ABI method name for the DecreaseAllowance
-	// transaction.
-	DecreaseAllowanceMethod = "decreaseAllowance"
-	// IncreaseAllowanceMethod defines the ABI method name for the IncreaseAllowance
-	// transaction.
-	IncreaseAllowanceMethod = "increaseAllowance"
 )
 
 // Transfer executes a direct transfer from the caller address to the
