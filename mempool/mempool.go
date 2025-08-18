@@ -216,14 +216,15 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Insert into EVM pool
-		m.logger.Debug("inserting EVM transaction", "tx_hash", ethMsg.Hash)
+		hash := ethMsg.Hash()
+		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
 		errs := m.txPool.Add(ethTxs, true)
 		if len(errs) > 0 && errs[0] != nil {
-			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", ethMsg.Hash)
+			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
 		}
-		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", ethMsg.Hash)
+		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
 		return nil
 	}
 
@@ -306,11 +307,12 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 		// We should not do this with EVM transactions because removing them causes the subsequent ones to
 		// be dequeued as temporarily invalid, only to be requeued a block later.
 		// The EVM mempool handles removal based on account nonce automatically.
+		hash := msg.Hash()
 		if m.shouldRemoveFromEVMPool(tx) {
-			m.logger.Debug("manually removing EVM transaction", "tx_hash", msg.Hash())
-			m.legacyTxPool.RemoveTx(msg.Hash(), false, true)
+			m.logger.Debug("manually removing EVM transaction", "tx_hash", hash)
+			m.legacyTxPool.RemoveTx(hash, false, true)
 		} else {
-			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", msg.Hash)
+			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", hash)
 		}
 		return nil
 	}
