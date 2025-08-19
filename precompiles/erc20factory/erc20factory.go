@@ -40,7 +40,7 @@ type Precompile struct {
 
 // NewPrecompile creates a new bech32 Precompile instance as a
 // PrecompiledContract interface.
-func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper BankKeeper) (*Precompile, error) {
+func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper cmn.BankKeeper) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
 		return nil, err
@@ -58,6 +58,8 @@ func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper BankKeeper) (*Precompile,
 
 	// SetAddress defines the address of the distribution compile contract.
 	p.SetAddress(common.HexToAddress(Erc20FactoryAddress))
+
+	p.SetBalanceHandler(bankKeeper)
 	return p, nil
 }
 
@@ -96,6 +98,10 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	if err != nil {
 		return nil, err
 	}
+
+	// Start the balance change handler before executing the precompile
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
 	// This handles any out of gas errors that may occur during the execution of a precompile query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()

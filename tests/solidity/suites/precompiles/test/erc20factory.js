@@ -26,7 +26,6 @@ describe('ERC20Factory', function () {
     const decimals = 18
     const tokenPairType = 0
     const premintedSupply = hre.ethers.parseEther("1000000") // 1M tokens
-      0x0000000000000000000000000000000000000900
     const [signer] = await hre.ethers.getSigners()
     const minter = signer.address
 
