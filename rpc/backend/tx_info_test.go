@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -31,19 +32,21 @@ func TestCreateAccessList(t *testing.T) {
 	// a proper backend with mocked dependencies
 
 	// Test that the transaction args can be converted to a message without signature validation
-	msg := args.ToTransaction()
+	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
 
 	// Test that the message has the correct From field
-	require.Equal(t, from.Bytes(), msg.From, "From field should match the input address")
+	signer := ethtypes.LatestSignerForChainID(msg.ChainId())
+	fromAddr, err := ethtypes.Sender(signer, msg)
+	require.NoError(t, err, "Should be able to derive sender address")
+	require.Equal(t, from, fromAddr, "From field should match the input address")
 
 	// Test that the transaction can be created without signature validation
-	tx := msg.AsTransaction()
-	require.NotNil(t, tx, "AsTransaction should not return nil")
+	require.NotNil(t, msg, "Transaction should not be nil")
 
 	// Test that the transaction has the correct values
-	require.Equal(t, to, *tx.To(), "To address should match")
-	require.Equal(t, big.NewInt(5000), tx.Value(), "Value should match")
+	require.Equal(t, to, *msg.To(), "To address should match")
+	require.Equal(t, big.NewInt(5000), msg.Value(), "Value should match")
 }
 
 func TestCreateAccessListWithGasPrice(t *testing.T) {
@@ -60,12 +63,11 @@ func TestCreateAccessListWithGasPrice(t *testing.T) {
 		GasPrice: &gasPrice,
 	}
 
-	msg := args.ToTransaction()
+	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
 
-	tx := msg.AsTransaction()
-	require.NotNil(t, tx, "AsTransaction should not return nil")
-	require.Equal(t, big.NewInt(20000000000), tx.GasPrice(), "Gas price should match")
+	require.NotNil(t, msg, "Transaction should not be nil")
+	require.Equal(t, big.NewInt(20000000000), msg.GasPrice(), "Gas price should match")
 }
 
 func TestCreateAccessListWithData(t *testing.T) {
@@ -80,10 +82,9 @@ func TestCreateAccessListWithData(t *testing.T) {
 		Data: &data,
 	}
 
-	msg := args.ToTransaction()
+	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
 
-	tx := msg.AsTransaction()
-	require.NotNil(t, tx, "AsTransaction should not return nil")
-	require.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, tx.Data(), "Data should match")
+	require.NotNil(t, msg, "Transaction should not be nil")
+	require.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, msg.Data(), "Data should match")
 }

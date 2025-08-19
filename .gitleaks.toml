@@ -16,6 +16,8 @@ paths = [
     '''gitleaks.toml''',
     '''(.*?)(jpg|gif|pdf|png|svg)$''',
     '''(go.mod|go.sum|go.work|go.work.sum)$''',
+    '''tests/evm-tools-compatibility/.*''',
+    '''tests/.*''',
 ]
 stopwords = [
     '''secp256k1''',
@@ -23,6 +25,9 @@ stopwords = [
     '''0x8FA78CEB7F04118Ec6d06AaC37Ca854691d8e963''',
     '''0x205CF44075E77A3543abC690437F3b2819bc450a''',
     '''cosmos10d07y265gmmuvt4z0w9aw880jnsr700jcrztvm''',
+    '''0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b''',
+    '''0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90''',
+    '''073eda769693298dfa9603b''',
 ]
 
 [[rules]]

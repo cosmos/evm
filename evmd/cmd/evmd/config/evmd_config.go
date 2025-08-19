@@ -58,7 +58,6 @@ var maccPerms = map[string][]string{
 func BlockedAddresses() map[string]bool {
 	blockedAddrs := make(map[string]bool)
 
-	maps.Clone(maccPerms)
 	maccPerms := GetMaccPerms()
 	accs := make([]string, 0, len(maccPerms))
 	for acc := range maccPerms {
@@ -71,7 +70,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range corevm.PrecompiledAddressesBerlin {
+	for _, addr := range corevm.PrecompiledAddressesPrague {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
 
@@ -98,7 +97,6 @@ type EVMAppConfig struct {
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
 func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
-
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -126,8 +124,7 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
-	customAppTemplate := serverconfig.DefaultConfigTemplate +
-		cosmosevmserverconfig.DefaultEVMConfigTemplate
-
-	return customAppTemplate, customAppConfig
+	return EVMAppTemplate, customAppConfig
 }
+
+const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate

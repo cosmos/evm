@@ -1,11 +1,15 @@
 name: Lint
 # Lint runs golangci-lint over the entire Cosmos EVM repository
-# This workflow runs on every pull request and push to main
+# This workflow runs on every pull request and merge queue
 
 on:
-  merge_group:
   pull_request:
+  merge_group:
 
+# cancel superseded runs
+concurrency:
+  group: lint-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 permissions: read-all
 
@@ -17,7 +21,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           check-latest: true
 
       - uses: actions/checkout@v4
@@ -48,19 +52,36 @@ jobs:
           make lint-go
 
   markdown-lint:
-    name: Run markdown-lint
+    name: markdownlint (cli2, minimal)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read   # read-only permissions
     steps:
-      - uses: actions/checkout@v4
+      # Standard checkout for all cases
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only run if markdown or configs changed
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
-            **/**.md
-      - uses: nosborn/github-action-markdown-cli@v3.3.0
-        with:
-          files: .
-          config_file: .markdownlint.yml
-          ignore_path: .markdownlintignore
-        # Check only if there are differences in the source code
+            **/*.md
+            .markdownlint.yml
+            .markdownlintignore
+
+      # Stable Node
+      - uses: actions/setup-node@v4
         if: env.GIT_DIFF
+        with:
+          node-version: "20"
+
+      # Lint: check only, fail on errors
+      - name: markdownlint (check only)
+        id: md_lint
+        if: env.GIT_DIFF
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "**/*.md"
+          config: .markdownlint.yml
+          fix: false

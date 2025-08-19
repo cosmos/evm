@@ -90,7 +90,7 @@ func startInProcess(cfg Config, val *Validator) error {
 		// Add the tx service in the gRPC router.
 		app.RegisterTxService(val.ClientCtx)
 
-		// Add the tendermint queries service in the gRPC router.
+		// Add the CometBFT queries service in the gRPC router.
 		app.RegisterTendermintService(val.ClientCtx)
 		app.RegisterNodeService(val.ClientCtx, val.AppConfig.Config)
 	}
@@ -130,10 +130,15 @@ func startInProcess(cfg Config, val *Validator) error {
 			return fmt.Errorf("validator %s context is nil", val.Moniker)
 		}
 
-		tmEndpoint := "/websocket"
-		tmRPCAddr := fmt.Sprintf("tcp://%s", val.AppConfig.GRPC.Address)
-
-		val.jsonrpc, err = server.StartJSONRPC(ctx, val.Ctx, val.ClientCtx, val.errGroup, tmRPCAddr, tmEndpoint, val.AppConfig, nil)
+		val.jsonrpc, err = server.StartJSONRPC(
+			ctx,
+			val.Ctx,
+			val.ClientCtx,
+			val.errGroup,
+			val.AppConfig,
+			nil,
+			app.(server.AppWithPendingTxStream),
+		)
 		if err != nil {
 			return err
 		}

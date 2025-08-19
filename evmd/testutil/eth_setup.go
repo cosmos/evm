@@ -21,7 +21,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// EthDefaultConsensusParams defines the default Tendermint consensus params used in
+// EthDefaultConsensusParams defines the default CometBFT consensus params used in
 // Cosmos EVM app testing.
 //
 // TODO: currently not used

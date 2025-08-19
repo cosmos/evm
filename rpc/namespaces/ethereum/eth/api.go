@@ -88,20 +88,15 @@ type EthereumAPI interface {
 	GetUncleCountByBlockHash(hash common.Hash) hexutil.Uint
 	GetUncleCountByBlockNumber(blockNum rpctypes.BlockNumber) hexutil.Uint
 
-	// Proof of Work
-	Hashrate() hexutil.Uint64
-	Mining() bool
-
 	// Other
 	Syncing() (interface{}, error)
-	Coinbase() (string, error)
 	Sign(address common.Address, data hexutil.Bytes) (hexutil.Bytes, error)
 	GetTransactionLogs(txHash common.Hash) ([]*ethtypes.Log, error)
 	SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
 	FillTransaction(args evmtypes.TransactionArgs) (*rpctypes.SignTransactionResult, error)
 	Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
-	GetPendingTransactions() ([]*rpctypes.RPCTransaction, error)
 	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error)
+
 	// eth_signTransaction (on Ethereum.org)
 	// eth_getCompilers (on Ethereum.org)
 	// eth_compileSolidity (on Ethereum.org)
@@ -171,7 +166,7 @@ func (e *PublicAPI) GetTransactionByHash(hash common.Hash) (*rpctypes.RPCTransac
 // GetTransactionCount returns the number of transactions at the given address up to the given block number.
 func (e *PublicAPI) GetTransactionCount(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (*hexutil.Uint64, error) {
 	e.logger.Debug("eth_getTransactionCount", "address", address.Hex(), "block number or hash", blockNrOrHash)
-	blockNum, err := e.backend.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := e.backend.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +216,7 @@ func (e *PublicAPI) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) 
 
 // SendTransaction sends an Ethereum transaction.
 func (e *PublicAPI) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, error) {
-	e.logger.Debug("eth_sendTransaction", "args", args.String())
+	e.logger.Debug("eth_sendTransaction", "args", args)
 	return e.backend.SendTransaction(args)
 }
 
@@ -271,14 +266,14 @@ func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
 	override *rpctypes.StateOverride,
 ) (hexutil.Bytes, error) {
-	e.logger.Debug("eth_call", "args", args.String(), "block number or hash", blockNrOrHash)
+	e.logger.Debug("eth_call", "args", args, "block number or hash", blockNrOrHash)
 
 	if override != nil {
 		e.logger.Debug("eth_call", "error", "overrides are unsupported in call queries")
 		return nil, fmt.Errorf("overrides are unsupported in call queries")
 	}
 
-	blockNum, err := e.backend.BlockNumberFromTendermint(blockNrOrHash)
+	blockNum, err := e.backend.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
@@ -371,22 +366,6 @@ func (e *PublicAPI) GetUncleCountByBlockNumber(_ rpctypes.BlockNumber) hexutil.U
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///                           Proof of Work												          ///
-///////////////////////////////////////////////////////////////////////////////
-
-// Hashrate returns the current node's hashrate. Always 0.
-func (e *PublicAPI) Hashrate() hexutil.Uint64 {
-	e.logger.Debug("eth_hashrate")
-	return 0
-}
-
-// Mining returns whether or not this node is currently mining. Always false.
-func (e *PublicAPI) Mining() bool {
-	e.logger.Debug("eth_mining")
-	return false
-}
-
-///////////////////////////////////////////////////////////////////////////////
 ///                           Other 															          ///
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -400,18 +379,6 @@ func (e *PublicAPI) Mining() bool {
 func (e *PublicAPI) Syncing() (interface{}, error) {
 	e.logger.Debug("eth_syncing")
 	return e.backend.Syncing()
-}
-
-// Coinbase is the address that staking rewards will be send to (alias for Etherbase).
-func (e *PublicAPI) Coinbase() (string, error) {
-	e.logger.Debug("eth_coinbase")
-
-	coinbase, err := e.backend.GetCoinbase()
-	if err != nil {
-		return "", err
-	}
-	ethAddr := common.BytesToAddress(coinbase.Bytes())
-	return ethAddr.Hex(), nil
 }
 
 // Sign signs the provided data using the private key of address via Geth's signature standard.
@@ -444,7 +411,7 @@ func (e *PublicAPI) FillTransaction(args evmtypes.TransactionArgs) (*rpctypes.Si
 	}
 
 	// Assemble the transaction and obtain rlp
-	tx := args.ToTransaction().AsTransaction()
+	tx := args.ToTransaction(ethtypes.LegacyTxType)
 
 	data, err := tx.MarshalBinary()
 	if err != nil {
@@ -464,53 +431,8 @@ func (e *PublicAPI) Resend(_ context.Context,
 	gasPrice *hexutil.Big,
 	gasLimit *hexutil.Uint64,
 ) (common.Hash, error) {
-	e.logger.Debug("eth_resend", "args", args.String())
+	e.logger.Debug("eth_resend", "args", args)
 	return e.backend.Resend(args, gasPrice, gasLimit)
-}
-
-// GetPendingTransactions returns the transactions that are in the transaction pool
-// and have a from address that is one of the accounts this node manages.
-func (e *PublicAPI) GetPendingTransactions() ([]*rpctypes.RPCTransaction, error) {
-	e.logger.Debug("eth_getPendingTransactions")
-
-	txs, err := e.backend.PendingTransactions()
-	if err != nil {
-		return nil, err
-	}
-
-	chainIDHex, err := e.backend.ChainID()
-	if err != nil {
-		return nil, err
-	}
-
-	chainID := chainIDHex.ToInt()
-
-	result := make([]*rpctypes.RPCTransaction, 0, len(txs))
-	for _, tx := range txs {
-		for _, msg := range (*tx).GetMsgs() {
-			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
-			if !ok {
-				// not valid ethereum tx
-				break
-			}
-
-			rpctx, err := rpctypes.NewTransactionFromMsg(
-				ethMsg,
-				common.Hash{},
-				uint64(0),
-				uint64(0),
-				nil,
-				chainID,
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			result = append(result, rpctx)
-		}
-	}
-
-	return result, nil
 }
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
