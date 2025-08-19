@@ -36,11 +36,14 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		})
 	}
 
-	// set current block hash in the contract storage, compatible with EIP-2935
-	ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow) //nolint:gosec // G115 // won't exceed uint64
-	var key common.Hash
-	binary.BigEndian.PutUint64(key[24:], ringIndex)
-	k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
+	acct := k.GetAccount(ethparams.HistoryStorageAddress)
+	if acct != nil && acct.IsContract() {
+		// set current block hash in the contract storage, compatible with EIP-2935
+		ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow) //nolint:gosec // G115 // won't exceed uint64
+		var key common.Hash
+		binary.BigEndian.PutUint64(key[24:], ringIndex)
+		k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
+	}
 	return nil
 }
 
