@@ -4,12 +4,11 @@ import paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 
 // Parameter keys
 var (
-	ParamStoreKeyEVMDenom            = []byte("EVMDenom")
-	ParamStoreKeyEnableCreate        = []byte("EnableCreate")
-	ParamStoreKeyEnableCall          = []byte("EnableCall")
-	ParamStoreKeyExtraEIPs           = []byte("EnableExtraEIPs")
-	ParamStoreKeyChainConfig         = []byte("ChainConfig")
-	ParamStoreKeyAllowUnprotectedTxs = []byte("AllowUnprotectedTxs")
+	ParamStoreKeyEVMDenom     = []byte("EVMDenom")
+	ParamStoreKeyEnableCreate = []byte("EnableCreate")
+	ParamStoreKeyEnableCall   = []byte("EnableCall")
+	ParamStoreKeyExtraEIPs    = []byte("EnableExtraEIPs")
+	ParamStoreKeyChainConfig  = []byte("ChainConfig")
 )
 
 // Deprecated: ParamKeyTable returns the parameter key table.
@@ -27,6 +26,5 @@ func ParamKeyTable() paramtypes.KeyTable {
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 	return paramtypes.ParamSetPairs{
 		paramtypes.NewParamSetPair(ParamStoreKeyExtraEIPs, &p.ExtraEIPs, validateEIPs),
-		paramtypes.NewParamSetPair(ParamStoreKeyAllowUnprotectedTxs, &p.AllowUnprotectedTxs, validateBool),
 	}
 }
