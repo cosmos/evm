@@ -373,9 +373,9 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type QueryClient interface {
-	// TokenPairs retrieves registered token pairs
+	// TokenPairs retrieves registered token pairs (mappings)x
 	TokenPairs(ctx context.Context, in *QueryTokenPairsRequest, opts ...grpc.CallOption) (*QueryTokenPairsResponse, error)
-	// TokenPair retrieves a registered token pair
+	// TokenPair retrieves a registered token pair (mapping)
 	TokenPair(ctx context.Context, in *QueryTokenPairRequest, opts ...grpc.CallOption) (*QueryTokenPairResponse, error)
 	// Params retrieves the erc20 module params
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
@@ -418,9 +418,9 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 
 // QueryServer is the server API for Query service.
 type QueryServer interface {
-	// TokenPairs retrieves registered token pairs
+	// TokenPairs retrieves registered token pairs (mappings)x
 	TokenPairs(context.Context, *QueryTokenPairsRequest) (*QueryTokenPairsResponse, error)
-	// TokenPair retrieves a registered token pair
+	// TokenPair retrieves a registered token pair (mapping)
 	TokenPair(context.Context, *QueryTokenPairRequest) (*QueryTokenPairResponse, error)
 	// Params retrieves the erc20 module params
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
