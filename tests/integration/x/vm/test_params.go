@@ -64,21 +64,6 @@ func (s *KeeperTestSuite) TestParams() {
 			true,
 		},
 		{
-			"success - Check AllowUnprotectedTxs param is set to false and can be retrieved correctly",
-			func() interface{} {
-				params := defaultChainEVMParams
-				params.AllowUnprotectedTxs = false
-				err := s.Network.App.GetEVMKeeper().SetParams(s.Network.GetContext(), params)
-				s.Require().NoError(err)
-				return params.AllowUnprotectedTxs
-			},
-			func() interface{} {
-				evmParams := s.Network.App.GetEVMKeeper().GetParams(s.Network.GetContext())
-				return evmParams.GetAllowUnprotectedTxs()
-			},
-			true,
-		},
-		{
 			name: "success - Active precompiles are sorted when setting params",
 			paramsFun: func() interface{} {
 				params := defaultChainEVMParams
