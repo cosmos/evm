@@ -22,7 +22,6 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/keeper"
-	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -133,7 +132,6 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 			ctx := tc.malleate()
 
 			// Function being tested
-			db := statedb.New(ctx, s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig(common.Hash{}))
 			hash := s.Network.App.GetEVMKeeper().GetHashFn(ctx)(tc.height)
 			s.Require().Equal(tc.expHash, hash)
 
