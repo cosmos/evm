@@ -1,12 +1,13 @@
 package erc20factory
 
 import (
+	"github.com/stretchr/testify/suite"
+
 	"github.com/cosmos/evm/precompiles/erc20factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	"github.com/stretchr/testify/suite"
 )
 
 // PrecompileTestSuite is the implementation of the TestSuite interface for ERC20 Factory precompile

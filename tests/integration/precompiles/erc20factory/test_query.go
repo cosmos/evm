@@ -1,8 +1,9 @@
 package erc20factory
 
 import (
-	"github.com/cosmos/evm/precompiles/erc20factory"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/cosmos/evm/precompiles/erc20factory"
 )
 
 func (s *PrecompileTestSuite) TestCalculateAddress() {

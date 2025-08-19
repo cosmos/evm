@@ -3,9 +3,10 @@ package erc20factory
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/precompiles/erc20factory"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {

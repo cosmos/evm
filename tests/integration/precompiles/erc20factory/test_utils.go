@@ -3,8 +3,9 @@ package erc20factory
 import (
 	"math/big"
 
-	"github.com/cosmos/evm/precompiles/erc20factory"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
+	"github.com/cosmos/evm/precompiles/erc20factory"
 )
 
 func (s *PrecompileTestSuite) setupERC20FactoryPrecompile() *erc20factory.Precompile {

@@ -3,11 +3,12 @@ package erc20factory
 import (
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/erc20factory"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (s *PrecompileTestSuite) TestCreate() {
@@ -45,7 +46,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 				s.Require().Equal(amount, balance.Amount.BigInt(), "expected balance to match preminted amount")
 
 				s.Require().Equal(address.String(), expectedAddress, "expected address to match")
-
 			},
 			expAddress: expectedAddress,
 		},

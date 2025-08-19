@@ -57,7 +57,10 @@ func (p Precompile) Create(
 
 	pair := erc20types.NewTokenPair(address, metadata.Name, erc20types.OWNER_EXTERNAL)
 
-	p.erc20Keeper.SetToken(ctx, pair)
+	err = p.erc20Keeper.SetToken(ctx, pair)
+	if err != nil {
+		return nil, err
+	}
 
 	err = p.erc20Keeper.EnableDynamicPrecompile(ctx, pair.GetERC20Contract())
 	if err != nil {

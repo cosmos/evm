@@ -13,7 +13,9 @@ describe('ERC20Factory', function () {
     const salt = '0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234'
     const tokenPairType = 0
     const erc20Factory = await hre.ethers.getContractAt('IERC20Factory', '0x0000000000000000000000000000000000000900')
+      console.log("erc20Factory contract loaded")
     const expectedAddress = await erc20Factory.calculateAddress(tokenPairType, salt)
+      console.log("erc20factory calculateAddress")
     expect(expectedAddress).to.equal('0x6a040655fE545126cD341506fCD4571dB3A444F9')
   })
 
@@ -24,7 +26,7 @@ describe('ERC20Factory', function () {
     const decimals = 18
     const tokenPairType = 0
     const premintedSupply = hre.ethers.parseEther("1000000") // 1M tokens
-
+      0x0000000000000000000000000000000000000900
     const [signer] = await hre.ethers.getSigners()
     const minter = signer.address
 

@@ -7,6 +7,11 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 )
 
+const (
+	tokenName   = "Test"
+	tokenSymbol = "TEST"
+)
+
 func (s *PrecompileTestSuite) TestIsTransaction() {
 	s.SetupTest()
 
@@ -25,8 +30,8 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 	mintAddr := utiltx.GenerateAddress()
 	decimals := uint8(18)
 	amount := big.NewInt(1000000)
-	name := "Test"
-	symbol := "TEST"
+	name := tokenName
+	symbol := tokenSymbol
 
 	testcases := []struct {
 		name     string
