@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
@@ -32,7 +31,6 @@ type Precompile struct {
 	cmn.Precompile
 	distributionKeeper distributionkeeper.Keeper
 	stakingKeeper      stakingkeeper.Keeper
-	evmKeeper          *evmkeeper.Keeper
 	addrCdc            address.Codec
 }
 
@@ -41,7 +39,7 @@ type Precompile struct {
 func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
 	stakingKeeper stakingkeeper.Keeper,
-	evmKeeper *evmkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	addrCdc address.Codec,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
@@ -57,12 +55,14 @@ func NewPrecompile(
 		},
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
-		evmKeeper:          evmKeeper,
 		addrCdc:            addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
 	p.SetAddress(common.HexToAddress(evmtypes.DistributionPrecompileAddress))
+
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
 
 	return p, nil
 }
