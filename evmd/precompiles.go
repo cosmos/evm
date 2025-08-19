@@ -92,7 +92,7 @@ func NewAvailableStaticPrecompiles(
 		opt(&options)
 	}
 	// Clone the mapping from the latest EVM fork.
-	precompiles := maps.Clone(vm.PrecompiledContractsBerlin)
+	precompiles := maps.Clone(vm.PrecompiledContractsPrague)
 
 	// secp256r1 precompile as per EIP-7212
 	p256Precompile := &p256.Precompile{}
@@ -102,7 +102,7 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper, options.AddressCodec)
+	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper, bankKeeper, options.AddressCodec)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
 	}
@@ -110,7 +110,7 @@ func NewAvailableStaticPrecompiles(
 	distributionPrecompile, err := distprecompile.NewPrecompile(
 		distributionKeeper,
 		stakingKeeper,
-		evmKeeper,
+		bankKeeper,
 		options.AddressCodec,
 	)
 	if err != nil {
@@ -133,12 +133,12 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
 	}
 
-	govPrecompile, err := govprecompile.NewPrecompile(govKeeper, codec, options.AddressCodec)
+	govPrecompile, err := govprecompile.NewPrecompile(govKeeper, bankKeeper, codec, options.AddressCodec)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
 	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper, options.ValidatorAddrCodec, options.ConsensusAddrCodec)
+	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper, bankKeeper, options.ValidatorAddrCodec, options.ConsensusAddrCodec)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}

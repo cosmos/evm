@@ -49,7 +49,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
 		}
 
-		err := SignatureVerification(msgEthTx, signer, allowUnprotectedTxs)
+		err := SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer, allowUnprotectedTxs)
 		if err != nil {
 			return ctx, err
 		}
@@ -64,10 +64,10 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 // computed from the signature of the Ethereum transaction.
 func SignatureVerification(
 	msg *evmtypes.MsgEthereumTx,
+	ethTx *ethtypes.Transaction,
 	signer ethtypes.Signer,
 	allowUnprotectedTxs bool,
 ) error {
-	ethTx := msg.AsTransaction()
 	ethCfg := evmtypes.GetEthChainConfig()
 
 	if !allowUnprotectedTxs {
@@ -83,16 +83,9 @@ func SignatureVerification(
 		}
 	}
 
-	sender, err := signer.Sender(ethTx)
-	if err != nil {
-		return errorsmod.Wrapf(
-			errortypes.ErrorInvalidSigner,
-			"couldn't retrieve sender address from the ethereum transaction: %s",
-			err.Error(),
-		)
+	if err := msg.VerifySender(signer); err != nil {
+		return errorsmod.Wrapf(errortypes.ErrorInvalidSigner, "signature verification failed: %s", err.Error())
 	}
 
-	// set up the sender to the transaction field if not already
-	msg.From = sender.Hex()
 	return nil
 }

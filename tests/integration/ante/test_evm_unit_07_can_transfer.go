@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -43,6 +41,7 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			expectedError: errortypes.ErrInsufficientFee,
 			isLondon:      true,
 			malleate: func(txArgs *evmtypes.EvmTxArgs) {
+				txArgs.GasPrice = nil // make sure it's not legacy tx
 				txArgs.GasFeeCap = big.NewInt(0)
 			},
 		},
@@ -166,11 +165,8 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 
 			baseFeeResp, err := grpcHandler.GetEvmBaseFee()
 			s.Require().NoError(err)
-			ethCfg := unitNetwork.GetEVMChainConfig()
 			evmParams, err := grpcHandler.GetEvmParams()
 			s.Require().NoError(err)
-			ctx := unitNetwork.GetContext()
-			signer := gethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 			txArgs, err := txFactory.GenerateDefaultTxTypeArgs(senderKey.Addr, s.EthTxType)
 			s.Require().NoError(err)
 			txArgs.Amount = big.NewInt(100)
@@ -178,11 +174,10 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 			tc.malleate(&txArgs)
 
 			msg := evmtypes.NewTx(&txArgs)
-			msg.From = senderKey.Addr.String()
+			msg.From = senderKey.Addr.Bytes()
 			signMsg, err := txFactory.SignMsgEthereumTx(senderKey.Priv, *msg)
 			s.Require().NoError(err)
-			coreMsg, err := signMsg.AsMessage(signer, baseFeeResp.BaseFee.BigInt())
-			s.Require().NoError(err)
+			coreMsg := signMsg.AsMessage(baseFeeResp.BaseFee.BigInt())
 
 			// Function under test
 			err = evm.CanTransfer(

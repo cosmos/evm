@@ -35,7 +35,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 		gasFeeCap       *big.Int
 		gasTipCap       *big.Int
 		cost            *sdkmath.Int
-		from            string
+		from            []byte
 		accessList      *ethtypes.AccessList
 		expectPass      bool
 		EnableFeemarket bool
@@ -46,7 +46,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   10,
 			gasPrice:   &oneInt,
 			cost:       &oneInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: true,
 		},
@@ -56,7 +56,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   99,
 			gasPrice:   &oneInt,
 			cost:       &oneInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: true,
 		},
@@ -66,7 +66,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   1,
 			gasPrice:   &oneInt,
 			cost:       &negInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: false,
 		},
@@ -76,7 +76,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   100,
 			gasPrice:   &oneInt,
 			cost:       &oneInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: false,
 		},
@@ -86,7 +86,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   10,
 			gasPrice:   &fiveInt,
 			cost:       &oneInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: true,
 		},
@@ -96,7 +96,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   20,
 			gasPrice:   &fiveInt,
 			cost:       &oneInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: false,
 		},
@@ -106,7 +106,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   10,
 			gasPrice:   &fiveInt,
 			cost:       &fiftyInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: true,
 		},
@@ -116,7 +116,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:   10,
 			gasPrice:   &fiveInt,
 			cost:       &hundredInt,
-			from:       addr.String(),
+			from:       addr.Bytes(),
 			accessList: &ethtypes.AccessList{},
 			expectPass: false,
 		},
@@ -126,7 +126,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        10,
 			gasFeeCap:       big.NewInt(1),
 			cost:            &oneInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      true,
 			EnableFeemarket: true,
@@ -137,7 +137,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        99,
 			gasFeeCap:       big.NewInt(1),
 			cost:            &oneInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      true,
 			EnableFeemarket: true,
@@ -148,7 +148,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        1,
 			gasFeeCap:       big.NewInt(1),
 			cost:            &negInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      false,
 			EnableFeemarket: true,
@@ -159,7 +159,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        100,
 			gasFeeCap:       big.NewInt(1),
 			cost:            &oneInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      false,
 			EnableFeemarket: true,
@@ -170,7 +170,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        10,
 			gasFeeCap:       big.NewInt(5),
 			cost:            &oneInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      true,
 			EnableFeemarket: true,
@@ -181,7 +181,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        20,
 			gasFeeCap:       big.NewInt(5),
 			cost:            &oneInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      false,
 			EnableFeemarket: true,
@@ -192,7 +192,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        10,
 			gasFeeCap:       big.NewInt(5),
 			cost:            &fiftyInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      true,
 			EnableFeemarket: true,
@@ -203,7 +203,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 			gasLimit:        10,
 			gasFeeCap:       big.NewInt(5),
 			cost:            &hundredInt,
-			from:            addr.String(),
+			from:            addr.Bytes(),
 			accessList:      &ethtypes.AccessList{},
 			expectPass:      false,
 			EnableFeemarket: true,
@@ -219,7 +219,7 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 
 	for i, tc := range testCases {
 		s.Run(tc.name, func() {
-			to := common.HexToAddress(tc.from)
+			to := common.HexToAddress(tc.to)
 
 			var amount, gasPrice, gasFeeCap, gasTipCap *big.Int
 			if tc.cost != nil {
@@ -249,14 +249,12 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 				Accesses:  tc.accessList,
 			}
 			tx := evmtypes.NewTx(ethTxParams)
-			tx.From = tc.from
-
-			txData, _ := evmtypes.UnpackTxData(tx.Data)
+			tx.From = to.Bytes()
 
 			acct := s.Network.App.GetEVMKeeper().GetAccountOrEmpty(s.Network.GetContext(), addr)
 			err := keeper.CheckSenderBalance(
 				sdkmath.NewIntFromBigInt(acct.Balance.ToBig()),
-				txData,
+				tx.AsTransaction(),
 			)
 
 			if tc.expectPass {
@@ -296,7 +294,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 		expectPassVerify bool
 		expectPassDeduct bool
 		EnableFeemarket  bool
-		from             string
+		from             []byte
 		malleate         func()
 	}{
 		{
@@ -307,7 +305,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "Equal balance",
@@ -317,7 +315,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "Higher gas limit, not enough balance",
@@ -327,7 +325,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: false,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "Higher gas price, enough balance",
@@ -337,7 +335,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "Higher gas price, not enough balance",
@@ -347,7 +345,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: false,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		// This case is expected to be true because the fees can be deducted, but the tx
 		// execution is going to fail because there is no more balance to pay the cost
@@ -359,7 +357,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		//  testcases with EnableFeemarket enabled.
 		{
@@ -372,7 +370,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			expectPassVerify: false,
 			expectPassDeduct: true,
 			EnableFeemarket:  true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "empty tip fee is valid to deduct",
@@ -384,7 +382,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			expectPassVerify: true,
 			expectPassDeduct: true,
 			EnableFeemarket:  true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "effectiveTip equal to gasTipCap",
@@ -395,7 +393,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			expectPassVerify: true,
 			expectPassDeduct: true,
 			EnableFeemarket:  true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "effectiveTip equal to (gasFeeCap - baseFee)",
@@ -407,7 +405,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			expectPassVerify: true,
 			expectPassDeduct: true,
 			EnableFeemarket:  true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "Invalid from address",
@@ -417,7 +415,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: true,
 			expectPassDeduct: false,
-			from:             "abcdef",
+			from:             []byte("abcdef"),
 		},
 		{
 			name:     "Enough balance - with access list",
@@ -432,7 +430,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			},
 			expectPassVerify: true,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 		},
 		{
 			name:             "gasLimit < intrinsicGas during IsCheckTx",
@@ -442,7 +440,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			accessList:       &ethtypes.AccessList{},
 			expectPassVerify: false,
 			expectPassDeduct: true,
-			from:             addr.String(),
+			from:             addr.Bytes(),
 			malleate: func() {
 				s.Network.WithIsCheckTxCtx(true)
 			},
@@ -502,14 +500,14 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			tx := evmtypes.NewTx(ethTxParams)
 			tx.From = tc.from
 
-			txData, _ := evmtypes.UnpackTxData(tx.Data)
+			ethTx := tx.AsTransaction()
 
 			baseFee := s.Network.App.GetEVMKeeper().GetBaseFee(s.Network.GetContext())
-			priority := evmtypes.GetTxPriority(txData, baseFee)
+			priority := evmtypes.GetTxPriority(ethTx, baseFee)
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(ethTx, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
 			if tc.expectPassVerify {
 				s.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.EnableFeemarket {
@@ -517,7 +515,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 					s.Require().Equal(
 						fees,
 						sdk.NewCoins(
-							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(txData.EffectiveFee(baseFee.TruncateInt().BigInt()))),
+							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee.TruncateInt().BigInt()))),
 						),
 						"valid test %d failed, fee value is wrong  - '%s'", i, tc.name,
 					)
@@ -536,7 +534,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 				s.Require().Nil(fees, "invalid test %d passed. fees value must be nil - '%s'", i, tc.name)
 			}
 
-			err = s.Network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(s.Network.GetContext(), fees, common.HexToAddress(tx.From))
+			err = s.Network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(s.Network.GetContext(), fees, common.BytesToAddress(tx.From))
 			if tc.expectPassDeduct {
 				s.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 			} else {

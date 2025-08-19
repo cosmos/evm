@@ -48,10 +48,10 @@ func signMsg(msg []byte, priv *ecdsa.PrivateKey) ([]byte, error) {
 
 	input := make([]byte, p256.VerifyInputLength)
 	copy(input[0:32], hash)
-	copy(input[32:64], rInt.Bytes())
-	copy(input[64:96], sInt.Bytes())
-	copy(input[96:128], priv.X.Bytes())
-	copy(input[128:160], priv.Y.Bytes())
+	rInt.FillBytes(input[32:64])
+	sInt.FillBytes(input[64:96])
+	priv.X.FillBytes(input[96:128])
+	priv.Y.FillBytes(input[128:160])
 
 	return input, nil
 }

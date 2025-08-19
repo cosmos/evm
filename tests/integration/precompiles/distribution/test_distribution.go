@@ -268,10 +268,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			cfg, err := s.network.App.GetEVMKeeper().EVMConfig(ctx, proposerAddress)
 			s.Require().NoError(err, "failed to instantiate EVM config")
 
-			ethChainID := s.network.GetEIP155ChainID()
-			signer := gethtypes.LatestSignerForChainID(ethChainID)
-			msg, err := signedMsg.AsMessage(signer, baseFee)
-			s.Require().NoError(err, "failed to instantiate Ethereum message")
+			msg := signedMsg.AsMessage(baseFee)
 
 			// Instantiate EVM
 			evm := s.network.App.GetEVMKeeper().NewEVM(

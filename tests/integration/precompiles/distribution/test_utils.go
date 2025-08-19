@@ -84,6 +84,7 @@ func (s *PrecompileTestSuite) fundAccountWithBaseDenom(ctx sdk.Context, addr sdk
 func (s *PrecompileTestSuite) getStakingPrecompile() (*staking.Precompile, error) {
 	return staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
+		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }

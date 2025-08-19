@@ -666,7 +666,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 		Input:    []byte("test"),
 	}
 	msg := types.NewTx(ethTxParams)
-	msg.From = addr.Hex()
+	msg.From = addr.Bytes()
 
 	tx := s.CreateTestTx(msg, privKey)
 	msg, _ = tx.GetMsgs()[0].(*types.MsgEthereumTx)
@@ -682,7 +682,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 		Input:    []byte("test"),
 	}
 	msg2 := types.NewTx(ethTx2Params)
-	msg2.From = addr.Hex()
+	msg2.From = addr.Bytes()
 
 	ethTx3Params := &types.EvmTxArgs{
 		ChainID:   big.NewInt(testconstants.ExampleEIP155ChainID),
@@ -695,7 +695,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 		Input:     []byte("test"),
 	}
 	msg3 := types.NewTx(ethTx3Params)
-	msg3.From = addr.Hex()
+	msg3.From = addr.Bytes()
 
 	tx3 := s.CreateTestTx(msg3, privKey)
 	msg3, _ = tx3.GetMsgs()[0].(*types.MsgEthereumTx)
@@ -712,7 +712,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 		Input:     []byte("test"),
 	}
 	msg4 := types.NewTx(ethTx4Params)
-	msg4.From = addr.Hex()
+	msg4.From = addr.Bytes()
 
 	testCases := []struct {
 		name        string
@@ -828,7 +828,7 @@ func (s *KeeperTestSuite) TestAddAddressToAccessList() {
 			vmdb := s.StateDB()
 			vmdb.AddAddressToAccessList(tc.addr)
 			addrOk := vmdb.AddressInAccessList(tc.addr)
-			s.Require().True(addrOk, tc.addr.Hex())
+			s.Require().True(addrOk, tc.addr.Bytes())
 		})
 	}
 }
@@ -850,7 +850,7 @@ func (s *KeeperTestSuite) TestAddSlotToAccessList() {
 			vmdb := s.StateDB()
 			vmdb.AddSlotToAccessList(tc.addr, tc.slot)
 			addrOk, slotOk := vmdb.SlotInAccessList(tc.addr, tc.slot)
-			s.Require().True(addrOk, tc.addr.Hex())
+			s.Require().True(addrOk, tc.addr.Bytes())
 			s.Require().True(slotOk, tc.slot.Hex())
 		})
 	}

@@ -2,12 +2,17 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/gogoproto/proto"
 
@@ -33,23 +38,118 @@ func IsEmptyCodeHash(bz []byte) bool {
 	return bytes.Equal(bz, EmptyCodeHash)
 }
 
-// DecodeTxResponse decodes an protobuf-encoded byte slice into TxResponse
+// DecodeTxResponse decodes a protobuf-encoded byte slice into TxResponse
 func DecodeTxResponse(in []byte) (*MsgEthereumTxResponse, error) {
+	responses, err := DecodeTxResponses(in)
+	if err != nil {
+		return nil, err
+	}
+	if len(responses) == 0 {
+		return &MsgEthereumTxResponse{}, nil
+	}
+	return responses[0], nil
+}
+
+// DecodeTxResponses decodes a protobuf-encoded byte slice into TxResponses
+func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
+	if in == nil {
+		return nil, nil
+	}
 	var txMsgData sdk.TxMsgData
 	if err := proto.Unmarshal(in, &txMsgData); err != nil {
 		return nil, err
 	}
+	responses := make([]*MsgEthereumTxResponse, 0, len(txMsgData.MsgResponses))
+	for _, res := range txMsgData.MsgResponses {
+		var response MsgEthereumTxResponse
+		if res.TypeUrl != "/"+proto.MessageName(&response) {
+			continue
+		}
+		err := proto.Unmarshal(res.Value, &response)
+		if err != nil {
+			return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+		}
+		responses = append(responses, &response)
+	}
+	return responses, nil
+}
 
-	if len(txMsgData.MsgResponses) == 0 {
-		return &MsgEthereumTxResponse{}, nil
+func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNumber uint64) []*ethtypes.Log {
+	if dst == nil {
+		dst = make([]*ethtypes.Log, 0, len(rsp.Logs))
 	}
 
-	var res MsgEthereumTxResponse
-	if err := proto.Unmarshal(txMsgData.MsgResponses[0].Value, &res); err != nil {
-		return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+	txHash := common.HexToHash(rsp.Hash)
+	for _, log := range rsp.Logs {
+		// fill in the tx/block informations
+		l := log.ToEthereum()
+		l.TxHash = txHash
+		l.BlockNumber = blockNumber
+		dst = append(dst, l)
 	}
+	return dst
+}
 
-	return &res, nil
+// TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
+func TxLogsFromEvents(events []abci.Event, msgIndex int) ([]*ethtypes.Log, error) {
+	index := msgIndex
+	for _, event := range events {
+		if event.Type != EventTypeTxLog {
+			continue
+		}
+
+		if msgIndex > 0 {
+			// not the eth tx we want
+			msgIndex--
+			continue
+		}
+
+		return ParseTxLogsFromEvent(event)
+	}
+	return nil, fmt.Errorf("eth tx logs not found for message index %d", index)
+}
+
+// ParseTxLogsFromEvent parse tx logs from one event
+func ParseTxLogsFromEvent(event abci.Event) ([]*ethtypes.Log, error) {
+	logs := make([]*Log, 0, len(event.Attributes))
+	for _, attr := range event.Attributes {
+		if attr.Key != AttributeKeyTxLog {
+			continue
+		}
+
+		var log Log
+		if err := json.Unmarshal([]byte(attr.Value), &log); err != nil {
+			return nil, err
+		}
+
+		logs = append(logs, &log)
+	}
+	return LogsToEthereum(logs), nil
+}
+
+// DecodeTxLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs
+func DecodeTxLogsFromEvents(in []byte, events []abci.Event, blockNumber uint64) ([]*ethtypes.Log, error) {
+	txResponses, err := DecodeTxResponses(in)
+	if err != nil {
+		return nil, err
+	}
+	var logs []*ethtypes.Log
+	for _, response := range txResponses {
+		logs = logsFromTxResponse(logs, response, blockNumber)
+	}
+	if len(logs) == 0 {
+		for _, event := range events {
+			if event.Type != EventTypeTxLog {
+				continue
+			}
+			txLogs, err := ParseTxLogsFromEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			logs = append(logs, txLogs...)
+		}
+	}
+	return logs, nil
 }
 
 // EncodeTransactionLogs encodes TransactionLogs slice into a protobuf-encoded byte slice.
@@ -79,7 +179,6 @@ func UnwrapEthereumMsg(tx *sdk.Tx, ethHash common.Hash) (*MsgEthereumTx, error) 
 			return nil, fmt.Errorf("invalid tx type: %T", tx)
 		}
 		txHash := ethMsg.AsTransaction().Hash()
-		ethMsg.Hash = txHash.Hex()
 		if txHash == ethHash {
 			return ethMsg, nil
 		}
@@ -91,7 +190,7 @@ func UnwrapEthereumMsg(tx *sdk.Tx, ethHash common.Hash) (*MsgEthereumTx, error) 
 // UnpackEthMsg unpacks an Ethereum message from a Cosmos SDK message
 func UnpackEthMsg(msg sdk.Msg) (
 	ethMsg *MsgEthereumTx,
-	txData TxData,
+	ethTx *ethtypes.Transaction,
 	err error,
 ) {
 	msgEthTx, ok := msg.(*MsgEthereumTx)
@@ -99,13 +198,8 @@ func UnpackEthMsg(msg sdk.Msg) (
 		return nil, nil, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*MsgEthereumTx)(nil))
 	}
 
-	txData, err = UnpackTxData(msgEthTx.Data)
-	if err != nil {
-		return nil, nil, errorsmod.Wrap(err, "failed to unpack tx data any for tx")
-	}
-
 	// sender address should be in the tx cache from the previous AnteHandle call
-	return msgEthTx, txData, nil
+	return msgEthTx, msgEthTx.Raw.Transaction, nil
 }
 
 // BinSearch executes the binary search and hone in on an executable gas limit
@@ -136,6 +230,14 @@ func EffectiveGasPrice(baseFee, feeCap, tipCap *big.Int) *big.Int {
 		return calcVal
 	}
 	return feeCap
+}
+
+// HexAddress encode ethereum address without checksum, faster to run for state machine
+func HexAddress(a []byte) string {
+	var buf [common.AddressLength*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a)
+	return string(buf[:])
 }
 
 // SortedKVStoreKeys returns a slice of *KVStoreKey sorted by their map key.

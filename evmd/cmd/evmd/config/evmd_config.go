@@ -71,7 +71,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range corevm.PrecompiledAddressesBerlin {
+	for _, addr := range corevm.PrecompiledAddressesPrague {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
 
@@ -87,17 +87,17 @@ func GetMaccPerms() map[string][]string {
 	return maps.Clone(maccPerms)
 }
 
+type EVMAppConfig struct {
+	serverconfig.Config
+
+	EVM     cosmosevmserverconfig.EVMConfig
+	JSONRPC cosmosevmserverconfig.JSONRPCConfig
+	TLS     cosmosevmserverconfig.TLSConfig
+}
+
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
 func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
-	type CustomAppConfig struct {
-		serverconfig.Config
-
-		EVM     cosmosevmserverconfig.EVMConfig
-		JSONRPC cosmosevmserverconfig.JSONRPCConfig
-		TLS     cosmosevmserverconfig.TLSConfig
-	}
-
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -118,15 +118,14 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = evmChainID
 
-	customAppConfig := CustomAppConfig{
+	customAppConfig := EVMAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
-	customAppTemplate := serverconfig.DefaultConfigTemplate +
-		cosmosevmserverconfig.DefaultEVMConfigTemplate
-
-	return customAppTemplate, customAppConfig
+	return EVMAppTemplate, customAppConfig
 }
+
+const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate

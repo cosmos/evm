@@ -19,7 +19,6 @@ import (
 	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -55,7 +54,7 @@ var ChainID = constants.ExampleChainID
 func (s *TestSuite) SetupTest() {
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
-	ctx.Viper.Set("evm.evm-chain-id", config.EVMChainID)
+	ctx.Viper.Set("evm.evm-chain-id", ChainID.EVMChainID)
 
 	baseDir := s.T().TempDir()
 	nodeDirName := "node"
@@ -96,7 +95,7 @@ func (s *TestSuite) SetupTest() {
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true
-	s.backend.Cfg.EVM.EVMChainID = 262144
+	s.backend.Cfg.EVM.EVMChainID = ChainID.EVMChainID
 	s.backend.QueryClient.QueryClient = mocks.NewEVMQueryClient(s.T())
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
 	s.backend.Ctx = rpctypes.ContextWithHeight(1)
@@ -118,7 +117,7 @@ func (s *TestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byte) {
 	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
 
 	// A valid msg should have empty `From`
-	msgEthereumTx.From = s.from.Hex()
+	msgEthereumTx.From = s.from.Bytes()
 
 	txBuilder := s.backend.ClientCtx.TxConfig.NewTxBuilder()
 	err := txBuilder.SetMsgs(msgEthereumTx)
@@ -126,7 +125,14 @@ func (s *TestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byte) {
 
 	bz, err := s.backend.ClientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
 	s.Require().NoError(err)
-	return msgEthereumTx, bz
+
+	// decode again to get canonical representation
+	tx, err := s.backend.ClientCtx.TxConfig.TxDecoder()(bz)
+	s.Require().NoError(err)
+
+	msgs := tx.GetMsgs()
+	s.Require().NotEmpty(msgs)
+	return msgs[0].(*evmtypes.MsgEthereumTx), bz
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
@@ -142,7 +148,7 @@ func (s *TestSuite) buildEthereumTxWithChainID(eip155ChainID *big.Int) *evmtypes
 	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
 
 	// A valid msg should have empty `From`
-	msgEthereumTx.From = s.from.Hex()
+	msgEthereumTx.From = s.from.Bytes()
 
 	txBuilder := s.backend.ClientCtx.TxConfig.NewTxBuilder()
 	err := txBuilder.SetMsgs(msgEthereumTx)
@@ -172,7 +178,7 @@ func (s *TestSuite) buildFormattedBlock(
 	if tx != nil {
 		if fullTx {
 			rpcTx, err := rpctypes.NewRPCTransaction(
-				tx.AsTransaction(),
+				tx,
 				common.BytesToHash(header.Hash()),
 				uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
 				uint64(0),
@@ -182,7 +188,7 @@ func (s *TestSuite) buildFormattedBlock(
 			s.Require().NoError(err)
 			ethRPCTxs = []interface{}{rpcTx}
 		} else {
-			ethRPCTxs = []interface{}{common.HexToHash(tx.Hash)}
+			ethRPCTxs = []interface{}{tx.Hash()}
 		}
 	}
 
@@ -200,7 +206,7 @@ func (s *TestSuite) buildFormattedBlock(
 
 func (s *TestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
 	buf := bufio.NewReader(os.Stdin)
-	encCfg := encoding.MakeConfig(config.EVMChainID)
+	encCfg := encoding.MakeConfig(ChainID.EVMChainID)
 	return keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, clientDir, buf, encCfg.Codec, []keyring.Option{hd.EthSecp256k1Option()}...)
 }
 
@@ -209,7 +215,7 @@ func (s *TestSuite) signAndEncodeEthTx(msgEthereumTx *evmtypes.MsgEthereumTx) []
 	signer := utiltx.NewSigner(priv)
 
 	ethSigner := ethtypes.LatestSigner(s.backend.ChainConfig())
-	msgEthereumTx.From = from.String()
+	msgEthereumTx.From = from.Bytes()
 	err := msgEthereumTx.Sign(ethSigner, signer)
 	s.Require().NoError(err)
 

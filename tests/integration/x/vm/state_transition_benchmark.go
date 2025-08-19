@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -44,13 +44,23 @@ var templateDynamicFeeTx = &ethtypes.DynamicFeeTx{
 	Data:      []byte{},
 }
 
+var templateSetCodeTx = &ethtypes.SetCodeTx{
+	GasFeeCap: uint256.NewInt(10),
+	GasTipCap: uint256.NewInt(2),
+	Gas:       21000,
+	To:        common.Address{},
+	Value:     uint256.NewInt(0),
+	Data:      []byte{},
+	AuthList:  []ethtypes.SetCodeAuthorization{},
+}
+
 func newSignedEthTx(
 	txData ethtypes.TxData,
 	nonce uint64,
 	addr sdk.Address,
 	krSigner keyring.Signer,
 	ethSigner ethtypes.Signer,
-) (*ethtypes.Transaction, error) {
+) (*evmtypes.MsgEthereumTx, error) {
 	var ethTx *ethtypes.Transaction
 	switch txData := txData.(type) {
 	case *ethtypes.AccessListTx:
@@ -76,7 +86,11 @@ func newSignedEthTx(
 		return nil, err
 	}
 
-	return ethTx, nil
+	var msg evmtypes.MsgEthereumTx
+	if err := msg.FromSignedEthereumTx(ethTx, ethSigner); err != nil {
+		return nil, err
+	}
+	return &msg, nil
 }
 
 func newEthMsgTx(
@@ -87,6 +101,7 @@ func newEthMsgTx(
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
+	authList []ethtypes.SetCodeAuthorization,
 ) (*evmtypes.MsgEthereumTx, *big.Int, error) {
 	var (
 		ethTx   *ethtypes.Transaction
@@ -120,45 +135,44 @@ func newEthMsgTx(
 		templateAccessListTx.AccessList = accessList
 		ethTx = ethtypes.NewTx(templateDynamicFeeTx)
 		baseFee = big.NewInt(3)
+	case ethtypes.SetCodeTxType:
+		templateSetCodeTx.Nonce = nonce
+
+		if data != nil {
+			templateSetCodeTx.Data = data
+		} else {
+			templateSetCodeTx.Data = []byte{}
+		}
+		templateSetCodeTx.AuthList = authList
+		ethTx = ethtypes.NewTx(templateSetCodeTx)
+		baseFee = big.NewInt(3)
 	default:
 		return nil, baseFee, errors.New("unsupported tx type")
 	}
 
 	msg := &evmtypes.MsgEthereumTx{}
-	err := msg.FromEthereumTx(ethTx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	msg.From = address.Hex()
+	msg.FromEthereumTx(ethTx)
+	msg.From = address.Bytes()
 
 	return msg, baseFee, msg.Sign(ethSigner, krSigner)
 }
 
 func newNativeMessage(
 	nonce uint64,
-	blockHeight int64,
 	address common.Address,
-	cfg *params.ChainConfig,
 	krSigner keyring.Signer,
 	ethSigner ethtypes.Signer,
 	txType byte,
 	data []byte,
 	accessList ethtypes.AccessList,
+	authorizationList []ethtypes.SetCodeAuthorization, //nolint:unparam
 ) (*core.Message, error) {
-	msgSigner := ethtypes.MakeSigner(cfg, big.NewInt(blockHeight), 10000000)
-
-	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList)
+	msg, baseFee, err := newEthMsgTx(nonce, address, krSigner, ethSigner, txType, data, accessList, authorizationList)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := msg.AsMessage(msgSigner, baseFee)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return msg.AsMessage(baseFee), nil
 }
 
 func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
@@ -182,7 +196,7 @@ func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx.AsTransaction())
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -211,7 +225,7 @@ func BenchmarkApplyTransactionWithLegacyTx(b *testing.B) { //nolint:dupl
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx.AsTransaction())
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -240,7 +254,7 @@ func BenchmarkApplyTransactionWithDynamicFeeTx(b *testing.B) {
 		require.NoError(b, err)
 
 		b.StartTimer()
-		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx)
+		resp, err := suite.Network.App.GetEVMKeeper().ApplyTransaction(suite.Network.GetContext(), tx.AsTransaction())
 		b.StopTimer()
 
 		require.NoError(b, err)
@@ -263,12 +277,11 @@ func BenchmarkApplyMessage(b *testing.B) {
 		krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 		m, err := newNativeMessage(
 			suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), addr),
-			suite.Network.GetContext().BlockHeight(),
 			addr,
-			ethCfg,
 			krSigner,
 			signer,
 			ethtypes.AccessListTxType,
+			nil,
 			nil,
 			nil,
 		)
@@ -298,12 +311,11 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 		krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 		m, err := newNativeMessage(
 			suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), addr),
-			suite.Network.GetContext().BlockHeight(),
 			addr,
-			ethCfg,
 			krSigner,
 			signer,
 			ethtypes.AccessListTxType,
+			nil,
 			nil,
 			nil,
 		)
@@ -333,12 +345,11 @@ func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B) {
 		krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 		m, err := newNativeMessage(
 			suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), addr),
-			suite.Network.GetContext().BlockHeight(),
 			addr,
-			ethCfg,
 			krSigner,
 			signer,
 			ethtypes.DynamicFeeTxType,
+			nil,
 			nil,
 			nil,
 		)
