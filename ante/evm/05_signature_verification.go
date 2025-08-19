@@ -47,7 +47,7 @@ func (esvd EthSigVerificationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, s
 			return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid message type %T, expected %T", msg, (*evmtypes.MsgEthereumTx)(nil))
 		}
 
-		err := SignatureVerification(msgEthTx, signer)
+		err := SignatureVerification(msgEthTx, msgEthTx.AsTransaction(), signer)
 		if err != nil {
 			return ctx, err
 		}
