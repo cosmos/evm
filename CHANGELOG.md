@@ -2,6 +2,10 @@
 
 ## UNRELEASED
 
+### STATE BREAKING
+
+- [\#277](https://github.com/cosmos/evm/pull/277) Add GetParams methods to staking and distribution precompile.
+
 ## v0.4.0
 
 ### DEPENDENCIES
