@@ -1,8 +1,6 @@
 package backend
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -10,7 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -381,170 +385,283 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
 func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
-	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
+	acl, gasUsed, vmerr, err := b.createAccessList(args, blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
 
-	header, err := b.CometBlockByNumber(blockNum)
-	if err != nil {
-		b.Logger.Error("header not found", "error", err.Error())
-		return nil, errors.New("header not found")
+	hexGasUsed := hexutil.Uint64(gasUsed)
+	result := rpctypes.AccessListResult{
+		AccessList: &acl,
+		GasUsed:    &hexGasUsed,
+	}
+	if vmerr != nil {
+		result.Error = vmerr.Error()
+	}
+	return &result, nil
+}
+
+// func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
+// accessList, err := ethtypes.AccessList(args.AccessList)
+
+// header, err := b.CometBlockByNumber(blockNum)
+// if err != nil {
+// 	b.Logger.Error("header not found", "error", err.Error())
+// 	return nil, errors.New("header not found")
+// }
+
+// // Set a reasonable gas limit for access list creation if none is provided
+// if args.Gas == nil {
+// 	b.Logger.Debug("gas not provided, using default gas cap")
+// 	defaultGas := hexutil.Uint64(b.RPCGasCap())
+// 	args.Gas = &defaultGas
+// }
+
+// msg := args.ToTransaction(ethtypes.LegacyTxType)
+// if msg == nil {
+// 	b.Logger.Debug("failed to convert transaction args to message")
+// 	return nil, errors.New("failed to convert transaction args to message")
+// }
+
+// nc, ok := b.ClientCtx.Client.(cmtrpcclient.NetworkClient)
+// if !ok {
+// 	b.Logger.Debug("invalid rpc client")
+// 	return nil, errors.New("invalid rpc client")
+// }
+
+// cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
+// if err != nil {
+// 	b.Logger.Debug("consensus params not found", "error", err.Error())
+// 	return nil, err
+// }
+
+// // Determine if this is a prospective transaction or an executed transaction
+// // by checking if the transaction hash exists in the block and finding its exact position
+// var (
+// 	isExecuted     bool
+// 	targetTxIndex  int
+// 	targetMsgIndex int
+// 	predecessors   []*evmtypes.MsgEthereumTx
+// 	txHash         = msg.Hash()
+// )
+
+// // Find the exact position of the target transaction
+// for txIdx, txBytes := range header.Block.Txs {
+// 	tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+// 	if err != nil {
+// 		b.Logger.Debug("failed to decode tx", "error", err.Error())
+// 		continue
+// 	}
+// 	for msgIdx, txMsg := range tx.GetMsgs() {
+// 		ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+// 		if !ok {
+// 			b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
+// 			continue
+// 		}
+// 		if ethMsg.AsTransaction().Hash() == txHash {
+// 			isExecuted = true
+// 			targetTxIndex = txIdx
+// 			targetMsgIndex = msgIdx
+// 			break
+// 		}
+// 	}
+// 	if isExecuted {
+// 		break
+// 	}
+// }
+
+// // if tx has already been executed, we need to get the predecessor transactions
+// if isExecuted {
+// 	for i := 0; i < targetTxIndex; i++ {
+// 		txBytes := header.Block.Txs[i]
+// 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+// 		if err != nil {
+// 			b.Logger.Debug("failed to decode tx", "error", err.Error())
+// 			continue
+// 		}
+// 		for _, txMsg := range tx.GetMsgs() {
+// 			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
+// 			if !ok {
+// 				b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
+// 				continue
+// 			}
+// 			predecessors = append(predecessors, ethMsg)
+// 		}
+// 	}
+
+// 	// Then, get messages from the same transaction but before the target message
+// 	if targetMsgIndex > 0 {
+// 		txBytes := header.Block.Txs[targetTxIndex]
+// 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
+// 		if err == nil {
+// 			for i := 0; i < targetMsgIndex; i++ {
+// 				ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
+// 				if !ok {
+// 					b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
+// 					continue
+// 				}
+// 				predecessors = append(predecessors, ethMsg)
+// 			}
+// 		}
+// 	}
+// } else {
+// 	predecessors = []*evmtypes.MsgEthereumTx{}
+// }
+
+// // Convert Transaction to MsgEthereumTx
+// msgEthTx := &evmtypes.MsgEthereumTx{}
+// msgEthTx.FromEthereumTx(msg)
+
+// traceTxRequest := evmtypes.QueryTraceTxRequest{
+// 	Msg:             msgEthTx,
+// 	Predecessors:    predecessors,
+// 	BlockNumber:     header.Block.Height,
+// 	BlockTime:       header.Block.Time,
+// 	BlockHash:       common.Bytes2Hex(header.BlockID.Hash),
+// 	ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
+// 	ChainId:         b.EvmChainID.Int64(),
+// 	BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
+// 	TraceConfig: &evmtypes.TraceConfig{
+// 		Tracer: evmtypes.TracerAccessList,
+// 	},
+// }
+
+// ctx := rpctypes.ContextWithHeight(blockNum.Int64())
+// timeout := b.RPCEVMTimeout()
+
+// var cancel context.CancelFunc
+// if timeout > 0 {
+// 	ctx, cancel = context.WithTimeout(ctx, timeout)
+// } else {
+// 	ctx, cancel = context.WithCancel(ctx)
+// }
+// defer cancel()
+
+// res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
+// if err != nil {
+// 	b.Logger.Debug("failed to trace tx", "error", err.Error())
+// 	return nil, err
+// }
+
+// var ethAccessList ethtypes.AccessList
+// if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
+// 	b.Logger.Debug("failed to unmarshal access list", "error", err.Error())
+// 	return nil, errors.New("failed to unmarshal access list")
+// }
+
+// gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
+// 	From:       args.From,
+// 	To:         args.To,
+// 	Gas:        args.Gas,
+// 	GasPrice:   args.GasPrice,
+// 	Value:      args.Value,
+// 	Data:       args.Data,
+// 	AccessList: &ethAccessList,
+// 	ChainID:    args.ChainID,
+// }, &blockNum)
+// if err != nil {
+// 	b.Logger.Debug("failed to estimate gas", "error", err.Error())
+// 	return nil, err
+// }
+
+// return &rpctypes.AccessListResult{AccessList: &ethAccessList, GasUsed: &gasEstimate}, nil
+// }
+
+// AccessList creates an access list for the given transaction.
+// If the accesslist creation fails an error is returned.
+// If the transaction itself fails, an vmErr is returned.
+func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (ethtypes.AccessList, uint64, error, error) {
+	// Retrieve the execution context
+	db, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if db == nil || err != nil {
+		return nil, 0, nil, err
 	}
 
-	// Set a reasonable gas limit for access list creation if none is provided
-	if args.Gas == nil {
-		b.Logger.Debug("gas not provided, using default gas cap")
-		defaultGas := hexutil.Uint64(b.RPCGasCap())
-		args.Gas = &defaultGas
+	// Ensure any missing fields are filled, extract the recipient and input data
+	if err = args.setFeeDefaults(ctx, b, header); err != nil {
+		return nil, 0, nil, err
+	}
+	if args.Nonce == nil {
+		nonce := hexutil.Uint64(db.GetNonce(args.from()))
+		args.Nonce = &nonce
+	}
+	blockCtx := core.NewEVMBlockContext(header, NewChainContext(ctx, b), nil)
+	if err = args.CallDefaults(b.RPCGasCap(), blockCtx.BaseFee, b.ChainConfig().ChainID); err != nil {
+		return nil, 0, nil, err
 	}
 
-	msg := args.ToTransaction(ethtypes.LegacyTxType)
-	if msg == nil {
-		b.Logger.Debug("failed to convert transaction args to message")
-		return nil, errors.New("failed to convert transaction args to message")
+	var to common.Address
+	if args.To != nil {
+		to = *args.To
+	} else {
+		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
+	}
+	isPostMerge := header.Difficulty.Sign() == 0
+	// Retrieve the precompiles since they don't need to be added to the access list
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isPostMerge, header.Time))
+
+	// addressesToExclude contains sender, receiver, precompiles and valid authorizations
+	addressesToExclude := map[common.Address]struct{}{args.from(): {}, to: {}}
+	for _, addr := range precompiles {
+		addressesToExclude[addr] = struct{}{}
 	}
 
-	nc, ok := b.ClientCtx.Client.(cmtrpcclient.NetworkClient)
-	if !ok {
-		b.Logger.Debug("invalid rpc client")
-		return nil, errors.New("invalid rpc client")
+	// Prevent redundant operations if args contain more authorizations than EVM may handle
+	maxAuthorizations := uint64(*args.Gas) / params.CallNewAccountGas
+	if uint64(len(args.AuthorizationList)) > maxAuthorizations {
+		return nil, 0, nil, errors.New("insufficient gas to process all authorizations")
 	}
 
-	cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
-	if err != nil {
-		b.Logger.Debug("consensus params not found", "error", err.Error())
-		return nil, err
-	}
-
-	// Determine if this is a prospective transaction or an executed transaction
-	// by checking if the transaction hash exists in the block and finding its exact position
-	var (
-		isExecuted     bool
-		targetTxIndex  int
-		targetMsgIndex int
-		predecessors   []*evmtypes.MsgEthereumTx
-		txHash         = msg.Hash()
-	)
-
-	// Find the exact position of the target transaction
-	for txIdx, txBytes := range header.Block.Txs {
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
-		if err != nil {
-			b.Logger.Debug("failed to decode tx", "error", err.Error())
+	for _, auth := range args.AuthorizationList {
+		// Duplicating stateTransition.validateAuthorization() logic
+		if (!auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0) || auth.Nonce+1 < auth.Nonce {
 			continue
 		}
-		for msgIdx, txMsg := range tx.GetMsgs() {
-			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
-			if !ok {
-				b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
-				continue
-			}
-			if ethMsg.AsTransaction().Hash() == txHash {
-				isExecuted = true
-				targetTxIndex = txIdx
-				targetMsgIndex = msgIdx
-				break
-			}
-		}
-		if isExecuted {
-			break
+
+		if authority, err := auth.Authority(); err == nil {
+			addressesToExclude[authority] = struct{}{}
 		}
 	}
 
-	// if tx has already been executed, we need to get the predecessor transactions
-	if isExecuted {
-		for i := 0; i < targetTxIndex; i++ {
-			txBytes := header.Block.Txs[i]
-			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
-			if err != nil {
-				b.Logger.Debug("failed to decode tx", "error", err.Error())
-				continue
-			}
-			for _, txMsg := range tx.GetMsgs() {
-				ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
-				if !ok {
-					b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
-					continue
-				}
-				predecessors = append(predecessors, ethMsg)
-			}
+	// Create an initial tracer
+	prevTracer := logger.NewAccessListTracer(nil, addressesToExclude)
+	if args.AccessList != nil {
+		prevTracer = logger.NewAccessListTracer(*args.AccessList, addressesToExclude)
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, 0, nil, err
 		}
+		// Retrieve the current access list to expand
+		accessList := prevTracer.AccessList()
+		log.Trace("Creating access list", "input", accessList)
 
-		// Then, get messages from the same transaction but before the target message
-		if targetMsgIndex > 0 {
-			txBytes := header.Block.Txs[targetTxIndex]
-			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
-			if err == nil {
-				for i := 0; i < targetMsgIndex; i++ {
-					ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
-					if !ok {
-						b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
-						continue
-					}
-					predecessors = append(predecessors, ethMsg)
-				}
-			}
+		// Copy the original db so we don't modify it
+		statedb := db.Copy()
+		// Set the accesslist to the last al
+		args.AccessList = &accessList
+		msg := args.ToMessage(header.BaseFee, true, true)
+
+		// Apply the transaction with the access list tracer
+		tracer := logger.NewAccessListTracer(accessList, addressesToExclude)
+		config := vm.Config{Tracer: tracer.Hooks(), NoBaseFee: true}
+		evm := b.GetEVM(ctx, statedb, header, &config, nil)
+
+		// Lower the basefee to 0 to avoid breaking EVM
+		// invariants (basefee < feecap).
+		if msg.GasPrice.Sign() == 0 {
+			evm.Context.BaseFee = new(big.Int)
 		}
-	} else {
-		predecessors = []*evmtypes.MsgEthereumTx{}
+		if msg.BlobGasFeeCap != nil && msg.BlobGasFeeCap.BitLen() == 0 {
+			evm.Context.BlobBaseFee = new(big.Int)
+		}
+		res, err := core.ApplyMessage(evm, msg, new(core.GasPool).AddGas(msg.GasLimit))
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.ToTransaction(types.LegacyTxType).Hash(), err)
+		}
+		if tracer.Equal(prevTracer) {
+			return accessList, res.UsedGas, res.Err, nil
+		}
+		prevTracer = tracer
 	}
-
-	// Convert Transaction to MsgEthereumTx
-	msgEthTx := &evmtypes.MsgEthereumTx{}
-	msgEthTx.FromEthereumTx(msg)
-
-	traceTxRequest := evmtypes.QueryTraceTxRequest{
-		Msg:             msgEthTx,
-		Predecessors:    predecessors,
-		BlockNumber:     header.Block.Height,
-		BlockTime:       header.Block.Time,
-		BlockHash:       common.Bytes2Hex(header.BlockID.Hash),
-		ProposerAddress: sdk.ConsAddress(header.Block.ProposerAddress),
-		ChainId:         b.EvmChainID.Int64(),
-		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
-		TraceConfig: &evmtypes.TraceConfig{
-			Tracer: evmtypes.TracerAccessList,
-		},
-	}
-
-	ctx := rpctypes.ContextWithHeight(blockNum.Int64())
-	timeout := b.RPCEVMTimeout()
-
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	defer cancel()
-
-	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
-	if err != nil {
-		b.Logger.Debug("failed to trace tx", "error", err.Error())
-		return nil, err
-	}
-
-	var ethAccessList ethtypes.AccessList
-	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
-		b.Logger.Debug("failed to unmarshal access list", "error", err.Error())
-		return nil, errors.New("failed to unmarshal access list")
-	}
-
-	gasEstimate, err := b.EstimateGas(evmtypes.TransactionArgs{
-		From:       args.From,
-		To:         args.To,
-		Gas:        args.Gas,
-		GasPrice:   args.GasPrice,
-		Value:      args.Value,
-		Data:       args.Data,
-		AccessList: &ethAccessList,
-		ChainID:    args.ChainID,
-	}, &blockNum)
-	if err != nil {
-		b.Logger.Debug("failed to estimate gas", "error", err.Error())
-		return nil, err
-	}
-
-	return &rpctypes.AccessListResult{AccessList: &ethAccessList, GasUsed: &gasEstimate}, nil
 }

@@ -99,6 +99,7 @@ type OneFeeHistory struct {
 type AccessListResult struct {
 	AccessList *ethtypes.AccessList `json:"accessList"`
 	GasUsed    *hexutil.Uint64      `json:"gasUsed"`
+	Error      string               `json:"error"`
 }
 
 // Embedded TraceConfig type to store raw JSON data of config in custom field
