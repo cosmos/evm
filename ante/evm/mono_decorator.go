@@ -157,7 +157,6 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		ethMsg,
 		ethTx,
 		decUtils.Signer,
-		decUtils.EvmParams.AllowUnprotectedTxs,
 	); err != nil {
 		return ctx, err
 	}
