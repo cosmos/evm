@@ -1,11 +1,7 @@
 package keeper
 
 import (
-	"encoding/binary"
-
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	ethparams "github.com/ethereum/go-ethereum/params"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -36,14 +32,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		})
 	}
 
-	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
-	if acct != nil && acct.IsContract() {
-		// set current block hash in the contract storage, compatible with EIP-2935
-		ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow) //nolint:gosec // G115 // won't exceed uint64
-		var key common.Hash
-		binary.BigEndian.PutUint64(key[24:], ringIndex)
-		k.SetState(ctx, ethparams.HistoryStorageAddress, key, ctx.HeaderHash())
-	}
+	k.SetHeaderHash(ctx)
 	return nil
 }
 

@@ -134,7 +134,7 @@ func (s *KeeperTestSuite) TestGetHashFn() {
 
 			// Function being tested
 			db := statedb.New(ctx, s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig(common.Hash{}))
-			hash := s.Network.App.GetEVMKeeper().GetHashFn(ctx, db)(tc.height)
+			hash := s.Network.App.GetEVMKeeper().GetHashFn(ctx)(tc.height)
 			s.Require().Equal(tc.expHash, hash)
 
 			err := s.Network.NextBlock()

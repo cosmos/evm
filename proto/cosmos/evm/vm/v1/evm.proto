@@ -35,6 +35,7 @@ message Params {
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
+  uint64 history_serve_window = 10;
 }
 
 // AccessControl defines the permission policy of the EVM

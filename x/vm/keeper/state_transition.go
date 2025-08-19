@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math/big"
 
@@ -47,7 +46,7 @@ func (k *Keeper) NewEVM(
 	blockCtx := vm.BlockContext{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		GetHash:     k.GetHashFn(ctx, stateDB),
+		GetHash:     k.GetHashFn(ctx),
 		Coinbase:    cfg.CoinBase,
 		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
@@ -83,7 +82,7 @@ func (k *Keeper) NewEVM(
 //  1. The requested height matches the current height from context (and thus same epoch number)
 //  2. The requested height is from an previous height from the same chain epoch
 //  3. The requested height is from a height greater than the latest one
-func (k Keeper) GetHashFn(ctx sdk.Context, db vm.StateDB) vm.GetHashFunc {
+func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	return func(height uint64) common.Hash {
 		h, err := cosmosevmtypes.SafeInt64(height)
 		if err != nil {
@@ -113,12 +112,9 @@ func (k Keeper) GetHashFn(ctx sdk.Context, db vm.StateDB) vm.GetHashFunc {
 			return common.BytesToHash(headerHash)
 
 		case ctx.BlockHeight() > h:
-			// Case 2: The requested height is historical, query EIP-2935 contract for that
+			// Case 2: The requested height is historical, query EIP-2935 contract storage for that
 			// see: https://github.com/cosmos/evm/issues/406
-			ringIndex := height % params.HistoryServeWindow
-			var key common.Hash
-			binary.BigEndian.PutUint64(key[24:], ringIndex)
-			return db.GetState(params.HistoryStorageAddress, key)
+			return k.GetHeaderHash(ctx, height)
 		default:
 			// Case 3: The requested height is greater than the latest one, return empty hash
 			return common.Hash{}
