@@ -36,7 +36,7 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 		})
 	}
 
-	acct := k.GetAccount(ethparams.HistoryStorageAddress)
+	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
 	if acct != nil && acct.IsContract() {
 		// set current block hash in the contract storage, compatible with EIP-2935
 		ringIndex := uint64(ctx.BlockHeight() % ethparams.HistoryServeWindow) //nolint:gosec // G115 // won't exceed uint64
