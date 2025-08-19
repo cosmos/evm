@@ -132,7 +132,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.precompile, err = distribution.NewPrecompile(
 		s.network.App.GetDistrKeeper(),
 		*s.network.App.GetStakingKeeper(),
-		s.network.App.GetEVMKeeper(),
+		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 	if err != nil {
