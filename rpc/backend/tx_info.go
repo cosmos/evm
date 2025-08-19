@@ -388,27 +388,32 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 
 	header, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
+		b.Logger.Error("header not found", "error", err.Error())
 		return nil, errors.New("header not found")
 	}
 
 	// Set a reasonable gas limit for access list creation if none is provided
 	if args.Gas == nil {
+		b.Logger.Debug("gas not provided, using default gas cap")
 		defaultGas := hexutil.Uint64(b.RPCGasCap())
 		args.Gas = &defaultGas
 	}
 
 	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	if msg == nil {
+		b.Logger.Debug("failed to convert transaction args to message")
 		return nil, errors.New("failed to convert transaction args to message")
 	}
 
 	nc, ok := b.ClientCtx.Client.(cmtrpcclient.NetworkClient)
 	if !ok {
+		b.Logger.Debug("invalid rpc client")
 		return nil, errors.New("invalid rpc client")
 	}
 
 	cp, err := nc.ConsensusParams(b.Ctx, &header.Block.Height)
 	if err != nil {
+		b.Logger.Debug("consensus params not found", "error", err.Error())
 		return nil, err
 	}
 
@@ -426,11 +431,13 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	for txIdx, txBytes := range header.Block.Txs {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 		if err != nil {
+			b.Logger.Debug("failed to decode tx", "error", err.Error())
 			continue
 		}
 		for msgIdx, txMsg := range tx.GetMsgs() {
 			ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
 			if !ok {
+				b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
 				continue
 			}
 			if ethMsg.AsTransaction().Hash() == txHash {
@@ -451,11 +458,13 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 			txBytes := header.Block.Txs[i]
 			tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 			if err != nil {
+				b.Logger.Debug("failed to decode tx", "error", err.Error())
 				continue
 			}
 			for _, txMsg := range tx.GetMsgs() {
 				ethMsg, ok := txMsg.(*evmtypes.MsgEthereumTx)
 				if !ok {
+					b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
 					continue
 				}
 				predecessors = append(predecessors, ethMsg)
@@ -470,6 +479,7 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 				for i := 0; i < targetMsgIndex; i++ {
 					ethMsg, ok := tx.GetMsgs()[i].(*evmtypes.MsgEthereumTx)
 					if !ok {
+						b.Logger.Debug("invalid ethereum tx, failed to cast", "error", err.Error())
 						continue
 					}
 					predecessors = append(predecessors, ethMsg)
@@ -511,11 +521,13 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 
 	res, err := b.QueryClient.TraceTx(ctx, &traceTxRequest)
 	if err != nil {
+		b.Logger.Debug("failed to trace tx", "error", err.Error())
 		return nil, err
 	}
 
 	var ethAccessList ethtypes.AccessList
 	if err := json.Unmarshal(res.Data, &ethAccessList); err != nil {
+		b.Logger.Debug("failed to unmarshal access list", "error", err.Error())
 		return nil, errors.New("failed to unmarshal access list")
 	}
 
@@ -530,6 +542,7 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		ChainID:    args.ChainID,
 	}, &blockNum)
 	if err != nil {
+		b.Logger.Debug("failed to estimate gas", "error", err.Error())
 		return nil, err
 	}
 
