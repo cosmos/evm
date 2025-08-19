@@ -414,11 +414,13 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 
 	// Determine if this is a prospective transaction or an executed transaction
 	// by checking if the transaction hash exists in the block and finding its exact position
-	var isExecuted bool
-	var targetTxIndex int
-	var targetMsgIndex int
-	var predecessors []*evmtypes.MsgEthereumTx
-	txHash := msg.Hash()
+	var (
+		isExecuted     bool
+		targetTxIndex  int
+		targetMsgIndex int
+		predecessors   []*evmtypes.MsgEthereumTx
+		txHash         = msg.Hash()
+	)
 
 	// Find the exact position of the target transaction
 	for txIdx, txBytes := range header.Block.Txs {
