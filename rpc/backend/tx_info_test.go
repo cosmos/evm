@@ -27,19 +27,17 @@ func TestCreateAccessList(t *testing.T) {
 		Value: &value,
 	}
 
-	// Create a mock backend for testing
-	// Note: This is a simplified test - in a real scenario, you'd need to set up
-	// a proper backend with mocked dependencies
+	// Set default values for required fields
+	chainID := big.NewInt(1)
+	err := args.CallDefaults(0, nil, chainID)
+	require.NoError(t, err, "CallDefaults should not fail")
 
 	// Test that the transaction args can be converted to a message without signature validation
 	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
 
-	// Test that the message has the correct From field
-	signer := ethtypes.LatestSignerForChainID(msg.ChainId())
-	fromAddr, err := ethtypes.Sender(signer, msg)
-	require.NoError(t, err, "Should be able to derive sender address")
-	require.Equal(t, from, fromAddr, "From field should match the input address")
+	// Test that the transaction has the correct basic properties
+	// Note: We can't extract sender from unsigned transaction, but we can verify other fields
 
 	// Test that the transaction can be created without signature validation
 	require.NotNil(t, msg, "Transaction should not be nil")
@@ -63,6 +61,11 @@ func TestCreateAccessListWithGasPrice(t *testing.T) {
 		GasPrice: &gasPrice,
 	}
 
+	// Set default values for required fields
+	chainID := big.NewInt(1)
+	err := args.CallDefaults(0, nil, chainID)
+	require.NoError(t, err, "CallDefaults should not fail")
+
 	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
 
@@ -81,6 +84,11 @@ func TestCreateAccessListWithData(t *testing.T) {
 		To:   &to,
 		Data: &data,
 	}
+
+	// Set default values for required fields
+	chainID := big.NewInt(1)
+	err := args.CallDefaults(0, nil, chainID)
+	require.NoError(t, err, "CallDefaults should not fail")
 
 	msg := args.ToTransaction(ethtypes.LegacyTxType)
 	require.NotNil(t, msg, "ToTransaction should not return nil")
