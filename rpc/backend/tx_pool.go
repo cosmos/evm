@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/types"
 )
 
@@ -28,7 +27,7 @@ func (b *Backend) Content() (map[string]map[string]map[string]*types.RPCTransact
 	}
 
 	// Get the global mempool instance
-	evmMempool := mempool.GetGlobalEVMMempool()
+	evmMempool := b.Mempool
 	if evmMempool == nil {
 		return content, nil
 	}
@@ -78,7 +77,7 @@ func (b *Backend) ContentFrom(addr common.Address) (map[string]map[string]*types
 	content := make(map[string]map[string]*types.RPCTransaction, 2)
 
 	// Get the global mempool instance
-	evmMempool := mempool.GetGlobalEVMMempool()
+	evmMempool := b.Mempool
 	if evmMempool == nil {
 		return content, nil
 	}
@@ -121,7 +120,7 @@ func (b *Backend) Inspect() (map[string]map[string]map[string]string, error) {
 	}
 
 	// Get the global mempool instance
-	evmMempool := mempool.GetGlobalEVMMempool()
+	evmMempool := b.Mempool
 	if evmMempool == nil {
 		return inspect, nil
 	}
@@ -163,7 +162,7 @@ func (b *Backend) Inspect() (map[string]map[string]map[string]string, error) {
 // Status returns the number of pending and queued transaction in the pool.
 func (b *Backend) Status() (map[string]hexutil.Uint, error) {
 	// Get the global mempool instance
-	evmMempool := mempool.GetGlobalEVMMempool()
+	evmMempool := b.Mempool
 	if evmMempool == nil {
 		return map[string]hexutil.Uint{
 			StatusPending: hexutil.Uint(0),

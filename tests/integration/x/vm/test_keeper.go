@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/utils"
@@ -89,7 +90,7 @@ func (s *KeeperTestSuite) TestGetAccountStorage() {
 
 				storage := s.Network.App.GetEVMKeeper().GetAccountStorage(ctx, address)
 
-				if address == contractAddr {
+				if address == contractAddr || address == ethparams.HistoryStorageAddress {
 					s.Require().NotEqual(0, len(storage),
 						"expected account %d to have non-zero amount of storage slots, got %d",
 						i, len(storage),

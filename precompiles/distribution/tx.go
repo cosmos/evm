@@ -9,7 +9,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 )
 
 const (
@@ -103,8 +102,7 @@ func (p Precompile) SetWithdrawAddress(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
-	if _, err = msgSrv.SetWithdrawAddress(ctx, msg); err != nil {
+	if _, err = p.distributionMsgServer.SetWithdrawAddress(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -133,8 +131,7 @@ func (p *Precompile) WithdrawDelegatorReward(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
-	res, err := msgSrv.WithdrawDelegatorReward(ctx, msg)
+	res, err := p.distributionMsgServer.WithdrawDelegatorReward(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +161,7 @@ func (p *Precompile) WithdrawValidatorCommission(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
 
-	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
-	res, err := msgSrv.WithdrawValidatorCommission(ctx, msg)
+	res, err := p.distributionMsgServer.WithdrawValidatorCommission(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +191,7 @@ func (p *Precompile) FundCommunityPool(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
 	}
 
-	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
-	_, err = msgSrv.FundCommunityPool(ctx, msg)
+	_, err = p.distributionMsgServer.FundCommunityPool(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +222,7 @@ func (p *Precompile) DepositValidatorRewardsPool(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
 	}
 
-	msgSrv := distributionkeeper.NewMsgServerImpl(p.distributionKeeper)
-	_, err = msgSrv.DepositValidatorRewardsPool(ctx, msg)
+	_, err = p.distributionMsgServer.DepositValidatorRewardsPool(ctx, msg)
 	if err != nil {
 		return nil, err
 	}

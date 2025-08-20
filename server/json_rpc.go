@@ -14,6 +14,7 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
@@ -36,6 +37,7 @@ func StartJSONRPC(
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
 	app AppWithPendingTxStream,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -57,7 +59,7 @@ func StartJSONRPC(
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

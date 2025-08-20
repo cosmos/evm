@@ -43,6 +43,8 @@ var (
 	}
 )
 
+const DefaultHistoryServeWindow = 8192 // same as EIP-2935
+
 // NewParams creates a new Params instance
 func NewParams(
 	extraEIPs []int64,
@@ -66,6 +68,7 @@ func DefaultParams() Params {
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
+		HistoryServeWindow:      DefaultHistoryServeWindow,
 	}
 }
 
