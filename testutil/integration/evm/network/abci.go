@@ -60,6 +60,7 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	// This might have to be changed with time if we want to test gas limits
 	newCtx = newCtx.WithBlockGasMeter(storetypes.NewInfiniteGasMeter())
 	newCtx = newCtx.WithVoteInfos(req.DecidedLastCommit.GetVotes())
+	newCtx = newCtx.WithHeaderHash(header.AppHash)
 	n.ctx = newCtx
 
 	// commit changes

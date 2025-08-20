@@ -112,23 +112,11 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.BytesToHash(headerHash)
 
 		case ctx.BlockHeight() > h:
-			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
-			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, err := k.stakingKeeper.GetHistoricalInfo(ctx, h)
-			if err != nil {
-				k.Logger(ctx).Debug("error while getting historical info", "height", h, "error", err.Error())
-				return common.Hash{}
-			}
-
-			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			return common.BytesToHash(header.Hash())
+			// Case 2: The requested height is historical, query EIP-2935 contract storage for that
+			// see: https://github.com/cosmos/evm/issues/406
+			return k.GetHeaderHash(ctx, height)
 		default:
-			// Case 3: heights greater than the current one returns an empty hash.
+			// Case 3: The requested height is greater than the latest one, return empty hash
 			return common.Hash{}
 		}
 	}

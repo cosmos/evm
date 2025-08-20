@@ -46,6 +46,7 @@ func LoadABI() (abi.ABI, error) {
 // PrecompiledContract interface.
 func NewPrecompile(
 	slashingKeeper slashingkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	valCdc, consCdc address.Codec,
 ) (*Precompile, error) {
 	abi, err := LoadABI()
@@ -66,6 +67,9 @@ func NewPrecompile(
 
 	// SetAddress defines the address of the slashing precompiled contract.
 	p.SetAddress(common.HexToAddress(evmtypes.SlashingPrecompileAddress))
+
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
 
 	return p, nil
 }
