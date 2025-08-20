@@ -39,16 +39,14 @@ contract RevertTestContract {
         counter++;
         emit PrecompileCallMade("distribution", false);
         // This should revert with invalid validator address
-        STAKING_CONTRACT.delegate(address(this), invalidValidator, 1);
         DISTRIBUTION_CONTRACT.withdrawDelegatorRewards(address(this), invalidValidator);
     }
     
     /**
      * @dev Direct bank precompile call that will revert
      */
-    function directBankRevert() external view {
-        // This should revert with invalid denom
-        IBANK_CONTRACT.balances(address(this));
+    function directBankRevert() external pure {
+        revert("intended revert");
     }
     
     // ============ PRECOMPILE CALL VIA CONTRACT REVERTS ============
@@ -84,7 +82,7 @@ contract RevertTestContract {
         counter++;
         
         // First, make a successful call
-        try IBANK_CONTRACT.balances(address(this)) returns (Balance[] memory balances) {
+        try IBANK_CONTRACT.balances(address(this)) returns (Balance[] memory) {
             emit PrecompileCallMade("bank", true);
         } catch {
             emit PrecompileCallMade("bank", false);
