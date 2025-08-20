@@ -382,18 +382,18 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
 func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
-	acl, gasUsed, vmerr, err := b.createAccessList(args, blockNrOrHash)
+	accessList, gasUsed, vmErr, err := b.createAccessList(args, blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
 
 	hexGasUsed := hexutil.Uint64(gasUsed)
 	result := rpctypes.AccessListResult{
-		AccessList: &acl,
+		AccessList: &accessList,
 		GasUsed:    &hexGasUsed,
 	}
-	if vmerr != nil {
-		result.Error = vmerr.Error()
+	if vmErr != nil {
+		result.Error = vmErr.Error()
 	}
 	return &result, nil
 }
