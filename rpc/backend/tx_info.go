@@ -398,9 +398,11 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	return &result, nil
 }
 
-// If the accesslist creation fails an error is returned.
+// createAccessList creates the access list for the transaction.
+// It iteratively expands the access list until it converges.
+// If the access list has converged, the access list is returned.
+// If the access list has not converged, an error is returned.
 // If the transaction itself fails, an vmErr is returned.
-// If the transaction succeeds, the access list is returned.
 func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (ethtypes.AccessList, uint64, error, error) {
 	args, err := b.SetTxDefaults(args)
 	if err != nil {
@@ -451,6 +453,9 @@ func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	}
 }
 
+// getAccessListExcludes returns the addresses to exclude from the access list.
+// This includes the sender account, the target account (if provided), precompiles,
+// and any addresses in the authorization list.
 func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber) (map[common.Address]struct{}, error) {
 	header, err := b.HeaderByNumber(blockNum)
 	if err != nil {
@@ -493,6 +498,9 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	return addressesToExclude, nil
 }
 
+// initAccessListTracer initializes the access list tracer for the transaction.
+// It sets the default call arguments and creates a new access list tracer.
+// If an access list is provided in args, it uses that instead of creating a new one.
 func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
 	header, err := b.HeaderByNumber(blockNum)
 	if err != nil {
