@@ -57,18 +57,18 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, customMessage)
+            verifyTransactionRevert(analysis, customMessage);
 
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.standardRevert.staticCall(customMessage);
                 expect.fail('Static call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data)
+                decodedReason = decodeRevertReason(error.data);
             }
-            expect(decodedReason).to.include(customMessage)
+            expect(decodedReason).to.include(customMessage);
         });
 
         it('should handle require revert with proper error message', async function () {
@@ -80,9 +80,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, "Value exceeds threshold")
+            verifyTransactionRevert(analysis, "Value exceeds threshold");
             
             // Verify we can capture the revert reason via static call
             try {
@@ -105,18 +105,19 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
+
             }
-            verifyTransactionRevert(analysis, PANIC_ASSERT_0x01)
+            verifyTransactionRevert(analysis, PANIC_ASSERT_0x01);
             
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.assertRevert.staticCall();
                 expect.fail('Static call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data)
+                decodedReason = decodeRevertReason(error.data);
             }
-            expect(decodedReason).to.include(PANIC_ASSERT_0x01)
+            expect(decodedReason).to.include(PANIC_ASSERT_0x01);
         });
 
         it('should handle division by zero (View Panic error)', async function () {
@@ -124,9 +125,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await standardRevertTestContract.divisionByZero();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                decodedReason = await decodeRevertReason(error.data)
+                decodedReason = decodeRevertReason(error.data);
             }
-            expect(decodedReason).to.include(PANIC_DIVISION_BY_ZERO_0x12)
+            expect(decodedReason).to.include(PANIC_DIVISION_BY_ZERO_0x12);
         });
 
         it('should handle division by zero (Transaction Panic error)', async function () {            
@@ -135,9 +136,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, PANIC_DIVISION_BY_ZERO_0x12)
+            verifyTransactionRevert(analysis, PANIC_DIVISION_BY_ZERO_0x12);
         });
 
         it('should handle array out of bounds (View Panic error)', async function () {            
@@ -145,9 +146,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await standardRevertTestContract.arrayOutOfBounds();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                decodedReason = decodeRevertReason(error.data)
+                decodedReason = decodeRevertReason(error.data);
             }
-            expect(decodedReason).contains(PANIC_ARRAY_OUT_OF_BOUND_0x32)
+            expect(decodedReason).contains(PANIC_ARRAY_OUT_OF_BOUND_0x32);
         });
 
         it('should handle array out of bounds (Transaction Panic error)', async function () {
@@ -156,9 +157,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, PANIC_ARRAY_OUT_OF_BOUND_0x32)
+            verifyTransactionRevert(analysis, PANIC_ARRAY_OUT_OF_BOUND_0x32);
         });
 
         it('should capture revert reason through eth_getTransactionReceipt', async function () {
@@ -167,9 +168,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, "Test message")
+            verifyTransactionRevert(analysis, "Test message");
         });
     });
 
@@ -180,9 +181,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, "Multiple calls revert")
+            verifyTransactionRevert(analysis, "Multiple calls revert");
         });
 
         it('should handle try-catch revert scenario', async function () {
@@ -191,9 +192,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, "Internal function revert")
+            verifyTransactionRevert(analysis, "Internal function revert");
         });
 
         it('should handle wrapper contract revert', async function () {
@@ -203,9 +204,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                analysis = await analyzeFailedTransaction(error.receipt.hash)
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyTransactionRevert(analysis, "Wrapper test")
+            verifyTransactionRevert(analysis, "Wrapper test");
         });
     });
 
@@ -218,7 +219,7 @@ describe('Standard Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyOutOfGasError(analysis)
+            verifyOutOfGasError(analysis);
         });
 
         it('should handle expensive computation OutOfGas', async function () {
@@ -229,7 +230,7 @@ describe('Standard Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyOutOfGasError(analysis)
+            verifyOutOfGasError(analysis);
         });
 
         it('should handle expensive storage OutOfGas', async function () {
@@ -240,7 +241,7 @@ describe('Standard Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyOutOfGasError(analysis)
+            verifyOutOfGasError(analysis);
         });
 
         it('should handle wrapper OutOfGas', async function () {
@@ -252,7 +253,7 @@ describe('Standard Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyOutOfGasError(analysis)
+            verifyOutOfGasError(analysis);
         });
 
         it('should analyze OutOfGas error through transaction receipt', async function () {
@@ -263,7 +264,7 @@ describe('Standard Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            verifyOutOfGasError(analysis)
+            verifyOutOfGasError(analysis);
         });
     });
 
@@ -344,9 +345,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                     await testCase.call();
                     expect.fail(`${testCase.name} should have reverted`);
                 } catch (error) {
-                    decodedReason = decodeRevertReason(error.data)
+                    decodedReason = decodeRevertReason(error.data);
                 }
-                expect(decodedReason).contains(testCase.expectedReason)
+                expect(decodedReason).contains(testCase.expectedReason);
             }
         });
 
@@ -365,9 +366,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                     });
                     expect.fail('Call should have reverted');
                 } catch (error) {
-                    decodedReason = await decodeRevertReason(error.data)
+                    decodedReason = await decodeRevertReason(error.data);
                 }
-                expect(decodedReason).to.include('Hex encoding test')
+                expect(decodedReason).to.include('Hex encoding test');
             }
         });
     });

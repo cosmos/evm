@@ -9,7 +9,7 @@ const {
 } = require('./test_helper')
 
 describe('Precompile Revert Cases E2E Tests', function () {
-    let revertTestContract, precompileWrapper, signer;
+    let revertTestContract, precompileWrapper;
     let validValidatorAddress, invalidValidatorAddress;
     let analysis, decodedReason;
 

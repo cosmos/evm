@@ -118,20 +118,20 @@ async function analyzeFailedTransaction(txHash) {
  * Helper function to verify decoded revert reason
  */
 function verifyTransactionRevert(analysis, expectedRevertReason) {
-    expect(analysis).to.not.be.null
+    expect(analysis).to.not.be.null;
     expect(analysis.status).to.equal(0); // Failed transaction
     expect(analysis.errorData).to.not.be.null;
-    expect(analysis.decodedReason).contains(expectedRevertReason, "unexpected revert reason")
+    expect(analysis.decodedReason).contains(expectedRevertReason, "unexpected revert reason");
 }
 
 /**
  * Helper function to verify out of gas error
  */
 function verifyOutOfGasError(analysis) {
-    expect(analysis).to.not.be.null
+    expect(analysis).to.not.be.null;
     expect(analysis.status).to.equal(0); // Failed transaction
-    expect(analysis.gasUsed).to.be.equal(analysis.gasLimit)
-    expect(analysis.errorMessage.toLowerCase()).include('out of gas')
+    expect(analysis.gasUsed).to.be.equal(analysis.gasLimit);
+    expect(analysis.errorMessage.toLowerCase()).include('out of gas');
 }
 
 module.exports = {
