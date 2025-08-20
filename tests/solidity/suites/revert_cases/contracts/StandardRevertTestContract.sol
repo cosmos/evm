@@ -47,7 +47,7 @@ contract StandardRevertTestContract {
     /**
      * @dev Division by zero (should generate Panic error)
      */
-    function divisionByZero() external view returns (uint256) {
+    function divisionByZero() external pure returns (uint256) {
         uint256 zero = 0;
         return 1 / zero;
     }
@@ -55,7 +55,7 @@ contract StandardRevertTestContract {
     /**
      * @dev Array out of bounds (should generate Panic error)
      */
-    function arrayOutOfBounds() external view returns (uint256) {
+    function arrayOutOfBounds() external pure returns (uint256) {
         uint256[] memory arr = new uint256[](2);
         return arr[5]; // This will cause an out of bounds error
     }

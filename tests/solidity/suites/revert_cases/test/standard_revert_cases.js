@@ -1,12 +1,24 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
+const {
+    DEFAULT_GAS_LIMIT,
+    LARGE_GAS_LIMIT,
+    LOW_GAS_LIMIT,
+    PANIC_ASSERT_0x01,
+    PANIC_DIVISION_BY_ZERO_0x12,
+    PANIC_ARRAY_OUT_OF_BOUND_0x32
+} = require('./common');
+const {
+    decodeRevertReason,
+    analyzeFailedTransaction,
+    verifyTransactionRevert,
+    verifyOutOfGasError
+} = require('./test_helper')
+
 
 describe('Standard Revert Cases E2E Tests', function () {
     let standardRevertTestContract, simpleWrapper, signer;
-    
-    // Gas limits for testing
-    const DEFAULT_GAS_LIMIT = 1000000;
-    const LARGE_GAS_LIMIT = 10000000;
+    let analysis;
 
     before(async function () {
         [signer] = await hre.ethers.getSigners();
@@ -32,102 +44,9 @@ describe('Standard Revert Cases E2E Tests', function () {
         const wrapperAddress = await simpleWrapper.getAddress();
         console.log('StandardRevertTestContract deployed at:', contractAddress);
         console.log('SimpleWrapper deployed at:', wrapperAddress);
+
+        analysis = null;
     });
-
-    /**
-     * Helper function to check if an error is an out of gas error using transaction analysis
-     */
-    async function isOutOfGasError(error) {
-        if (!error.receipt) {
-            return false;
-        }
-
-        const analysis = await analyzeFailedTransaction(error.receipt.hash);
-        
-        // Check if the error message from the analysis contains "out of gas"
-        return analysis.errorMessage && analysis.errorMessage.toLowerCase().includes('out of gas');
-    }
-
-    /**
-     * Helper function to decode hex error data from transaction receipt
-     */
-    function decodeRevertReason(errorData) {
-        if (!errorData || errorData === '0x') {
-            return null; // No error data (common for OutOfGas)
-        }
-
-        try {
-            // Remove '0x' prefix
-            const cleanHex = errorData.startsWith('0x') ? errorData.slice(2) : errorData;
-            
-            // Check if it's a standard revert string (function selector: 08c379a0)
-            if (cleanHex.startsWith('08c379a0')) {
-                const reasonHex = cleanHex.slice(8); // Remove function selector
-                const reasonLength = parseInt(reasonHex.slice(0, 64), 16); // Get string length
-                const reasonBytes = reasonHex.slice(128, 128 + reasonLength * 2); // Get string data
-                return Buffer.from(reasonBytes, 'hex').toString('utf8');
-            }
-
-            // Check if it's a Panic error (function selector: 4e487b71)
-            if (cleanHex.startsWith('4e487b71')) {
-                const panicCode = parseInt(cleanHex.slice(8, 72), 16);
-                return `Panic(${panicCode})`;
-            }
-
-            // Return raw hex if not a standard format
-            return `Raw: ${errorData}`;
-        } catch (error) {
-            expect.fail(`Failed to decode revert reason: ${error.message}`);
-        }
-    }
-
-    /**
-     * Helper function to analyze transaction receipt for revert information
-     */
-    async function analyzeFailedTransaction(txHash) {
-        const receipt = await hre.ethers.provider.getTransactionReceipt(txHash);
-        const tx = await hre.ethers.provider.getTransaction(txHash);
-
-        expect(receipt.status).to.equal(0, 'Transaction should have failed');
-
-        // Try to get revert reason through call simulation
-        try {
-            await hre.ethers.provider.call({
-                to: tx.to,
-                data: tx.data,
-                from: tx.from,
-                value: tx.value,
-                gasLimit: tx.gasLimit,
-                gasPrice: tx.gasPrice
-            });
-        } catch (error) {
-            // For OutOfGas errors, error.data might be undefined
-            let decodedReason = null;
-            if (error.data) {
-                decodedReason = decodeRevertReason(error.data);
-                console.log(`  Revert Reason: ${decodedReason}`);
-            } else {
-                console.log('  Revert Reason: No error data available');
-            }
-
-            return {
-                status: receipt.status,
-                gasUsed: receipt.gasUsed,
-                gasLimit: tx.gasLimit,
-                errorData: error.data,
-                decodedReason: decodedReason,
-                errorMessage: error.message
-            };
-        }
-
-        return {
-            status: receipt.status,
-            gasUsed: receipt.gasUsed,
-            gasLimit: tx.gasLimit,
-            errorData: null,
-            decodedReason: null
-        };
-    }
 
     describe('Standard Contract Call Reverts', function () {
         it('should handle standard revert with custom message', async function () {
@@ -241,33 +160,25 @@ describe('Standard Revert Cases E2E Tests', function () {
             expect(transactionReverted).to.be.true;
         });
 
-        it('should handle array out of bounds (View Panic error)', async function () {
-            let transactionReverted = false;
-            
+        it('should handle array out of bounds (View Panic error)', async function () {            
             try {
                 await standardRevertTestContract.arrayOutOfBounds();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                transactionReverted = true;
-                expect(error.message).to.include("out-of-bounds");
+                decodedReason = decodeRevertReason(error.data)
             }
-            
-            expect(transactionReverted).to.be.true;
+            expect(decodedReason).contains(PANIC_ARRAY_OUT_OF_BOUND_0x32)
         });
 
         it('should handle array out of bounds (Transaction Panic error)', async function () {
-            let transactionReverted = false;
-            
             try {
                 const tx = await standardRevertTestContract.arrayOutOfBoundsTx({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
-                expect(error.receipt).to.exist;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, PANIC_ARRAY_OUT_OF_BOUND_0x32)
         });
 
         it('should capture revert reason through eth_getTransactionReceipt', async function () {
@@ -276,164 +187,103 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                // Must have receipt for failed transaction
-                expect(error.receipt).to.exist;
-                const analysis = await analyzeFailedTransaction(error.receipt.hash);
-                expect(analysis.status).to.equal(0);
-                expect(analysis.decodedReason).to.include("Test message");
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
+            verifyTransactionRevert(analysis, "Test message")
         });
     });
 
     describe('Complex Revert Scenarios', function () {
         it('should handle multiple calls with revert', async function () {
-            let transactionReverted = false;
-            
             try {
                 const tx = await standardRevertTestContract.multipleCallsWithRevert({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, "Multiple calls revert")
         });
 
         it('should handle try-catch revert scenario', async function () {
-            let transactionReverted = false;
-            
             try {
                 const tx = await standardRevertTestContract.tryCatchRevert(true, { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, "Internal function revert")
         });
 
         it('should handle wrapper contract revert', async function () {
             const contractAddress = await standardRevertTestContract.getAddress();
-            
-            let transactionReverted = false;
-            
             try {
                 const tx = await simpleWrapper.wrappedStandardCall(contractAddress, "Wrapper test", { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, "Wrapper test")
         });
     });
 
     describe('OutOfGas Error Cases', function () {
         it('should handle standard contract OutOfGas', async function () {
-            // Use a very low gas limit to trigger OutOfGas
-            const lowGasLimit = 50000;
-
-            let transactionFailed = false;
-            let isOutOfGas = false;
-            
             try {
-                const tx = await standardRevertTestContract.standardOutOfGas({ gasLimit: lowGasLimit });
+                const tx = await standardRevertTestContract.standardOutOfGas({ gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
-                transactionFailed = true;
-                isOutOfGas = await isOutOfGasError(error);
-                
-                // Analyze the failed transaction
-                expect(error.receipt).to.exist;
-                const analysis = await analyzeFailedTransaction(error.receipt.hash);
-                expect(analysis.gasUsed.toString()).to.equal(lowGasLimit.toString());
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            
-            expect(transactionFailed).to.be.true;
-            expect(isOutOfGas).to.be.true;
+            verifyOutOfGasError(analysis)
         });
 
         it('should handle expensive computation OutOfGas', async function () {
-            const lowGasLimit = 100000;
-
-            let transactionFailed = false;
-            let isOutOfGas = false;
-            
             try {
-                const tx = await standardRevertTestContract.expensiveComputation(10000, { gasLimit: lowGasLimit });
+                const tx = await standardRevertTestContract.expensiveComputation(10000, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
-                transactionFailed = true;
-                isOutOfGas = await isOutOfGasError(error);
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            
-            expect(transactionFailed).to.be.true;
-            expect(isOutOfGas).to.be.true;
+            verifyOutOfGasError(analysis)
         });
 
         it('should handle expensive storage OutOfGas', async function () {
-            const lowGasLimit = 200000;
-            let transactionFailed = false;
-            let isOutOfGas = false;
-            
             try {
-                const tx = await standardRevertTestContract.expensiveStorage(100, { gasLimit: lowGasLimit });
+                const tx = await standardRevertTestContract.expensiveStorage(100, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
-                transactionFailed = true;
-                isOutOfGas = await isOutOfGasError(error);
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            
-            expect(transactionFailed).to.be.true;
-            expect(isOutOfGas).to.be.true;
+            verifyOutOfGasError(analysis)
         });
 
         it('should handle wrapper OutOfGas', async function () {
             const contractAddress = await standardRevertTestContract.getAddress();
-
-            let transactionFailed = false;
-            let isOutOfGas = false;
-            
             try {
-                const tx = await simpleWrapper.wrappedOutOfGasCall(contractAddress, { gasLimit: 100000 });
+                const tx = await simpleWrapper.wrappedOutOfGasCall(contractAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
-                transactionFailed = true;
-                isOutOfGas = await isOutOfGasError(error);
+                analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-            
-            expect(transactionFailed).to.be.true;
-            expect(isOutOfGas).to.be.true;
+            verifyOutOfGasError(analysis)
         });
 
         it('should analyze OutOfGas error through transaction receipt', async function () {
-            const testGasLimit = 50000;
-            
-            let isOutOfGas = false;
-            let analysis = null;
-            
             try {
-                const tx = await standardRevertTestContract.standardOutOfGas({ gasLimit: testGasLimit });
+                const tx = await standardRevertTestContract.standardOutOfGas({ gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
-                isOutOfGas = await isOutOfGasError(error);
-                
-                // Must have receipt for failed transaction
-                expect(error.receipt).to.exist;
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
-                expect(analysis.status).to.equal(0);
             }
-            
-            expect(isOutOfGas).to.be.true;
-            expect(analysis).to.not.be.null;
+            verifyOutOfGasError(analysis)
         });
     });
 
@@ -447,7 +297,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                         const tx = await standardRevertTestContract.standardRevert("Standard error", { gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedInReason: "Standard error"
+                    expectedReason: "Standard error"
                 },
                 {
                     name: 'Require Revert',
@@ -455,7 +305,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                         const tx = await standardRevertTestContract.requireRevert(100, 50, { gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedInReason: "Value exceeds threshold"
+                    expectedReason: "Value exceeds threshold"
                 },
                 {
                     name: 'Assert Revert',
@@ -463,7 +313,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                         const tx = await standardRevertTestContract.assertRevert({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedInReason: "Panic(1)"
+                    expectedReason: PANIC_ASSERT_0x01
                 },
                 {
                     name: 'Division by Zero (Transaction)',
@@ -471,7 +321,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                         const tx = await standardRevertTestContract.divisionByZeroTx({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedInReason: "Panic(18)"
+                    expectedReason: PANIC_DIVISION_BY_ZERO_0x12
                 },
                 {
                     name: 'Array Out of Bounds (Transaction)',
@@ -479,7 +329,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                         const tx = await standardRevertTestContract.arrayOutOfBoundsTx({ gasLimit: DEFAULT_GAS_LIMIT });
                         await tx.wait();
                     },
-                    expectedInReason: "Panic(50)"
+                    expectedReason: PANIC_ARRAY_OUT_OF_BOUND_0x32
                 }
             ];
 
@@ -488,12 +338,12 @@ describe('Standard Revert Cases E2E Tests', function () {
                 {
                     name: 'Division by Zero (View)',
                     call: async () => await standardRevertTestContract.divisionByZero(),
-                    expectedInError: "division or modulo by zero"
+                    expectedReason: PANIC_DIVISION_BY_ZERO_0x12
                 },
                 {
                     name: 'Array Out of Bounds (View)',
                     call: async () => await standardRevertTestContract.arrayOutOfBounds(),
-                    expectedInError: "out-of-bounds"
+                    expectedReason: PANIC_ARRAY_OUT_OF_BOUND_0x32
                 }
             ];
 
@@ -503,14 +353,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                     await testCase.call();
                     expect.fail(`${testCase.name} should have reverted`);
                 } catch (error) {
-                    // Must have receipt for all failed transactions
-                    expect(error.receipt).to.exist;
-                    const analysis = await analyzeFailedTransaction(error.receipt.hash);
-                    expect(analysis.status).to.equal(0);
-                    if (testCase.expectedInReason) {
-                        expect(analysis.decodedReason).to.include(testCase.expectedInReason);
-                    }
+                    analysis = await analyzeFailedTransaction(error.receipt.hash);
                 }
+                verifyTransactionRevert(analysis, testCase.expectedReason)
             }
             
             // Test view functions (no receipts)
@@ -519,11 +364,9 @@ describe('Standard Revert Cases E2E Tests', function () {
                     await testCase.call();
                     expect.fail(`${testCase.name} should have reverted`);
                 } catch (error) {
-                    // View functions don't have receipts
-                    expect(error.receipt).to.be.undefined;
-                    // Check error message directly
-                    expect(error.message).to.include(testCase.expectedInError);
+                    decodedReason = decodeRevertReason(error.data)
                 }
+                expect(decodedReason).contains(testCase.expectedReason)
             }
         });
 

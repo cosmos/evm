@@ -1,12 +1,12 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
+const { LARGE_GAS_LIMIT } = require('./common');
 const {
-    LARGE_GAS_LIMIT,
     decodeRevertReason,
     analyzeFailedTransaction,
     verifyTransactionRevert,
     verifyOutOfGasError
-} = require('./common');
+} = require('./test_helper')
 
 describe('Precompile Revert Cases E2E Tests', function () {
     let revertTestContract, precompileWrapper, signer;
@@ -69,17 +69,13 @@ describe('Precompile Revert Cases E2E Tests', function () {
 
         it('should handle direct bank precompile revert', async function () {
             // directBankRevert is a view function, so it should revert immediately
-            let callReverted = false;
             var decodedReason
-            
             try {
                 await revertTestContract.directBankRevert();
                 expect.fail('Call should have reverted');
             } catch (error) {
-                callReverted = true;
                 decodedReason = decodeRevertReason(error.data)
             }
-            expect(callReverted).to.be.true;
             expect(decodedReason).contains("intended revert")
         });
 
@@ -207,12 +203,12 @@ describe('Precompile Revert Cases E2E Tests', function () {
                 {
                     name: 'Staking Precompile Revert',
                     call: () => revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT }),
-                    expectedInReason: "invalid validator address"
+                    expectedReason: "invalid validator address"
                 },
                 {
                     name: 'Distribution Precompile Revert',
                     call: () => revertTestContract.directDistributionRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT }),
-                    expectedInReason: "invalid validator address"
+                    expectedReason: "invalid validator address"
                 }
             ];
 
@@ -224,7 +220,7 @@ describe('Precompile Revert Cases E2E Tests', function () {
                 } catch (error) {
                     analysis = await analyzeFailedTransaction(error.receipt.hash);
                 }
-                verifyTransactionRevert(analysis, testCase.expectedInReason)
+                verifyTransactionRevert(analysis, testCase.expectedReason)
             }
         });
 
