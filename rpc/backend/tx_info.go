@@ -434,7 +434,8 @@ func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		// Check if access list has converged (no new addresses/slots accessed)
 		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
 		if newTracer.Equal(prevTracer) {
-			return accessList, res.GasUsed, nil, nil
+			vmErr := errors.New(res.VmError)
+			return accessList, res.GasUsed, vmErr, nil
 		}
 		prevTracer = newTracer
 	}

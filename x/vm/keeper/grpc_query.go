@@ -645,7 +645,6 @@ func (k *Keeper) traceTx(
 		overrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
 	}
 
-	// For other tracers, use the existing logic
 	logConfig := logger.Config{
 		EnableMemory:     traceConfig.EnableMemory,
 		DisableStorage:   traceConfig.DisableStorage,
