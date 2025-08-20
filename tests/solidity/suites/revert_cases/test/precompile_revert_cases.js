@@ -105,19 +105,34 @@ describe('Precompile Revert Cases E2E Tests', function () {
         };
     }
 
+    /**
+     * Helper function to validation decoded revert reason
+     */
+    async function validateRevertReason(txHash, expectedRevertReason) {
+        const analysis = await analyzeFailedTransaction(txHash)
+
+        expect(analysis.status).to.equal(0); // Failed transaction
+        expect(analysis.errorData).to.not.be.null;
+        expect(analysis.decodedReason).to.be.equal(expectedRevertReason, "unexpected revert reason")
+    }
+
     describe('Direct Precompile Call Reverts', function () {
+        var txHash
+
+        beforeEach(function () {
+            txHash = null
+        })
+
         it('should handle direct staking precompile revert', async function () {
-            let transactionReverted = false;
-            
             try {
                 const tx = await revertTestContract.directStakingRevert(invalidValidatorAddress, { gasLimit: LARGE_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                txHash = error.receipt.hash
             }
             
-            expect(transactionReverted).to.be.true;
+            await validateRevertReason(txHash, "invalid validator address: decod")
         });
 
         it('should handle direct distribution precompile revert', async function () {
@@ -144,7 +159,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 callReverted = true;
             }
-            
             expect(callReverted).to.be.true;
         });
 
@@ -175,8 +189,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 transactionReverted = true;
             }
-            
-            expect(transactionReverted).to.be.true;
         });
 
         it('should handle multiple precompile calls with revert', async function () {
