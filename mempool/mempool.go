@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -173,15 +172,10 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		blockGasLimit: config.BlockGasLimit,
 		anteHandler:   anteHandler,
 	}
-	evmMempool.legacyTxPool.SpendableCoin = vmKeeper.(VMKeeper).SpendableCoin
 
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
-}
-
-type VMKeeper interface {
-	SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
