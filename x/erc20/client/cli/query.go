@@ -63,6 +63,7 @@ func GetTokenPairsCmd() *cobra.Command {
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
+	flags.AddPaginationFlagsToCmd(cmd, "token-pairs")
 	return cmd
 }
 
