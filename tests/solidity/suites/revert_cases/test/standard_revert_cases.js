@@ -18,7 +18,7 @@ const {
 
 describe('Standard Revert Cases E2E Tests', function () {
     let standardRevertTestContract, simpleWrapper, signer;
-    let analysis;
+    let analysis, decodedReason;
 
     before(async function () {
         [signer] = await hre.ethers.getSigners();
@@ -46,59 +46,52 @@ describe('Standard Revert Cases E2E Tests', function () {
         console.log('SimpleWrapper deployed at:', wrapperAddress);
 
         analysis = null;
+        decodedReason = null;
     });
 
     describe('Standard Contract Call Reverts', function () {
         it('should handle standard revert with custom message', async function () {
             const customMessage = "Custom revert message";
-            
-            // Verify that the transaction reverts
-            let transactionReverted = false;
-            
             try {
                 const tx = await standardRevertTestContract.standardRevert(customMessage, { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, customMessage)
 
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.standardRevert.staticCall(customMessage);
                 expect.fail('Static call should have reverted');
-            } catch (staticError) {
-                expect(staticError.message).to.include(customMessage);
-                // Error message validated above
+            } catch (error) {
+                decodedReason = decodeRevertReason(error.data)
             }
+            expect(decodedReason).to.include(customMessage)
         });
 
         it('should handle require revert with proper error message', async function () {
             const value = 100;
             const threshold = 50;
             
-            let transactionReverted = false;
-            
             try {
                 const tx = await standardRevertTestContract.requireRevert(value, threshold, { gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, "Value exceeds threshold")
             
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.requireRevert.staticCall(value, threshold);
                 expect.fail('Static call should have reverted');
-            } catch (staticError) {
-                expect(staticError.message).to.include("Value exceeds threshold");
-                // Error message validated above
+            } catch (error) {
+                decodedReason = decodeRevertReason(error.data);
             }
+            expect(decodedReason).to.include("Value exceeds threshold");
             
             // Verify successful case (no revert when value < threshold)
             const successTx = await standardRevertTestContract.requireRevert(25, 50, { gasLimit: DEFAULT_GAS_LIMIT });
@@ -106,58 +99,45 @@ describe('Standard Revert Cases E2E Tests', function () {
             expect(receipt.status).to.equal(1, 'Transaction should succeed when value < threshold');
         });
 
-        it('should handle assert revert (Panic error)', async function () {
-            let transactionReverted = false;
-            
+        it('should handle assert revert (Panic error)', async function () {            
             try {
                 const tx = await standardRevertTestContract.assertRevert({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, PANIC_ASSERT_0x01)
             
             // Verify we can capture the revert reason via static call
             try {
                 await standardRevertTestContract.assertRevert.staticCall();
                 expect.fail('Static call should have reverted');
-            } catch (staticError) {
-                // Check for either "panic" or "assert(false)" as different nodes may return different messages
-                const hasExpectedError = staticError.message.includes("panic") || staticError.message.includes("assert(false)");
-                expect(hasExpectedError).to.be.true;
-                // Error message validated above
+            } catch (error) {
+                decodedReason = decodeRevertReason(error.data)
             }
+            expect(decodedReason).to.include(PANIC_ASSERT_0x01)
         });
 
         it('should handle division by zero (View Panic error)', async function () {
-            let transactionReverted = false;
-            
             try {
                 await standardRevertTestContract.divisionByZero();
                 expect.fail('View call should have reverted');
             } catch (error) {
-                transactionReverted = true;
-                expect(error.message).to.include("division or modulo by zero");
+                decodedReason = await decodeRevertReason(error.data)
             }
-            
-            expect(transactionReverted).to.be.true;
+            expect(decodedReason).to.include(PANIC_DIVISION_BY_ZERO_0x12)
         });
 
-        it('should handle division by zero (Transaction Panic error)', async function () {
-            let transactionReverted = false;
-            
+        it('should handle division by zero (Transaction Panic error)', async function () {            
             try {
                 const tx = await standardRevertTestContract.divisionByZeroTx({ gasLimit: DEFAULT_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                transactionReverted = true;
-                expect(error.receipt).to.exist;
+                analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
-            expect(transactionReverted).to.be.true;
+            verifyTransactionRevert(analysis, PANIC_DIVISION_BY_ZERO_0x12)
         });
 
         it('should handle array out of bounds (View Panic error)', async function () {            
@@ -376,11 +356,6 @@ describe('Standard Revert Cases E2E Tests', function () {
                 await tx.wait();
                 expect.fail('Transaction should have reverted');
             } catch (error) {
-                // Must have receipt for failed transaction
-                expect(error.receipt).to.exist;
-                
-                // Simulate the call to get error data
-                let errorCaught = false;
                 try {
                     const contractAddress = await standardRevertTestContract.getAddress();
                     await hre.ethers.provider.call({
@@ -389,15 +364,10 @@ describe('Standard Revert Cases E2E Tests', function () {
                         gasLimit: DEFAULT_GAS_LIMIT
                     });
                     expect.fail('Call should have reverted');
-                } catch (callError) {
-                    errorCaught = true;
-                    expect(callError.data).to.exist;
-                    expect(callError.data).to.match(/^0x/, 'Error data must be hex-encoded');
-                    
-                    const decoded = decodeRevertReason(callError.data);
-                    expect(decoded).to.include("Hex encoding test");
+                } catch (error) {
+                    decodedReason = await decodeRevertReason(error.data)
                 }
-                expect(errorCaught).to.equal(true, 'Call must revert with error');
+                expect(decodedReason).to.include('Hex encoding test')
             }
         });
     });

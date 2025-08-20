@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
-const { LARGE_GAS_LIMIT } = require('./common');
+const { LARGE_GAS_LIMIT, LOW_GAS_LIMIT } = require('./common');
 const {
     decodeRevertReason,
     analyzeFailedTransaction,
@@ -11,7 +11,7 @@ const {
 describe('Precompile Revert Cases E2E Tests', function () {
     let revertTestContract, precompileWrapper, signer;
     let validValidatorAddress, invalidValidatorAddress;
-    let analysis;
+    let analysis, decodedReason;
 
     before(async function () {
         [signer] = await hre.ethers.getSigners();
@@ -39,7 +39,8 @@ describe('Precompile Revert Cases E2E Tests', function () {
         console.log('RevertTestContract deployed at:', await revertTestContract.getAddress());
         console.log('PrecompileWrapper deployed at:', await precompileWrapper.getAddress());
 
-        analysis = null
+        analysis = null;
+        decodedReason = null;
     });
 
     describe('Direct Precompile Call Reverts', function () {
@@ -51,7 +52,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-
             verifyTransactionRevert(analysis, "invalid validator address")
         });
 
@@ -63,13 +63,11 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyTransactionRevert(analysis, "invalid validator address")
         });
 
         it('should handle direct bank precompile revert', async function () {
             // directBankRevert is a view function, so it should revert immediately
-            var decodedReason
             try {
                 await revertTestContract.directBankRevert();
                 expect.fail('Call should have reverted');
@@ -87,7 +85,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-
             verifyTransactionRevert(analysis, "invalid validator address")
         });
     });
@@ -101,7 +98,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-
             verifyTransactionRevert(analysis, "invalid validator address")
         });
 
@@ -113,7 +109,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyTransactionRevert(analysis, "invalid validator address")
         });
 
@@ -125,7 +120,6 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyTransactionRevert(analysis, "invalid validator address")
         });
 
@@ -137,62 +131,53 @@ describe('Precompile Revert Cases E2E Tests', function () {
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-
             verifyTransactionRevert(analysis, "invalid validator address")
         });
     });
 
     describe('Precompile OutOfGas Error Cases', function () {
         it('should handle direct precompile OutOfGas', async function () {
-            // Use a very low gas limit to trigger OutOfGas on precompile calls
-            const lowGasLimit = 80000;
-            
+            // Use a very low gas limit to trigger OutOfGas on precompile calls            
             try {
-                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: lowGasLimit });
+                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyOutOfGasError(analysis)
         });
 
         it('should handle precompile via contract OutOfGas', async function () {            
             try {
-                const tx = await revertTestContract.precompileViaContractOutOfGas(validValidatorAddress, { gasLimit: 100000 });
+                const tx = await revertTestContract.precompileViaContractOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyOutOfGasError(analysis)
         });
 
         it('should handle wrapper precompile OutOfGas', async function () {
             try {
-                const tx = await precompileWrapper.wrappedOutOfGasCall(validValidatorAddress, { gasLimit: 100000 });
+                const tx = await precompileWrapper.wrappedOutOfGasCall(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash)
             }
-            
             verifyOutOfGasError(analysis)
         });
 
         it('should analyze precompile OutOfGas error through transaction receipt', async function () {
-            const testGasLimit = 70000;
-            
             try {
-                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: testGasLimit });
+                const tx = await revertTestContract.directStakingOutOfGas(validValidatorAddress, { gasLimit: LOW_GAS_LIMIT });
                 await tx.wait();
                 expect.fail('Transaction should have failed with OutOfGas');
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
             }
-
             verifyOutOfGasError(analysis)
         });
     });
