@@ -2,7 +2,23 @@
 
 ## UNRELEASED
 
-## v0.4.0
+### DEPENDENCIES
+
+### BUG FIXES
+
+### IMPROVEMENTS
+
+- [\#467](https://github.com/cosmos/evm/pull/467) Ensure SetGlobalEVMMempool is thread-safe and only sets global mempool instance once.
+
+### FEATURES
+
+### STATE BREAKING
+
+### API-BREAKING
+
+- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+
+## v0.4.1
 
 ### DEPENDENCIES
 

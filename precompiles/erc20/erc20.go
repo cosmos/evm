@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -50,7 +50,7 @@ var _ vm.PrecompiledContract = &Precompile{}
 type Precompile struct {
 	cmn.Precompile
 	tokenPair      erc20types.TokenPair
-	transferKeeper transferkeeper.Keeper
+	transferKeeper ibcutils.TransferKeeper
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
 	BankKeeper cmn.BankKeeper
@@ -62,7 +62,7 @@ func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
-	transferKeeper transferkeeper.Keeper,
+	transferKeeper ibcutils.TransferKeeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, abiPath)
 	if err != nil {

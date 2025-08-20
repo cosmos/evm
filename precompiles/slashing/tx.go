@@ -10,7 +10,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	"github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
@@ -52,8 +51,7 @@ func (p Precompile) Unjail(
 		ValidatorAddr: valAddr,
 	}
 
-	msgSrv := slashingkeeper.NewMsgServerImpl(p.slashingKeeper)
-	if _, err := msgSrv.Unjail(ctx, msg); err != nil {
+	if _, err := p.slashingMsgServer.Unjail(ctx, msg); err != nil {
 		return nil, err
 	}
 

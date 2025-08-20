@@ -17,6 +17,7 @@ import (
 	tmrpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -167,6 +168,7 @@ type Backend struct {
 	AllowUnprotectedTxs bool
 	Indexer             cosmosevmtypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
+	Mempool             *evmmempool.ExperimentalEVMMempool
 }
 
 func (b *Backend) GetConfig() config.Config {
@@ -180,6 +182,7 @@ func NewBackend(
 	clientCtx client.Context,
 	allowUnprotectedTxs bool,
 	indexer cosmosevmtypes.EVMTxIndexer,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
@@ -201,6 +204,7 @@ func NewBackend(
 		Cfg:                 appConf,
 		AllowUnprotectedTxs: allowUnprotectedTxs,
 		Indexer:             indexer,
+		Mempool:             mempool,
 	}
 	b.ProcessBlocker = b.ProcessBlock
 	return b
