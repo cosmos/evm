@@ -484,7 +484,7 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	}
 
 	for _, auth := range args.AuthorizationList {
-		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth)
+		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth: https://github.com/ethereum/go-ethereum/blob/bf8f63dcd27e178bd373bfe41ea718efee2851dd/core/state_transition.go#L575)
 		if (!auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0) || auth.Nonce+1 < auth.Nonce {
 			b.Logger.Error("invalid authorization", "auth", auth)
 			continue
