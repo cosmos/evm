@@ -43,7 +43,7 @@ echo "🔧 evmd will auto-initialize when container starts..."
 
 # Run the compatibility tests
 echo "🚀 Running JSON-RPC compatibility tests..."
-cd "$JSONRPC_DIR" && docker compose up --build --abort-on-container-exit
+cd "$JSONRPC_DIR" && docker compose up --build --force-recreate --abort-on-container-exit
 
 
 echo "✅ JSON-RPC compatibility test completed!"
