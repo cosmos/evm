@@ -26,6 +26,7 @@
 - [\#452](https://github.com/cosmos/evm/pull/452) Cleanup unused cancel function in filter.
 - [\#454](https://github.com/cosmos/evm/pull/454) Align multi decode functions instead of string contains check in HexAddressFromBech32String.
 - [\#468](https://github.com/cosmos/evm/pull/468) Add pagination flags to `token-pairs` to improve query flexibility.
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
 
 ### IMPROVEMENTS
 

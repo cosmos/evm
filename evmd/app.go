@@ -1152,16 +1152,14 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 
 func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
 	app.eventBus = eventBus
-
-	sub, err := eventBus.Subscribe(context.Background(), "evm", query.MustCompile("tm.event='PendingTx'"))
+	sub, err := eventBus.Subscribe(context.Background(), "evm", query.MustCompile(fmt.Sprintf("tm.event='%s'", cmttypes.EventNewBlockHeader)))
 	if err != nil {
 		panic(err)
 	}
 	go func() {
-		for msg := range sub.Out() {
-			data := msg.Data().(cmttypes.EventDataPendingTx)
+		for range sub.Out() {
 			if mp, ok := app.Mempool().(*evmmempool.ExperimentalEVMMempool); ok {
-				mp.GetBlockchain().NotifyPendingTx(data.Tx)
+				mp.GetBlockchain().NotifyNewBlock()
 			}
 		}
 	}()
