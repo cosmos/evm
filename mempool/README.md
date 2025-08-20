@@ -82,11 +82,6 @@ if evmtypes.GetChainConfig() != nil {
     )
     app.EVMMempool = evmMempool
 
-    // Set the global mempool for RPC access
-    if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
-        panic(err)
-    }
-    
     // Replace BaseApp mempool
     app.SetMempool(evmMempool)
     
