@@ -178,6 +178,10 @@ func (b *Blockchain) NotifyNewBlock() {
 	b.logger.Debug("chain head event sent to feed")
 }
 
+func (b *Blockchain) NotifyPendingTx(tx []byte) {
+	b.logger.Debug("notifying pending tx", "tx_hash", common.Hash(tx).Hex())
+}
+
 // StateAt returns the StateDB object for a given block hash.
 // In practice, this always returns the most recent state since the mempool
 // only needs current state for validation. Historical state access is not supported

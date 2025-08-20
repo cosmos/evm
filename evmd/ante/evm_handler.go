@@ -16,8 +16,8 @@ func newMonoEVMAnteHandler(options ante.HandlerOptions) sdk.AnteHandler {
 			options.EvmKeeper,
 			options.MaxTxGasWanted,
 		),
-		ante.NewTxListenerDecorator(options.PendingTxListener),
+		ante.NewTxListenerDecorator(options.PendingTxListener, options.Mempool),
 	}
-	
+
 	return sdk.ChainAnteDecorators(decorators...)
 }

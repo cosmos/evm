@@ -277,6 +277,7 @@ replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// Pin this pebble version to avoid breaking compilation of geth
 	github.com/cockroachdb/pebble => github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593
+	github.com/cometbft/cometbft => github.com/mmsqe/cometbft v0.34.21-0.20250820014054-c4da9eda535f
 	github.com/cosmos/evm => ../
 	github.com/cosmos/evm/evmd => ./evmd
 	// use Cosmos geth fork

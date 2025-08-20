@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/pubsub/query"
+	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
@@ -208,6 +211,8 @@ type EVMD struct {
 
 	// module configurator
 	configurator module.Configurator
+
+	eventBus *cmttypes.EventBus
 }
 
 // NewExampleApp returns a reference to an initialized EVMD.
@@ -1143,6 +1148,23 @@ func (app *EVMD) GetTxConfig() client.TxConfig {
 
 func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 	app.clientCtx = clientCtx
+}
+
+func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
+	app.eventBus = eventBus
+
+	sub, err := eventBus.Subscribe(context.Background(), "evm", query.MustCompile("tm.event='PendingTx'"))
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		for msg := range sub.Out() {
+			data := msg.Data().(cmttypes.EventDataPendingTx)
+			if mp, ok := app.Mempool().(*evmmempool.ExperimentalEVMMempool); ok {
+				mp.GetBlockchain().NotifyPendingTx(data.Tx)
+			}
+		}
+	}()
 }
 
 // AutoCliOpts returns the autocli options for the app.
