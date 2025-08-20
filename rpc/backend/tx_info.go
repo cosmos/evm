@@ -461,6 +461,9 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	// exclude sender and precompiles
 	addressesToExclude := make(map[common.Address]struct{})
 	addressesToExclude[args.GetFrom()] = struct{}{}
+	if args.To != nil {
+		addressesToExclude[*args.To] = struct{}{}
+	}
 
 	isMerge := b.ChainConfig().MergeNetsplitBlock != nil
 	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isMerge, header.Time))
@@ -468,7 +471,7 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 		addressesToExclude[addr] = struct{}{}
 	}
 
-	// check authorization list
+	// check if enough gas was provided to cover all authorization lists
 	maxAuthorizations := uint64(*args.Gas) / params.CallNewAccountGas
 	if uint64(len(args.AuthorizationList)) > maxAuthorizations {
 		b.Logger.Error("insufficient gas to process all authorizations", "maxAuthorizations", maxAuthorizations)
