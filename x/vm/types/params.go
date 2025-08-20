@@ -23,8 +23,6 @@ var (
 	DefaultEVMChainID = "cosmos_262144-1"
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
 	DefaultEVMDecimals uint64 = 18
-	// DefaultAllowUnprotectedTxs rejects all unprotected txs (i.e false)
-	DefaultAllowUnprotectedTxs = false
 	// DefaultStaticPrecompiles defines the default active precompiles.
 	DefaultStaticPrecompiles []string
 	// DefaultExtraEIPs defines the default extra EIPs to be included.
@@ -49,14 +47,12 @@ const DefaultHistoryServeWindow = 8192 // same as EIP-2935
 
 // NewParams creates a new Params instance
 func NewParams(
-	allowUnprotectedTxs bool,
 	extraEIPs []int64,
 	activeStaticPrecompiles,
 	evmChannels []string,
 	accessControl AccessControl,
 ) Params {
 	return Params{
-		AllowUnprotectedTxs:     allowUnprotectedTxs,
 		ExtraEIPs:               extraEIPs,
 		ActiveStaticPrecompiles: activeStaticPrecompiles,
 		EVMChannels:             evmChannels,
@@ -69,7 +65,6 @@ func DefaultParams() Params {
 	return Params{
 		EvmDenom:                DefaultEVMDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
-		AllowUnprotectedTxs:     DefaultAllowUnprotectedTxs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
@@ -98,10 +93,6 @@ func validateChannels(i interface{}) error {
 // Validate performs basic validation on evm parameters.
 func (p Params) Validate() error {
 	if err := validateEIPs(p.ExtraEIPs); err != nil {
-		return err
-	}
-
-	if err := validateBool(p.AllowUnprotectedTxs); err != nil {
 		return err
 	}
 
@@ -179,14 +170,6 @@ func validateAllowlistAddresses(i interface{}) error {
 		if err := types.ValidateAddress(address); err != nil {
 			return fmt.Errorf("invalid whitelist address: %s", address)
 		}
-	}
-	return nil
-}
-
-func validateBool(i interface{}) error {
-	_, ok := i.(bool)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 	return nil
 }
