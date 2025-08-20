@@ -48,7 +48,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 		*evmAppA.GetStakingKeeper(),
 		evmAppA.GetTransferKeeper(),
 		evmAppA.GetIBCKeeper().ChannelKeeper,
-		evmAppA.GetEVMKeeper(),
 	)
 	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
 	evmAppB := s.chainB.App.(evm.EvmApp)
@@ -57,7 +56,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 		*evmAppB.GetStakingKeeper(),
 		evmAppB.GetTransferKeeper(),
 		evmAppB.GetIBCKeeper().ChannelKeeper,
-		evmAppB.GetEVMKeeper(),
 	)
 	s.chainBBondDenom, _ = evmAppB.GetStakingKeeper().BondDenom(s.chainB.GetContext())
 }
