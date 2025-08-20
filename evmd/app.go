@@ -3,6 +3,7 @@ package evmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,6 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/pubsub/query"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -25,6 +25,7 @@ import (
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/rpc/stream"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -148,8 +149,6 @@ func init() {
 }
 
 const appName = "evmd"
-
-var querySubscribe = query.MustCompile(fmt.Sprintf("tm.event='%s'", cmttypes.EventNewBlockHeader))
 
 // defaultNodeHome default home directories for the application daemon
 var defaultNodeHome string
@@ -1155,10 +1154,10 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 // SetEventBus sets the application's CometBFT event bus to listen for new block header event.
 func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
 	if app.eventBus != nil {
-		app.eventBus.Unsubscribe(context.Background(), appName, querySubscribe)
+		app.eventBus.Unsubscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
 	}
 	app.eventBus = eventBus
-	sub, err := eventBus.Subscribe(context.Background(), appName, querySubscribe)
+	sub, err := eventBus.Subscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
 	if err != nil {
 		panic(err)
 	}
@@ -1169,6 +1168,21 @@ func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
 			}
 		}
 	}()
+}
+
+func (app *EVMD) Close() error {
+	var err error
+	if app.eventBus != nil {
+		err = app.eventBus.Unsubscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
+	}
+	err = errors.Join(err, app.BaseApp.Close())
+	msg := "Application gracefully shutdown"
+	if err == nil {
+		app.Logger().Info(msg)
+	} else {
+		app.Logger().Error(msg, "error", err)
+	}
+	return err
 }
 
 // AutoCliOpts returns the autocli options for the app.
@@ -1190,13 +1204,6 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 		ValidatorAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
-}
-
-func (app *EVMD) Close() error {
-	if app.eventBus != nil {
-		app.eventBus.Unsubscribe(context.Background(), appName, querySubscribe)
-	}
-	return app.BaseApp.Close()
 }
 
 // initParamsKeeper init params keeper and its subspaces
