@@ -459,8 +459,11 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	}
 
 	// exclude sender and precompiles
-	addressesToExclude := map[common.Address]struct{}{args.GetFrom(): {}}
-	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, true, header.Time)) // isMerge is true
+	addressesToExclude := make(map[common.Address]struct{})
+	addressesToExclude[args.GetFrom()] = struct{}{}
+
+	isMerge := b.ChainConfig().MergeNetsplitBlock != nil
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isMerge, header.Time))
 	for _, addr := range precompiles {
 		addressesToExclude[addr] = struct{}{}
 	}
