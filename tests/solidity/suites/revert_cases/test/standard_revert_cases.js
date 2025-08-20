@@ -106,7 +106,6 @@ describe('Standard Revert Cases E2E Tests', function () {
                 expect.fail('Transaction should have reverted');
             } catch (error) {
                 analysis = await analyzeFailedTransaction(error.receipt.hash);
-
             }
             verifyTransactionRevert(analysis, PANIC_ASSERT_0x01);
             
@@ -336,7 +335,7 @@ describe('Standard Revert Cases E2E Tests', function () {
                 } catch (error) {
                     analysis = await analyzeFailedTransaction(error.receipt.hash);
                 }
-                verifyTransactionRevert(analysis, testCase.expectedReason)
+                verifyTransactionRevert(analysis, testCase.expectedReason);
             }
             
             // Test view functions (no receipts)
