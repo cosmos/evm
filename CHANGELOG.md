@@ -2,7 +2,23 @@
 
 ## UNRELEASED
 
-## v0.4.0
+### DEPENDENCIES
+
+### BUG FIXES
+
+### IMPROVEMENTS
+
+- [\#467](https://github.com/cosmos/evm/pull/467) Ensure SetGlobalEVMMempool is thread-safe and only sets global mempool instance once.
+
+### FEATURES
+
+### STATE BREAKING
+
+### API-BREAKING
+
+- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+
+## v0.4.1
 
 ### DEPENDENCIES
 
@@ -45,7 +61,6 @@
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
-- [\#467](https://github.com/cosmos/evm/pull/467) Ensure SetGlobalEVMMempool is thread-safe and only sets global mempool instance once.
 
 ### FEATURES
 
@@ -59,7 +74,6 @@
 
 ### API-BREAKING
 
-- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
 - [\#456](https://github.com/cosmos/evm/pull/456) Remove non–go-ethereum JSON-RPC methods to align with Geth’s surface
 - [\#443](https://github.com/cosmos/evm/pull/443) Move `ante` logic from the `evmd` Go package to the `evm` package to
 be exported as a library.
