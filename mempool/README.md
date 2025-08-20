@@ -206,7 +206,7 @@ ERROR unable to publish transaction nonce=40 expected=12: invalid sequence
 ERROR unable to publish transaction nonce=41 expected=12: invalid sequence
 ```
 
-**Real-World Testing**: The [`tests/systemtests/Counter/script/SimpleSends.s.sol`](../../tests/systemtests/Counter/script/SimpleSends.s.sol) script demonstrates typical Ethereum tooling behavior - it sends 10 sequential transactions in a batch, which naturally arrive out of order and create nonce gaps. With the default Cosmos mempool, this script would fail with sequence errors. With the EVM mempool, all transactions are queued locally and promoted as gaps are filled, allowing the script to succeed.
+**Real-World Testing**: The [`tests/systemtests/Counter/script/SimpleSends.s.sol`](../tests/systemtests/Counter/script/SimpleSends.s.sol) script demonstrates typical Ethereum tooling behavior - it sends 10 sequential transactions in a batch, which naturally arrive out of order and create nonce gaps. With the default Cosmos mempool, this script would fail with sequence errors. With the EVM mempool, all transactions are queued locally and promoted as gaps are filled, allowing the script to succeed.
 
 ### Design Principles
 

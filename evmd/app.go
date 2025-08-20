@@ -1150,6 +1150,7 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 	app.clientCtx = clientCtx
 }
 
+// SetEventBus sets the application's CometBFT event bus to listen for new block header event.
 func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
 	app.eventBus = eventBus
 	sub, err := eventBus.Subscribe(context.Background(), "evm", query.MustCompile(fmt.Sprintf("tm.event='%s'", cmttypes.EventNewBlockHeader)))
