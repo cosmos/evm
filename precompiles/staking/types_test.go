@@ -129,7 +129,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, msg)
 				require.Equal(t, validatorHexAddr, returnAddr)
-				require.Equal(t, tt.wantDelegatorAddr, msg.DelegatorAddress) //nolint:staticcheck // its populated, we'll check it
+				require.Equal(t, tt.wantDelegatorAddr, msg.DelegatorAddress)
 				require.Equal(t, tt.wantValidatorAddr, msg.ValidatorAddress)
 				require.Equal(t, tt.wantMinSelfDel, msg.MinSelfDelegation.BigInt())
 				require.Equal(t, tt.wantValue, msg.Value.Amount.BigInt())

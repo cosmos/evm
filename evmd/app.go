@@ -149,6 +149,8 @@ func init() {
 
 const appName = "evmd"
 
+var querySubscribe = query.MustCompile(fmt.Sprintf("tm.event='%s'", cmttypes.EventNewBlockHeader))
+
 // defaultNodeHome default home directories for the application daemon
 var defaultNodeHome string
 
@@ -1152,8 +1154,11 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 
 // SetEventBus sets the application's CometBFT event bus to listen for new block header event.
 func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
+	if app.eventBus != nil {
+		app.eventBus.Unsubscribe(context.Background(), appName, querySubscribe)
+	}
 	app.eventBus = eventBus
-	sub, err := eventBus.Subscribe(context.Background(), "evm", query.MustCompile(fmt.Sprintf("tm.event='%s'", cmttypes.EventNewBlockHeader)))
+	sub, err := eventBus.Subscribe(context.Background(), appName, querySubscribe)
 	if err != nil {
 		panic(err)
 	}
@@ -1185,6 +1190,13 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 		ValidatorAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		ConsensusAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
+}
+
+func (app *EVMD) Close() error {
+	if app.eventBus != nil {
+		app.eventBus.Unsubscribe(context.Background(), appName, querySubscribe)
+	}
+	return app.BaseApp.Close()
 }
 
 // initParamsKeeper init params keeper and its subspaces
