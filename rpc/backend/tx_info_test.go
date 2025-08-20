@@ -33,6 +33,7 @@ import (
 )
 
 func setupMockBackend(t *testing.T) *Backend {
+	t.Helper()
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
 	ctx.Viper.Set("evm.evm-chain-id", constants.ExampleChainID.EVMChainID)
