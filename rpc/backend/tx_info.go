@@ -404,25 +404,25 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (ethtypes.AccessList, uint64, error, error) {
 	args, err := b.SetTxDefaults(args)
 	if err != nil {
-		b.Logger.Debug("failed to set tx defaults", "error", err)
+		b.Logger.Error("failed to set tx defaults", "error", err)
 		return nil, 0, nil, err
 	}
 
 	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
-		b.Logger.Debug("failed to get block number", "error", err)
+		b.Logger.Error("failed to get block number", "error", err)
 		return nil, 0, nil, err
 	}
 
 	addressesToExclude, err := b.getAccessListExcludes(args, blockNum)
 	if err != nil {
-		b.Logger.Debug("failed to get access list excludes", "error", err)
+		b.Logger.Error("failed to get access list excludes", "error", err)
 		return nil, 0, nil, err
 	}
 
 	prevTracer, traceArgs, err := b.initAccessListTracer(args, blockNum, addressesToExclude)
 	if err != nil {
-		b.Logger.Debug("failed to init access list tracer", "error", err)
+		b.Logger.Error("failed to init access list tracer", "error", err)
 		return nil, 0, nil, err
 	}
 
@@ -432,17 +432,17 @@ func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 		traceArgs.AccessList = &accessList
 		res, err := b.DoCall(*traceArgs, blockNum)
 		if err != nil {
-			b.Logger.Debug("failed to apply transaction", "error", err)
+			b.Logger.Error("failed to apply transaction", "error", err)
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", traceArgs.ToTransaction(ethtypes.LegacyTxType).Hash(), err)
 		}
 
 		// Check if access list has converged (no new addresses/slots accessed)
 		newTracer := logger.NewAccessListTracer(accessList, addressesToExclude)
 		if newTracer.Equal(prevTracer) {
-			b.Logger.Debug("access list converged", "accessList", accessList)
+			b.Logger.Info("access list converged", "accessList", accessList)
 			var vmErr error
 			if res.VmError != "" {
-				b.Logger.Debug("vm error after access list converged", "vmError", res.VmError)
+				b.Logger.Error("vm error after access list converged", "vmError", res.VmError)
 				vmErr = errors.New(res.VmError)
 			}
 			return accessList, res.GasUsed, vmErr, nil
@@ -454,7 +454,7 @@ func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber) (map[common.Address]struct{}, error) {
 	header, err := b.HeaderByNumber(blockNum)
 	if err != nil {
-		b.Logger.Debug("failed to get header by number", "error", err)
+		b.Logger.Error("failed to get header by number", "error", err)
 		return nil, err
 	}
 
@@ -468,14 +468,14 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 	// check authorization list
 	maxAuthorizations := uint64(*args.Gas) / params.CallNewAccountGas
 	if uint64(len(args.AuthorizationList)) > maxAuthorizations {
-		b.Logger.Debug("insufficient gas to process all authorizations", "maxAuthorizations", maxAuthorizations)
+		b.Logger.Error("insufficient gas to process all authorizations", "maxAuthorizations", maxAuthorizations)
 		return nil, errors.New("insufficient gas to process all authorizations")
 	}
 
 	for _, auth := range args.AuthorizationList {
 		// validate authorization (duplicating stateTransition.validateAuthorization() logic from geth)
 		if (!auth.ChainID.IsZero() && auth.ChainID.CmpBig(b.ChainConfig().ChainID) != 0) || auth.Nonce+1 < auth.Nonce {
-			b.Logger.Debug("invalid authorization", "auth", auth)
+			b.Logger.Error("invalid authorization", "auth", auth)
 			continue
 		}
 		if authority, err := auth.Authority(); err == nil {
@@ -483,13 +483,14 @@ func (b *Backend) getAccessListExcludes(args evmtypes.TransactionArgs, blockNum 
 		}
 	}
 
+	b.Logger.Debug("access list excludes created", "addressesToExclude", addressesToExclude)
 	return addressesToExclude, nil
 }
 
 func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum rpctypes.BlockNumber, addressesToExclude map[common.Address]struct{}) (*logger.AccessListTracer, *evmtypes.TransactionArgs, error) {
 	header, err := b.HeaderByNumber(blockNum)
 	if err != nil {
-		b.Logger.Debug("failed to get header by number", "error", err)
+		b.Logger.Error("failed to get header by number", "error", err)
 		return nil, nil, err
 	}
 
@@ -497,14 +498,14 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 		pending := blockNum == rpctypes.EthPendingBlockNumber
 		nonce, err := b.getAccountNonce(args.GetFrom(), pending, blockNum.Int64(), b.Logger)
 		if err != nil {
-			b.Logger.Debug("failed to get account nonce", "error", err)
+			b.Logger.Error("failed to get account nonce", "error", err)
 			return nil, nil, err
 		}
 		nonce64 := hexutil.Uint64(nonce)
 		args.Nonce = &nonce64
 	}
 	if err = args.CallDefaults(b.RPCGasCap(), header.BaseFee, b.ChainConfig().ChainID); err != nil {
-		b.Logger.Debug("failed to set default call args", "error", err)
+		b.Logger.Error("failed to set default call args", "error", err)
 		return nil, nil, err
 	}
 
@@ -513,5 +514,6 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 		tracer = logger.NewAccessListTracer(*args.AccessList, addressesToExclude)
 	}
 
+	b.Logger.Debug("access list tracer initialized", "tracer", tracer)
 	return tracer, &args, nil
 }
