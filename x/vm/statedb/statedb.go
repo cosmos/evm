@@ -104,6 +104,15 @@ func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
 	return sr.Hash()
 }
 
+func (s *StateDB) IsStorageEmpty(addr common.Address) bool {
+	empty := true
+	s.keeper.ForEachStorage(s.ctx, addr, func(key, value common.Hash) bool {
+		empty = false
+		return false
+	})
+	return empty
+}
+
 /*
 	PointCache, Witness, and AccessEvents are all utilized for verkle trees.
 	For now, we just return nil and verkle trees are not supported.

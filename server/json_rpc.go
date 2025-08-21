@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
@@ -23,6 +24,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
 )
+
+const shutdownTimeout = 5 * time.Second
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
@@ -109,7 +112,9 @@ func StartJSONRPC(
 			// The calling process canceled or closed the provided context, so we must
 			// gracefully stop the JSON-RPC server.
 			logger.Info("stopping JSON-RPC server...", "address", config.JSONRPC.Address)
-			if err := httpSrv.Shutdown(context.Background()); err != nil {
+			ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			if err := httpSrv.Shutdown(ctxShutdown); err != nil {
 				logger.Error("failed to shutdown JSON-RPC server", "error", err.Error())
 			}
 			return nil

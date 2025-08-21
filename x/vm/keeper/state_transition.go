@@ -193,36 +193,54 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	ethLogs := types.LogsToEthereum(res.Logs)
 	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
 
-	if !res.Failed() {
-		var contractAddr common.Address
-		if msg.To == nil {
-			contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	var contractAddr common.Address
+	if msg.To == nil {
+		contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              tx.Type(),
+		PostState:         nil,
+		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
+		Bloom:             bloomReceipt,
+		Logs:              ethLogs,
+		TxHash:            txConfig.TxHash,
+		ContractAddress:   contractAddr,
+		GasUsed:           res.GasUsed,
+		BlockHash:         txConfig.BlockHash,
+		BlockNumber:       big.NewInt(ctx.BlockHeight()),
+		TransactionIndex:  txConfig.TxIndex,
+	}
+
+	if res.Failed() {
+		receipt.Status = ethtypes.ReceiptStatusFailed
+
+		// If the tx failed we discard the old context and create a new one, so
+		// PostTxProcessing can persist data even if the tx fails.
+		tmpCtx, commitFn = ctx.CacheContext()
+	} else {
+		receipt.Status = ethtypes.ReceiptStatusSuccessful
+	}
+
+	signerAddr, err := signer.Sender(tx)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
+	}
+
+	eventsLen := len(tmpCtx.EventManager().Events())
+
+	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
+	if !k.HasHooks() {
+		// If there are no hooks, we can commit the state immediately if the tx is successful
+		if commitFn != nil && !res.Failed() {
+			commitFn()
 		}
-
-		receipt := &ethtypes.Receipt{
-			Type:              tx.Type(),
-			PostState:         nil,
-			CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
-			Bloom:             bloomReceipt,
-			Logs:              ethLogs,
-			TxHash:            txConfig.TxHash,
-			ContractAddress:   contractAddr,
-			GasUsed:           res.GasUsed,
-			BlockHash:         txConfig.BlockHash,
-			BlockNumber:       big.NewInt(ctx.BlockHeight()),
-			TransactionIndex:  txConfig.TxIndex,
-		}
-
-		signerAddr, err := signer.Sender(tx)
-		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
-		}
-
-		eventsLen := len(tmpCtx.EventManager().Events())
-
+	} else {
 		// Note: PostTxProcessing hooks currently do not charge for gas
-		// and function similar to EndBlockers in abci, but for EVM transactions
-		if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
+		// and function similar to EndBlockers in abci, but for EVM transactions.
+		// It will persist data even if the tx fails.
+		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
+		if err != nil {
 			// If hooks returns an error, revert the whole tx.
 			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
@@ -231,11 +249,20 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			res.Logs = nil
 			receipt.Logs = nil
 			receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
-		} else if commitFn != nil {
-			commitFn()
+		} else {
+			if commitFn != nil {
+				commitFn()
+			}
 
 			// Since the post-processing can alter the log, we need to update the result
-			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			if res.Failed() {
+				res.Logs = nil
+				receipt.Logs = nil
+				receipt.Bloom = ethtypes.Bloom{}
+			} else {
+				res.Logs = types.NewLogsFromEth(receipt.Logs)
+			}
+
 			events := tmpCtx.EventManager().Events()
 			if len(events) > eventsLen {
 				ctx.EventManager().EmitEvents(events[eventsLen:])

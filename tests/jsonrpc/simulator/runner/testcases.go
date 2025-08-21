@@ -68,6 +68,7 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameEthGetPendingTransactions, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.Legacy(rCtx, ns.MethodNameEthGetPendingTransactions, "eth", "Use eth_newPendingTransactionFilter + eth_getFilterChanges instead")
 				}},
+				{Name: ns.MethodNameEthCreateAccessList, Handler: ns.EthCreateAccessList},
 				{Name: ns.MethodNameEthPendingTransactions, Handler: ns.EthPendingTransactions, Description: "Go-ethereum compatible pending transactions method"},
 				// Execute subcategory
 				{Name: ns.MethodNameEthCall, Handler: ns.EthCall},
@@ -88,7 +89,6 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameEthFeeHistory, Handler: ns.EthFeeHistory},
 				{Name: ns.MethodNameEthGetProof, Handler: ns.EthGetProof},
 				{Name: ns.MethodNameEthProtocolVersion, Handler: nil, SkipReason: "Protocol version deprecated"},
-				{Name: ns.MethodNameEthCreateAccessList, Handler: nil, SkipReason: "Access list creation not implemented"},
 				// Standard methods that should be implemented
 				{Name: ns.MethodNameEthSendTransaction, Handler: ns.EthSendTransaction},
 				{Name: ns.MethodNameEthSign, Handler: ns.EthSign},
