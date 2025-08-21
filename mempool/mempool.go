@@ -9,13 +9,15 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
+	cmttypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 
@@ -26,6 +28,8 @@ import (
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+
+const SubscriberName = "evm"
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -54,6 +58,8 @@ type (
 
 		/** Concurrency **/
 		mtx sync.Mutex
+
+		eventBus *cmttypes.EventBus
 	}
 )
 
@@ -202,22 +208,18 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 	blockHeight := ctx.BlockHeight()
 
 	m.logger.Debug("inserting transaction into mempool", "block_height", blockHeight)
-
-	if blockHeight < 2 {
-		return errorsmod.Wrap(sdkerrors.ErrInvalidHeight, "Mempool is not ready. Please wait for block 1 to finalize.")
-	}
-
 	ethMsg, err := m.getEVMMessage(tx)
 	if err == nil {
 		// Insert into EVM pool
-		m.logger.Debug("inserting EVM transaction", "tx_hash", ethMsg.Hash)
+		hash := ethMsg.Hash()
+		m.logger.Debug("inserting EVM transaction", "tx_hash", hash)
 		ethTxs := []*ethtypes.Transaction{ethMsg.AsTransaction()}
 		errs := m.txPool.Add(ethTxs, true)
 		if len(errs) > 0 && errs[0] != nil {
-			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", ethMsg.Hash)
+			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
 		}
-		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", ethMsg.Hash)
+		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
 		return nil
 	}
 
@@ -300,11 +302,12 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 		// We should not do this with EVM transactions because removing them causes the subsequent ones to
 		// be dequeued as temporarily invalid, only to be requeued a block later.
 		// The EVM mempool handles removal based on account nonce automatically.
+		hash := msg.Hash()
 		if m.shouldRemoveFromEVMPool(tx) {
-			m.logger.Debug("manually removing EVM transaction", "tx_hash", msg.Hash())
-			m.legacyTxPool.RemoveTx(msg.Hash(), false, true)
+			m.logger.Debug("manually removing EVM transaction", "tx_hash", hash)
+			m.legacyTxPool.RemoveTx(hash, false, true)
 		} else {
-			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", msg.Hash)
+			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", hash)
 		}
 		return nil
 	}
@@ -370,6 +373,31 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()
 	}
+}
+
+// SetEventBus sets CometBFT event bus to listen for new block header event.
+func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
+	if m.eventBus != nil {
+		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
+	}
+	m.eventBus = eventBus
+	sub, err := eventBus.Subscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		for range sub.Out() {
+			m.GetBlockchain().NotifyNewBlock()
+		}
+	}()
+}
+
+// Close unsubscribes from the CometBFT event bus.
+func (m *ExperimentalEVMMempool) Close() error {
+	if m.eventBus != nil {
+		return m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+	}
+	return nil
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
