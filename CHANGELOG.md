@@ -15,6 +15,8 @@
 
 ### FEATURES
 
+- [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+
 ### STATE BREAKING
 
 ### API-BREAKING
