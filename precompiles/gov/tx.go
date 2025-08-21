@@ -9,7 +9,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
 const (
@@ -43,7 +42,7 @@ func (p *Precompile) SubmitProposal(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), proposerHexAddr.String())
 	}
 
-	res, err := govkeeper.NewMsgServerImpl(&p.govKeeper).SubmitProposal(ctx, msg)
+	res, err := p.govMsgServer.SubmitProposal(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func (p *Precompile) Deposit(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), depositorHexAddr.String())
 	}
 
-	if _, err = govkeeper.NewMsgServerImpl(&p.govKeeper).Deposit(ctx, msg); err != nil {
+	if _, err = p.govMsgServer.Deposit(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -102,7 +101,7 @@ func (p *Precompile) CancelProposal(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), proposerHexAddr.String())
 	}
 
-	if _, err = govkeeper.NewMsgServerImpl(&p.govKeeper).CancelProposal(ctx, msg); err != nil {
+	if _, err = p.govMsgServer.CancelProposal(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -131,8 +130,7 @@ func (p Precompile) Vote(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), voterHexAddr.String())
 	}
 
-	msgSrv := govkeeper.NewMsgServerImpl(&p.govKeeper)
-	if _, err = msgSrv.Vote(ctx, msg); err != nil {
+	if _, err = p.govMsgServer.Vote(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -161,8 +159,7 @@ func (p Precompile) VoteWeighted(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), voterHexAddr.String())
 	}
 
-	msgSrv := govkeeper.NewMsgServerImpl(&p.govKeeper)
-	if _, err = msgSrv.VoteWeighted(ctx, msg); err != nil {
+	if _, err = p.govMsgServer.VoteWeighted(ctx, msg); err != nil {
 		return nil, err
 	}
 

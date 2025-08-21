@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
 
 type PrecompileTestSuite struct {
@@ -56,6 +57,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = slashing.NewPrecompile(
 		s.network.App.GetSlashingKeeper(),
+		slashingkeeper.NewMsgServerImpl(s.network.App.GetSlashingKeeper()),
 		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),

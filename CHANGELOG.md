@@ -6,7 +6,28 @@
 
 - [\#277](https://github.com/cosmos/evm/pull/277) Add GetParams methods to staking and distribution precompile.
 
-## v0.4.0
+### DEPENDENCIES
+
+### BUG FIXES
+
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
+
+### IMPROVEMENTS
+
+- [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
+- [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
+
+### FEATURES
+
+- [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+
+### STATE BREAKING
+
+### API-BREAKING
+
+- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+
+## v0.4.1
 
 ### DEPENDENCIES
 
@@ -49,7 +70,7 @@
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
-- [\#467](https://github.com/cosmos/evm/pull/467) Ensure SetGlobalEVMMempool is thread-safe and only sets global mempool instance once.
+- [\#476](https://github.com/cosmos/evm/pull/476) Add revert error e2e tests for contract and precompile calls
 
 ### FEATURES
 

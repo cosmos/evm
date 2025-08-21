@@ -15,8 +15,7 @@ import (
 	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -29,16 +28,20 @@ var f embed.FS
 // Precompile defines the precompiled contract for distribution.
 type Precompile struct {
 	cmn.Precompile
-	distributionKeeper distributionkeeper.Keeper
-	stakingKeeper      stakingkeeper.Keeper
-	addrCdc            address.Codec
+	distributionKeeper    cmn.DistributionKeeper
+	distributionMsgServer distributiontypes.MsgServer
+	distributionQuerier   distributiontypes.QueryServer
+	stakingKeeper         cmn.StakingKeeper
+	addrCdc               address.Codec
 }
 
 // NewPrecompile creates a new distribution Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
-	distributionKeeper distributionkeeper.Keeper,
-	stakingKeeper stakingkeeper.Keeper,
+	distributionKeeper cmn.DistributionKeeper,
+	distributionMsgServer distributiontypes.MsgServer,
+	distributionQuerier distributiontypes.QueryServer,
+	stakingKeeper cmn.StakingKeeper,
 	bankKeeper cmn.BankKeeper,
 	addrCdc address.Codec,
 ) (*Precompile, error) {
@@ -53,9 +56,11 @@ func NewPrecompile(
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
-		stakingKeeper:      stakingKeeper,
-		distributionKeeper: distributionKeeper,
-		addrCdc:            addrCdc,
+		stakingKeeper:         stakingKeeper,
+		distributionKeeper:    distributionKeeper,
+		distributionMsgServer: distributionMsgServer,
+		distributionQuerier:   distributionQuerier,
+		addrCdc:               addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
