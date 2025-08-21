@@ -760,10 +760,9 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 					keeper.NewMultiEvmHooks(
 						&testHooks{
 							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
-								s.Network.App.GetMintKeeper().MintCoins(
+								return s.Network.App.GetMintKeeper().MintCoins(
 									ctx, sdk.NewCoins(sdk.NewCoin("arandomcoin", sdkmath.NewInt(100))),
 								)
-								return nil
 							},
 						},
 					),
