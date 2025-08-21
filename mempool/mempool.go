@@ -377,7 +377,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 // SetEventBus sets CometBFT event bus to listen for new block header event.
 func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	if m.eventBus != nil {
-		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
 	}
 	m.eventBus = eventBus
 	sub, err := eventBus.Subscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
