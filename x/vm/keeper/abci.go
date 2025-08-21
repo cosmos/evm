@@ -31,6 +31,8 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 			),
 		})
 	}
+
+	k.SetHeaderHash(ctx)
 	return nil
 }
 

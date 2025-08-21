@@ -138,6 +138,7 @@ func startInProcess(cfg Config, val *Validator) error {
 			val.AppConfig,
 			nil,
 			app.(server.AppWithPendingTxStream),
+			nil,
 		)
 		if err != nil {
 			return err

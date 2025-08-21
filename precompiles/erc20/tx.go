@@ -5,11 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	"github.com/cosmos/evm/utils"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
@@ -27,12 +23,6 @@ const (
 	// ApproveMethod defines the ABI method name for ERC-20 Approve
 	// transaction.
 	ApproveMethod = "approve"
-	// DecreaseAllowanceMethod defines the ABI method name for the DecreaseAllowance
-	// transaction.
-	DecreaseAllowanceMethod = "decreaseAllowance"
-	// IncreaseAllowanceMethod defines the ABI method name for the IncreaseAllowance
-	// transaction.
-	IncreaseAllowanceMethod = "increaseAllowance"
 )
 
 // Transfer executes a direct transfer from the caller address to the
@@ -125,20 +115,6 @@ func (p *Precompile) transfer(
 	if err = msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
-	}
-
-	// TODO: Properly handle native balance changes via the balance handler.
-	// Currently, decimal conversion issues exist with the precisebank module.
-	// As a temporary workaround, balances are adjusted directly using add/sub operations.
-	evmDenom := evmtypes.GetEVMCoinDenom()
-	if p.tokenPair.Denom == evmDenom {
-		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
-		if err != nil {
-			return nil, err
-		}
-
-		stateDB.SubBalance(from, convertedAmount, tracing.BalanceChangeUnspecified)
-		stateDB.AddBalance(to, convertedAmount, tracing.BalanceChangeUnspecified)
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
