@@ -5,10 +5,9 @@ go 1.23.8
 require (
 	github.com/ethereum/go-ethereum v1.15.10
 	github.com/fatih/color v1.16.0
-	github.com/google/go-cmp v0.5.9
+	github.com/gorilla/websocket v1.4.2
 	github.com/status-im/keycard-go v0.2.0
 	github.com/xuri/excelize/v2 v2.8.1
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -24,7 +23,6 @@ require (
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

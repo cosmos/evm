@@ -6,12 +6,16 @@
 
 ### BUG FIXES
 
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
+
 ### IMPROVEMENTS
 
+- [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
 - [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
-- [\#467](https://github.com/cosmos/evm/pull/467) Ensure SetGlobalEVMMempool is thread-safe and only sets global mempool instance once.
 
 ### FEATURES
+
+- [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 
 ### STATE BREAKING
 
