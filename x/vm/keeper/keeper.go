@@ -217,6 +217,11 @@ func (k *Keeper) PostTxProcessing(
 	return k.hooks.PostTxProcessing(ctx, sender, msg, receipt)
 }
 
+// HasHooks returns true if hooks are set
+func (k *Keeper) HasHooks() bool {
+	return k.hooks != nil
+}
+
 // ----------------------------------------------------------------------------
 // Log
 // ----------------------------------------------------------------------------
