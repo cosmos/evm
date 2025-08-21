@@ -229,33 +229,44 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 
 	eventsLen := len(tmpCtx.EventManager().Events())
 
-	// Note: PostTxProcessing hooks currently do not charge for gas
-	// and function similar to EndBlockers in abci, but for EVM transactions.
-	// It will persist data even if the tx fails.
-	if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
-		// If hooks returns an error, revert the whole tx.
-		res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
-		k.Logger(ctx).Error("tx post processing failed", "error", err)
-		// If the tx failed in post processing hooks, we should clear all log-related data
-		// to match EVM behavior where transaction reverts clear all effects including logs
-		res.Logs = nil
-		receipt.Logs = nil
-		receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
-	} else if commitFn != nil {
-		commitFn()
-
-		// Since the post-processing can alter the log, we need to update the result
-		if res.Failed() {
+	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
+	if !k.HasHooks() {
+		// If there are no hooks, we can commit the state immediately if the tx is successful
+		if commitFn != nil && !res.Failed() {
+			commitFn()
+		}
+	} else {
+		// Note: PostTxProcessing hooks currently do not charge for gas
+		// and function similar to EndBlockers in abci, but for EVM transactions.
+		// It will persist data even if the tx fails.
+		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
+		if err != nil {
+			// If hooks returns an error, revert the whole tx.
+			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
+			k.Logger(ctx).Error("tx post processing failed", "error", err)
+			// If the tx failed in post processing hooks, we should clear all log-related data
+			// to match EVM behavior where transaction reverts clear all effects including logs
 			res.Logs = nil
 			receipt.Logs = nil
-			receipt.Bloom = ethtypes.Bloom{}
+			receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
 		} else {
-			res.Logs = types.NewLogsFromEth(receipt.Logs)
-		}
+			if commitFn != nil {
+				commitFn()
+			}
 
-		events := tmpCtx.EventManager().Events()
-		if len(events) > eventsLen {
-			ctx.EventManager().EmitEvents(events[eventsLen:])
+			// Since the post-processing can alter the log, we need to update the result
+			if res.Failed() {
+				res.Logs = nil
+				receipt.Logs = nil
+				receipt.Bloom = ethtypes.Bloom{}
+			} else {
+				res.Logs = types.NewLogsFromEth(receipt.Logs)
+			}
+
+			events := tmpCtx.EventManager().Events()
+			if len(events) > eventsLen {
+				ctx.EventManager().EmitEvents(events[eventsLen:])
+			}
 		}
 	}
 
