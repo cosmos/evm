@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/eth"
@@ -47,6 +48,7 @@ type APICreator = func(
 	stream *stream.RPCStream,
 	allowUnprotectedTxs bool,
 	indexer types.EVMTxIndexer,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -59,8 +61,9 @@ func init() {
 			stream *stream.RPCStream,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -76,7 +79,7 @@ func init() {
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, types.EVMTxIndexer) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, types.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -86,7 +89,7 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ types.EVMTxIndexer) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ types.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -101,8 +104,9 @@ func init() {
 			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
@@ -117,8 +121,9 @@ func init() {
 			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
@@ -133,8 +138,9 @@ func init() {
 			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
@@ -149,8 +155,9 @@ func init() {
 			_ *stream.RPCStream,
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
+			mempool *evmmempool.ExperimentalEVMMempool,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
@@ -170,12 +177,13 @@ func GetRPCAPIs(ctx *server.Context,
 	allowUnprotectedTxs bool,
 	indexer types.EVMTxIndexer,
 	selectedAPIs []string,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
 		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer)...)
+			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
 		} else {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
 		}
