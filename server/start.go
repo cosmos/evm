@@ -61,7 +61,6 @@ type Application interface {
 	AppWithPendingTxStream
 	GetMempool() sdkmempool.ExtMempool
 	SetClientCtx(clientCtx client.Context)
-	SetEventBus(eventBus *cmttypes.EventBus)
 }
 
 // AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
@@ -433,7 +432,9 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		evmApp.SetEventBus(tmNode.EventBus())
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+			m.SetEventBus(tmNode.EventBus())
+		}
 		defer func() {
 			if tmNode.IsRunning() {
 				_ = tmNode.Stop()

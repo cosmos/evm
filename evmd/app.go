@@ -1,7 +1,6 @@
 package evmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
@@ -25,7 +23,6 @@ import (
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/rpc/stream"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -212,8 +209,6 @@ type EVMD struct {
 
 	// module configurator
 	configurator module.Configurator
-
-	eventBus *cmttypes.EventBus
 }
 
 // NewExampleApp returns a reference to an initialized EVMD.
@@ -1151,29 +1146,11 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 	app.clientCtx = clientCtx
 }
 
-// SetEventBus sets the application's CometBFT event bus to listen for new block header event.
-func (app *EVMD) SetEventBus(eventBus *cmttypes.EventBus) {
-	if app.eventBus != nil {
-		app.eventBus.Unsubscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
-	}
-	app.eventBus = eventBus
-	sub, err := eventBus.Subscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		for range sub.Out() {
-			if mp, ok := app.Mempool().(*evmmempool.ExperimentalEVMMempool); ok {
-				mp.GetBlockchain().NotifyNewBlock()
-			}
-		}
-	}()
-}
-
+// Close unsubscribes from the CometBFT event bus (if set) and closes the underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if app.eventBus != nil {
-		err = app.eventBus.Unsubscribe(context.Background(), appName, stream.NewBlockHeaderEvents)
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+		err = m.Close()
 	}
 	err = errors.Join(err, app.BaseApp.Close())
 	msg := "Application gracefully shutdown"

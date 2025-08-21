@@ -12,12 +12,14 @@ import (
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/rpc/stream"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 
+	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -25,6 +27,8 @@ import (
 )
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+
+const SubscriberName = "evm"
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -53,6 +57,8 @@ type (
 
 		/** Concurrency **/
 		mtx sync.Mutex
+
+		eventBus *cmttypes.EventBus
 	}
 )
 
@@ -366,6 +372,31 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()
 	}
+}
+
+// SetEventBus sets CometBFT event bus to listen for new block header event.
+func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
+	if m.eventBus != nil {
+		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+	}
+	m.eventBus = eventBus
+	sub, err := eventBus.Subscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		for range sub.Out() {
+			m.GetBlockchain().NotifyNewBlock()
+		}
+	}()
+}
+
+// Close unsubscribes from the CometBFT event bus.
+func (m *ExperimentalEVMMempool) Close() error {
+	if m.eventBus != nil {
+		return m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+	}
+	return nil
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
