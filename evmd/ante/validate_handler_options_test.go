@@ -1,4 +1,3 @@
-
 package ante_test
 
 import (

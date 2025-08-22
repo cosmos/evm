@@ -1,4 +1,3 @@
-
 package eips_test
 
 import (

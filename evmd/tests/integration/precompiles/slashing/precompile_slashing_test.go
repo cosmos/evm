@@ -1,4 +1,3 @@
-
 package slashing
 
 import (

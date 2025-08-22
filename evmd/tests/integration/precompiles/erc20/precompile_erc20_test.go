@@ -1,4 +1,3 @@
-
 package erc20
 
 import (

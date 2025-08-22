@@ -1,4 +1,3 @@
-
 package p256
 
 import (

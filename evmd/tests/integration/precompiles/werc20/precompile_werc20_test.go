@@ -1,4 +1,3 @@
-
 package werc20
 
 import (

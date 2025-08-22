@@ -1,4 +1,3 @@
-
 package mempool
 
 import (

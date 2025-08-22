@@ -1,4 +1,3 @@
-
 package bech32
 
 import (
