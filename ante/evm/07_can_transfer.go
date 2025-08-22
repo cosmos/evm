@@ -3,12 +3,10 @@ package evm
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/utils"
-	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -34,23 +32,13 @@ func CanTransfer(
 		)
 	}
 
-	// NOTE: pass in an empty coinbase address and nil tracer as we don't need them for the check below
-	cfg := &statedb.EVMConfig{
-		Params:   params,
-		CoinBase: common.Address{},
-		BaseFee:  baseFee,
-	}
-
-	stateDB := statedb.New(ctx, evmKeeper, statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
-	evm := evmKeeper.NewEVM(ctx, msg, cfg, evmtypes.NewNoOpTracer(), stateDB)
-
 	// check that caller has enough balance to cover asset transfer for **topmost** call
 	// NOTE: here the gas consumed is from the context with the infinite gas meter
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
 	if err != nil {
 		return err
 	}
-	if msg.Value.Sign() > 0 && !evm.Context.CanTransfer(stateDB, msg.From, convertedValue) {
+	if msg.Value.Sign() > 0 && evmKeeper.GetAccount(ctx, msg.From).Balance.Cmp(convertedValue) < 0 {
 		return errorsmod.Wrapf(
 			errortypes.ErrInsufficientFunds,
 			"failed to transfer %s from address %s using the EVM block context transfer function",

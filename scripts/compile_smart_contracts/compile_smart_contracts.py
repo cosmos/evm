@@ -36,6 +36,8 @@ IGNORED_FILES: List[str] = [
     # Ignored because it uses a different OpenZeppelin contracts version to
     # compile
     "ERC20Minter_OpenZeppelinV5.sol",
+    # Ignore all .sol files in tests directory
+    r"tests/.*\.sol$",
 ]
 
 
@@ -89,7 +91,7 @@ def find_solidity_contracts(
         relative_path = Path(root).relative_to(path)
 
         for file in files:
-            if file in IGNORED_FILES:
+            if is_ignored_file(Path(root) / file, path):
                 continue
 
             if re.search(r"(?!\.dbg)\.sol$", file):
@@ -138,6 +140,26 @@ def is_ignored_folder(path: str) -> bool:
     """
 
     return any(re.search(folder, path) for folder in IGNORED_FOLDERS)
+
+
+def is_ignored_file(file_path: Path, repo_path: Path) -> bool:
+    """
+    Check if the file should be ignored based on IGNORED_FILES patterns.
+    """
+    relative_path = file_path.relative_to(repo_path)
+    file_name = file_path.name
+    
+    for ignored_pattern in IGNORED_FILES:
+        # Check if it's a regex pattern (contains regex metacharacters)
+        if any(char in ignored_pattern for char in r'.*+?^${}[]|()\\'):
+            if re.search(ignored_pattern, str(relative_path)):
+                return True
+        else:
+            # Simple filename match
+            if file_name == ignored_pattern:
+                return True
+    
+    return False
 
 
 def copy_to_contracts_directory(target_dir: Path, contracts: List[Contract]) -> bool:

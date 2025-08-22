@@ -340,17 +340,18 @@ func (i *EVMMempoolIterator) convertEVMToSDKTx(nextEVMTx *txpool.LazyTransaction
 	}
 
 	msgEthereumTx := &msgtypes.MsgEthereumTx{}
+	hash := nextEVMTx.Tx.Hash()
 	if err := msgEthereumTx.FromSignedEthereumTx(nextEVMTx.Tx, ethtypes.LatestSignerForChainID(i.chainID)); err != nil {
-		i.logger.Error("failed to convert signed Ethereum transaction", "error", err, "tx_hash", nextEVMTx.Tx.Hash().Hex())
+		i.logger.Error("failed to convert signed Ethereum transaction", "error", err, "tx_hash", hash)
 		return nil // Return nil for invalid tx instead of panicking
 	}
 
 	cosmosTx, err := msgEthereumTx.BuildTx(i.txConfig.NewTxBuilder(), i.bondDenom)
 	if err != nil {
-		i.logger.Error("failed to build Cosmos transaction from EVM transaction", "error", err, "tx_hash", nextEVMTx.Tx.Hash().Hex())
+		i.logger.Error("failed to build Cosmos transaction from EVM transaction", "error", err, "tx_hash", hash)
 		return nil
 	}
 
-	i.logger.Debug("successfully converted EVM transaction to Cosmos transaction", "tx_hash", nextEVMTx.Tx.Hash().Hex())
+	i.logger.Debug("successfully converted EVM transaction to Cosmos transaction", "tx_hash", hash)
 	return cosmosTx
 }

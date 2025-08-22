@@ -40,8 +40,9 @@ var (
 		cmttypes.EventTx,
 		sdk.EventTypeMessage,
 		sdk.AttributeKeyModule, evmtypes.ModuleName)).String()
-	blockEvents  = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
-	evmTxHashKey = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	blockEvents          = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
+	evmTxHashKey         = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	NewBlockHeaderEvents = cmtquery.MustCompile(fmt.Sprintf("%s='%s'", cmttypes.EventTypeKey, cmttypes.EventNewBlockHeader))
 )
 
 type RPCHeader struct {

@@ -20,9 +20,9 @@ message Params {
     (gogoproto.customname) = "ExtraEIPs",
     (gogoproto.moretags) = "yaml:\"extra_eips\""
   ];
-  // allow_unprotected_txs defines if replay-protected (i.e non EIP155
-  // signed) transactions can be executed on the state machine.
-  bool allow_unprotected_txs = 5;
+  // Acceptance of non-protected transactions (i.e non EIP-155 signed)
+  // is managed independently by each node.
+  reserved 5;
   // renamed active_precompiles to active_static_precompiles
   reserved 6;
   // evm_channels is the list of channel identifiers from EVM compatible chains
@@ -35,6 +35,7 @@ message Params {
   // active_static_precompiles defines the slice of hex addresses of the
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
+  uint64 history_serve_window = 10;
 }
 
 // AccessControl defines the permission policy of the EVM

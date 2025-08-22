@@ -82,11 +82,6 @@ if evmtypes.GetChainConfig() != nil {
     )
     app.EVMMempool = evmMempool
 
-    // Set the global mempool for RPC access
-    if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
-        panic(err)
-    }
-    
     // Replace BaseApp mempool
     app.SetMempool(evmMempool)
     
@@ -103,6 +98,23 @@ if evmtypes.GetChainConfig() != nil {
     )
     app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
 }
+
+// Close unsubscribes from the CometBFT event bus (if set) and closes the underlying BaseApp.
+func (app *EVMD) Close() error {
+	var err error
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+		err = m.Close()
+	}
+	err = errors.Join(err, app.BaseApp.Close())
+	msg := "Application gracefully shutdown"
+	if err == nil {
+		app.Logger().Info(msg)
+	} else {
+		app.Logger().Error(msg, "error", err)
+	}
+	return err
+}
+
 ```
 
 ### Configuration Options
@@ -211,7 +223,7 @@ ERROR unable to publish transaction nonce=40 expected=12: invalid sequence
 ERROR unable to publish transaction nonce=41 expected=12: invalid sequence
 ```
 
-**Real-World Testing**: The [`tests/systemtests/Counter/script/SimpleSends.s.sol`](../../tests/systemtests/Counter/script/SimpleSends.s.sol) script demonstrates typical Ethereum tooling behavior - it sends 10 sequential transactions in a batch, which naturally arrive out of order and create nonce gaps. With the default Cosmos mempool, this script would fail with sequence errors. With the EVM mempool, all transactions are queued locally and promoted as gaps are filled, allowing the script to succeed.
+**Real-World Testing**: The [`tests/systemtests/Counter/script/SimpleSends.s.sol`](../tests/systemtests/Counter/script/SimpleSends.s.sol) script demonstrates typical Ethereum tooling behavior - it sends 10 sequential transactions in a batch, which naturally arrive out of order and create nonce gaps. With the default Cosmos mempool, this script would fail with sequence errors. With the EVM mempool, all transactions are queued locally and promoted as gaps are filled, allowing the script to succeed.
 
 ### Design Principles
 

@@ -95,6 +95,13 @@ type OneFeeHistory struct {
 	GasUsedRatio         float64    // the ratio of gas used to the gas limit for each block
 }
 
+// AccessListResult represents the access list and gas used for a transaction
+type AccessListResult struct {
+	AccessList *ethtypes.AccessList `json:"accessList"`
+	GasUsed    *hexutil.Uint64      `json:"gasUsed"`
+	Error      string               `json:"error"`
+}
+
 // Embedded TraceConfig type to store raw JSON data of config in custom field
 type TraceConfig struct {
 	evmtypes.TraceConfig

@@ -2,7 +2,29 @@
 
 ## UNRELEASED
 
-## v0.4.0
+### DEPENDENCIES
+
+### BUG FIXES
+
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
+- [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
+
+### IMPROVEMENTS
+
+- [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
+- [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
+
+### FEATURES
+
+- [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+
+### STATE BREAKING
+
+### API-BREAKING
+
+- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+
+## v0.4.1
 
 ### DEPENDENCIES
 
@@ -25,6 +47,7 @@
 - [\#441](https://github.com/cosmos/evm/pull/441) Align precompiles map with available static check to Prague.
 - [\#452](https://github.com/cosmos/evm/pull/452) Cleanup unused cancel function in filter.
 - [\#454](https://github.com/cosmos/evm/pull/454) Align multi decode functions instead of string contains check in HexAddressFromBech32String.
+- [\#468](https://github.com/cosmos/evm/pull/468) Add pagination flags to `token-pairs` to improve query flexibility.
 
 ### IMPROVEMENTS
 
@@ -44,6 +67,7 @@
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
+- [\#476](https://github.com/cosmos/evm/pull/476) Add revert error e2e tests for contract and precompile calls
 
 ### FEATURES
 

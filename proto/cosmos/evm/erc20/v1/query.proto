@@ -13,12 +13,12 @@ option go_package = "github.com/cosmos/evm/x/erc20/types";
 
 // Query defines the gRPC querier service.
 service Query {
-  // TokenPairs retrieves registered token pairs
+  // TokenPairs retrieves registered token pairs (mappings)x
   rpc TokenPairs(QueryTokenPairsRequest) returns (QueryTokenPairsResponse) {
     option (google.api.http).get = "/cosmos/evm/erc20/v1/token_pairs";
   }
 
-  // TokenPair retrieves a registered token pair
+  // TokenPair retrieves a registered token pair (mapping)
   rpc TokenPair(QueryTokenPairRequest) returns (QueryTokenPairResponse) {
     option (google.api.http).get = "/cosmos/evm/erc20/v1/token_pairs/{token}";
   }

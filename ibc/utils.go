@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/cosmos/evm/utils"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
@@ -108,7 +107,7 @@ func GetSentCoin(rawDenom, rawAmt string) sdk.Coin {
 // GetDenom returns the denomination from the corresponding IBC denomination. If the
 // denomination is not an IBC voucher or the trace is not found, it returns an error.
 func GetDenom(
-	transferKeeper transferkeeper.Keeper,
+	transferKeeper TransferKeeper,
 	ctx sdk.Context,
 	voucherDenom string,
 ) (transfertypes.Denom, error) {

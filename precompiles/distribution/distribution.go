@@ -10,14 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/store/types"
 
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -30,18 +28,21 @@ var f embed.FS
 // Precompile defines the precompiled contract for distribution.
 type Precompile struct {
 	cmn.Precompile
-	distributionKeeper distributionkeeper.Keeper
-	stakingKeeper      stakingkeeper.Keeper
-	evmKeeper          *evmkeeper.Keeper
-	addrCdc            address.Codec
+	distributionKeeper    cmn.DistributionKeeper
+	distributionMsgServer distributiontypes.MsgServer
+	distributionQuerier   distributiontypes.QueryServer
+	stakingKeeper         cmn.StakingKeeper
+	addrCdc               address.Codec
 }
 
 // NewPrecompile creates a new distribution Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
-	distributionKeeper distributionkeeper.Keeper,
-	stakingKeeper stakingkeeper.Keeper,
-	evmKeeper *evmkeeper.Keeper,
+	distributionKeeper cmn.DistributionKeeper,
+	distributionMsgServer distributiontypes.MsgServer,
+	distributionQuerier distributiontypes.QueryServer,
+	stakingKeeper cmn.StakingKeeper,
+	bankKeeper cmn.BankKeeper,
 	addrCdc address.Codec,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
@@ -55,14 +56,18 @@ func NewPrecompile(
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
-		stakingKeeper:      stakingKeeper,
-		distributionKeeper: distributionKeeper,
-		evmKeeper:          evmKeeper,
-		addrCdc:            addrCdc,
+		stakingKeeper:         stakingKeeper,
+		distributionKeeper:    distributionKeeper,
+		distributionMsgServer: distributionMsgServer,
+		distributionQuerier:   distributionQuerier,
+		addrCdc:               addrCdc,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.
 	p.SetAddress(common.HexToAddress(evmtypes.DistributionPrecompileAddress))
+
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
 
 	return p, nil
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
 const (
@@ -41,8 +40,7 @@ func (p *Precompile) GetVotes(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Votes(ctx, queryVotesReq)
+	res, err := p.govQuerier.Votes(ctx, queryVotesReq)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +64,7 @@ func (p *Precompile) GetVote(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Vote(ctx, queryVotesReq)
+	res, err := p.govQuerier.Vote(ctx, queryVotesReq)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +88,7 @@ func (p *Precompile) GetDeposit(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Deposit(ctx, queryDepositReq)
+	res, err := p.govQuerier.Deposit(ctx, queryDepositReq)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +112,7 @@ func (p *Precompile) GetDeposits(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Deposits(ctx, queryDepositsReq)
+	res, err := p.govQuerier.Deposits(ctx, queryDepositsReq)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +136,7 @@ func (p *Precompile) GetTallyResult(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.TallyResult(ctx, queryTallyResultReq)
+	res, err := p.govQuerier.TallyResult(ctx, queryTallyResultReq)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +157,7 @@ func (p *Precompile) GetProposal(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Proposal(ctx, queryProposalReq)
+	res, err := p.govQuerier.Proposal(ctx, queryProposalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +181,7 @@ func (p *Precompile) GetProposals(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Proposals(ctx, queryProposalsReq)
+	res, err := p.govQuerier.Proposals(ctx, queryProposalsReq)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +205,7 @@ func (p *Precompile) GetParams(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Params(ctx, queryParamsReq)
+	res, err := p.govQuerier.Params(ctx, queryParamsReq)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +226,7 @@ func (p *Precompile) GetConstitution(
 		return nil, err
 	}
 
-	res, err := govkeeper.NewQueryServer(&p.govKeeper).Constitution(ctx, req)
+	res, err := p.govQuerier.Constitution(ctx, req)
 	if err != nil {
 		return nil, err
 	}

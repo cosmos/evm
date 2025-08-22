@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -50,7 +50,7 @@ var _ vm.PrecompiledContract = &Precompile{}
 type Precompile struct {
 	cmn.Precompile
 	tokenPair      erc20types.TokenPair
-	transferKeeper transferkeeper.Keeper
+	transferKeeper ibcutils.TransferKeeper
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
 	BankKeeper cmn.BankKeeper
@@ -62,7 +62,7 @@ func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
-	transferKeeper transferkeeper.Keeper,
+	transferKeeper ibcutils.TransferKeeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, abiPath)
 	if err != nil {
@@ -82,6 +82,10 @@ func NewPrecompile(
 	}
 	// Address defines the address of the ERC-20 precompile contract.
 	p.SetAddress(p.tokenPair.GetERC20Contract())
+
+	// Set the balance handler for the precompile.
+	p.SetBalanceHandler(bankKeeper)
+
 	return p, nil
 }
 
@@ -151,6 +155,9 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, err
 	}
 
+	// Start the balance change handler before executing the precompile.
+	p.GetBalanceHandler().BeforeBalanceChange(ctx)
+
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
 	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
@@ -164,6 +171,11 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
 		return nil, vm.ErrOutOfGas
+	}
+
+	// Process the native balance changes after the method execution.
+	if err = p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
+		return nil, err
 	}
 
 	return bz, nil
