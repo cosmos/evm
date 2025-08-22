@@ -1,14 +1,28 @@
-on: pull_request
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+    paths: [ "**/*.go" ]
 name: Changelog Reminder
 jobs:
   remind:
     name: Changelog Reminder
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     permissions:
       contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: mskelton/changelog-reminder-action@v3
         with:
           message: "Oops! Looks like you forgot to update the changelog."
+
+      - name: Fail if no changelog changes
+        run: |
+          # compare PR head to its base commit (works even if base isn't 'main')
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.sha }})
+          echo "$CHANGED_FILES" | grep -Ei '(^|/)(CHANGELOG\.md|changelog\.md)$' >/dev/null || {
+            echo "❌ No changelog update found!"
+            exit 1
+          }
