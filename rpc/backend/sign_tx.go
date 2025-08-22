@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
-	"github.com/cosmos/evm/mempool"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -106,15 +104,13 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
+		if HandleBroadcastRawLog(rsp.RawLog, txHash) {
+			b.Logger.Debug("transaction temporarily rejected or queued", "hash", txHash.Hex())
+			return txHash, nil
+		}
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
 	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			return txHash, nil
-		}
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, err
 	}

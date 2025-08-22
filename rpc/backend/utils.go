@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,6 +18,8 @@ import (
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/rpc/types"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
@@ -290,4 +293,22 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 		proofs = append(proofs, proof)
 	}
 	return proofs
+}
+
+// HandleBroadcastRawLog checks the RawLog for known temporary rejection or nonce gap error.
+// NOTE: make sure it sync with the latest go-ethereum logic when upgrade:
+// https://github.com/ethereum/go-ethereum/blob/master/core/txpool/locals/errors.go#L29
+func HandleBroadcastRawLog(rawLog string, txHash common.Hash) bool {
+	switch rawLog {
+	case legacypool.ErrOutOfOrderTxFromDelegated.Error(),
+		txpool.ErrInflightTxLimitReached.Error(),
+		legacypool.ErrAuthorityReserved.Error(),
+		txpool.ErrUnderpriced.Error(),
+		legacypool.ErrTxPoolOverflow.Error(),
+		legacypool.ErrFutureReplacePending.Error():
+		return true
+	case mempool.ErrNonceGap.Error():
+		return true
+	}
+	return false
 }

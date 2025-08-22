@@ -8,6 +8,7 @@
 
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
 - [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
+- [\#494](https://github.com/cosmos/evm/pull/494) Align temporary reject check for included tx from txpool.
 
 ### IMPROVEMENTS
 
