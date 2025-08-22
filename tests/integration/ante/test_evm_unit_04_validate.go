@@ -8,7 +8,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -247,7 +246,7 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 				// function to be tested.
 				configurator := evmtypes.NewEVMConfigurator()
 				configurator.ResetTestConfig()
-				s.Require().NoError(configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(getTestChainConfigForChainID(chainID))).Configure())
+				s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(chainID)).Configure())
 
 				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
 				// decimals representation.
@@ -272,22 +271,5 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 				}
 			})
 		}
-	}
-}
-
-// getTestChainConfigForChainID maps a ChainID struct to the appropriate DynamicChainConfig
-func getTestChainConfigForChainID(chainID testconstants.ChainID) testconfig.DynamicChainConfig {
-	switch chainID {
-	case testconstants.ExampleChainID:
-		return testconfig.DefaultTestChain
-	case testconstants.SixDecimalsChainID:
-		return testconfig.SixDecimalsTestChain
-	case testconstants.TwelveDecimalsChainID:
-		return testconfig.TwelveDecimalsTestChain
-	case testconstants.TwoDecimalsChainID:
-		return testconfig.TwoDecimalsTestChain
-	default:
-		// Default fallback to 18 decimals
-		return testconfig.DefaultTestChain
 	}
 }

@@ -5,7 +5,6 @@
 package network
 
 import (
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/precisebank/types"
@@ -83,7 +82,7 @@ func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20Genes
 // WEVMOS depending on ChainID
 func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(getTestChainConfigForChainID(chainID))
+	coinInfo := testconstants.GetExampleChainCoinInfo(chainID)
 
 	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
 
@@ -101,21 +100,4 @@ func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20type
 		}
 	}
 	return updatedTokenPairs
-}
-
-// getTestChainConfigForChainID maps a ChainID struct to the appropriate DynamicChainConfig
-func getTestChainConfigForChainID(chainID testconstants.ChainID) testconfig.DynamicChainConfig {
-	switch chainID {
-	case testconstants.ExampleChainID:
-		return testconfig.DefaultTestChain
-	case testconstants.SixDecimalsChainID:
-		return testconfig.SixDecimalsTestChain
-	case testconstants.TwelveDecimalsChainID:
-		return testconfig.TwelveDecimalsTestChain
-	case testconstants.TwoDecimalsChainID:
-		return testconfig.TwoDecimalsTestChain
-	default:
-		// Default fallback to 18 decimals
-		return testconfig.DefaultTestChain
-	}
 }

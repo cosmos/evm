@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	testconfig "github.com/cosmos/evm/testutil/config"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -15,7 +15,7 @@ import (
 )
 
 func TestSumExtendedCoin(t *testing.T) {
-	coinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain)
+	coinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 	configurator := evmtypes.NewEVMConfigurator()
 	err := configurator.
 		WithEVMCoinInfo(coinInfo).

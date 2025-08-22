@@ -10,7 +10,6 @@ import (
 
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/ethereum/eip712"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/types"
@@ -58,7 +57,7 @@ func TestLedgerPreprocessing(t *testing.T) {
 	// Update bech32 prefix
 	sdk.GetConfig().SetBech32PrefixForAccount(constants.ExampleBech32Prefix, "")
 	evmConfigurator := evmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.DefaultTestChain))
+		WithEVMCoinInfo(constants.GetExampleChainCoinInfo(constants.ExampleChainID))
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 

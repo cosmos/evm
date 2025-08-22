@@ -155,16 +155,6 @@ var (
 		DisplayDenom:  "test2",
 		Decimals:      12,
 	}
-
-	// TwoDecimalsTestChain provides a 2-decimal test configuration
-	TwoDecimalsTestChain = DynamicChainConfig{
-		ChainID:       "ostwo-4",
-		EVMChainID:    9004,
-		Denom:         "ctest3",
-		ExtendedDenom: "atest3",
-		DisplayDenom:  "test3",
-		Decimals:      2,
-	}
 )
 
 // CreateCustomTestChain allows creating a test chain with custom parameters

@@ -6,7 +6,6 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	testtx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -116,7 +115,7 @@ type ConfigOption func(*Config)
 // WithChainID sets a custom chainID for the network. Changing the chainID
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
 func WithChainID(chainID testconstants.ChainID) ConfigOption {
-	evmCoinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.DefaultTestChain)
+	evmCoinInfo := testconstants.GetExampleChainCoinInfo(chainID)
 
 	return func(cfg *Config) {
 		cfg.chainID = chainID.ChainID

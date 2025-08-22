@@ -14,7 +14,6 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
@@ -491,7 +490,7 @@ func TestCalcBaseFee(t *testing.T) {
 	for _, chainID := range []constants.ChainID{constants.ExampleChainID, constants.TwelveDecimalsChainID, constants.SixDecimalsChainID} {
 		t.Run(chainID.ChainID, func(t *testing.T) {
 			evmConfigurator := evmtypes.NewEVMConfigurator().
-				WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(getTestChainConfigForChainID(chainID)))
+				WithEVMCoinInfo(constants.GetExampleChainCoinInfo(chainID))
 			evmConfigurator.ResetTestConfig()
 			err := evmConfigurator.Configure()
 			require.NoError(t, err)
@@ -773,22 +772,5 @@ func TestHexAddressFromBech32String(t *testing.T) {
 				require.Equal(t, tc.wantHex, addr.Hex())
 			}
 		})
-	}
-}
-
-// getTestChainConfigForChainID maps a ChainID struct to the appropriate DynamicChainConfig
-func getTestChainConfigForChainID(chainID constants.ChainID) testconfig.DynamicChainConfig {
-	switch chainID {
-	case constants.ExampleChainID:
-		return testconfig.DefaultTestChain
-	case constants.SixDecimalsChainID:
-		return testconfig.SixDecimalsTestChain
-	case constants.TwelveDecimalsChainID:
-		return testconfig.TwelveDecimalsTestChain
-	case constants.TwoDecimalsChainID:
-		return testconfig.TwoDecimalsTestChain
-	default:
-		// Default fallback to 18 decimals
-		return testconfig.DefaultTestChain
 	}
 }

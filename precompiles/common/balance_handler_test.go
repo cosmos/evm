@@ -12,7 +12,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	cmnmocks "github.com/cosmos/evm/precompiles/common/mocks"
 	testutil "github.com/cosmos/evm/testutil"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -33,7 +32,7 @@ func setupBalanceHandlerTest(t *testing.T) {
 	sdk.GetConfig().SetBech32PrefixForAccount(testconstants.ExampleBech32Prefix, "")
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	require.NoError(t, configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.DefaultTestChain)).Configure())
+	require.NoError(t, configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).Configure())
 }
 
 func TestParseAddress(t *testing.T) {

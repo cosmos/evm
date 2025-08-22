@@ -11,7 +11,6 @@ import (
 	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -799,7 +798,8 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 func FuzzSendCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain)).Configure()
+	configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID))
+	err := configurator.Configure()
 	require.NoError(f, err)
 
 	f.Add(uint64(100), uint64(0), uint64(2))
