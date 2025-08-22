@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/precompiles/werc20/testdata"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -111,7 +112,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			configurator := evmtypes.NewEVMConfigurator()
 			configurator.ResetTestConfig()
 			Expect(configurator.
-				WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(chainId)).
+				WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(getTestChainConfigForChainID(chainId))).
 				Configure()).To(BeNil(), "expected no error setting the evm configurator")
 
 			opts := []network.ConfigOption{
@@ -552,10 +553,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
 
-					coinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ChainID{
+					coinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(getTestChainConfigForChainID(testconstants.ChainID{
 						ChainID:    is.network.GetChainID(),
 						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
-					})
+					}))
 					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals")
 				},
 				)
@@ -570,4 +571,21 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 	// Run Ginkgo integration tests
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "WEVMOS precompile test suite")
+}
+
+// getTestChainConfigForChainID maps a ChainID struct to the appropriate DynamicChainConfig
+func getTestChainConfigForChainID(chainID testconstants.ChainID) testconfig.DynamicChainConfig {
+	switch chainID {
+	case testconstants.ExampleChainID:
+		return testconfig.DefaultTestChain
+	case testconstants.SixDecimalsChainID:
+		return testconfig.SixDecimalsTestChain
+	case testconstants.TwelveDecimalsChainID:
+		return testconfig.TwelveDecimalsTestChain
+	case testconstants.TwoDecimalsChainID:
+		return testconfig.TwoDecimalsTestChain
+	default:
+		// Default fallback to 18 decimals
+		return testconfig.DefaultTestChain
+	}
 }

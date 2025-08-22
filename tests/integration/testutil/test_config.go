@@ -3,6 +3,7 @@
 package testutil
 
 import (
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	grpchandler "github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -16,8 +17,8 @@ import (
 )
 
 func (s *TestSuite) TestWithChainID() {
-	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
-	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
+	eighteenDecimalsCoinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.DefaultTestChain)
+	sixDecimalsCoinInfo := testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain)
 
 	testCases := []struct {
 		name            string

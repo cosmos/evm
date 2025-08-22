@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -417,7 +418,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 func FuzzMintCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID))
+	configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain))
 	err := configurator.Configure()
 	require.NoError(f, err)
 

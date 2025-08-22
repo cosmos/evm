@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm/ante/cosmos"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -22,7 +23,7 @@ import (
 
 func TestAuthzLimiterDecorator(t *testing.T) {
 	evmConfigurator := evmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(constants.GetExampleChainCoinInfo(constants.ExampleChainID))
+		WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.DefaultTestChain))
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 

@@ -2,7 +2,6 @@ package constants
 
 import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 )
@@ -97,48 +96,3 @@ var (
 		},
 	}
 )
-
-// GetExampleChainCoinInfo returns appropriate EvmCoinInfo for testing based on chainID.
-// Deprecated: Use testutil/config.CreateEvmCoinInfoFromDynamicConfig() instead.
-// This function is kept for backward compatibility but should be replaced
-// with dynamic configuration generation.
-func GetExampleChainCoinInfo(chainID ChainID) evmtypes.EvmCoinInfo {
-	switch chainID {
-	case ExampleChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         ExampleAttoDenom,
-			ExtendedDenom: ExampleAttoDenom,
-			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
-		}
-	case SixDecimalsChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         "utest",
-			ExtendedDenom: "atest",
-			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals,
-		}
-	case TwelveDecimalsChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         "ptest2",
-			ExtendedDenom: "atest2",
-			DisplayDenom:  "test2",
-			Decimals:      evmtypes.TwelveDecimals,
-		}
-	case TwoDecimalsChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         "ctest3",
-			ExtendedDenom: "atest3",
-			DisplayDenom:  "test3",
-			Decimals:      evmtypes.TwoDecimals,
-		}
-	default:
-		// Default fallback
-		return evmtypes.EvmCoinInfo{
-			Denom:         ExampleAttoDenom,
-			ExtendedDenom: ExampleAttoDenom,
-			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
-		}
-	}
-}
