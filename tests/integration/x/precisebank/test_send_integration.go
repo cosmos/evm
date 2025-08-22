@@ -799,8 +799,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 func FuzzSendCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain))
-	err := configurator.Configure()
+	err := configurator.WithEVMCoinInfo(testconfig.CreateEvmCoinInfoFromDynamicConfig(testconfig.SixDecimalsTestChain)).Configure()
 	require.NoError(f, err)
 
 	f.Add(uint64(100), uint64(0), uint64(2))
