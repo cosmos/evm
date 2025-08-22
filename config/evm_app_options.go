@@ -39,6 +39,7 @@ func EvmAppOptionsWithConfig(
 		return fmt.Errorf("unknown chain id: %d", chainID)
 	}
 
+	sealed = true
 	return EvmAppOptionsWithDynamicConfig(chainID, coinInfo, cosmosEVMActivators)
 }
 
