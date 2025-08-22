@@ -37,3 +37,5 @@ func BlockGasLimit(ctx sdk.Context) uint64 {
 
 	return 0
 }
+
+// go code change
