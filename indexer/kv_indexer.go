@@ -22,8 +22,6 @@ import (
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 )
 
-// a change.
-
 const (
 	KeyPrefixTxHash  = 1
 	KeyPrefixTxIndex = 2

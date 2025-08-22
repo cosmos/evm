@@ -24,6 +24,7 @@ func BlockGasLimit(ctx sdk.Context) uint64 {
 	}
 
 	maxGas := cp.Block.MaxGas
+
 	// Setting max_gas to -1 in CometBFT means there is no limit on the maximum gas consumption for transactions
 	// https://github.com/cometbft/cometbft/blob/v0.37.2/proto/tendermint/types/params.proto#L25-L27
 	if maxGas == -1 {
@@ -34,5 +35,5 @@ func BlockGasLimit(ctx sdk.Context) uint64 {
 		return uint64(maxGas) // #nosec G115 -- maxGas is int64 type. It can never be greater than math.MaxUint64
 	}
 
-	return 0 // test
+	return 0
 }
