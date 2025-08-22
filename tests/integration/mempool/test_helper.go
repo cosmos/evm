@@ -6,9 +6,12 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
+	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -303,4 +306,47 @@ func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) ([]*abci.ResponseCheckTx, 
 	}
 
 	return result, nil
+}
+
+// createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
+func (s *IntegrationTestSuite) createCosmosSendTransactionWithKey2(key keyring.Key, gasPrice *big.Int) sdk.Tx {
+	feeDenom := "aatom"
+	gasLimit := uint64(TxGas)
+
+	// Calculate fee amount from gas price: fee = gas_price * gas_limit
+	feeAmount := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
+
+	fromAddr := key.AccAddr
+	toAddr := s.keyring.GetKey(1).AccAddr
+	amount := sdk.NewCoins(sdk.NewInt64Coin(feeDenom, 1000))
+
+	bankMsg := banktypes.NewMsgSend(fromAddr, toAddr, amount)
+
+	txArgs := factory.CosmosTxArgs{
+		Msgs: []sdk.Msg{bankMsg},
+		Fees: sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(feeAmount))),
+	}
+	tx, err := s.factory.BuildCosmosTx(key.Priv, txArgs)
+	s.Require().NoError(err)
+
+	fmt.Printf("DEBUG: Created cosmos transaction successfully\n")
+	return tx
+}
+
+// createEVMTransaction creates an EVM transaction using the provided key
+func (s *IntegrationTestSuite) createEVMTransactionWithKey2(key keyring.Key, gasPrice *big.Int) sdk.Tx {
+	to := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+	ethTxArgs := evmtypes.EvmTxArgs{
+		Nonce:    0,
+		To:       &to,
+		Amount:   big.NewInt(1000),
+		GasLimit: TxGas,
+		GasPrice: gasPrice,
+		Input:    nil,
+	}
+	tx, err := s.factory.GenerateSignedEthTx(key.Priv, ethTxArgs)
+	s.Require().NoError(err)
+
+	return tx
 }

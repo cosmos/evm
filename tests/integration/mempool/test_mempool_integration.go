@@ -19,7 +19,8 @@ import (
 
 // Constants
 const (
-	TxGas = 21000
+	// TxGas = 21000
+	TxGas = 100_000
 )
 
 // TestMempoolInsert tests transaction insertion into the mempool

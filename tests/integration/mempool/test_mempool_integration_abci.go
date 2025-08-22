@@ -25,9 +25,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				s.Require().NoError(err)
 
 				// Create Cosmos transactions with different fee amounts
-				highFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(6), big.NewInt(5000000000))
-				mediumFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(7), big.NewInt(3000000000))
-				lowFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(8), big.NewInt(1000000000))
+				highFeeCosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(6), big.NewInt(5000000000))
+				mediumFeeCosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(7), big.NewInt(3000000000))
+				lowFeeCosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(8), big.NewInt(1000000000))
 
 				// Insert in non-priority order
 				return []sdk.Tx{lowFeeCosmosTx, highGasPriceEVMTx, mediumFeeCosmosTx, highFeeCosmosTx}
@@ -118,9 +118,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 		{
 			name: "cosmos-only transaction replacement",
 			setupTxs: func() []sdk.Tx {
-				highFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(1000000000))    // 1 gaatom
-				mediumFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
+				highFeeTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
+				lowFeeTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(1000000000))    // 1 gaatom
+				mediumFeeTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
 
 				// Insert in random order
 				return []sdk.Tx{mediumFeeTx, lowFeeTx, highFeeTx}
@@ -147,7 +147,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				s.Require().NoError(err)
 
 				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+				cosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
 
 				// Insert Cosmos first, then EVM
 				return []sdk.Tx{cosmosTx, evmTx}
@@ -185,7 +185,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				s.Require().NoError(err)
 
 				// Create Cosmos transaction with lower gas price
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000000000)) // 2 gaatom/gas
+				cosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
 
 				// Insert Cosmos first, then EVM
 				return []sdk.Tx{cosmosTx, evmTx}
@@ -220,7 +220,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				s.Require().NoError(err)
 
 				// Create Cosmos transaction with higher gas price
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(5000000000)) // 5000 aatom/gas
+				cosmosTx := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
 
 				// Insert EVM first, then Cosmos
 				return []sdk.Tx{evmTx, cosmosTx}
@@ -262,9 +262,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				evmLow, err := s.createEVMTransactionWithKey(s.keyring.GetKey(2), big.NewInt(2000000000))
 				s.Require().NoError(err)
 
-				cosmosHigh := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(3), big.NewInt(6000000000))
-				cosmosMedium := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(4), big.NewInt(3000000000))
-				cosmosLow := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(5), big.NewInt(1000000000))
+				cosmosHigh := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(3), big.NewInt(6000000000))
+				cosmosMedium := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(4), big.NewInt(3000000000))
+				cosmosLow := s.createCosmosSendTransactionWithKey2(s.keyring.GetKey(5), big.NewInt(1000000000))
 
 				return []sdk.Tx{evmHigh, evmMedium, evmLow, cosmosHigh, cosmosMedium, cosmosLow}
 			},
