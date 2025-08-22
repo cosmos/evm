@@ -28,6 +28,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
+	evmmempool "github.com/cosmos/evm/mempool"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -48,6 +49,7 @@ import (
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
@@ -57,6 +59,7 @@ type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendTyp
 type Application interface {
 	types.Application
 	AppWithPendingTxStream
+	GetMempool() sdkmempool.ExtMempool
 	SetClientCtx(clientCtx client.Context)
 }
 
@@ -429,6 +432,9 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+			m.SetEventBus(tmNode.EventBus())
+		}
 		defer func() {
 			if tmNode.IsRunning() {
 				_ = tmNode.Stop()
@@ -502,7 +508,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp)
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool))
 		if err != nil {
 			return err
 		}

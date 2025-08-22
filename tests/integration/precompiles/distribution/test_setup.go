@@ -18,6 +18,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -131,8 +132,10 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.network = nw
 	s.precompile, err = distribution.NewPrecompile(
 		s.network.App.GetDistrKeeper(),
+		distrkeeper.NewMsgServerImpl(s.network.App.GetDistrKeeper()),
+		distrkeeper.NewQuerier(s.network.App.GetDistrKeeper()),
 		*s.network.App.GetStakingKeeper(),
-		s.network.App.GetEVMKeeper(),
+		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 	if err != nil {

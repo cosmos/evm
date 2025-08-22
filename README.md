@@ -144,11 +144,15 @@ thus moving the standard forward.
 ## Getting started
 
 To run the example `evmd` chain, run the script using `./local_node.sh`
-from the root folder of the respository.
+from the root folder of the repository.
+
+### Migrations
+
+We provide upgrade guides [here](./docs/migrations) for upgrading your chain from various Cosmos EVM versions.
 
 ### Testing
 
-All of the test scripts are found in `Makefile` in the root of the repository.
+All test scripts are found in `Makefile` in the root of the repository.
 Listed below are the commands for various tests:
 
 #### Unit Testing
@@ -193,3 +197,8 @@ We welcome open source contributions and discussions! For more on contributing, 
 Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS)
 created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and
 interoperability in Cosmos.
+
+### Key Contributors
+
+We at ICL want to thank our key contributors at [B-Harvest](https://bharvest.io/) and 
+[Mantra](https://www.mantrachain.io/) for contributing to and helping us drive the development of Cosmos EVM.

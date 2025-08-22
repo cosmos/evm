@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
@@ -14,6 +15,7 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
@@ -22,6 +24,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
 )
+
+const shutdownTimeout = 5 * time.Second
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
@@ -36,6 +40,7 @@ func StartJSONRPC(
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
 	app AppWithPendingTxStream,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -57,7 +62,7 @@ func StartJSONRPC(
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
@@ -107,7 +112,9 @@ func StartJSONRPC(
 			// The calling process canceled or closed the provided context, so we must
 			// gracefully stop the JSON-RPC server.
 			logger.Info("stopping JSON-RPC server...", "address", config.JSONRPC.Address)
-			if err := httpSrv.Shutdown(context.Background()); err != nil {
+			ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			if err := httpSrv.Shutdown(ctxShutdown); err != nil {
 				logger.Error("failed to shutdown JSON-RPC server", "error", err.Error())
 			}
 			return nil

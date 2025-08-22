@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	"github.com/cosmos/evm/mempool"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -109,7 +110,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	}
 	if err != nil {
 		// Check if this is a nonce gap error that was successfully queued
-		if strings.Contains(err.Error(), "tx nonce is higher than account nonce") {
+		if strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
 			// Transaction was successfully queued due to nonce gap, return success to client
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
 			return txHash, nil
