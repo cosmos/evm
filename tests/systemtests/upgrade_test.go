@@ -18,7 +18,7 @@ import (
 
 const (
 	upgradeHeight int64 = 22
-	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in simapp/upgrades.go
+	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in evmd/upgrades.go
 )
 
 func TestChainUpgrade(t *testing.T) {
@@ -68,7 +68,7 @@ func TestChainUpgrade(t *testing.T) {
 	require.NotEmpty(t, proposals, raw)
 	proposalID := proposals[len(proposals)-1].String()
 
-	for i := range 4 {
+	for i := range systest.Sut.NodesCount() {
 		go func(i int) { // do parallel
 			systest.Sut.Logf("Voting: validator %d\n", i)
 			rsp := cli.Run("tx", "gov", "vote", proposalID, "yes", "--fees=10000000000000000000atest", "--from", cli.GetKeyAddr(fmt.Sprintf("node%d", i)))
