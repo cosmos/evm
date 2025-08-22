@@ -6,6 +6,7 @@ package config
 import (
 	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	"github.com/cosmos/evm/x/vm/types"
 )
 
 // EvmAppOptions allows to setup the global configuration
@@ -15,6 +16,16 @@ func EvmAppOptions(chainID uint64) error {
 	chainConfig := getChainConfigForChainID(chainID)
 	evmCoinInfo := chainConfig.ToEvmCoinInfo()
 	return evmconfig.EvmAppOptionsWithDynamicConfig(chainID, evmCoinInfo, cosmosEVMActivators)
+}
+
+// EvmAppOptionsWithReset allows to setup the global configuration
+// for the Cosmos EVM chain using dynamic configuration and optionally reset test config.
+func EvmAppOptionsWithReset(chainID uint64, reset bool) error {
+	if reset {
+		configurator := types.NewEVMConfigurator()
+		configurator.ResetTestConfig()
+	}
+	return EvmAppOptions(chainID)
 }
 
 // getChainConfigForChainID returns the appropriate chain config

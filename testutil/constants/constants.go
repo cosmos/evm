@@ -99,7 +99,7 @@ var (
 )
 
 // GetExampleChainCoinInfo returns appropriate EvmCoinInfo for testing based on chainID.
-// DEPRECATED: Use testutil/config.CreateEvmCoinInfoFromDynamicConfig() instead.
+// Deprecated: Use testutil/config.CreateEvmCoinInfoFromDynamicConfig() instead.
 // This function is kept for backward compatibility but should be replaced
 // with dynamic configuration generation.
 func GetExampleChainCoinInfo(chainID ChainID) evmtypes.EvmCoinInfo {
