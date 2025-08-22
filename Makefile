@@ -379,7 +379,6 @@ test-rpc-compat-stop:
 .PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
 
 test-system: build
-	ulimit -n 1300
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	$(MAKE) -C tests/systemtests test

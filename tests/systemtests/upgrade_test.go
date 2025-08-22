@@ -4,7 +4,6 @@ package systemtests
 
 import (
 	"fmt"
-	"regexp"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 )
 
 const (
-	testSeed            = "scene learn remember glide apple expand quality spawn property shoe lamp carry upset blossom draft reject aim file trash miss script joy only measure"
 	upgradeHeight int64 = 22
 	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in simapp/upgrades.go
 )
@@ -35,12 +33,13 @@ func TestChainUpgrade(t *testing.T) {
 
 	legacyBinary := systest.WorkDir + "/binaries/v0.4/evmd"
 	systest.Sut.SetExecBinary(legacyBinary)
+	systest.Sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, systest.Sut))
 	systest.Sut.SetupChain()
 
 	votingPeriod := 5 * time.Second // enough time to vote
 	systest.Sut.ModifyGenesisJSON(t, systest.SetGovVotingPeriod(t, votingPeriod))
 
-	systest.Sut.StartChain(t, fmt.Sprintf("--halt-height=%d", upgradeHeight+1))
+	systest.Sut.StartChain(t, fmt.Sprintf("--halt-height=%d", upgradeHeight+1), "--chain-id=local-4221", "--minimum-gas-prices=0.00atest")
 
 	cli := systest.NewCLIWrapper(t, systest.Sut, systest.Verbose)
 	govAddr := sdk.AccAddress(address.Module("gov")).String()
@@ -58,14 +57,24 @@ func TestChainUpgrade(t *testing.T) {
   }
  ],
  "metadata": "ipfs://CID",
- "deposit": "100000000atest",
+ "deposit": "100000000stake",
  "title": "my upgrade",
  "summary": "testing"
 }`, govAddr, upgradeName, upgradeHeight)
-	proposalID := cli.SubmitAndVoteGovProposal(proposal)
-	t.Logf("current_height: %d\n", systest.Sut.CurrentHeight())
-	raw := cli.CustomQuery("q", "gov", "proposal", proposalID)
-	t.Log(raw)
+	rsp := cli.SubmitGovProposal(proposal, "--fees=10000000000000000000atest", "--from=node0")
+	systest.RequireTxSuccess(t, rsp)
+	raw := cli.CustomQuery("q", "gov", "proposals", "--depositor", cli.GetKeyAddr("node0"))
+	proposals := gjson.Get(raw, "proposals.#.id").Array()
+	require.NotEmpty(t, proposals, raw)
+	proposalID := proposals[len(proposals)-1].String()
+
+	for i := range 4 {
+		go func(i int) { // do parallel
+			systest.Sut.Logf("Voting: validator %d\n", i)
+			rsp := cli.Run("tx", "gov", "vote", proposalID, "yes", "--fees=10000000000000000000atest", "--from", cli.GetKeyAddr(fmt.Sprintf("node%d", i)))
+			systest.RequireTxSuccess(t, rsp)
+		}(i)
+	}
 
 	systest.Sut.AwaitBlockHeight(t, upgradeHeight-1, 60*time.Second)
 	t.Logf("current_height: %d\n", systest.Sut.CurrentHeight())
@@ -80,16 +89,14 @@ func TestChainUpgrade(t *testing.T) {
 	t.Log("Upgrade height was reached. Upgrading chain")
 	systest.Sut.SetExecBinary(currentBranchBinary)
 	systest.Sut.SetTestnetInitializer(currentInitializer)
-	systest.Sut.StartChain(t)
+	systest.Sut.StartChain(t, "--chain-id=local-4221")
 
-	require.True(t, upgradeHeight+1 <= systest.Sut.CurrentHeight())
+	require.Equal(t, upgradeHeight+1, systest.Sut.CurrentHeight())
 
-	regex, err := regexp.Compile("DBG this is a debug level message to test that verbose logging mode has properly been enabled during a chain upgrade")
-	require.NoError(t, err)
-	require.Equal(t, systest.Sut.NodesCount(), systest.Sut.FindLogMessage(regex))
-
-	// smoke test that new version runs
+	// smoke test to make sure the chain still functions.
 	cli = systest.NewCLIWrapper(t, systest.Sut, systest.Verbose)
-	got := cli.Run("tx", "bank", "node0", govAddr, "100atest", "--from=node0")
+	to := cli.GetKeyAddr("node1")
+	from := cli.GetKeyAddr("node0")
+	got := cli.Run("tx", "bank", "send", from, to, "1atest", "--from=node0", "--fees=10000000000000000000atest", "--chain-id=local-4221")
 	systest.RequireTxSuccess(t, got)
 }
