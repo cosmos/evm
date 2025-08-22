@@ -127,11 +127,10 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		}
 	}
 
-	txPoolInit, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
-	txPool = txPoolInit
 
 	if len(txPool.Subpools) != 1 {
 		panic("tx pool should contain one subpool")
