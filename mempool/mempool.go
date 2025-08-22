@@ -67,11 +67,11 @@ type (
 // It allows customization of the underlying mempools, verification functions,
 // and broadcasting functions used by the sdkmempool.
 type EVMMempoolConfig struct {
-	TxPool        *txpool.TxPool
-	CosmosPool    sdkmempool.ExtMempool
-	AnteHandler   sdk.AnteHandler
-	BroadCastTxFn func(txs []*ethtypes.Transaction) error
-	BlockGasLimit uint64 // Block gas limit from consensus parameters
+	LegacyPoolConfig *legacypool.Config
+	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
+	AnteHandler      sdk.AnteHandler
+	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
+	BlockGasLimit    uint64 // Block gas limit from consensus parameters
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -106,29 +106,30 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		config.BlockGasLimit = 100_000_000
 	}
 
-	// Default txPool
-	txPool = config.TxPool
-	if txPool == nil {
-		legacyPool := legacypool.New(legacypool.DefaultConfig, blockchain)
+	// Create txPool from configuration
+	legacyConfig := legacypool.DefaultConfig
+	if config.LegacyPoolConfig != nil {
+		legacyConfig = *config.LegacyPoolConfig
+	}
 
-		// Set up broadcast function using clientCtx
-		if config.BroadCastTxFn != nil {
-			legacyPool.BroadcastTxFn = config.BroadCastTxFn
-		} else {
-			// Create default broadcast function using clientCtx.
-			// The EVM mempool will broadcast transactions when it promotes them
-			// from queued into pending, noting their readiness to be executed.
-			legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-				logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-				return broadcastEVMTransactions(clientCtx, txConfig, txs)
-			}
-		}
+	legacyPool := legacypool.New(legacyConfig, blockchain)
 
-		txPoolInit, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
-		if err != nil {
-			panic(err)
+	// Set up broadcast function using clientCtx
+	if config.BroadCastTxFn != nil {
+		legacyPool.BroadcastTxFn = config.BroadCastTxFn
+	} else {
+		// Create default broadcast function using clientCtx.
+		// The EVM mempool will broadcast transactions when it promotes them
+		// from queued into pending, noting their readiness to be executed.
+		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
+			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
+			return broadcastEVMTransactions(clientCtx, txConfig, txs)
 		}
-		txPool = txPoolInit
+	}
+
+	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	if err != nil {
+		panic(err)
 	}
 
 	if len(txPool.Subpools) != 1 {
@@ -138,11 +139,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		panic("tx pool should contain only legacypool")
 	}
 
-	// Default Cosmos Mempool
-	cosmosPool = config.CosmosPool
-	if cosmosPool == nil {
-		priorityConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
-		priorityConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
+	// Create Cosmos Mempool from configuration
+	cosmosPoolConfig := config.CosmosPoolConfig
+	if cosmosPoolConfig == nil {
+		// Default configuration
+		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
+		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
 			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
 				cosmosTxFee, ok := tx.(sdk.FeeTx)
 				if !ok {
@@ -162,8 +164,10 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 			},
 			MinValue: math.ZeroInt(),
 		}
-		cosmosPool = sdkmempool.NewPriorityMempool(priorityConfig)
+		cosmosPoolConfig = &defaultConfig
 	}
+
+	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
 		vmKeeper:      vmKeeper,
