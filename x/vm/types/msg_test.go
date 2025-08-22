@@ -1,6 +1,3 @@
-//go:build test
-// +build test
-
 package types_test
 
 import (
@@ -115,8 +112,8 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 		},
 	}
 	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+		testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID),
+		testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID),
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEVMConfigurator()

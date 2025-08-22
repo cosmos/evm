@@ -1,6 +1,11 @@
 #!/bin/bash
 
 CHAINID="${CHAIN_ID:-9001}"
+EVM_CHAIN_ID="${EVM_CHAIN_ID:-9001}"
+DENOM="${DENOM:-atest}"
+EXTENDED_DENOM="${EXTENDED_DENOM:-atest}"
+DISPLAY_DENOM="${DISPLAY_DENOM:-test}"
+DECIMALS="${DECIMALS:-18}"
 MONIKER="localtestnet"
 # Remember to change to other types of keyring like 'file' in-case exposing to outside world,
 # otherwise your balance will be wiped quickly
@@ -49,6 +54,15 @@ Options:
   --additional-users N     Create N extra users: dev4, dev5, ...
   --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.evmd/mnemonics.yaml)
   --mnemonics-input PATH   Read dev mnemonics from a yaml file (key: mnemonics:)
+  --chain-id ID            Cosmos chain ID (default: 9001)
+  --evm-chain-id ID        EVM chain ID (default: 9001)
+  --denom DENOM            Base denom (default: atest)
+  --extended-denom DENOM   Extended denom (default: atest)
+  --display-denom DENOM    Display denom (default: test)  
+  --decimals N             Decimal places (default: 18)
+
+Environment variables (alternative to flags):
+  CHAIN_ID, EVM_CHAIN_ID, DENOM, EXTENDED_DENOM, DISPLAY_DENOM, DECIMALS
 EOF
 }
 
@@ -88,6 +102,42 @@ while [[ $# -gt 0 ]]; do
         echo "Error: --mnemonics-input requires a path."; usage; exit 1
       fi
       MNEMONICS_INPUT="$2"; shift 2
+      ;;
+    --chain-id)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --chain-id requires a value."; usage; exit 1
+      fi
+      CHAINID="$2"; shift 2
+      ;;
+    --evm-chain-id)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --evm-chain-id requires a value."; usage; exit 1
+      fi
+      EVM_CHAIN_ID="$2"; shift 2
+      ;;
+    --denom)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --denom requires a value."; usage; exit 1
+      fi
+      DENOM="$2"; shift 2
+      ;;
+    --extended-denom)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --extended-denom requires a value."; usage; exit 1
+      fi
+      EXTENDED_DENOM="$2"; shift 2
+      ;;
+    --display-denom)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --display-denom requires a value."; usage; exit 1
+      fi
+      DISPLAY_DENOM="$2"; shift 2
+      ;;
+    --decimals)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: --decimals requires a value."; usage; exit 1
+      fi
+      DECIMALS="$2"; shift 2
       ;;
     -h|--help)
       usage; exit 0
@@ -164,7 +214,7 @@ write_mnemonics_yaml() {
 # ---------- Add funded account ----------
 add_genesis_funds() {
   local keyname="$1"
-  evmd genesis add-genesis-account "$keyname" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  evmd genesis add-genesis-account "$keyname" 1000000000000000000000${DENOM} --keyring-backend "$KEYRING" --home "$CHAINDIR"
 }
 
 # Setup local node if overwrite is set to Yes, otherwise skip setup
@@ -231,20 +281,23 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   echo "$VAL_MNEMONIC" | evmd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
 
   # ---------- Genesis customizations ----------
-  jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["staking"]["params"]["bond_denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["evm"]["params"]["evm_denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["mint"]["params"]["mint_denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  # Create dynamic denom metadata with proper exponents and display denom
+  # Convert first letter to uppercase, rest to lowercase for proper title case
+  DISPLAY_TITLE="$(echo "$DISPLAY_DENOM" | cut -c1 | tr '[:lower:]' '[:upper:]')$(echo "$DISPLAY_DENOM" | cut -c2- | tr '[:upper:]' '[:lower:]')"
+  DISPLAY_SYMBOL=$(echo "$DISPLAY_DENOM" | tr '[:lower:]' '[:upper:]')
+  jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"'"$DENOM"'","exponent":0,"aliases":[]},{"denom":"'"$DISPLAY_DENOM"'","exponent":'"$DECIMALS"',"aliases":[]}],"base":"'"$DENOM"'","display":"'"$DISPLAY_DENOM"'","name":"'"$DISPLAY_TITLE"' Token","symbol":"'"$DISPLAY_SYMBOL"'","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805", "0x0000000000000000000000000000000000000806", "0x0000000000000000000000000000000000000807"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state.erc20.native_precompiles=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"atest",enabled:true}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"'"$DENOM"'",enabled:true}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.consensus.params.block.max_gas="10000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -287,7 +340,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/"expedited_voting_period": "86400s"/"expedited_voting_period": "15s"/g' "$GENESIS"
 
   # fund validator (devs already funded in the loop)
-  evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000${DENOM} --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
   # --------- maybe generate additional users ---------
   # start with provided/default list
@@ -339,7 +392,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # --------- Finalize genesis ---------
-  evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
+  evmd genesis gentx "$VAL_KEY" 1000000000000000000000${DENOM} --gas-prices ${BASEFEE}${DENOM} --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
   evmd genesis collect-gentxs --home "$CHAINDIR"
   evmd genesis validate-genesis --home "$CHAINDIR"
 
@@ -357,7 +410,7 @@ fi
 evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0.0001atest \
+	--minimum-gas-prices=0.0001${DENOM} \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID"

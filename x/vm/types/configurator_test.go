@@ -12,7 +12,7 @@ import (
 
 func TestEVMConfigurator(t *testing.T) {
 	evmConfigurator := types.NewEVMConfigurator().
-		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
+		WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID))
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 
@@ -35,7 +35,7 @@ func TestExtendedEips(t *testing.T) {
 					3855: func(_ *vm.JumpTable) {},
 				}
 				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -49,7 +49,7 @@ func TestExtendedEips(t *testing.T) {
 					0o000: func(_ *vm.JumpTable) {},
 				}
 				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -87,7 +87,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 				extendedDefaultExtraEIPs := []int64{1000}
 				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, 1000)
 				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -103,7 +103,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			func() *types.EVMConfigurator {
 				var extendedDefaultExtraEIPs []int64
 				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -118,7 +118,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			func() *types.EVMConfigurator {
 				extendedDefaultExtraEIPs := []int64{1001}
 				ec := types.NewEVMConfigurator().
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},

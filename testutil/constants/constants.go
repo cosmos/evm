@@ -69,38 +69,6 @@ var (
 		EVMChainID: 9004,
 	}
 
-	// ExampleChainCoinInfo provides the coin info for the example chain
-	//
-	// It is a map of the chain id and its corresponding EvmCoinInfo
-	// that allows initializing the app with different coin info based on the
-	// chain id
-	ExampleChainCoinInfo = map[ChainID]evmtypes.EvmCoinInfo{
-		ExampleChainID: {
-			Denom:         ExampleAttoDenom,
-			ExtendedDenom: ExampleAttoDenom,
-			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
-		},
-		SixDecimalsChainID: {
-			Denom:         "utest",
-			ExtendedDenom: "atest",
-			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals,
-		},
-		TwelveDecimalsChainID: {
-			Denom:         "ptest2",
-			ExtendedDenom: "atest2",
-			DisplayDenom:  "test2",
-			Decimals:      evmtypes.TwelveDecimals,
-		},
-		TwoDecimalsChainID: {
-			Denom:         "ctest3",
-			ExtendedDenom: "atest3",
-			DisplayDenom:  "test3",
-			Decimals:      evmtypes.TwoDecimals,
-		},
-	}
-
 	// OtherCoinDenoms provides a list of other coin denoms that can be used in tests
 	OtherCoinDenoms = []string{
 		"foo",
@@ -129,3 +97,48 @@ var (
 		},
 	}
 )
+
+// GetExampleChainCoinInfo returns appropriate EvmCoinInfo for testing based on chainID.
+// DEPRECATED: Use testutil/config.CreateEvmCoinInfoFromDynamicConfig() instead.
+// This function is kept for backward compatibility but should be replaced
+// with dynamic configuration generation.
+func GetExampleChainCoinInfo(chainID ChainID) evmtypes.EvmCoinInfo {
+	switch chainID {
+	case ExampleChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         ExampleAttoDenom,
+			ExtendedDenom: ExampleAttoDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
+		}
+	case SixDecimalsChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         "utest",
+			ExtendedDenom: "atest",
+			DisplayDenom:  "test",
+			Decimals:      evmtypes.SixDecimals,
+		}
+	case TwelveDecimalsChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         "ptest2",
+			ExtendedDenom: "atest2",
+			DisplayDenom:  "test2",
+			Decimals:      evmtypes.TwelveDecimals,
+		}
+	case TwoDecimalsChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         "ctest3",
+			ExtendedDenom: "atest3",
+			DisplayDenom:  "test3",
+			Decimals:      evmtypes.TwoDecimals,
+		}
+	default:
+		// Default fallback
+		return evmtypes.EvmCoinInfo{
+			Denom:         ExampleAttoDenom,
+			ExtendedDenom: ExampleAttoDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
+		}
+	}
+}

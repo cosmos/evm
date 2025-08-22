@@ -19,10 +19,12 @@ type EVMOptionsFn func(uint64) error
 
 // EVMAppOptionsFn defines a function type for setting app options with access to
 // the app options for dynamic configuration.
-type EVMAppOptionsFn func(uint64, map[uint64]evmtypes.EvmCoinInfo) error
+type EVMAppOptionsFn func(uint64, evmtypes.EvmCoinInfo) error
 
 var sealed = false
 
+// EvmAppOptionsWithConfig is deprecated. Use EvmAppOptionsWithDynamicConfig instead.
+// This function is kept for backward compatibility but should not be used in new code.
 func EvmAppOptionsWithConfig(
 	chainID uint64,
 	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
@@ -32,14 +34,16 @@ func EvmAppOptionsWithConfig(
 		return nil
 	}
 
-	if err := EvmAppOptionsWithConfigWithReset(chainID, chainsCoinInfo, cosmosEVMActivators, false); err != nil {
-		return err
+	coinInfo, found := chainsCoinInfo[chainID]
+	if !found {
+		return fmt.Errorf("unknown chain id: %d", chainID)
 	}
 
-	sealed = true
-	return nil
+	return EvmAppOptionsWithDynamicConfig(chainID, coinInfo, cosmosEVMActivators)
 }
 
+// EvmAppOptionsWithConfigWithReset is deprecated. Use EvmAppOptionsWithDynamicConfigWithReset instead.
+// This function is kept for backward compatibility but should not be used in new code.
 func EvmAppOptionsWithConfigWithReset(
 	chainID uint64,
 	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
@@ -51,28 +55,7 @@ func EvmAppOptionsWithConfigWithReset(
 		return fmt.Errorf("unknown chain id: %d", chainID)
 	}
 
-	// set the denom info for the chain
-	if err := setBaseDenom(coinInfo); err != nil {
-		return err
-	}
-
-	ethCfg := evmtypes.DefaultChainConfig(chainID)
-	configurator := evmtypes.NewEVMConfigurator()
-	if withReset {
-		// reset configuration to set the new one
-		configurator.ResetTestConfig()
-	}
-	err := configurator.
-		WithExtendedEips(cosmosEVMActivators).
-		WithChainConfig(ethCfg).
-		// NOTE: we're using the 18 decimals default for the example chain
-		WithEVMCoinInfo(coinInfo).
-		Configure()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return EvmAppOptionsWithDynamicConfigWithReset(chainID, coinInfo, cosmosEVMActivators, withReset)
 }
 
 // EvmAppOptionsWithDynamicConfig sets up EVM configuration using dynamic chain configuration

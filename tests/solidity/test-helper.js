@@ -15,31 +15,18 @@ function panic (errMsg) {
   process.exit(-1)
 }
 
-// Function to extract EVMChainID from Go config file
-function extractChainIDFromGo(goFilePath) {
-  try {
-    if (!fs.existsSync(goFilePath)) {
-      logger.warn(`Go config file not found at ${goFilePath}, using default chain ID: 262144`)
-      return 262144
-    }
-
-    const goFileContent = fs.readFileSync(goFilePath, 'utf8')
-
-    // Look for DefaultEVMChainID = number
-    const chainIdMatch = goFileContent.match(/DefaultEVMChainID\s*=\s*(\d+)/)
-
-    if (chainIdMatch) {
-      const chainId = parseInt(chainIdMatch[1], 10)
-      logger.info(`Extracted DefaultEVMChainID from Go config: ${chainId}`)
-      return chainId
-    }
-
-    logger.warn('DefaultEVMChainID not found in Go file, using default: 262144')
-    return 262144
-  } catch (error) {
-    logger.warn(`Error reading Go config file: ${error.message}, using default: 262144`)
-    return 262144
+// Function to get EVM Chain ID from environment or use default
+function getEVMChainID() {
+  // Use environment variable if set, otherwise default to 262144
+  const envChainId = process.env.EVM_CHAIN_ID
+  if (envChainId && !isNaN(envChainId)) {
+    const chainId = parseInt(envChainId, 10)
+    logger.info(`Using EVM Chain ID from environment: ${chainId}`)
+    return chainId
   }
+  
+  logger.info('No EVM_CHAIN_ID environment variable set, using default: 262144')
+  return 262144
 }
 
 // Function to update Hardhat config with the extracted chain ID
@@ -113,18 +100,25 @@ function restoreHardhatConfig(hardhatConfigPath, backupPath) {
   }
 }
 
-// Function to sync configuration from Go to Hardhat
+// Function to sync configuration from environment variables to Hardhat
 function syncConfiguration() {
-  // Adjust these paths based on your project structure
-  const goConfigPath = path.join(__dirname, '../../server/config/config.go')
   const hardhatConfigPath = path.join(__dirname, './suites/precompiles/hardhat.config.js')
 
-  logger.info('Syncing configuration from Go to Hardhat...')
+  logger.info('Syncing configuration from environment variables to Hardhat...')
+  
+  // Log current environment variables for debugging
+  const envVars = ['CHAIN_ID', 'EVM_CHAIN_ID', 'DENOM', 'EXTENDED_DENOM', 'DISPLAY_DENOM', 'DECIMALS']
+  envVars.forEach(varName => {
+    const value = process.env[varName]
+    if (value) {
+      logger.info(`  ${varName}: ${value}`)
+    }
+  })
 
   // Create backup before modifying
   const backupPath = backupHardhatConfig(hardhatConfigPath)
 
-  const chainId = extractChainIDFromGo(goConfigPath)
+  const chainId = getEVMChainID()
   updateHardhatConfig(chainId, hardhatConfigPath)
 
   return { hardhatConfigPath, backupPath }
@@ -316,7 +310,16 @@ function setupNetwork ({ runConfig, timeout }) {
     const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
     const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
 
-    const osdProc = spawn(scriptPath, ['-y'], {
+    // Build arguments from environment variables
+    const args = ['-y']
+    if (process.env.CHAIN_ID) args.push('--chain-id', process.env.CHAIN_ID)
+    if (process.env.EVM_CHAIN_ID) args.push('--evm-chain-id', process.env.EVM_CHAIN_ID)  
+    if (process.env.DENOM) args.push('--denom', process.env.DENOM)
+    if (process.env.EXTENDED_DENOM) args.push('--extended-denom', process.env.EXTENDED_DENOM)
+    if (process.env.DISPLAY_DENOM) args.push('--display-denom', process.env.DISPLAY_DENOM)
+    if (process.env.DECIMALS) args.push('--decimals', process.env.DECIMALS)
+
+    const osdProc = spawn(scriptPath, args, {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })
@@ -360,7 +363,7 @@ function setupNetwork ({ runConfig, timeout }) {
 }
 
 async function main () {
-  // Sync configuration before running tests
+  // Configure Hardhat with environment variables before running tests
   const configPaths = syncConfiguration()
 
   let proc = null
@@ -402,7 +405,7 @@ async function main () {
 process.on('unhandledRejection', (e) => {
   console.error(e)
 
-  // Try to restore config if possible
+  // Try to restore original Hardhat config if possible
   const hardhatConfigPath = path.join(__dirname, 'hardhat.config.js')
   const backupPath = hardhatConfigPath + '.backup'
   if (fs.existsSync(backupPath)) {

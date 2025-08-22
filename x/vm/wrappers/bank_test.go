@@ -23,8 +23,8 @@ import (
 // --------------------------------------TRANSACTIONS-----------------------------------------------
 
 func TestMintAmountToAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	testCases := []struct {
 		name      string
@@ -128,8 +128,8 @@ func TestMintAmountToAccount(t *testing.T) {
 }
 
 func TestBurnAmountFromAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -249,8 +249,8 @@ func TestBurnAmountFromAccount(t *testing.T) {
 }
 
 func TestSendCoinsFromModuleToAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -410,8 +410,8 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 }
 
 func TestSendCoinsFromAccountToModule(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -573,8 +573,8 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 // ----------------------------------------QUERIES-------------------------------------------------
 
 func TestGetBalance(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))
@@ -720,8 +720,8 @@ func TestGetBalance(t *testing.T) {
 // ----------------------------------------QUERIES-------------------------------------------------
 
 func TestSppendableCoin(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))

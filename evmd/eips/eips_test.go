@@ -1,5 +1,3 @@
-//go:build test
-// +build test
 
 package eips_test
 

@@ -1,36 +1,43 @@
 package config
 
 import (
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
-// that allows initializing the app with different coin info based on the
-// chain id
-var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
-	},
-	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
-	SixDecimalsChainID: {
-		Denom:         "utest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.SixDecimals,
-	},
-	// EVMChainID provides a chain ID used for internal testing
-	EVMChainID: {
-		Denom:         "atest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.EighteenDecimals,
-	},
+// GetEvmdEvmCoinInfo returns appropriate EvmCoinInfo for evmd based on chainID.
+// This replaces the old hardcoded ChainsCoinInfo map with a function that
+// creates configurations on demand.
+func GetEvmdEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
+	switch chainID {
+	case EighteenDecimalsChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         ExampleChainDenom,
+			ExtendedDenom: ExampleChainDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
+		}
+	case SixDecimalsChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         "utest",
+			ExtendedDenom: "atest",
+			DisplayDenom:  "test",
+			Decimals:      evmtypes.SixDecimals,
+		}
+	case EVMChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         "atest",
+			ExtendedDenom: "atest",
+			DisplayDenom:  "test",
+			Decimals:      evmtypes.EighteenDecimals,
+		}
+	default:
+		// Default fallback - return the default configuration converted to EvmCoinInfo
+		return config.DefaultChainConfig().ToEvmCoinInfo()
+	}
 }
 
 const (

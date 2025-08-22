@@ -1,28 +1,29 @@
 package config
 
 import (
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
-// that allows initializing the app with different coin info based on the
-// chain id
-var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
-	},
-	EVMChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
-	},
+// GetEvmCoinInfo returns appropriate EvmCoinInfo for production based on chainID.
+// This replaces the old hardcoded ChainsCoinInfo map with a function that
+// creates configurations on demand.
+func GetEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
+	switch chainID {
+	case EighteenDecimalsChainID, EVMChainID:
+		return evmtypes.EvmCoinInfo{
+			Denom:         ExampleChainDenom,
+			ExtendedDenom: ExampleChainDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
+		}
+	default:
+		// Default fallback - return the default configuration converted to EvmCoinInfo
+		return config.DefaultChainConfig().ToEvmCoinInfo()
+	}
 }
 
 const (

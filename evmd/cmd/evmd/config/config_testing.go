@@ -20,15 +20,12 @@ func EvmAppOptions(chainID uint64) error {
 
 // getTestChainConfigForChainID returns the appropriate chain config for testing
 func getTestChainConfigForChainID(chainID uint64) cosmosevmserverconfig.ChainConfig {
-	// Use the test chain coin info map to get the appropriate configuration
-	if coinInfo, found := testconfig.TestChainsCoinInfo[chainID]; found {
-		return cosmosevmserverconfig.ChainConfig{
-			Denom:         coinInfo.Denom,
-			ExtendedDenom: coinInfo.ExtendedDenom,
-			DisplayDenom:  coinInfo.DisplayDenom,
-			Decimals:      uint8(coinInfo.Decimals),
-		}
+	// Use the test coin info function to get the appropriate configuration
+	coinInfo := testconfig.GetTestEvmCoinInfo(chainID)
+	return cosmosevmserverconfig.ChainConfig{
+		Denom:         coinInfo.Denom,
+		ExtendedDenom: coinInfo.ExtendedDenom,
+		DisplayDenom:  coinInfo.DisplayDenom,
+		Decimals:      uint8(coinInfo.Decimals),
 	}
-	// Default fallback
-	return *cosmosevmserverconfig.DefaultChainConfig()
 }

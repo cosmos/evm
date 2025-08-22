@@ -107,8 +107,32 @@ $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
 
 # Default & all target
-.PHONY: all build build-linux install
+.PHONY: all build build-linux install help
 all: build
+
+help:
+	@echo "📦 Build Targets:"
+	@echo "  build          - Build evmd binary"
+	@echo "  install        - Install evmd to GOPATH/bin"
+	@echo ""
+	@echo "🧪 Test Targets:"
+	@echo "  test-unit      - Run unit tests"
+	@echo "  test-evmd      - Run evmd integration tests"
+	@echo "  test-solidity  - Run solidity contract tests"
+	@echo "  test-all       - Run all tests"
+	@echo ""
+	@echo "⚙️  Chain Configuration Variables (optional):"
+	@echo "  CHAIN_ID       - Cosmos chain ID (e.g. 'cosmos-1')"
+	@echo "  EVM_CHAIN_ID   - EVM chain ID (e.g. 9001)"
+	@echo "  DENOM          - Base denomination (e.g. 'aatom')"
+	@echo "  EXTENDED_DENOM - Extended denomination (e.g. 'aatom')"
+	@echo "  DISPLAY_DENOM  - Display denomination (e.g. 'atom')"
+	@echo "  DECIMALS       - Decimal places (e.g. 18)"
+	@echo ""
+	@echo "📋 Usage Examples:"
+	@echo "  make test-evmd DENOM=umycoin DISPLAY_DENOM=mycoin DECIMALS=6"
+	@echo "  make test-solidity CHAIN_ID=testchain-1 EVM_CHAIN_ID=777"
+	@echo "  ./local_node.sh --denom umycoin --display-denom mycoin --decimals 6"
 
 ###############################################################################
 ###                          Tools & Dependencies                           ###
@@ -145,9 +169,17 @@ test-race: ARGS=-race
 test-race: TEST_PACKAGES=$(PACKAGES_UNIT)
 test-race: run-tests
 
+# Chain configuration environment variables
+CHAIN_ENV_VARS = $(if $(CHAIN_ID),CHAIN_ID="$(CHAIN_ID)") \
+                 $(if $(EVM_CHAIN_ID),EVM_CHAIN_ID="$(EVM_CHAIN_ID)") \
+                 $(if $(DENOM),DENOM="$(DENOM)") \
+                 $(if $(EXTENDED_DENOM),EXTENDED_DENOM="$(EXTENDED_DENOM)") \
+                 $(if $(DISPLAY_DENOM),DISPLAY_DENOM="$(DISPLAY_DENOM)") \
+                 $(if $(DECIMALS),DECIMALS="$(DECIMALS)")
+
 test-evmd: ARGS=-timeout=15m
 test-evmd:
-	@cd evmd && go test -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
+	@cd evmd && $(CHAIN_ENV_VARS) go test -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
 
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
 test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
@@ -196,7 +228,7 @@ test-scripts:
 
 test-solidity:
 	@echo "Beginning solidity tests..."
-	./scripts/run-solidity-tests.sh
+	@$(CHAIN_ENV_VARS) ./scripts/run-solidity-tests.sh
 
 .PHONY: run-tests test test-all $(TEST_TARGETS)
 
