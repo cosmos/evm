@@ -104,8 +104,8 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
 	if rsp != nil && rsp.Code != 0 {
-		if HandleBroadcastRawLog(rsp.RawLog, txHash) {
-			b.Logger.Debug("transaction temporarily rejected or queued", "hash", txHash.Hex())
+		if shouldSkip, msg := HandleBroadcastRawLog(rsp.RawLog, txHash); shouldSkip {
+			b.Logger.Debug(msg, "hash", txHash.Hex())
 			return txHash, nil
 		}
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)

@@ -13,17 +13,27 @@ import (
 
 func TestHandleBroadcastRawLog(t *testing.T) {
 	txHash := common.HexToHash("0x123")
-	cases := []string{
-		legacypool.ErrOutOfOrderTxFromDelegated.Error(),
-		txpool.ErrInflightTxLimitReached.Error(),
-		legacypool.ErrAuthorityReserved.Error(),
-		txpool.ErrUnderpriced.Error(),
-		legacypool.ErrTxPoolOverflow.Error(),
-		legacypool.ErrFutureReplacePending.Error(),
-		mempool.ErrNonceGap.Error(),
+	tmpErrMsg := "transaction temporarily rejected or queued"
+	cases := []struct {
+		rawLog  string
+		wantMsg string
+	}{
+		{legacypool.ErrOutOfOrderTxFromDelegated.Error(), tmpErrMsg},
+		{txpool.ErrInflightTxLimitReached.Error(), tmpErrMsg},
+		{legacypool.ErrAuthorityReserved.Error(), tmpErrMsg},
+		{txpool.ErrUnderpriced.Error(), tmpErrMsg},
+		{legacypool.ErrTxPoolOverflow.Error(), tmpErrMsg},
+		{legacypool.ErrFutureReplacePending.Error(), tmpErrMsg},
+		{mempool.ErrNonceGap.Error(), "transaction queued due to nonce gap"},
 	}
-	for _, rawLog := range cases {
-		require.True(t, HandleBroadcastRawLog(rawLog, txHash), "expected true for: %s", rawLog)
+
+	for _, tc := range cases {
+		ok, msg := HandleBroadcastRawLog(tc.rawLog, txHash)
+		require.True(t, ok, "expected true for: %s", tc.rawLog)
+		require.Equal(t, tc.wantMsg, msg, "unexpected message for: %s", tc.rawLog)
 	}
-	require.False(t, HandleBroadcastRawLog("some other error", txHash))
+
+	ok, msg := HandleBroadcastRawLog("some other error", txHash)
+	require.False(t, ok)
+	require.Equal(t, "", msg)
 }

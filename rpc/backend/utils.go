@@ -298,7 +298,10 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 // HandleBroadcastRawLog checks the RawLog for known temporary rejection or nonce gap error.
 // NOTE: make sure it sync with the latest go-ethereum logic when upgrade:
 // https://github.com/ethereum/go-ethereum/blob/master/core/txpool/locals/errors.go#L29
-func HandleBroadcastRawLog(rawLog string, txHash common.Hash) bool {
+func HandleBroadcastRawLog(rawLog string, txHash common.Hash) (bool, string) {
+	if strings.Contains(rawLog, mempool.ErrNonceGap.Error()) {
+		return true, "transaction queued due to nonce gap"
+	}
 	switch rawLog {
 	case legacypool.ErrOutOfOrderTxFromDelegated.Error(),
 		txpool.ErrInflightTxLimitReached.Error(),
@@ -306,9 +309,7 @@ func HandleBroadcastRawLog(rawLog string, txHash common.Hash) bool {
 		txpool.ErrUnderpriced.Error(),
 		legacypool.ErrTxPoolOverflow.Error(),
 		legacypool.ErrFutureReplacePending.Error():
-		return true
-	case mempool.ErrNonceGap.Error():
-		return true
+		return true, "transaction temporarily rejected or queued"
 	}
-	return false
+	return false, ""
 }
