@@ -13,16 +13,30 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if CHANGELOG.md was modified
+        run: |
+          # Get the list of changed files in this PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          
+          # Check if CHANGELOG.md (case insensitive) is in the changed files
+          if echo "$CHANGED_FILES" | grep -qi "changelog\.md"; then
+            echo "✅ CHANGELOG.md has been modified in this PR"
+            echo "changelog_modified=true" >> $GITHUB_ENV
+          else
+            echo "❌ CHANGELOG.md has not been modified in this PR"
+            echo "changelog_modified=false" >> $GITHUB_ENV
+          fi
 
       - uses: mskelton/changelog-reminder-action@v3
+        if: env.changelog_modified == 'false'
         with:
           message: "Oops! Looks like you forgot to update the changelog."
 
-      - name: Fail if no changelog changes
+      - name: Fail if changelog not updated
+        if: env.changelog_modified == 'false'
         run: |
-          # compare PR head to its base commit (works even if base isn't 'main')
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.sha }})
-          echo "$CHANGED_FILES" | grep -Ei '(^|/)(CHANGELOG\.md|changelog\.md)$' >/dev/null || {
-            echo "❌ No changelog update found!"
-            exit 1
-          }
+          echo "::error::CHANGELOG.md must be updated for Go code changes"
+          exit 1
