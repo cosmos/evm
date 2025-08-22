@@ -18,6 +18,7 @@
 package legacypool
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"math/big"
@@ -255,6 +256,10 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
+	// Shutdown context for immediate termination
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelFunc
+
 	BroadcastTxFn func(txs []*types.Transaction) error
 }
 
@@ -269,6 +274,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 	config = (&config).sanitize()
 
 	// Create the transaction pool with its initial settings
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	pool := &LegacyPool{
 		config:          config,
 		chain:           chain,
@@ -284,6 +290,8 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		initDoneCh:      make(chan struct{}),
+		shutdownCtx:     shutdownCtx,
+		shutdownCancel:  shutdownCancel,
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -389,11 +397,41 @@ func (pool *LegacyPool) loop() {
 
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
-	// Terminate the pool reorger and return
-	close(pool.reorgShutdownCh)
-	pool.wg.Wait()
+	return pool.CloseWithTimeout(5 * time.Second)
+}
 
-	log.Info("Transaction pool stopped")
+// CloseWithTimeout terminates the transaction pool with a timeout.
+// If timeout is 0, it forces immediate shutdown without waiting.
+func (pool *LegacyPool) CloseWithTimeout(timeout time.Duration) error {
+	// Cancel shutdown context to signal immediate termination
+	pool.shutdownCancel()
+
+	if timeout == 0 {
+		// Force immediate shutdown without waiting
+		log.Info("Force shutting down legacy pool immediately")
+		close(pool.reorgShutdownCh)
+		// Don't wait for wg in force mode
+	} else {
+		// Try graceful shutdown with timeout
+		close(pool.reorgShutdownCh)
+
+		// Use a channel to wait for wg with timeout
+		done := make(chan struct{})
+		go func() {
+			pool.wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Graceful shutdown completed
+		case <-time.After(timeout):
+			// Timeout occurred
+			log.Warn("Legacy pool shutdown timeout, some goroutines may still be running")
+		}
+	}
+
+	log.Info("Legacy pool stopped")
 	return nil
 }
 

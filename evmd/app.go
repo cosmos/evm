@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cast"
 
@@ -1148,12 +1149,32 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the underlying BaseApp.
 func (app *EVMD) Close() error {
+	return app.CloseWithTimeout(5 * time.Second)
+}
+
+// CloseWithTimeout closes the application with a timeout.
+// If timeout is 0, it forces immediate shutdown without waiting for mempool cleanup.
+func (app *EVMD) CloseWithTimeout(timeout time.Duration) error {
 	var err error
+
+	// Force immediate shutdown if timeout is 0
+	forceShutdown := timeout == 0
+
 	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-		err = m.Close()
+		if forceShutdown {
+			// Force immediate shutdown
+			app.Logger().Info("Force shutting down mempool immediately")
+			err = m.CloseWithTimeout(0)
+		} else {
+			// Graceful shutdown with timeout
+			err = m.CloseWithTimeout(timeout)
+		}
 	}
 	err = errors.Join(err, app.BaseApp.Close())
-	msg := "Application gracefully shutdown"
+	msg := "Application shutdown"
+	if forceShutdown {
+		msg = "Application force shutdown"
+	}
 	if err == nil {
 		app.Logger().Info(msg)
 	} else {

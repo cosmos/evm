@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -392,10 +393,38 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	}()
 }
 
-// Close unsubscribes from the CometBFT event bus.
+// Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
+	return m.CloseWithTimeout(5 * time.Second)
+}
+
+// CloseWithTimeout shuts down the mempool with a timeout.
+// If timeout is 0, it forces immediate shutdown without waiting.
+func (m *ExperimentalEVMMempool) CloseWithTimeout(timeout time.Duration) error {
+	var errs []error
+
+	// Unsubscribe from event bus
 	if m.eventBus != nil {
-		return m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
+			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
+		}
+	}
+
+	// Close transaction pools
+	if timeout == 0 {
+		// Force immediate shutdown
+		if err := m.txPool.CloseWithTimeout(0); err != nil {
+			errs = append(errs, fmt.Errorf("failed to force close txpool: %w", err))
+		}
+	} else {
+		// Graceful shutdown with timeout
+		if err := m.txPool.CloseWithTimeout(timeout); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("mempool close errors: %v", errs)
 	}
 	return nil
 }
