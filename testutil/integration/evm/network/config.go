@@ -20,9 +20,6 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// defaultChain represents the default chain ID used in the suite setup.
-var defaultChain = testconstants.ExampleChainID
-
 // Config defines the configuration for a chain.
 // It allows for customization of the network to adjust to
 // testing needs.
