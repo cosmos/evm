@@ -37,13 +37,17 @@ func (p Precompile) Deposit(
 	precompileAccAddr := sdk.AccAddress(p.Address().Bytes())
 
 	// Send the coins back to the sender
+	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+	if factor.IsZero() {
+		return nil, fmt.Errorf("conversion factor cannot be zero")
+	}
 	if err := p.BankKeeper.SendCoins(
 		ctx,
 		precompileAccAddr,
 		callerAccAddress,
 		sdk.NewCoins(sdk.Coin{
-			Denom:  evmtypes.GetEVMCoinExtendedDenom(),
-			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()),
+			Denom:  evmtypes.GetEVMCoinDenom(),
+			Amount: math.NewIntFromBigInt(depositedAmount.ToBig()).Quo(factor),
 		}),
 	); err != nil {
 		return nil, err
