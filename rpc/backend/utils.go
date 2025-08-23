@@ -295,7 +295,8 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 	return proofs
 }
 
-// HandleBroadcastRawLog checks the RawLog for known temporary rejection or nonce gap error.
+// HandleBroadcastRawLog checks the RawLog for known temporary rejection or nonce gap error,
+// since the error message only exists in rawLog of BroadcastTx response so we can only check against error string instead of error instance.
 // NOTE: make sure it sync with the latest go-ethereum logic when upgrade:
 // https://github.com/ethereum/go-ethereum/blob/master/core/txpool/locals/errors.go#L29
 func HandleBroadcastRawLog(rawLog string, txHash common.Hash) (bool, string) {
