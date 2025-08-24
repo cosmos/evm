@@ -367,8 +367,12 @@ func (k *Keeper) ApplyMessageWithConfig(
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
+	ethCfg := types.GetEthChainConfig()
+	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+
 	if overrides != nil {
-		if err := overrides.Apply(stateDB); err != nil {
+		precompiles := vm.ActivePrecompiledContracts(rules)
+		if err := overrides.Apply(stateDB, precompiles); err != nil {
 			return nil, errorsmod.Wrap(err, "failed to apply state override")
 		}
 	}
@@ -391,8 +395,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 		}()
 	}
 
-	ethCfg := types.GetEthChainConfig()
-
 	sender := vm.AccountRef(msg.From)
 	contractCreation := msg.To == nil
 	isLondon := ethCfg.IsLondon(evm.Context.BlockNumber)
@@ -409,7 +411,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
 	// Gas limit suffices for the floor data cost (EIP-7623)
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	if rules.IsPrague {
 		floorDataGas, err := core.FloorDataGas(msg.Data)
 		if err != nil {

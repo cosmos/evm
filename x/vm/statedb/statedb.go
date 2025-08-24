@@ -496,7 +496,7 @@ func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.H
 }
 
 // SetBalance sets the balance of account associated with addr to amount.
-func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int) {
+func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)

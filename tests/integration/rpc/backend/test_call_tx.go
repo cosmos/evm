@@ -482,8 +482,8 @@ func (s *TestSuite) TestDoCall() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, bz)
-				s.Require().NoError(err)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
 				expected := &evmtypes.EthCallRequest{
 					Args:      argsBz,
 					ChainId:   s.backend.EvmChainID.Int64(),
@@ -502,8 +502,8 @@ func (s *TestSuite) TestDoCall() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, bz)
-				s.Require().NoError(err)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
 				expected := &evmtypes.EthCallRequest{
 					Args:      argsBz,
 					ChainId:   s.backend.EvmChainID.Int64(),
@@ -522,8 +522,8 @@ func (s *TestSuite) TestDoCall() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, bz)
-				s.Require().NoError(err)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
 				expected := &evmtypes.EthCallRequest{
 					Args:      argsBz,
 					ChainId:   s.backend.EvmChainID.Int64(),

@@ -273,6 +273,9 @@ func (s *stateObject) SetState(key common.Hash, value common.Hash) common.Hash {
 	return prev
 }
 
+// SetStorage overrides the entire contract storage for this state object.
+// This replaces the committed state with the provided storage map, clearing
+// any previous origin and dirty storage.
 func (s *stateObject) SetStorage(storage Storage) {
 	s.overrideStorage = storage
 	s.originStorage = make(Storage)
