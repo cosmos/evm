@@ -5,13 +5,12 @@ package types
 
 import (
 	fmt "fmt"
-	io "io"
-	math "math"
-	math_bits "math/bits"
-
 	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
+	io "io"
+	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -29,7 +28,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type GenesisState struct {
 	// params are the erc20 module parameters at genesis
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
-	// token_pairs is a slice of the registered token pairs at genesis
+	// token_pairs is a slice of the registered token pairs (mappings) at genesis
 	TokenPairs []TokenPair `protobuf:"bytes,2,rep,name=token_pairs,json=tokenPairs,proto3" json:"token_pairs"`
 	// allowances is a slice of the registered allowances at genesis
 	Allowances []Allowance `protobuf:"bytes,3,rep,name=allowances,proto3" json:"allowances"`

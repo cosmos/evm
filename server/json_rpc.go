@@ -2,15 +2,22 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
+	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
@@ -18,18 +25,32 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
+const shutdownTimeout = 5 * time.Second
+
+type AppWithPendingTxStream interface {
+	RegisterPendingTxListener(listener func(common.Hash))
+}
+
 // StartJSONRPC starts the JSON-RPC server
 func StartJSONRPC(
 	ctx context.Context,
 	srvCtx *server.Context,
 	clientCtx client.Context,
 	g *errgroup.Group,
-	tmRPCAddr, tmEndpoint string,
 	config *serverconfig.Config,
 	indexer cosmosevmtypes.EVMTxIndexer,
+	app AppWithPendingTxStream,
+	mempool *evmmempool.ExperimentalEVMMempool,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
-	tmWsClient := ConnectTmWS(tmRPCAddr, tmEndpoint, logger)
+
+	evtClient, ok := clientCtx.Client.(rpcclient.EventsClient)
+	if !ok {
+		return nil, fmt.Errorf("client %T does not implement EventsClient", clientCtx.Client)
+	}
+
+	stream := stream.NewRPCStreams(evtClient, logger, clientCtx.TxConfig.TxDecoder())
+	app.RegisterPendingTxListener(stream.ListenPendingTx)
 
 	// Set Geth's global logger to use this handler
 	handler := &CustomSlogHandler{logger: logger}
@@ -41,7 +62,7 @@ func StartJSONRPC(
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, tmWsClient, allowUnprotectedTxs, indexer, rpcAPIArr)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
@@ -91,7 +112,9 @@ func StartJSONRPC(
 			// The calling process canceled or closed the provided context, so we must
 			// gracefully stop the JSON-RPC server.
 			logger.Info("stopping JSON-RPC server...", "address", config.JSONRPC.Address)
-			if err := httpSrv.Shutdown(context.Background()); err != nil {
+			ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			if err := httpSrv.Shutdown(ctxShutdown); err != nil {
 				logger.Error("failed to shutdown JSON-RPC server", "error", err.Error())
 			}
 			return nil
@@ -109,9 +132,7 @@ func StartJSONRPC(
 
 	srvCtx.Logger.Info("Starting JSON WebSocket server", "address", config.JSONRPC.WsAddress)
 
-	// allocate separate WS connection to Tendermint
-	tmWsClient = ConnectTmWS(tmRPCAddr, tmEndpoint, logger)
-	wsSrv := rpc.NewWebsocketsServer(clientCtx, logger, tmWsClient, config)
+	wsSrv := rpc.NewWebsocketsServer(clientCtx, logger, stream, config)
 	wsSrv.Start()
 	return httpSrv, nil
 }

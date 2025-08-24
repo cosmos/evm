@@ -146,8 +146,8 @@ func (s *PrecompileTestSuite) CheckValidatorOutput(valOut staking.ValidatorInfo)
 	Expect(valOut.DelegatorShares).To(Equal(big.NewInt(1e18)), "expected different delegator shares")
 }
 
-// Generate the Base64 encoded PubKey associated with a PrivKey generated with
-// the ed25519 algorithm used in Tendermint nodes.
+// GenerateBase64PubKey generates the Base64 encoded PubKey associated with a PrivKey generated with
+// the ed25519 algorithm used in CometBFT nodes.
 func GenerateBase64PubKey() string {
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey().(*ed25519.PubKey)

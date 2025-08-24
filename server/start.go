@@ -28,12 +28,14 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
+	evmmempool "github.com/cosmos/evm/mempool"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -47,11 +49,22 @@ import (
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
 // DBOpener is a function to open `application.db`, potentially with customized options.
 type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendType) (dbm.DB, error)
+
+type Application interface {
+	types.Application
+	AppWithPendingTxStream
+	GetMempool() sdkmempool.ExtMempool
+	SetClientCtx(clientCtx client.Context)
+}
+
+// AppCreator is a function that allows us to lazily initialize an application implementing with AppWithPendingTxStream.
+type AppCreator func(log.Logger, dbm.DB, io.Writer, types.AppOptions) Application
 
 // StartOptions defines options that can be customized in `StartCmd`
 type StartOptions struct {
@@ -61,9 +74,11 @@ type StartOptions struct {
 }
 
 // NewDefaultStartOptions use the default db opener provided in tm-db.
-func NewDefaultStartOptions(appCreator types.AppCreator, defaultNodeHome string) StartOptions {
+func NewDefaultStartOptions(appCreator AppCreator, defaultNodeHome string) StartOptions {
 	return StartOptions{
-		AppCreator:      appCreator,
+		AppCreator: func(l log.Logger, d dbm.DB, w io.Writer, ao types.AppOptions) types.Application {
+			return appCreator(l, d, w, ao)
+		},
 		DefaultNodeHome: defaultNodeHome,
 		DBOpener:        cosmosevmserverconfig.OpenDB,
 	}
@@ -119,9 +134,9 @@ which accepts a path for the resulting pprof file.
 
 			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
 			if !withTM {
-				serverCtx.Logger.Info("starting ABCI without Tendermint")
+				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
-					return startStandAlone(serverCtx, opts)
+					return startStandAlone(serverCtx, clientCtx, opts)
 				})
 			}
 
@@ -220,7 +235,7 @@ which accepts a path for the resulting pprof file.
 // Parameters:
 // - svrCtx: The context object that holds server configurations, logger, and other stateful information.
 // - opts: Options for starting the server, including functions for creating the application and opening the database.
-func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
+func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts StartOptions) error {
 	addr := svrCtx.Viper.GetString(srvflags.Address)
 	transport := svrCtx.Viper.GetString(srvflags.Transport)
 	home := svrCtx.Viper.GetString(flags.FlagHome)
@@ -251,6 +266,12 @@ func startStandAlone(svrCtx *server.Context, opts StartOptions) error {
 			svrCtx.Logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
+
 	config, err := cosmosevmserverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
 		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
@@ -364,6 +385,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			logger.Error("close application failed", "error", err.Error())
 		}
 	}()
+	evmApp, ok := app.(Application)
+	if !ok {
+		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+	}
+	evmApp.SetClientCtx(clientCtx)
 
 	nodeKey, err := p2p.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
@@ -406,6 +432,9 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+			m.SetEventBus(tmNode.EventBus())
+		}
 		defer func() {
 			if tmNode.IsRunning() {
 				_ = tmNode.Stop()
@@ -475,8 +504,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics)
 
 	if config.JSONRPC.Enable {
-		cmtEndpoint := "/websocket"
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, cfg.RPC.ListenAddress, cmtEndpoint, &config, idxer)
+		txApp, ok := app.(AppWithPendingTxStream)
+		if !ok {
+			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
+		}
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool))
 		if err != nil {
 			return err
 		}

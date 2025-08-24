@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
 const (
@@ -41,13 +40,15 @@ func (p *Precompile) GetVotes(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Votes(ctx, queryVotesReq)
+	res, err := p.govQuerier.Votes(ctx, queryVotesReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(VotesOutput).FromResponse(res)
+	output, err := new(VotesOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Votes, output.PageResponse)
 }
 
@@ -63,14 +64,15 @@ func (p *Precompile) GetVote(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Vote(ctx, queryVotesReq)
+	res, err := p.govQuerier.Vote(ctx, queryVotesReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(VoteOutput).FromResponse(res)
-
+	output, err := new(VoteOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Vote)
 }
 
@@ -86,13 +88,15 @@ func (p *Precompile) GetDeposit(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Deposit(ctx, queryDepositReq)
+	res, err := p.govQuerier.Deposit(ctx, queryDepositReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(DepositOutput).FromResponse(res)
+	output, err := new(DepositOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Deposit)
 }
 
@@ -108,13 +112,15 @@ func (p *Precompile) GetDeposits(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Deposits(ctx, queryDepositsReq)
+	res, err := p.govQuerier.Deposits(ctx, queryDepositsReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(DepositsOutput).FromResponse(res)
+	output, err := new(DepositsOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Deposits, output.PageResponse)
 }
 
@@ -130,8 +136,7 @@ func (p *Precompile) GetTallyResult(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.TallyResult(ctx, queryTallyResultReq)
+	res, err := p.govQuerier.TallyResult(ctx, queryTallyResultReq)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +157,15 @@ func (p *Precompile) GetProposal(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Proposal(ctx, queryProposalReq)
+	res, err := p.govQuerier.Proposal(ctx, queryProposalReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(ProposalOutput).FromResponse(res)
+	output, err := new(ProposalOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Proposal)
 }
 
@@ -174,14 +181,15 @@ func (p *Precompile) GetProposals(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Proposals(ctx, queryProposalsReq)
+	res, err := p.govQuerier.Proposals(ctx, queryProposalsReq)
 	if err != nil {
 		return nil, err
 	}
 
-	output := new(ProposalsOutput).FromResponse(res)
-
+	output, err := new(ProposalsOutput).FromResponse(res)
+	if err != nil {
+		return nil, err
+	}
 	return method.Outputs.Pack(output.Proposals, output.PageResponse)
 }
 
@@ -197,8 +205,7 @@ func (p *Precompile) GetParams(
 		return nil, err
 	}
 
-	queryServer := govkeeper.NewQueryServer(&p.govKeeper)
-	res, err := queryServer.Params(ctx, queryParamsReq)
+	res, err := p.govQuerier.Params(ctx, queryParamsReq)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +226,7 @@ func (p *Precompile) GetConstitution(
 		return nil, err
 	}
 
-	res, err := govkeeper.NewQueryServer(&p.govKeeper).Constitution(ctx, req)
+	res, err := p.govQuerier.Constitution(ctx, req)
 	if err != nil {
 		return nil, err
 	}

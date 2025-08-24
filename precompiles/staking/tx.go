@@ -10,7 +10,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 const (
@@ -69,8 +68,7 @@ func (p Precompile) CreateValidator(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CreateValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CreateValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -116,8 +114,7 @@ func (p Precompile) EditValidator(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.EditValidator(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.EditValidator(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -163,8 +160,7 @@ func (p *Precompile) Delegate(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.Delegate(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.Delegate(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -211,8 +207,7 @@ func (p Precompile) Undelegate(
 	}
 
 	// Execute the transaction using the message server
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.Undelegate(ctx, msg)
+	res, err := p.stakingMsgServer.Undelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -261,8 +256,7 @@ func (p Precompile) Redelegate(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	res, err := msgSrv.BeginRedelegate(ctx, msg)
+	res, err := p.stakingMsgServer.BeginRedelegate(ctx, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -310,8 +304,7 @@ func (p Precompile) CancelUnbondingDelegation(
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), delegatorHexAddr.String())
 	}
 
-	msgSrv := stakingkeeper.NewMsgServerImpl(&p.stakingKeeper)
-	if _, err = msgSrv.CancelUnbondingDelegation(ctx, msg); err != nil {
+	if _, err = p.stakingMsgServer.CancelUnbondingDelegation(ctx, msg); err != nil {
 		return nil, err
 	}
 

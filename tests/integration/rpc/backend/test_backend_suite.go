@@ -91,7 +91,7 @@ func (s *TestSuite) SetupTest() {
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer)
+	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true
@@ -125,7 +125,14 @@ func (s *TestSuite) buildEthereumTx() (*evmtypes.MsgEthereumTx, []byte) {
 
 	bz, err := s.backend.ClientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
 	s.Require().NoError(err)
-	return msgEthereumTx, bz
+
+	// decode again to get canonical representation
+	tx, err := s.backend.ClientCtx.TxConfig.TxDecoder()(bz)
+	s.Require().NoError(err)
+
+	msgs := tx.GetMsgs()
+	s.Require().NotEmpty(msgs)
+	return msgs[0].(*evmtypes.MsgEthereumTx), bz
 }
 
 // buildEthereumTx returns an example legacy Ethereum transaction
@@ -181,7 +188,7 @@ func (s *TestSuite) buildFormattedBlock(
 			s.Require().NoError(err)
 			ethRPCTxs = []interface{}{rpcTx}
 		} else {
-			ethRPCTxs = []interface{}{common.HexToHash(tx.Hash)}
+			ethRPCTxs = []interface{}{tx.Hash()}
 		}
 	}
 

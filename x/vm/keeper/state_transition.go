@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -104,7 +105,7 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			contextBlockHeader := ctx.BlockHeader()
 			header, err := cmttypes.HeaderFromProto(&contextBlockHeader)
 			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
 				return common.Hash{}
 			}
 
@@ -112,23 +113,11 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.BytesToHash(headerHash)
 
 		case ctx.BlockHeight() > h:
-			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
-			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, err := k.stakingKeeper.GetHistoricalInfo(ctx, h)
-			if err != nil {
-				k.Logger(ctx).Debug("error while getting historical info", "height", h, "error", err.Error())
-				return common.Hash{}
-			}
-
-			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			return common.BytesToHash(header.Hash())
+			// Case 2: The requested height is historical, query EIP-2935 contract storage for that
+			// see: https://github.com/cosmos/evm/issues/406
+			return k.GetHeaderHash(ctx, height)
 		default:
-			// Case 3: heights greater than the current one returns an empty hash.
+			// Case 3: The requested height is greater than the latest one, return empty hash
 			return common.Hash{}
 		}
 	}
@@ -205,36 +194,54 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	ethLogs := types.LogsToEthereum(res.Logs)
 	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
 
-	if !res.Failed() {
-		var contractAddr common.Address
-		if msg.To == nil {
-			contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	var contractAddr common.Address
+	if msg.To == nil {
+		contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              tx.Type(),
+		PostState:         nil,
+		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
+		Bloom:             bloomReceipt,
+		Logs:              ethLogs,
+		TxHash:            txConfig.TxHash,
+		ContractAddress:   contractAddr,
+		GasUsed:           res.GasUsed,
+		BlockHash:         txConfig.BlockHash,
+		BlockNumber:       big.NewInt(ctx.BlockHeight()),
+		TransactionIndex:  txConfig.TxIndex,
+	}
+
+	if res.Failed() {
+		receipt.Status = ethtypes.ReceiptStatusFailed
+
+		// If the tx failed we discard the old context and create a new one, so
+		// PostTxProcessing can persist data even if the tx fails.
+		tmpCtx, commitFn = ctx.CacheContext()
+	} else {
+		receipt.Status = ethtypes.ReceiptStatusSuccessful
+	}
+
+	signerAddr, err := signer.Sender(tx)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
+	}
+
+	eventsLen := len(tmpCtx.EventManager().Events())
+
+	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
+	if !k.HasHooks() {
+		// If there are no hooks, we can commit the state immediately if the tx is successful
+		if commitFn != nil && !res.Failed() {
+			commitFn()
 		}
-
-		receipt := &ethtypes.Receipt{
-			Type:              tx.Type(),
-			PostState:         nil,
-			CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
-			Bloom:             bloomReceipt,
-			Logs:              ethLogs,
-			TxHash:            txConfig.TxHash,
-			ContractAddress:   contractAddr,
-			GasUsed:           res.GasUsed,
-			BlockHash:         txConfig.BlockHash,
-			BlockNumber:       big.NewInt(ctx.BlockHeight()),
-			TransactionIndex:  txConfig.TxIndex,
-		}
-
-		signerAddr, err := signer.Sender(tx)
-		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
-		}
-
-		eventsLen := len(tmpCtx.EventManager().Events())
-
+	} else {
 		// Note: PostTxProcessing hooks currently do not charge for gas
-		// and function similar to EndBlockers in abci, but for EVM transactions
-		if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
+		// and function similar to EndBlockers in abci, but for EVM transactions.
+		// It will persist data even if the tx fails.
+		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
+		if err != nil {
 			// If hooks returns an error, revert the whole tx.
 			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
@@ -243,11 +250,20 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			res.Logs = nil
 			receipt.Logs = nil
 			receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
-		} else if commitFn != nil {
-			commitFn()
+		} else {
+			if commitFn != nil {
+				commitFn()
+			}
 
 			// Since the post-processing can alter the log, we need to update the result
-			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			if res.Failed() {
+				res.Logs = nil
+				receipt.Logs = nil
+				receipt.Bloom = ethtypes.Bloom{}
+			} else {
+				res.Logs = types.NewLogsFromEth(receipt.Logs)
+			}
+
 			events := tmpCtx.EventManager().Events()
 			if len(events) > eventsLen {
 				ctx.EventManager().EmitEvents(events[eventsLen:])
@@ -392,11 +408,21 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
+	// Gas limit suffices for the floor data cost (EIP-7623)
+	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	if rules.IsPrague {
+		floorDataGas, err := core.FloorDataGas(msg.Data)
+		if err != nil {
+			return nil, err
+		}
+		if msg.GasLimit < floorDataGas {
+			return nil, fmt.Errorf("%w: have %d, want %d", core.ErrFloorDataGas, msg.GasLimit, floorDataGas)
+		}
+	}
 	leftoverGas -= intrinsicGas
 
 	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
 	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	stateDB.Prepare(rules, msg.From, common.Address{}, msg.To, evm.ActivePrecompiles(), msg.AccessList)
 
 	convertedValue, err := utils.Uint256FromBigInt(msg.Value)
@@ -412,6 +438,24 @@ func (k *Keeper) ApplyMessageWithConfig(
 		ret, _, leftoverGas, vmErr = evm.Create(sender.Address(), msg.Data, leftoverGas, convertedValue)
 		stateDB.SetNonce(sender.Address(), msg.Nonce+1, tracing.NonceChangeContractCreator)
 	} else {
+		// Apply EIP-7702 authorizations.
+		if msg.SetCodeAuthorizations != nil {
+			for _, auth := range msg.SetCodeAuthorizations {
+				// Note errors are ignored, we simply skip invalid authorizations here.
+				if err := k.applyAuthorization(&auth, stateDB, ethCfg.ChainID); err != nil {
+					k.Logger(ctx).Debug("failed to apply authorization", "error", err, "authorization", auth)
+				}
+			}
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := ethtypes.ParseDelegation(stateDB.GetCode(*msg.To)); ok {
+			stateDB.AddAddressToAccessList(addr)
+		}
 		ret, leftoverGas, vmErr = evm.Call(sender.Address(), *msg.To, msg.Data, leftoverGas, convertedValue)
 	}
 
@@ -452,7 +496,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	}
 
 	// calculate a minimum amount of gas to be charged to sender if GasLimit
-	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
+	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
 	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
@@ -500,4 +544,62 @@ func (k *Keeper) SetConsensusParamsInCtx(ctx sdk.Context) sdk.Context {
 		return ctx
 	}
 	return ctx.WithConsensusParams(*res.Params)
+}
+
+// applyAuthorization applies an EIP-7702 code delegation to the state.
+func (k *Keeper) applyAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) error {
+	authority, err := k.validateAuthorization(auth, state, chainID)
+	if err != nil {
+		return err
+	}
+
+	// If the account already exists in state, refund the new account cost
+	// charged in the intrinsic calculation.
+	if state.Exist(authority) {
+		state.AddRefund(params.CallNewAccountGas - params.TxAuthTupleGas)
+	}
+
+	// Update nonce and account code.
+	state.SetNonce(authority, auth.Nonce+1, tracing.NonceChangeAuthorization)
+	if auth.Address == (common.Address{}) {
+		// Delegation to zero address means clear.
+		state.SetCode(authority, nil)
+		return nil
+	}
+
+	// Otherwise install delegation to auth.Address.
+	state.SetCode(authority, ethtypes.AddressToDelegation(auth.Address))
+
+	return nil
+}
+
+// validateAuthorization validates an EIP-7702 authorization against the state.
+func (k *Keeper) validateAuthorization(auth *ethtypes.SetCodeAuthorization, state vm.StateDB, chainID *big.Int) (authority common.Address, err error) {
+	// Verify chain ID is null or equal to current chain ID.
+	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(chainID) != 0 {
+		return authority, core.ErrAuthorizationWrongChainID
+	}
+	// Limit nonce to 2^64-1 per EIP-2681.
+	if auth.Nonce+1 < auth.Nonce {
+		return authority, core.ErrAuthorizationNonceOverflow
+	}
+	// Validate signature values and recover authority.
+	authority, err = auth.Authority()
+	if err != nil {
+		return authority, fmt.Errorf("%w: %v", core.ErrAuthorizationInvalidSignature, err)
+	}
+	// Check the authority account
+	//  1) doesn't have code or has exisiting delegation
+	//  2) matches the auth's nonce
+	//
+	// Note it is added to the access list even if the authorization is invalid.
+	state.AddAddressToAccessList(authority)
+	code := state.GetCode(authority)
+	if _, ok := ethtypes.ParseDelegation(code); len(code) != 0 && !ok {
+		return authority, core.ErrAuthorizationDestinationHasCode
+	}
+	if have := state.GetNonce(authority); have != auth.Nonce {
+		return authority, core.ErrAuthorizationNonceMismatch
+	}
+	return authority, nil
 }

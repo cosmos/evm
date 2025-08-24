@@ -1264,14 +1264,13 @@ func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 	s.Require().NoError(err)
 
 	testCases := []struct {
-		name                string
-		tx                  sdk.Tx
-		allowUnprotectedTxs bool
-		reCheckTx           bool
-		expPass             bool
+		name      string
+		tx        sdk.Tx
+		reCheckTx bool
+		expPass   bool
 	}{
-		{"ReCheckTx", &utiltx.InvalidTx{}, false, true, false},
-		{"invalid transaction type", &utiltx.InvalidTx{}, false, false, false},
+		{"ReCheckTx", &utiltx.InvalidTx{}, true, false},
+		{"invalid transaction type", &utiltx.InvalidTx{}, false, false},
 		{
 			"invalid sender",
 			evmtypes.NewTx(&evmtypes.EvmTxArgs{
@@ -1281,20 +1280,16 @@ func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 				GasLimit: 1000,
 				GasPrice: big.NewInt(1),
 			}),
-			true,
 			false,
 			false,
 		},
-		{"successful signature verification", signedTx, false, false, true},
-		{"invalid, reject unprotected txs", unprotectedTx, false, false, false},
-		{"successful, allow unprotected txs", unprotectedTx, true, false, true},
+		{"successful signature verification", signedTx, false, true},
+		{"invalid, reject unprotected txs", unprotectedTx, false, false},
+		{"successful, allow unprotected txs", unprotectedTx, false, true},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.WithEvmParamsOptions(func(params *evmtypes.Params) {
-				params.AllowUnprotectedTxs = tc.allowUnprotectedTxs
-			})
 			s.SetupTest()
 			dec := ethante.NewEthSigVerificationDecorator(s.GetNetwork().App.GetEVMKeeper())
 			_, err := dec.AnteHandle(s.GetNetwork().GetContext().WithIsReCheckTx(tc.reCheckTx), tc.tx, false, testutil.NoOpNextFn)
@@ -1306,7 +1301,6 @@ func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 			}
 		})
 	}
-	s.WithEvmParamsOptions(nil)
 }
 
 func (s *EvmAnteTestSuite) TestSignatures() {
@@ -1334,18 +1328,6 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 	s.Require().Equal(len(sigs), 0)
 
 	msg := tx.GetMsgs()[0]
-	msgEthTx, ok := msg.(*evmtypes.MsgEthereumTx)
+	_, ok := msg.(*evmtypes.MsgEthereumTx)
 	s.Require().True(ok)
-	txData, err := evmtypes.UnpackTxData(msgEthTx.Data)
-	s.Require().NoError(err)
-
-	msgV, msgR, msgS := txData.GetRawSignatureValues()
-
-	ethTx := msgEthTx.AsTransaction()
-	ethV, ethR, ethS := ethTx.RawSignatureValues()
-
-	// The signatures of MsgEthereumTx should be the same with the corresponding eth tx
-	s.Require().Equal(msgV, ethV)
-	s.Require().Equal(msgR, ethR)
-	s.Require().Equal(msgS, ethS)
 }

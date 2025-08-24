@@ -319,6 +319,54 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			},
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
+		{
+			name:  "pass - valid IBC denom with metadata using display path",
+			denom: "ibc/B89BE1E96B3DBC0ABB05F858F08561BA12B9C5E420CA2F5E83C475CCB47A834E",
+			malleate: func(ctx sdk.Context, keeper bankkeeper.Keeper, _ transferkeeper.Keeper) {
+				keeper.SetDenomMetaData(ctx, banktypes.Metadata{
+					Base: "ibc/B89BE1E96B3DBC0ABB05F858F08561BA12B9C5E420CA2F5E83C475CCB47A834E",
+					DenomUnits: []*banktypes.DenomUnit{
+						{
+							Denom:    "ibc/B89BE1E96B3DBC0ABB05F858F08561BA12B9C5E420CA2F5E83C475CCB47A834E",
+							Exponent: 0,
+						},
+						{
+							Denom:    "uom",
+							Exponent: 6,
+						},
+					},
+					Display: "transfer/channel-0/uom",
+					Name:    "transfer/channel-0/uom IBC token",
+					Symbol:  "UOM",
+				})
+			},
+			expPass:     true,
+			expDecimals: 6,
+		},
+		{
+			name:  "fail - IBC denom with metadata but no matching display unit",
+			denom: "ibc/C1D2E3F4567890123456789012345678901234567890123456789012345678901234",
+			malleate: func(ctx sdk.Context, keeper bankkeeper.Keeper, _ transferkeeper.Keeper) {
+				keeper.SetDenomMetaData(ctx, banktypes.Metadata{
+					Base: "ibc/C1D2E3F4567890123456789012345678901234567890123456789012345678901234",
+					DenomUnits: []*banktypes.DenomUnit{
+						{
+							Denom:    "ibc/C1D2E3F4567890123456789012345678901234567890123456789012345678901234",
+							Exponent: 0,
+						},
+						{
+							Denom:    "nomatch",
+							Exponent: 6,
+						},
+					},
+					Display: "transfer/channel-0/lastpart",
+					Name:    "Mismatched Token",
+					Symbol:  "MISMATCH",
+				})
+			},
+			expPass:     false,
+			errContains: "execution reverted",
+		},
 	}
 
 	for _, tc := range testcases {

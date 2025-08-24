@@ -249,14 +249,12 @@ func (s *KeeperTestSuite) TestCheckSenderBalance() {
 				Accesses:  tc.accessList,
 			}
 			tx := evmtypes.NewTx(ethTxParams)
-			tx.From = tc.from
-
-			txData, _ := evmtypes.UnpackTxData(tx.Data)
+			tx.From = to.Bytes()
 
 			acct := s.Network.App.GetEVMKeeper().GetAccountOrEmpty(s.Network.GetContext(), addr)
 			err := keeper.CheckSenderBalance(
 				sdkmath.NewIntFromBigInt(acct.Balance.ToBig()),
-				txData,
+				tx.AsTransaction(),
 			)
 
 			if tc.expectPass {
@@ -502,14 +500,14 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 			tx := evmtypes.NewTx(ethTxParams)
 			tx.From = tc.from
 
-			txData, _ := evmtypes.UnpackTxData(tx.Data)
+			ethTx := tx.AsTransaction()
 
 			baseFee := s.Network.App.GetEVMKeeper().GetBaseFee(s.Network.GetContext())
-			priority := evmtypes.GetTxPriority(txData, baseFee)
+			priority := evmtypes.GetTxPriority(ethTx, baseFee)
 
 			baseDenom := evmtypes.GetEVMCoinDenom()
 
-			fees, err := keeper.VerifyFee(txData, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
+			fees, err := keeper.VerifyFee(ethTx, baseDenom, baseFee, false, false, false, s.Network.GetContext().IsCheckTx())
 			if tc.expectPassVerify {
 				s.Require().NoError(err, "valid test %d failed - '%s'", i, tc.name)
 				if tc.EnableFeemarket {
@@ -517,7 +515,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 					s.Require().Equal(
 						fees,
 						sdk.NewCoins(
-							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(txData.EffectiveFee(baseFee.TruncateInt().BigInt()))),
+							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee.TruncateInt().BigInt()))),
 						),
 						"valid test %d failed, fee value is wrong  - '%s'", i, tc.name,
 					)

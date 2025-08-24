@@ -370,10 +370,28 @@ localnet-stop:
 localnet-start: localnet-stop localnet-build-env localnet-build-nodes
 
 
-.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes
+test-rpc-compat:
+	@./tests/jsonrpc/scripts/run-compat-test.sh
 
-test-system: build
-	ulimit -n 1300
+test-rpc-compat-stop:
+	cd tests/jsonrpc && docker compose down
+
+.PHONY: localnet-start localnet-stop localnet-build-env localnet-build-nodes test-rpc-compat test-rpc-compat-stop
+
+test-system: build-v04 build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
 	$(MAKE) -C tests/systemtests test
+
+build-v04:
+	mkdir -p ./tests/systemtests/binaries/v0.4
+	git checkout v0.4.1
+	make build
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.4
+	git checkout -
+
+mocks:
+	@echo "--> generating mocks"
+	@go get github.com/vektra/mockery/v2
+	@go generate ./...
+	@make format-go

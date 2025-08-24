@@ -293,7 +293,8 @@ func (s *TestSuite) TestSendRawTransaction() {
 	err := ethTx.Sign(ethSigner, s.signer)
 	s.Require().NoError(err)
 
-	rlpEncodedBz, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
+	rlpEncodedBz, err := ethTx.AsTransaction().MarshalBinary()
+	s.Require().NoError(err)
 	evmDenom := evmtypes.GetEVMCoinDenom()
 
 	testCases := []struct {
@@ -366,7 +367,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 				bytes, _ := rlp.EncodeToBytes(ethTx.AsTransaction())
 				return bytes
 			},
-			common.HexToHash(ethTx.Hash),
+			ethTx.Hash(),
 			errortypes.ErrInvalidRequest.Error(),
 			false,
 		},
@@ -381,7 +382,7 @@ func (s *TestSuite) TestSendRawTransaction() {
 				RegisterBroadcastTx(client, txBytes)
 			},
 			func() []byte { return rlpEncodedBz },
-			common.HexToHash(ethTx.Hash),
+			ethTx.Hash(),
 			"",
 			true,
 		},
