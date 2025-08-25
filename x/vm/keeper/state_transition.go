@@ -32,7 +32,7 @@ import (
 // the precompiles call hook. If overridePrecompiles is true, the EVM will use the keeper's static precompiles
 // for call hooks; otherwise, it will use the recipient-specific precompile hook.
 // This is useful for scenarios such as eth_call, state overrides, or testing where custom precompile logic is needed.
-// The function sets up the block context, transaction context, and VM configuration before returning the
+// The function sets up the block context, transaction context, and VM configuration before returning the EVM instance.
 func (k *Keeper) NewEVMWithOverridePrecompiles(
 	ctx sdk.Context,
 	msg core.Message,
