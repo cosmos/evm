@@ -238,15 +238,7 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoinsRemainder() {
 	burnCoins := cs(ci(types.ExtendedCoinDenom(), burnAmt))
 
 	// Burn 0.1 until balance is 0
-	// Add safety guard to prevent infinite loop
-	const maxIterations = 1000
-	iterationCount := 0
 	for {
-		iterationCount++
-		if iterationCount > maxIterations {
-			s.Failf("Test exceeded maximum iterations", "reached %d iterations without balance reaching zero", maxIterations)
-			break
-		}
 		reserveBalBefore := s.network.App.GetBankKeeper().GetBalance(
 			s.network.GetContext(),
 			reserveAddr,
