@@ -91,10 +91,10 @@ func GetMaccPerms() map[string][]string {
 type EVMAppConfig struct {
 	serverconfig.Config
 
-	EVM      cosmosevmserverconfig.EVMConfig
-	JSONRPC  cosmosevmserverconfig.JSONRPCConfig
-	TLS      cosmosevmserverconfig.TLSConfig
-	CoinInfo evmtypes.EvmCoinInfo
+	EVM     cosmosevmserverconfig.EVMConfig
+	JSONRPC cosmosevmserverconfig.JSONRPCConfig
+	TLS     cosmosevmserverconfig.TLSConfig
+	Chain   evmtypes.EvmCoinInfo
 }
 
 // InitAppConfig helps to override default appConfig template and configs.
@@ -124,11 +124,11 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	chainCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
 
 	customAppConfig := EVMAppConfig{
-		Config:   *srvCfg,
-		EVM:      *evmCfg,
-		JSONRPC:  *cosmosevmserverconfig.DefaultJSONRPCConfig(),
-		TLS:      *cosmosevmserverconfig.DefaultTLSConfig(),
-		CoinInfo: *chainCfg,
+		Config:  *srvCfg,
+		EVM:     *evmCfg,
+		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
+		Chain:   *chainCfg,
 	}
 
 	return EVMAppTemplate, customAppConfig
