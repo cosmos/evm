@@ -500,8 +500,7 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoinsRandomValueMultiDecimals() {
 func FuzzBurnCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID))
-	err := configurator.Configure()
+	err := configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)).Configure()
 	require.NoError(f, err)
 
 	f.Add(int64(0))
