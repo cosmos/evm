@@ -8,10 +8,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// GetEvmdEvmCoinInfo returns appropriate EvmCoinInfo for evmd based on chainID.
-// This replaces the old hardcoded ChainsCoinInfo map with a function that
-// creates configurations on demand.
-func GetEvmdEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
+// GetEvmCoinInfo returns appropriate EvmCoinInfo for evmd based on chainID.
+func GetEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 	switch chainID {
 	case EighteenDecimalsChainID:
 		return evmtypes.EvmCoinInfo{
@@ -35,8 +33,8 @@ func GetEvmdEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 			Decimals:      evmtypes.EighteenDecimals,
 		}
 	default:
-		// Default fallback - return the default configuration converted to EvmCoinInfo
-		return config.DefaultChainConfig().ToEvmCoinInfo()
+		// Default fallback - return the default configuration
+		return *config.DefaultEvmCoinInfo()
 	}
 }
 

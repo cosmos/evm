@@ -270,11 +270,11 @@ func initTestnetFiles(
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
 	evm.EVMChainID = evmdconfig.EVMChainID
 	evmCfg := evmdconfig.EVMAppConfig{
-		Config:  *appConfig,
-		EVM:     *evm,
-		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
-		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Chain:   *cosmosevmserverconfig.DefaultChainConfig(),
+		Config:   *appConfig,
+		EVM:      *evm,
+		JSONRPC:  *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		TLS:      *cosmosevmserverconfig.DefaultTLSConfig(),
+		CoinInfo: *cosmosevmserverconfig.DefaultEvmCoinInfo(),
 	}
 
 	var (

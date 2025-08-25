@@ -57,37 +57,23 @@ func GetTestEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 			Decimals:      evmtypes.EighteenDecimals,
 		}
 	default:
-		// Default fallback - return the default configuration converted to EvmCoinInfo
-		return cosmosevmserverconfig.DefaultChainConfig().ToEvmCoinInfo()
+		// Default fallback - return the default configuration
+		return *cosmosevmserverconfig.DefaultEvmCoinInfo()
 	}
 }
 
 // EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain using dynamic configuration.
+// for the Cosmos EVM chain using configuration.
 func EvmAppOptions(chainID uint64) error {
-	// Get chain config from the test chain configs
-	chainConfig := getTestChainConfigForChainID(chainID)
-	evmCoinInfo := chainConfig.ToEvmCoinInfo()
-	return evmconfig.EvmAppOptionsWithDynamicConfig(chainID, evmCoinInfo, cosmosEVMActivators)
+	// Get coin info directly without unnecessary conversion
+	evmCoinInfo := GetTestEvmCoinInfo(chainID)
+	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
 }
 
 // EvmAppOptionsWithReset allows to setup the global configuration
-// for the Cosmos EVM chain using dynamic configuration with an optional reset.
+// for the Cosmos EVM chain using configuration with an optional reset.
 func EvmAppOptionsWithReset(chainID uint64, withReset bool) error {
-	// Get chain config from the test chain configs
-	chainConfig := getTestChainConfigForChainID(chainID)
-	evmCoinInfo := chainConfig.ToEvmCoinInfo()
-	return evmconfig.EvmAppOptionsWithDynamicConfigWithReset(chainID, evmCoinInfo, cosmosEVMActivators, withReset)
-}
-
-// getTestChainConfigForChainID returns the appropriate chain config for testing
-func getTestChainConfigForChainID(chainID uint64) cosmosevmserverconfig.ChainConfig {
-	// Use the test coin info function to get the appropriate configuration
-	coinInfo := GetTestEvmCoinInfo(chainID)
-	return cosmosevmserverconfig.ChainConfig{
-		Denom:         coinInfo.Denom,
-		ExtendedDenom: coinInfo.ExtendedDenom,
-		DisplayDenom:  coinInfo.DisplayDenom,
-		Decimals:      uint8(coinInfo.Decimals),
-	}
+	// Get coin info directly without unnecessary conversion
+	evmCoinInfo := GetTestEvmCoinInfo(chainID)
+	return evmconfig.EvmAppOptionsWithReset(chainID, evmCoinInfo, cosmosEVMActivators, withReset)
 }

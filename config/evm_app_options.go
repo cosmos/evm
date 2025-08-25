@@ -1,8 +1,6 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -18,59 +16,22 @@ import (
 type EVMOptionsFn func(uint64) error
 
 // EVMAppOptionsFn defines a function type for setting app options with access to
-// the app options for dynamic configuration.
+// the app options for configuration.
 type EVMAppOptionsFn func(uint64, evmtypes.EvmCoinInfo) error
 
 var sealed = false
 
-// EvmAppOptionsWithConfig is deprecated. Use EvmAppOptionsWithDynamicConfig instead.
-// This function is kept for backward compatibility but should not be used in new code.
-func EvmAppOptionsWithConfig(
+// EvmAppOptions sets up EVM configuration with the provided coin info and activators.
+func EvmAppOptions(
 	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 ) error {
 	if sealed {
 		return nil
 	}
 
-	coinInfo, found := chainsCoinInfo[chainID]
-	if !found {
-		return fmt.Errorf("unknown chain id: %d", chainID)
-	}
-
-	sealed = true
-	return EvmAppOptionsWithDynamicConfig(chainID, coinInfo, cosmosEVMActivators)
-}
-
-// EvmAppOptionsWithConfigWithReset is deprecated. Use EvmAppOptionsWithDynamicConfigWithReset instead.
-// This function is kept for backward compatibility but should not be used in new code.
-func EvmAppOptionsWithConfigWithReset(
-	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
-	withReset bool,
-) error {
-	coinInfo, found := chainsCoinInfo[chainID]
-	if !found {
-		return fmt.Errorf("unknown chain id: %d", chainID)
-	}
-
-	return EvmAppOptionsWithDynamicConfigWithReset(chainID, coinInfo, cosmosEVMActivators, withReset)
-}
-
-// EvmAppOptionsWithDynamicConfig sets up EVM configuration using dynamic chain configuration
-// from app.toml instead of static maps. This is the new approach that should be preferred.
-func EvmAppOptionsWithDynamicConfig(
-	chainID uint64,
-	chainCoinInfo evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
-) error {
-	if sealed {
-		return nil
-	}
-
-	if err := EvmAppOptionsWithDynamicConfigWithReset(chainID, chainCoinInfo, cosmosEVMActivators, false); err != nil {
+	if err := EvmAppOptionsWithReset(chainID, coinInfo, activators, false); err != nil {
 		return err
 	}
 
@@ -78,16 +39,16 @@ func EvmAppOptionsWithDynamicConfig(
 	return nil
 }
 
-// EvmAppOptionsWithDynamicConfigWithReset sets up EVM configuration using dynamic chain configuration
-// with an optional reset flag to allow reconfiguration during testing.
-func EvmAppOptionsWithDynamicConfigWithReset(
+// EvmAppOptionsWithReset sets up EVM configuration with an optional reset flag
+// to allow reconfiguration during testing.
+func EvmAppOptionsWithReset(
 	chainID uint64,
-	chainCoinInfo evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 	withReset bool,
 ) error {
 	// set the denom info for the chain
-	if err := setBaseDenom(chainCoinInfo); err != nil {
+	if err := setBaseDenom(coinInfo); err != nil {
 		return err
 	}
 
@@ -98,9 +59,9 @@ func EvmAppOptionsWithDynamicConfigWithReset(
 		configurator.ResetTestConfig()
 	}
 	err := configurator.
-		WithExtendedEips(cosmosEVMActivators).
+		WithExtendedEips(activators).
 		WithChainConfig(ethCfg).
-		WithEVMCoinInfo(chainCoinInfo).
+		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {
 		return err

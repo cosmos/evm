@@ -35,7 +35,7 @@ type EVMAppConfig struct {
 	EVM     cosmosevmserverconfig.EVMConfig     `mapstructure:"evm"`
 	JSONRPC cosmosevmserverconfig.JSONRPCConfig `mapstructure:"json-rpc"`
 	TLS     cosmosevmserverconfig.TLSConfig     `mapstructure:"tls"`
-	Chain   cosmosevmserverconfig.ChainConfig   `mapstructure:"chain"`
+	Chain   evmtypes.EvmCoinInfo                `mapstructure:"chain"`
 }
 
 // GenerateConfigFromTemplate creates a TOML configuration string from the template
@@ -49,12 +49,12 @@ func GenerateConfigFromTemplate(chainCfg DynamicChainConfig) (string, error) {
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = chainCfg.EVMChainID
 
-	// Create the chain config
-	chainConfig := cosmosevmserverconfig.ChainConfig{
+	// Create the coin info
+	coinInfo := evmtypes.EvmCoinInfo{
 		Denom:         chainCfg.Denom,
 		ExtendedDenom: chainCfg.ExtendedDenom,
 		DisplayDenom:  chainCfg.DisplayDenom,
-		Decimals:      chainCfg.Decimals,
+		Decimals:      evmtypes.Decimals(chainCfg.Decimals),
 	}
 
 	// Combine into the structure the template expects
@@ -63,7 +63,7 @@ func GenerateConfigFromTemplate(chainCfg DynamicChainConfig) (string, error) {
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Chain:   chainConfig,
+		Chain:   coinInfo,
 	}
 
 	// Parse and execute the template

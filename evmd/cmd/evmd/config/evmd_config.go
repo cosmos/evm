@@ -91,10 +91,10 @@ func GetMaccPerms() map[string][]string {
 type EVMAppConfig struct {
 	serverconfig.Config
 
-	EVM     cosmosevmserverconfig.EVMConfig
-	JSONRPC cosmosevmserverconfig.JSONRPCConfig
-	TLS     cosmosevmserverconfig.TLSConfig
-	Chain   cosmosevmserverconfig.ChainConfig
+	EVM      cosmosevmserverconfig.EVMConfig
+	JSONRPC  cosmosevmserverconfig.JSONRPCConfig
+	TLS      cosmosevmserverconfig.TLSConfig
+	CoinInfo evmtypes.EvmCoinInfo
 }
 
 // InitAppConfig helps to override default appConfig template and configs.
@@ -121,14 +121,14 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	evmCfg.EVMChainID = evmChainID
 
 	// Use the default chain configuration as a fallback
-	chainCfg := cosmosevmserverconfig.DefaultChainConfig()
+	chainCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
 
 	customAppConfig := EVMAppConfig{
-		Config:  *srvCfg,
-		EVM:     *evmCfg,
-		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
-		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Chain:   *chainCfg,
+		Config:   *srvCfg,
+		EVM:      *evmCfg,
+		JSONRPC:  *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		TLS:      *cosmosevmserverconfig.DefaultTLSConfig(),
+		CoinInfo: *chainCfg,
 	}
 
 	return EVMAppTemplate, customAppConfig
@@ -136,18 +136,17 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 
 const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
 
-// GetChainConfigFromAppOptions extracts the chain configuration from app options
+// GetEvmCoinInfoFromAppOptions extracts the EVM coin configuration from app options
 // For now, this returns the default config. In the future, we could extend this
 // to parse from the actual app configuration when viper integration is improved.
-func GetChainConfigFromAppOptions(appOpts servertypes.AppOptions) *cosmosevmserverconfig.ChainConfig {
-	// TODO: Extract actual chain config from appOpts when viper integration is available
+func GetEvmCoinInfoFromAppOptions(appOpts servertypes.AppOptions) *evmtypes.EvmCoinInfo {
+	// TODO: Extract actual coin info from appOpts when viper integration is available
 	// For now, return the default configuration
-	return cosmosevmserverconfig.DefaultChainConfig()
+	return cosmosevmserverconfig.DefaultEvmCoinInfo()
 }
 
 // EvmAppOptionsFromConfig allows setting up the global configuration
-// for the Cosmos EVM chain using dynamic chain configuration from app.toml
-func EvmAppOptionsFromConfig(chainID uint64, chainConfig cosmosevmserverconfig.ChainConfig) error {
-	evmCoinInfo := chainConfig.ToEvmCoinInfo()
-	return evmconfig.EvmAppOptionsWithDynamicConfig(chainID, evmCoinInfo, cosmosEVMActivators)
+// for the Cosmos EVM chain using coin configuration from app.toml
+func EvmAppOptionsFromConfig(chainID uint64, evmCoinInfo evmtypes.EvmCoinInfo) error {
+	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
 }

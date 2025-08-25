@@ -129,10 +129,10 @@ var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 type Config struct {
 	config.Config `mapstructure:",squash"`
 
-	EVM     EVMConfig     `mapstructure:"evm"`
-	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`
-	TLS     TLSConfig     `mapstructure:"tls"`
-	Chain   ChainConfig   `mapstructure:"chain"`
+	EVM     EVMConfig            `mapstructure:"evm"`
+	JSONRPC JSONRPCConfig        `mapstructure:"json-rpc"`
+	TLS     TLSConfig            `mapstructure:"tls"`
+	Chain   evmtypes.EvmCoinInfo `mapstructure:"chain"`
 }
 
 // EVMConfig defines the application configuration values for the EVM.
@@ -206,18 +206,6 @@ type TLSConfig struct {
 	CertificatePath string `mapstructure:"certificate-path"`
 	// KeyPath the file path for the key .pem file
 	KeyPath string `mapstructure:"key-path"`
-}
-
-// ChainConfig defines the chain-specific configuration values.
-type ChainConfig struct {
-	// Denom defines the base denomination used in the chain
-	Denom string `mapstructure:"denom"`
-	// ExtendedDenom defines the extended denomination (typically atto-denom for 18 decimals)
-	ExtendedDenom string `mapstructure:"extended-denom"`
-	// DisplayDenom defines the display denomination shown to users
-	DisplayDenom string `mapstructure:"display-denom"`
-	// Decimals defines the precision/decimals for the base denomination (1-18)
-	Decimals uint8 `mapstructure:"decimals"`
 }
 
 // DefaultEVMConfig returns the default EVM configuration
@@ -350,13 +338,13 @@ func DefaultTLSConfig() *TLSConfig {
 	}
 }
 
-// DefaultChainConfig returns the default chain configuration
-func DefaultChainConfig() *ChainConfig {
-	return &ChainConfig{
+// DefaultEvmCoinInfo returns the default chain configuration
+func DefaultEvmCoinInfo() *evmtypes.EvmCoinInfo {
+	return &evmtypes.EvmCoinInfo{
 		Denom:         "atest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
-		Decimals:      18,
+		Decimals:      evmtypes.EighteenDecimals,
 	}
 }
 
@@ -377,39 +365,6 @@ func (c TLSConfig) Validate() error {
 	return nil
 }
 
-// Validate returns an error if the chain configuration fields are invalid.
-func (c ChainConfig) Validate() error {
-	if c.Denom == "" {
-		return errors.New("chain denom cannot be empty")
-	}
-	if c.ExtendedDenom == "" {
-		return errors.New("chain extended-denom cannot be empty")
-	}
-	if c.DisplayDenom == "" {
-		return errors.New("chain display-denom cannot be empty")
-	}
-	if c.Decimals == 0 || c.Decimals > 18 {
-		return errors.New("chain decimals must be between 1 and 18")
-	}
-
-	// For 18 decimals, denom and extended denom should be the same
-	if c.Decimals == 18 && c.Denom != c.ExtendedDenom {
-		return errors.New("denom and extended-denom must be the same for 18 decimals")
-	}
-
-	return nil
-}
-
-// ToEvmCoinInfo converts ChainConfig to evmtypes.EvmCoinInfo
-func (c ChainConfig) ToEvmCoinInfo() evmtypes.EvmCoinInfo {
-	return evmtypes.EvmCoinInfo{
-		Denom:         c.Denom,
-		ExtendedDenom: c.ExtendedDenom,
-		DisplayDenom:  c.DisplayDenom,
-		Decimals:      evmtypes.Decimals(c.Decimals),
-	}
-}
-
 // DefaultConfig returns server's default configuration.
 func DefaultConfig() *Config {
 	defaultSDKConfig := config.DefaultConfig()
@@ -423,7 +378,7 @@ func DefaultConfig() *Config {
 		EVM:     *DefaultEVMConfig(),
 		JSONRPC: *DefaultJSONRPCConfig(),
 		TLS:     *DefaultTLSConfig(),
-		Chain:   *DefaultChainConfig(),
+		Chain:   *DefaultEvmCoinInfo(),
 	}
 }
 
