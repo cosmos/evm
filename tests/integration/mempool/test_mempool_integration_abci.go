@@ -14,7 +14,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 	testCases := []struct {
 		name     string
 		setupTxs func() ([]sdk.Tx, []string)
-		bypass   bool // Temporarily bypass test cases that have known issue.
+		// TODO: remove bypass option after anteHandler is fixed.
+		// Current anteHandler rejects valid high-gas transaction to replace low-gas transaction
+		// So, all replacement test cases fail.
+		bypass bool
 	}{
 		{
 			name: "mixed EVM and cosmos transaction ordering",

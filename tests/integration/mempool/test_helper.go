@@ -47,7 +47,6 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 
 // createEVMTransaction creates an EVM transaction using the provided key
 func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce uint64, gasPrice *big.Int) sdk.Tx {
-	// to := common.HexToAddress(TestRecipient)
 	to := s.keyring.GetKey(1).Addr
 
 	ethTxArgs := evmtypes.EvmTxArgs{
