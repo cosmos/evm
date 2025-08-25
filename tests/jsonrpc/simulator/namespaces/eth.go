@@ -1874,6 +1874,7 @@ func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func EthCreateAccessList(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	callData := map[string]interface{}{
+		"from": rCtx.Evmd.Acc.Address.Hex(),
 		"to":   rCtx.Evmd.Acc.Address.Hex(),
 		"data": "0x",
 	}
