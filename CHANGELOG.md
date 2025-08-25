@@ -18,6 +18,7 @@
 ### FEATURES
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+- [\#337](https://github.com/cosmos/evm/pull/337) Support state overrides in eth_call.
 
 ### STATE BREAKING
 
