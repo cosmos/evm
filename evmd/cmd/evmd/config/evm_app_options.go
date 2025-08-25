@@ -8,7 +8,7 @@ import (
 )
 
 // EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain using dynamic configuration from app.toml.
+// for the Cosmos EVM chain.
 func EvmAppOptions(chainID uint64) error {
 	evmCoinInfo := *cosmosevmserverconfig.DefaultEvmCoinInfo()
 	return EvmAppOptionsFromConfig(chainID, evmCoinInfo)
