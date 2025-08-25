@@ -435,11 +435,10 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
 func (s *StateDB) AddPrecompileFn(addr common.Address, snapshot int, events sdk.Events) error {
-	stateObject := s.getOrNewStateObject(addr)
-	if stateObject == nil {
-		return fmt.Errorf("could not add precompile call to address %s. State object not found", addr)
-	}
-	stateObject.AddPrecompileFn(snapshot, events)
+	s.journal.append(precompileCallChange{
+		snapshot: snapshot,
+		events:   events,
+	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)

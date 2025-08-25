@@ -8,8 +8,6 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Account is the Ethereum consensus representation of accounts.
@@ -134,16 +132,6 @@ func (s *stateObject) SetBalance(amount *uint256.Int) uint256.Int {
 	})
 	s.setBalance(amount)
 	return prev
-}
-
-// AddPrecompileFn appends to the journal an entry
-// with a snapshot of the multi-store and events
-// previous to the precompile call
-func (s *stateObject) AddPrecompileFn(snapshot int, events sdk.Events) {
-	s.db.journal.append(precompileCallChange{
-		snapshot: snapshot,
-		events:   events,
-	})
 }
 
 func (s *stateObject) setBalance(amount *uint256.Int) {
