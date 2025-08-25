@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cast"
 
@@ -145,7 +146,10 @@ func init() {
 	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
 }
 
-const appName = "evmd"
+const (
+	appName             = "evmd"
+	defaultCloseTimeout = 5 * time.Second
+)
 
 // defaultNodeHome default home directories for the application daemon
 var defaultNodeHome string
@@ -1148,17 +1152,26 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the underlying BaseApp.
 func (app *EVMD) Close() error {
+	return app.CloseWithTimeout(defaultCloseTimeout)
+}
+
+// CloseWithTimeout closes the application with a timeout.
+// If timeout is 0, it forces immediate shutdown without waiting for mempool cleanup.
+func (app *EVMD) CloseWithTimeout(timeout time.Duration) error {
 	var err error
 	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-		err = m.Close()
+		app.Logger().Info("Shutting down mempool", "timeout", timeout)
+		err = m.CloseWithTimeout(timeout)
 	}
+
+	msg := fmt.Sprintf("Application shutdown with timeout %s", timeout)
 	err = errors.Join(err, app.BaseApp.Close())
-	msg := "Application gracefully shutdown"
 	if err == nil {
 		app.Logger().Info(msg)
 	} else {
 		app.Logger().Error(msg, "error", err)
 	}
+
 	return err
 }
 
