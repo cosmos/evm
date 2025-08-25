@@ -403,19 +403,11 @@ func (pool *LegacyPool) Close() error {
 // CloseWithTimeout terminates the transaction pool with a timeout.
 // If timeout is 0, it forces immediate shutdown without waiting.
 func (pool *LegacyPool) CloseWithTimeout(timeout time.Duration) error {
-	// Cancel shutdown context to signal immediate termination
 	pool.shutdownCancel()
+	close(pool.reorgShutdownCh)
 
-	if timeout == 0 {
-		// Force immediate shutdown without waiting
-		log.Info("Force shutting down legacy pool immediately")
-		close(pool.reorgShutdownCh)
-		// Don't wait for wg in force mode
-	} else {
-		// Try graceful shutdown with timeout
-		close(pool.reorgShutdownCh)
-
-		// Use a channel to wait for wg with timeout
+	// wait for wg with timeout
+	if timeout > 0 {
 		done := make(chan struct{})
 		go func() {
 			pool.wg.Wait()
@@ -424,14 +416,12 @@ func (pool *LegacyPool) CloseWithTimeout(timeout time.Duration) error {
 
 		select {
 		case <-done:
-			// Graceful shutdown completed
 		case <-time.After(timeout):
-			// Timeout occurred
-			log.Warn("Legacy pool shutdown timeout, some goroutines may still be running")
+			log.Warn("Transaction pool shutdown timeout, some goroutines may still be running")
 		}
 	}
 
-	log.Info("Legacy pool stopped")
+	log.Info("Transaction pool stopped")
 	return nil
 }
 

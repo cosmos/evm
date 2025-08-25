@@ -42,6 +42,8 @@ const (
 	TxStatusQueued
 	TxStatusPending
 	TxStatusIncluded
+
+	defaultCloseTimeout = 5 * time.Second
 )
 
 // BlockChain defines the minimal set of methods needed to back a tx pool with
@@ -129,7 +131,7 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 
 // Close terminates the transaction pool and all its Subpools.
 func (p *TxPool) Close() error {
-	return p.CloseWithTimeout(5 * time.Second)
+	return p.CloseWithTimeout(defaultCloseTimeout)
 }
 
 // CloseWithTimeout terminates the transaction pool and all its Subpools with a timeout.
@@ -137,33 +139,27 @@ func (p *TxPool) Close() error {
 func (p *TxPool) CloseWithTimeout(timeout time.Duration) error {
 	var errs []error
 
-	// Cancel shutdown context to signal immediate termination
-	p.shutdownCancel()
-
-	if timeout == 0 {
-		// Force immediate shutdown without waiting
-		log.Info("Force shutting down transaction pool immediately")
-	} else {
-		// Try graceful shutdown with timeout
+	if timeout > 0 {
 		errc := make(chan error, 1)
-		go func() {
-			select {
-			case p.quit <- errc:
-				errc <- <-errc
-			case <-p.shutdownCtx.Done():
-				errc <- errors.New("shutdown context cancelled")
-			}
-		}()
 
 		select {
-		case err := <-errc:
-			if err != nil {
-				errs = append(errs, err)
+		case p.quit <- errc:
+			// Wait for worker response or timeout
+			select {
+			case err := <-errc:
+				if err != nil {
+					errs = append(errs, err)
+				}
+			case <-time.After(timeout):
+				errs = append(errs, errors.New("timeout waiting for pool loop to terminate"))
 			}
 		case <-time.After(timeout):
-			errs = append(errs, errors.New("timeout waiting for pool loop to terminate"))
+			errs = append(errs, errors.New("timeout sending quit signal to pool loop"))
 		}
 	}
+
+	// Cancel context as fallback after graceful shutdown attempt
+	p.shutdownCancel()
 
 	// Terminate each subpool
 	for _, subpool := range p.Subpools {
@@ -174,10 +170,7 @@ func (p *TxPool) CloseWithTimeout(timeout time.Duration) error {
 	// Unsubscribe anyone still listening for tx events
 	p.subs.Close()
 
-	if len(errs) > 0 {
-		return fmt.Errorf("subpool close errors: %v", errs)
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to

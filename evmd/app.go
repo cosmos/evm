@@ -146,7 +146,10 @@ func init() {
 	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
 }
 
-const appName = "evmd"
+const (
+	appName             = "evmd"
+	defaultCloseTimeout = 5 * time.Second
+)
 
 // defaultNodeHome default home directories for the application daemon
 var defaultNodeHome string
@@ -1149,37 +1152,26 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the underlying BaseApp.
 func (app *EVMD) Close() error {
-	return app.CloseWithTimeout(5 * time.Second)
+	return app.CloseWithTimeout(defaultCloseTimeout)
 }
 
 // CloseWithTimeout closes the application with a timeout.
 // If timeout is 0, it forces immediate shutdown without waiting for mempool cleanup.
 func (app *EVMD) CloseWithTimeout(timeout time.Duration) error {
 	var err error
-
-	// Force immediate shutdown if timeout is 0
-	forceShutdown := timeout == 0
-
 	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-		if forceShutdown {
-			// Force immediate shutdown
-			app.Logger().Info("Force shutting down mempool immediately")
-			err = m.CloseWithTimeout(0)
-		} else {
-			// Graceful shutdown with timeout
-			err = m.CloseWithTimeout(timeout)
-		}
+		app.Logger().Info("Shutting down mempool", "timeout", timeout)
+		err = m.CloseWithTimeout(timeout)
 	}
+
+	msg := fmt.Sprintf("Application shutdown with timeout %s", timeout)
 	err = errors.Join(err, app.BaseApp.Close())
-	msg := "Application shutdown"
-	if forceShutdown {
-		msg = "Application force shutdown"
-	}
 	if err == nil {
 		app.Logger().Info(msg)
 	} else {
 		app.Logger().Error(msg, "error", err)
 	}
+
 	return err
 }
 

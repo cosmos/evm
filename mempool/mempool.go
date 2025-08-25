@@ -30,7 +30,10 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
-const SubscriberName = "evm"
+const (
+	SubscriberName      = "evm"
+	defaultCloseTimeout = 5 * time.Second
+)
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -395,38 +398,24 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
-	return m.CloseWithTimeout(5 * time.Second)
+	return m.CloseWithTimeout(defaultCloseTimeout)
 }
 
 // CloseWithTimeout shuts down the mempool with a timeout.
 // If timeout is 0, it forces immediate shutdown without waiting.
 func (m *ExperimentalEVMMempool) CloseWithTimeout(timeout time.Duration) error {
 	var errs []error
-
-	// Unsubscribe from event bus
 	if m.eventBus != nil {
 		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
 			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
 		}
 	}
 
-	// Close transaction pools
-	if timeout == 0 {
-		// Force immediate shutdown
-		if err := m.txPool.CloseWithTimeout(0); err != nil {
-			errs = append(errs, fmt.Errorf("failed to force close txpool: %w", err))
-		}
-	} else {
-		// Graceful shutdown with timeout
-		if err := m.txPool.CloseWithTimeout(timeout); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
-		}
+	if err := m.txPool.CloseWithTimeout(timeout); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("mempool close errors: %v", errs)
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
