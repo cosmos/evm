@@ -63,7 +63,6 @@ func GetTestEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 // EvmAppOptions allows to setup the global configuration
 // for the Cosmos EVM chain.
 func EvmAppOptions(chainID uint64) error {
-	// Get coin info directly without unnecessary conversion
 	evmCoinInfo := GetTestEvmCoinInfo(chainID)
 	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
 }
