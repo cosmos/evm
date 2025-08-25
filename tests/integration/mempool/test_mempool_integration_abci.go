@@ -20,12 +20,12 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			name: "mixed EVM and cosmos transaction ordering",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				// Create EVM transaction with high gas price
-				highGasPriceEVMTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(5000000000))
+				highGasPriceEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000))
 
 				// Create Cosmos transactions with different fee amounts
-				highFeeCosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(6), big.NewInt(5000000000))
-				mediumFeeCosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(7), big.NewInt(3000000000))
-				lowFeeCosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(8), big.NewInt(2000000000))
+				highFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(6), big.NewInt(5000000000))
+				mediumFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(7), big.NewInt(3000000000))
+				lowFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(8), big.NewInt(2000000000))
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeCosmosTx, highGasPriceEVMTx, mediumFeeCosmosTx, highFeeCosmosTx}
@@ -41,10 +41,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			name: "EVM-only transaction replacement",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				// Create first EVM transaction with low fee
-				lowFeeEVMTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom
+				lowFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5 gaatom
+				highFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeEVMTx, highFeeEVMTx}
@@ -62,10 +62,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				// Create first EVM transaction with low fee
-				lowFeeEVMTx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(2000000000), uint64(1)) // 2 gaatom
+				lowFeeEVMTx := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(2000000000)) // 2 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(5000000000), uint64(0)) // 5 gaatom
+				highFeeEVMTx := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(5000000000)) // 5 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeEVMTx, highFeeEVMTx}
@@ -80,9 +80,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 		{
 			name: "cosmos-only transaction replacement",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				highFeeTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(2000000000))    // 2 gaatom
-				mediumFeeTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
+				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
+				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))    // 2 gaatom
+				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{mediumFeeTx, lowFeeTx, highFeeTx}
@@ -100,10 +100,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			setupTxs: func() ([]sdk.Tx, []string) {
 				// Create transactions with equal effective tips (assuming base fee = 0)
 				// EVM: 1000 aatom/gas effective tip
-				evmTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom/gas
 
 				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
-				cosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
@@ -120,10 +120,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			name: "mixed transactions with EVM having higher effective tip",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				// Create EVM transaction with higher gas price
-				evmTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5 gaatom/gas
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom/gas
 
 				// Create Cosmos transaction with lower gas price
-				cosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
@@ -140,10 +140,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			name: "mixed transactions with Cosmos having higher effective tip",
 			setupTxs: func() ([]sdk.Tx, []string) {
 				// Create EVM transaction with lower gas price
-				evmTx := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2000 aatom/gas
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2000 aatom/gas
 
 				// Create Cosmos transaction with higher gas price
-				cosmosTx := s.createCosmosSendTxWithKey(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{evmTx, cosmosTx}
@@ -163,13 +163,13 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 				// EVM: 10000, 8000, 6000 aatom/gas
 				// Cosmos: 9000, 7000, 5000 aatom/gas
 
-				evmHigh := s.createEVMTransferWithKey(s.keyring.GetKey(0), big.NewInt(10000000000))
-				evmMedium := s.createEVMTransferWithKey(s.keyring.GetKey(1), big.NewInt(8000000000))
-				evmLow := s.createEVMTransferWithKey(s.keyring.GetKey(2), big.NewInt(6000000000))
+				evmHigh := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(10000000000))
+				evmMedium := s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(8000000000))
+				evmLow := s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(6000000000))
 
-				cosmosHigh := s.createCosmosSendTxWithKey(s.keyring.GetKey(3), big.NewInt(9000000000))
-				cosmosMedium := s.createCosmosSendTxWithKey(s.keyring.GetKey(4), big.NewInt(7000000000))
-				cosmosLow := s.createCosmosSendTxWithKey(s.keyring.GetKey(5), big.NewInt(5000000000))
+				cosmosHigh := s.createCosmosSendTx(s.keyring.GetKey(3), big.NewInt(9000000000))
+				cosmosMedium := s.createCosmosSendTx(s.keyring.GetKey(4), big.NewInt(7000000000))
+				cosmosLow := s.createCosmosSendTx(s.keyring.GetKey(5), big.NewInt(5000000000))
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosHigh, cosmosMedium, cosmosLow, evmHigh, evmMedium, evmLow}
@@ -229,7 +229,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 				// Insert transactions with gaps: nonces 0, 2, 4, 6 (missing 1, 3, 5)
 				for i := 0; i <= 6; i += 2 {
-					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(2000000000), uint64(i))
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(2000000000))
 					txs = append(txs, tx)
 				}
 
@@ -254,12 +254,12 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 				// First, insert transactions with gaps: nonces 0, 2, 4
 				for i := 0; i <= 4; i += 2 {
-					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
 				// Then fill the gap by inserting nonce 1
-				tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
+				tx := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(1000000000))
 				txs = append(txs, tx)
 
 				// Expected txs in order
@@ -283,7 +283,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 				// Insert transactions with multiple gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 
 				}
@@ -291,7 +291,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
+						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 						txs = append(txs, tx)
 
 					}
@@ -320,13 +320,13 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 				// Account 1: nonces 0, 2 (gap at 1)
 				for i := 0; i <= 2; i += 2 {
-					tx := s.createEVMTransferWithKeyAndNonce(key1, big.NewInt(1000000000), uint64(i))
+					tx := s.createEVMValueTransferTx(key1, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
 				// Account 2: nonces 0, 3 (gaps at 1, 2)
 				for i := 0; i <= 3; i += 3 {
-					tx := s.createEVMTransferWithKeyAndNonce(key2, big.NewInt(1000000000), uint64(i))
+					tx := s.createEVMValueTransferTx(key2, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
@@ -351,15 +351,15 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 				var txs []sdk.Tx
 
 				// Insert transaction with nonce 0 and low gas price
-				tx1 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(0))
+				tx1 := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(1000000000))
 				txs = append(txs, tx1)
 
 				// Insert transaction with nonce 1
-				tx2 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
+				tx2 := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(1000000000))
 				txs = append(txs, tx2)
 
 				// Replace nonce 0 transaction with higher gas price
-				tx3 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(2000000000), uint64(0))
+				tx3 := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(2000000000))
 				txs = append(txs, tx3)
 
 				// Expected txs in order

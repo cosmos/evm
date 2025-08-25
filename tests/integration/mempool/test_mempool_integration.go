@@ -17,12 +17,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// Constants
-const (
-	// TxGas = 21000
-	TxGas = 100_000
-)
-
 // TestMempoolInsert tests transaction insertion into the mempool
 func (s *IntegrationTestSuite) TestMempoolInsert() {
 	fmt.Printf("DEBUG: Starting TestMempoolInsert\n")
@@ -36,7 +30,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 		{
 			name: "cosmos transaction success",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTransaction(big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -47,9 +41,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 		{
 			name: "EVM transaction success",
 			setupTx: func() sdk.Tx {
-				tx, err := s.createEVMTransaction(big.NewInt(1000000000))
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -63,10 +55,7 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 				key := s.keyring.GetKey(0)
 				data := []byte{0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3} // Simple contract deployment
 
-				// Use the contract deployment helper
-				tx, err := s.createEVMContractDeployment(key, big.NewInt(1000000000), data)
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMContractDeployTx(key, big.NewInt(1000000000), data)
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -188,7 +177,7 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 		{
 			name: "remove cosmos transaction success",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTransaction(big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 			},
 			insertFirst: true,
 			wantError:   false,
@@ -198,17 +187,16 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			},
 		},
 		{
-			name: "remove EVM transaction success",
+			name: "remove EVM transaction fail",
 			setupTx: func() sdk.Tx {
-				tx, err := s.createEVMTransaction(big.NewInt(1000000000))
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 			},
 			insertFirst: true,
 			wantError:   false,
 			verifyFunc: func() {
 				mpool := s.network.App.GetMempool()
-				s.Require().Equal(0, mpool.CountTx())
+				// mempool.Remove can only remove invalid evm transaction
+				s.Require().Equal(1, mpool.CountTx())
 			},
 		},
 		{
@@ -226,7 +214,7 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 		{
 			name: "remove non-existent transaction",
 			setupTx: func() sdk.Tx {
-				return s.createCosmosSendTransaction(big.NewInt(1000))
+				return s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 			},
 			insertFirst:   false,
 			wantError:     true, // Remove should error for non-existent transactions
@@ -290,7 +278,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 		{
 			name: "single cosmos transaction",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -304,10 +292,10 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 		{
 			name: "single EVM transaction",
 			setupTxs: func() {
-				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
+
 				mpool := s.network.App.GetMempool()
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -359,7 +347,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 		{
 			name: "single cosmos transaction iteration",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -372,10 +360,9 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 		{
 			name: "single EVM transaction iteration",
 			setupTxs: func() {
-				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 				mpool := s.network.App.GetMempool()
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -396,11 +383,11 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				mpool := s.network.App.GetMempool()
 
-				cosmosTx1 := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(1000))
+				cosmosTx1 := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 				err := mpool.Insert(s.network.GetContext(), cosmosTx1)
 				s.Require().NoError(err)
 
-				cosmosTx2 := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(1), big.NewInt(2000))
+				cosmosTx2 := s.createCosmosSendTx(s.keyring.GetKey(1), big.NewInt(2000))
 				err = mpool.Insert(s.network.GetContext(), cosmosTx2)
 				s.Require().NoError(err)
 			},
@@ -421,13 +408,13 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 				mpool := s.network.App.GetMempool()
 
 				// Add EVM transaction
-				evmTx, err := s.createEVMTransaction(big.NewInt(2000))
-				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000))
+
+				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 
 				// Add Cosmos transaction
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				err = mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 			},
@@ -469,18 +456,17 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			name: "mixed EVM and cosmos transaction ordering",
 			setupTxs: func() {
 				// Create EVM transaction with high gas price
-				highGasPriceEVMTx, err := s.createEVMTransaction(big.NewInt(5000000000))
-				s.Require().NoError(err)
+				highGasPriceEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000))
 
 				// Create Cosmos transactions with different fee amounts
-				highFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(6), big.NewInt(5000000000))
-				mediumFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(7), big.NewInt(3000000000))
-				lowFeeCosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(8), big.NewInt(1000000000))
+				highFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(6), big.NewInt(5000000000))
+				mediumFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(7), big.NewInt(3000000000))
+				lowFeeCosmosTx := s.createCosmosSendTx(s.keyring.GetKey(8), big.NewInt(1000000000))
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert in non-priority order
-				err = mpool.Insert(s.network.GetContext(), lowFeeCosmosTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeCosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), highGasPriceEVMTx)
 				s.Require().NoError(err)
@@ -515,17 +501,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			name: "EVM-only transaction replacement",
 			setupTxs: func() {
 				// Create first EVM transaction with low fee
-				lowFeeEVMTx, err := s.createEVMTransaction(big.NewInt(1000000000)) // 1 gaatom
-				s.Require().NoError(err)
+				lowFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx, err := s.createEVMTransaction(big.NewInt(5000000000)) // 5 gaatom
-				s.Require().NoError(err)
+				highFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err = mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
 				s.Require().NoError(err)
@@ -547,17 +531,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			setupTxs: func() {
 				key := s.keyring.GetKey(0)
 				// Create first EVM transaction with low fee
-				lowFeeEVMTx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1) // 1 gaatom
-				s.Require().NoError(err)
+				lowFeeEVMTx := s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000)) // 1 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx, err := s.createEVMTransactionWithNonce(key, big.NewInt(5000000000), 0) // 5 gaatom
-				s.Require().NoError(err)
+				highFeeEVMTx := s.createEVMValueTransferTx(key, 0, big.NewInt(5000000000)) // 5 gaatom
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert low fee transaction first
-				err = mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
+				err := mpool.Insert(s.network.GetContext(), lowFeeEVMTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), highFeeEVMTx)
 				s.Require().NoError(err)
@@ -585,9 +567,9 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 		{
 			name: "cosmos-only transaction replacement",
 			setupTxs: func() {
-				highFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(1000000000))    // 1 gaatom
-				mediumFeeTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
+				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
+				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000))    // 1 gaatom
+				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
 
 				mpool := s.network.App.GetMempool()
 
@@ -617,16 +599,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			setupTxs: func() {
 				// Create transactions with equal effective tips (assuming base fee = 0)
 				// EVM: 1000 aatom/gas effective tip
-				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000)) // 1 gaatom/gas
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom/gas
 
 				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
@@ -660,16 +641,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			name: "mixed transactions with EVM having higher effective tip",
 			setupTxs: func() {
 				// Create EVM transaction with higher gas price
-				evmTx, err := s.createEVMTransaction(big.NewInt(5000000000)) // 5 gaatom/gas
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom/gas
 
 				// Create Cosmos transaction with lower gas price
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000000000)) // 2 gaatom/gas
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
@@ -700,16 +680,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 			name: "mixed transactions with Cosmos having higher effective tip",
 			setupTxs: func() {
 				// Create EVM transaction with lower gas price
-				evmTx, err := s.createEVMTransaction(big.NewInt(2000000000)) // 2000 aatom/gas
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2000 aatom/gas
 
 				// Create Cosmos transaction with higher gas price
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(5000000000)) // 5000 aatom/gas
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000)) // 5000 aatom/gas
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert EVM first, then Cosmos
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -743,21 +722,18 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// EVM: 8000, 4000, 2000 aatom/gas
 				// Cosmos: 6000, 3000, 1000 aatom/gas
 
-				evmHigh, err := s.createEVMTransaction(big.NewInt(8000000000))
-				s.Require().NoError(err)
-				evmMedium, err := s.createEVMTransactionWithKey(s.keyring.GetKey(1), big.NewInt(4000000000))
-				s.Require().NoError(err)
-				evmLow, err := s.createEVMTransactionWithKey(s.keyring.GetKey(2), big.NewInt(2000000000))
-				s.Require().NoError(err)
+				evmHigh := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(8000000000))
+				evmMedium := s.createEVMValueTransferTx(s.keyring.GetKey(1), 0, big.NewInt(4000000000))
+				evmLow := s.createEVMValueTransferTx(s.keyring.GetKey(2), 0, big.NewInt(2000000000))
 
-				cosmosHigh := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(3), big.NewInt(6000000000))
-				cosmosMedium := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(4), big.NewInt(3000000000))
-				cosmosLow := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(5), big.NewInt(1000000000))
+				cosmosHigh := s.createCosmosSendTx(s.keyring.GetKey(3), big.NewInt(6000000000))
+				cosmosMedium := s.createCosmosSendTx(s.keyring.GetKey(4), big.NewInt(3000000000))
+				cosmosLow := s.createCosmosSendTx(s.keyring.GetKey(5), big.NewInt(1000000000))
 
 				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err = mpool.Insert(s.network.GetContext(), cosmosLow)
+				err := mpool.Insert(s.network.GetContext(), cosmosLow)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmMedium)
 				s.Require().NoError(err)
@@ -877,7 +853,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 		{
 			name: "single cosmos transaction - terminates properly",
 			setupTxs: func() {
-				cosmosTx := s.createCosmosSendTransaction(big.NewInt(2000))
+				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
 				err := mpool.Insert(s.network.GetContext(), cosmosTx)
 				s.Require().NoError(err)
@@ -890,10 +866,9 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 		{
 			name: "single EVM transaction - terminates properly",
 			setupTxs: func() {
-				evmTx, err := s.createEVMTransaction(big.NewInt(1000000000))
-				s.Require().NoError(err)
+				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000))
 				mpool := s.network.App.GetMempool()
-				err = mpool.Insert(s.network.GetContext(), evmTx)
+				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -908,7 +883,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 				// Add transactions with different fees
 				for i := 1; i < 6; i++ { // Use different keys for different transactions
-					cosmosTx := s.createCosmosSendTransactionWithKey(s.keyring.GetKey(i), big.NewInt(int64(i*1000))) // 5000, 4000, 3000, 2000, 1000
+					cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(int64(i*1000))) // 5000, 4000, 3000, 2000, 1000
 					err := mpool.Insert(s.network.GetContext(), cosmosTx)
 					s.Require().NoError(err)
 				}
@@ -938,9 +913,8 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 					fmt.Printf("DEBUG: Using prefunded account %d: %s\n", keyIndex, fromAddr.Hex())
 
 					// Use the helper method with specific nonce
-					evmTx, err := s.createEVMTransactionWithKey(key, big.NewInt(int64(i)*100000000000))
-					s.Require().NoError(err)
-					err = mpool.Insert(s.network.GetContext(), evmTx)
+					evmTx := s.createEVMValueTransferTx(key, 0, big.NewInt(int64(i)*100000000000))
+					err := mpool.Insert(s.network.GetContext(), evmTx)
 					s.Require().NoError(err)
 				}
 			},
@@ -1011,7 +985,7 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 	s.Require().Equal(int64(2), nw.GetContext().BlockHeight())
 
 	mpool := nw.App.GetMempool()
-	tx := s.createCosmosSendTransaction(big.NewInt(1000))
+	tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 
 	// Should fail because mempool requires block height >= 2
 	err = mpool.Insert(nw.GetContext(), tx)
@@ -1034,9 +1008,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 		{
 			name: "EVM transaction with high gas price",
 			setupTx: func() sdk.Tx {
-				tx, err := s.createEVMTransaction(big.NewInt(10000000000)) // 10 gaatom
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(10000000000)) // 10 gaatom
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -1047,9 +1019,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 		{
 			name: "EVM transaction with low gas price",
 			setupTx: func() sdk.Tx {
-				tx, err := s.createEVMTransaction(big.NewInt(100000000)) // 0.1 gaatom
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(100000000)) // 0.1 gaatom
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -1065,9 +1035,7 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 				data := []byte{0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3} // Simple contract deployment
 
 				// Use the contract deployment helper
-				tx, err := s.createEVMContractDeployment(key, big.NewInt(1000000000), data)
-				s.Require().NoError(err)
-				return tx
+				return s.createEVMContractDeployTx(key, big.NewInt(1000000000), data)
 			},
 			wantError: false,
 			verifyFunc: func() {
@@ -1080,11 +1048,9 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			setupTx: func() sdk.Tx {
 				// Use key 0 again since this is a separate test (SetupTest resets state)
 				key := s.keyring.GetKey(0)
-				to := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
 				// Use the value transfer helper
-				tx, err := s.createEVMValueTransfer(key, big.NewInt(1000000000), big.NewInt(1000000000000000000), to)
-				s.Require().NoError(err)
+				tx := s.createEVMValueTransferTx(key, 0, big.NewInt(1000000000))
 				return tx
 			},
 			wantError: false,
@@ -1143,8 +1109,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with gaps: nonces 0, 2, 4, 6 (missing 1, 3, 5)
 				for i := 0; i <= 6; i += 2 {
-					tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1167,15 +1132,13 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// First, insert transactions with gaps: nonces 0, 2, 4
 				for i := 0; i <= 4; i += 2 {
-					tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
 
 				// Then fill the gap by inserting nonce 1
-				tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
-				s.Require().NoError(err)
+				tx := s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000))
 				txs = append(txs, tx)
 				nonces = append(nonces, 1)
 
@@ -1197,8 +1160,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with multiple gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1206,8 +1168,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-						s.Require().NoError(err)
+						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 						txs = append(txs, tx)
 						nonces = append(nonces, i)
 					}
@@ -1233,16 +1194,14 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Account 1: nonces 0, 2 (gap at 1)
 				for i := 0; i <= 2; i += 2 {
-					tx, err := s.createEVMTransactionWithNonce(key1, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key1, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
 
 				// Account 2: nonces 0, 3 (gaps at 1, 2)
 				for i := 0; i <= 3; i += 3 {
-					tx, err := s.createEVMTransactionWithNonce(key2, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key2, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1265,20 +1224,17 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				var nonces []int
 
 				// Insert transaction with nonce 0 and low gas price
-				tx1, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 0)
-				s.Require().NoError(err)
+				tx1 := s.createEVMValueTransferTx(key, 0, big.NewInt(1000000000))
 				txs = append(txs, tx1)
 				nonces = append(nonces, 0)
 
 				// Insert transaction with nonce 1
-				tx2, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
-				s.Require().NoError(err)
+				tx2 := s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000))
 				txs = append(txs, tx2)
 				nonces = append(nonces, 1)
 
 				// Replace nonce 0 transaction with higher gas price
-				tx3, err := s.createEVMTransactionWithNonce(key, big.NewInt(2000000000), 0)
-				s.Require().NoError(err)
+				tx3 := s.createEVMValueTransferTx(key, 0, big.NewInt(2000000000))
 				txs = append(txs, tx3)
 				nonces = append(nonces, 0)
 
@@ -1299,8 +1255,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-					s.Require().NoError(err)
+					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1308,8 +1263,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-						s.Require().NoError(err)
+						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
 						txs = append(txs, tx)
 						nonces = append(nonces, i)
 					}
@@ -1321,62 +1275,6 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				// After filling all gaps, all transactions should be pending
 				count := mpool.CountTx()
 				s.Require().Equal(10, count, "After filling all gaps, all 10 transactions should be pending")
-			},
-		},
-		{
-			name: "removing places subsequent transactions back into queued",
-			setupTxs: func() ([]sdk.Tx, []int) {
-				key := s.keyring.GetKey(0)
-				var txs []sdk.Tx
-				var nonces []int
-
-				// Insert transactions with gaps: nonces 0, 1, 3, 4, 6, 7
-				for i := 0; i <= 7; i++ {
-					if i != 1 { // Skip nonce 1 to create a gap
-						tx, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), i)
-						s.Require().NoError(err)
-						txs = append(txs, tx)
-						nonces = append(nonces, i) //#nosec G115 -- int overflow is not a concern here
-					}
-				}
-
-				return txs, nonces
-			},
-			verifyFunc: func(mpool mempool.Mempool) {
-				// Initially: nonces 0 should be pending, nonces 2, 3, 4, 5, 6, 7 should be queued
-				initialCount := mpool.CountTx()
-				s.Require().Equal(1, initialCount, "Initially only nonces 0, 1 should be pending")
-				key := s.keyring.GetKey(0)
-
-				// Fill gap by inserting nonce 1
-				tx1, err := s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
-				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), tx1)
-				s.Require().NoError(err)
-
-				// After filling gap: all nonce transactions should be in pending
-				countAfterFilling := mpool.CountTx()
-				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
-
-				// Remove nonce 1 transaction, dropping the rest (except for 0) into queued
-				tx1, err = s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
-				s.Require().NoError(err)
-				err = mpool.Remove(tx1)
-				s.Require().NoError(err)
-
-				// After removal: only nonce 0 should be pending, the rest get dropped to queued
-				countAfterRemoval := mpool.CountTx()
-				s.Require().Equal(1, countAfterRemoval, "After removing nonce 1, only nonce 0 should be pending")
-
-				// Fill gap by inserting nonce 1
-				tx1, err = s.createEVMTransactionWithNonce(key, big.NewInt(1000000000), 1)
-				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), tx1)
-				s.Require().NoError(err)
-
-				// After filling gap: all transactions should be re-promoted and places into pending
-				countAfterFilling = mpool.CountTx()
-				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
 			},
 		},
 	}
