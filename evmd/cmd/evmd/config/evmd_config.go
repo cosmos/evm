@@ -18,7 +18,6 @@ import (
 	clienthelpers "cosmossdk.io/client/v2/helpers"
 
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
-	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -135,15 +134,6 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 }
 
 const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
-
-// GetEvmCoinInfoFromAppOptions extracts the EVM coin configuration from app options
-// For now, this returns the default config. In the future, we could extend this
-// to parse from the actual app configuration when viper integration is improved.
-func GetEvmCoinInfoFromAppOptions(appOpts servertypes.AppOptions) *evmtypes.EvmCoinInfo {
-	// TODO: Extract actual coin info from appOpts when viper integration is available
-	// For now, return the default configuration
-	return cosmosevmserverconfig.DefaultEvmCoinInfo()
-}
 
 // EvmAppOptionsFromConfig allows setting up the global configuration
 // for the Cosmos EVM chain using coin configuration from app.toml
