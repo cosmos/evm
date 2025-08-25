@@ -199,7 +199,7 @@ func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	}
 
 	appHash := ctx.BlockHeader().AppHash
-	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig(common.Hash(appHash)))
+	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig())
 
 	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
 	return stateDB, nil

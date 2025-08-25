@@ -25,7 +25,7 @@ var (
 	address2      common.Address   = common.BigToAddress(big.NewInt(102))
 	address3      common.Address   = common.BigToAddress(big.NewInt(103))
 	blockHash     common.Hash      = common.BigToHash(big.NewInt(9999))
-	emptyTxConfig statedb.TxConfig = statedb.NewEmptyTxConfig(blockHash)
+	emptyTxConfig statedb.TxConfig = statedb.NewEmptyTxConfig()
 )
 
 type StateDBTestSuite struct {
@@ -587,7 +587,6 @@ func (suite *StateDBTestSuite) TestLog() {
 	txHash := common.BytesToHash([]byte("tx"))
 	// use a non-default tx config
 	txConfig := statedb.NewTxConfig(
-		blockHash,
 		txHash,
 		1, 1,
 	)
@@ -601,16 +600,17 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(1, len(db.Logs()))
 	expecedLog := &ethtypes.Log{
-		Address:     address,
-		Topics:      []common.Hash{},
-		Data:        data,
-		BlockNumber: 1,
-		BlockHash:   blockHash,
-		TxHash:      txHash,
-		TxIndex:     1,
-		Index:       1,
+		Address:        address,
+		Topics:         []common.Hash{},
+		Data:           data,
+		BlockNumber:    1,
+		BlockHash:      blockHash,
+		BlockTimestamp: 1,
+		TxHash:         txHash,
+		TxIndex:        1,
+		Index:          1,
 	}
-	suite.Require().Equal(expecedLog, db.Logs()[0])
+	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[0])
 
 	db.AddLog(&ethtypes.Log{
 		Address:     address,
@@ -620,7 +620,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(2, len(db.Logs()))
 	expecedLog.Index++
-	suite.Require().Equal(expecedLog, db.Logs()[1])
+	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[1])
 }
 
 func (suite *StateDBTestSuite) TestRefund() {

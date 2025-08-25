@@ -1,8 +1,6 @@
 package network
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -36,11 +34,10 @@ func NewUnitTestNetwork(createEvmApp CreateEvmApp, opts ...ConfigOption) *UnitTe
 
 // GetStateDB returns the state database for the current block.
 func (n *UnitTestNetwork) GetStateDB() *statedb.StateDB {
-	headerHash := n.GetContext().HeaderHash()
 	return statedb.New(
 		n.GetContext(),
 		n.app.GetEVMKeeper(),
-		statedb.NewEmptyTxConfig(common.BytesToHash(headerHash)),
+		statedb.NewEmptyTxConfig(),
 	)
 }
 

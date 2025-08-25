@@ -265,6 +265,9 @@ message Log {
   // reorganisation. You must pay attention to this field if you receive logs
   // through a filter query.
   bool removed = 9;
+
+  // block_timestamp is the timestamp of the block in which the transaction was
+  uint64 block_timestamp = 10 [ (gogoproto.jsontag) = "blockTimestamp" ];
 }
 
 // TxResult stores results of Tx execution.
