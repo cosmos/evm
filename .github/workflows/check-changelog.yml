@@ -1,0 +1,53 @@
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review, edited ]
+    paths: [ "**/*.go" ]
+name: Changelog Reminder
+jobs:
+  remind:
+    name: Changelog Reminder
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title for semantic commit type
+        run: |
+          # Get the PR title
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: $PR_TITLE"
+          
+          # Check if PR title starts with feat, refactor, or fix
+          if echo "$PR_TITLE" | grep -qE "^(feat|refactor|fix)(\(.+\))?!?:"; then
+            echo "✅ PR title has relevant semantic commit type (feat, refactor, or fix)"
+            echo "has_relevant_pr_title=true" >> $GITHUB_ENV
+          else
+            echo "ℹ️ PR title doesn't have relevant semantic commit type. Skipping changelog check."
+            echo "has_relevant_pr_title=false" >> $GITHUB_ENV
+          fi
+
+      - name: Check if CHANGELOG.md was modified
+        if: env.has_relevant_pr_title == 'true'
+        run: |
+          # Get the list of changed files in this PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          
+          # Check if CHANGELOG.md (case insensitive) is in the changed files
+          if echo "$CHANGED_FILES" | grep -qi "changelog\.md"; then
+            echo "✅ CHANGELOG.md has been modified in this PR"
+            echo "changelog_modified=true" >> $GITHUB_ENV
+          else
+            echo "❌ CHANGELOG.md has not been modified in this PR"
+            echo "changelog_modified=false" >> $GITHUB_ENV
+          fi
+
+      - name: Fail if changelog not updated
+        if: env.has_relevant_pr_title == 'true' && env.changelog_modified == 'false'
+        run: |
+          echo "::error::CHANGELOG.md must be updated for PRs with feat, refactor, or fix commits"
+          exit 1

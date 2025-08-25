@@ -29,6 +29,9 @@ jobs:
         with:
           version: stable
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: technote-space/get-diff-action@v6.1.2
         with:
           PATTERNS: |
