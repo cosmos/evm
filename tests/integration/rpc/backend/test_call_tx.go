@@ -426,11 +426,24 @@ func (s *TestSuite) TestDoCall() {
 	argsBz, err := json.Marshal(callArgs)
 	s.Require().NoError(err)
 
+	overrides := json.RawMessage(`{
+        "` + toAddr.Hex() + `": {
+            "balance": "0x1000000000000000000",
+            "nonce": "0x1",
+            "code": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063c6888fa11461003b578063c8e7ca2e14610057575b600080fd5b610055600480360381019061005091906100a3565b610075565b005b61005f61007f565b60405161006c91906100e1565b60405180910390f35b8060008190555050565b60008054905090565b600080fd5b6000819050919050565b61009d8161008a565b81146100a857600080fd5b50565b6000813590506100ba81610094565b92915050565b6000602082840312156100d6576100d5610085565b5b60006100e4848285016100ab565b91505092915050565b6100f68161008a565b82525050565b600060208201905061011160008301846100ed565b9291505056fea2646970667358221220c7d2d7c0b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b264736f6c634300080a0033",
+            "storage": {
+                "0x0000000000000000000000000000000000000000000000000000000000000000": "0x123"
+            }
+        }
+    }`)
+	invalidOverrides := json.RawMessage(`{"invalid": json}`)
+	emptyOverrides := json.RawMessage(`{}`)
 	testCases := []struct {
 		name         string
 		registerMock func()
 		blockNum     rpctypes.BlockNumber
 		callArgs     evmtypes.TransactionArgs
+		overrides    *json.RawMessage
 		expEthTx     *evmtypes.MsgEthereumTxResponse
 		expPass      bool
 	}{
@@ -445,6 +458,7 @@ func (s *TestSuite) TestDoCall() {
 			},
 			rpctypes.BlockNumber(1),
 			callArgs,
+			nil,
 			&evmtypes.MsgEthereumTxResponse{},
 			false,
 		},
@@ -459,6 +473,67 @@ func (s *TestSuite) TestDoCall() {
 			},
 			rpctypes.BlockNumber(1),
 			callArgs,
+			nil,
+			&evmtypes.MsgEthereumTxResponse{},
+			true,
+		},
+		{
+			"pass - With state overrides",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: overrides,
+				}
+				RegisterEthCall(QueryClient, expected)
+			},
+			rpctypes.BlockNumber(1),
+			callArgs,
+			&overrides,
+			&evmtypes.MsgEthereumTxResponse{},
+			true,
+		},
+		{
+			"fail - Invalid state overrides JSON",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: invalidOverrides,
+				}
+				RegisterEthCallError(QueryClient, expected)
+			},
+			rpctypes.BlockNumber(1),
+			callArgs,
+			&invalidOverrides,
+			&evmtypes.MsgEthereumTxResponse{},
+			false,
+		},
+		{
+			"pass - Empty state overrides",
+			func() {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: emptyOverrides,
+				}
+				RegisterEthCall(QueryClient, expected)
+			},
+			rpctypes.BlockNumber(1),
+			callArgs,
+			&emptyOverrides,
 			&evmtypes.MsgEthereumTxResponse{},
 			true,
 		},
@@ -469,9 +544,10 @@ func (s *TestSuite) TestDoCall() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock()
 
-			msgEthTx, err := s.backend.DoCall(tc.callArgs, tc.blockNum)
+			msgEthTx, err := s.backend.DoCall(tc.callArgs, tc.blockNum, tc.overrides)
 
 			if tc.expPass {
+				s.Require().NoError(err)
 				s.Require().Equal(tc.expEthTx, msgEthTx)
 			} else {
 				s.Require().Error(err)
