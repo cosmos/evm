@@ -10,8 +10,6 @@ import (
 )
 
 // GetTestEvmCoinInfo returns appropriate EvmCoinInfo for testing based on chainID.
-// This replaces the old hardcoded TestChainsCoinInfo map with a function that
-// creates configurations on demand.
 func GetTestEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 	switch chainID {
 	case EighteenDecimalsChainID:
@@ -63,7 +61,7 @@ func GetTestEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
 }
 
 // EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain using configuration.
+// for the Cosmos EVM chain.
 func EvmAppOptions(chainID uint64) error {
 	// Get coin info directly without unnecessary conversion
 	evmCoinInfo := GetTestEvmCoinInfo(chainID)
@@ -73,7 +71,6 @@ func EvmAppOptions(chainID uint64) error {
 // EvmAppOptionsWithReset allows to setup the global configuration
 // for the Cosmos EVM chain using configuration with an optional reset.
 func EvmAppOptionsWithReset(chainID uint64, withReset bool) error {
-	// Get coin info directly without unnecessary conversion
 	evmCoinInfo := GetTestEvmCoinInfo(chainID)
 	return evmconfig.EvmAppOptionsWithReset(chainID, evmCoinInfo, cosmosEVMActivators, withReset)
 }
