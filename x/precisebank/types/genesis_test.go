@@ -258,7 +258,7 @@ func TestGenesisState_TotalAmountWithRemainder(t *testing.T) {
 func FuzzGenesisStateValidate_NonZeroRemainder(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
+	configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID))
 	err := configurator.Configure()
 	require.NoError(f, err)
 
@@ -285,7 +285,7 @@ func FuzzGenesisStateValidate_NonZeroRemainder(f *testing.F) {
 func FuzzGenesisStateValidate_ZeroRemainder(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
+	configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID))
 	err := configurator.Configure()
 	require.NoError(f, err)
 

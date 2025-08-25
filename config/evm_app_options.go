@@ -1,8 +1,6 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -17,18 +15,23 @@ import (
 // any.
 type EVMOptionsFn func(uint64) error
 
+// EVMAppOptionsFn defines a function type for setting app options with access to
+// the app options for configuration.
+type EVMAppOptionsFn func(uint64, evmtypes.EvmCoinInfo) error
+
 var sealed = false
 
-func EvmAppOptionsWithConfig(
+// EvmAppOptions sets up EVM configuration with the provided coin info and activators.
+func EvmAppOptions(
 	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 ) error {
 	if sealed {
 		return nil
 	}
 
-	if err := EvmAppOptionsWithConfigWithReset(chainID, chainsCoinInfo, cosmosEVMActivators, false); err != nil {
+	if err := EvmAppOptionsWithReset(chainID, coinInfo, activators, false); err != nil {
 		return err
 	}
 
@@ -36,17 +39,14 @@ func EvmAppOptionsWithConfig(
 	return nil
 }
 
-func EvmAppOptionsWithConfigWithReset(
+// EvmAppOptionsWithReset sets up EVM configuration with an optional reset flag
+// to allow reconfiguration during testing.
+func EvmAppOptionsWithReset(
 	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 	withReset bool,
 ) error {
-	coinInfo, found := chainsCoinInfo[chainID]
-	if !found {
-		return fmt.Errorf("unknown chain id: %d", chainID)
-	}
-
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
 		return err
@@ -59,9 +59,8 @@ func EvmAppOptionsWithConfigWithReset(
 		configurator.ResetTestConfig()
 	}
 	err := configurator.
-		WithExtendedEips(cosmosEVMActivators).
+		WithExtendedEips(activators).
 		WithChainConfig(ethCfg).
-		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {

@@ -118,14 +118,7 @@ type ConfigOption func(*Config)
 // WithChainID sets a custom chainID for the network. Changing the chainID
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
 func WithChainID(chainID testconstants.ChainID) ConfigOption {
-	evmCoinInfo, found := testconstants.ExampleChainCoinInfo[chainID]
-	if !found {
-		panic(fmt.Sprintf(
-			"chain id %q not found in chain coin info; available: %v",
-			chainID,
-			testconstants.ExampleChainCoinInfo,
-		))
-	}
+	evmCoinInfo := testconstants.GetExampleChainCoinInfo(chainID)
 
 	return func(cfg *Config) {
 		cfg.chainID = chainID.ChainID

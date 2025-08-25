@@ -18,7 +18,7 @@ type InitialAmounts struct {
 }
 
 func DefaultInitialAmounts() InitialAmounts {
-	baseCoinInfo := testconstants.ExampleChainCoinInfo[defaultChain]
+	baseCoinInfo := testconstants.GetExampleChainCoinInfo(defaultChain)
 
 	return InitialAmounts{
 		Base: GetInitialAmount(baseCoinInfo.Decimals),
@@ -27,7 +27,7 @@ func DefaultInitialAmounts() InitialAmounts {
 }
 
 func DefaultInitialBondedAmount() math.Int {
-	baseCoinInfo := testconstants.ExampleChainCoinInfo[defaultChain]
+	baseCoinInfo := testconstants.GetExampleChainCoinInfo(defaultChain)
 
 	return GetInitialBondedAmount(baseCoinInfo.Decimals)
 }

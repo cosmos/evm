@@ -111,7 +111,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			configurator := evmtypes.NewEVMConfigurator()
 			configurator.ResetTestConfig()
 			Expect(configurator.
-				WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainId]).
+				WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(chainId)).
 				Configure()).To(BeNil(), "expected no error setting the evm configurator")
 
 			opts := []network.ConfigOption{
@@ -552,10 +552,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
 
-					coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ChainID{
+					coinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ChainID{
 						ChainID:    is.network.GetChainID(),
 						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
-					}]
+					})
 					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals")
 				},
 				)

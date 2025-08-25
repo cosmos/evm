@@ -9,7 +9,8 @@ import (
 )
 
 // EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain.
+// for the Cosmos EVM chain using configuration.
 func EvmAppOptions(chainID uint64) error {
-	return evmconfig.EvmAppOptionsWithConfigWithReset(chainID, testconfig.TestChainsCoinInfo, cosmosEVMActivators, true)
+	evmCoinInfo := testconfig.GetTestEvmCoinInfo(chainID)
+	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
 }

@@ -1607,7 +1607,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
 					Configure()
 				s.Require().NoError(err)
 			},

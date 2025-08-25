@@ -22,7 +22,7 @@ import (
 
 func TestAuthzLimiterDecorator(t *testing.T) {
 	evmConfigurator := evmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(constants.ExampleChainCoinInfo[constants.ExampleChainID])
+		WithEVMCoinInfo(constants.GetExampleChainCoinInfo(constants.ExampleChainID))
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 

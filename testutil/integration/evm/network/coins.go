@@ -25,7 +25,7 @@ type ChainCoins struct {
 // DefaultChainCoins returns the default values used for the ChainCoins in which
 // base and evm denom are the same.
 func DefaultChainCoins() ChainCoins {
-	baseCoinInfo := testconstants.ExampleChainCoinInfo[defaultChain]
+	baseCoinInfo := testconstants.GetExampleChainCoinInfo(defaultChain)
 
 	// baseCoin is used for both base and evm coin as default..
 	baseCoin := getCoinInfo(baseCoinInfo)

@@ -54,7 +54,8 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	err := config.EvmAppOptions(9001)
+	chainID := testconstants.ExampleChainID.EVMChainID
+	err := config.EvmAppOptionsWithReset(chainID, true)
 	suite.Require().NoError(err)
 }
 
@@ -112,8 +113,8 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 		},
 	}
 	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+		testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID),
+		testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID),
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEVMConfigurator()

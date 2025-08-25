@@ -82,7 +82,7 @@ func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20Genes
 // WEVMOS depending on ChainID
 func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
+	coinInfo := testconstants.GetExampleChainCoinInfo(chainID)
 
 	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
 

@@ -246,7 +246,7 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 				// function to be tested.
 				configurator := evmtypes.NewEVMConfigurator()
 				configurator.ResetTestConfig()
-				s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainID]).Configure())
+				s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(chainID)).Configure())
 
 				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
 				// decimals representation.
