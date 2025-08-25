@@ -1,10 +1,12 @@
 package mempool
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -309,12 +311,8 @@ func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) ([]*abci.ResponseCheckTx, 
 }
 
 // createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
-func (s *IntegrationTestSuite) createCosmosSendTransactionWithKey2(key keyring.Key, gasPrice *big.Int) sdk.Tx {
+func (s *IntegrationTestSuite) createCosmosSendTxWithKey(key keyring.Key, gasPrice *big.Int) sdk.Tx {
 	feeDenom := "aatom"
-	gasLimit := uint64(TxGas)
-
-	// Calculate fee amount from gas price: fee = gas_price * gas_limit
-	feeAmount := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
 
 	fromAddr := key.AccAddr
 	toAddr := s.keyring.GetKey(1).AccAddr
@@ -322,9 +320,11 @@ func (s *IntegrationTestSuite) createCosmosSendTransactionWithKey2(key keyring.K
 
 	bankMsg := banktypes.NewMsgSend(fromAddr, toAddr, amount)
 
+	gasPriceConverted := sdkmath.NewIntFromBigInt(gasPrice)
+
 	txArgs := factory.CosmosTxArgs{
-		Msgs: []sdk.Msg{bankMsg},
-		Fees: sdk.NewCoins(sdk.NewCoin(feeDenom, sdkmath.NewIntFromBigInt(feeAmount))),
+		Msgs:     []sdk.Msg{bankMsg},
+		GasPrice: &gasPriceConverted,
 	}
 	tx, err := s.factory.BuildCosmosTx(key.Priv, txArgs)
 	s.Require().NoError(err)
@@ -334,7 +334,7 @@ func (s *IntegrationTestSuite) createCosmosSendTransactionWithKey2(key keyring.K
 }
 
 // createEVMTransaction creates an EVM transaction using the provided key
-func (s *IntegrationTestSuite) createEVMTransactionWithKey2(key keyring.Key, gasPrice *big.Int) sdk.Tx {
+func (s *IntegrationTestSuite) createEVMTransferWithKey(key keyring.Key, gasPrice *big.Int) sdk.Tx {
 	to := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
 	ethTxArgs := evmtypes.EvmTxArgs{
@@ -349,4 +349,40 @@ func (s *IntegrationTestSuite) createEVMTransactionWithKey2(key keyring.Key, gas
 	s.Require().NoError(err)
 
 	return tx
+}
+
+// createEVMTransaction creates an EVM transaction using the provided key
+func (s *IntegrationTestSuite) createEVMTransferWithKeyAndNonce(key keyring.Key, gasPrice *big.Int, nonce uint64) sdk.Tx {
+	to := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+	ethTxArgs := evmtypes.EvmTxArgs{
+		Nonce:    nonce,
+		To:       &to,
+		Amount:   big.NewInt(1000),
+		GasLimit: TxGas,
+		GasPrice: gasPrice,
+		Input:    nil,
+	}
+	tx, err := s.factory.GenerateSignedEthTx(key.Priv, ethTxArgs)
+	s.Require().NoError(err)
+
+	return tx
+}
+
+func (s *IntegrationTestSuite) getTxHashes(txs []sdk.Tx) []string {
+	txHashes := []string{}
+	for _, tx := range txs {
+		txHash := s.getTxHash(tx)
+		txHashes = append(txHashes, txHash)
+	}
+
+	return txHashes
+}
+
+func (s *IntegrationTestSuite) getTxHash(tx sdk.Tx) string {
+	txEncoder := s.network.App.GetTxConfig().TxEncoder()
+	txBytes, err := txEncoder(tx)
+	s.Require().NoError(err)
+
+	return hex.EncodeToString(tmhash.Sum(txBytes))
 }
