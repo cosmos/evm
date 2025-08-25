@@ -88,8 +88,8 @@ func NewRootCmd() *cobra.Command {
 		WithLedgerHasProtobuf(true)
 
 	rootCmd := &cobra.Command{
-		Use:   "evmd",
-		Short: "exemplary Cosmos EVM app",
+		Use:   "epixd",
+		Short: "Epix Blockchain",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// set the default command outputs
 			cmd.SetOut(cmd.OutOrStdout())
@@ -147,10 +147,22 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	if initClientCtx.ChainID != "" {
-		if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
-			panic(err)
-		}
+	// Initialize EVM configuration for all supported chain IDs
+	// This ensures that the EVM coin info is available for any chain ID that might be used
+	supportedChainIDs := []uint64{
+		evmdconfig.EVMChainID,
+		evmdconfig.EighteenDecimalsChainID,
+		evmdconfig.SixDecimalsChainID,
+		evmdconfig.TwelveDecimalsChainID,
+		evmdconfig.TwoDecimalsChainID,
+		evmdconfig.EpixMainnetChainID,
+		evmdconfig.EpixTestnetChainID,
+	}
+
+	// Try to initialize EVM configuration for each supported chain ID
+	// We ignore errors because the configuration might already be sealed
+	for _, chainID := range supportedChainIDs {
+		_ = evmdconfig.EvmAppOptions(chainID)
 	}
 
 	return rootCmd
@@ -316,10 +328,13 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
+	// Determine the EVM chain ID from the Cosmos chain ID
+	evmChainID := getEVMChainIDFromCosmosChainID(chainID)
+
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		evmdconfig.EVMChainID,
+		evmChainID,
 		evmdconfig.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -360,17 +375,36 @@ func appExport(
 		return servertypes.ExportedApp{}, err
 	}
 
+	// Determine the EVM chain ID from the Cosmos chain ID
+	evmChainID := getEVMChainIDFromCosmosChainID(chainID)
+
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
+}
+
+// getEVMChainIDFromCosmosChainID extracts the EVM chain ID from a Cosmos chain ID
+// For Epix chains, it extracts the numeric part from the chain ID format "epix_XXXX-1"
+// For other chains, it returns the default EVM chain ID
+func getEVMChainIDFromCosmosChainID(cosmosChainID string) uint64 {
+	// Handle Epix chain IDs
+	if cosmosChainID == "epix_1916-1" {
+		return evmdconfig.EpixMainnetChainID
+	}
+	if cosmosChainID == "epix_1917-1" {
+		return evmdconfig.EpixTestnetChainID
+	}
+
+	// For other chains, return the default EVM chain ID
+	return evmdconfig.EVMChainID
 }
 
 // getChainIDFromOpts returns the chain Id from app Opts

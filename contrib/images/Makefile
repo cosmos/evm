@@ -1,10 +1,10 @@
-all: evmd-env
+all: epixd-env
 
-evmd-env: evmd-rmi
-	docker build --tag cosmos/evmd -f evmd-env/Dockerfile \
+epixd-env: epixd-rmi
+	docker build --tag cosmos/epixd -f epixd-env/Dockerfile \
 		$(shell git rev-parse --show-toplevel)
 
-evmd-rmi:
-	docker rmi cosmos/evmd 2>/dev/null; true
+epixd-rmi:
+	docker rmi cosmos/epixd 2>/dev/null; true
 
-.PHONY: all evmd-env evmd-rmi
+.PHONY: all epixd-env epixd-rmi

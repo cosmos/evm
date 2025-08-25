@@ -145,7 +145,7 @@ func init() {
 	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
 }
 
-const appName = "evmd"
+const appName = "epixd"
 
 // defaultNodeHome default home directories for the application daemon
 var defaultNodeHome string
@@ -364,6 +364,15 @@ func NewExampleApp(
 		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	)
 
+	// Initialize MintKeeper with custom mint function for Epix chain
+	var mintKeeperOptions []mintkeeper.InitOption
+
+	// Check if this is the Epix chain and add custom mint function
+	if evmChainID == evmdconfig.EpixMainnetChainID || evmChainID == evmdconfig.EpixTestnetChainID {
+		epixTokenomics := NewEpixTokenomics()
+		mintKeeperOptions = append(mintKeeperOptions, mintkeeper.WithMintFn(EpixMintFn(epixTokenomics)))
+	}
+
 	app.MintKeeper = mintkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[minttypes.StoreKey]),
@@ -372,6 +381,7 @@ func NewExampleApp(
 		app.BankKeeper,
 		authtypes.FeeCollectorName,
 		authAddr,
+		mintKeeperOptions...,
 	)
 
 	app.DistrKeeper = distrkeeper.NewKeeper(
@@ -943,18 +953,50 @@ func (app *EVMD) TxConfig() client.TxConfig {
 
 // DefaultGenesis returns a default genesis from the registered AppModuleBasic's.
 func (app *EVMD) DefaultGenesis() map[string]json.RawMessage {
+	return app.DefaultGenesisForChain(0) // Default to example chain
+}
+
+// DefaultGenesisForChain returns a default genesis for the specified chain ID
+func (app *EVMD) DefaultGenesisForChain(evmChainID uint64) map[string]json.RawMessage {
 	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
 
-	mintGenState := NewMintGenesisState()
-	genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
+	// Use Epix-specific genesis for Epix chains
+	if evmChainID == evmdconfig.EpixMainnetChainID || evmChainID == evmdconfig.EpixTestnetChainID {
+		mintGenState := NewEpixMintGenesisState()
+		genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
+
+		// Use Epix-specific ERC20 genesis
+		erc20GenState := NewEpixErc20GenesisState()
+		genesis[erc20types.ModuleName] = app.appCodec.MustMarshalJSON(erc20GenState)
+
+		// Use Epix-specific staking genesis (with aepix as bond denom)
+		stakingGenState := NewEpixStakingGenesisState()
+		genesis[stakingtypes.ModuleName] = app.appCodec.MustMarshalJSON(stakingGenState)
+
+		// Use Epix-specific governance genesis (with aepix for deposits)
+		govGenState := NewEpixGovGenesisState()
+		genesis[govtypes.ModuleName] = app.appCodec.MustMarshalJSON(govGenState)
+
+		// Use Epix-specific distribution genesis (50% staking, 50% community pool)
+		distrGenState := NewEpixDistributionGenesisState()
+		genesis[distrtypes.ModuleName] = app.appCodec.MustMarshalJSON(distrGenState)
+
+		// Use Epix-specific slashing genesis (optimized parameters for Epix network)
+		slashingGenState := NewEpixSlashingGenesisState()
+		genesis[slashingtypes.ModuleName] = app.appCodec.MustMarshalJSON(slashingGenState)
+	} else {
+		// Default example chain genesis
+		mintGenState := NewMintGenesisState()
+		genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
+
+		// NOTE: for the example chain implementation we are also adding a default token pair,
+		// which is the base denomination of the chain (i.e. the WEVMOS contract)
+		erc20GenState := NewErc20GenesisState()
+		genesis[erc20types.ModuleName] = app.appCodec.MustMarshalJSON(erc20GenState)
+	}
 
 	evmGenState := NewEVMGenesisState()
 	genesis[evmtypes.ModuleName] = app.appCodec.MustMarshalJSON(evmGenState)
-
-	// NOTE: for the example chain implementation we are also adding a default token pair,
-	// which is the base denomination of the chain (i.e. the WEVMOS contract)
-	erc20GenState := NewErc20GenesisState()
-	genesis[erc20types.ModuleName] = app.appCodec.MustMarshalJSON(erc20GenState)
 
 	return genesis
 }

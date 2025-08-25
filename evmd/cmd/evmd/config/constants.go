@@ -7,6 +7,19 @@ const (
 	// ExampleDisplayDenom is the display denomination of the Cosmos EVM example chain's base coin.
 	ExampleDisplayDenom = "atom"
 
+	// Epix Chain Constants
+	// EpixChainDenom is the denomination of the Epix chain's base coin (18 decimals).
+	EpixChainDenom = "aepix"
+
+	// EpixDisplayDenom is the display denomination of the Epix chain's base coin.
+	EpixDisplayDenom = "epix"
+
+	// EpixMainnetChainID is the chain ID for the Epix mainnet.
+	EpixMainnetChainID = 1916
+
+	// EpixTestnetChainID is the chain ID for the Epix testnet.
+	EpixTestnetChainID = 1917
+
 	// EighteenDecimalsChainID is the chain ID for the 18 decimals chain.
 	EighteenDecimalsChainID = 9001
 
@@ -28,4 +41,7 @@ const (
 
 	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
 	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
+
+	// WEPIXContractMainnet is the WEPIX contract address for mainnet
+	WEPIXContractMainnet = "0x0000000000000000000000000000000000000000" // Placeholder - will be set after deployment
 )

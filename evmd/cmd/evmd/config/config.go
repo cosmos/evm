@@ -24,6 +24,20 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.SixDecimals,
 	},
+	// Epix Mainnet Chain
+	EpixMainnetChainID: {
+		Denom:         EpixChainDenom,
+		ExtendedDenom: EpixChainDenom,
+		DisplayDenom:  EpixDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
+	// Epix Testnet Chain
+	EpixTestnetChainID: {
+		Denom:         EpixChainDenom,
+		ExtendedDenom: EpixChainDenom,
+		DisplayDenom:  EpixDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
 	// EVMChainID provides a chain ID used for internal testing
 	EVMChainID: {
 		Denom:         "atest",
@@ -34,8 +48,8 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 }
 
 const (
-	// Bech32Prefix defines the Bech32 prefix used for accounts on the exemplary Cosmos EVM blockchain.
-	Bech32Prefix = "cosmos"
+	// Bech32Prefix defines the Bech32 prefix used for accounts on the Epix blockchain.
+	Bech32Prefix = "epix"
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address.
 	Bech32PrefixAccAddr = Bech32Prefix
 	// Bech32PrefixAccPub defines the Bech32 prefix of an account's public key.
