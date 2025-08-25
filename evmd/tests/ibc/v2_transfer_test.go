@@ -9,7 +9,6 @@
 // correctly mints/burns/escrows tokens according to ICS-20 standards.
 //
 
-
 package ibc
 
 import (

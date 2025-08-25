@@ -121,7 +121,7 @@ help:
 	@echo "  test-solidity  - Run solidity contract tests"
 	@echo "  test-all       - Run all tests"
 	@echo ""
-	@echo "⚙️  Chain Configuration Variables (optional):"
+	@echo "⚙️ Chain Configuration Variables (optional):"
 	@echo "  CHAIN_ID       - Cosmos chain ID (e.g. 'cosmos-1')"
 	@echo "  EVM_CHAIN_ID   - EVM chain ID (e.g. 9001)"
 	@echo "  DENOM          - Base denomination (e.g. 'aatom')"

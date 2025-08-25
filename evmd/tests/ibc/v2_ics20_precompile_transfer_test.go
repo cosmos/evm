@@ -3,7 +3,6 @@
 // This test suite was imported to validate that ExampleChain (an EVM-based chain)
 // correctly supports IBC v1 token transfers using ibc-go’s Transfer module logic.
 // The test ensures that ics20 precompile transfer (A → B) behave as expected across channels.
-
 package ibc
 
 import (
