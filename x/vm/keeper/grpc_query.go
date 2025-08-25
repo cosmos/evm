@@ -230,9 +230,10 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	var overrides rpctypes.StateOverride
+	var overrides *rpctypes.StateOverride
 	if len(req.Overrides) > 0 {
-		if err := json.Unmarshal(req.Overrides, &overrides); err != nil {
+		overrides = new(rpctypes.StateOverride)
+		if err := json.Unmarshal(req.Overrides, overrides); err != nil {
 			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state overrides format: %s", err.Error()))
 		}
 	}
@@ -262,7 +263,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
 
 	// pass false to not commit StateDB
-	res, err := k.ApplyMessageWithConfig(ctx, *msg, nil, false, cfg, txConfig, false, &overrides)
+	res, err := k.ApplyMessageWithConfig(ctx, *msg, nil, false, cfg, txConfig, false, overrides)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -28,6 +28,25 @@ import (
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
+func (k *Keeper) buildBlockContext(
+	ctx sdk.Context,
+	cfg *statedb.EVMConfig,
+) vm.BlockContext {
+	ctx = k.SetConsensusParamsInCtx(ctx)
+	return vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     k.GetHashFn(ctx),
+		Coinbase:    cfg.CoinBase,
+		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
+		BlockNumber: big.NewInt(ctx.BlockHeight()),
+		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
+		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
+		BaseFee:     cfg.BaseFee,
+		Random:      &common.MaxHash,
+	}
+}
+
 // NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters
 // (ChainConfig and module Params). It additionally sets the validator operator address as the
 // coinbase address to make it available for the COINBASE opcode, even though there is no
@@ -43,20 +62,7 @@ func (k *Keeper) NewEVM(
 	tracer *tracing.Hooks,
 	stateDB vm.StateDB,
 ) *vm.EVM {
-	ctx = k.SetConsensusParamsInCtx(ctx)
-	blockCtx := vm.BlockContext{
-		CanTransfer: core.CanTransfer,
-		Transfer:    core.Transfer,
-		GetHash:     k.GetHashFn(ctx),
-		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
-		BlockNumber: big.NewInt(ctx.BlockHeight()),
-		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
-		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
-		BaseFee:     cfg.BaseFee,
-		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
-	}
-
+	blockCtx := k.buildBlockContext(ctx, cfg)
 	ethCfg := types.GetEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
@@ -77,6 +83,31 @@ func (k *Keeper) NewEVM(
 		k.GetPrecompilesCallHook(ctx),
 	)
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
+}
+
+// NewEVMWithPrecompiles creates a new EVM instance using the provided block context, state, and chain config,
+// and sets the given precompiles map for the EVM. This is useful for scenarios such as eth_call or state overrides
+// where a custom set of precompiles should be used instead of the keeper's default.
+// If precompiles is not nil, it will be set on the EVM instance before returning.
+func (k *Keeper) NewEVMWithPrecompiles(
+	ctx sdk.Context,
+	msg core.Message,
+	cfg *statedb.EVMConfig,
+	tracer *tracing.Hooks,
+	stateDB vm.StateDB,
+	precompiles vm.PrecompiledContracts,
+) *vm.EVM {
+	blockCtx := k.buildBlockContext(ctx, cfg)
+	ethCfg := types.GetEthChainConfig()
+	if tracer == nil {
+		tracer = k.Tracer(ctx, msg, ethCfg)
+	}
+	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	evm := vm.NewEVM(blockCtx, stateDB, ethCfg, vmConfig)
+	if precompiles != nil {
+		evm.SetPrecompiles(precompiles)
+	}
+	return evm
 }
 
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
@@ -364,6 +395,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	var (
 		ret   []byte // return bytes from evm execution
 		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
+		evm   *vm.EVM
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
@@ -375,8 +407,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 		if err := overrides.Apply(stateDB, precompiles); err != nil {
 			return nil, errorsmod.Wrap(err, "failed to apply state override")
 		}
+		evm = k.NewEVMWithPrecompiles(ctx, msg, cfg, tracer, stateDB, precompiles)
+	} else {
+		evm = k.NewEVM(ctx, msg, cfg, tracer, stateDB)
 	}
-	evm := k.NewEVM(ctx, msg, cfg, tracer, stateDB)
 
 	leftoverGas := msg.GasLimit
 
