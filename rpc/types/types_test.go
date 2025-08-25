@@ -5,13 +5,15 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	rpc "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/cosmos/evm/x/vm/types/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	rpc "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types/mocks"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type precompileContract struct{}
@@ -23,6 +25,7 @@ func (p *precompileContract) RequiredGas(input []byte) uint64 { return 0 }
 func (p *precompileContract) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
 	return nil, nil
 }
+
 func TestApply(t *testing.T) {
 	blockHash := common.BigToHash(big.NewInt(9999))
 	emptyTxConfig := statedb.NewEmptyTxConfig(blockHash)
