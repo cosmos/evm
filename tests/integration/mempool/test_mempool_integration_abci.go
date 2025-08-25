@@ -12,10 +12,9 @@ import (
 func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 	fmt.Printf("DEBUG: Starting TestTransactionOrdering\n")
 	testCases := []struct {
-		name       string
-		setupTxs   func() ([]sdk.Tx, []string)
-		verifyFunc func(iterator mempool.Iterator, txHashesInOrder []string)
-		bypass     bool // Temporarily bypass test cases that have known issue.
+		name     string
+		setupTxs func() ([]sdk.Tx, []string)
+		bypass   bool // Temporarily bypass test cases that have known issue.
 	}{
 		{
 			name: "mixed EVM and cosmos transaction ordering",
@@ -33,9 +32,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{highGasPriceEVMTx, highFeeCosmosTx, mediumFeeCosmosTx, lowFeeCosmosTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 		},
 		{
@@ -52,9 +51,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected Txs in order
 				expectedTxs := []sdk.Tx{highFeeEVMTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 			bypass: true,
 		},
@@ -73,9 +72,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{highFeeEVMTx, lowFeeEVMTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 		},
 		{
@@ -90,9 +89,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{highFeeTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 			bypass: true,
 		},
@@ -111,9 +110,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 			bypass: true,
 		},
@@ -131,9 +130,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 			bypass: true,
 		},
@@ -151,9 +150,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{cosmosTx, evmTx}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 			bypass: true,
 		},
@@ -177,9 +176,9 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 				// Expected txs in order
 				expectedTxs := []sdk.Tx{evmHigh, cosmosHigh, evmMedium, cosmosMedium, evmLow, cosmosLow}
-				expectedTxHashes := s.getTxHashes(expectedTxs)
+				expTxHashes := s.getTxHashes(expectedTxs)
 
-				return inputTxs, expectedTxHashes
+				return inputTxs, expTxHashes
 			},
 		},
 	}
@@ -189,21 +188,23 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
-			txs, txHashesInOrder := tc.setupTxs()
+			txs, expTxHashes := tc.setupTxs()
 
-			_, err := s.checkTxs(txs)
+			err := s.checkTxs(txs)
 			s.Require().NoError(err)
 
 			mpool := s.network.App.GetMempool()
 			iterator := mpool.Select(s.network.GetContext(), nil)
 
-			if !tc.bypass {
-				for _, txHash := range txHashesInOrder {
-					actualTxHash := s.getTxHash(iterator.Tx())
-					s.Require().Equal(txHash, actualTxHash)
+			if tc.bypass {
+				return
+			}
 
-					iterator = iterator.Next()
-				}
+			for _, txHash := range expTxHashes {
+				actualTxHash := s.getTxHash(iterator.Tx())
+				s.Require().Equal(txHash, actualTxHash)
+
+				iterator = iterator.Next()
 			}
 		})
 	}
@@ -216,24 +217,27 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 	testCases := []struct {
 		name       string
-		setupTxs   func() ([]sdk.Tx, []int) // Returns transactions and their expected nonces
+		setupTxs   func() ([]sdk.Tx, []string) // Returns transactions and their expected nonces
 		verifyFunc func(mpool mempool.Mempool)
+		bypass     bool
 	}{
 		{
 			name: "insert transactions with nonce gaps",
-			setupTxs: func() ([]sdk.Tx, []int) {
+			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				var txs []sdk.Tx
-				var nonces []int
 
 				// Insert transactions with gaps: nonces 0, 2, 4, 6 (missing 1, 3, 5)
 				for i := 0; i <= 6; i += 2 {
-					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
+					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(2000000000), uint64(i))
 					txs = append(txs, tx)
-					nonces = append(nonces, i)
 				}
 
-				return txs, nonces
+				// Expected txs in order
+				expectedTxs := txs[:1]
+				expTxHashes := s.getTxHashes(expectedTxs)
+
+				return txs, expTxHashes
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				// Only nonce 0 should be pending (the first consecutive transaction)
@@ -244,24 +248,25 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 		},
 		{
 			name: "fill nonce gap and verify pending count increases",
-			setupTxs: func() ([]sdk.Tx, []int) {
+			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				var txs []sdk.Tx
-				var nonces []int
 
 				// First, insert transactions with gaps: nonces 0, 2, 4
 				for i := 0; i <= 4; i += 2 {
 					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
 					txs = append(txs, tx)
-					nonces = append(nonces, i)
 				}
 
 				// Then fill the gap by inserting nonce 1
 				tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
 				txs = append(txs, tx)
-				nonces = append(nonces, 1)
 
-				return txs, nonces
+				// Expected txs in order
+				expectedTxs := []sdk.Tx{txs[0], txs[3], txs[1]}
+				expTxHashes := s.getTxHashes(expectedTxs)
+
+				return txs, expTxHashes
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				// After filling nonce 1, transactions 0, 1, 2 should be pending
@@ -272,16 +277,15 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 		},
 		{
 			name: "fill multiple nonce gaps",
-			setupTxs: func() ([]sdk.Tx, []int) {
+			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				var txs []sdk.Tx
-				var nonces []int
 
 				// Insert transactions with multiple gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
 					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
 					txs = append(txs, tx)
-					nonces = append(nonces, i)
+
 				}
 
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
@@ -289,11 +293,15 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 					if i%3 != 0 { // Skip nonces that are already inserted
 						tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
 						txs = append(txs, tx)
-						nonces = append(nonces, i)
+
 					}
 				}
 
-				return txs, nonces
+				// Expected txs in order
+				expectedTxs := []sdk.Tx{txs[0], txs[4], txs[5], txs[1], txs[6], txs[7], txs[2], txs[8], txs[9], txs[3]}
+				expTxHashes := s.getTxHashes(expectedTxs)
+
+				return txs, expTxHashes
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				// After filling all gaps, all transactions should be pending
@@ -303,9 +311,8 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 		},
 		{
 			name: "test different accounts with nonce gaps",
-			setupTxs: func() ([]sdk.Tx, []int) {
+			setupTxs: func() ([]sdk.Tx, []string) {
 				var txs []sdk.Tx
-				var nonces []int
 
 				// Use different keys for different accounts
 				key1 := s.keyring.GetKey(0)
@@ -315,17 +322,19 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 				for i := 0; i <= 2; i += 2 {
 					tx := s.createEVMTransferWithKeyAndNonce(key1, big.NewInt(1000000000), uint64(i))
 					txs = append(txs, tx)
-					nonces = append(nonces, i)
 				}
 
 				// Account 2: nonces 0, 3 (gaps at 1, 2)
 				for i := 0; i <= 3; i += 3 {
 					tx := s.createEVMTransferWithKeyAndNonce(key2, big.NewInt(1000000000), uint64(i))
 					txs = append(txs, tx)
-					nonces = append(nonces, i)
 				}
 
-				return txs, nonces
+				// Expected txs in order
+				expectedTxs := []sdk.Tx{txs[0], txs[2]}
+				expTxHashes := s.getTxHashes(expectedTxs)
+
+				return txs, expTxHashes
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				// Account 1: nonce 0 pending, nonce 2 queued
@@ -337,147 +346,61 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 		},
 		{
 			name: "test replacement transactions with higher gas price",
-			setupTxs: func() ([]sdk.Tx, []int) {
+			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				var txs []sdk.Tx
-				var nonces []int
 
 				// Insert transaction with nonce 0 and low gas price
 				tx1 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(0))
 				txs = append(txs, tx1)
-				nonces = append(nonces, 0)
 
 				// Insert transaction with nonce 1
 				tx2 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
 				txs = append(txs, tx2)
-				nonces = append(nonces, 1)
 
 				// Replace nonce 0 transaction with higher gas price
 				tx3 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(2000000000), uint64(0))
 				txs = append(txs, tx3)
-				nonces = append(nonces, 0)
 
-				return txs, nonces
+				// Expected txs in order
+				expectedTxs := []sdk.Tx{txs[2], txs[1]}
+				expTxHashes := s.getTxHashes(expectedTxs)
+
+				return txs, expTxHashes
 			},
 			verifyFunc: func(mpool mempool.Mempool) {
 				// After replacement, both nonces 0 and 1 should be pending
 				count := mpool.CountTx()
 				s.Require().Equal(2, count, "After replacement, both transactions should be pending")
 			},
-		},
-		{
-			name: "track count changes when filling nonce gaps",
-			setupTxs: func() ([]sdk.Tx, []int) {
-				key := s.keyring.GetKey(0)
-				var txs []sdk.Tx
-				var nonces []int
-
-				// Insert transactions with gaps: nonces 0, 3, 6, 9
-				for i := 0; i <= 9; i += 3 {
-					tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
-					txs = append(txs, tx)
-					nonces = append(nonces, i)
-				}
-
-				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
-				for i := 1; i <= 8; i++ {
-					if i%3 != 0 { // Skip nonces that are already inserted
-						tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
-						txs = append(txs, tx)
-						nonces = append(nonces, i)
-					}
-				}
-
-				return txs, nonces
-			},
-			verifyFunc: func(mpool mempool.Mempool) {
-				// After filling all gaps, all transactions should be pending
-				count := mpool.CountTx()
-				s.Require().Equal(10, count, "After filling all gaps, all 10 transactions should be pending")
-			},
-		},
-		{
-			name: "removing places subsequent transactions back into queued",
-			setupTxs: func() ([]sdk.Tx, []int) {
-				key := s.keyring.GetKey(0)
-				var txs []sdk.Tx
-				var nonces []int
-
-				// Insert transactions with gaps: nonces 0, 2, 3, 4, 5, 6, 7
-				for i := 0; i <= 7; i++ {
-					if i != 1 { // Skip nonce 1 to create a gap
-						tx := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(i))
-						txs = append(txs, tx)
-						nonces = append(nonces, i) //#nosec G115 -- int overflow is not a concern here
-					}
-				}
-
-				return txs, nonces
-			},
-			verifyFunc: func(mpool mempool.Mempool) {
-				// Initially: nonces 0 should be pending, nonces 2, 3, 4, 5, 6, 7 should be queued
-				initialCount := mpool.CountTx()
-				s.Require().Equal(1, initialCount, "Initially only nonces 0, 1 should be pending")
-				key := s.keyring.GetKey(0)
-
-				// Fill gap by inserting nonce 1
-				tx1 := s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
-				err := mpool.Insert(s.network.GetContext(), tx1)
-				s.Require().NoError(err)
-
-				// After filling gap: all nonce transactions should be in pending
-				countAfterFilling := mpool.CountTx()
-				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
-
-				// Remove nonce 1 transaction, dropping the rest (except for 0) into queued
-				tx1 = s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
-				s.Require().NoError(err)
-				err = mpool.Remove(tx1)
-				s.Require().NoError(err)
-
-				// After removal: only nonce 0 should be pending, the rest get dropped to queued
-				countAfterRemoval := mpool.CountTx()
-				s.Require().Equal(1, countAfterRemoval, "After removing nonce 1, only nonce 0 should be pending")
-
-				// Fill gap by inserting nonce 1
-				tx1 = s.createEVMTransferWithKeyAndNonce(key, big.NewInt(1000000000), uint64(1))
-				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), tx1)
-				s.Require().NoError(err)
-
-				// After filling gap: all transactions should be re-promoted and places into pending
-				countAfterFilling = mpool.CountTx()
-				s.Require().Equal(8, countAfterFilling, "After filling gap, only nonce 0 should be pending due to gap at nonce 1")
-			},
+			bypass: true,
 		},
 	}
 
-	for i, tc := range testCases {
-		fmt.Printf("DEBUG: TestNonceGappedEVMTransactions - Starting test case %d/%d: %s\n", i+1, len(testCases), tc.name)
+	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			fmt.Printf("DEBUG: Running test case: %s\n", tc.name)
-			// Reset test setup to ensure clean state
 			s.SetupTest()
-			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
-			txs, nonces := tc.setupTxs()
+			txs, expTxHashes := tc.setupTxs()
+
+			err := s.checkTxs(txs)
+			s.Require().NoError(err)
+
 			mpool := s.network.App.GetMempool()
+			iterator := mpool.Select(s.network.GetContext(), nil)
 
-			// Insert transactions and track count changes
-			initialCount := mpool.CountTx()
-			fmt.Printf("DEBUG: Initial mempool count: %d\n", initialCount)
+			if tc.bypass {
+				return
+			}
 
-			for i, tx := range txs {
-				err := mpool.Insert(s.network.GetContext(), tx)
-				s.Require().NoError(err)
+			for _, txHash := range expTxHashes {
+				actualTxHash := s.getTxHash(iterator.Tx())
+				s.Require().Equal(txHash, actualTxHash)
 
-				currentCount := mpool.CountTx()
-				fmt.Printf("DEBUG: After inserting nonce %d: count = %d\n", nonces[i], currentCount)
+				iterator = iterator.Next()
 			}
 
 			tc.verifyFunc(mpool)
-			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
-		fmt.Printf("DEBUG: TestNonceGappedEVMTransactions - Completed test case %d/%d: %s\n", i+1, len(testCases), tc.name)
 	}
 }

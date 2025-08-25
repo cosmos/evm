@@ -20,6 +20,11 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+// Constants
+const (
+	TxGas = 100_000
+)
+
 // createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
 func (s *IntegrationTestSuite) createCosmosSendTransactionWithKey(key keyring.Key, gasPrice *big.Int) sdk.Tx {
 	feeDenom := "aatom"
@@ -287,27 +292,30 @@ func (s *IntegrationTestSuite) createEVMTransactionWithNonce(key keyring.Key, ga
 	return txBuilder.GetTx(), nil
 }
 
-func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) ([]*abci.ResponseCheckTx, error) {
-	result := make([]*abci.ResponseCheckTx, 0)
-
+func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 	for _, tx := range txs {
-		txBytes, err := s.network.App.GetTxConfig().TxEncoder()(tx)
-		if err != nil {
-			return []*abci.ResponseCheckTx{}, fmt.Errorf("failed to encode cosmos tx: %w", err)
+		if err := s.checkTx(tx); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		res, err := s.network.App.CheckTx(&abci.RequestCheckTx{
-			Tx:   txBytes,
-			Type: abci.CheckTxType_New,
-		})
-		if err != nil {
-			return []*abci.ResponseCheckTx{}, fmt.Errorf("failed to encode cosmos tx: %w", err)
-		}
-
-		result = append(result, res)
+func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) error {
+	txBytes, err := s.network.App.GetTxConfig().TxEncoder()(tx)
+	if err != nil {
+		return fmt.Errorf("failed to encode cosmos tx: %w", err)
 	}
 
-	return result, nil
+	_, err = s.network.App.CheckTx(&abci.RequestCheckTx{
+		Tx:   txBytes,
+		Type: abci.CheckTxType_New,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode cosmos tx: %w", err)
+	}
+
+	return nil
 }
 
 // createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
