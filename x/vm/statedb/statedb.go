@@ -434,7 +434,7 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(addr common.Address, snapshot int, events sdk.Events) error {
+func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
 	s.journal.append(precompileCallChange{
 		snapshot: snapshot,
 		events:   events,
