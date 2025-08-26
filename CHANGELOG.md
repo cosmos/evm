@@ -14,6 +14,7 @@
 - [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
 - [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
 - [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.
+- [\#512](https://github.com/cosmos/evm/pull/512) Add integration test for apside mempool
 
 ### FEATURES
 
