@@ -11,26 +11,26 @@ import (
 
 	"cosmossdk.io/x/tx/signing"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	amino "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 )
 
-// EncodingConfig specifies the concrete encoding types to use for a given app.
+// Config specifies the concrete encoding types to use for a given app.
 // This is provided for compatibility between protobuf and amino implementations.
-type EncodingConfig struct {
+type Config struct {
 	InterfaceRegistry types.InterfaceRegistry
 	Codec             amino.Codec
 	TxConfig          client.TxConfig
 	Amino             *amino.LegacyAmino
 }
 
-// MakeConfig creates a new EncodingConfig and returns it
-func MakeConfig(evmChainID uint64) EncodingConfig {
+// MakeConfig creates a new Config and returns it
+func MakeConfig(evmChainID uint64) Config {
 	cdc := amino.NewLegacyAmino()
 	signingOptions := signing.Options{
 		AddressCodec: address.Bech32Codec{
@@ -58,7 +58,7 @@ func MakeConfig(evmChainID uint64) EncodingConfig {
 	legacytx.RegressionTestingAminoCodec = cdc
 	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
-	return EncodingConfig{
+	return Config{
 		InterfaceRegistry: interfaceRegistry,
 		Codec:             codec,
 		TxConfig:          tx.NewTxConfig(codec, tx.DefaultSignModes),
