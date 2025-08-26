@@ -18,7 +18,6 @@
 package legacypool
 
 import (
-	"context"
 	"errors"
 	"maps"
 	"math/big"
@@ -256,10 +255,6 @@ type LegacyPool struct {
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
-	// Shutdown context for immediate termination
-	shutdownCtx    context.Context
-	shutdownCancel context.CancelFunc
-
 	BroadcastTxFn func(txs []*types.Transaction) error
 }
 
@@ -274,7 +269,6 @@ func New(config Config, chain BlockChain) *LegacyPool {
 	config = (&config).sanitize()
 
 	// Create the transaction pool with its initial settings
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	pool := &LegacyPool{
 		config:          config,
 		chain:           chain,
@@ -290,8 +284,6 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		reorgDoneCh:     make(chan chan struct{}),
 		reorgShutdownCh: make(chan struct{}),
 		initDoneCh:      make(chan struct{}),
-		shutdownCtx:     shutdownCtx,
-		shutdownCancel:  shutdownCancel,
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -397,29 +389,9 @@ func (pool *LegacyPool) loop() {
 
 // Close terminates the transaction pool.
 func (pool *LegacyPool) Close() error {
-	return pool.CloseWithTimeout(5 * time.Second)
-}
-
-// CloseWithTimeout terminates the transaction pool with a timeout.
-// If timeout is 0, it forces immediate shutdown without waiting.
-func (pool *LegacyPool) CloseWithTimeout(timeout time.Duration) error {
-	pool.shutdownCancel()
+	// Terminate the pool reorger and return
 	close(pool.reorgShutdownCh)
-
-	// wait for wg with timeout
-	if timeout > 0 {
-		done := make(chan struct{})
-		go func() {
-			pool.wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-		case <-time.After(timeout):
-			log.Warn("Transaction pool shutdown timeout, some goroutines may still be running")
-		}
-	}
+	pool.wg.Wait()
 
 	log.Info("Transaction pool stopped")
 	return nil

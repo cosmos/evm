@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -30,10 +29,7 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
-const (
-	SubscriberName      = "evm"
-	defaultCloseTimeout = 5 * time.Second
-)
+const SubscriberName = "evm"
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -402,12 +398,6 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
-	return m.CloseWithTimeout(defaultCloseTimeout)
-}
-
-// CloseWithTimeout shuts down the mempool with a timeout.
-// If timeout is 0, it forces immediate shutdown without waiting.
-func (m *ExperimentalEVMMempool) CloseWithTimeout(timeout time.Duration) error {
 	var errs []error
 	if m.eventBus != nil {
 		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
@@ -415,7 +405,7 @@ func (m *ExperimentalEVMMempool) CloseWithTimeout(timeout time.Duration) error {
 		}
 	}
 
-	if err := m.txPool.CloseWithTimeout(timeout); err != nil {
+	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
 	}
 

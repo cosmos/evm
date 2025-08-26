@@ -17,12 +17,10 @@
 package txpool
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -42,8 +40,6 @@ const (
 	TxStatusQueued
 	TxStatusPending
 	TxStatusIncluded
-
-	defaultCloseTimeout = 5 * time.Second
 )
 
 // BlockChain defines the minimal set of methods needed to back a tx pool with
@@ -80,10 +76,6 @@ type TxPool struct {
 	term chan struct{}           // Termination channel to detect a closed pool
 
 	sync chan chan error // Testing / simulator channel to block until internal reset is done
-
-	// Shutdown context for immediate termination
-	shutdownCtx    context.Context
-	shutdownCancel context.CancelFunc
 }
 
 // New creates a new transaction pool to gather, sort and filter inbound
@@ -104,17 +96,14 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 	if err != nil {
 		return nil, err
 	}
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	pool := &TxPool{
-		Subpools:       subpools,
-		chain:          chain,
-		signer:         types.LatestSigner(chain.Config()),
-		state:          statedb,
-		quit:           make(chan chan error),
-		term:           make(chan struct{}),
-		sync:           make(chan chan error),
-		shutdownCtx:    shutdownCtx,
-		shutdownCancel: shutdownCancel,
+		Subpools: subpools,
+		chain:    chain,
+		signer:   types.LatestSigner(chain.Config()),
+		state:    statedb,
+		quit:     make(chan chan error),
+		term:     make(chan struct{}),
+		sync:     make(chan chan error),
 	}
 	reserver := NewReservationTracker()
 	for i, subpool := range subpools {
@@ -131,36 +120,14 @@ func New(gasTip uint64, chain BlockChain, subpools []SubPool) (*TxPool, error) {
 
 // Close terminates the transaction pool and all its Subpools.
 func (p *TxPool) Close() error {
-	return p.CloseWithTimeout(defaultCloseTimeout)
-}
-
-// CloseWithTimeout terminates the transaction pool and all its Subpools with a timeout.
-// If timeout is 0, it forces immediate shutdown without waiting.
-func (p *TxPool) CloseWithTimeout(timeout time.Duration) error {
 	var errs []error
 
-	if timeout > 0 {
-		errc := make(chan error, 1)
-
-		select {
-		case p.quit <- errc:
-			// Wait for worker response or timeout
-			select {
-			case err := <-errc:
-				if err != nil {
-					errs = append(errs, err)
-				}
-			case <-time.After(timeout):
-				errs = append(errs, errors.New("timeout waiting for pool loop to terminate"))
-			}
-		case <-time.After(timeout):
-			errs = append(errs, errors.New("timeout sending quit signal to pool loop"))
-		}
+	// Terminate the reset loop and wait for it to finish
+	errc := make(chan error)
+	p.quit <- errc
+	if err := <-errc; err != nil {
+		errs = append(errs, err)
 	}
-
-	// Cancel context as fallback after graceful shutdown attempt
-	p.shutdownCancel()
-
 	// Terminate each subpool
 	for _, subpool := range p.Subpools {
 		if err := subpool.Close(); err != nil {
@@ -170,7 +137,10 @@ func (p *TxPool) CloseWithTimeout(timeout time.Duration) error {
 	// Unsubscribe anyone still listening for tx events
 	p.subs.Close()
 
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return fmt.Errorf("subpool close errors: %v", errs)
+	}
+	return nil
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -281,12 +251,6 @@ func (p *TxPool) loop(head *types.Header) {
 			// queue waiting for a reset.
 			resetForced = true
 			resetWaiter = syncc
-
-		case <-p.shutdownCtx.Done():
-			// Immediate shutdown requested, break out immediately
-			log.Info("Transaction pool loop terminating due to shutdown context")
-			errc = make(chan error, 1)
-			errc <- errors.New("pool shutdown requested")
 		}
 	}
 	// Notify the closer of termination (no error possible for now)
