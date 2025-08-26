@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"cosmossdk.io/math"
@@ -74,9 +75,15 @@ func NewEpixMintGenesisState() *minttypes.GenesisState {
 // NOTE: This sets up the WEPIX token pair for the Epix chain.
 func NewEpixErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	// For now, use empty token pairs - these will be set up after deployment
-	erc20GenState.TokenPairs = []erc20types.TokenPair{}
-	erc20GenState.NativePrecompiles = []string{} // Will be set after WEPIX deployment
+
+	// Create WEPIX token pair for native EPIX token
+	wepixTokenPair, err := erc20types.NewTokenPairSTRv2(config.EpixChainDenom)
+	if err != nil {
+		panic(fmt.Errorf("failed to create WEPIX token pair: %w", err))
+	}
+
+	erc20GenState.TokenPairs = []erc20types.TokenPair{wepixTokenPair}
+	erc20GenState.NativePrecompiles = []string{wepixTokenPair.Erc20Address}
 
 	return erc20GenState
 }
@@ -109,7 +116,7 @@ func NewEpixGovGenesisState() *govtypes.GenesisState {
 
 // NewEpixDistributionGenesisState returns the genesis state for the Epix distribution module.
 //
-// NOTE: This sets up the modern reward distribution with 50% to staking rewards and 50% to community pool.
+// NOTE: This sets up the reward distribution with 50% to staking rewards and 50% to community pool.
 // These ratios can be adjusted through governance proposals.
 func NewEpixDistributionGenesisState() *distrtypes.GenesisState {
 	distrGenState := distrtypes.DefaultGenesisState()

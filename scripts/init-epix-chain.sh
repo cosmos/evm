@@ -253,6 +253,29 @@ print_status "Validator key: $VALIDATOR_KEY"
 print_status "Validator address: $VALIDATOR_ADDR"
 
 echo
+print_success "📋 Deployed Contract Addresses"
+echo
+print_status "🪙 Native Token Contracts:"
+echo "  WEPIX (Wrapped EPIX):     0x211781849EF6de72acbf1469Ce3808E74D7ce158"
+echo
+print_status "🛠️  Utility Contracts (Available at Genesis):"
+echo "  MultiCall3:               0xcA11bde05977b3631167028862bE2a173976CA11"
+echo "  Create2 Factory:          0x4e59b44847b379578588920ca78fbf26c0b4956c"
+echo "  Permit2:                  0x000000000022D473030F116dDEE9F6B43aC78BA3"
+echo "  Safe Singleton Factory:   0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7"
+echo
+print_status "⚡ Cosmos Precompiles:"
+echo "  Staking:                  0x0000000000000000000000000000000000000800"
+echo "  Distribution:             0x0000000000000000000000000000000000000801"
+echo "  ICS20 (IBC Transfer):     0x0000000000000000000000000000000000000802"
+echo "  Vesting:                  0x0000000000000000000000000000000000000803"
+echo "  Bank:                     0x0000000000000000000000000000000000000804"
+echo "  Governance:               0x0000000000000000000000000000000000000805"
+echo "  Slashing:                 0x0000000000000000000000000000000000000806"
+echo "  Bech32:                   0x0000000000000000000000000000000000000400"
+echo "  P256 Verify:              0x0000000000000000000000000000000000000100"
+
+echo
 print_status "To start the node, run:"
 echo "  $EPIXD_BINARY start --home $NODE_HOME"
 
@@ -263,3 +286,15 @@ echo "  $EPIXD_BINARY status --home $NODE_HOME"
 echo
 print_status "Configuration files are located in:"
 echo "  $NODE_HOME/config/"
+
+echo
+print_status "📚 Quick Start Guide:"
+echo "  # Test WEPIX functionality"
+echo "  cast call 0x211781849EF6de72acbf1469Ce3808E74D7ce158 \"name()\" --rpc-url http://localhost:8545"
+echo "  cast call 0x211781849EF6de72acbf1469Ce3808E74D7ce158 \"symbol()\" --rpc-url http://localhost:8545"
+echo
+echo "  # Deploy contracts using Create2"
+echo "  cast send 0x4e59b44847b379578588920ca78fbf26c0b4956c --rpc-url http://localhost:8545"
+echo
+echo "  # Batch calls using MultiCall3"
+echo "  cast call 0xcA11bde05977b3631167028862bE2a173976CA11 --rpc-url http://localhost:8545"

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
@@ -187,6 +188,33 @@ func GetIBCDenomAddress(denom string) (common.Address, error) {
 	}
 
 	return common.BytesToAddress(bz), nil
+}
+
+// GetNativeDenomAddress returns a deterministic address for native token denoms.
+// This function generates a consistent address for native tokens like "aepix", "aatom", etc.
+// by hashing the denom string with a prefix to avoid collisions with IBC tokens.
+func GetNativeDenomAddress(denom string) (common.Address, error) {
+	if strings.HasPrefix(denom, "ibc/") {
+		return common.Address{}, fmt.Errorf("native denom %s cannot have 'ibc/' prefix, use GetIBCDenomAddress instead", denom)
+	}
+
+	if len(strings.TrimSpace(denom)) == 0 {
+		return common.Address{}, fmt.Errorf("denom cannot be empty")
+	}
+
+	// Create a deterministic address by hashing the denom with a prefix
+	// The prefix "native:" ensures no collision with IBC denoms
+	hashInput := fmt.Sprintf("native:%s", denom)
+	hash := crypto.Keccak256Hash([]byte(hashInput))
+
+	// Take the last 20 bytes to create an Ethereum address
+	return common.BytesToAddress(hash.Bytes()[12:]), nil
+}
+
+// GetWEPIXAddress returns the deterministic WEPIX address for any native denom.
+// This is a convenience function that wraps GetNativeDenomAddress for WEPIX specifically.
+func GetWEPIXAddress(denom string) (common.Address, error) {
+	return GetNativeDenomAddress(denom)
 }
 
 // SortSlice sorts a slice of any ordered type.

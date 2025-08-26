@@ -168,10 +168,15 @@ func (suite *TokenPairTestSuite) TestNewTokenPairSTRv2() {
 		expectedPair  types.TokenPair
 	}{
 		{
-			name:          "fail to register token pair - invalid denom (not ibc)",
-			denom:         "testcoin",
-			expectPass:    false,
-			expectedError: "does not have 'ibc/' prefix",
+			name:       "register token pair - native denom",
+			denom:      "testcoin",
+			expectPass: true,
+			expectedPair: types.TokenPair{
+				Denom:         "testcoin",
+				Erc20Address:  "0xE1d649f5B480Bf72b29e6159e3fE3f040e13f54e",
+				Enabled:       true,
+				ContractOwner: types.OWNER_MODULE,
+			},
 		},
 		{
 			name:       "register token pair - ibc denom",
