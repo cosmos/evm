@@ -93,7 +93,7 @@ type EVMAppConfig struct {
 	EVM     cosmosevmserverconfig.EVMConfig
 	JSONRPC cosmosevmserverconfig.JSONRPCConfig
 	TLS     cosmosevmserverconfig.TLSConfig
-	Chain   evmtypes.EvmCoinInfo
+	Coin    evmtypes.EvmCoinInfo
 }
 
 // InitAppConfig helps to override default appConfig template and configs.
@@ -127,7 +127,7 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Chain:   *chainCfg,
+		Coin:    *chainCfg,
 	}
 
 	return EVMAppTemplate, customAppConfig

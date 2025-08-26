@@ -115,20 +115,20 @@ certificate-path = "{{ .TLS.CertificatePath }}"
 key-path = "{{ .TLS.KeyPath }}"
 
 ###############################################################################
-###                            Chain Configuration                          ###
+###                             Coin Configuration                          ###
 ###############################################################################
 
 [chain]
 
 # Denom defines the base denomination used in the chain
-denom = "{{ .Chain.Denom }}"
+denom = "{{ .Coin.Denom }}"
 
 # ExtendedDenom defines the extended denomination (typically atto-denom for 18 decimals)
-extended-denom = "{{ .Chain.ExtendedDenom }}"
+extended-denom = "{{ .Coin.ExtendedDenom }}"
 
 # DisplayDenom defines the display denomination shown to users
-display-denom = "{{ .Chain.DisplayDenom }}"
+display-denom = "{{ .Coin.DisplayDenom }}"
 
 # Decimals defines the precision/decimals for the base denomination (1-18)
-decimals = {{ .Chain.Decimals }}
+decimals = {{ .Coin.Decimals }}
 `

@@ -274,7 +274,7 @@ func initTestnetFiles(
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Chain:   *cosmosevmserverconfig.DefaultEvmCoinInfo(),
+		Coin:    *cosmosevmserverconfig.DefaultEvmCoinInfo(),
 	}
 
 	var (
