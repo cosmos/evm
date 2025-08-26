@@ -1,16 +1,20 @@
 package mempool
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// TestTransactionOrdering tests transaction ordering based on fees
-func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
-	fmt.Printf("DEBUG: Starting TestTransactionOrdering\n")
+// TestTransactionOrderingWithABCIMethodCalls tests transaction ordering based on fees
+func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
+	fmt.Printf("DEBUG: Starting TestTransactionOrderingWithABCIMethodCalls\n")
 	testCases := []struct {
 		name     string
 		setupTxs func() ([]sdk.Tx, []string)
@@ -193,30 +197,50 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithCheckTx() {
 
 			txs, expTxHashes := tc.setupTxs()
 
+			// Call CheckTx for transactions
 			err := s.checkTxs(txs)
 			s.Require().NoError(err)
 
-			mpool := s.network.App.GetMempool()
-			iterator := mpool.Select(s.network.GetContext(), nil)
+			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
+			_, err = s.network.FinalizeBlock()
+			s.Require().NoError(err)
+
+			// Call PrepareProposal to selcet transactions from mempool and make proposal
+			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+				MaxTxBytes: 1_000_000,
+				Height:     1,
+			})
+			s.Require().NoError(err)
 
 			if tc.bypass {
 				return
 			}
 
+			// Check whether expected transactions are included and returned as pending state in mempool
+			mpool := s.network.App.GetMempool()
+			iterator := mpool.Select(s.network.GetContext(), nil)
 			for _, txHash := range expTxHashes {
 				actualTxHash := s.getTxHash(iterator.Tx())
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
 			}
+
+			// Check whether expected transactions are selcted by PrepareProposal
+			txHashes := make([]string, 0)
+			for _, txBytes := range prepareProposalRes.Txs {
+				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
+				txHashes = append(txHashes, txHash)
+			}
+			s.Require().Equal(txHashes, expTxHashes)
 		})
 	}
 }
 
-// TestNonceGappedEVMTransactions tests the behavior of nonce-gapped EVM transactions
+// TestNonceGappedEVMTransactionsWithABCIMethodCalls tests the behavior of nonce-gapped EVM transactions
 // and the transition from queued to pending when gaps are filled
-func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
-	fmt.Printf("DEBUG: Starting TestNonceGappedEVMTransactions\n")
+func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls() {
+	fmt.Printf("DEBUG: Starting TestNonceGappedEVMTransactionsWithABCIMethodCalls\n")
 
 	testCases := []struct {
 		name       string
@@ -386,7 +410,19 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 
 			txs, expTxHashes := tc.setupTxs()
 
+			// Call CheckTx for transactions
 			err := s.checkTxs(txs)
+			s.Require().NoError(err)
+
+			// Call FinalizeBlock to make finalizeState before calling PrepareProposal
+			_, err = s.network.FinalizeBlock()
+			s.Require().NoError(err)
+
+			// Call PrepareProposal to selcet transactions from mempool and make proposal
+			prepareProposalRes, err := s.network.App.PrepareProposal(&abci.RequestPrepareProposal{
+				MaxTxBytes: 1_000_000,
+				Height:     1,
+			})
 			s.Require().NoError(err)
 
 			mpool := s.network.App.GetMempool()
@@ -396,14 +432,22 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithCheckTx() {
 				return
 			}
 
+			// Check whether expected transactions are included and returned as pending state in mempool
 			for _, txHash := range expTxHashes {
 				actualTxHash := s.getTxHash(iterator.Tx())
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
 			}
-
 			tc.verifyFunc(mpool)
+
+			// Check whether expected transactions are selcted by PrepareProposal
+			txHashes := make([]string, 0)
+			for _, txBytes := range prepareProposalRes.Txs {
+				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
+				txHashes = append(txHashes, txHash)
+			}
+			s.Require().Equal(txHashes, expTxHashes)
 		})
 	}
 }
