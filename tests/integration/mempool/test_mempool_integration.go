@@ -1109,7 +1109,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with gaps: nonces 0, 2, 4, 6 (missing 1, 3, 5)
 				for i := 0; i <= 6; i += 2 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1132,7 +1132,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// First, insert transactions with gaps: nonces 0, 2, 4
 				for i := 0; i <= 4; i += 2 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1160,7 +1160,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with multiple gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1168,7 +1168,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+						tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 						txs = append(txs, tx)
 						nonces = append(nonces, i)
 					}
@@ -1194,14 +1194,14 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Account 1: nonces 0, 2 (gap at 1)
 				for i := 0; i <= 2; i += 2 {
-					tx := s.createEVMValueTransferTx(key1, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key1, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
 
 				// Account 2: nonces 0, 3 (gaps at 1, 2)
 				for i := 0; i <= 3; i += 3 {
-					tx := s.createEVMValueTransferTx(key2, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key2, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1255,7 +1255,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 
 				// Insert transactions with gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 					nonces = append(nonces, i)
 				}
@@ -1263,7 +1263,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+						tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 						txs = append(txs, tx)
 						nonces = append(nonces, i)
 					}

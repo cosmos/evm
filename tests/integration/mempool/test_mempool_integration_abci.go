@@ -69,10 +69,10 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			setupTxs: func() ([]sdk.Tx, []string) {
 				key := s.keyring.GetKey(0)
 				// Create first EVM transaction with low fee
-				lowFeeEVMTx := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(2000000000)) // 2 gaatom
+				lowFeeEVMTx := s.createEVMValueTransferTx(key, 1, big.NewInt(2000000000)) // 2 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(5000000000)) // 5 gaatom
+				highFeeEVMTx := s.createEVMValueTransferTx(key, 0, big.NewInt(5000000000)) // 5 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeEVMTx, highFeeEVMTx}
@@ -256,7 +256,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 				// Insert transactions with gaps: nonces 0, 2, 4, 6 (missing 1, 3, 5)
 				for i := 0; i <= 6; i += 2 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(2000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(2000000000))
 					txs = append(txs, tx)
 				}
 
@@ -281,12 +281,12 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 				// First, insert transactions with gaps: nonces 0, 2, 4
 				for i := 0; i <= 4; i += 2 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
 				// Then fill the gap by inserting nonce 1
-				tx := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(1000000000))
+				tx := s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000))
 				txs = append(txs, tx)
 
 				// Expected txs in order
@@ -310,7 +310,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 				// Insert transactions with multiple gaps: nonces 0, 3, 6, 9
 				for i := 0; i <= 9; i += 3 {
-					tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 
 				}
@@ -318,7 +318,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				// Fill gaps by inserting nonces 1, 2, 4, 5, 7, 8
 				for i := 1; i <= 8; i++ {
 					if i%3 != 0 { // Skip nonces that are already inserted
-						tx := s.createEVMValueTransferTx(key, uint64(i), big.NewInt(1000000000))
+						tx := s.createEVMValueTransferTx(key, i, big.NewInt(1000000000))
 						txs = append(txs, tx)
 
 					}
@@ -347,13 +347,13 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 				// Account 1: nonces 0, 2 (gap at 1)
 				for i := 0; i <= 2; i += 2 {
-					tx := s.createEVMValueTransferTx(key1, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key1, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
 				// Account 2: nonces 0, 3 (gaps at 1, 2)
 				for i := 0; i <= 3; i += 3 {
-					tx := s.createEVMValueTransferTx(key2, uint64(i), big.NewInt(1000000000))
+					tx := s.createEVMValueTransferTx(key2, i, big.NewInt(1000000000))
 					txs = append(txs, tx)
 				}
 
@@ -378,15 +378,15 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				var txs []sdk.Tx
 
 				// Insert transaction with nonce 0 and low gas price
-				tx1 := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(1000000000))
+				tx1 := s.createEVMValueTransferTx(key, 0, big.NewInt(1000000000))
 				txs = append(txs, tx1)
 
 				// Insert transaction with nonce 1
-				tx2 := s.createEVMValueTransferTx(key, uint64(1), big.NewInt(1000000000))
+				tx2 := s.createEVMValueTransferTx(key, 1, big.NewInt(1000000000))
 				txs = append(txs, tx2)
 
 				// Replace nonce 0 transaction with higher gas price
-				tx3 := s.createEVMValueTransferTx(key, uint64(0), big.NewInt(2000000000))
+				tx3 := s.createEVMValueTransferTx(key, 0, big.NewInt(2000000000))
 				txs = append(txs, tx3)
 
 				// Expected txs in order

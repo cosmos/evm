@@ -46,11 +46,15 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 }
 
 // createEVMTransaction creates an EVM transaction using the provided key
-func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce uint64, gasPrice *big.Int) sdk.Tx {
+func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce int, gasPrice *big.Int) sdk.Tx {
 	to := s.keyring.GetKey(1).Addr
 
+	if nonce < 0 {
+		s.Require().NoError(fmt.Errorf("nonce must be non-negative"))
+	}
+
 	ethTxArgs := evmtypes.EvmTxArgs{
-		Nonce:    nonce,
+		Nonce:    uint64(nonce),
 		To:       &to,
 		Amount:   big.NewInt(1000),
 		GasLimit: TxGas,
