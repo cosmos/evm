@@ -232,7 +232,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
 				txHashes = append(txHashes, txHash)
 			}
-			s.Require().Equal(txHashes, expTxHashes)
+			s.Require().Equal(expTxHashes, txHashes)
 		})
 	}
 }
@@ -447,7 +447,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				txHash := hex.EncodeToString(tmhash.Sum(txBytes))
 				txHashes = append(txHashes, txHash)
 			}
-			s.Require().Equal(txHashes, expTxHashes)
+			s.Require().Equal(expTxHashes, txHashes)
 		})
 	}
 }
