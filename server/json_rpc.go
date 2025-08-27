@@ -25,7 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 )
 
-const shutdownTimeout = 5 * time.Second
+const shutdownTimeout = 200 * time.Millisecond
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
