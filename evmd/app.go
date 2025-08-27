@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -444,7 +446,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -766,6 +768,20 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// TODO: Get the actual block gas limit from consensus parameters
+		legacyPoolCfg := legacypool.Config{
+			Journal:   "transactions.rlp",
+			Rejournal: time.Hour,
+
+			PriceLimit: 1,
+			PriceBump:  2,
+
+			AccountSlots: 320,    // 16 * 20
+			GlobalSlots:  102400, // 5120 * 20
+			AccountQueue: 1280,   // 64 * 20
+			GlobalQueue:  20480,  // 1024 * 20
+
+			Lifetime: 3 * time.Hour,
+		}
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),
 			BlockGasLimit: 100_000_000,
