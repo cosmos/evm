@@ -26,6 +26,7 @@ import (
 	clientkeys "github.com/cosmos/evm/client/keys"
 	"github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/ledger/mocks"
 	"github.com/cosmos/evm/testutil/constants"
@@ -39,7 +40,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 )
 
 var s *LedgerTestSuite
@@ -115,7 +115,7 @@ func (suite *LedgerTestSuite) SetupEvmosApp() {
 	})
 }
 
-func (suite *LedgerTestSuite) NewKeyringAndCtxs(krHome string, input io.Reader, encCfg sdktestutil.TestEncodingConfig) (keyring.Keyring, client.Context, context.Context) {
+func (suite *LedgerTestSuite) NewKeyringAndCtxs(krHome string, input io.Reader, encCfg encoding.Config) (keyring.Keyring, client.Context, context.Context) {
 	kr, err := keyring.New(
 		sdk.KeyringServiceName(),
 		keyring.BackendTest,
