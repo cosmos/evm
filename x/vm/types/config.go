@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
 	geth "github.com/ethereum/go-ethereum/params"
 )
 
@@ -47,8 +46,7 @@ func (ec *EVMConfigurator) Configure() error {
 }
 
 func (ec *EVMConfigurator) ResetTestConfig() {
-	// no-op
-	log.Warn("this is only implemented with the 'test' build flag. Make sure you're running your tests using the '-tags=test' flag.")
+	panic("this is only implemented with the 'test' build flag. Make sure you're running your tests using the '-tags=test' flag.")
 }
 
 // GetEthChainConfig returns the `chainConfig` used in the EVM (geth type).
