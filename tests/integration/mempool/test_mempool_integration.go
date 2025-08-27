@@ -280,7 +280,12 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+
+				// NOTE: In normal tx flow, ctx.priority is set by anteHandler.
+				// However, in this test code, tx is directly inserted into mempool bypassing anteHandler.
+				// If ctx.priority were not set by anteHandler, ordering of cosmos txs can be non-deterministic.
+				// So we should set ctx.pritority only for testing.
+				err := mpool.Insert(s.network.GetContext().WithPriority(2000), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -349,7 +354,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(2000), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -384,11 +389,11 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 				mpool := s.network.App.GetMempool()
 
 				cosmosTx1 := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
-				err := mpool.Insert(s.network.GetContext(), cosmosTx1)
+				err := mpool.Insert(s.network.GetContext().WithPriority(1000), cosmosTx1)
 				s.Require().NoError(err)
 
 				cosmosTx2 := s.createCosmosSendTx(s.keyring.GetKey(1), big.NewInt(2000))
-				err = mpool.Insert(s.network.GetContext(), cosmosTx2)
+				err = mpool.Insert(s.network.GetContext().WithPriority(2000), cosmosTx2)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -415,7 +420,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 
 				// Add Cosmos transaction
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(2000), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -466,13 +471,13 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in non-priority order
-				err := mpool.Insert(s.network.GetContext(), lowFeeCosmosTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(1000000000), lowFeeCosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), highGasPriceEVMTx)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), mediumFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(3000000000), mediumFeeCosmosTx)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeCosmosTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(5000000000), highFeeCosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -574,11 +579,11 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err := mpool.Insert(s.network.GetContext(), mediumFeeTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(1000000000), mediumFeeTx)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), lowFeeTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(3000000000), lowFeeTx)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), highFeeTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(5000000000), highFeeTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -607,7 +612,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(1000000000), cosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
@@ -649,7 +654,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert Cosmos first, then EVM
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(2000000000), cosmosTx)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
@@ -690,7 +695,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// Insert EVM first, then Cosmos
 				err := mpool.Insert(s.network.GetContext(), evmTx)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosTx)
+				err = mpool.Insert(s.network.GetContext().WithPriority(5000000000), cosmosTx)
 				s.Require().NoError(err)
 			},
 			verifyFunc: func(iterator mempool.Iterator) {
@@ -733,15 +738,15 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				mpool := s.network.App.GetMempool()
 
 				// Insert in random order
-				err := mpool.Insert(s.network.GetContext(), cosmosLow)
+				err := mpool.Insert(s.network.GetContext().WithPriority(1000000000), cosmosLow)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmMedium)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosHigh)
+				err = mpool.Insert(s.network.GetContext().WithPriority(6000000000), cosmosHigh)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmLow)
 				s.Require().NoError(err)
-				err = mpool.Insert(s.network.GetContext(), cosmosMedium)
+				err = mpool.Insert(s.network.GetContext().WithPriority(3000000000), cosmosMedium)
 				s.Require().NoError(err)
 				err = mpool.Insert(s.network.GetContext(), evmHigh)
 				s.Require().NoError(err)
@@ -855,7 +860,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 			setupTxs: func() {
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000))
 				mpool := s.network.App.GetMempool()
-				err := mpool.Insert(s.network.GetContext(), cosmosTx)
+				err := mpool.Insert(s.network.GetContext().WithPriority(2000), cosmosTx)
 				s.Require().NoError(err)
 			},
 			filterFunc: func(tx sdk.Tx) bool {
@@ -884,7 +889,7 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 				// Add transactions with different fees
 				for i := 1; i < 6; i++ { // Use different keys for different transactions
 					cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(i), big.NewInt(int64(i*1000))) // 5000, 4000, 3000, 2000, 1000
-					err := mpool.Insert(s.network.GetContext(), cosmosTx)
+					err := mpool.Insert(s.network.GetContext().WithPriority(int64(i*1000)), cosmosTx)
 					s.Require().NoError(err)
 				}
 			},
@@ -988,7 +993,7 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 	tx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000))
 
 	// Should fail because mempool requires block height >= 2
-	err = mpool.Insert(nw.GetContext(), tx)
+	err = mpool.Insert(nw.GetContext().WithPriority(1000), tx)
 	// The mempool might not enforce height requirements in this context
 	// Just check that the operation completes (either success or error)
 	s.Require().True(err == nil || err != nil)
