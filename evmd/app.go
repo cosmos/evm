@@ -768,7 +768,7 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// TODO: Get the actual block gas limit from consensus parameters
-		legacyPoolCfg := legacypool.Config{
+		legacyPoolCfg := &legacypool.Config{
 			Journal:   "transactions.rlp",
 			Rejournal: time.Hour,
 
@@ -783,8 +783,9 @@ func NewExampleApp(
 			Lifetime: 3 * time.Hour,
 		}
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: 100_000_000,
+			AnteHandler:      app.GetAnteHandler(),
+			BlockGasLimit:    100_000_000,
+			LegacyPoolConfig: legacyPoolCfg,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
