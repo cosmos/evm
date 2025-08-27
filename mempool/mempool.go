@@ -146,18 +146,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
 		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
 			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
-				cosmosTxFee, ok := tx.(sdk.FeeTx)
-				if !ok {
+				ctx := sdk.UnwrapSDKContext(goCtx)
+				priority := ctx.Priority()
+				if priority < 0 {
 					return math.ZeroInt()
 				}
-				found, coin := cosmosTxFee.GetFee().Find(bondDenom)
-				if !found {
-					return math.ZeroInt()
-				}
-
-				gasPrice := coin.Amount.Quo(math.NewIntFromUint64(cosmosTxFee.GetGas()))
-
-				return gasPrice
+				return math.NewIntFromUint64(uint64(priority))
 			},
 			Compare: func(a, b math.Int) int {
 				return a.BigInt().Cmp(b.BigInt())
