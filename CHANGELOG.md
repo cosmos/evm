@@ -8,9 +8,11 @@
 
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
 - [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
+- [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs.
 
 ### IMPROVEMENTS
 
+- [\#513](https://github.com/cosmos/evm/pull/513) Replace `TestEncodingConfig` with production `EncodingConfig` in encoding package to remove test dependencies from production code.
 - [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
 - [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
 - [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.

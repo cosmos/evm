@@ -20,7 +20,7 @@ service Query {
 
   // TokenPair retrieves a registered token pair (mapping)
   rpc TokenPair(QueryTokenPairRequest) returns (QueryTokenPairResponse) {
-    option (google.api.http).get = "/cosmos/evm/erc20/v1/token_pairs/{token}";
+    option (google.api.http).get = "/cosmos/evm/erc20/v1/token_pairs/{token=**}";
   }
 
   // Params retrieves the erc20 module params
