@@ -24,7 +24,7 @@ We appreciate community contributions! To ensure a smooth process, please follow
 3. **Conventional Commit PR Titles**
     - PR titles should use the [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/#summary) format.
 
-3. **Documentation Contributions**
+4. **Documentation Contributions**
    - We only accept documentation PRs that make **substantial or impactful changes**.
    - Minor typo or style-only fixes in documentation will not be accepted.
 
