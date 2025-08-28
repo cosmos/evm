@@ -11,7 +11,7 @@ import (
 	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -718,26 +718,26 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccount() {
 
 func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			sender := sdk.AccAddress([]byte{1})
 			recipient := sdk.AccAddress([]byte{2})
@@ -798,7 +798,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 func FuzzSendCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)).Configure()
+	err := configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo).Configure()
 	require.NoError(f, err)
 
 	f.Add(uint64(100), uint64(0), uint64(2))
@@ -856,26 +856,26 @@ func FuzzSendCoins(f *testing.F) {
 
 func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //nolint:revive // false positive due to file name
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			sender := sdk.AccAddress([]byte{1})
 			recipient := sdk.AccAddress([]byte{2})

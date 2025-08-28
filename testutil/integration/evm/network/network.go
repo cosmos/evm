@@ -308,9 +308,19 @@ func (n *IntegrationNetwork) GetBaseDenom() string {
 	return n.cfg.chainCoins.baseCoin.Denom
 }
 
+// GetBaseDecimals returns the network's base decimals
+func (n *IntegrationNetwork) GetBaseDecimals() evmtypes.Decimals {
+	return n.cfg.chainCoins.BaseDecimals()
+}
+
 // GetEVMDenom returns the network's evm denom
 func (n *IntegrationNetwork) GetEVMDenom() string {
 	return n.cfg.chainCoins.evmCoin.Denom
+}
+
+// GetEVMDecimals returns the network's evm decimals
+func (n *IntegrationNetwork) GetEVMDecimals() evmtypes.Decimals {
+	return n.cfg.chainCoins.EVMDecimals()
 }
 
 // GetOtherDenoms returns network's other supported denoms

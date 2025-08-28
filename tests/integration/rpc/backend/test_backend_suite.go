@@ -19,7 +19,7 @@ import (
 	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -48,7 +48,7 @@ func NewTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) 
 	}
 }
 
-var ChainID = constants.ExampleChainID
+var ChainID = testconfig.DefaultChainConfig.ChainInfo
 
 // SetupTest is executed before every TestSuite test
 func (s *TestSuite) SetupTest() {

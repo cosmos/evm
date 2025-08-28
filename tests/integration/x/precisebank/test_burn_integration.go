@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -416,26 +416,26 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoinsSpreadRemainder() {
 
 func (s *KeeperIntegrationTestSuite) TestBurnCoinsRandomValueMultiDecimals() {
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			// Has burn permissions
 			burnerModuleName := evmtypes.ModuleName
@@ -500,7 +500,8 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoinsRandomValueMultiDecimals() {
 func FuzzBurnCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)).Configure()
+	coinInfo := testconfig.SixDecimalsChainConfig.CoinInfo
+	err := configurator.WithEVMCoinInfo(coinInfo).Configure()
 	require.NoError(f, err)
 
 	f.Add(int64(0))

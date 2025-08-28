@@ -15,7 +15,7 @@ import (
 
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -54,7 +54,7 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	chainID := testconstants.ExampleChainID.EVMChainID
+	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
 	err := config.EvmAppOptionsWithReset(chainID, true)
 	suite.Require().NoError(err)
 }
@@ -113,8 +113,8 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 		},
 	}
 	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID),
-		testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID),
+		testconfig.SixDecimalsChainConfig.CoinInfo,
+		testconfig.DefaultChainConfig.CoinInfo,
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEVMConfigurator()

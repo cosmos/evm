@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/contracts"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/precisebank/types"
@@ -20,26 +20,26 @@ import (
 
 func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecimals() {
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			moduleName := evmtypes.ModuleName
 			sender := sdk.AccAddress([]byte{1})
@@ -136,26 +136,26 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 	defaultEVMCoinTransferGasLimit := int64(21000)
 
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			sender := s.keyring.GetKey(0)
 			recipient := s.keyring.GetKey(1)
@@ -249,26 +249,26 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 
 func (s *KeeperIntegrationTestSuite) TestWATOMWrapUnwrapMultiDecimal() {
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			sender := s.keyring.GetKey(0)
 			amount := big.NewInt(1)

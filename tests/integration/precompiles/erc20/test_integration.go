@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -251,7 +251,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			passCheck = failCheck.WithExpPass(true)
 
 			erc20Keeper := is.network.App.GetErc20Keeper()
-			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconstants.WEVMOSContractMainnet))
+			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconfig.DefaultWevmosContractMainnet))
 			Expect(available).To(BeTrue())
 
 			revertContractAddr, err = is.factory.DeployContract(
@@ -261,7 +261,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Contract: revertCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
-					ConstructorArgs: []interface{}{common.HexToAddress(testconstants.WEVMOSContractMainnet)},
+					ConstructorArgs: []interface{}{common.HexToAddress(testconfig.DefaultWevmosContractMainnet)},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), "failed to deploy reverter contract")

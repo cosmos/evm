@@ -6,7 +6,7 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testtx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -18,9 +18,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
-
-// defaultChain represents the default chain ID used in the suite setup.
-var defaultChain = testconstants.ExampleChainID
 
 // Config defines the configuration for a chain.
 // It allows for customization of the network to adjust to
@@ -54,8 +51,8 @@ func DefaultConfig() Config {
 	account, _ := testtx.NewAccAddressAndKey()
 
 	return Config{
-		chainID:             testconstants.ExampleChainID.ChainID,
-		eip155ChainID:       big.NewInt(testconstants.ExampleEIP155ChainID),
+		chainID:             testconfig.DefaultChainConfig.ChainInfo.ChainID,
+		eip155ChainID:       big.NewInt(int64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
 		initialBondedAmount: DefaultInitialBondedAmount(),
@@ -115,21 +112,19 @@ func getGenAccountsAndBalances(cfg Config, validators []stakingtypes.Validator) 
 // requires to be changed.
 type ConfigOption func(*Config)
 
-// WithChainID sets a custom chainID for the network. Changing the chainID
+// WithChainConfig sets a custom chainID for the network. Changing the chainID
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
-func WithChainID(chainID testconstants.ChainID) ConfigOption {
-	evmCoinInfo := testconstants.GetExampleChainCoinInfo(chainID)
-
+func WithChainConfig(chainConfig testconfig.ChainConfig) ConfigOption {
 	return func(cfg *Config) {
-		cfg.chainID = chainID.ChainID
-		cfg.eip155ChainID = big.NewInt(int64(chainID.EVMChainID)) //nolint:gosec // G115 // won't exceed uint64
+		cfg.chainID = chainConfig.ChainInfo.ChainID
+		cfg.eip155ChainID = big.NewInt(int64(chainConfig.ChainInfo.EVMChainID)) //nolint:gosec // G115 // won't exceed uint64
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
-			cfg.chainCoins.baseCoin.Denom = evmCoinInfo.Denom
-			cfg.chainCoins.baseCoin.Decimals = evmCoinInfo.Decimals
+			cfg.chainCoins.baseCoin.Denom = chainConfig.CoinInfo.Denom
+			cfg.chainCoins.baseCoin.Decimals = chainConfig.CoinInfo.Decimals
 		}
-		cfg.chainCoins.evmCoin.Denom = evmCoinInfo.Denom
-		cfg.chainCoins.evmCoin.Decimals = evmCoinInfo.Decimals
+		cfg.chainCoins.evmCoin.Denom = chainConfig.CoinInfo.Denom
+		cfg.chainCoins.evmCoin.Decimals = chainConfig.CoinInfo.Decimals
 	}
 }
 

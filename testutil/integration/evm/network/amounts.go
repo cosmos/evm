@@ -3,7 +3,7 @@ package network
 import (
 	"math/big"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -18,18 +18,16 @@ type InitialAmounts struct {
 }
 
 func DefaultInitialAmounts() InitialAmounts {
-	baseCoinInfo := testconstants.GetExampleChainCoinInfo(defaultChain)
-
+	coinInfo := testconfig.DefaultChainConfig.CoinInfo
 	return InitialAmounts{
-		Base: GetInitialAmount(baseCoinInfo.Decimals),
-		Evm:  GetInitialAmount(baseCoinInfo.Decimals),
+		Base: GetInitialAmount(coinInfo.Decimals),
+		Evm:  GetInitialAmount(coinInfo.Decimals),
 	}
 }
 
 func DefaultInitialBondedAmount() math.Int {
-	baseCoinInfo := testconstants.GetExampleChainCoinInfo(defaultChain)
-
-	return GetInitialBondedAmount(baseCoinInfo.Decimals)
+	coinInfo := testconfig.DefaultChainConfig.CoinInfo
+	return GetInitialBondedAmount(coinInfo.Decimals)
 }
 
 func GetInitialAmount(decimals evmtypes.Decimals) math.Int {

@@ -54,7 +54,7 @@ func NewRootCmd() *cobra.Command {
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
-	noOpEvmAppOptions := func(_ uint64) error {
+	noOpEvmAppOptions := func(_ evmdconfig.ChainConfig) error {
 		return nil
 	}
 	tempApp := evmd.NewExampleApp(

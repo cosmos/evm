@@ -5,7 +5,7 @@
 package network
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -70,27 +70,22 @@ func generateBankGenesisMetadata() []banktypes.Metadata {
 	return metas
 }
 
-// updateErc20GenesisStateForChainID modify the default genesis state for the
-// erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
-	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
+// updateErc20GenesisStateForCoinInfo modify the default genesis state for the
+// erc20 module on the testing suite depending on the coin info
+func updateErc20GenesisStateForCoinInfo(coinInfo evmtypes.EvmCoinInfo, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
+	erc20GenesisState.TokenPairs = updateErc20TokenPairs(coinInfo, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
 }
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct
-// WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
-	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconstants.GetExampleChainCoinInfo(chainID)
-
-	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
-
+// WEVMOS depending on the coin info
+func updateErc20TokenPairs(coinInfo evmtypes.EvmCoinInfo, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	updatedTokenPairs := make([]erc20types.TokenPair, len(tokenPairs))
 	for i, tokenPair := range tokenPairs {
-		if tokenPair.Erc20Address == mainnetAddress {
+		if tokenPair.Erc20Address == testconfig.DefaultWevmosContractMainnet {
 			updatedTokenPairs[i] = erc20types.TokenPair{
-				Erc20Address:  testnetAddress,
+				Erc20Address:  testconfig.DefaultWevmosContractTestnet,
 				Denom:         coinInfo.Denom,
 				Enabled:       tokenPair.Enabled,
 				ContractOwner: tokenPair.ContractOwner,

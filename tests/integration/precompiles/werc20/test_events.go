@@ -9,7 +9,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/werc20"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -44,11 +44,11 @@ func NewPrecompileUnitTestSuite(
 // SetupTest allows to configure the testing suite embedding a network with a
 // custom chainID. This is important to check that the correct address is used
 // for the precompile.
-func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
+func (s *PrecompileUnitTestSuite) SetupTest(chainConfig testconfig.ChainConfig) {
 	keyring := keyring.New(2)
 
 	options := []network.ConfigOption{
-		network.WithChainID(chainID),
+		network.WithChainConfig(chainConfig),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	}
 	options = append(options, s.options...)
@@ -61,7 +61,7 @@ func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
 	s.grpcHandler = grpcHandler
 	s.keyring = keyring
 
-	s.precompileAddrHex = network.GetWEVMOSContractHex(chainID)
+	s.precompileAddrHex = network.GetWEVMOSContractHex(chainConfig.ChainInfo)
 
 	ctx := integrationNetwork.GetContext()
 
@@ -96,21 +96,21 @@ type WithdrawalEvent struct {
 //nolint:dupl
 func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 	testCases := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "mainnet",
-			chainID: testconstants.ExampleChainID,
+			name:        "mainnet",
+			chainConfig: testconfig.DefaultChainConfig,
 		}, {
-			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "six decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.SetupTest(tc.chainID)
+			s.SetupTest(tc.chainConfig)
 			caller := s.keyring.GetAddr(0)
 			amount := new(big.Int).SetInt64(1_000)
 
@@ -155,21 +155,21 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 //nolint:dupl
 func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 	testCases := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "mainnet",
-			chainID: testconstants.ExampleChainID,
+			name:        "mainnet",
+			chainConfig: testconfig.DefaultChainConfig,
 		}, {
-			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "six decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.SetupTest(tc.chainID)
+			s.SetupTest(tc.chainConfig)
 			caller := s.keyring.GetAddr(0)
 			amount := new(big.Int).SetInt64(1_000)
 

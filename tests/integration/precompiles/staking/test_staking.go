@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/testutil"
 	chainutil "github.com/cosmos/evm/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/keyring"
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -224,7 +224,8 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool
-				coin := sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1000))
+				attoDenom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+				coin := sdk.NewCoin(attoDenom, math.NewInt(1000))
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
@@ -352,7 +353,8 @@ func (s *PrecompileTestSuite) TestRun() {
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool
-				coin := sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1000))
+				attoDenom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+				coin := sdk.NewCoin(attoDenom, math.NewInt(1000))
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
@@ -573,7 +575,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool
-				coin := sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1000))
+				attoDenom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+				coin := sdk.NewCoin(attoDenom, math.NewInt(1000))
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
@@ -701,7 +704,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 
 				// Needs to be called after setting unbonding delegation
 				// In order to mimic the coins being added to the unboding pool
-				coin := sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1000))
+				attoDenom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+				coin := sdk.NewCoin(attoDenom, math.NewInt(1000))
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 

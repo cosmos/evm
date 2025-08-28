@@ -10,7 +10,8 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/evm/testutil/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -24,8 +25,9 @@ const FeeAmt = 10000000000
 func FeeCoins() sdk.Coins {
 	// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
 	// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
+	denom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
 	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
-	return sdk.Coins{sdk.NewInt64Coin(config.BaseDenom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
+	return sdk.Coins{sdk.NewInt64Coin(denom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
 }
 
 // SignAndDeliver signs and delivers a transaction. No simulation occurs as the

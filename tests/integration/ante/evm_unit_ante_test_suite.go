@@ -3,7 +3,7 @@ package ante
 import (
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 )
 
@@ -26,7 +26,7 @@ func NewEvmUnitAnteTestSuite(
 ) *EvmUnitAnteTestSuite {
 	return &EvmUnitAnteTestSuite{
 		create:     create,
-		ChainID:    constants.ExampleChainID.ChainID,
-		EvmChainID: constants.ExampleChainID.EVMChainID,
+		ChainID:    testconfig.DefaultChainConfig.ChainInfo.ChainID,
+		EvmChainID: testconfig.DefaultChainConfig.ChainInfo.EVMChainID,
 	}
 }

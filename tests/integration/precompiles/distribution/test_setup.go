@@ -4,7 +4,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/distribution"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -57,7 +57,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 	customGen := network.CustomGenesisState{}
 
 	// mint some coin to fee collector
-	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(1000000000000000000)))
+	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	fooDenom, barDenom := "foo", "bar"
+	coins := sdk.NewCoins(sdk.NewCoin(attoDenom, sdkmath.NewInt(1000000000000000000)))
 	balances := []banktypes.Balance{
 		{
 			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
@@ -90,7 +92,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	// set non-zero inflation for rewards to accrue (use defaults from SDK for values)
 	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = testconstants.ExampleAttoDenom
+	mintGen.Params.MintDenom = attoDenom
 	customGen[minttypes.ModuleName] = mintGen
 
 	operatorsAddr := make([]sdk.AccAddress, 3)
@@ -99,12 +101,12 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 
 	s.otherDenoms = []string{
-		testconstants.OtherCoinDenoms[0],
-		testconstants.OtherCoinDenoms[1],
+		fooDenom,
+		barDenom,
 	}
 
 	options := []network.ConfigOption{
-		network.WithOtherDenoms(testconstants.OtherCoinDenoms),
+		network.WithOtherDenoms(s.otherDenoms),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		network.WithOtherDenoms(s.otherDenoms),
 		network.WithCustomGenesis(customGen),

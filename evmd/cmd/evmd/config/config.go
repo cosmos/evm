@@ -1,42 +1,11 @@
 package config
 
 import (
-	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-// GetEvmCoinInfo returns appropriate EvmCoinInfo for evmd based on chainID.
-func GetEvmCoinInfo(chainID uint64) evmtypes.EvmCoinInfo {
-	switch chainID {
-	case EighteenDecimalsChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         ExampleChainDenom,
-			ExtendedDenom: ExampleChainDenom,
-			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
-		}
-	case SixDecimalsChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         "utest",
-			ExtendedDenom: "atest",
-			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals,
-		}
-	case EVMChainID:
-		return evmtypes.EvmCoinInfo{
-			Denom:         "atest",
-			ExtendedDenom: "atest",
-			DisplayDenom:  "test",
-			Decimals:      evmtypes.EighteenDecimals,
-		}
-	default:
-		// Default fallback - return the default configuration
-		return *config.DefaultEvmCoinInfo()
-	}
-}
 
 const (
 	// Bech32Prefix defines the Bech32 prefix used for accounts on the exemplary Cosmos EVM blockchain.
@@ -63,6 +32,36 @@ const (
 	EVMChainID = 262144
 )
 
+const (
+	// ExampleChainDenom is the denomination of the Cosmos EVM example chain's base coin.
+	ExampleChainDenom = "aatom"
+
+	// ExampleDisplayDenom is the display denomination of the Cosmos EVM example chain's base coin.
+	ExampleDisplayDenom = "atom"
+
+	// EighteenDecimalsChainID is the chain ID for the 18 decimals chain.
+	EighteenDecimalsChainID = 9001
+
+	// SixDecimalsChainID is the chain ID for the 6 decimals chain.
+	SixDecimalsChainID = 9002
+
+	// TwelveDecimalsChainID is the chain ID for the 12 decimals chain.
+	TwelveDecimalsChainID = 9003
+
+	// TwoDecimalsChainID is the chain ID for the 2 decimals chain.
+	TwoDecimalsChainID = 9004
+
+	CosmosChainID = 262144
+
+	// TestChainID1 is test chain IDs for IBC E2E test
+	TestChainID1 = 9005
+	// TestChainID2 is test chain IDs for IBC E2E test
+	TestChainID2 = 9006
+
+	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
+	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
+)
+
 // SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.
 func SetBech32Prefixes(config *sdk.Config) {
 	config.SetBech32PrefixForAccount(Bech32PrefixAccAddr, Bech32PrefixAccPub)
@@ -75,4 +74,14 @@ func SetBip44CoinType(config *sdk.Config) {
 	config.SetCoinType(types.Bip44CoinType)
 	config.SetPurpose(sdk.Purpose)                  // Shared
 	config.SetFullFundraiserPath(types.BIP44HDPath) //nolint: staticcheck
+}
+
+type ChainConfig struct {
+	ChainInfo ChainInfo
+	CoinInfo  evmtypes.EvmCoinInfo
+}
+
+type ChainInfo struct {
+	ChainID    string
+	EVMChainID uint64
 }

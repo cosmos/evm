@@ -12,7 +12,7 @@ import (
 	ethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -684,8 +684,9 @@ func (s *KeeperTestSuite) TestAddLog() {
 	msg2 := types.NewTx(ethTx2Params)
 	msg2.From = addr.Bytes()
 
+	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
 	ethTx3Params := &types.EvmTxArgs{
-		ChainID:   big.NewInt(testconstants.ExampleEIP155ChainID),
+		ChainID:   big.NewInt(int64(chainID)),
 		Nonce:     0,
 		To:        &toAddr,
 		Amount:    common.Big1,

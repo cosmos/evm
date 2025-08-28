@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -340,26 +340,26 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 
 func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 	tests := []struct {
-		name    string
-		chainID testconstants.ChainID
+		name        string
+		chainConfig testconfig.ChainConfig
 	}{
 		{
-			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			name:        "6 decimals",
+			chainConfig: testconfig.SixDecimalsChainConfig,
 		},
 		{
-			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			name:        "12 decimals",
+			chainConfig: testconfig.TwelveDecimalsChainConfig,
 		},
 		{
-			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			name:        "2 decimals",
+			chainConfig: testconfig.TwoDecimalsChainConfig,
 		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.SetupTestWithChainID(tt.chainID)
+			s.SetupTestWithChainConfig(tt.chainConfig)
 
 			// Has mint permissions
 			minterModuleName := evmtypes.ModuleName
@@ -417,7 +417,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 func FuzzMintCoins(f *testing.F) {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)).Configure()
+	err := configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo).Configure()
 	require.NoError(f, err)
 
 	f.Add(int64(0))

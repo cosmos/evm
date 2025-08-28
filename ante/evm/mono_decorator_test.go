@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -144,8 +144,8 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 }
 
 func TestMonoDecorator(t *testing.T) {
-	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
+	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
+	require.NoError(t, testconfig.EvmAppOptions(chainID))
 	cfg := encoding.MakeConfig(chainID)
 
 	testCases := []struct {

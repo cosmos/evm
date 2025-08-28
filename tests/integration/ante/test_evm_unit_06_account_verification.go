@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -27,13 +27,17 @@ import (
 func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 	// Setup
 	keyring := testkeyring.New(2)
+	chainConfig := testconfig.ChainConfig{
+		ChainInfo: testconfig.ChainInfo{
+			ChainID:    s.ChainID,
+			EVMChainID: s.EvmChainID,
+		},
+		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+	}
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-		network.WithChainID(testconstants.ChainID{
-			ChainID:    s.ChainID,
-			EVMChainID: s.EvmChainID,
-		}),
+		network.WithChainConfig(chainConfig),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
 	txFactory := factory.New(unitNetwork, grpcHandler)

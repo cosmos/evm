@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
 	chainutil "github.com/cosmos/evm/testutil"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -73,6 +73,9 @@ func (s *PrecompileTestSuite) TestRun() {
 		ctx sdk.Context
 		err error
 	)
+
+	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+
 	testcases := []struct {
 		name        string
 		malleate    func() (common.Address, []byte)
@@ -86,7 +89,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				val, _ := s.network.App.GetStakingKeeper().GetValidator(ctx, valAddr)
-				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
+				denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+				coins := sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
 				input, err := s.precompile.Pack(
@@ -109,7 +113,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				caller := common.BytesToAddress(valAddr)
 
 				commAmt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
-				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, commAmt)}
+				denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(denom, commAmt)}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
 				// set commission
@@ -189,7 +194,7 @@ func (s *PrecompileTestSuite) TestRun() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  attoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
@@ -209,7 +214,7 @@ func (s *PrecompileTestSuite) TestRun() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  attoDenom,
 							Amount: big.NewInt(1e18),
 						},
 						{
@@ -300,6 +305,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 		ctx sdk.Context
 		err error
 	)
+	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+
 	testcases := []struct {
 		name        string
 		malleate    func() (common.Address, []byte)
@@ -312,7 +319,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				val, _ := s.network.App.GetStakingKeeper().GetValidator(ctx, valAddr)
-				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
+				coins := sdk.NewCoins(sdk.NewCoin(attoDenom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
 				input, err := s.precompile.Pack(
@@ -334,7 +341,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				caller := common.BytesToAddress(valAddr)
 
 				commAmt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
-				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, commAmt)}
+				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(attoDenom, commAmt)}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
 				// set commission
@@ -411,7 +418,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  attoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
@@ -430,7 +437,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
-							Denom:  constants.ExampleAttoDenom,
+							Denom:  attoDenom,
 							Amount: big.NewInt(1e18),
 						},
 						{

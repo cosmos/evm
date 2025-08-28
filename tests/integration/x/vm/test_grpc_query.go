@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
@@ -1605,9 +1605,10 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()
+				coinInfo := testconfig.DefaultChainConfig.CoinInfo
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)).
+					WithEVMCoinInfo(coinInfo).
 					Configure()
 				s.Require().NoError(err)
 			},
