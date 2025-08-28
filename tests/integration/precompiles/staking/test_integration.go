@@ -1911,7 +1911,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						}
 
 						expEvents := make([]string, 0, expectedDelegations)
-						for i := int64(0); i < expectedDelegations; i++ {
+						for range expectedDelegations {
 							expEvents = append(expEvents, staking.EventTypeDelegate)
 						}
 						delegateCheck := passCheck.WithExpEvents(expEvents...)
