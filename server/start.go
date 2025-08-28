@@ -132,8 +132,8 @@ which accepts a path for the resulting pprof file.
 				return err
 			}
 
-			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
-			if !withTM {
+			withbft, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
+			if !withbft {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
 					return startStandAlone(serverCtx, clientCtx, opts)
@@ -400,7 +400,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	genDocProvider := GenDocProvider(cfg)
 
 	var (
-		tmNode   *node.Node
+		bftNode  *node.Node
 		gRPCOnly = svrCtx.Viper.GetBool(srvflags.GRPCOnly)
 	)
 
@@ -412,7 +412,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		logger.Info("starting node with ABCI CometBFT in-process")
 
 		cmtApp := server.NewCometABCIWrapper(app)
-		tmNode, err = node.NewNode(
+		bftNode, err = node.NewNode(
 			cfg,
 			pvm.LoadOrGenFilePV(cfg.PrivValidatorKeyFile(), cfg.PrivValidatorStateFile()),
 			nodeKey,
@@ -427,17 +427,17 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		if err := tmNode.Start(); err != nil {
+		if err := bftNode.Start(); err != nil {
 			logger.Error("failed start CometBFT server", "error", err.Error())
 			return err
 		}
 
 		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-			m.SetEventBus(tmNode.EventBus())
+			m.SetEventBus(bftNode.EventBus())
 		}
 		defer func() {
-			if tmNode.IsRunning() {
-				_ = tmNode.Stop()
+			if bftNode.IsRunning() {
+				_ = bftNode.Stop()
 			}
 		}()
 	}
@@ -445,8 +445,8 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	// Add the tx service to the gRPC router. We only need to register this
 	// service if API or gRPC or JSONRPC is enabled, and avoid doing so in the general
 	// case, because it spawns a new local CometBFT RPC client.
-	if (config.API.Enable || config.GRPC.Enable || config.JSONRPC.Enable || config.JSONRPC.EnableIndexer) && tmNode != nil {
-		clientCtx = clientCtx.WithClient(local.New(tmNode))
+	if (config.API.Enable || config.GRPC.Enable || config.JSONRPC.Enable || config.JSONRPC.EnableIndexer) && bftNode != nil {
+		clientCtx = clientCtx.WithClient(local.New(bftNode))
 
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
