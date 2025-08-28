@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -34,16 +33,6 @@ const (
 	Sub Operation = iota
 	Add
 )
-
-type BalanceChangeEntry struct {
-	Account common.Address
-	Amount  *uint256.Int
-	Op      Operation
-}
-
-func NewBalanceChangeEntry(acc common.Address, amt *uint256.Int, op Operation) BalanceChangeEntry {
-	return BalanceChangeEntry{acc, amt, op}
-}
 
 // RequiredGas calculates the base minimum required gas for a transaction or a query.
 // It uses the method ID to determine if the input is a transaction or a query and

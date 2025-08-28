@@ -396,12 +396,20 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	}()
 }
 
-// Close unsubscribes from the CometBFT event bus.
+// Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
+	var errs []error
 	if m.eventBus != nil {
-		return m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
+			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
+		}
 	}
-	return nil
+
+	if err := m.txPool.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
