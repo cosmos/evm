@@ -64,6 +64,9 @@ type stateObject struct {
 	// state storage
 	originStorage Storage
 	dirtyStorage  Storage
+	// overridden state, when not nil, replace the whole committed state,
+	// mainly to support the stateOverrides in eth_call.
+	overrideStorage Storage
 
 	address common.Address
 
@@ -216,6 +219,13 @@ func (s *stateObject) Nonce() uint64 {
 
 // GetCommittedState query the committed state
 func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
+	if s.overrideStorage != nil {
+		if value, ok := s.overrideStorage[key]; ok {
+			return value
+		}
+		return common.Hash{}
+	}
+
 	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
@@ -249,6 +259,15 @@ func (s *stateObject) SetState(key common.Hash, value common.Hash) common.Hash {
 	})
 	s.setState(key, value)
 	return prev
+}
+
+// SetStorage overrides the entire contract storage for this state object.
+// This replaces the committed state with the provided storage map, clearing
+// any previous origin and dirty storage.
+func (s *stateObject) SetStorage(storage Storage) {
+	s.overrideStorage = storage
+	s.originStorage = make(Storage)
+	s.dirtyStorage = make(Storage)
 }
 
 func (s *stateObject) setState(key, value common.Hash) {
