@@ -8,7 +8,6 @@ import (
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
-	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -43,7 +42,9 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		loadLatest,
 		appOptions,
 		evmChainID,
-		testconfig.EvmAppOptions,
+		func(chainID uint64) error {
+			return testconfig.EvmAppOptionsWithReset(chainID, true)
+		},
 		baseAppOptions...,
 	)
 }
@@ -51,14 +52,17 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
+	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simutils.EmptyAppOptions{},
-		constants.ExampleEIP155ChainID,
-		testconfig.EvmAppOptions,
+		chainID,
+		func(chainID uint64) error {
+			return testconfig.EvmAppOptionsWithReset(chainID, true)
+		},
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

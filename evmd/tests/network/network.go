@@ -32,7 +32,6 @@ import (
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
@@ -112,6 +111,7 @@ func DefaultConfig() Config {
 	defer os.RemoveAll(dir)
 	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 
+	baseDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
 		TxConfig:          tempApp.TxConfig(),
@@ -123,8 +123,8 @@ func DefaultConfig() Config {
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
-		BondDenom:         testconstants.ExampleAttoDenom,
-		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
+		BondDenom:         baseDenom,
+		MinGasPrices:      fmt.Sprintf("0.000006%s", baseDenom),
 		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
 		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
 		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
@@ -476,7 +476,10 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		chainDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+		chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
+
+		customAppTemplate, _ := evmdconfig.InitAppConfig(chainDenom, chainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

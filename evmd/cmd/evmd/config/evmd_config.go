@@ -6,6 +6,7 @@ import (
 
 	corevm "github.com/ethereum/go-ethereum/core/vm"
 
+	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -92,6 +93,7 @@ type EVMAppConfig struct {
 	EVM     cosmosevmserverconfig.EVMConfig
 	JSONRPC cosmosevmserverconfig.JSONRPCConfig
 	TLS     cosmosevmserverconfig.TLSConfig
+	Coin    evmtypes.EvmCoinInfo
 }
 
 // InitAppConfig helps to override default appConfig template and configs.
@@ -117,14 +119,24 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = evmChainID
 
+	// Use the default chain configuration as a fallback
+	chainCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
+
 	customAppConfig := EVMAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
+		Coin:    *chainCfg,
 	}
 
 	return EVMAppTemplate, customAppConfig
 }
 
 const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
+
+// EvmAppOptionsFromConfig allows setting up the global configuration
+// for the Cosmos EVM chain using coin configuration from app.toml
+func EvmAppOptionsFromConfig(chainID uint64, evmCoinInfo evmtypes.EvmCoinInfo) error {
+	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
+}

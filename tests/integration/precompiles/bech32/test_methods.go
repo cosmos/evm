@@ -63,7 +63,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					config.Bech32Prefix,
+					config.DefaultBech32Prefix,
 				}
 			},
 			func(data []byte) {
@@ -135,18 +135,18 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			"fail - invalid bech32 address",
 			func() []interface{} {
 				return []interface{}{
-					config.Bech32Prefix,
+					config.DefaultBech32Prefix,
 				}
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf("invalid bech32 address: %s", config.Bech32Prefix),
+			fmt.Sprintf("invalid bech32 address: %s", config.DefaultBech32Prefix),
 		},
 		{
 			"fail - decoding bech32 failed",
 			func() []interface{} {
 				return []interface{}{
-					config.Bech32Prefix + "1",
+					config.DefaultBech32Prefix + "1",
 				}
 			},
 			func([]byte) {},

@@ -3,6 +3,14 @@
 export GOPATH="$HOME"/go
 export PATH="$PATH":"$GOPATH"/bin
 
+# Preserve chain configuration environment variables
+export CHAIN_ID="${CHAIN_ID:-}"
+export EVM_CHAIN_ID="${EVM_CHAIN_ID:-}"
+export DENOM="${DENOM:-}"
+export EXTENDED_DENOM="${EXTENDED_DENOM:-}"
+export DISPLAY_DENOM="${DISPLAY_DENOM:-}"
+export DECIMALS="${DECIMALS:-}"
+
 # remove existing data
 rm -rf "$HOME"/.tmp-evmd-solidity-tests
 

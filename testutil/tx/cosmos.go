@@ -4,7 +4,8 @@ import (
 	protov2 "google.golang.org/protobuf/proto"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -16,7 +17,8 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var DefaultFee = sdk.NewCoin(constants.ExampleAttoDenom, sdkmath.NewInt(1e16)) // 0.01 AATOM
+var attoDenom = evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+var DefaultFee = sdk.NewCoin(attoDenom, sdkmath.NewInt(1e16)) // 0.01 AATOM
 
 // CosmosTxArgs contains the params to create a cosmos tx
 type CosmosTxArgs struct {
@@ -51,7 +53,7 @@ func PrepareCosmosTx(
 
 	var fees sdk.Coins
 	if args.GasPrice != nil {
-		fees = sdk.Coins{{Denom: constants.ExampleAttoDenom, Amount: args.GasPrice.MulRaw(int64(args.Gas))}} //#nosec G115
+		fees = sdk.Coins{{Denom: attoDenom, Amount: args.GasPrice.MulRaw(int64(args.Gas))}} //#nosec G115
 	} else {
 		fees = sdk.Coins{DefaultFee}
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -27,6 +27,7 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 	from, fromPrivKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
 	denom := evmtypes.GetEVMCoinDenom()
+	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
 
 	testCases := []struct {
 		name              string
@@ -97,7 +98,7 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 			"EIP712 message",
 			200000,
 			func() sdk.Tx {
-				amount := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(20)))
+				amount := sdk.NewCoins(sdk.NewCoin(attoDenom, sdkmath.NewInt(20)))
 				gas := uint64(200000)
 				acc := s.GetNetwork().App.GetAccountKeeper().NewAccountWithAddress(ctx, from.Bytes())
 				s.Require().NoError(acc.SetSequence(1))
@@ -112,13 +113,13 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 			"Cosmos Tx - gasWanted > max block gas",
 			TestGasLimit,
 			func() sdk.Tx {
-				denom := testconstants.ExampleAttoDenom
+				denom := attoDenom
 				testMsg := banktypes.MsgSend{
 					FromAddress: "cosmos1x8fhpj9nmhqk8z9kpgjt95ck2xwyue0ptzkucp",
 					ToAddress:   "cosmos1dx67l23hz9l0k9hcher8xz04uj7wf3yu26l2yn",
 					Amount:      sdk.Coins{sdk.Coin{Amount: sdkmath.NewInt(10), Denom: denom}},
 				}
-				txBuilder := s.CreateTestCosmosTxBuilder(sdkmath.NewInt(10), testconstants.ExampleAttoDenom, &testMsg)
+				txBuilder := s.CreateTestCosmosTxBuilder(sdkmath.NewInt(10), attoDenom, &testMsg)
 				limit := types.BlockGasLimit(ctx)
 				txBuilder.SetGasLimit(limit + 5)
 				return txBuilder.GetTx()

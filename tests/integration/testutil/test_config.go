@@ -16,8 +16,8 @@ import (
 )
 
 func (s *TestSuite) TestWithChainID() {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
+	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
 
 	testCases := []struct {
 		name            string

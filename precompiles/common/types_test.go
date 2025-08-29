@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 
 	"cosmossdk.io/math"
 
@@ -24,7 +24,8 @@ func TestNewCoinsResponse(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		coin := sdk.NewCoin(constants.ExampleAttoDenom, tc.amount)
+		denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+		coin := sdk.NewCoin(denom, tc.amount)
 		coins := sdk.NewCoins(coin)
 		res := common.NewCoinsResponse(coins)
 		require.Equal(t, 1, len(res))
@@ -41,7 +42,8 @@ func TestNewDecCoinsResponse(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		coin := sdk.NewDecCoin(constants.ExampleAttoDenom, tc.amount)
+		denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+		coin := sdk.NewDecCoin(denom, tc.amount)
 		coins := sdk.NewDecCoins(coin)
 		res := common.NewDecCoinsResponse(coins)
 		require.Equal(t, 1, len(res))
