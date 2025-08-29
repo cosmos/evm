@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +18,6 @@ import (
 
 // TestMempoolInsert tests transaction insertion into the mempool
 func (s *IntegrationTestSuite) TestMempoolInsert() {
-	fmt.Printf("DEBUG: Starting TestMempoolInsert\n")
 	testCases := []struct {
 		name          string
 		setupTx       func() sdk.Tx
@@ -134,13 +132,10 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 		},
 	}
 
-	for i, tc := range testCases {
-		fmt.Printf("DEBUG: TestMempoolInsert - Starting test case %d/%d: %s\n", i+1, len(testCases), tc.name)
+	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			fmt.Printf("DEBUG: Running test case: %s\n", tc.name)
 			// Reset test setup to ensure clean state
 			s.SetupTest()
-			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
 			mpool := s.network.App.GetMempool()
@@ -157,15 +152,12 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 			}
 
 			tc.verifyFunc()
-			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
-		fmt.Printf("DEBUG: TestMempoolInsert - Completed test case %d/%d: %s\n", i+1, len(testCases), tc.name)
 	}
 }
 
 // TestMempoolRemove tests transaction removal from the mempool
 func (s *IntegrationTestSuite) TestMempoolRemove() {
-	fmt.Printf("DEBUG: Starting TestMempoolRemove\n")
 	testCases := []struct {
 		name          string
 		setupTx       func() sdk.Tx
@@ -228,10 +220,8 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			fmt.Printf("DEBUG: Running test case: %s\n", tc.name)
 			// Reset test setup to ensure clean state
 			s.SetupTest()
-			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
 			mpool := s.network.App.GetMempool()
@@ -254,14 +244,12 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 			}
 
 			tc.verifyFunc()
-			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
 	}
 }
 
 // TestMempoolSelect tests transaction selection from the mempool
 func (s *IntegrationTestSuite) TestMempoolSelect() {
-	fmt.Printf("DEBUG: Starting TestMempoolSelect\n")
 	testCases := []struct {
 		name       string
 		setupTxs   func()
@@ -330,7 +318,6 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 
 // TestMempoolIterator tests iterator functionality
 func (s *IntegrationTestSuite) TestMempoolIterator() {
-	fmt.Printf("DEBUG: Starting TestMempoolIterator\n")
 	testCases := []struct {
 		name       string
 		setupTxs   func()
@@ -446,7 +433,6 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 
 // TestTransactionOrdering tests transaction ordering based on fees
 func (s *IntegrationTestSuite) TestTransactionOrdering() {
-	fmt.Printf("DEBUG: Starting TestTransactionOrdering\n")
 	testCases := []struct {
 		name       string
 		setupTxs   func()
@@ -833,7 +819,6 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 
 // TestSelectBy tests the SelectBy functionality with filters
 func (s *IntegrationTestSuite) TestSelectBy() {
-	fmt.Printf("DEBUG: Starting TestSelectBy\n")
 	testCases := []struct {
 		name          string
 		setupTxs      func()
@@ -909,8 +894,6 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 				for i := 1; i < 4; i++ {
 					keyIndex := i
 					key := s.keyring.GetKey(keyIndex)
-					fromAddr := common.BytesToAddress(key.AccAddr.Bytes())
-					fmt.Printf("DEBUG: Using prefunded account %d: %s\n", keyIndex, fromAddr.Hex())
 
 					// Use the helper method with specific nonce
 					evmTx := s.createEVMValueTransferTx(key, 0, big.NewInt(int64(i)*100000000000))
@@ -967,7 +950,6 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 // TestMempoolHeightRequirement tests that mempool operations fail before block 2
 func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
-	fmt.Printf("DEBUG: Starting TestMempoolHeightRequirement\n")
 	// Create a fresh network at block 1
 	keyring := keyring.New(1)
 	options := []network.ConfigOption{
@@ -996,8 +978,6 @@ func (s *IntegrationTestSuite) TestMempoolHeightRequirement() {
 
 // TestEVMTransactionComprehensive tests comprehensive EVM transaction functionality
 func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
-	fmt.Printf("DEBUG: Starting TestEVMTransactionComprehensive\n")
-
 	testCases := []struct {
 		name          string
 		setupTx       func() sdk.Tx
@@ -1061,13 +1041,10 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 		},
 	}
 
-	for i, tc := range testCases {
-		fmt.Printf("DEBUG: TestEVMTransactionComprehensive - Starting test case %d/%d: %s\n", i+1, len(testCases), tc.name)
+	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			fmt.Printf("DEBUG: Running test case: %s\n", tc.name)
 			// Reset test setup to ensure clean state
 			s.SetupTest()
-			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
 			tx := tc.setupTx()
 			mpool := s.network.App.GetMempool()
@@ -1084,17 +1061,13 @@ func (s *IntegrationTestSuite) TestEVMTransactionComprehensive() {
 			}
 
 			tc.verifyFunc()
-			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
-		fmt.Printf("DEBUG: TestEVMTransactionComprehensive - Completed test case %d/%d: %s\n", i+1, len(testCases), tc.name)
 	}
 }
 
 // TestNonceGappedEVMTransactions tests the behavior of nonce-gapped EVM transactions
 // and the transition from queued to pending when gaps are filled
 func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
-	fmt.Printf("DEBUG: Starting TestNonceGappedEVMTransactions\n")
-
 	testCases := []struct {
 		name       string
 		setupTxs   func() ([]sdk.Tx, []int) // Returns transactions and their expected nonces
@@ -1279,32 +1252,20 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactions() {
 		},
 	}
 
-	for i, tc := range testCases {
-		fmt.Printf("DEBUG: TestNonceGappedEVMTransactions - Starting test case %d/%d: %s\n", i+1, len(testCases), tc.name)
+	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			fmt.Printf("DEBUG: Running test case: %s\n", tc.name)
 			// Reset test setup to ensure clean state
 			s.SetupTest()
-			fmt.Printf("DEBUG: SetupTest completed for: %s\n", tc.name)
 
-			txs, nonces := tc.setupTxs()
+			txs, _ := tc.setupTxs()
 			mpool := s.network.App.GetMempool()
 
-			// Insert transactions and track count changes
-			initialCount := mpool.CountTx()
-			fmt.Printf("DEBUG: Initial mempool count: %d\n", initialCount)
-
-			for i, tx := range txs {
+			for _, tx := range txs {
 				err := mpool.Insert(s.network.GetContext(), tx)
 				s.Require().NoError(err)
-
-				currentCount := mpool.CountTx()
-				fmt.Printf("DEBUG: After inserting nonce %d: count = %d\n", nonces[i], currentCount)
 			}
 
 			tc.verifyFunc(mpool)
-			fmt.Printf("DEBUG: Completed test case: %s\n", tc.name)
 		})
-		fmt.Printf("DEBUG: TestNonceGappedEVMTransactions - Completed test case %d/%d: %s\n", i+1, len(testCases), tc.name)
 	}
 }

@@ -42,7 +42,6 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 	tx, err := s.factory.BuildCosmosTx(key.Priv, txArgs)
 	s.Require().NoError(err)
 
-	fmt.Printf("DEBUG: Created cosmos transaction successfully\n")
 	return tx
 }
 
