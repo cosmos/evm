@@ -70,7 +70,6 @@ func (s *KeeperTestSuite) TestEvmHooks() {
 		ctx := s.Network.GetContext()
 		txHash := common.BigToHash(big.NewInt(1))
 		vmdb := statedb.New(ctx, k, statedb.NewTxConfig(
-			common.BytesToHash(ctx.HeaderHash()),
 			txHash,
 			0,
 			0,
