@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"math"
 	"math/big"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -8,14 +9,16 @@ import (
 
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
+	cosmosevmtypes "github.com/cosmos/evm/types"
 	msgtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
-	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
+	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 )
 
 var _ mempool.Iterator = &EVMMempoolIterator{}
@@ -255,7 +258,29 @@ func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
 		return nil // Transaction doesn't implement FeeTx interface
 	}
 
-	var bondDenomFeeAmount math.Int
+	// default to `MaxInt64` when there's no extension option.
+	maxPriorityPrice := sdkmath.LegacyNewDec(math.MaxInt64)
+
+	if hasExtOptsTx, ok := feeTx.(authante.HasExtensionOptionsTx); ok {
+		for _, opt := range hasExtOptsTx.GetExtensionOptions() {
+			if extOpt, ok := opt.GetCachedValue().(*cosmosevmtypes.ExtensionOptionDynamicFeeTx); ok {
+				maxPriorityPrice = extOpt.MaxPriorityPrice
+				if maxPriorityPrice.IsNil() {
+					maxPriorityPrice = sdkmath.LegacyZeroDec()
+				}
+				break
+			}
+		}
+	}
+
+	// Convert gasTipCap (LegacyDec) to *uint256.Int for comparison
+	gasTipCap, overflow := uint256.FromBig(maxPriorityPrice.BigInt())
+	if overflow {
+		i.logger.Debug("overflowed on gas tip cap calculation")
+		return nil
+	}
+
+	var bondDenomFeeAmount sdkmath.Int
 	fees := feeTx.GetFee()
 	for _, coin := range fees {
 		if coin.Denom == i.bondDenom {
@@ -264,8 +289,14 @@ func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
 		}
 	}
 
+	gas := sdkmath.NewIntFromUint64(feeTx.GetGas())
+	if gas.IsZero() {
+		i.logger.Debug("Cosmos transaction has zero gas")
+		return nil
+	}
+
 	// Calculate gas price: fee_amount / gas_limit
-	gasPrice, overflow := uint256.FromBig(bondDenomFeeAmount.Quo(math.NewIntFromUint64(feeTx.GetGas())).BigInt())
+	gasPrice, overflow := uint256.FromBig(bondDenomFeeAmount.Quo(gas).BigInt())
 	if overflow {
 		i.logger.Debug("overflowed on gas price calculation")
 		return nil
@@ -287,6 +318,10 @@ func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
 	}
 
 	effectiveTip := new(uint256.Int).Sub(gasPrice, baseFee)
+	if effectiveTip.Cmp(gasTipCap) > 0 {
+		effectiveTip = gasTipCap
+	}
+
 	i.logger.Debug("calculated effective tip", "gas_price", gasPrice.String(), "base_fee", baseFee.String(), "effective_tip", effectiveTip.String())
 	return effectiveTip
 }

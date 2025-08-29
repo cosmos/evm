@@ -42,11 +42,8 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 	feeCoins := feeTx.GetFee()
 	evmDenom := evmtypes.GetEVMCoinDenom()
 
-	// only allow user to pass in aatom and stake native token as transaction fees
-	// allow use stake native tokens for fees is just for unit tests to pass
-	//
-	// TODO: is the handling of stake necessary here? Why not adjust the tests to contain the correct denom?
-	validFees := len(feeCoins) == 0 || (len(feeCoins) == 1 && slices.Contains([]string{evmDenom, sdk.DefaultBondDenom}, feeCoins.GetDenomByIndex(0)))
+	// only allow user to pass in evm coin as transaction fee
+	validFees := IsValidFeeCoins(feeCoins, []string{evmDenom})
 	if !validFees && !simulate {
 		return ctx, fmt.Errorf("expected only native token %s for fee, but got %s", evmDenom, feeCoins.String())
 	}
@@ -93,4 +90,8 @@ func (mpd MinGasPriceDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 	}
 
 	return next(ctx, tx, simulate)
+}
+
+func IsValidFeeCoins(feeCoins sdk.Coins, allowedDenoms []string) bool {
+	return len(feeCoins) == 0 || (len(feeCoins) == 1 && slices.Contains(allowedDenoms, feeCoins.GetDenomByIndex(0)))
 }
