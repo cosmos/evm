@@ -71,6 +71,8 @@ message MsgEthereumTxResponse {
   string vm_error = 4;
   // gas_used specifies how much gas was consumed by the transaction
   uint64 gas_used = 5;
+  // include the block hash for json-rpc to use
+  bytes block_hash = 6;
 }
 
 // MsgUpdateParams defines a Msg for updating the x/vm module parameters.

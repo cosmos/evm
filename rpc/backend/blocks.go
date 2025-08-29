@@ -607,10 +607,19 @@ func (b *Backend) formatTxReceipt(
 	if err != nil {
 		return nil, err
 	}
+	height, err := cosmosevmtypes.SafeUint64(blockRes.Height)
+	if err != nil {
+		return nil, err
+	}
 
 	// parse tx logs from events
 	msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
-	logs, err := evmtypes.TxLogsFromEvents(blockRes.TxsResults[txResult.TxIndex].Events, msgIndex)
+	logs, err := evmtypes.DecodeMsgLogsFromEvents(
+		blockRes.TxsResults[txResult.TxIndex].Data,
+		blockRes.TxsResults[txResult.TxIndex].Events,
+		msgIndex,
+		height,
+	)
 	if err != nil {
 		b.Logger.Debug("failed to parse logs", "hash", ethMsg.Hash().String(), "error", err.Error())
 	}

@@ -85,9 +85,28 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 		l := log.ToEthereum()
 		l.TxHash = txHash
 		l.BlockNumber = blockNumber
+		if len(rsp.BlockHash) > 0 {
+			l.BlockHash = common.BytesToHash(rsp.BlockHash)
+		}
 		dst = append(dst, l)
 	}
 	return dst
+}
+
+// DecodeMsgLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs, for a single message.
+func DecodeMsgLogsFromEvents(in []byte, events []abci.Event, msgIndex int, blockNumber uint64) ([]*ethtypes.Log, error) {
+	txResponses, err := DecodeTxResponses(in)
+	if err != nil {
+		return nil, err
+	}
+	var logs []*ethtypes.Log
+	if msgIndex < len(txResponses) {
+		logs = logsFromTxResponse(nil, txResponses[msgIndex], blockNumber)
+	}
+	if len(logs) == 0 {
+		logs, err = TxLogsFromEvents(events, msgIndex)
+	}
+	return logs, err
 }
 
 // TxLogsFromEvents parses ethereum logs from cosmos events for specific msg index
