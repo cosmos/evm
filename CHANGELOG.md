@@ -6,10 +6,10 @@
 
 ### BUG FIXES
 
-- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time.
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
 - [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
-- [\#533](https://github.com/cosmos/evm/pull/533) Align tx not found in get_transaction_receipt.
-- [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs.
+- [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs
+- [\#495](https://github.com/cosmos/evm/pull/495) Allow immediate SIGINT interrupt when mempool is not empty
 
 ### IMPROVEMENTS
 
