@@ -17,6 +17,7 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -156,6 +157,13 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		res, err = b.GetTxByEthHash(hash)
 		if err == nil {
 			break // Found the transaction
+		}
+
+		if attempt == maxRetries/2 && b.Mempool != nil {
+			status := b.Mempool.GetTxPool().Status(hash)
+			if status == txpool.TxStatusUnknown {
+				break
+			}
 		}
 
 		if attempt < maxRetries {
