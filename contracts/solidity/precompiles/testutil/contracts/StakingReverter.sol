@@ -49,6 +49,36 @@ contract StakingReverter {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
     }
 
+    /// @dev nestedTryCatchDelegations performs nested try/catch calls to precompile
+    /// where inner calls revert intentionally. Only the successful delegations
+    /// outside the reverting scope should persist.
+    ///
+    /// Expected successful delegations: 1 (before loop) + outerTimes (after each catch) + 1 (after loop)
+    function nestedTryCatchDelegations(uint outerTimes, uint innerTimes, string calldata validatorAddress) external {
+        // Initial successful delegate before any nested reverts
+        STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
+
+        for (uint i = 0; i < outerTimes; i++) {
+            // Outer call that will revert and be caught
+            try StakingReverter(address(this)).performDelegation(validatorAddress) {
+                // no-op
+            } catch {
+                // After catching the revert, perform a successful delegate
+                STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
+
+                // Inner nested loop of reverting calls
+                for (uint j = 0; j < innerTimes; j++) {
+                    try StakingReverter(address(this)).performDelegation(validatorAddress) {
+                        // no-op
+                    } catch {}
+                }
+            }
+        }
+
+        // Final successful delegate after the loops
+        STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
+    }
+
     function performDelegation(string calldata validatorAddress) external {
         STAKING_CONTRACT.delegate(address(this), validatorAddress, 10);
         revert();
