@@ -11,6 +11,7 @@
 - [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs
 - [\#495](https://github.com/cosmos/evm/pull/495) Allow immediate SIGINT interrupt when mempool is not empty
 - [\#416](https://github.com/cosmos/evm/pull/416) Fix regression in CometBlockResultByNumber when height is 0 to use the latest block. This fixes eth_getFilterLogs RPC.
+- [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
 
 ### IMPROVEMENTS
 
