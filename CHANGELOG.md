@@ -21,6 +21,7 @@
 - [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
 - [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
+- [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 
 ### FEATURES
 
