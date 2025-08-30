@@ -214,10 +214,24 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 		b.Logger.Debug("block result not found", "number", res.Height, "error", err.Error())
 		return nil, nil
 	}
-
+	height, err := types.SafeUint64(resBlockResult.Height)
+	if err != nil {
+		return nil, err
+	}
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
-	return evmtypes.TxLogsFromEvents(resBlockResult.TxsResults[res.TxIndex].Events, index)
+	logs, err := evmtypes.DecodeMsgLogsFromEvents(
+		resBlockResult.TxsResults[res.TxIndex].Data,
+		resBlockResult.TxsResults[res.TxIndex].Events,
+		index,
+		height,
+	)
+	if err != nil {
+		b.Logger.Debug("failed to parse tx logs", "error", err.Error())
+		return nil, nil
+	}
+
+	return logs, nil
 }
 
 // GetTransactionByBlockHashAndIndex returns the transaction identified by hash and index.
