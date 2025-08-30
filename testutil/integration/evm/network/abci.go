@@ -7,8 +7,6 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	evmmempool "github.com/cosmos/evm/mempool"
-
 	storetypes "cosmossdk.io/store/types"
 )
 
@@ -50,9 +48,6 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	res, err := n.app.FinalizeBlock(req)
 	if err != nil {
 		return nil, err
-	}
-	if evmMempool, ok := n.app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-		evmMempool.GetBlockchain().NotifyNewBlock()
 	}
 
 	newCtx := n.app.GetBaseApp().NewContextLegacy(false, header)
