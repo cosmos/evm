@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -31,16 +31,32 @@ const (
 	GasSupplyOf = 2_477
 )
 
-var _ vm.PrecompiledContract = &Precompile{}
+var (
+	_ vm.PrecompiledContract = &Precompile{}
+	_ cmn.NativeExecutor     = &Precompile{}
+)
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   embed.FS
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, "abi.json")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Precompile defines the bank precompile
 type Precompile struct {
 	cmn.Precompile
+
+	abi.ABI
 	bankKeeper  cmn.BankKeeper
 	erc20Keeper cmn.ERC20Keeper
 }
@@ -51,26 +67,19 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper cmn.ERC20Keeper,
 ) (*Precompile, error) {
-	newABI, err := cmn.LoadABI(f, "abi.json")
-	if err != nil {
-		return nil, err
-	}
-
 	// NOTE: we set an empty gas configuration to avoid extra gas costs
 	// during the run execution
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  newABI,
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
+			ContractAddress:      common.HexToAddress(evmtypes.BankPrecompileAddress),
 		},
+		ABI:         ABI,
 		bankKeeper:  bankKeeper,
 		erc20Keeper: erc20Keeper,
 	}
-
-	// SetAddress defines the address of the bank compile contract.
-	p.SetAddress(common.HexToAddress(evmtypes.BankPrecompileAddress))
-
+	p.Executor = p
 	return p, nil
 }
 
@@ -101,17 +110,14 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	return 0
 }
 
-// Run executes the precompiled contract bank query methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, _, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+// Execute executes the precompiled contract bank query methods defined in the ABI.
+func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	// This handles any out of gas errors that may occur during the execution of a precompile query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
-
+	var bz []byte
 	switch method.Name {
 	// Bank queries
 	case BalancesMethod:
@@ -124,17 +130,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	return bz, nil
+	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
