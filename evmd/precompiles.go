@@ -9,7 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
+	bank2precompile "github.com/cosmos/evm/precompiles/bank2"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
@@ -76,6 +78,7 @@ const bech32PrecompileBaseGas = 6_000
 func NewAvailableStaticPrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
 	distributionKeeper distributionkeeper.Keeper,
+	bankKeeper2 bankkeeper.Keeper,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper erc20Keeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
@@ -161,6 +164,8 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}
 
+	bank2Precompile := bank2precompile.NewPrecompile(bankkeeper.NewMsgServerImpl(bankKeeper2), bankKeeper2)
+
 	// Stateless precompiles
 	precompiles[bech32Precompile.Address()] = bech32Precompile
 	precompiles[p256Precompile.Address()] = p256Precompile
@@ -172,6 +177,7 @@ func NewAvailableStaticPrecompiles(
 	precompiles[bankPrecompile.Address()] = bankPrecompile
 	precompiles[govPrecompile.Address()] = govPrecompile
 	precompiles[slashingPrecompile.Address()] = slashingPrecompile
+	precompiles[bank2Precompile.Address()] = bank2Precompile
 
 	return precompiles
 }
