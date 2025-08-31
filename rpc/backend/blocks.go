@@ -619,7 +619,6 @@ func (b *Backend) formatTxReceipt(
 	msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
 	logs, err := evmtypes.DecodeMsgLogsFromEvents(
 		blockRes.TxsResults[txResult.TxIndex].Data,
-		blockRes.TxsResults[txResult.TxIndex].Events,
 		msgIndex,
 		height,
 	)
