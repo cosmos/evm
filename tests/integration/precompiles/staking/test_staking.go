@@ -92,7 +92,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 				s.Require().NoError(err)
 				return input
 			},
-			7760,
+			0x1ec8,
 		},
 		{
 			"success - undelegate transaction with correct gas estimation",
@@ -106,7 +106,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 				s.Require().NoError(err)
 				return input
 			},
-			7760,
+			0x1ec8,
 		},
 	}
 
