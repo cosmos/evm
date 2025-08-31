@@ -96,7 +96,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 // It returns false since all bank methods are queries.
 func (Precompile) IsTransaction(method BankMethod) bool {
-	return BankMethod(method) == MethodTransferFrom
+	return method == MethodTransferFrom
 }
 
 // Name
