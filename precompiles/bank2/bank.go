@@ -3,6 +3,8 @@ package bank2
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -12,10 +14,11 @@ import (
 
 	_ "embed"
 
-	"github.com/cosmos/evm/x/vm/statedb"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -31,6 +34,14 @@ var (
 	ERC20Bin              []byte
 	ERC20Salt             = common.FromHex("636dd1d57837e7dce61901468217da9975548dcb3ecc24d84567feb93cd11e36")
 	Create2FactoryAddress = common.HexToAddress("0x4e59b44847b379578588920ca78fbf26c0b4956c")
+)
+
+var (
+	ErrInputTooShort = errors.New("input too short")
+	ErrDenomNotFound = errors.New("denom not found")
+	ErrUnauthorized  = errors.New("unauthorized")
+
+	ErrUnknownMethod = "unknown method: %d"
 )
 
 func init() {
@@ -52,24 +63,38 @@ const (
 	MethodTransferFrom
 )
 
-var _ vm.PrecompiledContract = &Precompile{}
+var (
+	_ vm.PrecompiledContract = &Precompile{}
+	_ cmn.NativeExecutor     = &Precompile{}
+)
 
 type Precompile struct {
+	cmn.Precompile
+
 	msgServer  BankMsgServer
 	bankKeeper BankKeeper
 }
 
 func NewPrecompile(msgServer BankMsgServer, bankKeeper BankKeeper) *Precompile {
-	return &Precompile{msgServer, bankKeeper}
-}
-
-func (p Precompile) Address() common.Address {
-	return common.HexToAddress(evmtypes.Bank2PrecompileAddress)
+	return &Precompile{
+		Precompile: cmn.Precompile{
+			KvGasConfig:          storetypes.GasConfig{},
+			TransientKVGasConfig: storetypes.GasConfig{},
+			ContractAddress:      common.HexToAddress(evmtypes.Bank2PrecompileAddress),
+		},
+		msgServer:  msgServer,
+		bankKeeper: bankKeeper,
+	}
 }
 
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// FIXME
-	return 21000
+	return p.Precompile.RequiredGas(input, p.IsTransaction(BankMethod(input[0])))
+}
+
+// IsTransaction checks if the given method name corresponds to a transaction or query.
+// It returns false since all bank methods are queries.
+func (Precompile) IsTransaction(method BankMethod) bool {
+	return BankMethod(method) == MethodTransferFrom
 }
 
 // Name
@@ -78,7 +103,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 func (p Precompile) Name(ctx sdk.Context, input []byte) ([]byte, error) {
 	metadata, found := p.bankKeeper.GetDenomMetaData(ctx, string(input))
 	if !found {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrDenomNotFound
 	}
 
 	return []byte(metadata.Name), nil
@@ -91,7 +116,7 @@ func (p Precompile) Name(ctx sdk.Context, input []byte) ([]byte, error) {
 func (p Precompile) Symbol(ctx sdk.Context, input []byte) ([]byte, error) {
 	metadata, found := p.bankKeeper.GetDenomMetaData(ctx, string(input))
 	if !found {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrDenomNotFound
 	}
 
 	return []byte(metadata.Symbol), nil
@@ -104,11 +129,11 @@ func (p Precompile) Symbol(ctx sdk.Context, input []byte) ([]byte, error) {
 func (p Precompile) Decimals(ctx sdk.Context, input []byte) ([]byte, error) {
 	m, found := p.bankKeeper.GetDenomMetaData(ctx, string(input))
 	if !found {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrDenomNotFound
 	}
 
 	if len(m.DenomUnits) == 0 {
-		return []byte{0}, nil
+		return []byte{0}, errors.New("denom metadata has no denom units")
 	}
 
 	// look up Display denom unit
@@ -128,7 +153,7 @@ func (p Precompile) Decimals(ctx sdk.Context, input []byte) ([]byte, error) {
 	}
 
 	if exponent > math.MaxUint8 {
-		return nil, vm.ErrExecutionReverted
+		return nil, errors.New("exponent too large")
 	}
 
 	return []byte{uint8(exponent)}, nil
@@ -146,7 +171,7 @@ func (p Precompile) TotalSupply(ctx sdk.Context, input []byte) ([]byte, error) {
 // input format: abi.encodePacked(address account, string denom)
 func (p Precompile) BalanceOf(ctx sdk.Context, input []byte) ([]byte, error) {
 	if len(input) < 20 {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrInputTooShort
 	}
 	account := common.BytesToAddress(input[:20])
 	denom := string(input[20:])
@@ -158,7 +183,7 @@ func (p Precompile) BalanceOf(ctx sdk.Context, input []byte) ([]byte, error) {
 // input format: abi.encodePacked(address from, address to, uint256 amount, string denom)
 func (p Precompile) TransferFrom(ctx sdk.Context, caller common.Address, input []byte) ([]byte, error) {
 	if len(input) < 20*2+32 {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrInputTooShort
 	}
 
 	from := common.BytesToAddress(input[:20])
@@ -168,63 +193,41 @@ func (p Precompile) TransferFrom(ctx sdk.Context, caller common.Address, input [
 
 	// don't handle gas token here
 	if denom == evmtypes.GetEVMCoinDenom() {
-		return nil, vm.ErrExecutionReverted
+		return nil, errors.New("cannot transfer gas token with bank precompile")
 	}
 
 	// authorization: only from address or deterministic erc20 contract address can call this method
 	if caller != from && caller != ERC20ContractAddress(p.Address(), denom) {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrUnauthorized
 	}
 
 	coins := sdk.Coins{{Denom: denom, Amount: sdkmath.NewIntFromBigInt(amount)}}
 	if err := coins.Validate(); err != nil {
-		return nil, vm.ErrExecutionReverted
+		return nil, fmt.Errorf("invalid coins: %w", err)
 	}
 
 	// execute the transfer with bank keeper
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
 	if _, err := p.msgServer.Send(ctx, msg); err != nil {
-		return nil, vm.ErrExecutionReverted
+		return nil, fmt.Errorf("failed to send coins: %w", err)
 	}
 
 	return []byte{1}, nil
 }
 
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
-	stateDB, ok := evm.StateDB.(*statedb.StateDB)
-	if !ok {
-		return nil, vm.ErrExecutionReverted
-	}
-
-	ctx, err := stateDB.GetCacheContext()
-	if err != nil {
-		return nil, vm.ErrExecutionReverted
-	}
-
-	// take a snapshot of the current state before any changes
-	// to be able to revert the changes
-	snapshot := stateDB.MultiStoreSnapshot()
-	events := ctx.EventManager().Events()
-
-	// add precompileCall entry on the stateDB journal
-	// this allows to revert the changes within an evm tx
-	err = stateDB.AddPrecompileFn(p.Address(), snapshot, events)
-	if err != nil {
-		return nil, vm.ErrExecutionReverted
-	}
-
+func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
 	// 1 byte method selector
 	if len(contract.Input) == 0 {
-		return nil, vm.ErrExecutionReverted
+		return nil, ErrInputTooShort
 	}
 
-	action := BankMethod(contract.Input[0])
-	if readonly && action == MethodTransferFrom {
+	method := BankMethod(contract.Input[0])
+	if readonly && p.IsTransaction(method) {
 		return nil, vm.ErrWriteProtection
 	}
 
 	input := contract.Input[1:]
-	switch action {
+	switch method {
 	case MethodName:
 		return p.Name(ctx, input)
 	case MethodSymbol:
@@ -239,7 +242,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 		return p.TransferFrom(ctx, contract.Caller(), input)
 	}
 
-	return nil, vm.ErrExecutionReverted
+	return nil, fmt.Errorf(ErrUnknownMethod, method)
 }
 
 // ERC20ContractAddress computes the contract address deployed with create2 factory contract.
