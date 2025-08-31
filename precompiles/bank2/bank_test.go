@@ -51,10 +51,11 @@ func init() {
 }
 
 type TokenInfo struct {
-	Denom    string
-	Name     string
-	Symbol   string
-	Decimals byte
+	Denom        string
+	DisplayDenom string
+	Name         string
+	Symbol       string
+	Decimals     byte
 }
 
 func Setup(t *testing.T, token TokenInfo, mintTo common.Address, mintAmount uint64) *vm.EVM {
@@ -76,17 +77,25 @@ func Setup(t *testing.T, token TokenInfo, mintTo common.Address, mintAmount uint
 
 	// init token
 	bankKeeper.registerDenom(token.Denom, banktypes.Metadata{
-		Symbol: token.Symbol, Name: token.Name, DenomUnits: []*banktypes.DenomUnit{
+		Symbol: token.Symbol, Name: token.Name, Display: token.DisplayDenom, DenomUnits: []*banktypes.DenomUnit{
 			{
 				Denom:    token.Denom,
+				Exponent: 0,
+			},
+			{
+				Denom:    token.DisplayDenom,
 				Exponent: uint32(token.Decimals),
 			},
 		},
 	})
 	bankKeeper.registerDenom(nativeDenom, banktypes.Metadata{
-		Symbol: "NATIVE", Name: "Native Token", DenomUnits: []*banktypes.DenomUnit{
+		Symbol: "NATIVE", Name: "Native Token", Display: evmtypes.GetEVMCoinDisplayDenom(), DenomUnits: []*banktypes.DenomUnit{
 			{
 				Denom:    nativeDenom,
+				Exponent: 0,
+			},
+			{
+				Denom:    evmtypes.GetEVMCoinDisplayDenom(),
 				Exponent: 18,
 			},
 		},
@@ -114,10 +123,11 @@ func TestBankPrecompile(t *testing.T) {
 	user1 := common.BigToAddress(big.NewInt(1))
 	user2 := common.BigToAddress(big.NewInt(2))
 	token := TokenInfo{
-		Denom:    "denom",
-		Symbol:   "COIN",
-		Name:     "Test Coin",
-		Decimals: byte(18),
+		Denom:        "denom",
+		DisplayDenom: "display",
+		Symbol:       "COIN",
+		Name:         "Test Coin",
+		Decimals:     byte(18),
 	}
 	amount := uint64(1000)
 	erc20 := ERC20ContractAddress(BankPrecompile, token.Denom)
@@ -207,10 +217,11 @@ func TestBankERC20(t *testing.T) {
 	user1 := common.BigToAddress(big.NewInt(1))
 	user2 := common.BigToAddress(big.NewInt(2))
 	token := TokenInfo{
-		Denom:    "denom",
-		Symbol:   "COIN",
-		Name:     "Test Coin",
-		Decimals: byte(18),
+		Denom:        "denom",
+		DisplayDenom: "display",
+		Symbol:       "COIN",
+		Name:         "Test Coin",
+		Decimals:     byte(18),
 	}
 	amount := uint64(1000)
 	bigAmount := new(big.Int).SetUint64(amount)

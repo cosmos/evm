@@ -135,7 +135,7 @@ func (p Precompile) Decimals(ctx sdk.Context, input []byte) ([]byte, error) {
 	}
 
 	if len(m.DenomUnits) == 0 {
-		return []byte{0}, errors.New("denom metadata has no denom units")
+		return []byte{0}, nil
 	}
 
 	// look up Display denom unit
