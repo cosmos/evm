@@ -76,7 +76,7 @@ type Precompile struct {
 }
 
 func NewPrecompile(msgServer BankMsgServer, bankKeeper BankKeeper) *Precompile {
-	return &Precompile{
+	p := &Precompile{
 		Precompile: cmn.Precompile{
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
@@ -85,6 +85,8 @@ func NewPrecompile(msgServer BankMsgServer, bankKeeper BankKeeper) *Precompile {
 		msgServer:  msgServer,
 		bankKeeper: bankKeeper,
 	}
+	p.Executor = p
+	return p
 }
 
 func (p Precompile) RequiredGas(input []byte) uint64 {
