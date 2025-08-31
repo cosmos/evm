@@ -36,13 +36,11 @@ type Precompile struct {
 // It uses the method ID to determine if the input is a transaction or a query and
 // uses the Cosmos SDK gas config flat cost and the flat per byte cost * len(argBz) to calculate the gas.
 func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
-	argsBz := input[4:]
-
 	if isTransaction {
-		return p.KvGasConfig.WriteCostFlat + (p.KvGasConfig.WriteCostPerByte * uint64(len(argsBz)))
+		return p.KvGasConfig.WriteCostFlat + (p.KvGasConfig.WriteCostPerByte * uint64(len(input)))
 	}
 
-	return p.KvGasConfig.ReadCostFlat + (p.KvGasConfig.ReadCostPerByte * uint64(len(argsBz)))
+	return p.KvGasConfig.ReadCostFlat + (p.KvGasConfig.ReadCostPerByte * uint64(len(input)))
 }
 
 // RunNativeAction prepare the native context to execute native action for stateful precompile,
