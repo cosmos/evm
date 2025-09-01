@@ -78,8 +78,8 @@ type Precompile struct {
 func NewPrecompile(msgServer BankMsgServer, bankKeeper BankKeeper) *Precompile {
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
 			ContractAddress:      common.HexToAddress(evmtypes.Bank2PrecompileAddress),
 		},
 		msgServer:  msgServer,
@@ -90,6 +90,10 @@ func NewPrecompile(msgServer BankMsgServer, bankKeeper BankKeeper) *Precompile {
 }
 
 func (p Precompile) RequiredGas(input []byte) uint64 {
+	if len(input) < 1 {
+		return 0
+	}
+
 	return p.Precompile.RequiredGas(input, p.IsTransaction(BankMethod(input[0])))
 }
 
