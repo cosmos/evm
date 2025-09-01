@@ -3,11 +3,13 @@ package cosmos_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/ante/cosmos"
+
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/ante/cosmos"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsValidFeeCoins(t *testing.T) {
