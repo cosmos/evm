@@ -404,20 +404,32 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		return len(rsp.VmError) > 0, rsp, nil
 	}
 
-	// Execute the binary search and hone in on an executable gas limit
-	hi, err = types.BinSearch(lo, hi, executable)
+	// Adapted from go-ethereum gas estimator for early short-circuit and optimistic bounds:
+	// https://github.com/ethereum/go-ethereum/blob/v1.16.2/eth/gasestimator/gasestimator.go
+
+	// If the transaction is a plain value transfer, short circuit estimation and
+	// directly try 21000. Returning 21000 without any execution is dangerous as
+	// some tx field combos might bump the price up even for plain transfers (e.g.
+	// unused access list items). Ever so slightly wasteful, but safer overall.
+	if len(msg.Data) == 0 && msg.To != nil {
+		acct := k.GetAccountWithoutBalance(ctx, *msg.To)
+		if acct == nil || !acct.IsContract() {
+			failed, _, err := executable(ethparams.TxGas)
+			if err == nil && !failed {
+				return &types.EstimateGasResponse{Gas: ethparams.TxGas}, nil
+			}
+		}
+	}
+
+	// We first execute the transaction at the highest allowable gas limit, since if this fails we
+	// can return error immediately.
+	failed, result, err := executable(hi)
 	if err != nil {
 		return nil, err
 	}
-
-	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == gasCap {
-		failed, result, err := executable(hi)
-		if err != nil {
-			return nil, err
-		}
-
-		if failed {
+	if failed {
+		// Preserve Cosmos error semantics when the cap is reached
+		if hi == gasCap {
 			if result != nil && result.VmError != vm.ErrOutOfGas.Error() {
 				if result.VmError == vm.ErrExecutionReverted.Error() {
 					return &types.EstimateGasResponse{
@@ -427,10 +439,34 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 				}
 				return nil, errors.New(result.VmError)
 			}
-			// Otherwise, the specified gas cap is too low
 			return nil, fmt.Errorf("gas required exceeds allowance (%d)", gasCap)
 		}
+		// If no larger allowance is available, fail fast
+		return nil, fmt.Errorf("gas required exceeds allowance (%d)", hi)
 	}
+
+	// There's a fairly high chance for the transaction to execute successfully
+	// with gasLimit set to the first execution's usedGas + gasRefund. Explicitly
+	// check that gas amount and use as a limit for the binary search.
+	optimisticGasLimit := (result.MaxUsedGas + ethparams.CallStipend) * 64 / 63
+	if optimisticGasLimit < hi {
+		failed, _, err = executable(optimisticGasLimit)
+		if err != nil {
+			return nil, err
+		}
+		if failed {
+			lo = optimisticGasLimit
+		} else {
+			hi = optimisticGasLimit
+		}
+	}
+
+	// Binary search for the smallest gas limit that allows the tx to execute successfully.
+	hi, err = types.BinSearch(lo, hi, executable)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.EstimateGasResponse{Gas: hi}, nil
 }
 
