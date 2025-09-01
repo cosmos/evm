@@ -460,12 +460,12 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
 	}
 	// refund gas
-	temporaryGasUsed := msg.GasLimit - leftoverGas
-	refund := GasToRefund(stateDB.GetRefund(), temporaryGasUsed, refundQuotient)
+	maxUsedGas := msg.GasLimit - leftoverGas
+	refund := GasToRefund(stateDB.GetRefund(), maxUsedGas, refundQuotient)
 
 	// update leftoverGas and temporaryGasUsed with refund amount
 	leftoverGas += refund
-	temporaryGasUsed -= refund
+	temporaryGasUsed := maxUsedGas - refund
 
 	// EVM execution error needs to be available for the JSON-RPC client
 	var vmError string
@@ -508,11 +508,12 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 	}
 
 	return &types.MsgEthereumTxResponse{
-		GasUsed: gasUsed.TruncateInt().Uint64(),
-		VmError: vmError,
-		Ret:     ret,
-		Logs:    types.NewLogsFromEth(stateDB.Logs()),
-		Hash:    txConfig.TxHash.Hex(),
+		GasUsed:    gasUsed.TruncateInt().Uint64(),
+		MaxUsedGas: maxUsedGas,
+		VmError:    vmError,
+		Ret:        ret,
+		Logs:       types.NewLogsFromEth(stateDB.Logs()),
+		Hash:       txConfig.TxHash.Hex(),
 	}, nil
 }
 
