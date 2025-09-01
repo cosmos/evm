@@ -396,6 +396,7 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	}()
 }
 
+// HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
 func (m *ExperimentalEVMMempool) HasEventBus() bool {
 	return m.eventBus != nil
 }
