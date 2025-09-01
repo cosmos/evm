@@ -187,7 +187,7 @@ func (s *RPCStream) start(
 			if err != nil {
 				continue
 			}
-			txLogs, err := evmtypes.DecodeTxLogsFromEvents(dataTx.Result.Data, dataTx.Result.Events, height)
+			txLogs, err := evmtypes.DecodeTxLogsFromEvents(dataTx.Result.Data, height)
 			if err != nil {
 				s.logger.Error("fail to decode evm tx response", "error", err.Error())
 				continue
