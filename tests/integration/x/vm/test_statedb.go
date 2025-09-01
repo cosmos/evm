@@ -729,6 +729,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 			},
 			&ethtypes.Log{
 				Address: addr,
+				TxHash:  txHash,
 				Topics:  make([]common.Hash, 0),
 			},
 			func(vm.StateDB) {},
@@ -742,6 +743,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 			},
 			&ethtypes.Log{
 				Address: addr,
+				TxHash:  txHash3,
 				Topics:  make([]common.Hash, 0),
 			},
 			func(vm.StateDB) {},

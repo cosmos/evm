@@ -514,7 +514,6 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		Ret:        ret,
 		Logs:       types.NewLogsFromEth(stateDB.Logs()),
 		Hash:       txConfig.TxHash.Hex(),
-		BlockHash:  ctx.HeaderHash(),
 	}, nil
 }
 
