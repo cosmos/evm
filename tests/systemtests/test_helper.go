@@ -8,7 +8,7 @@ import (
 	"github.com/evmos/tests/systemtests/clients"
 )
 
-func ValueTransferLegacyTx(
+func TransferLegacyTx(
 	ethClient *clients.EthClient,
 	nodeID string,
 	accID string,
@@ -24,12 +24,11 @@ func ValueTransferLegacyTx(
 	return ethClient.SendRawTransaction(nodeID, accID, tx)
 }
 
-func ValueTransferDynamicFeeTx(
+func TransferDynamicFeeTx(
 	ethClient *clients.EthClient,
 	nodeID string,
 	accID string,
 	nonce uint64,
-	gasTipCap *big.Int,
 	GasFeeCap *big.Int,
 ) (common.Hash, error) {
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
@@ -38,8 +37,8 @@ func ValueTransferDynamicFeeTx(
 		To:        &(ethClient.Accs["acc3"].Address),
 		Value:     big.NewInt(1000),
 		Gas:       uint64(50_000),
-		GasTipCap: gasTipCap,
 		GasFeeCap: GasFeeCap,
+		GasTipCap: big.NewInt(100),
 	})
 
 	return ethClient.SendRawTransaction(nodeID, accID, tx)
