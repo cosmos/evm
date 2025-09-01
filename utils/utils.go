@@ -25,7 +25,6 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // EthHexToCosmosAddr takes a given Hex string and derives a Cosmos SDK account address
@@ -125,30 +124,6 @@ func IsSupportedKey(pubkey cryptotypes.PubKey) bool {
 	default:
 		return false
 	}
-}
-
-// GetAccAddressFromBech32 returns the sdk.Account address of given address,
-// while also changing bech32 human readable prefix (HRP) to the value set on
-// the global sdk.Config (eg: `evmos`).
-//
-// The function fails if the provided bech32 address is invalid.
-func GetAccAddressFromBech32(address string) (sdk.AccAddress, error) {
-	bech32Prefix := strings.SplitN(address, "1", 2)[0]
-	if bech32Prefix == address {
-		return nil, errorsmod.Wrapf(errortypes.ErrInvalidAddress, "invalid bech32 address: %s", address)
-	}
-
-	addressBz, err := sdk.GetFromBech32(address, bech32Prefix)
-	if err != nil {
-		return nil, errorsmod.Wrapf(errortypes.ErrInvalidAddress, "invalid address %s, %s", address, err.Error())
-	}
-
-	// safety check: shouldn't happen
-	if err := sdk.VerifyAddressFormat(addressBz); err != nil {
-		return nil, err
-	}
-
-	return sdk.AccAddress(addressBz), nil
 }
 
 // CreateAccAddressFromBech32 creates an AccAddress from a Bech32 string.
