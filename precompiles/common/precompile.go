@@ -43,7 +43,7 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 	return p.KvGasConfig.ReadCostFlat + (p.KvGasConfig.ReadCostPerByte * uint64(len(input)))
 }
 
-// RunNativeAction prepare the native context to execute native action for stateful precompile,
+// Run prepare the native context to execute native action for stateful precompile,
 // it manages the snapshot and revert of the multi-store.
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	bz, err := p.run(evm, contract, readOnly)
