@@ -638,7 +638,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx2)
 
 				feeTx := tx2.(sdk.FeeTx)
-				effectiveTip = s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
+				effectiveTip = s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), MaxGasTipCap, big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(1000000000), effectiveTip, "Second transaction should be Cosmos with 1000 aatom effective tip")
 			},
 		},
@@ -677,7 +677,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx2)
 
 				feeTx := tx2.(sdk.FeeTx)
-				effectiveTip2 := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
+				effectiveTip2 := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), MaxGasTipCap, big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(2000000000), effectiveTip2, "Second transaction should be Cosmos with 2000 aatom effective tip")
 			},
 		},
@@ -704,7 +704,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx1)
 
 				feeTx := tx1.(sdk.FeeTx)
-				effectiveTip := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
+				effectiveTip := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), MaxGasTipCap, big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(5000000000), effectiveTip, "First transaction should be Cosmos with 5000 aatom effective tip")
 
 				// Second transaction should be EVM
