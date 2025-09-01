@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/encoding"
@@ -146,128 +147,119 @@ func TestDecodeTxResponse(t *testing.T) {
 	}
 }
 
+func createTxResponseData(t *testing.T, key string) ([]byte, []*evmtypes.MsgEthereumTxResponse) {
+	t.Helper()
+	switch key {
+	case "multiple":
+		// 1st response
+		data1 := &evmtypes.MsgEthereumTxResponse{
+			Hash: common.BytesToHash([]byte("hash1")).String(),
+			Logs: []*evmtypes.Log{createLog(t, testAddress, []string{testTopic}, 0, 0)},
+			Ret:  []byte{0x1},
+		}
+		// 2nd response
+		data2 := &evmtypes.MsgEthereumTxResponse{
+			Hash: common.BytesToHash([]byte("hash2")).String(),
+			Logs: []*evmtypes.Log{createLog(t, testAddress, []string{testTopic}, 0, 0)},
+			Ret:  []byte{0x2},
+		}
+		anyData1 := codectypes.UnsafePackAny(data1)
+		anyData2 := codectypes.UnsafePackAny(data2)
+		txData := &sdk.TxMsgData{
+			MsgResponses: []*codectypes.Any{anyData1, anyData2},
+		}
+		txDataBz, _ := proto.Marshal(txData)
+		return txDataBz, []*evmtypes.MsgEthereumTxResponse{data1, data2}
+	case "single":
+		data := &evmtypes.MsgEthereumTxResponse{
+			Hash: common.BytesToHash([]byte("hash")).String(),
+			Logs: []*evmtypes.Log{createLog(t, testAddress, []string{testTopic}, 0, 0)},
+			Ret:  []byte{0x5, 0x8},
+		}
+		anyData := codectypes.UnsafePackAny(data)
+		txData := &sdk.TxMsgData{
+			MsgResponses: []*codectypes.Any{anyData},
+		}
+		txDataBz, _ := proto.Marshal(txData)
+		return txDataBz, []*evmtypes.MsgEthereumTxResponse{data}
+	case "empty":
+		txData := &sdk.TxMsgData{
+			MsgResponses: []*codectypes.Any{},
+		}
+		txDataBz, _ := proto.Marshal(txData)
+		return txDataBz, []*evmtypes.MsgEthereumTxResponse{}
+	case "mixed":
+		// EVM response
+		evmData := &evmtypes.MsgEthereumTxResponse{
+			Hash: common.BytesToHash([]byte("evm_hash")).String(),
+			Ret:  []byte{0x99},
+		}
+		evmAnyData := codectypes.UnsafePackAny(evmData)
+		// Non-EVM response
+		bankData := &codectypes.Any{
+			TypeUrl: "/cosmos.bank.v1beta1.MsgSendResponse",
+			Value:   []byte("bank response"),
+		}
+		txData := &sdk.TxMsgData{
+			MsgResponses: []*codectypes.Any{evmAnyData, bankData},
+		}
+		txDataBz, _ := proto.Marshal(txData)
+		return txDataBz, []*evmtypes.MsgEthereumTxResponse{evmData}
+	case "invalid":
+		return []byte("invalid protobuf data"), nil
+	case "nil":
+		return nil, nil
+	default:
+		return []byte{}, nil
+	}
+}
+
 func TestDecodeTxResponses(t *testing.T) {
 	testCases := []struct {
 		name         string
-		setupData    func() []byte
+		txDataKey    string
 		expectError  bool
 		expectLength int
 		expectNil    bool
 	}{
 		{
-			name: "multiple tx responses",
-			setupData: func() []byte {
-				// 1st response
-				data1 := &evmtypes.MsgEthereumTxResponse{
-					Hash: common.BytesToHash([]byte("hash1")).String(),
-					Logs: []*evmtypes.Log{{
-						Address:     common.HexToAddress("0x1111").String(),
-						Data:        []byte{1, 2},
-						BlockNumber: 10,
-					}},
-					Ret: []byte{0x1},
-				}
-				// 2nd response
-				data2 := &evmtypes.MsgEthereumTxResponse{
-					Hash: common.BytesToHash([]byte("hash2")).String(),
-					Logs: []*evmtypes.Log{{
-						Address:     common.HexToAddress("0x2222").String(),
-						Data:        []byte{3, 4},
-						BlockNumber: 11,
-					}},
-					Ret: []byte{0x2},
-				}
-				anyData1 := codectypes.UnsafePackAny(data1)
-				anyData2 := codectypes.UnsafePackAny(data2)
-				txData := &sdk.TxMsgData{
-					MsgResponses: []*codectypes.Any{anyData1, anyData2},
-				}
-				txDataBz, _ := proto.Marshal(txData)
-				return txDataBz
-			},
+			name:         "multiple tx responses",
+			txDataKey:    "multiple",
 			expectError:  false,
 			expectLength: 2,
 			expectNil:    false,
 		},
 		{
-			name: "single tx response",
-			setupData: func() []byte {
-				ret := []byte{0x5, 0x8}
-				data := &evmtypes.MsgEthereumTxResponse{
-					Hash: common.BytesToHash([]byte("hash")).String(),
-					Logs: []*evmtypes.Log{{
-						Data:        []byte{1, 2, 3, 4},
-						BlockNumber: 17,
-					}},
-					Ret: ret,
-				}
-
-				anyData := codectypes.UnsafePackAny(data)
-				txData := &sdk.TxMsgData{
-					MsgResponses: []*codectypes.Any{anyData},
-				}
-
-				txDataBz, _ := proto.Marshal(txData)
-				return txDataBz
-			},
+			name:         "single tx response",
+			txDataKey:    "single",
 			expectError:  false,
 			expectLength: 1,
 			expectNil:    false,
 		},
 		{
-			name: "empty responses",
-			setupData: func() []byte {
-				txData := &sdk.TxMsgData{
-					MsgResponses: []*codectypes.Any{},
-				}
-				txDataBz, _ := proto.Marshal(txData)
-				return txDataBz
-			},
+			name:         "empty responses",
+			txDataKey:    "empty",
 			expectError:  false,
 			expectLength: 0,
 			expectNil:    false,
 		},
 		{
-			name: "mixed response types",
-			setupData: func() []byte {
-				// EVM response
-				evmData := &evmtypes.MsgEthereumTxResponse{
-					Hash: common.BytesToHash([]byte("evm_hash")).String(),
-					Ret:  []byte{0x99},
-				}
-				evmAnyData := codectypes.UnsafePackAny(evmData)
-
-				// Non-EVM response
-				bankData := &codectypes.Any{
-					TypeUrl: "/cosmos.bank.v1beta1.MsgSendResponse",
-					Value:   []byte("bank response"),
-				}
-
-				txData := &sdk.TxMsgData{
-					MsgResponses: []*codectypes.Any{evmAnyData, bankData},
-				}
-
-				txDataBz, _ := proto.Marshal(txData)
-				return txDataBz
-			},
+			name:         "mixed response types",
+			txDataKey:    "mixed",
 			expectError:  false,
 			expectLength: 1, // Only EVM responses are included
 			expectNil:    false,
 		},
 		{
-			name: "invalid protobuf data",
-			setupData: func() []byte {
-				return []byte("completely invalid data")
-			},
+			name:         "invalid protobuf data",
+			txDataKey:    "invalid",
 			expectError:  true,
 			expectLength: 0,
 			expectNil:    true,
 		},
 		{
-			name: "nil input",
-			setupData: func() []byte {
-				return nil
-			},
+			name:         "nil input",
+			txDataKey:    "nil",
 			expectError:  false,
 			expectLength: 0,
 			expectNil:    true,
@@ -276,9 +268,8 @@ func TestDecodeTxResponses(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			data := tc.setupData()
-
-			results, err := evmtypes.DecodeTxResponses(data)
+			txDataBz, _ := createTxResponseData(t, tc.txDataKey)
+			results, err := evmtypes.DecodeTxResponses(txDataBz)
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -304,7 +295,7 @@ func TestDecodeTxResponses(t *testing.T) {
 					require.Equal(t, common.BytesToHash([]byte("hash")).String(), results[0].Hash)
 					require.Equal(t, []byte{0x5, 0x8}, results[0].Ret)
 					require.Len(t, results[0].Logs, 1)
-					require.Equal(t, []byte{1, 2, 3, 4}, results[0].Logs[0].Data)
+					require.Equal(t, []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAo="), results[0].Logs[0].Data)
 				}
 
 				if tc.name == "mixed response types" {
@@ -313,6 +304,26 @@ func TestDecodeTxResponses(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+const (
+	testAddress = "0xc5570e6B97044960be06962E13248EC6b13107AE"
+	testTopic   = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+)
+
+func createLog(t *testing.T, address string, topics []string, txIndex, logIndex uint64) *evmtypes.Log {
+	t.Helper()
+	return &evmtypes.Log{
+		Address:     address,
+		Topics:      topics,
+		Data:        []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAo="),
+		BlockNumber: uint64(3),
+		TxHash:      "0x0eb002bd8fa02c0b0d549acfca70f7aab5fa745af118c76dda60a1f4329d0de1",
+		TxIndex:     txIndex,
+		BlockHash:   "0xa7a5ee692701bb2f971b9d1a1ab4bbf10599b0ce3814ea2b60c59a4a4a1d2e4c",
+		Index:       logIndex,
+		Removed:     false,
 	}
 }
 
@@ -393,4 +404,47 @@ func TestTransactionLogsEncodeDecode(t *testing.T) {
 	txLogsEncodedDecoded, decodeErr := evmtypes.DecodeTransactionLogs(txLogsEncoded)
 	require.Nil(t, decodeErr)
 	require.Equal(t, txLogs, txLogsEncodedDecoded)
+}
+
+func TestDecodeTxLogsFromEvents(t *testing.T) {
+	testCases := []struct {
+		name      string
+		txDataKey string
+		blockNum  uint64
+		expectErr bool
+	}{
+		{
+			name:      "multiple tx responses, valid msgIndex",
+			txDataKey: "multiple",
+			blockNum:  456,
+			expectErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			txMsgData, resps := createTxResponseData(t, tc.txDataKey)
+			logsOut, err := evmtypes.DecodeTxLogsFromEvents(txMsgData, tc.blockNum)
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+
+				expLogs := make([]*ethtypes.Log, 0)
+				for _, resp := range resps {
+					for _, log := range resp.Logs {
+						ethLog := log.ToEthereum()
+						ethLog.TxHash = common.HexToHash(resp.Hash)
+						ethLog.BlockNumber = tc.blockNum
+						expLogs = append(expLogs, ethLog)
+					}
+				}
+				require.Equal(t, len(logsOut), len(expLogs))
+				for i := range logsOut {
+					require.Equal(t, expLogs[i].Address, logsOut[i].Address)
+					require.Equal(t, expLogs[i].BlockNumber, logsOut[i].BlockNumber)
+				}
+			}
+		})
+	}
 }
