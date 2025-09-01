@@ -14,10 +14,6 @@ import (
 // any.
 type EVMOptionsFn func(uint64) error
 
-// EVMAppOptionsFn defines a function type for setting app options with access to
-// the app options for configuration.
-type EVMAppOptionsFn func(uint64, evmtypes.EvmCoinInfo) error
-
 var sealed = false
 
 // EvmAppOptions sets up EVM configuration with the provided coin info and activators.
