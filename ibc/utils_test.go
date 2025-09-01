@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	cosmosevmibc "github.com/cosmos/evm/ibc"
 	precompilestestutil "github.com/cosmos/evm/precompiles/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -94,8 +95,9 @@ func TestGetTransferSenderRecipient(t *testing.T) {
 		},
 	}
 
+	addressCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	for _, tc := range testCases {
-		sender, recipient, _, _, err := cosmosevmibc.GetTransferSenderRecipient(tc.data)
+		sender, recipient, _, _, err := cosmosevmibc.GetTransferSenderRecipient(tc.data, addressCodec)
 		if tc.expError {
 			require.Error(t, err, tc.name)
 		} else {

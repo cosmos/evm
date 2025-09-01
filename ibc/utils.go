@@ -3,10 +3,10 @@ package ibc
 import (
 	"strings"
 
-	"github.com/cosmos/evm/utils"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
+	"cosmossdk.io/core/address"
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 
@@ -20,21 +20,21 @@ import (
 //   - the packet data is not FungibleTokenPacketData
 //   - sender address is invalid
 //   - recipient address is invalid
-func GetTransferSenderRecipient(data transfertypes.FungibleTokenPacketData) (
+func GetTransferSenderRecipient(data transfertypes.FungibleTokenPacketData, addressCodec address.Codec) (
 	sender, recipient sdk.AccAddress,
 	senderBech32, recipientBech32 string,
 	err error,
 ) {
 	// validate the sender bech32 address from the counterparty chain
 	// and change the bech32 human readable prefix (HRP) of the sender to `evmos`
-	sender, err = utils.GetAccAddressFromBech32(data.Sender)
+	sender, err = addressCodec.StringToBytes(data.Sender)
 	if err != nil {
 		return nil, nil, "", "", errorsmod.Wrap(err, "invalid sender")
 	}
 
 	// validate the recipient bech32 address from the counterparty chain
 	// and change the bech32 human readable prefix (HRP) of the recipient to `evmos`
-	recipient, err = utils.GetAccAddressFromBech32(data.Receiver)
+	recipient, err = addressCodec.StringToBytes(data.Receiver)
 	if err != nil {
 		return nil, nil, "", "", errorsmod.Wrap(err, "invalid recipient")
 	}

@@ -55,7 +55,7 @@ func (k Keeper) OnRecvPacket(
 		WithKVGasConfig(storetypes.GasConfig{}).
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
-	sender, recipient, _, _, err := ibc.GetTransferSenderRecipient(data)
+	sender, recipient, _, _, err := ibc.GetTransferSenderRecipient(data, k.addressCodec)
 	if err != nil {
 		return channeltypes.NewErrorAcknowledgement(err)
 	}
