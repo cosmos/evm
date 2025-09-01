@@ -6,7 +6,6 @@ import (
 
 	corevm "github.com/ethereum/go-ethereum/core/vm"
 
-	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -24,6 +23,8 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
+
+const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
 
 func MustGetDefaultNodeHome() string {
 	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
@@ -131,12 +132,4 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	}
 
 	return EVMAppTemplate, customAppConfig
-}
-
-const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
-
-// EvmAppOptionsFromConfig allows setting up the global configuration
-// for the Cosmos EVM chain using coin configuration from app.toml
-func EvmAppOptionsFromConfig(chainID uint64, evmCoinInfo evmtypes.EvmCoinInfo) error {
-	return evmconfig.EvmAppOptions(chainID, evmCoinInfo, cosmosEVMActivators)
 }

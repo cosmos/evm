@@ -16,8 +16,8 @@ type EVMOptionsFn func(uint64) error
 
 var sealed = false
 
-// EvmAppOptions sets up EVM configuration with the provided coin info and activators.
-func EvmAppOptions(
+// EvmAppOptionsWithConfig sets up EVM configuration with the provided coin info and activators.
+func EvmAppOptionsWithConfig(
 	chainID uint64,
 	coinInfo evmtypes.EvmCoinInfo,
 	activators map[int]func(*vm.JumpTable),
@@ -26,7 +26,7 @@ func EvmAppOptions(
 		return nil
 	}
 
-	if err := EvmAppOptionsWithReset(chainID, coinInfo, activators, false); err != nil {
+	if err := EvmAppOptionsWithConfigWithReset(chainID, coinInfo, activators, false); err != nil {
 		return err
 	}
 
@@ -34,9 +34,9 @@ func EvmAppOptions(
 	return nil
 }
 
-// EvmAppOptionsWithReset sets up EVM configuration with an optional reset flag
+// EvmAppOptionsWithConfigWithReset sets up EVM configuration with an optional reset flag
 // to allow reconfiguration during testing.
-func EvmAppOptionsWithReset(
+func EvmAppOptionsWithConfigWithReset(
 	chainID uint64,
 	coinInfo evmtypes.EvmCoinInfo,
 	activators map[int]func(*vm.JumpTable),

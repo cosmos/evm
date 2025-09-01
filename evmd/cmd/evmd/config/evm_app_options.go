@@ -4,6 +4,7 @@
 package config
 
 import (
+	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 )
 
@@ -11,5 +12,5 @@ import (
 // for the Cosmos EVM chain.
 func EvmAppOptions(chainID uint64) error {
 	evmCoinInfo := *cosmosevmserverconfig.DefaultEvmCoinInfo()
-	return EvmAppOptionsFromConfig(chainID, evmCoinInfo)
+	return evmconfig.EvmAppOptionsWithConfig(chainID, evmCoinInfo, cosmosEVMActivators)
 }
