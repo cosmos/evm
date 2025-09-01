@@ -406,18 +406,117 @@ func TestTransactionLogsEncodeDecode(t *testing.T) {
 	require.Equal(t, txLogs, txLogsEncodedDecoded)
 }
 
+func TestDecodeMsgLogsFromEvents(t *testing.T) {
+	testCases := []struct {
+		name        string
+		txDataKey   string
+		msgIndex    int
+		blockNum    uint64
+		expectError bool
+	}{
+		{
+			name:      "multiple tx responses, valid msgIndex 0",
+			txDataKey: "multiple",
+			msgIndex:  0,
+			blockNum:  12,
+		},
+		{
+			name:      "multiple tx responses, valid msgIndex 1",
+			txDataKey: "multiple",
+			msgIndex:  1,
+			blockNum:  12,
+		},
+		{
+			name:      "single tx response, valid msgIndex 0",
+			txDataKey: "single",
+			msgIndex:  0,
+			blockNum:  34,
+		},
+		{
+			name:        "single tx response, invalid msgIndex",
+			txDataKey:   "single",
+			msgIndex:    1,
+			blockNum:    34,
+			expectError: true,
+		},
+		{
+			name:      "mixed response types, valid msgIndex 0",
+			txDataKey: "mixed",
+			msgIndex:  0,
+			blockNum:  56,
+		},
+		{
+			name:        "invalid protobuf data",
+			txDataKey:   "invalid",
+			msgIndex:    0,
+			blockNum:    78,
+			expectError: true,
+		},
+		{
+			name:        "nil input",
+			txDataKey:   "nil",
+			msgIndex:    0,
+			blockNum:    9,
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			txMsgData, resps := createTxResponseData(t, tc.txDataKey)
+			logsOut, err := evmtypes.DecodeMsgLogsFromEvents(txMsgData, tc.msgIndex, tc.blockNum)
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, logsOut)
+				require.Greater(t, len(resps), tc.msgIndex)
+				expResp := resps[tc.msgIndex]
+				require.Len(t, logsOut, len(expResp.Logs))
+				for i, log := range expResp.Logs {
+					ethLog := log.ToEthereum()
+					ethLog.TxHash = common.HexToHash(expResp.Hash)
+					ethLog.BlockNumber = tc.blockNum
+					require.Equal(t, ethLog.Address, logsOut[i].Address)
+					require.Equal(t, ethLog.BlockNumber, logsOut[i].BlockNumber)
+				}
+			}
+		})
+	}
+}
+
 func TestDecodeTxLogsFromEvents(t *testing.T) {
 	testCases := []struct {
-		name      string
-		txDataKey string
-		blockNum  uint64
-		expectErr bool
+		name        string
+		txDataKey   string
+		blockNum    uint64
+		expectError bool
 	}{
 		{
 			name:      "multiple tx responses, valid msgIndex",
 			txDataKey: "multiple",
-			blockNum:  456,
-			expectErr: false,
+			blockNum:  12,
+		},
+		{
+			name:      "single tx response",
+			txDataKey: "single",
+			blockNum:  34,
+		},
+		{
+			name:      "mixed response types",
+			txDataKey: "mixed",
+			blockNum:  56,
+		},
+		{
+			name:        "invalid protobuf data",
+			txDataKey:   "invalid",
+			blockNum:    78,
+			expectError: true,
+		},
+		{
+			name:      "nil input",
+			txDataKey: "nil",
+			blockNum:  9,
 		},
 	}
 
@@ -425,11 +524,10 @@ func TestDecodeTxLogsFromEvents(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			txMsgData, resps := createTxResponseData(t, tc.txDataKey)
 			logsOut, err := evmtypes.DecodeTxLogsFromEvents(txMsgData, tc.blockNum)
-			if tc.expectErr {
+			if tc.expectError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-
 				expLogs := make([]*ethtypes.Log, 0)
 				for _, resp := range resps {
 					for _, log := range resp.Logs {
