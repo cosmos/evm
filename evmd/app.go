@@ -767,8 +767,8 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// Get the block gas limit from genesis file
-		blockGasLimit := evmconfig.GetBlockGasLimitFromGenesis(appOpts, logger)
-		// Get MinGasPrices from app configuration
+		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
+		// Get MinGasPrices from app.toml or cli flag configuration
 		minGasPrices := evmconfig.GetMinGasPrices(appOpts, logger)
 
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
