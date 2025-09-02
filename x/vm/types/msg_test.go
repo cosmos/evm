@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
@@ -54,8 +53,10 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
-	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
-	err := config.EvmAppOptionsWithReset(chainID, true)
+	// Configure EVM with test configuration and reset
+	configurator := types.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	err := configurator.WithEVMCoinInfo(testconfig.DefaultChainConfig.CoinInfo).Configure()
 	suite.Require().NoError(err)
 }
 

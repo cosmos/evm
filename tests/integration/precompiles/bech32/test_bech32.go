@@ -6,7 +6,6 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/precompiles/bech32"
-	"github.com/cosmos/evm/testutil/config"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -58,6 +57,8 @@ func (s *PrecompileTestSuite) TestRun() {
 		uint256.NewInt(0),
 		uint64(1000000),
 	)
+
+	cfg := sdk.GetConfig()
 
 	testCases := []struct {
 		name        string
@@ -111,7 +112,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					config.DefaultBech32Prefix,
+					cfg.GetBech32AccountAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -137,7 +138,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					common.BytesToAddress(valAddrBz),
-					config.DefaultBech32PrefixValAddr,
+					cfg.GetBech32ValidatorAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -160,7 +161,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					config.DefaultBech32PrefixConsAddr,
+					cfg.GetBech32ConsensusAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input

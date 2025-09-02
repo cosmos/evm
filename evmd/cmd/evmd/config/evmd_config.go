@@ -97,9 +97,9 @@ type EVMAppConfig struct {
 	Coin    evmtypes.EvmCoinInfo
 }
 
-// InitAppConfig helps to override default appConfig template and configs.
-// return "", nil if no custom configuration is required for the application.
-func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
+// InitAppConfig returns application's default configuration using the provided chain configuration.
+// It overrides the server config to use chain-specific values instead of hardcoded defaults.
+func InitAppConfig(chainConfig ChainConfig) (string, interface{}) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -115,21 +115,32 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	//   own app.toml to override, or use this default value.
 	//
 	// In this example application, we set the min gas prices to 0.
-	srvCfg.MinGasPrices = "0" + denom
+	srvCfg.MinGasPrices = "0" + chainConfig.CoinInfo.Denom
 
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
-	evmCfg.EVMChainID = evmChainID
-
-	// Use the default chain configuration as a fallback
-	coinCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
+	evmCfg.EVMChainID = chainConfig.ChainInfo.EVMChainID
 
 	customAppConfig := EVMAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Coin:    *coinCfg,
+		Coin:    chainConfig.CoinInfo,
 	}
 
 	return EVMAppTemplate, customAppConfig
+}
+
+// InitAppConfigLegacy provides backward compatibility with the old interface.
+// Deprecated: Use InitAppConfig with ChainConfig instead.
+func InitAppConfigLegacy(denom string, evmChainID uint64) (string, interface{}) {
+	chainConfig := ChainConfig{
+		ChainInfo: ChainInfo{
+			EVMChainID: evmChainID,
+		},
+		CoinInfo: evmtypes.EvmCoinInfo{
+			Denom: denom,
+		},
+	}
+	return InitAppConfig(chainConfig)
 }

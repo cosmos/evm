@@ -17,8 +17,10 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-var attoDenom = evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
-var DefaultFee = sdk.NewCoin(attoDenom, sdkmath.NewInt(1e16)) // 0.01 AATOM
+var (
+	attoDenom  = evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
+	DefaultFee = sdk.NewCoin(attoDenom, sdkmath.NewInt(1e16)) // 0.01 AATOM
+)
 
 // CosmosTxArgs contains the params to create a cosmos tx
 type CosmosTxArgs struct {

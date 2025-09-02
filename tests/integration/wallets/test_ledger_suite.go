@@ -51,7 +51,7 @@ func (suite *LedgerTestSuite) SetupTest() {
 	// We use the testutil network to load the encoding config
 	network.New(suite.create, suite.options...)
 
-	suite.hrp = "cosmos"
+	suite.hrp = sdk.GetConfig().GetBech32AccountAddrPrefix()
 
 	suite.txAmino = suite.getMockTxAmino()
 	suite.txProtobuf = suite.getMockTxProtobuf()

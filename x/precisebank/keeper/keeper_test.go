@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	evmosencoding "github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
@@ -40,11 +40,18 @@ func newMockedTestData(t *testing.T) testData {
 	bk := mocks.NewBankKeeper(t)
 	ak := mocks.NewAccountKeeper(t)
 
-	chainID := testconfig.SixDecimalsChainConfig.ChainInfo.EVMChainID
+	// Use consistent chain configuration - SixDecimalsChainConfig for precisebank tests
+	chainConfig := testconfig.SixDecimalsChainConfig
+	chainID := chainConfig.ChainInfo.EVMChainID
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-	err := config.EvmAppOptions(chainID)
+
+	// Configure EVM with test configuration
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	evmChainConfig := evmtypes.DefaultChainConfig(chainConfig.ChainInfo.EVMChainID)
+	err := configurator.WithChainConfig(evmChainConfig).WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
 	if err != nil {
 		return testData{}
 	}

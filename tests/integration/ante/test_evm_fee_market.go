@@ -6,7 +6,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
-	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -103,7 +102,7 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 				acc := s.GetNetwork().App.GetAccountKeeper().NewAccountWithAddress(ctx, from.Bytes())
 				s.Require().NoError(acc.SetSequence(1))
 				s.GetNetwork().App.GetAccountKeeper().SetAccount(ctx, acc)
-				builder, err := s.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), config.DefaultEVMChainID, gas, amount)
+				builder, err := s.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), testconfig.DefaultChainConfig.ChainInfo.EVMChainID, gas, amount)
 				s.Require().NoError(err)
 				return builder.GetTx()
 			},

@@ -7,7 +7,6 @@ import (
 
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/testutil/config"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -17,6 +16,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 	s.SetupTest()
 
 	method := s.precompile.Methods[bech32.HexToBech32Method]
+	cfg := sdk.GetConfig()
 
 	testCases := []struct {
 		name        string
@@ -63,7 +63,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					config.DefaultBech32Prefix,
+					cfg.GetBech32AccountAddrPrefix(),
 				}
 			},
 			func(data []byte) {
@@ -103,6 +103,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 	s.SetupTest()
 
 	method := s.precompile.Methods[bech32.Bech32ToHexMethod]
+	cfg := sdk.GetConfig()
 
 	testCases := []struct {
 		name        string
@@ -135,18 +136,18 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			"fail - invalid bech32 address",
 			func() []interface{} {
 				return []interface{}{
-					config.DefaultBech32Prefix,
+					cfg.GetBech32AccountAddrPrefix(),
 				}
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf("invalid bech32 address: %s", config.DefaultBech32Prefix),
+			fmt.Sprintf("invalid bech32 address: %s", cfg.GetBech32AccountAddrPrefix()),
 		},
 		{
 			"fail - decoding bech32 failed",
 			func() []interface{} {
 				return []interface{}{
-					config.DefaultBech32Prefix + "1",
+					cfg.GetBech32AccountAddrPrefix() + "1",
 				}
 			},
 			func([]byte) {},

@@ -118,7 +118,7 @@ key-path = "{{ .TLS.KeyPath }}"
 ###                             Coin Configuration                          ###
 ###############################################################################
 
-[chain]
+[coin]
 
 # Denom defines the base denomination used in the chain
 denom = "{{ .Coin.Denom }}"

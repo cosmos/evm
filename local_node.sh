@@ -1,9 +1,7 @@
 #!/bin/bash
 
 CHAINID="${CHAIN_ID:-9001}"
-EVM_CHAIN_ID="${EVM_CHAIN_ID:-9001}"
 DENOM="${DENOM:-atest}"
-EXTENDED_DENOM="${EXTENDED_DENOM:-atest}"
 DISPLAY_DENOM="${DISPLAY_DENOM:-test}"
 DECIMALS="${DECIMALS:-18}"
 MONIKER="localtestnet"
@@ -54,15 +52,6 @@ Options:
   --additional-users N     Create N extra users: dev4, dev5, ...
   --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.evmd/mnemonics.yaml)
   --mnemonics-input PATH   Read dev mnemonics from a yaml file (key: mnemonics:)
-  --chain-id ID            Cosmos chain ID (default: 9001)
-  --evm-chain-id ID        EVM chain ID (default: 9001)
-  --denom DENOM            Base denom (default: atest)
-  --extended-denom DENOM   Extended denom (default: atest)
-  --display-denom DENOM    Display denom (default: test)  
-  --decimals N             Decimal places (default: 18)
-
-Environment variables (alternative to flags):
-  CHAIN_ID, EVM_CHAIN_ID, DENOM, EXTENDED_DENOM, DISPLAY_DENOM, DECIMALS
 EOF
 }
 
@@ -102,42 +91,6 @@ while [[ $# -gt 0 ]]; do
         echo "Error: --mnemonics-input requires a path."; usage; exit 1
       fi
       MNEMONICS_INPUT="$2"; shift 2
-      ;;
-    --chain-id)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --chain-id requires a value."; usage; exit 1
-      fi
-      CHAINID="$2"; shift 2
-      ;;
-    --evm-chain-id)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --evm-chain-id requires a value."; usage; exit 1
-      fi
-      EVM_CHAIN_ID="$2"; shift 2
-      ;;
-    --denom)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --denom requires a value."; usage; exit 1
-      fi
-      DENOM="$2"; shift 2
-      ;;
-    --extended-denom)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --extended-denom requires a value."; usage; exit 1
-      fi
-      EXTENDED_DENOM="$2"; shift 2
-      ;;
-    --display-denom)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --display-denom requires a value."; usage; exit 1
-      fi
-      DISPLAY_DENOM="$2"; shift 2
-      ;;
-    --decimals)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --decimals requires a value."; usage; exit 1
-      fi
-      DECIMALS="$2"; shift 2
       ;;
     -h|--help)
       usage; exit 0
@@ -285,7 +238,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-  jq '.app_state["evm"]["params"]["evm_denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["evm"]["params"]["evm_denom"]="'"$DENOM"'"' "$GENESISF" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["mint"]["params"]["mint_denom"]="'"$DENOM"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   # Create dynamic denom metadata with proper exponents and display denom

@@ -16,13 +16,12 @@ import (
 	cmtprotoversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	cmttypes "github.com/cometbft/cometbft/types"
 	cmtversion "github.com/cometbft/cometbft/version"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
@@ -371,7 +370,7 @@ func (chain *TestChain) SendEvmTx(
 	amount *big.Int,
 	data []byte,
 	gasLimit uint64,
-) (*abci.ExecTxResult, *types.MsgEthereumTx, *types.MsgEthereumTxResponse, error) {
+) (*abci.ExecTxResult, *evmtypes.MsgEthereumTx, *evmtypes.MsgEthereumTxResponse, error) {
 	app, ok := chain.App.(evm.EvmApp)
 	require.True(chain.TB, ok)
 	ctx := chain.GetContext()
@@ -427,12 +426,12 @@ func (chain *TestChain) SendEvmTx(
 	if txResult.Code != 0 {
 		return txResult, nil, nil, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
 	}
-	ethRes, err := types.DecodeTxResponse(txResult.Data)
+	ethRes, err := evmtypes.DecodeTxResponse(txResult.Data)
 	if err != nil {
 		return txResult, nil, nil, err
 	}
 	if ethRes.VmError != "" {
-		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(types.ErrVMExecution, "vm error: %s", ethRes.VmError)
+		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(evmtypes.ErrVMExecution, "vm error: %s", ethRes.VmError)
 	}
 
 	chain.Coordinator.IncrementTime()

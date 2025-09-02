@@ -12,8 +12,6 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
-	"github.com/cosmos/evm/testutil/config"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -72,8 +70,6 @@ func (s *TestSuite) SetupTest() {
 	s.config = nw.GetEncodingConfig()
 	s.clientCtx = client.Context{}.WithTxConfig(s.config.TxConfig)
 	s.denom = evmtypes.GetEVMCoinDenom()
-
-	sdk.GetConfig().SetBech32PrefixForAccount(config.DefaultBech32Prefix, "")
 }
 
 // createTestAddress creates random test addresses for messages
@@ -117,6 +113,7 @@ func (s *TestSuite) TestEIP712() {
 		signing.SignMode_SIGN_MODE_DIRECT,
 		signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON,
 	}
+	cfg := sdk.GetConfig()
 
 	params := TestParams{
 		fee: txtypes.Fee{
@@ -333,7 +330,7 @@ func (s *TestSuite) TestEIP712() {
 				err = txBuilder.SetSignatures([]signing.SignatureV2{txSig}...)
 				s.Require().NoError(err)
 
-				chainID := testconfig.DefaultChainID
+				chainID := "cosmos-1" // Test chain ID - matches network default
 				if tc.chainID != "" {
 					chainID = tc.chainID
 				}
@@ -347,7 +344,7 @@ func (s *TestSuite) TestEIP712() {
 					AccountNumber: params.accountNumber,
 					Sequence:      params.sequence,
 					PubKey:        pubKey,
-					Address:       sdk.MustBech32ifyAddressBytes(testconfig.DefaultBech32Prefix, pubKey.Bytes()),
+					Address:       sdk.MustBech32ifyAddressBytes(cfg.GetBech32AccountAddrPrefix(), pubKey.Bytes()),
 				}
 
 				bz, err := authsigning.GetSignBytesAdapter(

@@ -1,10 +1,7 @@
 package config
 
 import (
-	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type ChainConfig struct {
@@ -35,18 +32,4 @@ func CreateChainConfig(chainID string, evmChainID uint64, displayDenom string, d
 			Decimals:      decimals,
 		},
 	}
-}
-
-// SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.
-func SetBech32Prefixes(config *sdk.Config) {
-	config.SetBech32PrefixForAccount(DefaultBech32PrefixAccAddr, DefaultBech32PrefixAccPub)
-	config.SetBech32PrefixForValidator(DefaultBech32PrefixValAddr, DefaultBech32PrefixValPub)
-	config.SetBech32PrefixForConsensusNode(DefaultBech32PrefixConsAddr, DefaultBech32PrefixConsPub)
-}
-
-// SetBip44CoinType sets the global coin type to be used in hierarchical deterministic wallets.
-func SetBip44CoinType(config *sdk.Config) {
-	config.SetCoinType(types.Bip44CoinType)
-	config.SetPurpose(sdk.Purpose)                  // Shared
-	config.SetFullFundraiserPath(types.BIP44HDPath) //nolint: staticcheck
 }

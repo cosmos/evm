@@ -55,6 +55,12 @@ var (
 	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconfig.DefaultChainConfig.CoinInfo.Denom, testRewardsAmt))
 )
 
+// Test denomination constants to avoid goconst lint warnings
+const (
+	testFooDenom = "foo"
+	testBarDenom = "bar"
+)
+
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	_ = Describe("Calling distribution precompile from EOA", func() {
 		s := NewPrecompileTestSuite(create, options...)
@@ -903,7 +909,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// 2) Prepare and execute the FundCommunityPool call
 				fundAmt := math.NewInt(10)
-				fooDenom, barDenom := "foo", "bar"
+				fooDenom, barDenom := testFooDenom, testBarDenom
 				sendAmt := []cmn.Coin{
 					{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
 					{Denom: fooDenom, Amount: fundAmt.BigInt()},

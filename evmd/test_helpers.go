@@ -7,6 +7,7 @@ import (
 
 	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -44,8 +45,17 @@ func init() {
 
 	// Set the global SDK config for the tests
 	cfg := sdk.GetConfig()
-	config.SetBech32Prefixes(cfg)
 	config.SetBip44CoinType(cfg)
+	// Note: Bech32 prefixes are now managed by the configuration system
+}
+
+// testEvmAppOptions creates an EvmAppOptions function for testing
+func testEvmAppOptions(evmChainID uint64) error {
+	// Use default chain configuration for testing
+	chainConfig := testconfig.DefaultChainConfig
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	return configurator.WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
 }
 
 func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uint64) (*EVMD, GenesisState) {
@@ -55,7 +65,7 @@ func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uin
 	appOptions[flags.FlagHome] = defaultNodeHome
 	appOptions[server.FlagInvCheckPeriod] = invCheckPeriod
 
-	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, evmChainID, testEvmAppOptions, baseapp.SetChainID(chainID))
 	if withGenesis {
 		return app, app.DefaultGenesis()
 	}
@@ -132,7 +142,7 @@ func SetupTestingApp(chainID string, evmChainID uint64) func() (ibctesting.Testi
 			db, nil, true,
 			simtestutil.NewAppOptionsWithFlagHome(defaultNodeHome),
 			evmChainID,
-			testconfig.EvmAppOptions,
+			testEvmAppOptions,
 			baseapp.SetChainID(chainID),
 		)
 		return app, app.DefaultGenesis()

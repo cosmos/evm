@@ -3,7 +3,7 @@
 package testutil
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	grpchandler "github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
@@ -15,13 +15,15 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
+// Note: TestSuite is defined in test_suite.go
+
 func (s *TestSuite) TestWithChainID() {
-	eighteenDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.ExampleChainID)
-	sixDecimalsCoinInfo := testconstants.GetExampleChainCoinInfo(testconstants.SixDecimalsChainID)
+	eighteenDecimalsConfig := testconfig.DefaultChainConfig
+	sixDecimalsConfig := testconfig.SixDecimalsChainConfig
 
 	testCases := []struct {
 		name            string
-		chainID         testconstants.ChainID
+		chainID         string
 		evmChainID      uint64
 		coinInfo        evmtypes.EvmCoinInfo
 		expBaseFee      math.LegacyDec
@@ -29,15 +31,15 @@ func (s *TestSuite) TestWithChainID() {
 	}{
 		{
 			name:            "18 decimals",
-			chainID:         testconstants.ExampleChainID,
-			coinInfo:        eighteenDecimalsCoinInfo,
+			chainID:         eighteenDecimalsConfig.ChainInfo.ChainID,
+			coinInfo:        eighteenDecimalsConfig.CoinInfo,
 			expBaseFee:      math.LegacyNewDec(875_000_000),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.EighteenDecimals),
 		},
 		{
 			name:            "6 decimals",
-			chainID:         testconstants.SixDecimalsChainID,
-			coinInfo:        sixDecimalsCoinInfo,
+			chainID:         sixDecimalsConfig.ChainInfo.ChainID,
+			coinInfo:        sixDecimalsConfig.CoinInfo,
 			expBaseFee:      math.LegacyNewDecWithPrec(875, 6),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.SixDecimals),
 		},
@@ -47,8 +49,10 @@ func (s *TestSuite) TestWithChainID() {
 		// create a new network with 2 pre-funded accounts
 		keyring := testkeyring.New(1)
 
+		// Create chain config for the test case
+		chainConfig := testconfig.CreateChainConfig(tc.chainID, tc.evmChainID, "test", tc.coinInfo.Decimals)
 		options := []network.ConfigOption{
-			network.WithChainID(tc.chainID),
+			network.WithChainConfig(chainConfig),
 			network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		}
 		options = append(options, s.options...)
@@ -98,9 +102,9 @@ func (s *TestSuite) TestWithChainID() {
 }
 
 func (s *TestSuite) TestWithBalances() {
-	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 1e18))
+	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconfig.DefaultChainConfig.CoinInfo.Denom, 1e18))
 	key2Balance := sdk.NewCoins(
-		sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 2e18),
+		sdk.NewInt64Coin(testconfig.DefaultChainConfig.CoinInfo.Denom, 2e18),
 		sdk.NewInt64Coin("other", 3e18),
 	)
 

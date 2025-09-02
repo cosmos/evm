@@ -1,11 +1,10 @@
 package config
 
 import (
-	"cosmossdk.io/math"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"cosmossdk.io/math"
 )
 
 const (
@@ -22,21 +21,6 @@ const (
 	DefaultDisplayDenom = "atom"
 	// DefaultDecimals defines the default decimals used for creating denoms in tests
 	DefaultDecimals = evmtypes.EighteenDecimals
-
-	// DefaultBech32Prefix defines the default Bech32 address prefix
-	DefaultBech32Prefix = "cosmos"
-	// DefaultBech32PrefixAccAddr defines the default Bech32 prefix of an account's address.
-	DefaultBech32PrefixAccAddr = DefaultBech32Prefix
-	// DefaultBech32PrefixAccPub defines the default Bech32 prefix of an account's public key.
-	DefaultBech32PrefixAccPub = DefaultBech32Prefix + sdk.PrefixPublic
-	// DefaultBech32PrefixValAddr defines the default Bech32 prefix of a validator's operator address.
-	DefaultBech32PrefixValAddr = DefaultBech32Prefix + sdk.PrefixValidator + sdk.PrefixOperator
-	// DefaultBech32PrefixValPub defines the default Bech32 prefix of a validator's operator public key.
-	DefaultBech32PrefixValPub = DefaultBech32Prefix + sdk.PrefixValidator + sdk.PrefixOperator + sdk.PrefixPublic
-	// DefaultBech32PrefixConsAddr defines the default Bech32 prefix of a consensus node address.
-	DefaultBech32PrefixConsAddr = DefaultBech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus
-	// DefaultBech32PrefixConsPub defines the default Bech32 prefix of a consensus node public key.
-	DefaultBech32PrefixConsPub = DefaultBech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
 
 	// DefaultWevmosContractMainnet is the default WEVMOS contract address for mainnet
 	DefaultWevmosContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"

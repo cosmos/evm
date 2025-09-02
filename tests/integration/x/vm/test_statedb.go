@@ -686,7 +686,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 
 	chainID := testconfig.DefaultChainConfig.ChainInfo.EVMChainID
 	ethTx3Params := &types.EvmTxArgs{
-		ChainID:   big.NewInt(int64(chainID)),
+		ChainID:   new(big.Int).SetUint64(chainID),
 		Nonce:     0,
 		To:        &toAddr,
 		Amount:    common.Big1,

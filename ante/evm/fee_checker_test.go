@@ -11,7 +11,6 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -61,7 +60,11 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	chainID := uint64(chainConfig.ChainInfo.EVMChainID)
 	chainDenomAtto := chainConfig.CoinInfo.ExtendedDenom
 	encodingConfig := encoding.MakeConfig(chainID)
-	err := config.EvmAppOptions(chainID)
+
+	// Configure EVM with test configuration
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	err := configurator.WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
 	require.NoError(t, err)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()

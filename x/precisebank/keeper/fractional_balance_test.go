@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,46 +18,57 @@ func TestSetGetFractionalBalance(t *testing.T) {
 	addr := sdk.AccAddress([]byte("test-address"))
 
 	tests := []struct {
-		name        string
-		address     sdk.AccAddress
-		amount      sdkmath.Int
-		setPanicMsg string
+		name            string
+		address         sdk.AccAddress
+		amount          func() sdkmath.Int // Function to compute amount after EVM is configured
+		setPanicMsg     string
+		setPanicMsgFunc func() string // Function to compute panic message after EVM is configured
 	}{
 		{
 			"valid - min amount",
 			addr,
-			sdkmath.NewInt(1),
+			func() sdkmath.Int { return sdkmath.NewInt(1) },
 			"",
+			func() string { return "" },
 		},
 		{
 			"valid - positive amount",
 			addr,
-			sdkmath.NewInt(100),
+			func() sdkmath.Int { return sdkmath.NewInt(100) },
 			"",
+			func() string { return "" },
 		},
 		{
 			"valid - max amount",
 			addr,
-			types.ConversionFactor().SubRaw(1),
+			func() sdkmath.Int { return types.ConversionFactor().SubRaw(1) },
 			"",
+			func() string { return "" },
 		},
 		{
 			"valid - zero amount (deletes)",
 			addr,
-			sdkmath.ZeroInt(),
+			func() sdkmath.Int { return sdkmath.ZeroInt() },
 			"",
+			func() string { return "" },
 		},
 		{
 			"invalid - negative amount",
 			addr,
-			sdkmath.NewInt(-1),
+			func() sdkmath.Int { return sdkmath.NewInt(-1) },
 			"amount is invalid: non-positive amount -1",
+			func() string { return "amount is invalid: non-positive amount -1" },
 		},
 		{
 			"invalid - over max amount",
 			addr,
-			types.ConversionFactor(),
-			"amount is invalid: amount 1000000000000 exceeds max of 999999999999",
+			func() sdkmath.Int { return types.ConversionFactor() },
+			"",
+			func() string {
+				conversionFactor := types.ConversionFactor()
+				maxAmount := conversionFactor.SubRaw(1)
+				return fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", conversionFactor.String(), maxAmount.String())
+			},
 		},
 	}
 
@@ -65,20 +77,24 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			td := newMockedTestData(t)
 			ctx, k := td.ctx, td.keeper
 
-			if tt.setPanicMsg != "" {
-				require.PanicsWithError(t, tt.setPanicMsg, func() {
-					k.SetFractionalBalance(ctx, tt.address, tt.amount)
+			// Compute amount and panic message after EVM is configured
+			amount := tt.amount()
+			panicMsg := tt.setPanicMsgFunc()
+
+			if panicMsg != "" {
+				require.PanicsWithError(t, panicMsg, func() {
+					k.SetFractionalBalance(ctx, tt.address, amount)
 				})
 
 				return
 			}
 
 			require.NotPanics(t, func() {
-				k.SetFractionalBalance(ctx, tt.address, tt.amount)
+				k.SetFractionalBalance(ctx, tt.address, amount)
 			})
 
 			// If its zero balance, check it was deleted in store
-			if tt.amount.IsZero() {
+			if amount.IsZero() {
 				store := prefix.NewStore(ctx.KVStore(td.storeKey), types.FractionalBalancePrefix)
 				bz := store.Get(types.FractionalBalanceKey(tt.address))
 				require.Nil(t, bz)
@@ -87,7 +103,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			}
 
 			gotAmount := k.GetFractionalBalance(ctx, tt.address)
-			require.Equal(t, tt.amount, gotAmount)
+			require.Equal(t, amount, gotAmount)
 
 			// Delete balance
 			k.DeleteFractionalBalance(ctx, tt.address)

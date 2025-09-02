@@ -39,7 +39,7 @@ var (
 	// feePayerAddress is the address of the fee payer used in EIP-712 tests.
 	feePayerAddress = fmt.Sprintf(
 		"%s17xpfvakm2amg962yls6f84z3kell8c5lserqta",
-		testconfig.DefaultBech32Prefix,
+		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 	)
 )
 
@@ -54,8 +54,6 @@ type TestCaseStruct struct {
 }
 
 func TestLedgerPreprocessing(t *testing.T) {
-	// Update bech32 prefix
-	sdk.GetConfig().SetBech32PrefixForAccount(testconfig.DefaultBech32Prefix, "")
 	coinInfo := testconfig.DefaultChainConfig.CoinInfo
 	evmConfigurator := evmtypes.NewEVMConfigurator().WithEVMCoinInfo(coinInfo)
 	err := evmConfigurator.Configure()

@@ -12,8 +12,8 @@ import (
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/tests/ledger/mocks"
-	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
@@ -60,7 +60,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Adding a key from ledger using the CLI", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
+			encCfg = encoding.MakeConfig(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
 
 			cmd = s.cosmosEVMAddKeyCmd()
 
@@ -109,7 +109,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	Describe("Singing a transactions", func() {
 		BeforeEach(func() {
 			krHome = s.T().TempDir()
-			encCfg = encoding.MakeConfig(config.DefaultEVMChainID)
+			encCfg = encoding.MakeConfig(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
 
 			var err error
 

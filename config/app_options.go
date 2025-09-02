@@ -3,8 +3,9 @@ package config
 import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"cosmossdk.io/math"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
