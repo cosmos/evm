@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	cosmosevmibc "github.com/cosmos/evm/ibc"
 	precompilestestutil "github.com/cosmos/evm/precompiles/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -16,6 +15,7 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
 
 func init() {
