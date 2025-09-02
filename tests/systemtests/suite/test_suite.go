@@ -1,4 +1,4 @@
-package systemtests
+package suite
 
 import (
 	"math/big"
@@ -37,7 +37,7 @@ func (s *SystemTestSuite) SetupTest(t *testing.T) {
 }
 
 func (s *SystemTestSuite) BeforeEach(t *testing.T) {
-	currentBaseFee, err := BaseFee(s.EthClient, "node0")
+	currentBaseFee, err := s.GetLatestBaseFee("node0")
 	require.NoError(t, err)
 
 	s.BaseFee = currentBaseFee
