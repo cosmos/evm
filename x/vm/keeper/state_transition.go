@@ -207,7 +207,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		TxHash:            txConfig.TxHash,
 		ContractAddress:   contractAddr,
 		GasUsed:           res.GasUsed,
-		BlockHash:         txConfig.BlockHash,
+		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
 		BlockNumber:       big.NewInt(ctx.BlockHeight()),
 		TransactionIndex:  txConfig.TxIndex,
 	}
@@ -308,7 +308,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal)
 }
 
@@ -394,7 +394,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
 	// Gas limit suffices for the floor data cost (EIP-7623)
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if rules.IsPrague {
 		floorDataGas, err := core.FloorDataGas(msg.Data)
 		if err != nil {
@@ -507,12 +507,13 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		ret = evm.Interpreter().ReturnData()
 	}
 
+	logs := stateDB.GetLogs(uint64(ctx.BlockHeight()), common.BytesToHash(ctx.HeaderHash()), evm.Context.Time) //#nosec G115 -- int overflow is not a concern here
 	return &types.MsgEthereumTxResponse{
 		GasUsed:    gasUsed.TruncateInt().Uint64(),
 		MaxUsedGas: maxUsedGas,
 		VmError:    vmError,
 		Ret:        ret,
-		Logs:       types.NewLogsFromEth(stateDB.Logs()),
+		Logs:       types.NewLogsFromEth(logs),
 		Hash:       txConfig.TxHash.Hex(),
 	}, nil
 }
