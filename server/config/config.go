@@ -132,7 +132,7 @@ type Config struct {
 	EVM     EVMConfig            `mapstructure:"evm"`
 	JSONRPC JSONRPCConfig        `mapstructure:"json-rpc"`
 	TLS     TLSConfig            `mapstructure:"tls"`
-	Chain   evmtypes.EvmCoinInfo `mapstructure:"chain"`
+	Coin    evmtypes.EvmCoinInfo `mapstructure:"chain"`
 }
 
 // EVMConfig defines the application configuration values for the EVM.
@@ -378,7 +378,7 @@ func DefaultConfig() *Config {
 		EVM:     *DefaultEVMConfig(),
 		JSONRPC: *DefaultJSONRPCConfig(),
 		TLS:     *DefaultTLSConfig(),
-		Chain:   *DefaultEvmCoinInfo(),
+		Coin:    *DefaultEvmCoinInfo(),
 	}
 }
 
@@ -405,7 +405,7 @@ func (c Config) ValidateBasic() error {
 		return errorsmod.Wrapf(errortypes.ErrAppConfig, "invalid tls config value: %s", err.Error())
 	}
 
-	if err := c.Chain.Validate(); err != nil {
+	if err := c.Coin.Validate(); err != nil {
 		return errorsmod.Wrapf(errortypes.ErrAppConfig, "invalid chain config value: %s", err.Error())
 	}
 

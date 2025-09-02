@@ -121,14 +121,14 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	evmCfg.EVMChainID = evmChainID
 
 	// Use the default chain configuration as a fallback
-	chainCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
+	coinCfg := cosmosevmserverconfig.DefaultEvmCoinInfo()
 
 	customAppConfig := EVMAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
-		Coin:    *chainCfg,
+		Coin:    *coinCfg,
 	}
 
 	return EVMAppTemplate, customAppConfig

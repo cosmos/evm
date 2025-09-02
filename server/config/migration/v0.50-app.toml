@@ -329,24 +329,6 @@ certificate-path = ""
 key-path = ""
 
 ###############################################################################
-###                            Chain Configuration                          ###
-###############################################################################
-
-[chain]
-
-# Denom defines the base denomination used in the chain
-denom = "aatom"
-
-# ExtendedDenom defines the extended denomination (typically atto-denom for 18 decimals)
-extended-denom = "aatom"
-
-# DisplayDenom defines the display denomination shown to users
-display-denom = "atom"
-
-# Decimals defines the precision/decimals for the base denomination (1-18)
-decimals = 18
-
-###############################################################################
 ###                           Rosetta Configuration                         ###
 ###############################################################################
 
