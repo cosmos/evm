@@ -14,6 +14,9 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
+	// Force-load crypto package to trigger Keplr type registrations
+	_ "github.com/cosmos/evm/crypto/ethsecp256k1"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -36,6 +39,9 @@ import (
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	"github.com/cosmos/evm/x/epixmint"
+	epixmintkeeper "github.com/cosmos/evm/x/epixmint/keeper"
+	epixminttypes "github.com/cosmos/evm/x/epixmint/types"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -123,7 +129,6 @@ import (
 	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
@@ -198,6 +203,7 @@ type EVMD struct {
 	EVMKeeper         *evmkeeper.Keeper
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
+	EpixMintKeeper    epixmintkeeper.Keeper
 	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager
@@ -281,7 +287,7 @@ func NewExampleApp(
 		// ibc keys
 		ibcexported.StoreKey, ibctransfertypes.StoreKey,
 		// Cosmos EVM store keys
-		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
+		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey, epixminttypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
@@ -477,6 +483,17 @@ func NewExampleApp(
 		app.AccountKeeper,
 	)
 
+	// Set up EpixMint keeper
+	app.EpixMintKeeper = epixmintkeeper.NewKeeper(
+		appCodec,
+		keys[epixminttypes.StoreKey],
+		app.PreciseBankKeeper, // Use PreciseBankKeeper for minting
+		app.AccountKeeper,
+		app.DistrKeeper,
+		app.StakingKeeper,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
@@ -598,7 +615,7 @@ func NewExampleApp(
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, app.GetSubspace(banktypes.ModuleName)),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(govtypes.ModuleName)),
-		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, app.GetSubspace(minttypes.ModuleName)),
+		// mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, app.GetSubspace(minttypes.ModuleName)), // Disabled in favor of epixmint
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
 		distr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
@@ -616,6 +633,7 @@ func NewExampleApp(
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
+		epixmint.NewAppModule(app.EpixMintKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager which is in charge of setting up basic,
@@ -651,7 +669,7 @@ func NewExampleApp(
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	// NOTE: capability module's beginblocker must come before any modules using capabilities (e.g. IBC)
 	app.ModuleManager.SetOrderBeginBlockers(
-		minttypes.ModuleName,
+		epixminttypes.ModuleName, // Custom mint module
 
 		// IBC modules
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
@@ -682,7 +700,7 @@ func NewExampleApp(
 		// no-ops
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
 		distrtypes.ModuleName,
-		slashingtypes.ModuleName, minttypes.ModuleName,
+		slashingtypes.ModuleName, epixminttypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
 		feegrant.ModuleName, paramstypes.ModuleName, upgradetypes.ModuleName, consensusparamtypes.ModuleName,
 		precisebanktypes.ModuleName,
@@ -695,7 +713,7 @@ func NewExampleApp(
 	genesisModuleOrder := []string{
 		authtypes.ModuleName, banktypes.ModuleName,
 		distrtypes.ModuleName, stakingtypes.ModuleName, slashingtypes.ModuleName, govtypes.ModuleName,
-		minttypes.ModuleName,
+		epixminttypes.ModuleName,
 		ibcexported.ModuleName,
 
 		// Cosmos EVM modules
@@ -945,8 +963,11 @@ func (app *EVMD) TxConfig() client.TxConfig {
 func (app *EVMD) DefaultGenesis() map[string]json.RawMessage {
 	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
 
-	mintGenState := NewMintGenesisState()
-	genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
+	// mintGenState := NewMintGenesisState() // Disabled in favor of epixmint
+	// genesis[minttypes.ModuleName] = app.appCodec.MustMarshalJSON(mintGenState)
+
+	epixMintGenState := NewEpixMintGenesisState()
+	genesis[epixminttypes.ModuleName] = app.appCodec.MustMarshalJSON(epixMintGenState)
 
 	evmGenState := NewEVMGenesisState()
 	genesis[evmtypes.ModuleName] = app.appCodec.MustMarshalJSON(evmGenState)

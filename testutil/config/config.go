@@ -23,11 +23,25 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		DisplayDenom:  ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
+	// EpixTestnetChainID provides the Epix testnet configuration
+	EpixTestnetChainID: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
+	// EpixMainnetChainID provides the Epix mainnet configuration
+	EpixMainnetChainID: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleDisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
 }
 
 const (
 	// Bech32Prefix defines the Bech32 prefix used for accounts on the exemplary Cosmos EVM blockchain.
-	Bech32Prefix = "cosmos"
+	Bech32Prefix = "epix"
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address.
 	Bech32PrefixAccAddr = Bech32Prefix
 	// Bech32PrefixAccPub defines the Bech32 prefix of an account's public key.
@@ -41,9 +55,9 @@ const (
 	// Bech32PrefixConsPub defines the Bech32 prefix of a consensus node public key.
 	Bech32PrefixConsPub = Bech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
 	// DisplayDenom defines the denomination displayed to users in client applications.
-	DisplayDenom = "atom"
-	// BaseDenom defines to the default denomination used in the Cosmos EVM example chain.
-	BaseDenom = "aatom"
+	DisplayDenom = "epix"
+	// BaseDenom defines to the default denomination used in the Epix chain.
+	BaseDenom = "aepix"
 	// BaseDenomUnit defines the precision of the base denomination.
 	BaseDenomUnit = 18
 	// EVMChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.

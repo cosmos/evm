@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -47,6 +49,28 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 )
+
+// extractEVMChainID extracts the EVM chain ID from a chain ID string.
+// For example, "epix_1917-1" returns 1917.
+func extractEVMChainID(chainID string) uint64 {
+	// Split by underscore and dash to get the numeric part
+	parts := strings.Split(chainID, "_")
+	if len(parts) < 2 {
+		// Fallback to default if parsing fails
+		return evmdconfig.EVMChainID
+	}
+
+	// Get the part after underscore and before dash
+	numericPart := strings.Split(parts[1], "-")[0]
+
+	evmChainID, err := strconv.ParseUint(numericPart, 10, 64)
+	if err != nil {
+		// Fallback to default if parsing fails
+		return evmdconfig.EVMChainID
+	}
+
+	return evmChainID
+}
 
 // NewRootCmd creates a new root command for evmd. It is called once in the
 // main function.
@@ -130,7 +154,22 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
+			var evmChainID uint64 = evmdconfig.EVMChainID // default
+
+			chainIDFromCtx := initClientCtx.ChainID
+
+			// If not available in context, try to get it from command flags
+			if chainIDFromCtx == "" {
+				if chainIDFlag := cmd.Flag("chain-id"); chainIDFlag != nil && chainIDFlag.Value.String() != "" {
+					chainIDFromCtx = chainIDFlag.Value.String()
+				}
+			}
+
+			if chainIDFromCtx != "" {
+				evmChainID = extractEVMChainID(chainIDFromCtx)
+			}
+
+			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -148,7 +187,8 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	if initClientCtx.ChainID != "" {
-		if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
+		evmChainID := extractEVMChainID(initClientCtx.ChainID)
+		if err := evmdconfig.EvmAppOptions(evmChainID); err != nil {
 			panic(err)
 		}
 	}
@@ -291,6 +331,9 @@ func newApp(
 		panic(err)
 	}
 
+	// extract EVM chain ID from the chain ID string
+	evmChainID := extractEVMChainID(chainID)
+
 	snapshotStore, err := sdkserver.GetSnapshotStore(appOpts)
 	if err != nil {
 		panic(err)
@@ -319,7 +362,7 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		evmdconfig.EVMChainID,
+		evmChainID,
 		evmdconfig.EvmAppOptions,
 		baseappOptions...,
 	)
@@ -360,14 +403,17 @@ func appExport(
 		return servertypes.ExportedApp{}, err
 	}
 
+	// extract EVM chain ID from the chain ID string
+	evmChainID := extractEVMChainID(chainID)
+
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

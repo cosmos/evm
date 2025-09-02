@@ -58,16 +58,31 @@ func setDisplayDenom(displayDenom string) error {
 // GetEVMCoinDecimals returns the decimals used in the representation of the EVM
 // coin.
 func GetEVMCoinDecimals() Decimals {
+	if evmCoinInfo == nil {
+		// Return default 18 decimals if evmCoinInfo is not initialized
+		// This can happen during genesis validation before app initialization
+		return EighteenDecimals
+	}
 	return evmCoinInfo.Decimals
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
 func GetEVMCoinDenom() string {
+	if evmCoinInfo == nil {
+		// Return default denom if evmCoinInfo is not initialized
+		// This can happen during genesis validation before app initialization
+		return "aepix"
+	}
 	return evmCoinInfo.Denom
 }
 
 // GetEVMCoinExtendedDenom returns the extended denom used for the EVM coin.
 func GetEVMCoinExtendedDenom() string {
+	if evmCoinInfo == nil {
+		// Return default extended denom if evmCoinInfo is not initialized
+		// This can happen during genesis validation before app initialization
+		return "aepix"
+	}
 	return evmCoinInfo.ExtendedDenom
 }
 

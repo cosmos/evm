@@ -64,7 +64,7 @@ const (
 	DefaultMaxTxGasWanted = 0
 
 	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
-	DefaultEVMChainID = 262144
+	DefaultEVMChainID = 1916
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000

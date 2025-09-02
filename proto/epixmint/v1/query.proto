@@ -1,0 +1,99 @@
+syntax = "proto3";
+package epixmint.v1;
+
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "epixmint/v1/genesis.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/cosmos/evm/x/epixmint/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Params queries the parameters of x/epixmint module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/params";
+  }
+
+  // Inflation queries the current inflation rate of the epixmint module.
+  rpc Inflation(QueryInflationRequest) returns (QueryInflationResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/inflation";
+  }
+
+  // AnnualProvisions queries the current annual provisions of the epixmint module.
+  rpc AnnualProvisions(QueryAnnualProvisionsRequest) returns (QueryAnnualProvisionsResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/annual_provisions";
+  }
+
+  // CurrentSupply queries the current total supply of the mint denomination.
+  rpc CurrentSupply(QueryCurrentSupplyRequest) returns (QueryCurrentSupplyResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/current_supply";
+  }
+
+  // MaxSupply queries the maximum supply of the mint denomination.
+  rpc MaxSupply(QueryMaxSupplyRequest) returns (QueryMaxSupplyResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/max_supply";
+  }
+}
+
+// QueryParamsRequest defines the request type for querying x/epixmint parameters.
+message QueryParamsRequest {}
+
+// QueryParamsResponse defines the response type for querying x/epixmint parameters.
+message QueryParamsResponse {
+  // params define the epixmint module parameters.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+// QueryInflationRequest defines the request type for querying the current inflation rate.
+message QueryInflationRequest {}
+
+// QueryInflationResponse defines the response type for querying the current inflation rate.
+message QueryInflationResponse {
+  // inflation is the current inflation rate as a percentage
+  string inflation = 1 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// QueryAnnualProvisionsRequest defines the request type for querying annual provisions.
+message QueryAnnualProvisionsRequest {}
+
+// QueryAnnualProvisionsResponse defines the response type for querying annual provisions.
+message QueryAnnualProvisionsResponse {
+  // annual_provisions is the current annual provisions
+  string annual_provisions = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// QueryCurrentSupplyRequest defines the request type for querying current supply.
+message QueryCurrentSupplyRequest {}
+
+// QueryCurrentSupplyResponse defines the response type for querying current supply.
+message QueryCurrentSupplyResponse {
+  // current_supply is the current total supply of the mint denomination
+  string current_supply = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// QueryMaxSupplyRequest defines the request type for querying max supply.
+message QueryMaxSupplyRequest {}
+
+// QueryMaxSupplyResponse defines the response type for querying max supply.
+message QueryMaxSupplyResponse {
+  // max_supply is the maximum total supply that can ever be minted
+  string max_supply = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

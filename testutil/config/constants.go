@@ -1,10 +1,16 @@
 package config
 
 const (
-	// ExampleChainDenom is the denomination of the Cosmos EVM example chain's base coin.
+	// EpixChainDenom is the denomination of the Epix chain's base coin.
+	EpixChainDenom = "aepix"
+
+	// EpixDisplayDenom is the display denomination of the Epix chain's base coin.
+	EpixDisplayDenom = "epix"
+
+	// ExampleChainDenom is the denomination of the Epix chain's base coin.
 	ExampleChainDenom = "aatom"
 
-	// ExampleDisplayDenom is the display denomination of the Cosmos EVM example chain's base coin.
+	// ExampleDisplayDenom is the display denomination of the Epix chain's base coin.
 	ExampleDisplayDenom = "atom"
 
 	// EighteenDecimalsChainID is the chain ID for the 18 decimals chain.
@@ -20,6 +26,12 @@ const (
 	TwoDecimalsChainID = 9004
 
 	CosmosChainID = 262144
+
+	// EpixTestnetChainID is the chain ID for Epix testnet
+	EpixTestnetChainID = 1917
+
+	// EpixMainnetChainID is the chain ID for Epix mainnet
+	EpixMainnetChainID = 1916
 
 	// TestChainID1 is test chain IDs for IBC E2E test
 	TestChainID1 = 9005

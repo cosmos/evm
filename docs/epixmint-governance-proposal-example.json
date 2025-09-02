@@ -1,0 +1,21 @@
+{
+  "messages": [
+    {
+      "@type": "/epixmint.v1.MsgUpdateParams",
+      "authority": "epix10d07y265gmmuvt4z0w9aw880jnsr700j0fas3g",
+      "params": {
+        "mint_denom": "aepix",
+        "initial_annual_mint_amount": "10527000000000000000000000000",
+        "annual_reduction_rate": "0.250000000000000000",
+        "block_time_seconds": 2,
+        "max_supply": "42000000000000000000000000000",
+        "community_pool_rate": "0.020000000000000000",
+        "staking_rewards_rate": "0.980000000000000000"
+      }
+    }
+  ],
+  "metadata": "Update Block Time to 2 Seconds",
+  "deposit": "10000000000000000000aepix",
+  "title": "Update Block Time to 2 Seconds",
+  "summary": "Update the block time parameter from 6 seconds to 2 seconds to improve transaction throughput and user experience. This change updates the epixmint module's block_time_seconds parameter which is used for calculating blocks per year in the minting algorithm."
+}

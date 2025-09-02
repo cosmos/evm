@@ -9,8 +9,8 @@ KEYRING="test"
 KEYALGO="eth_secp256k1"
 
 LOGLEVEL="info"
-# Set dedicated home directory for the evmd instance
-CHAINDIR="$HOME/.evmd"
+# Set dedicated home directory for the epixd instance
+CHAINDIR="$HOME/.epixd"
 
 BASEFEE=10000000
 
@@ -47,7 +47,7 @@ Options:
   --no-install             Skip 'make install'
   --remote-debugging       Build with nooptimization,nostrip
   --additional-users N     Create N extra users: dev4, dev5, ...
-  --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.evmd/mnemonics.yaml)
+  --mnemonic-file PATH     Where to write mnemonics YAML (default: \$HOME/.epixd/mnemonics.yaml)
   --mnemonics-input PATH   Read dev mnemonics from a yaml file (key: mnemonics:)
 EOF
 }
@@ -64,7 +64,7 @@ while [[ $# -gt 0 ]]; do
       overwrite="n"; shift
       ;;
     --no-install)
-      echo "Flag --no-install passed -> Skipping installation of the evmd binary."
+      echo "Flag --no-install passed -> Skipping installation of the epixd binary."
       install=false; shift
       ;;
     --remote-debugging)
@@ -164,20 +164,20 @@ write_mnemonics_yaml() {
 # ---------- Add funded account ----------
 add_genesis_funds() {
   local keyname="$1"
-  evmd genesis add-genesis-account "$keyname" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  epixd genesis add-genesis-account "$keyname" 1000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 }
 
 # Setup local node if overwrite is set to Yes, otherwise skip setup
 if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   rm -rf "$CHAINDIR"
 
-  evmd config set client chain-id "$CHAINID" --home "$CHAINDIR"
-  evmd config set client keyring-backend "$KEYRING" --home "$CHAINDIR"
+  epixd config set client chain-id "$CHAINID" --home "$CHAINDIR"
+  epixd config set client keyring-backend "$KEYRING" --home "$CHAINDIR"
 
   # ---------------- Validator key ----------------
   VAL_KEY="mykey"
   VAL_MNEMONIC="gesture inject test cycle original hollow east ridge hen combine junk child bacon zero hope comfort vacuum milk pitch cage oppose unhappy lunar seat"
-  echo "$VAL_MNEMONIC" | evmd keys add "$VAL_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR"
+  echo "$VAL_MNEMONIC" | epixd keys add "$VAL_KEY" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR"
 
   # ---------------- dev mnemonics source ----------------
   # dev0 address 0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101 | cosmos1cml96vmptgw99syqrrz8az79xer2pcgp84pdun
@@ -228,7 +228,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # init chain w/ validator mnemonic
-  echo "$VAL_MNEMONIC" | evmd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
+  echo "$VAL_MNEMONIC" | epixd init $MONIKER -o --chain-id "$CHAINID" --home "$CHAINDIR" --recover
 
   # ---------- Genesis customizations ----------
   jq '.app_state["staking"]["params"]["bond_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
@@ -238,7 +238,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   jq '.app_state["evm"]["params"]["evm_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["mint"]["params"]["mint_denom"]="atest"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for epixd.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.app_state["evm"]["params"]["active_static_precompiles"]=["0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805", "0x0000000000000000000000000000000000000806", "0x0000000000000000000000000000000000000807"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -288,7 +288,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   sed -i.bak 's/"expedited_voting_period": "86400s"/"expedited_voting_period": "15s"/g' "$GENESIS"
 
   # fund validator (devs already funded in the loop)
-  evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+  epixd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
 
   # --------- maybe generate additional users ---------
   # start with provided/default list
@@ -308,7 +308,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
     echo "adding key for $keyname"
 
     # Add key to keyring using the mnemonic
-    echo "$mnemonic" | evmd keys add "$keyname" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR"
+    echo "$mnemonic" | epixd keys add "$keyname" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR"
 
     # Fund the account in genesis
     add_genesis_funds "$keyname"
@@ -321,7 +321,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
       keyname="dev${idx}"
 
       # create key and capture mnemonic
-      mnemonic_out="$(evmd keys add "$keyname" --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR" 2>&1)"
+      mnemonic_out="$(epixd keys add "$keyname" --keyring-backend "$KEYRING" --algo "$KEYALGO" --home "$CHAINDIR" 2>&1)"
       # try to grab a line that looks like a seed phrase (>=12 words), else last line
       user_mnemonic="$(echo "$mnemonic_out" | grep -E '([[:alpha:]]+[[:space:]]+){11,}[[:alpha:]]+$' | tail -1)"
       if [[ -z "$user_mnemonic" ]]; then
@@ -340,9 +340,9 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # --------- Finalize genesis ---------
-  evmd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
-  evmd genesis collect-gentxs --home "$CHAINDIR"
-  evmd genesis validate-genesis --home "$CHAINDIR"
+  epixd genesis gentx "$VAL_KEY" 1000000000000000000000atest --gas-prices ${BASEFEE}atest --keyring-backend "$KEYRING" --chain-id "$CHAINID" --home "$CHAINDIR"
+  epixd genesis collect-gentxs --home "$CHAINDIR"
+  epixd genesis validate-genesis --home "$CHAINDIR"
 
   # --------- Write YAML with mnemonics if the user specified more ---------
   if [[ "$ADDITIONAL_USERS" -gt 0 ]]; then
@@ -355,7 +355,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 fi
 
 # Start the node
-evmd start "$TRACE" \
+epixd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0.0001atest \

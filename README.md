@@ -1,204 +1,305 @@
-<img
-src="repo_header.png"
-alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and customizability to your chain"
-/>
+# EpixChain
 
-**Please note**: This repo is undergoing changes while the code is being audited and tested. For the time being we will
-be making v0.x releases. Some breaking changes might occur. While the original evmOS repo is currently being used in
-production on a few chains without fault, Interchain Labs will only mark the Cosmos EVM repository as stable with a v1
-release after the audit, key stability features and benchmarking are completed.
+**A high-performance EVM-compatible blockchain built on Cosmos SDK with custom tokenomics and advanced DeFi features.**
 
-**Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
+EpixChain is a specialized blockchain that combines the power of the Cosmos SDK with full Ethereum Virtual Machine (EVM) compatibility, featuring a unique dynamic minting system and comprehensive DeFi infrastructure.
 
-## What is Cosmos EVM?
+## 🌟 Key Features
 
-Cosmos EVM is a plug-and-play solution that adds EVM compatibility
-and customizability to your Cosmos SDK chain.
+- **🔥 Dynamic Token Emission**: Custom EpixMint module with 25% annual reduction reaching 42B EPIX max supply over 20 years
+- **⚡ EVM Compatibility**: Full Ethereum compatibility with native Cosmos SDK integration
+- **🌉 IBC Integration**: Seamless cross-chain transfers and interoperability
+- **💰 Native DeFi**: Built-in staking, governance, and wrapped token functionality
+- **🔧 Precompiled Contracts**: Optimized smart contracts for core blockchain functions
+- **🛡️ Enterprise Ready**: Comprehensive testing, verification, and monitoring tools
 
-- Build an app-chain with the control and extensibility of the Cosmos SDK
-- With native support for EVM as VM and seamless EVM<>Cosmos wallet / token / user experience.
-- Leverage IBC with EVM, native support of ERC20 on Cosmos, and more with extensions and precompiles.
+## 📊 Network Information
 
-Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Interchain Labs and the Interchain Foundation
-after the latter funded Tharsis to open-source the original codebase.
+| Network | Chain ID | RPC Endpoint | REST API |
+|---------|----------|--------------|----------|
+| **Mainnet** | 1916 | `https://rpc.epixchain.com` | `https://api.epixchain.com` |
+| **Testnet** | 1917 | `http://localhost:8545` | `http://localhost:1317` |
 
-**Cosmos EVM is fully open-source under the Apache 2.0 license.** With this open-sourced version, you can get:
+## 💎 EPIX Token
 
-- Full access to Cosmos EVM's modules and updates
-- Smooth onboarding experience for an existing or new Cosmos chain
-- Full access to product partnerships (block explorers, RPCs, indexers etc.)
-- Continuous upgrades, access to product and engineering support
+- **Base Denomination**: `aepix` (1 EPIX = 10^18 aepix)
+- **Display Denomination**: `epix`
+- **Decimals**: 18
+- **Maximum Supply**: 42,000,000,000 EPIX (42 billion)
+- **Initial Annual Emission**: 10.527 billion EPIX (Year 1)
+- **Reduction Rate**: 25% annually
 
-**Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Interchain Labs team](https://share-eu1.hsforms.com/2g6yO-PVaRoKj50rUgG4Pjg2e2sca).**
+## 📋 Deployed Contracts
 
-For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack.
-[Get a Slack invite here](https://forms.gle/A8jawLgB8zuL1FN36) or join the [Telegram Group](https://t.me/cosmostechstack)
+EpixChain comes with a comprehensive set of predeployed contracts for enhanced functionality:
 
-## Plug-in Cosmos EVM into your chain
+### 🏭 Infrastructure Contracts
 
-### Integration
+| Contract | Address | Description |
+|----------|---------|-------------|
+| **Create2 Factory** | `0x4e59b44847b379578588920ca78fbf26c0b4956c` | Deterministic contract deployment |
+| **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` | Batch multiple calls in single transaction |
+| **Permit2** | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | Universal token approval system |
+| **Safe Singleton Factory** | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` | Safe wallet deployment factory |
+| **EIP-2935 History Storage** | `0x0aae40965e6800cd9b1f4b05ff21581047e3f91e` | Block hash history storage |
 
-Cosmos EVM can easily be integrated into your existing chain
-or added during the development of your upcoming chain launch
-by importing Cosmos EVM as a go module library.
-The Interchain Labs team provides you with integration guides and core protocol support depending on your needs and configurations.
-**Updated documentation will be releasing soon!**
+### 🪙 Native Token Contracts
 
-### Configurations
+| Contract | Address | Description |
+|----------|---------|-------------|
+| **Native EPIX Token** | `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` | Native EPIX token precompile |
+| **WEPIX (Wrapped EPIX)** | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | Wrapped EPIX for DeFi compatibility |
 
-Cosmos EVM solution is engineered to provide unique flexibility,
-empowering you to tailor every aspect of your Ethereum Virtual Machine (EVM) environment.
-Whether you're launching a new blockchain or optimizing an existing one,
-the Cosmos EVM offers a suite of features designed to meet the unique demands of your project.
+### ⚙️ Cosmos Module Precompiles
 
-#### Powerful defaults
+EpixChain provides native access to Cosmos SDK modules through EVM precompiles:
 
-Cosmos EVM’s modules come out of the box with defaults that will get you up and running instantly.
+| Module | Function | Status |
+|--------|----------|--------|
+| **Distribution** | Staking rewards & delegation management | ✅ Active |
+| **Staking** | Validator operations & delegations | ✅ Active |
+| **Bank** | Token transfers & balances | ✅ Active |
+| **Governance** | Proposal voting & authorization | ✅ Active |
+| **IBC Transfer** | Cross-chain asset transfers | ✅ Active |
+| **EVM** | Smart contract execution | ✅ Active (10 precompiles) |
 
-When integrating all available modules you will get a *permissionless EVM-enabled* blockchain
-that *exposes JSON-RPC* endpoints for connectivity with all EVM tooling
-like wallets ([MetaMask](https://metamask.io/), [Rabby](https://rabby.io/), and others)
-or block explorers ([Blockscout](https://docs.blockscout.com/) and others).
-You will have access to *all of Cosmos EVM’ extensions*,
-which enable access to chain-native functionality
-through [Solidity](https://docs.soliditylang.org/en/v0.8.26/) smart contracts.
-Your chain provides a *seamless use of any IBC asset in the EVM*
-without liquidity fragmentation between wrapped and unwrapped tokens.
-Transaction surges are handled by the *self-regulating fee market mechanism* based on EIP-1559
-and EIP-712 allows for *structured data si gning* for arbitrary messages.
+## 🚀 Quick Start
 
-*Everything* can be controlled by on-chain governance
-to create alignment between chain teams and their communities.
+### Prerequisites
 
-#### Extensive customizations
+- Go 1.21+
+- Node.js 16+
+- Git
 
-Based on these powerful defaults, the feature set is easily and highly customizable:
+### Installation
 
-- *Permissioned/Restricted EVM*
+```bash
+# Clone the repository
+git clone https://github.com/EpixZone/EpixChain.git
+cd EpixChain
 
-  Maintain control over your network with permissioned or restricted EVM capabilities.
-  Implement customized access controls to either blacklist or whitelist individual addresses for calling
-  and/or creating smart contracts on the network.
+# Build the binary
+make install
 
-- *EVM Extensions*
+# Verify installation
+epixd version
+```
 
-  Extend the capabilities of your EVM!
-  These EVM extensions allow functionality
-  that is native to Cosmos SDK modules to be accessible from Solidity smart contracts.
-  We provide a selection of plug-and-play EVM extensions that are ready to be used *today*.
+### Setup Local Network
 
-  Push the boundaries of what’s possible with fully custom EVM extensions.
-  Develop the  business logic that sets your chain apart from others with the mature tooling for the Go language
-  and offer its functionality to the masses of Solidity smart contract developers
-  to integrate in their dApps.
+```bash
+# Setup and start local testnet with contract verification
+./scripts/setup_epix_chain.sh --verify-contracts --network mainnet
 
-- *Single Token Representation v2 & ERC-20 Module*
+# Start the node
+epixd start --home ~/.epixd \
+  --pruning nothing \
+  --json-rpc.api eth,txpool,personal,net,debug,web3 \
+  --chain-id 1916
+```
 
-  Simplify token management with Single Token Representation v2
-  and our `x/erc20` module to elevate the user experience on your chain.
-  Align IBC coins and ERC-20s and say goodbye to fragmented liquidity.
-  One balance. In every tool.
+### Connect with MetaMask
 
-- *EIP-1559 Fee Market Mechanism*
+Add EpixChain to EVM Wallet (MetaMask):
 
-  Take control of transaction costs with our
-  ready-to-use [EIP-1559 fee market](https://eips.ethereum.org/EIPS/eip-1559) solution.
-  Tailor fee structures to suit your network’s specific needs,
-  balancing user affordability with network sustainability.
-  Or disable it altogether.
+- **Network Name**: EpixChain Testnet
+- **RPC URL**: `http://rpc.epix.zone`
+- **Chain ID**: `1916`
+- **Currency Symbol**: `EPIX`
+- **Block Explorer**: `http://scan.epix.zone`
 
-- *JSON-RPC Server*
+## 🏗️ EpixMint Module
 
-  There is full control over the exposed namespaces and fine-grained control of the
-  [JSON-RPC server](https://cosmos-docs.mintlify.app/docs/api-reference/ethereum-json-rpc).
-  Adjust the configuration to your liking,
-  including custom timeouts for EVM calls or HTTP requests,
-  maximum block gas, the number of maximum open connections, and more.
+EpixChain features a custom minting module with dynamic token emission:
 
-- *EIP-712 Signing*
+### Tokenomics Overview
 
-  You have the option to integrate our [EIP-712 signature](https://eips.ethereum.org/EIPS/eip-712) implementation,
-  which allows Cosmos SDK messages to be signed with EVM wallets like MetaMask.
+- **Initial Emission**: 10.527 billion EPIX in Year 1
+- **Annual Reduction**: 25% per year
+- **Target Timeline**: 20 years to reach maximum supply
+- **Maximum Supply**: 42 billion EPIX total
+- **Block Time**: 6 seconds (configurable via governance)
 
-- *Custom Improvement Proposals (Opcodes)*
+### Emission Schedule
 
-  Any Cosmos EVM user is provided the opportunity to customize bits of their EVM opcodes and add new ones.
-  Read more on [custom operations here](https://cosmos-docs.mintlify.app/docs/documentation/smart-contracts/custom-improvement-proposals#custom-improvement-proposals).
+| Year | Annual Emission | Cumulative Supply |
+|------|----------------|-------------------|
+| 1 | 10.527B EPIX | 10.527B EPIX |
+| 2 | 7.895B EPIX | 18.422B EPIX |
+| 5 | 3.331B EPIX | 32.156B EPIX |
+| 10 | 563M EPIX | 40.891B EPIX |
+| 20 | 16M EPIX | ~42B EPIX |
 
-### Forward-compatibility with Ethereum
+### Key Features
 
-Ethereum-equivalence describes any EVM solution,
-that is identical in transaction execution to the Ethereum client.
-It does not more, but also not less than that.
-Ethereum-compatible means,
-that the EVM can be set up to run every transaction that is valid on Ethereum,
-while the handling of the transactions can diverge in e.g. result or cost.
+- **Smooth Exponential Decay**: Continuous per-block reduction instead of annual steps
+- **Block-time Awareness**: Automatic adjustment for consensus changes
+- **Maximum Supply Protection**: Multiple safeguards prevent exceeding 42B EPIX
+- **Governance Control**: All parameters updatable via on-chain governance
 
-We like to coin the term **forward-compatible**
-as a description of our EVM solution,
-meaning that any Cosmos EVM chain can run any valid smart contract
-from Ethereum but can also implement new features that are
-not (yet) available on the standard Ethereum VM,
-thus moving the standard forward.
+### 🔄 Automatic Block Time Adjustment
 
-## Getting started
+EpixMint automatically adjusts token emission when block times change - **no manual intervention required!**
 
-To run the example `evmd` chain, run the script using `./local_node.sh`
-from the root folder of the repository.
+**How it works:**
+- Monitors actual block production times (averages last 100 blocks)
+- Automatically recalculates tokens per block to maintain annual emission targets
+- Seamlessly handles governance-driven block time changes
 
-### Migrations
+**Example: 6 seconds → 2 seconds**
+```
+Before: 6s blocks = 5.26M blocks/year → 2,002 EPIX per block
+After:  2s blocks = 15.8M blocks/year → 667 EPIX per block
+Result: Same 10.527B EPIX annual emission maintained
+```
 
-We provide upgrade guides [here](./docs/migrations) for upgrading your chain from various Cosmos EVM versions.
+This ensures consistent tokenomics regardless of consensus parameter changes.
 
-### Testing
+## 🏛️ Governance
 
-All test scripts are found in `Makefile` in the root of the repository.
-Listed below are the commands for various tests:
+EpixChain uses on-chain governance to allow stakeholders to propose and vote on parameter changes. This includes modifying EpixMint parameters like block time, emission rates, and distribution ratios.
 
-#### Unit Testing
+**📖 [Complete Governance Guide](docs/governance-guide.md)** - Learn how to create and submit governance proposals
+
+
+## 🔧 Contract Verification
+
+Verify all deployed contracts are active on your network:
+
+```bash
+# Verify contracts on testnet
+./scripts/setup_epix_chain.sh --verify-contracts --network testnet
+
+# Verify contracts on mainnet
+./scripts/setup_epix_chain.sh --verify-contracts --network mainnet
+```
+
+The verification script checks:
+- ✅ Infrastructure contract bytecode and functionality
+- ✅ Native token precompile activation
+- ✅ Cosmos module REST API accessibility
+- ✅ EVM precompile configuration
+- ✅ WEPIX deployment and token pair registration
+
+## 🛡️ Security & Audit
+
+For detailed audit findings and security analysis, see the [Sherlock Audit Report](./docs/audits/sherlock_2025_07_28_final.pdf).
+
+## 🧪 Development & Testing
+
+### Unit Testing
 
 ```bash
 make test-unit
 ```
 
-#### Coverage Test
-
-This generates a code coverage file `filtered_coverage.txt` and prints out the
-covered code percentage for the working files.
+### Coverage Testing
 
 ```bash
 make test-unit-cover
 ```
 
-#### Fuzz Testing
-
-```bash
-make test-fuzz
-```
-
-#### Solidity Tests
+### Solidity Contract Testing
 
 ```bash
 make test-solidity
 ```
 
-#### Benchmark Tests
+### Fuzz Testing
+
+```bash
+make test-fuzz
+```
+
+### Benchmark Testing
 
 ```bash
 make benchmark
 ```
 
-## Contributing
+## 🔗 EVM Features
 
-We welcome open source contributions and discussions! For more on contributing, read our [guide](./CONTRIBUTING.md).
+### JSON-RPC Compatibility
 
-## Open-source License & Credits
+Full Ethereum JSON-RPC API support:
+- `eth_*` - Ethereum standard methods
+- `net_*` - Network information
+- `web3_*` - Web3 utilities
+- `txpool_*` - Transaction pool management
+- `debug_*` - Debug and tracing
+- `personal_*` - Account management
 
-Cosmos EVM is open-source under the Apache 2.0 license, an extension of the license of the original codebase (https://github.com/evmos/OS)
-created by Tharsis and the evmOS team - who conducted the foundational work for EVM compatibility and
-interoperability in Cosmos.
+### Wallet Integration
 
-### Key Contributors
+Compatible with all major Ethereum wallets:
+- MetaMask
+- WalletConnect
+- Rabby
+- Trust Wallet
+- Coinbase Wallet
 
-We at ICL want to thank our key contributors at [B-Harvest](https://bharvest.io/) and 
-[Mantra](https://www.mantrachain.io/) for contributing to and helping us drive the development of Cosmos EVM.
+### Developer Tools
+
+Works with standard Ethereum development tools:
+- Hardhat
+- Foundry
+- Remix
+- Truffle
+- Web3.js
+- Ethers.js
+- Viem
+
+## 🏛️ Governance
+
+EpixChain uses on-chain governance for protocol upgrades:
+
+- **Proposal Submission**: Stake-weighted proposal creation
+- **Voting Period**: Community voting on proposals
+- **Parameter Updates**: Modify chain parameters via governance
+- **Upgrade Coordination**: Seamless protocol upgrades
+
+## 🌐 IBC & Interoperability
+
+### Cross-Chain Features
+
+- **IBC Transfers**: Native cross-chain asset transfers
+- **Token Bridging**: Seamless asset movement between chains
+- **Interchain Accounts**: Execute transactions on remote chains
+- **Packet Forwarding**: Multi-hop IBC routing
+
+### Supported Networks
+
+EpixChain connects to the broader Cosmos ecosystem including:
+- Cosmos Hub
+- Osmosis
+- Juno
+- Stargaze
+- And 50+ other IBC-enabled chains
+
+## 📚 Documentation
+
+- **Validator Onboarding**: [./docs/validator-onboarding.md](./docs/validator-onboarding.md) - Complete guide for running validator nodes
+- **Setup Script**: [./scripts/setup_epix_chain.sh](./scripts/setup_epix_chain.sh)
+- **EpixMint Module**: [./x/epixmint/README.md](./x/epixmint/README.md)
+- **API Reference**: Available at `http://localhost:1317/swagger/` when running locally
+- **JSON-RPC Docs**: Standard Ethereum JSON-RPC documentation applies
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+EpixChain is open-source under the Apache 2.0 license. See [LICENSE](./LICENSE) for details.
+
+## 🔗 Links
+
+- **Website**: [https://epix.zone](https://epix.zone)
+- **Documentation**: [https://docs.epix.zone](https://docs.epix.zone)
+- **Explorer (Staking, Governance, L1 functions)**: [https://explorer.epix.zone](https://explorer.epix.zone)
+- **Explorer (EVM Scan)**: [https://scan.epix.zone](https://explorer.epix.zone)
+- **GitHub**: [https://github.com/EpixZone/EpixChain](https://github.com/EpixZone/EpixChain)
+
+---
+
+**Built with ❤️ by the EpixChain team**

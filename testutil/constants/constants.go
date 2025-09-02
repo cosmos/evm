@@ -12,16 +12,16 @@ const (
 	DefaultGasPrice = 20
 
 	// ExampleAttoDenom provides an example denom for use in tests
-	ExampleAttoDenom = "aatom"
+	ExampleAttoDenom = "aepix"
 
 	// ExampleMicroDenom provides an example denom for use in tests
-	ExampleMicroDenom = "uatom"
+	ExampleMicroDenom = "uepix"
 
 	// ExampleDisplayDenom provides an example display denom for use in tests
-	ExampleDisplayDenom = "atom"
+	ExampleDisplayDenom = "epix"
 
 	// ExampleBech32Prefix provides an example Bech32 prefix for use in tests
-	ExampleBech32Prefix = "cosmos"
+	ExampleBech32Prefix = "epix"
 
 	// ExampleEIP155ChainID provides an example EIP-155 chain ID for use in tests
 	ExampleEIP155ChainID = 9001

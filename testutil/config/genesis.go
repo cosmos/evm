@@ -8,6 +8,7 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/math"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
@@ -45,20 +46,36 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 
 // NewMintGenesisState returns the default genesis state for the mint module.
 //
-// NOTE: for the example chain implementation we are also adding a default minter.
+// NOTE: for the Epix chain implementation we are setting up the minting parameters
+// for the initial inflation rate of 10.527 billion EPIX per year.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
 	mintGenState.Params.MintDenom = ExampleChainDenom
+
+	// Set Epix-specific minting parameters
+	// Initial inflation: 10.527 billion EPIX per year / 42 billion max supply = ~25.06%
+	mintGenState.Params.InflationRateChange = math.LegacyMustNewDecFromStr("0.130000000000000000") // 13% max annual change
+	mintGenState.Params.InflationMax = math.LegacyMustNewDecFromStr("1.000000000000000000")        // 100% max (42B max supply)
+	mintGenState.Params.InflationMin = math.LegacyMustNewDecFromStr("0.070000000000000000")        // 7% minimum
+	mintGenState.Params.GoalBonded = math.LegacyMustNewDecFromStr("0.670000000000000000")          // 67% bonding goal
+	mintGenState.Params.BlocksPerYear = 5256000                                                    // ~6 second blocks
+
+	// Set initial inflation rate
+	mintGenState.Minter.Inflation = math.LegacyMustNewDecFromStr("0.250642857142857000") // Initial rate
 
 	return mintGenState
 }
 
 // NewFeeMarketGenesisState returns the default genesis state for the feemarket module.
 //
-// NOTE: for the example chain implementation we are disabling the base fee.
+// NOTE: Enabling base fee for proper EIP-1559 support with wallets like Keplr.
 func NewFeeMarketGenesisState() *feemarkettypes.GenesisState {
 	feeMarketGenState := feemarkettypes.DefaultGenesisState()
-	feeMarketGenState.Params.NoBaseFee = true
+	feeMarketGenState.Params.NoBaseFee = false
+	// Set a reasonable initial base fee (1 billion wei = 1 gwei equivalent)
+	feeMarketGenState.Params.BaseFee = math.LegacyNewDec(1_000_000_000)
+	// Enable from genesis
+	feeMarketGenState.Params.EnableHeight = 0
 
 	return feeMarketGenState
 }

@@ -12,9 +12,9 @@ COMMIT := $(shell git log -1 --format='%H')
 ###                          Directories & Binaries                         ###
 ###############################################################################
 
-BINDIR ?= $(GOPATH)/bin
+BINDIR ?= $(shell go env GOPATH)/bin
 BUILDDIR ?= $(CURDIR)/build
-EXAMPLE_BINARY := evmd
+EXAMPLE_BINARY := epixd
 
 ###############################################################################
 ###                              Repo Info                                  ###
@@ -29,12 +29,12 @@ export GO111MODULE = on
 ###                            Submodule Settings                           ###
 ###############################################################################
 
-# evmd is a separate module under ./evmd
+# epixd is built from ./evmd with customizations (keeping evm directory for sync compatibility)
 EVMD_DIR      := evmd
 EVMD_MAIN_PKG := ./cmd/evmd
 
 ###############################################################################
-###                        Build & Install evmd                             ###
+###                        Build & Install epixd                            ###
 ###############################################################################
 
 # process build tags
@@ -89,7 +89,7 @@ endif
 
 # Build into $(BUILDDIR)
 build: go.sum $(BUILDDIR)/
-	@echo "🏗️  Building evmd to $(BUILDDIR)/$(EXAMPLE_BINARY) ..."
+	@echo "🏗️  Building epixd to $(BUILDDIR)/$(EXAMPLE_BINARY) ..."
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
 	  go build $(BUILD_FLAGS) -o $(BUILDDIR)/$(EXAMPLE_BINARY) $(EVMD_MAIN_PKG)
 
@@ -99,9 +99,9 @@ build-linux:
 
 # Install into $(BINDIR)
 install: go.sum
-	@echo "🚚  Installing evmd to $(BINDIR) ..."
+	@echo "🚚  Installing epixd to $(BINDIR) ..."
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
-	  go install $(BUILD_FLAGS) $(EVMD_MAIN_PKG)
+	  go build $(BUILD_FLAGS) -o $(BINDIR)/epixd $(EVMD_MAIN_PKG)
 
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
@@ -135,7 +135,7 @@ COVERPKG_ALL  := $(COVERPKG_EVM)
 COMMON_COVER_ARGS := -timeout=15m -covermode=atomic
 
 TEST_PACKAGES := ./...
-TEST_TARGETS := test-unit test-evmd test-unit-cover test-race
+TEST_TARGETS := test-unit test-epixd test-unit-cover test-race
 
 test-unit: ARGS=-timeout=15m
 test-unit: TEST_PACKAGES=$(PACKAGES_UNIT)
@@ -145,8 +145,8 @@ test-race: ARGS=-race
 test-race: TEST_PACKAGES=$(PACKAGES_UNIT)
 test-race: run-tests
 
-test-evmd: ARGS=-timeout=15m
-test-evmd:
+test-epixd: ARGS=-timeout=15m
+test-epixd:
 	@cd evmd && go test -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
 
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
@@ -154,9 +154,9 @@ test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
 test-unit-cover: run-tests
 	@echo "🔍 Running evm (root) coverage..."
 	@go test -tags=test $(COMMON_COVER_ARGS) -coverpkg=$(COVERPKG_ALL) -coverprofile=coverage.txt ./...
-	@echo "🔍 Running evmd coverage..."
+	@echo "🔍 Running epixd coverage..."
 	@cd evmd && go test -tags=test $(COMMON_COVER_ARGS) -coverpkg=$(COVERPKG_ALL) -coverprofile=coverage_evmd.txt ./...
-	@echo "🔀 Merging evmd coverage into root coverage..."
+	@echo "🔀 Merging epixd coverage into root coverage..."
 	@tail -n +2 evmd/coverage_evmd.txt >> coverage.txt && rm evmd/coverage_evmd.txt
 	@echo "🧹 Filtering ignored files from coverage.txt..."
 	@grep -v -E '/cmd/|/client/|/proto/|/testutil/|/mocks/|/test_.*\.go:|\.pb\.go:|\.pb\.gw\.go:|/x/[^/]+/module\.go:|/scripts/|/ibc/testing/|/version/|\.md:|\.pulsar\.go:' coverage.txt > tmp_coverage.txt && mv tmp_coverage.txt coverage.txt
@@ -168,7 +168,7 @@ test: test-unit
 test-all:
 	@echo "🔍 Running evm module tests..."
 	@go test -tags=test -mod=readonly -timeout=15m $(PACKAGES_NOSIMULATION)
-	@echo "🔍 Running evmd module tests..."
+	@echo "🔍 Running epixd module tests..."
 	@cd evmd && go test -tags=test -mod=readonly -timeout=15m $(PACKAGES_EVMD)
 
 run-tests:
@@ -355,10 +355,10 @@ contracts-add:
 ###############################################################################
 
 localnet-build-env:
-	$(MAKE) -C contrib/images evmd-env
+	$(MAKE) -C contrib/images epixd-env
 
 localnet-build-nodes:
-	$(DOCKER) run --rm -v $(CURDIR)/.testnets:/data cosmos/evmd \
+	$(DOCKER) run --rm -v $(CURDIR)/.testnets:/data cosmos/epixd \
 			  testnet init-files --validator-count 4 -o /data --starting-ip-address 192.168.10.2 --keyring-backend=test --chain-id=local-4221 --use-docker=true
 	docker compose up -d
 
@@ -366,7 +366,7 @@ localnet-stop:
 	docker compose down
 
 # localnet-start will run a 4-node testnet locally. The nodes are
-# based off the docker images in: ./contrib/images/simd-env
+# based off the docker images in: ./contrib/images/epixd-env
 localnet-start: localnet-stop localnet-build-env localnet-build-nodes
 
 
@@ -380,14 +380,14 @@ test-rpc-compat-stop:
 
 test-system: build-v04 build
 	mkdir -p ./tests/systemtests/binaries/
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
+	cp $(BUILDDIR)/epixd ./tests/systemtests/binaries/
 	$(MAKE) -C tests/systemtests test
 
 build-v04:
 	mkdir -p ./tests/systemtests/binaries/v0.4
 	git checkout v0.4.1
 	make build
-	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.4
+	cp $(BUILDDIR)/epixd ./tests/systemtests/binaries/v0.4
 	git checkout -
 
 mocks:

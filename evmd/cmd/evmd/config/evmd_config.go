@@ -8,6 +8,7 @@ import (
 
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
+	epixminttypes "github.com/cosmos/evm/x/epixmint/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
@@ -25,7 +26,7 @@ import (
 )
 
 func MustGetDefaultNodeHome() string {
-	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
+	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".epixd")
 	if err != nil {
 		panic(err)
 	}
@@ -43,6 +44,7 @@ var maccPerms = map[string][]string{
 	govtypes.ModuleName:            {authtypes.Burner},
 
 	// Cosmos EVM modules
+	epixminttypes.ModuleName:    {authtypes.Minter},
 	evmtypes.ModuleName:         {authtypes.Minter, authtypes.Burner},
 	feemarkettypes.ModuleName:   nil,
 	erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},

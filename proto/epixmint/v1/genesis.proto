@@ -1,0 +1,60 @@
+syntax = "proto3";
+package epixmint.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/cosmos/evm/x/epixmint/types";
+
+// GenesisState defines the epixmint module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// Params defines the parameters for the epixmint module.
+message Params {
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // mint_denom is the denomination of the coin to mint.
+  string mint_denom = 1;
+
+  // initial_annual_mint_amount is the starting amount of tokens to mint in the first year.
+  string initial_annual_mint_amount = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // annual_reduction_rate is the percentage reduction in minting per year (e.g., 0.25 for 25%).
+  string annual_reduction_rate = 3 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // block_time_seconds is the expected block time in seconds for calculating blocks per year.
+  uint64 block_time_seconds = 4;
+
+  // max_supply is the maximum total supply that can ever be minted.
+  string max_supply = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // community_pool_rate is the percentage of minted tokens allocated to the community pool.
+  string community_pool_rate = 6 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // staking_rewards_rate is the percentage of minted tokens allocated to staking rewards.
+  string staking_rewards_rate = 7 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+}
