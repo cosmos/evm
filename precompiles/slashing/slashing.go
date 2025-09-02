@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -21,26 +20,36 @@ import (
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
-var _ vm.PrecompiledContract = &Precompile{}
+var (
+	_ vm.PrecompiledContract = &Precompile{}
+	_ cmn.NativeExecutor     = &Precompile{}
+)
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   embed.FS
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, "abi.json")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Precompile defines the precompiled contract for slashing.
 type Precompile struct {
 	cmn.Precompile
+
+	abi.ABI
 	slashingKeeper    cmn.SlashingKeeper
 	slashingMsgServer slashingtypes.MsgServer
 	consCodec         runtime.ConsensusAddressCodec
 	valCodec          runtime.ValidatorAddressCodec
-}
-
-// LoadABI loads the slashing ABI from the embedded abi.json file
-// for the slashing precompile.
-func LoadABI() (abi.ABI, error) {
-	return cmn.LoadABI(f, "abi.json")
 }
 
 // NewPrecompile creates a new slashing Precompile instance as a
@@ -50,31 +59,22 @@ func NewPrecompile(
 	slashingMsgServer slashingtypes.MsgServer,
 	bankKeeper cmn.BankKeeper,
 	valCdc, consCdc address.Codec,
-) (*Precompile, error) {
-	abi, err := LoadABI()
-	if err != nil {
-		return nil, err
-	}
-
+) *Precompile {
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  abi,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
+			ContractAddress:      common.HexToAddress(evmtypes.SlashingPrecompileAddress),
+			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
 		},
+		ABI:               ABI,
 		slashingKeeper:    slashingKeeper,
 		slashingMsgServer: slashingMsgServer,
 		valCodec:          valCdc,
 		consCodec:         consCdc,
 	}
-
-	// SetAddress defines the address of the slashing precompiled contract.
-	p.SetAddress(common.HexToAddress(evmtypes.SlashingPrecompileAddress))
-
-	// Set the balance handler for the precompile.
-	p.SetBalanceHandler(bankKeeper)
-
-	return p, nil
+	p.Executor = p
+	return p
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.
@@ -94,28 +94,14 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
 }
 
-// Run executes the precompiled contract slashing methods defined in the ABI.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	bz, err = p.run(evm, contract, readOnly)
-	if err != nil {
-		return cmn.ReturnRevertError(evm, err)
-	}
-
-	return bz, nil
-}
-
-func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
-	ctx, stateDB, method, initialGas, args, err := p.RunSetup(evm, contract, readOnly, p.IsTransaction)
+func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	// Start the balance change handler before executing the precompile.
-	p.GetBalanceHandler().BeforeBalanceChange(ctx)
-
-	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
-	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+	stateDB := evm.StateDB
+	var bz []byte
 
 	switch method.Name {
 	// slashing transactions
@@ -132,22 +118,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	cost := ctx.GasMeter().GasConsumed() - initialGas
-
-	if !contract.UseGas(cost, nil, tracing.GasChangeCallPrecompiledContract) {
-		return nil, vm.ErrOutOfGas
-	}
-
-	// Process the native balance changes after the method execution.
-	if err := p.GetBalanceHandler().AfterBalanceChange(ctx, stateDB); err != nil {
-		return nil, err
-	}
-
-	return bz, nil
+	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

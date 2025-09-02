@@ -574,6 +574,7 @@ func NewExampleApp(
 		NewAvailableStaticPrecompiles(
 			*app.StakingKeeper,
 			app.DistrKeeper,
+			app.BankKeeper,
 			app.PreciseBankKeeper,
 			app.Erc20Keeper,
 			app.TransferKeeper,
