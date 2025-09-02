@@ -425,7 +425,6 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			txCfg := statedb.NewTxConfig(
-				common.BytesToHash(s.Network.GetContext().HeaderHash()),
 				txHash,
 				txIndex,
 				logIndex,
