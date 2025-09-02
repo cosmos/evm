@@ -73,7 +73,7 @@ func (p Precompile) RunSetup(
 
 	// add precompileCall entry on the stateDB journal
 	// this allows to revert the changes within an evm tx
-	err = stateDB.AddPrecompileFn(p.Address(), snapshot, events)
+	err = stateDB.AddPrecompileFn(snapshot, events)
 	if err != nil {
 		return sdk.Context{}, nil, nil, uint64(0), nil, err
 	}
