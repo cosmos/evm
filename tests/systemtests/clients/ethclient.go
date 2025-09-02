@@ -107,3 +107,7 @@ func (ec *EthClient) WaitForTransaction(
 		}
 	}
 }
+
+func (ec *EthClient) RequestArgs(nodeID string, accID string) (context.Context, *ethclient.Client, common.Address) {
+	return context.Background(), ec.Clients[nodeID], ec.Accs[accID].Address
+}

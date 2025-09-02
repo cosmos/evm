@@ -6,42 +6,28 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/systemtests"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/tests/systemtests/clients"
-	"github.com/evmos/tests/systemtests/config"
 	"github.com/stretchr/testify/require"
 )
-
-type TransferFunc func(
-	ethClient *clients.EthClient,
-	nodeID string,
-	accID string,
-	nonce uint64,
-	gasPrice *big.Int,
-) (common.Hash, error)
-
-type TxTypeOption struct {
-	TxType       string
-	TransferFunc TransferFunc
-}
 
 func TestTransactionOrdering(t *testing.T) {
 	testCases := []struct {
 		name     string
-		malleate func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
-		verify   func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
+		malleate func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
+		verify   func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
 		bypass   bool
 	}{
 		{
 			name: "Basic ordering of pending txs (EVM-only %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				// txHashes = make([]common.Hash, 0)
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 5)
+				require.NoError(t, err)
+
 				expPendingTxHashes = make([]common.Hash, 5)
 				for i := 0; i < 5; i++ {
 					// nonce order of submitted txs: 3,4,0,1,2
-					nonce := (i + 3) % 5
-					txHash, err := transferFunc(ethClient, "node0", "acc0", uint64(nonce), big.NewInt(2000000000))
+					nonce := nonces[(i+3)%5]
+					txHash, err := transferFunc(s.EthClient, "node0", "acc0", uint64(nonce), s.BaseFee, nil)
 					require.NoError(t, err)
 
 					// nonce order of committed txs: 0,1,2,3,4
@@ -50,9 +36,9 @@ func TestTransactionOrdering(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -60,7 +46,7 @@ func TestTransactionOrdering(t *testing.T) {
 		},
 	}
 
-	txTypeOptions := []TxTypeOption{
+	txTypeOptions := []TestOptions{
 		{
 			TxType:       "LegacyTx",
 			TransferFunc: TransferLegacyTx,
@@ -71,6 +57,9 @@ func TestTransactionOrdering(t *testing.T) {
 		},
 	}
 
+	s := NewSystemTestSuite(t)
+	s.SetupTest(t)
+
 	for _, tto := range txTypeOptions {
 		for _, tc := range testCases {
 			tc.name = fmt.Sprintf(tc.name, tto.TxType)
@@ -79,20 +68,10 @@ func TestTransactionOrdering(t *testing.T) {
 					return
 				}
 
-				sut := systemtests.Sut
-				sut.ResetChain(t)
+				s.BeforeEach(t)
 
-				StartChain(t, sut)
-				sut.AwaitNBlocks(t, 10)
-
-				config, err := config.NewConfig()
-				require.NoError(t, err)
-
-				ethClient, err := clients.NewEthClient(config)
-				require.NoError(t, err)
-
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(ethClient, tto.TransferFunc)
-				tc.verify(ethClient, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
+				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, tto.TransferFunc)
+				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
 			})
 		}
 	}
@@ -101,17 +80,20 @@ func TestTransactionOrdering(t *testing.T) {
 func TestTransactionReplacement(t *testing.T) {
 	testCases := []struct {
 		name     string
-		malleate func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
-		verify   func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
+		malleate func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
+		verify   func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
 		bypass   bool
 	}{
 		{
 			name: "Replacement of single pending tx (EVM-only, %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				lowFeeEVMTxHash, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 0)
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(5000000000))
+				lowFeeEVMTxHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
+				require.NoError(t, err)
+
+				highGasEVMTxHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []common.Hash{highGasEVMTxHash, lowFeeEVMTxHash}
@@ -119,9 +101,9 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -130,17 +112,20 @@ func TestTransactionReplacement(t *testing.T) {
 		},
 		{
 			name: "Replacement of multiple pending txs (EVM-only %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				_, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 1)
 				require.NoError(t, err)
 
-				_, err = transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+				_, err = transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx3, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(5000000000))
+				_, err = transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx4, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(5000000000))
+				tx3, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
+				require.NoError(t, err)
+
+				tx4, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []common.Hash{}
@@ -148,9 +133,9 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -159,11 +144,14 @@ func TestTransactionReplacement(t *testing.T) {
 		},
 		{
 			name: "Replacement of single queued tx (EVM-only %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				_, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(2000000000))
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 1)
 				require.NoError(t, err)
 
-				tx2, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(5000000000))
+				_, err = transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFee, nil)
+				require.NoError(t, err)
+
+				tx2, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []common.Hash{tx2}
@@ -171,15 +159,18 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				// send nonce-gap-filling tx
-				txHash, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 0)
+				require.NoError(t, err)
+
+				txHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
 				expPendingTxHashes = []common.Hash{txHash, expQueuedTxHashes[0]}
 
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -187,17 +178,20 @@ func TestTransactionReplacement(t *testing.T) {
 		},
 		{
 			name: "Replacement of multiple queued txs (EVM-only %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				_, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(2000000000))
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 2)
 				require.NoError(t, err)
 
-				tx2, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(5000000000))
+				_, err = transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				_, err = transferFunc(ethClient, "node0", "acc0", 2, big.NewInt(2000000000))
+				tx2, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
-				tx4, err := transferFunc(ethClient, "node0", "acc0", 2, big.NewInt(5000000000))
+				_, err = transferFunc(s.EthClient, "node0", "acc0", nonces[2], s.BaseFee, nil)
+				require.NoError(t, err)
+
+				tx4, err := transferFunc(s.EthClient, "node0", "acc0", nonces[2], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []common.Hash{tx2, tx4}
@@ -205,15 +199,18 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				// send nonce-gap-filling tx
-				txHash, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 0)
+				require.NoError(t, err)
+
+				txHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
 				expPendingTxHashes = []common.Hash{txHash, expQueuedTxHashes[0], expQueuedTxHashes[1]}
 
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -221,7 +218,7 @@ func TestTransactionReplacement(t *testing.T) {
 		},
 	}
 
-	txTypeOptions := []TxTypeOption{
+	txTypeOptions := []TestOptions{
 		{
 			TxType:       "LegacyTx",
 			TransferFunc: TransferLegacyTx,
@@ -232,6 +229,9 @@ func TestTransactionReplacement(t *testing.T) {
 		},
 	}
 
+	s := NewSystemTestSuite(t)
+	s.SetupTest(t)
+
 	for _, tto := range txTypeOptions {
 		for _, tc := range testCases {
 			tc.name = fmt.Sprintf(tc.name, tto.TxType)
@@ -240,20 +240,10 @@ func TestTransactionReplacement(t *testing.T) {
 					return
 				}
 
-				sut := systemtests.Sut
-				sut.ResetChain(t)
+				s.BeforeEach(t)
 
-				StartChain(t, sut)
-				sut.AwaitNBlocks(t, 10)
-
-				config, err := config.NewConfig()
-				require.NoError(t, err)
-
-				ethClient, err := clients.NewEthClient(config)
-				require.NoError(t, err)
-
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(ethClient, tto.TransferFunc)
-				tc.verify(ethClient, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
+				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, tto.TransferFunc)
+				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
 			})
 		}
 	}
@@ -262,18 +252,21 @@ func TestTransactionReplacement(t *testing.T) {
 func TestNonceGappedTransaction(t *testing.T) {
 	testCases := []struct {
 		name     string
-		malleate func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
-		verify   func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
+		malleate func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash)
+		verify   func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc)
 		bypass   bool
 	}{
 
 		{
 			name: "Multiple nonce gap fill (EVM-only %s)",
-			malleate: func(ethClient *clients.EthClient, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
-				lowFeeEVMTxHash, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(2000000000))
+			malleate: func(s *SystemTestSuite, transferFunc TransferFunc) (expQueuedTxHashes, expPendingTxHashes []common.Hash) {
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 1)
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := transferFunc(ethClient, "node0", "acc0", 1, big.NewInt(5000000000))
+				lowFeeEVMTxHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFee, nil)
+				require.NoError(t, err)
+
+				highGasEVMTxHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []common.Hash{highGasEVMTxHash, lowFeeEVMTxHash}
@@ -281,15 +274,18 @@ func TestNonceGappedTransaction(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(ethClient *clients.EthClient, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
+			verify: func(s *SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []common.Hash, transferFunc TransferFunc) {
 				// send nonce-gap-filling tx
-				txHash, err := transferFunc(ethClient, "node0", "acc0", 0, big.NewInt(2000000000))
+				nonces, err := FutureNonces(s.EthClient, "node0", "acc0", 0)
+				require.NoError(t, err)
+
+				txHash, err := transferFunc(s.EthClient, "node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
 				expPendingTxHashes = []common.Hash{txHash, expQueuedTxHashes[0]}
 
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := ethClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
 					require.True(t, receipt.Status == uint64(1))
 				}
@@ -297,7 +293,7 @@ func TestNonceGappedTransaction(t *testing.T) {
 		},
 	}
 
-	txTypeOptions := []TxTypeOption{
+	txTypeOptions := []TestOptions{
 		{
 			TxType:       "LegacyTx",
 			TransferFunc: TransferLegacyTx,
@@ -308,6 +304,9 @@ func TestNonceGappedTransaction(t *testing.T) {
 		},
 	}
 
+	s := NewSystemTestSuite(t)
+	s.SetupTest(t)
+
 	for _, tto := range txTypeOptions {
 		for _, tc := range testCases {
 			tc.name = fmt.Sprintf(tc.name, tto.TxType)
@@ -316,20 +315,10 @@ func TestNonceGappedTransaction(t *testing.T) {
 					return
 				}
 
-				sut := systemtests.Sut
-				sut.ResetChain(t)
+				s.BeforeEach(t)
 
-				StartChain(t, sut)
-				sut.AwaitNBlocks(t, 10)
-
-				config, err := config.NewConfig()
-				require.NoError(t, err)
-
-				ethClient, err := clients.NewEthClient(config)
-				require.NoError(t, err)
-
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(ethClient, tto.TransferFunc)
-				tc.verify(ethClient, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
+				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, tto.TransferFunc)
+				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, tto.TransferFunc)
 			})
 		}
 	}

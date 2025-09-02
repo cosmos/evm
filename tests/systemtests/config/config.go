@@ -21,7 +21,7 @@ import (
 */
 
 const (
-	ChainID = "262144"
+	EVMChainID = "262144"
 
 	Acc0PrivKey = "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305"
 	Acc1PrivKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544"
@@ -32,6 +32,11 @@ const (
 	Node1Url = "http://127.0.0.1:8555"
 	Node2Url = "http://127.0.0.1:8565"
 	Node3Url = "http://127.0.0.1:8575"
+
+	NodeArgsChainID                    = "--chain-id=local-4221"
+	NodeArgsApiEnable                  = "--api.enable=true"
+	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
+	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
 )
 
 type Config struct {
@@ -43,7 +48,7 @@ type Config struct {
 
 func NewConfig() (*Config, error) {
 	// chainID
-	chainID, ok := new(big.Int).SetString(ChainID, 10)
+	chainID, ok := new(big.Int).SetString(EVMChainID, 10)
 	if !ok {
 		return nil, fmt.Errorf("error whilte setting chain id")
 	}
@@ -59,4 +64,13 @@ func NewConfig() (*Config, error) {
 		PrivKeys: privKeys,
 		NodeUrls: nodeUrls,
 	}, nil
+}
+
+func DefaultNodeArgs() []string {
+	return []string{
+		NodeArgsJsonrpcApi,
+		NodeArgsChainID,
+		NodeArgsApiEnable,
+		NodeArgsJsonrpcAllowUnprotectedTxs,
+	}
 }
