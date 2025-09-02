@@ -754,7 +754,6 @@ func (s *KeeperTestSuite) TestAddLog() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 			vmdb := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewTxConfig(
-				common.BytesToHash(s.Network.GetContext().HeaderHash()),
 				tc.hash,
 				0, 0,
 			))
