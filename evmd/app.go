@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cast"
 
@@ -84,7 +86,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	runtimeservices "github.com/cosmos/cosmos-sdk/runtime/services"
-	"github.com/cosmos/cosmos-sdk/server"
+	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -409,7 +411,7 @@ func NewExampleApp(
 
 	// get skipUpgradeHeights from the app options
 	skipUpgradeHeights := map[int64]bool{}
-	for _, h := range cast.ToIntSlice(appOpts.Get(server.FlagUnsafeSkipUpgrades)) {
+	for _, h := range cast.ToIntSlice(appOpts.Get(sdkserver.FlagUnsafeSkipUpgrades)) {
 		skipUpgradeHeights[int64(h)] = true
 	}
 	homePath := cast.ToString(appOpts.Get(flags.FlagHome))
@@ -765,10 +767,21 @@ func NewExampleApp(
 	// set the EVM priority nonce mempool
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
-		// TODO: Get the actual block gas limit from consensus parameters
+		// Get the block gas limit from genesis file
+		blockGasLimit := getBlockGasLimitFromGenesis(appOpts, logger)
+
+		// Get MinGasPrices from app configuration
+		minGasPricesStr := cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))
+		minGasPrices, err := sdk.ParseDecCoins(minGasPricesStr)
+		if err != nil {
+			logger.With("error", err).Info("failed to parse min gas prices, using empty DecCoins")
+			minGasPrices = sdk.DecCoins{}
+		}
+
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: 100_000_000,
+			BlockGasLimit: blockGasLimit,
+			MinGasPrices:  minGasPrices,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
@@ -1010,7 +1023,7 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 	app.BasicModuleManager.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
 	// register swagger API from root so that other applications can override easily
-	if err := server.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
+	if err := sdkserver.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
 		panic(err)
 	}
 }
@@ -1206,4 +1219,51 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	// TODO: do we need a keytable? copied from Evmos repo
 
 	return paramsKeeper
+}
+
+// getBlockGasLimitFromGenesis reads the genesis file using the AppGenesisFromFile
+// to extract the consensus block gas limit before InitChain is called.
+func getBlockGasLimitFromGenesis(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
+	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+	if homeDir == "" {
+		logger.Error("home directory not found in app options, using zero block gas limit")
+		return math.MaxUint64
+	}
+	genesisPath := filepath.Join(homeDir, "config", "genesis.json")
+
+	appGenesis, err := genutiltypes.AppGenesisFromFile(genesisPath)
+	if err != nil {
+		logger.Error("failed to load genesis using SDK AppGenesisFromFile, using zero block gas limit", "path", genesisPath, "error", err)
+		return 0
+	}
+	genDoc, err := appGenesis.ToGenesisDoc()
+	if err != nil {
+		logger.Error("failed to convert AppGenesis to GenesisDoc, using zero block gas limit", "path", genesisPath, "error", err)
+		return 0
+	}
+
+	if genDoc.ConsensusParams == nil {
+		logger.Error("consensus parameters not found in genesis (nil), using zero block gas limit")
+		return 0
+	}
+
+	maxGas := genDoc.ConsensusParams.Block.MaxGas
+	if maxGas == -1 {
+		logger.Warn("genesis max_gas is unlimited (-1), using max uint64")
+		return math.MaxUint64
+	}
+	if maxGas < -1 {
+		logger.Error("invalid max_gas value in genesis, using zero block gas limit")
+		return 0
+	}
+	blockGasLimit := uint64(maxGas) // #nosec G115 -- maxGas >= 0 checked above
+
+	logger.Debug(
+		"extracted block gas limit from genesis using SDK AppGenesisFromFile",
+		"genesis_path", genesisPath,
+		"max_gas", maxGas,
+		"block_gas_limit", blockGasLimit,
+	)
+
+	return blockGasLimit
 }

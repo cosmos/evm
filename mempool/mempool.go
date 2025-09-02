@@ -29,7 +29,10 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
-const SubscriberName = "evm"
+const (
+	SubscriberName        = "evm"
+	fallbackBlockGasLimit = 100_000_000
+)
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -52,6 +55,7 @@ type (
 		bondDenom     string
 		evmDenom      string
 		blockGasLimit uint64 // Block gas limit from consensus parameters
+		minGasPrices  sdk.DecCoins
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -72,6 +76,7 @@ type EVMMempoolConfig struct {
 	AnteHandler      sdk.AnteHandler
 	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	BlockGasLimit    uint64 // Block gas limit from consensus parameters
+	MinGasPrices     sdk.DecCoins
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -80,10 +85,8 @@ type EVMMempoolConfig struct {
 // of pools and verification functions, with sensible defaults created if not provided.
 func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
 	var (
-		txPool      *txpool.TxPool
-		cosmosPool  sdkmempool.ExtMempool
-		anteHandler sdk.AnteHandler
-		blockchain  *Blockchain
+		cosmosPool sdkmempool.ExtMempool
+		blockchain *Blockchain
 	)
 
 	bondDenom := evmtypes.GetEVMCoinDenom()
@@ -98,13 +101,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		panic("config must not be nil")
 	}
 
-	anteHandler = config.AnteHandler
-	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
-
 	if config.BlockGasLimit == 0 {
-		logger.Debug("block gas limit is 0, setting default", "default_limit", 100_000_000)
-		config.BlockGasLimit = 100_000_000
+		logger.Debug("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
+		config.BlockGasLimit = fallbackBlockGasLimit
 	}
+
+	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
 	legacyConfig := legacypool.DefaultConfig
@@ -180,7 +182,8 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		bondDenom:     bondDenom,
 		evmDenom:      evmDenom,
 		blockGasLimit: config.BlockGasLimit,
-		anteHandler:   anteHandler,
+		minGasPrices:  config.MinGasPrices,
+		anteHandler:   config.AnteHandler,
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -442,8 +445,14 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 
 	m.logger.Debug("getting iterators")
 
+	var minTip *uint256.Int
+	gasPrice := m.minGasPrices.AmountOf(m.evmDenom)
+	if !gasPrice.IsZero() {
+		minTip = uint256.MustFromBig(gasPrice.BigInt())
+	}
+
 	pendingFilter := txpool.PendingFilter{
-		MinTip:       nil,
+		MinTip:       minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
