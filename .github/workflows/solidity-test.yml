@@ -10,7 +10,7 @@ permissions: read-all
 
 jobs:
   test-solidity:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-16
     steps:
       - uses: actions/setup-go@v5
         with:
