@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cast"
 )
 
-// GetBlockGasLimitFromGenesis reads the genesis file using the AppGenesisFromFile
+// GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
 // to extract the consensus block gas limit before InitChain is called.
-func GetBlockGasLimitFromGenesis(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
+func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
 	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	if homeDir == "" {
 		logger.Error("home directory not found in app options, using zero block gas limit")
@@ -60,6 +60,7 @@ func GetBlockGasLimitFromGenesis(appOpts servertypes.AppOptions, logger log.Logg
 	return blockGasLimit
 }
 
+// GetMinGasPrices reads the min gas prices from the app options, set from app.toml
 func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecCoins {
 	minGasPricesStr := cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))
 	minGasPrices, err := sdk.ParseDecCoins(minGasPricesStr)
