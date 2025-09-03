@@ -14,11 +14,12 @@ import (
 func (s *TestSuite) TestGetLogs() {
 	_, bz := s.buildEthereumTx()
 	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
-	logs := make([]*evmtypes.Log, 0, 1)
-	logs = append(logs, &evmtypes.Log{
-		Data:        []byte("data"),
-		BlockNumber: 1,
-	})
+	logs := []*evmtypes.Log{
+		{
+			Data:        []byte("data"),
+			BlockNumber: 1,
+		},
+	}
 
 	testCases := []struct {
 		name         string

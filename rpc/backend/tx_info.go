@@ -227,7 +227,6 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 	)
 	if err != nil {
 		b.Logger.Debug("failed to parse tx logs", "error", err.Error())
-		return nil, nil
 	}
 
 	return logs, nil

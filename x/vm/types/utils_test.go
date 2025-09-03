@@ -295,7 +295,7 @@ func TestDecodeTxResponses(t *testing.T) {
 					require.Equal(t, common.BytesToHash([]byte("hash")).String(), results[0].Hash)
 					require.Equal(t, []byte{0x5, 0x8}, results[0].Ret)
 					require.Len(t, results[0].Logs, 1)
-					require.Equal(t, []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAo="), results[0].Logs[0].Data)
+					require.Equal(t, []byte(testData), results[0].Logs[0].Data)
 				}
 
 				if tc.name == "mixed response types" {
@@ -310,6 +310,7 @@ func TestDecodeTxResponses(t *testing.T) {
 const (
 	testAddress = "0xc5570e6B97044960be06962E13248EC6b13107AE"
 	testTopic   = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+	testData    = "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAo="
 )
 
 func createLog(t *testing.T, address string, topics []string, txIndex, logIndex uint64) *evmtypes.Log {
@@ -317,7 +318,7 @@ func createLog(t *testing.T, address string, topics []string, txIndex, logIndex 
 	return &evmtypes.Log{
 		Address:     address,
 		Topics:      topics,
-		Data:        []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAo="),
+		Data:        []byte(testData),
 		BlockNumber: uint64(3),
 		TxHash:      "0x0eb002bd8fa02c0b0d549acfca70f7aab5fa745af118c76dda60a1f4329d0de1",
 		TxIndex:     txIndex,
