@@ -220,7 +220,7 @@ func (b *Backend) GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error) 
 	}
 	// parse tx logs from events
 	index := int(res.MsgIndex) // #nosec G701
-	logs, err := evmtypes.DecodeMsgLogsFromEvents(
+	logs, err := evmtypes.DecodeMsgLogs(
 		resBlockResult.TxsResults[res.TxIndex].Data,
 		index,
 		height,

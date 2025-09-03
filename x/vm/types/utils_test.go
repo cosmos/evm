@@ -406,7 +406,7 @@ func TestTransactionLogsEncodeDecode(t *testing.T) {
 	require.Equal(t, txLogs, txLogsEncodedDecoded)
 }
 
-func TestDecodeMsgLogsFromEvents(t *testing.T) {
+func TestDecodeMsgLogs(t *testing.T) {
 	testCases := []struct {
 		name        string
 		txDataKey   string
@@ -464,7 +464,7 @@ func TestDecodeMsgLogsFromEvents(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			txMsgData, resps := createTxResponseData(t, tc.txDataKey)
-			logsOut, err := evmtypes.DecodeMsgLogsFromEvents(txMsgData, tc.msgIndex, tc.blockNum)
+			logsOut, err := evmtypes.DecodeMsgLogs(txMsgData, tc.msgIndex, tc.blockNum)
 			if tc.expectError {
 				require.Error(t, err)
 			} else {
@@ -485,7 +485,7 @@ func TestDecodeMsgLogsFromEvents(t *testing.T) {
 	}
 }
 
-func TestDecodeTxLogsFromEvents(t *testing.T) {
+func TestDecodeTxLogs(t *testing.T) {
 	testCases := []struct {
 		name        string
 		txDataKey   string
@@ -523,7 +523,7 @@ func TestDecodeTxLogsFromEvents(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			txMsgData, resps := createTxResponseData(t, tc.txDataKey)
-			logsOut, err := evmtypes.DecodeTxLogsFromEvents(txMsgData, tc.blockNum)
+			logsOut, err := evmtypes.DecodeTxLogs(txMsgData, tc.blockNum)
 			if tc.expectError {
 				require.Error(t, err)
 			} else {

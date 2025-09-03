@@ -87,8 +87,8 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 	return dst
 }
 
-// DecodeMsgLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs, for a single message.
-func DecodeMsgLogsFromEvents(in []byte, msgIndex int, blockNumber uint64) ([]*ethtypes.Log, error) {
+// DecodeMsgLogs decodes a protobuf-encoded byte slice into ethereum logs, for a single message.
+func DecodeMsgLogs(in []byte, msgIndex int, blockNumber uint64) ([]*ethtypes.Log, error) {
 	txResponses, err := DecodeTxResponses(in)
 	if err != nil {
 		return nil, err
@@ -99,8 +99,8 @@ func DecodeMsgLogsFromEvents(in []byte, msgIndex int, blockNumber uint64) ([]*et
 	return logsFromTxResponse(nil, txResponses[msgIndex], blockNumber), nil
 }
 
-// DecodeTxLogsFromEvents decodes a protobuf-encoded byte slice into ethereum logs
-func DecodeTxLogsFromEvents(in []byte, blockNumber uint64) ([]*ethtypes.Log, error) {
+// DecodeTxLogs decodes a protobuf-encoded byte slice into ethereum logs
+func DecodeTxLogs(in []byte, blockNumber uint64) ([]*ethtypes.Log, error) {
 	txResponses, err := DecodeTxResponses(in)
 	if err != nil {
 		return nil, err
