@@ -33,6 +33,7 @@
 ### API-BREAKING
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+- [\#569](https://github.com/cosmos/evm/pull/569) Add address codec parameter to erc20 precompile constructor and ibc keeper constructor.
 
 ## v0.4.1
 
