@@ -606,7 +606,6 @@ func (suite *StateDBTestSuite) TestLog() {
 		BlockNumber:    1,
 		BlockHash:      blockHash,
 		BlockTimestamp: 1,
-		TxHash:         txHash,
 		TxIndex:        1,
 		Index:          1,
 	}

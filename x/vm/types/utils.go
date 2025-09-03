@@ -82,6 +82,9 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 		l := log.ToEthereum()
 		l.TxHash = txHash
 		l.BlockNumber = blockNumber
+		if len(rsp.BlockHash) > 0 {
+			l.BlockHash = common.BytesToHash(rsp.BlockHash)
+		}
 		dst = append(dst, l)
 	}
 	return dst
