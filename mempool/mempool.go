@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"github.com/rs/zerolog"
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -90,6 +92,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	evmDenom := types.ExtendedCoinDenom()
 
 	// add the mempool name to the logger
+	logger = log.NewLogger(os.Stdout, log.LevelOption(zerolog.TraceLevel))
 	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")
 
 	logger.Debug("creating new EVM mempool")
