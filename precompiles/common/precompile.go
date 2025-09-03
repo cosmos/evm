@@ -15,7 +15,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// NativeExecutor abstract the execution of the stateful precompile
+// NativeExecutor abstract the native execution logic of the stateful precompile, it's passed to the base `Precompile`
+// struct, base `Precompile` struct will handle things the native context setup, gas management, panic recovery etc,
+// before and after the execution.
+//
+// It's usually implemented by the precompile itself.
 type NativeExecutor interface {
 	Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error)
 }
