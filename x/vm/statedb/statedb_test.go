@@ -24,7 +24,6 @@ var (
 	address       common.Address   = common.BigToAddress(big.NewInt(101))
 	address2      common.Address   = common.BigToAddress(big.NewInt(102))
 	address3      common.Address   = common.BigToAddress(big.NewInt(103))
-	blockHash     common.Hash      = common.BigToHash(big.NewInt(9999))
 	emptyTxConfig statedb.TxConfig = statedb.NewEmptyTxConfig()
 )
 
@@ -600,16 +599,14 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(1, len(db.Logs()))
 	expecedLog := &ethtypes.Log{
-		Address:        address,
-		Topics:         []common.Hash{},
-		Data:           data,
-		BlockNumber:    1,
-		BlockHash:      blockHash,
-		BlockTimestamp: 1,
-		TxIndex:        1,
-		Index:          1,
+		Address:     address,
+		Topics:      []common.Hash{},
+		Data:        data,
+		BlockNumber: 1,
+		TxIndex:     1,
+		Index:       1,
 	}
-	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[0])
+	suite.Require().Equal(expecedLog, db.Logs()[0])
 
 	db.AddLog(&ethtypes.Log{
 		Address:     address,
@@ -619,7 +616,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(2, len(db.Logs()))
 	expecedLog.Index++
-	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[1])
+	suite.Require().Equal(expecedLog, db.Logs()[1])
 }
 
 func (suite *StateDBTestSuite) TestRefund() {

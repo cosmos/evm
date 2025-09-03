@@ -506,16 +506,15 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 	if vmError == vm.ErrExecutionReverted.Error() {
 		ret = evm.Interpreter().ReturnData()
 	}
-	blockHash := ctx.HeaderHash()
-	logs := stateDB.GetLogs(uint64(ctx.BlockHeight()), common.BytesToHash(blockHash), evm.Context.Time) //#nosec G115 -- int overflow is not a concern here
 	return &types.MsgEthereumTxResponse{
-		GasUsed:    gasUsed.TruncateInt().Uint64(),
-		MaxUsedGas: maxUsedGas,
-		VmError:    vmError,
-		Ret:        ret,
-		Logs:       types.NewLogsFromEth(logs),
-		Hash:       txConfig.TxHash.Hex(),
-		BlockHash:  blockHash,
+		GasUsed:        gasUsed.TruncateInt().Uint64(),
+		MaxUsedGas:     maxUsedGas,
+		VmError:        vmError,
+		Ret:            ret,
+		Logs:           types.NewLogsFromEth(stateDB.Logs()),
+		Hash:           txConfig.TxHash.Hex(),
+		BlockHash:      ctx.HeaderHash(),
+		BlockTimestamp: evm.Context.Time,
 	}, nil
 }
 
