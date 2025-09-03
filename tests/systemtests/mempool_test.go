@@ -17,7 +17,3 @@ func TestTransactionOrdering(t *testing.T) {
 func TestTransactionReplacement(t *testing.T) {
 	mempool.TestTransactionReplacement(t)
 }
-
-func TestCosmosTx(t *testing.T) {
-	mempool.TestCosmosTx(t)
-}

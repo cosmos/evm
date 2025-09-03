@@ -2,9 +2,10 @@ package systemtests
 
 import (
 	"math/big"
+	"time"
 )
 
-type TransferFunc func(
+type FuncTransfer func(
 	nodeID string,
 	accID string,
 	nonce uint64,
@@ -12,7 +13,14 @@ type TransferFunc func(
 	optionalGasTipCap *big.Int,
 ) (string, error)
 
+type FuncWaitForCommit func(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error
+
 type TestOption struct {
-	TxType       string
-	TransferFunc TransferFunc
+	TestType      string
+	Transfer      FuncTransfer
+	WaitForCommit FuncWaitForCommit
 }

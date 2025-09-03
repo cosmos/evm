@@ -14,20 +14,20 @@ import (
 func TestTransactionReplacement(t *testing.T) {
 	testCases := []struct {
 		name     string
-		malleate func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string)
-		verify   func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc)
+		malleate func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string)
+		verify   func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption)
 		bypass   bool
 	}{
 		{
 			name: "Replacement of single pending tx %s",
-			malleate: func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string) {
+			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
 				nonces, err := s.FutureNonces("node0", "acc0", 0)
 				require.NoError(t, err)
 
-				lowFeeEVMTxHash, err := transferFunc("node0", "acc0", nonces[0], s.BaseFee, nil)
+				lowFeeEVMTxHash, err := option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := transferFunc("node0", "acc0", nonces[0], s.BaseFeeX2, big.NewInt(1))
+				highGasEVMTxHash, err := option.Transfer("node0", "acc0", nonces[0], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []string{highGasEVMTxHash, lowFeeEVMTxHash}
@@ -35,31 +35,30 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc) {
+			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
-					require.True(t, receipt.Status == uint64(1))
 				}
 			},
 			bypass: true,
 		},
 		{
 			name: "Replacement of multiple pending txs %s",
-			malleate: func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string) {
+			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
 				nonces, err := s.FutureNonces("node0", "acc0", 1)
 				require.NoError(t, err)
 
-				_, err = transferFunc("node0", "acc0", nonces[0], s.BaseFee, nil)
+				_, err = option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				_, err = transferFunc("node0", "acc0", nonces[0], s.BaseFee, nil)
+				_, err = option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx3, err := transferFunc("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
+				tx3, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
-				tx4, err := transferFunc("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
+				tx4, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []string{}
@@ -67,25 +66,24 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc) {
+			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
-					require.True(t, receipt.Status == uint64(1))
 				}
 			},
 			bypass: true,
 		},
 		{
 			name: "Replacement of single queued tx %s",
-			malleate: func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string) {
+			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
 				nonces, err := s.FutureNonces("node0", "acc0", 1)
 				require.NoError(t, err)
 
-				_, err = transferFunc("node0", "acc0", nonces[1], s.BaseFee, nil)
+				_, err = option.Transfer("node0", "acc0", nonces[1], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx2, err := transferFunc("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
+				tx2, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []string{tx2}
@@ -93,39 +91,38 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc) {
+			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
 				// send nonce-gap-filling tx
 				nonces, err := s.FutureNonces("node0", "acc0", 0)
 				require.NoError(t, err)
 
-				txHash, err := transferFunc("node0", "acc0", nonces[0], s.BaseFee, nil)
+				txHash, err := option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
 				expPendingTxHashes = []string{txHash, expQueuedTxHashes[0]}
 
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
-					require.True(t, receipt.Status == uint64(1))
 				}
 			},
 		},
 		{
 			name: "Replacement of multiple queued txs %s",
-			malleate: func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string) {
+			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
 				nonces, err := s.FutureNonces("node0", "acc0", 2)
 				require.NoError(t, err)
 
-				_, err = transferFunc("node0", "acc0", nonces[1], s.BaseFee, nil)
+				_, err = option.Transfer("node0", "acc0", nonces[1], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx2, err := transferFunc("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
+				tx2, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
-				_, err = transferFunc("node0", "acc0", nonces[2], s.BaseFee, nil)
+				_, err = option.Transfer("node0", "acc0", nonces[2], s.BaseFee, nil)
 				require.NoError(t, err)
 
-				tx4, err := transferFunc("node0", "acc0", nonces[2], s.BaseFeeX2, big.NewInt(1))
+				tx4, err := option.Transfer("node0", "acc0", nonces[2], s.BaseFeeX2, big.NewInt(1))
 				require.NoError(t, err)
 
 				expQueuedTxHashes = []string{tx2, tx4}
@@ -133,20 +130,19 @@ func TestTransactionReplacement(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc) {
+			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
 				// send nonce-gap-filling tx
 				nonces, err := s.FutureNonces("node0", "acc0", 0)
 				require.NoError(t, err)
 
-				txHash, err := transferFunc("node0", "acc0", nonces[0], s.BaseFee, nil)
+				txHash, err := option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
 				require.NoError(t, err)
 
 				expPendingTxHashes = []string{txHash, expQueuedTxHashes[0], expQueuedTxHashes[1]}
 
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
-					require.True(t, receipt.Status == uint64(1))
 				}
 			},
 		},
@@ -157,7 +153,7 @@ func TestTransactionReplacement(t *testing.T) {
 
 	for _, to := range s.DefaultTestOption() {
 		for _, tc := range testCases {
-			tc.name = fmt.Sprintf(tc.name, to.TxType)
+			tc.name = fmt.Sprintf(tc.name, to.TestType)
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.bypass {
 					return
@@ -165,26 +161,9 @@ func TestTransactionReplacement(t *testing.T) {
 
 				s.BeforeEach(t)
 
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, to.TransferFunc)
-				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, to.TransferFunc)
+				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, to)
+				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, to)
 			})
 		}
 	}
-}
-
-func TestCosmosTx(t *testing.T) {
-	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
-
-	s.BeforeEach(t)
-
-	// send nonce-gap-filling tx
-	nonces, err := s.FutureNonces("node0", "acc0", 0)
-	require.NoError(t, err)
-
-	txHash, err := s.TxBankSend("node0", "acc0", nonces[0], s.BaseFee, nil)
-	require.NoError(t, err)
-
-	_, err = s.CosmosClient.WaitForCosmosTxCommit(txHash, time.Second*10)
-	require.NoError(t, err)
 }

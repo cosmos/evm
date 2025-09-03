@@ -7,7 +7,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-func (s *SystemTestSuite) TxBankSend(
+func (s *SystemTestSuite) SendCosmosTx(
 	nodeID string,
 	accID string,
 	nonce uint64,
@@ -18,7 +18,7 @@ func (s *SystemTestSuite) TxBankSend(
 	to := s.CosmosClient.Accs["acc3"].AccAddress
 	amount := sdkmath.NewInt(1000)
 
-	resp, err := s.CosmosClient.TxBankSendWithBuilder(nodeID, accID, from, to, amount, nonce, gasPrice)
+	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, nonce, gasPrice)
 	if err != nil {
 		return "", fmt.Errorf("failed to cosmos tx bank send: %v", err)
 	}

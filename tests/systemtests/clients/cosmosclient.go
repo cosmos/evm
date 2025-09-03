@@ -82,7 +82,7 @@ func NewCosmosClient(t *testing.T, config *config.Config) (*CosmosClient, error)
 	}, nil
 }
 
-func (c *CosmosClient) TxBankSendWithBuilder(nodeID, accID string, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
+func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
 	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
 
 	privKey := c.Accs[accID].PrivKey
@@ -103,10 +103,13 @@ func (c *CosmosClient) TxBankSendWithBuilder(nodeID, accID string, from, to sdk.
 	return resp, err
 }
 
-func (c *CosmosClient) WaitForCosmosTxCommit(
+func (c *CosmosClient) WaitForCommit(
+	nodeID string,
 	txHash string,
 	timeout time.Duration,
 ) (*coretypes.ResultTx, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -126,11 +129,6 @@ func (c *CosmosClient) WaitForCosmosTxCommit(
 			result, err := c.ClientCtx.Client.Tx(ctx, hashBytes, false)
 			if err != nil {
 				continue
-			}
-
-			if result.TxResult.Code != 0 {
-				return result, fmt.Errorf("transaction failed with code %d: %s",
-					result.TxResult.Code, result.TxResult.Log)
 			}
 
 			return result, nil

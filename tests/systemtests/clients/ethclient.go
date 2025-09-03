@@ -71,7 +71,7 @@ func (ec *EthClient) SendRawTransaction(
 	return signedTx.Hash(), nil
 }
 
-func (ec *EthClient) WaitForTransaction(
+func (ec *EthClient) WaitForCommit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -93,6 +93,7 @@ func (ec *EthClient) WaitForTransaction(
 			if err != nil {
 				continue // Transaction not mined yet
 			}
+
 			return receipt, nil
 		}
 	}

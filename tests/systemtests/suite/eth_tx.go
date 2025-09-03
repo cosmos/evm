@@ -7,7 +7,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-func (s *SystemTestSuite) TransferLegacyTx(
+func (s *SystemTestSuite) SendEthTx(
 	nodeID string,
 	accID string,
 	nonce uint64,
@@ -28,7 +28,7 @@ func (s *SystemTestSuite) TransferLegacyTx(
 	return txHash.Hex(), nil
 }
 
-func (s *SystemTestSuite) TransferDynamicFeeTx(
+func (s *SystemTestSuite) SendEthDynamicFeeTx(
 	nodeID string,
 	accID string,
 	nonce uint64,

@@ -3,6 +3,7 @@ package suite
 import (
 	"fmt"
 	"math/big"
+	"time"
 )
 
 func (s *SystemTestSuite) FutureNonces(nodeID string, accID string, index int) ([]uint64, error) {
@@ -44,4 +45,21 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	}
 
 	return block.BaseFee(), nil
+}
+
+func (s *SystemTestSuite) WaitForEthCommmit(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	receipt, err := s.EthClient.WaitForCommit(nodeID, txHash, timeout)
+	if err != nil {
+		return fmt.Errorf("failed to get receipt for tx(%s): %v", txHash, err)
+	}
+
+	if receipt.Status != 1 {
+		return fmt.Errorf("tx(%s) is committed but failed: %v", txHash, err)
+	}
+
+	return nil
 }

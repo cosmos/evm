@@ -5,12 +5,19 @@ import systemtests "github.com/cosmos/evm/tests/systemtests/types"
 func (s *SystemTestSuite) DefaultTestOption() []systemtests.TestOption {
 	return []systemtests.TestOption{
 		{
-			TxType:       "LegacyTx",
-			TransferFunc: s.TransferLegacyTx,
+			TestType:      "EVM LegacyTx",
+			Transfer:      s.SendEthTx,
+			WaitForCommit: s.WaitForEthCommmit,
 		},
 		{
-			TxType:       "DynamicFeeTx",
-			TransferFunc: s.TransferDynamicFeeTx,
+			TestType:      "EVM DynamicFeeTx",
+			Transfer:      s.SendEthDynamicFeeTx,
+			WaitForCommit: s.WaitForEthCommmit,
+		},
+		{
+			TestType:      "Cosmos LegacyTx",
+			Transfer:      s.SendCosmosTx,
+			WaitForCommit: s.WaitForCosmosCommmit,
 		},
 	}
 }

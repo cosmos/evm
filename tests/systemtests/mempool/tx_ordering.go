@@ -13,13 +13,13 @@ import (
 func TestTransactionOrdering(t *testing.T) {
 	testCases := []struct {
 		name     string
-		malleate func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string)
-		verify   func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc)
+		malleate func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string)
+		verify   func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption)
 		bypass   bool
 	}{
 		{
 			name: "Basic ordering of pending txs %s",
-			malleate: func(s *suite.SystemTestSuite, transferFunc types.TransferFunc) (expQueuedTxHashes, expPendingTxHashes []string) {
+			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
 				nonces, err := s.FutureNonces("node0", "acc0", 5)
 				require.NoError(t, err)
 
@@ -27,7 +27,7 @@ func TestTransactionOrdering(t *testing.T) {
 				for i := 0; i < 5; i++ {
 					// nonce order of submitted txs: 3,4,0,1,2
 					nonce := nonces[(i+3)%5]
-					txHash, err := transferFunc("node0", "acc0", uint64(nonce), s.BaseFee, nil)
+					txHash, err := option.Transfer("node0", "acc0", uint64(nonce), s.BaseFee, nil)
 					require.NoError(t, err)
 
 					// nonce order of committed txs: 0,1,2,3,4
@@ -36,11 +36,10 @@ func TestTransactionOrdering(t *testing.T) {
 
 				return expQueuedTxHashes, expPendingTxHashes
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, transferFunc types.TransferFunc) {
+			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
 				for _, expSuccessTxHash := range expPendingTxHashes {
-					receipt, err := s.EthClient.WaitForTransaction("node0", expSuccessTxHash, time.Second*10)
+					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*10)
 					require.NoError(t, err)
-					require.True(t, receipt.Status == uint64(1))
 				}
 			},
 		},
@@ -51,7 +50,7 @@ func TestTransactionOrdering(t *testing.T) {
 
 	for _, to := range s.DefaultTestOption() {
 		for _, tc := range testCases {
-			tc.name = fmt.Sprintf(tc.name, to.TxType)
+			tc.name = fmt.Sprintf(tc.name, to.TestType)
 			t.Run(tc.name, func(t *testing.T) {
 				if tc.bypass {
 					return
@@ -59,8 +58,8 @@ func TestTransactionOrdering(t *testing.T) {
 
 				s.BeforeEach(t)
 
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, to.TransferFunc)
-				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, to.TransferFunc)
+				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, to)
+				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, to)
 			})
 		}
 	}
