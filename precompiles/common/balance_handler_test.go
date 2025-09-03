@@ -148,7 +148,7 @@ func TestAfterBalanceChange(t *testing.T) {
 	tKey := storetypes.NewTransientStoreKey("test_t")
 	ctx := sdktestutil.DefaultContext(storeKey, tKey)
 
-	stateDB := statedb.New(ctx, mocks.NewEVMKeeper(), statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
+	stateDB := statedb.New(ctx, mocks.NewEVMKeeper(), statedb.NewEmptyTxConfig())
 
 	_, addrs, err := testutil.GeneratePrivKeyAddressPairs(2)
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 	storeKey := storetypes.NewKVStoreKey("test")
 	tKey := storetypes.NewTransientStoreKey("test_t")
 	ctx := sdktestutil.DefaultContext(storeKey, tKey)
-	stateDB := statedb.New(ctx, mocks.NewEVMKeeper(), statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
+	stateDB := statedb.New(ctx, mocks.NewEVMKeeper(), statedb.NewEmptyTxConfig())
 
 	_, addrs, err := testutil.GeneratePrivKeyAddressPairs(1)
 	require.NoError(t, err)

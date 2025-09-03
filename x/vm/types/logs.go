@@ -114,14 +114,15 @@ func NewLogFromEth(log *ethtypes.Log) *Log {
 	}
 
 	return &Log{
-		Address:     log.Address.String(),
-		Topics:      topics,
-		Data:        log.Data,
-		BlockNumber: log.BlockNumber,
-		TxHash:      log.TxHash.String(),
-		TxIndex:     uint64(log.TxIndex),
-		Index:       uint64(log.Index),
-		BlockHash:   log.BlockHash.String(),
-		Removed:     log.Removed,
+		Address:        log.Address.String(),
+		Topics:         topics,
+		Data:           log.Data,
+		BlockNumber:    log.BlockNumber,
+		BlockHash:      log.BlockHash.String(),
+		BlockTimestamp: log.BlockTimestamp,
+		TxHash:         log.TxHash.String(),
+		TxIndex:        uint64(log.TxIndex),
+		Index:          uint64(log.Index),
+		Removed:        log.Removed,
 	}
 }
