@@ -25,7 +25,6 @@
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
 - [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
 - [\#582](https://github.com/cosmos/evm/pull/582) Add block max_gas and minimum_gas_prices ingestion from toml/json
->>>>>>> main
 
 ### FEATURES
 
