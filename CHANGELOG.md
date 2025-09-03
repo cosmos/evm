@@ -22,7 +22,9 @@
 - [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.
 - [\#568](https://github.com/cosmos/evm/pull/568) Avoid unnecessary block notifications when the event bus is already set up.
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
+- [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
 - [\#582](https://github.com/cosmos/evm/pull/582) Add block max_gas and minimum_gas_prices ingestion from toml/json
+>>>>>>> main
 
 ### FEATURES
 
