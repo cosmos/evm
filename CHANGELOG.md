@@ -20,12 +20,14 @@
 - [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
 - [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
 - [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.
+- [\#568](https://github.com/cosmos/evm/pull/568) Avoid unnecessary block notifications when the event bus is already set up.
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
 - [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 
 ### FEATURES
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+- [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
 
 ### STATE BREAKING
 

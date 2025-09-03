@@ -251,7 +251,7 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	}
 
 	msg := args.ToMessage(cfg.BaseFee, false, false)
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 
 	// pass false to not commit StateDB
 	res, err := k.ApplyMessageWithConfig(ctx, *msg, nil, false, cfg, txConfig, false)
@@ -324,7 +324,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
@@ -524,7 +524,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	}
 
 	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 
 	// gas used at this point corresponds to GetProposerAddress & CalculateBaseFee
 	// need to reset gas meter per transaction to be consistent with tx execution
@@ -618,7 +618,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	txsLength := len(req.Txs)
 	results := make([]*types.TxTraceResult, 0, txsLength)
 
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 
 	for i, tx := range req.Txs {
 		result := types.TxTraceResult{}
@@ -698,7 +698,7 @@ func (k *Keeper) traceTx(
 	}
 
 	tCtx := &tracers.Context{
-		BlockHash: txConfig.BlockHash,
+		BlockHash: common.BytesToHash(ctx.HeaderHash()),
 		TxIndex:   int(txConfig.TxIndex), //#nosec G115 -- int overflow is not a concern here
 		TxHash:    txConfig.TxHash,
 	}
