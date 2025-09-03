@@ -18,57 +18,46 @@ func TestSetGetFractionalBalance(t *testing.T) {
 	addr := sdk.AccAddress([]byte("test-address"))
 
 	tests := []struct {
-		name            string
-		address         sdk.AccAddress
-		amount          func() sdkmath.Int // Function to compute amount after EVM is configured
-		setPanicMsg     string
-		setPanicMsgFunc func() string // Function to compute panic message after EVM is configured
+		name     string
+		address  sdk.AccAddress
+		amount   sdkmath.Int // Function to compute amount after EVM is configured
+		panicMsg string
 	}{
 		{
 			"valid - min amount",
 			addr,
-			func() sdkmath.Int { return sdkmath.NewInt(1) },
+			sdkmath.NewInt(1),
 			"",
-			func() string { return "" },
 		},
 		{
 			"valid - positive amount",
 			addr,
-			func() sdkmath.Int { return sdkmath.NewInt(100) },
+			sdkmath.NewInt(100),
 			"",
-			func() string { return "" },
 		},
 		{
 			"valid - max amount",
 			addr,
-			func() sdkmath.Int { return types.ConversionFactor().SubRaw(1) },
+			types.ConversionFactor().SubRaw(1),
 			"",
-			func() string { return "" },
 		},
 		{
 			"valid - zero amount (deletes)",
 			addr,
-			func() sdkmath.Int { return sdkmath.ZeroInt() },
+			sdkmath.ZeroInt(),
 			"",
-			func() string { return "" },
 		},
 		{
 			"invalid - negative amount",
 			addr,
-			func() sdkmath.Int { return sdkmath.NewInt(-1) },
+			sdkmath.NewInt(-1),
 			"amount is invalid: non-positive amount -1",
-			func() string { return "amount is invalid: non-positive amount -1" },
 		},
 		{
 			"invalid - over max amount",
 			addr,
-			func() sdkmath.Int { return types.ConversionFactor() },
-			"",
-			func() string {
-				conversionFactor := types.ConversionFactor()
-				maxAmount := conversionFactor.SubRaw(1)
-				return fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", conversionFactor.String(), maxAmount.String())
-			},
+			types.ConversionFactor(),
+			fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", types.ConversionFactor().String(), types.ConversionFactor().SubRaw(1).String()),
 		},
 	}
 
@@ -77,24 +66,20 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			td := newMockedTestData(t)
 			ctx, k := td.ctx, td.keeper
 
-			// Compute amount and panic message after EVM is configured
-			amount := tt.amount()
-			panicMsg := tt.setPanicMsgFunc()
-
-			if panicMsg != "" {
-				require.PanicsWithError(t, panicMsg, func() {
-					k.SetFractionalBalance(ctx, tt.address, amount)
+			if tt.panicMsg != "" {
+				require.PanicsWithError(t, tt.panicMsg, func() {
+					k.SetFractionalBalance(ctx, tt.address, tt.amount)
 				})
 
 				return
 			}
 
 			require.NotPanics(t, func() {
-				k.SetFractionalBalance(ctx, tt.address, amount)
+				k.SetFractionalBalance(ctx, tt.address, tt.amount)
 			})
 
 			// If its zero balance, check it was deleted in store
-			if amount.IsZero() {
+			if tt.amount.IsZero() {
 				store := prefix.NewStore(ctx.KVStore(td.storeKey), types.FractionalBalancePrefix)
 				bz := store.Get(types.FractionalBalanceKey(tt.address))
 				require.Nil(t, bz)
@@ -103,7 +88,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			}
 
 			gotAmount := k.GetFractionalBalance(ctx, tt.address)
-			require.Equal(t, amount, gotAmount)
+			require.Equal(t, tt.amount, gotAmount)
 
 			// Delete balance
 			k.DeleteFractionalBalance(ctx, tt.address)

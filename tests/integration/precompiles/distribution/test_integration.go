@@ -909,11 +909,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// 2) Prepare and execute the FundCommunityPool call
 				fundAmt := math.NewInt(10)
-				fooDenom, barDenom := testFooDenom, testBarDenom
 				sendAmt := []cmn.Coin{
 					{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
-					{Denom: fooDenom, Amount: fundAmt.BigInt()},
-					{Denom: barDenom, Amount: fundAmt.BigInt()},
+					{Denom: testFooDenom, Amount: fundAmt.BigInt()},
+					{Denom: testBarDenom, Amount: fundAmt.BigInt()},
 				}
 				sendSdkCoins, err := cmn.NewSdkCoinsFromCoins(sendAmt)
 				Expect(err).To(BeNil())
