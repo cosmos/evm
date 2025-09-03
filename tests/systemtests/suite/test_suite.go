@@ -5,16 +5,17 @@ import (
 	"testing"
 
 	"cosmossdk.io/systemtests"
-	"github.com/evmos/tests/systemtests/clients"
-	"github.com/evmos/tests/systemtests/config"
+	"github.com/cosmos/evm/tests/systemtests/clients"
+	"github.com/cosmos/evm/tests/systemtests/config"
 	"github.com/stretchr/testify/require"
 )
 
 type SystemTestSuite struct {
 	*systemtests.SystemUnderTest
-	EthClient *clients.EthClient
-	BaseFee   *big.Int
-	BaseFeeX2 *big.Int
+	EthClient    *clients.EthClient
+	CosmosClient *clients.CosmosClient
+	BaseFee      *big.Int
+	BaseFeeX2    *big.Int
 }
 
 func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
@@ -24,9 +25,13 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 	ethClient, err := clients.NewEthClient(config)
 	require.NoError(t, err)
 
+	cosmosClient, err := clients.NewCosmosClient(t, config)
+	require.NoError(t, err)
+
 	return &SystemTestSuite{
 		SystemUnderTest: systemtests.Sut,
 		EthClient:       ethClient,
+		CosmosClient:    cosmosClient,
 	}
 }
 

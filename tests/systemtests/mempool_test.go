@@ -3,7 +3,7 @@ package systemtests
 import (
 	"testing"
 
-	"github.com/evmos/tests/systemtests/mempool"
+	"github.com/cosmos/evm/tests/systemtests/mempool"
 )
 
 func TestNonceGappedTransaction(t *testing.T) {
@@ -16,4 +16,8 @@ func TestTransactionOrdering(t *testing.T) {
 
 func TestTransactionReplacement(t *testing.T) {
 	mempool.TestTransactionReplacement(t)
+}
+
+func TestCosmosTx(t *testing.T) {
+	mempool.TestCosmosTx(t)
 }

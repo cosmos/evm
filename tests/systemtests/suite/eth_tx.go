@@ -1,9 +1,9 @@
 package suite
 
 import (
+	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -13,14 +13,19 @@ func (s *SystemTestSuite) TransferLegacyTx(
 	nonce uint64,
 	gasPrice *big.Int,
 	_ *big.Int,
-) (common.Hash, error) {
+) (string, error) {
 	to := s.EthClient.Accs["acc3"].Address
 	value := big.NewInt(1000)
 	gasLimit := uint64(50_000)
 
 	tx := ethtypes.NewTransaction(nonce, to, value, gasLimit, gasPrice, nil)
 
-	return s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	if err != nil {
+		return "", fmt.Errorf("failed to send ")
+	}
+
+	return txHash.Hex(), nil
 }
 
 func (s *SystemTestSuite) TransferDynamicFeeTx(
@@ -29,7 +34,7 @@ func (s *SystemTestSuite) TransferDynamicFeeTx(
 	nonce uint64,
 	gasFeeCap *big.Int,
 	gasTipCap *big.Int,
-) (common.Hash, error) {
+) (string, error) {
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID:   s.EthClient.ChainID,
 		Nonce:     nonce,
@@ -40,5 +45,10 @@ func (s *SystemTestSuite) TransferDynamicFeeTx(
 		GasTipCap: gasTipCap,
 	})
 
-	return s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	if err != nil {
+		return "", fmt.Errorf("failed to send dynamic tx")
+	}
+
+	return txHash.Hex(), nil
 }

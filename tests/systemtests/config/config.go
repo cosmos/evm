@@ -21,6 +21,7 @@ import (
 */
 
 const (
+	ChainID    = "local-4221"
 	EVMChainID = "262144"
 
 	Acc0PrivKey = "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305"
@@ -28,10 +29,15 @@ const (
 	Acc2PrivKey = "3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9"
 	Acc3PrivKey = "8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b"
 
-	Node0Url = "http://127.0.0.1:8545"
-	Node1Url = "http://127.0.0.1:8555"
-	Node2Url = "http://127.0.0.1:8565"
-	Node3Url = "http://127.0.0.1:8575"
+	JsonRPCUrl0 = "http://127.0.0.1:8545"
+	JsonRPCUrl1 = "http://127.0.0.1:8555"
+	JsonRPCUrl2 = "http://127.0.0.1:8565"
+	JsonRPCUrl3 = "http://127.0.0.1:8575"
+
+	NodeRPCUrl0 = "http://127.0.0.1:26657"
+	NodeRPCUrl1 = "http://127.0.0.1:26667"
+	NodeRPCUrl2 = "http://127.0.0.1:26677"
+	NodeRPCUrl3 = "http://127.0.0.1:26687"
 
 	NodeArgsChainID                    = "--chain-id=local-4221"
 	NodeArgsApiEnable                  = "--api.enable=true"
@@ -40,15 +46,17 @@ const (
 )
 
 type Config struct {
-	ChainID *big.Int
+	ChainID    string
+	EVMChainID *big.Int
 	// Accounts []*Account
-	PrivKeys []string
-	NodeUrls []string
+	PrivKeys    []string
+	JsonRPCUrls []string
+	NodeRPCUrls []string
 }
 
 func NewConfig() (*Config, error) {
-	// chainID
-	chainID, ok := new(big.Int).SetString(EVMChainID, 10)
+	// evm chainID
+	evmChainID, ok := new(big.Int).SetString(EVMChainID, 10)
 	if !ok {
 		return nil, fmt.Errorf("error whilte setting chain id")
 	}
@@ -56,13 +64,18 @@ func NewConfig() (*Config, error) {
 	// private keys of test accounts
 	privKeys := []string{Acc0PrivKey, Acc1PrivKey, Acc2PrivKey, Acc3PrivKey}
 
-	// jsonrpc urls or testnet nodes
-	nodeUrls := []string{Node0Url, Node1Url, Node2Url, Node3Url}
+	// jsonrpc urls of testnet nodes
+	jsonRPCUrls := []string{JsonRPCUrl0, JsonRPCUrl1, JsonRPCUrl2, JsonRPCUrl3}
+
+	// rpc urls of test nodes
+	nodeRPCUrls := []string{NodeRPCUrl0, NodeRPCUrl1, NodeRPCUrl2, NodeRPCUrl3}
 
 	return &Config{
-		ChainID:  chainID,
-		PrivKeys: privKeys,
-		NodeUrls: nodeUrls,
+		ChainID:     ChainID,
+		EVMChainID:  evmChainID,
+		PrivKeys:    privKeys,
+		JsonRPCUrls: jsonRPCUrls,
+		NodeRPCUrls: nodeRPCUrls,
 	}, nil
 }
 

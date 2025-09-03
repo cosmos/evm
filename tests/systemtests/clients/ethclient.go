@@ -2,51 +2,41 @@ package clients
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/cosmos/evm/tests/systemtests/config"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/evmos/tests/systemtests/config"
 )
-
-type Account struct {
-	Address common.Address
-	PrivKey *ecdsa.PrivateKey
-}
 
 type EthClient struct {
 	ChainID *big.Int
 	Clients map[string]*ethclient.Client
-	Accs    map[string]*Account
-}
-
-type TxType struct {
-	To *common.Address
+	Accs    map[string]*EthAccount
 }
 
 func NewEthClient(config *config.Config) (*EthClient, error) {
 	clients := make(map[string]*ethclient.Client, 0)
-	for i, nodeUrl := range config.NodeUrls {
-		ethcli, err := ethclient.Dial(nodeUrl)
+	for i, jsonrpcUrl := range config.JsonRPCUrls {
+		ethcli, err := ethclient.Dial(jsonrpcUrl)
 		if err != nil {
-			return nil, fmt.Errorf("failed to connecting node url: %s", nodeUrl)
+			return nil, fmt.Errorf("failed to connecting node url: %s", jsonrpcUrl)
 		}
 		clients[fmt.Sprintf("node%v", i)] = ethcli
 	}
 
-	accs := make(map[string]*Account, 0)
+	accs := make(map[string]*EthAccount, 0)
 	for i, privKey := range config.PrivKeys {
 		ecdsaPrivKey, err := crypto.HexToECDSA(privKey)
 		if err != nil {
 			return nil, err
 		}
 		address := crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey)
-		acc := &Account{
+		acc := &EthAccount{
 			Address: address,
 			PrivKey: ecdsaPrivKey,
 		}
@@ -54,7 +44,7 @@ func NewEthClient(config *config.Config) (*EthClient, error) {
 	}
 
 	return &EthClient{
-		ChainID: config.ChainID,
+		ChainID: config.EVMChainID,
 		Clients: clients,
 		Accs:    accs,
 	}, nil
@@ -83,7 +73,7 @@ func (ec *EthClient) SendRawTransaction(
 
 func (ec *EthClient) WaitForTransaction(
 	nodeID string,
-	txHash common.Hash,
+	txHash string,
 	timeout time.Duration,
 ) (*ethtypes.Receipt, error) {
 	ethCli := ec.Clients[nodeID]
@@ -97,9 +87,9 @@ func (ec *EthClient) WaitForTransaction(
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("timeout waiting for transaction %s", txHash.Hex())
+			return nil, fmt.Errorf("timeout waiting for transaction %s", txHash)
 		case <-ticker.C:
-			receipt, err := ethCli.TransactionReceipt(context.Background(), txHash)
+			receipt, err := ethCli.TransactionReceipt(context.Background(), common.HexToHash(txHash))
 			if err != nil {
 				continue // Transaction not mined yet
 			}

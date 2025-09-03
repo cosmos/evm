@@ -2,8 +2,6 @@ package systemtests
 
 import (
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type TransferFunc func(
@@ -12,7 +10,7 @@ type TransferFunc func(
 	nonce uint64,
 	gasPrice *big.Int,
 	optionalGasTipCap *big.Int,
-) (common.Hash, error)
+) (string, error)
 
 type TestOption struct {
 	TxType       string

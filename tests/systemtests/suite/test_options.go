@@ -1,6 +1,6 @@
 package suite
 
-import systemtests "github.com/evmos/tests/systemtests/types"
+import systemtests "github.com/cosmos/evm/tests/systemtests/types"
 
 func (s *SystemTestSuite) DefaultTestOption() []systemtests.TestOption {
 	return []systemtests.TestOption{
