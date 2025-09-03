@@ -23,6 +23,7 @@ import (
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -766,9 +767,14 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// TODO: Get the actual block gas limit from consensus parameters
+		legacyPoolConfig := legacypool.DefaultConfig
+		legacyPoolConfig.AccountSlots = 64
+		legacyPoolConfig.GlobalSlots = 16384 + 4096
+		legacyPoolConfig.GlobalQueue = 4096
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: 100_000_000,
+			LegacyPoolConfig: &legacyPoolConfig,
+			AnteHandler:      app.GetAnteHandler(),
+			BlockGasLimit:    100_000_000,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
