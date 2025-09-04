@@ -254,6 +254,8 @@ func NewExampleApp(
 	// 	app.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
 	// }
 	// baseAppOptions = append(baseAppOptions, prepareOpt)
+	//
+	bAppOpts := append(baseAppOptions, baseapp.SetOptimisticExecution())
 
 	bApp := baseapp.NewBaseApp(
 		appName,
@@ -261,7 +263,7 @@ func NewExampleApp(
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
 		encodingConfig.TxConfig.TxDecoder(),
-		baseAppOptions...,
+		bAppOpts...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
