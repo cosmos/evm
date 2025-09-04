@@ -54,6 +54,10 @@ func NewEthClient() (*EthClient, error) {
 	}, nil
 }
 
+func (ec *EthClient) Setup(nodeID string, accID string) (context.Context, *ethclient.Client, common.Address) {
+	return context.Background(), ec.Clients[nodeID], ec.Accs[accID].Address
+}
+
 func (ec *EthClient) SendRawTransaction(
 	nodeID string,
 	accID string,
@@ -103,6 +107,27 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
-func (ec *EthClient) RequestArgs(nodeID string, accID string) (context.Context, *ethclient.Client, common.Address) {
-	return context.Background(), ec.Clients[nodeID], ec.Accs[accID].Address
+func (ec *EthClient) TxPoolContent(nodeID string) (map[common.Address][]*ethtypes.Transaction, map[common.Address][]*ethtypes.Transaction, error) {
+	ethCli := ec.Clients[nodeID]
+
+	var result TxPoolResult
+	err := ethCli.Client().Call(&result, "txpool_content")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call txpool_content eth api: %v", err)
+	}
+
+	return result.Pending, result.Queued, nil
+}
+
+func (ec *EthClient) TxPoolContentFrom(nodeID, accID string) (map[common.Address][]*ethtypes.Transaction, map[common.Address][]*ethtypes.Transaction, error) {
+	ethCli := ec.Clients[nodeID]
+	addr := ec.Accs[accID].Address
+
+	var result TxPoolResult
+	err := ethCli.Client().Call(&result, "txpool_contentFrom", addr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call txpool_contentFrom eth api: %v", err)
+	}
+
+	return result.Pending, result.Queued, nil
 }

@@ -1,7 +1,9 @@
 package suite
 
 import (
+	"fmt"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -59,6 +61,22 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	require.NoError(t, err)
 
 	s.baseFee = currentBaseFee
+}
+
+func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
+	// check txpool
+	pendingTxHashes, queuedTxHashes, err := s.TxPoolContent(s.GetNode())
+	require.NoError(t, err)
+
+	for _, txHash := range s.GetExpPendingTxs() {
+		ok := slices.Contains(pendingTxHashes, txHash)
+		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queue txs in mempool", txHash))
+	}
+
+	for _, txHash := range s.GetExpQueuedTxs() {
+		ok := slices.Contains(queuedTxHashes, txHash)
+		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queue txs in mempool", txHash))
+	}
 }
 
 func (s *SystemTestSuite) AfterEach(t *testing.T) {

@@ -6,14 +6,15 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 )
 
-func TestNonceGappedTransaction(t *testing.T) {
-	mempool.TestNonceGappedTransaction(t)
+func TestNonceGappedTxs(t *testing.T) {
+	mempool.TestNonceGappedTxs(t)
 }
 
-func TestTransactionOrdering(t *testing.T) {
-	mempool.TestTransactionOrdering(t)
+func TestTxsOrdering(t *testing.T) {
+	mempool.TestTxsOrdering(t)
 }
 
-func TestTransactionReplacement(t *testing.T) {
-	mempool.TestTransactionReplacement(t)
+func TestTxsReplacement(t *testing.T) {
+	mempool.TestTxsReplacement(t)
+	mempool.TestMixedTxsReplacement(t)
 }

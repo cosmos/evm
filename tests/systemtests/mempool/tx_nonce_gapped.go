@@ -9,34 +9,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNonceGappedTransaction(t *testing.T) {
+func TestNonceGappedTxs(t *testing.T) {
 	testCases := []struct {
-		name       string
-		malleate   func(s TestSuite)
-		postAction func(s TestSuite)
-		bypass     bool
+		name    string
+		actions []func(s TestSuite)
+		bypass  bool
 	}{
 		{
 			name: "Single nonce gap fill %s",
-			malleate: func(s TestSuite) {
-				lowFeeEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
-				require.NoError(t, err)
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
+					lowFeeEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					require.NoError(t, err)
 
-				highGasEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
-				require.NoError(t, err)
+					highGasEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+					require.NoError(t, err)
 
-				if s.OnlyEthTxs() {
-					s.SetExpQueuedTxs(highGasEVMTxHash, lowFeeEVMTxHash)
-				}
-			},
-			postAction: func(s TestSuite) {
-				txHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
-				require.NoError(t, err)
+					if s.OnlyEthTxs() {
+						s.SetExpQueuedTxs(highGasEVMTxHash, lowFeeEVMTxHash)
+					}
+				},
+				func(s TestSuite) {
+					txHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					require.NoError(t, err)
 
-				s.SetExpPendingTxs(txHash)
-				if s.OnlyEthTxs() {
-					s.PromoteExpTxs(0)
-				}
+					s.SetExpPendingTxs(txHash)
+					if s.OnlyEthTxs() {
+						s.PromoteExpTxs(0)
+					}
+				},
 			},
 		},
 	}
@@ -53,10 +54,10 @@ func TestNonceGappedTransaction(t *testing.T) {
 				}
 
 				s.BeforeEach(t)
-
-				tc.malleate(s)
-				tc.postAction(s)
-
+				for _, action := range tc.actions {
+					action(s)
+					s.JustAfterEach(t)
+				}
 				s.AfterEach(t)
 			})
 		}

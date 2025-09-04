@@ -15,29 +15,29 @@ func (s *SystemTestSuite) SendTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (string, error) {
+	if s.TestOption.TxType == TxTypeEVM {
+		return s.SendEthTx(nodeID, accID, nonceIdx, gasPrice, gasTipCap)
+	}
+	return s.SendCosmosTx(nodeID, accID, nonceIdx, gasPrice, nil)
+}
+
+func (s *SystemTestSuite) SendEthTx(
+	nodeID string,
+	accID string,
+	nonceIdx uint64,
+	gasPrice *big.Int,
+	gasTipCap *big.Int,
+) (string, error) {
 	nonce, err := s.NonceAt(nodeID, accID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get future current nonce")
 	}
 	gappedNonce := nonce + nonceIdx
 
-	if s.TestOption.TxType == TxTypeEVM {
-		return s.SendEthTx(nodeID, accID, gappedNonce, gasPrice, gasTipCap)
-	}
-	return s.SendCosmosTx(nodeID, accID, gappedNonce, gasPrice, nil)
-}
-
-func (s *SystemTestSuite) SendEthTx(
-	nodeID string,
-	accID string,
-	nonce uint64,
-	gasPrice *big.Int,
-	gasTipCap *big.Int,
-) (string, error) {
 	if s.TestOption.ApplyDynamicFeeTx {
-		return s.SendEthDynamicFeeTx(nodeID, accID, nonce, gasPrice, gasTipCap)
+		return s.SendEthDynamicFeeTx(nodeID, accID, gappedNonce, gasPrice, gasTipCap)
 	}
-	return s.SendEthLegacyTx(nodeID, accID, nonce, gasPrice)
+	return s.SendEthLegacyTx(nodeID, accID, gappedNonce, gasPrice)
 }
 
 func (s *SystemTestSuite) SendEthLegacyTx(
@@ -88,15 +88,20 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 func (s *SystemTestSuite) SendCosmosTx(
 	nodeID string,
 	accID string,
-	nonce uint64,
+	nonceIdx uint64,
 	gasPrice *big.Int,
 	_ *big.Int,
 ) (string, error) {
 	from := s.CosmosClient.Accs[accID].AccAddress
 	to := s.CosmosClient.Accs["acc3"].AccAddress
 	amount := sdkmath.NewInt(1000)
+	nonce, err := s.NonceAt(nodeID, accID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get future current nonce")
+	}
+	gappedNonce := nonce + nonceIdx
 
-	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, nonce, gasPrice)
+	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, gappedNonce, gasPrice)
 	if err != nil {
 		return "", fmt.Errorf("failed to cosmos tx bank send: %v", err)
 	}

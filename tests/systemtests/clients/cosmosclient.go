@@ -7,12 +7,13 @@ import (
 	"math/big"
 	"time"
 
-	coretypes "github.com/cometbft/cometbft/v2/rpc/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 
+	cmtclient "github.com/cometbft/cometbft/v2/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/v2/rpc/client/http"
+	coretypes "github.com/cometbft/cometbft/v2/rpc/core/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -137,6 +138,15 @@ func (c *CosmosClient) WaitForCommit(
 			return result, nil
 		}
 	}
+}
+
+func (c *CosmosClient) UnconfirmedTxs(nodeID string) (*coretypes.ResultUnconfirmedTxs, error) {
+	rpcCli, ok := c.ClientCtx.Client.(cmtclient.MempoolClient)
+	if !ok {
+		return nil, fmt.Errorf("CometBFT MempoolClient interface is not supported")
+	}
+
+	return rpcCli.UnconfirmedTxs(context.Background(), nil)
 }
 
 func newClientContext(config *Config) (*client.Context, error) {
