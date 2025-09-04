@@ -107,10 +107,11 @@ func (s *PrecompileTestSuite) TestRun() {
 			s.Require().NoError(err, "failed to instantiate EVM config")
 
 			// Instantiate EVM
+			headerHash := ctx.HeaderHash()
 			stDB := statedb.New(
 				ctx,
 				s.network.App.GetEVMKeeper(),
-				statedb.NewEmptyTxConfig(),
+				statedb.NewEmptyTxConfig(common.BytesToHash(headerHash)),
 			)
 			evm := s.network.App.GetEVMKeeper().NewEVM(
 				ctx, *msg, cfg, nil, stDB,

@@ -24,7 +24,7 @@ func (s *KeeperTestSuite) EvmDenom() string {
 }
 
 func (s *KeeperTestSuite) StateDB() *statedb.StateDB {
-	return statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
+	return statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig(common.BytesToHash(s.Network.GetContext().HeaderHash())))
 }
 
 // DeployTestContract deploy a test erc20 contract and returns the contract address
