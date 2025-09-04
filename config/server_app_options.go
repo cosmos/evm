@@ -7,6 +7,8 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
+	srvflags "github.com/cosmos/evm/server/flags"
+
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -14,7 +16,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	srvflags "github.com/cosmos/evm/server/flags"
 )
 
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
