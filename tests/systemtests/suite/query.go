@@ -6,20 +6,6 @@ import (
 	"time"
 )
 
-func (s *SystemTestSuite) FutureNonces(nodeID string, accID string, index int) ([]uint64, error) {
-	currentNonce, err := s.NonceAt(nodeID, accID)
-	if err != nil {
-		return []uint64{}, fmt.Errorf("failed to get future nonces")
-	}
-
-	nonces := []uint64{currentNonce}
-	for i := 0; i < index; i++ {
-		nonces = append(nonces, currentNonce+uint64(i+1))
-	}
-
-	return nonces, nil
-}
-
 func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 	ctx, cli, addr := s.EthClient.RequestArgs(nodeID, accID)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
@@ -47,7 +33,18 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	return block.BaseFee(), nil
 }
 
-func (s *SystemTestSuite) WaitForEthCommmit(
+func (s *SystemTestSuite) WaitForCommit(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	if s.TestOption.TestType == TxTypeEVM {
+		return s.waitForEthCommmit(nodeID, txHash, timeout)
+	}
+	return s.waitForCosmosCommmit(nodeID, txHash, timeout)
+}
+
+func (s *SystemTestSuite) waitForEthCommmit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -59,6 +56,23 @@ func (s *SystemTestSuite) WaitForEthCommmit(
 
 	if receipt.Status != 1 {
 		return fmt.Errorf("tx(%s) is committed but failed: %v", txHash, err)
+	}
+
+	return nil
+}
+
+func (s *SystemTestSuite) waitForCosmosCommmit(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	result, err := s.CosmosClient.WaitForCommit(nodeID, txHash, timeout)
+	if err != nil {
+		return fmt.Errorf("failed to get receipt for tx(%s): %v", txHash, err)
+	}
+
+	if result.TxResult.Code != 0 {
+		return fmt.Errorf("tx(%s) is committed but failed: %v", result.Hash.String(), err)
 	}
 
 	return nil

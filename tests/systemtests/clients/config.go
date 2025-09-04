@@ -1,4 +1,4 @@
-package config
+package clients
 
 import (
 	"fmt"
@@ -38,11 +38,6 @@ const (
 	NodeRPCUrl1 = "http://127.0.0.1:26667"
 	NodeRPCUrl2 = "http://127.0.0.1:26677"
 	NodeRPCUrl3 = "http://127.0.0.1:26687"
-
-	NodeArgsChainID                    = "--chain-id=local-4221"
-	NodeArgsApiEnable                  = "--api.enable=true"
-	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
-	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
 )
 
 type Config struct {
@@ -77,13 +72,4 @@ func NewConfig() (*Config, error) {
 		JsonRPCUrls: jsonRPCUrls,
 		NodeRPCUrls: nodeRPCUrls,
 	}, nil
-}
-
-func DefaultNodeArgs() []string {
-	return []string{
-		NodeArgsJsonrpcApi,
-		NodeArgsChainID,
-		NodeArgsApiEnable,
-		NodeArgsJsonrpcAllowUnprotectedTxs,
-	}
 }

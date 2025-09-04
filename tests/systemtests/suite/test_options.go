@@ -1,23 +1,21 @@
 package suite
 
-import systemtests "github.com/cosmos/evm/tests/systemtests/types"
-
-func (s *SystemTestSuite) DefaultTestOption() []systemtests.TestOption {
-	return []systemtests.TestOption{
+func (s *SystemTestSuite) DefaultTestOption() []TestOption {
+	return []TestOption{
 		{
-			TestType:      "EVM LegacyTx",
-			Transfer:      s.SendEthTx,
-			WaitForCommit: s.WaitForEthCommmit,
+			TestType: "EVM LegacyTx",
+			TxType:   TxTypeEVM,
+			SendTx:   s.SendEthTx,
 		},
 		{
-			TestType:      "EVM DynamicFeeTx",
-			Transfer:      s.SendEthDynamicFeeTx,
-			WaitForCommit: s.WaitForEthCommmit,
+			TestType: "EVM DynamicFeeTx",
+			TxType:   TxTypeEVM,
+			SendTx:   s.SendEthDynamicFeeTx,
 		},
 		{
-			TestType:      "Cosmos LegacyTx",
-			Transfer:      s.SendCosmosTx,
-			WaitForCommit: s.WaitForCosmosCommmit,
+			TestType: "Cosmos LegacyTx",
+			TxType:   TxTypeCosmos,
+			SendTx:   s.SendCosmosTx,
 		},
 	}
 }

@@ -4,50 +4,38 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	types "github.com/cosmos/evm/tests/systemtests/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNonceGappedTransaction(t *testing.T) {
 	testCases := []struct {
-		name     string
-		malleate func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string)
-		verify   func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption)
-		bypass   bool
+		name       string
+		malleate   func(s TestSuite)
+		postAction func(s TestSuite)
+		bypass     bool
 	}{
 		{
 			name: "Single nonce gap fill %s",
-			malleate: func(s *suite.SystemTestSuite, option types.TestOption) (expQueuedTxHashes, expPendingTxHashes []string) {
-				nonces, err := s.FutureNonces("node0", "acc0", 1)
+			malleate: func(s TestSuite) {
+				lowFeeEVMTxHash, err := s.SendTx("node0", "acc0", 1, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				lowFeeEVMTxHash, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFee, nil)
+				highGasEVMTxHash, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := option.Transfer("node0", "acc0", nonces[1], s.BaseFeeX2, big.NewInt(1))
-				require.NoError(t, err)
-
-				expQueuedTxHashes = []string{highGasEVMTxHash, lowFeeEVMTxHash}
-				expPendingTxHashes = []string{}
-
-				return expQueuedTxHashes, expPendingTxHashes
+				if s.OnlyEthTxs() {
+					s.SetExpQueuedTxs(highGasEVMTxHash, lowFeeEVMTxHash)
+				}
 			},
-			verify: func(s *suite.SystemTestSuite, expQueuedTxHashes, expPendingTxHashes []string, option types.TestOption) {
-				// send nonce-gap-filling tx
-				nonces, err := s.FutureNonces("node0", "acc0", 0)
+			postAction: func(s TestSuite) {
+				txHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				txHash, err := option.Transfer("node0", "acc0", nonces[0], s.BaseFee, nil)
-				require.NoError(t, err)
-
-				expPendingTxHashes = []string{txHash, expQueuedTxHashes[0]}
-
-				for _, expSuccessTxHash := range expPendingTxHashes {
-					err := option.WaitForCommit("node0", expSuccessTxHash, time.Second*15)
-					require.NoError(t, err)
+				s.SetExpPendingTxs(txHash)
+				if s.OnlyEthTxs() {
+					s.PromoteExpTxs(0)
 				}
 			},
 		},
@@ -66,8 +54,10 @@ func TestNonceGappedTransaction(t *testing.T) {
 
 				s.BeforeEach(t)
 
-				expQueuedTxHashes, expPendingTxHashes := tc.malleate(s, to)
-				tc.verify(s, expQueuedTxHashes, expPendingTxHashes, to)
+				tc.malleate(s)
+				tc.postAction(s)
+
+				s.AfterEach(t)
 			})
 		}
 	}

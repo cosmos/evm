@@ -5,14 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"testing"
 	"time"
 
 	coretypes "github.com/cometbft/cometbft/v2/rpc/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/tests/systemtests/config"
 
 	rpchttp "github.com/cometbft/cometbft/v2/rpc/client/http"
 
@@ -40,7 +38,12 @@ type CosmosClient struct {
 	Accs       map[string]*CosmosAccount
 }
 
-func NewCosmosClient(t *testing.T, config *config.Config) (*CosmosClient, error) {
+func NewCosmosClient() (*CosmosClient, error) {
+	config, err := NewConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config")
+	}
+
 	clientCtx, err := newClientContext(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client context: %v", err)
@@ -136,7 +139,7 @@ func (c *CosmosClient) WaitForCommit(
 	}
 }
 
-func newClientContext(config *config.Config) (*client.Context, error) {
+func newClientContext(config *Config) (*client.Context, error) {
 	// Create codec and tx config
 	interfaceRegistry := types.NewInterfaceRegistry()
 	std.RegisterInterfaces(interfaceRegistry)

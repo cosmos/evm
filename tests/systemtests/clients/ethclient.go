@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/cosmos/evm/tests/systemtests/config"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +18,12 @@ type EthClient struct {
 	Accs    map[string]*EthAccount
 }
 
-func NewEthClient(config *config.Config) (*EthClient, error) {
+func NewEthClient() (*EthClient, error) {
+	config, err := NewConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config")
+	}
+
 	clients := make(map[string]*ethclient.Client, 0)
 	for i, jsonrpcUrl := range config.JsonRPCUrls {
 		ethcli, err := ethclient.Dial(jsonrpcUrl)
