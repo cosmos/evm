@@ -301,7 +301,7 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 				s.network.App.GetBankKeeper(),
 				s.network.App.GetEVMKeeper(),
 				s.network.App.GetStakingKeeper(),
-				&tranasferKeeper,
+				&tranasferKeeper, s.network.App.GetAccountKeeper().AddressCodec(),
 			)
 			s.network.App.SetErc20Keeper(erc20Keeper)
 
