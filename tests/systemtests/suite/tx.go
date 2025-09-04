@@ -13,7 +13,7 @@ func (s *SystemTestSuite) SendTx(
 	accID string,
 	nonceIdx uint64,
 	gasPrice *big.Int,
-	_ *big.Int,
+	gasTipCap *big.Int,
 ) (string, error) {
 	nonce, err := s.NonceAt(nodeID, accID)
 	if err != nil {
@@ -22,7 +22,7 @@ func (s *SystemTestSuite) SendTx(
 	gappedNonce := nonce + nonceIdx
 
 	if s.TestOption.TxType == TxTypeEVM {
-		return s.SendEthTx(nodeID, accID, gappedNonce, gasPrice, nil)
+		return s.SendEthTx(nodeID, accID, gappedNonce, gasPrice, gasTipCap)
 	}
 	return s.SendCosmosTx(nodeID, accID, gappedNonce, gasPrice, nil)
 }
@@ -32,7 +32,19 @@ func (s *SystemTestSuite) SendEthTx(
 	accID string,
 	nonce uint64,
 	gasPrice *big.Int,
-	_ *big.Int,
+	gasTipCap *big.Int,
+) (string, error) {
+	if s.TestOption.ApplyDynamicFeeTx {
+		return s.SendEthDynamicFeeTx(nodeID, accID, nonce, gasPrice, gasTipCap)
+	}
+	return s.SendEthLegacyTx(nodeID, accID, nonce, gasPrice)
+}
+
+func (s *SystemTestSuite) SendEthLegacyTx(
+	nodeID string,
+	accID string,
+	nonce uint64,
+	gasPrice *big.Int,
 ) (string, error) {
 	to := s.EthClient.Accs["acc3"].Address
 	value := big.NewInt(1000)
@@ -46,24 +58,6 @@ func (s *SystemTestSuite) SendEthTx(
 	}
 
 	return txHash.Hex(), nil
-}
-
-func (s *SystemTestSuite) SendCosmosTx(
-	nodeID string,
-	accID string,
-	nonce uint64,
-	gasPrice *big.Int,
-	_ *big.Int,
-) (string, error) {
-	from := s.CosmosClient.Accs[accID].AccAddress
-	to := s.CosmosClient.Accs["acc3"].AccAddress
-	amount := sdkmath.NewInt(1000)
-
-	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, nonce, gasPrice)
-	if err != nil {
-		return "", fmt.Errorf("failed to cosmos tx bank send: %v", err)
-	}
-	return resp.TxHash, nil
 }
 
 func (s *SystemTestSuite) SendEthDynamicFeeTx(
@@ -89,4 +83,22 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 	}
 
 	return txHash.Hex(), nil
+}
+
+func (s *SystemTestSuite) SendCosmosTx(
+	nodeID string,
+	accID string,
+	nonce uint64,
+	gasPrice *big.Int,
+	_ *big.Int,
+) (string, error) {
+	from := s.CosmosClient.Accs[accID].AccAddress
+	to := s.CosmosClient.Accs["acc3"].AccAddress
+	amount := sdkmath.NewInt(1000)
+
+	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, nonce, gasPrice)
+	if err != nil {
+		return "", fmt.Errorf("failed to cosmos tx bank send: %v", err)
+	}
+	return resp.TxHash, nil
 }

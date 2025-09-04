@@ -19,10 +19,10 @@ func TestNonceGappedTransaction(t *testing.T) {
 		{
 			name: "Single nonce gap fill %s",
 			malleate: func(s TestSuite) {
-				lowFeeEVMTxHash, err := s.SendTx("node0", "acc0", 1, s.BaseFee(), nil)
+				lowFeeEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+				highGasEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
 				if s.OnlyEthTxs() {
@@ -30,7 +30,7 @@ func TestNonceGappedTransaction(t *testing.T) {
 				}
 			},
 			postAction: func(s TestSuite) {
-				txHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				txHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
 				s.SetExpPendingTxs(txHash)

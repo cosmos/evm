@@ -22,7 +22,7 @@ func TestTransactionOrdering(t *testing.T) {
 				for i := 0; i < 5; i++ {
 					// nonce order of submitted txs: 3,4,0,1,2
 					nonceIdx := uint64((i + 3) % 5)
-					txHash, err := s.SendTx("node0", "acc0", nonceIdx, s.BaseFee(), nil)
+					txHash, err := s.SendTx(s.GetNode(), "acc0", nonceIdx, s.BaseFee(), nil)
 					require.NoError(t, err)
 
 					// nonce order of committed txs: 0,1,2,3,4

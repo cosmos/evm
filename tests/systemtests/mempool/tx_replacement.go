@@ -19,10 +19,10 @@ func TestTransactionReplacement(t *testing.T) {
 		{
 			name: "Replacement of single pending tx %s",
 			malleate: func(s TestSuite) {
-				lowFeeEVMTxHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				lowFeeEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				highGasEVMTxHash, err := s.SendTx("node0", "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
+				highGasEVMTxHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
 				if s.OnlyEthTxs() {
@@ -35,19 +35,25 @@ func TestTransactionReplacement(t *testing.T) {
 		{
 			name: "Replacement of multiple pending txs %s",
 			malleate: func(s TestSuite) {
-				_, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				_, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				_, err = s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				tx2, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
-				tx3, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+				_, err = s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				tx4, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+				tx4, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
-				s.SetExpPendingTxs(tx3, tx4)
+				_, err = s.SendTx(s.GetNode(), "acc0", 2, s.BaseFee(), nil)
+				require.NoError(t, err)
+
+				tx6, err := s.SendTx(s.GetNode(), "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
+				require.NoError(t, err)
+
+				s.SetExpPendingTxs(tx2, tx4, tx6)
 			},
 			postAction: func(s TestSuite) {},
 			bypass:     true,
@@ -55,10 +61,10 @@ func TestTransactionReplacement(t *testing.T) {
 		{
 			name: "Replacement of single queued tx %s",
 			malleate: func(s TestSuite) {
-				_, err := s.SendTx("node0", "acc0", 1, s.BaseFee(), nil)
+				_, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				tx2, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+				tx2, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
 				if s.OnlyEthTxs() {
@@ -66,7 +72,7 @@ func TestTransactionReplacement(t *testing.T) {
 				}
 			},
 			postAction: func(s TestSuite) {
-				txHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				txHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
 				s.SetExpPendingTxs(txHash)
@@ -78,53 +84,30 @@ func TestTransactionReplacement(t *testing.T) {
 		{
 			name: "Replacement of multiple queued txs %s",
 			malleate: func(s TestSuite) {
-				_, err := s.SendTx("node0", "acc0", 1, s.BaseFee(), nil)
+				_, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				tx2, err := s.SendTx("node0", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
+				tx2, err := s.SendTx(s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
-				_, err = s.SendTx("node0", "acc0", 2, s.BaseFee(), nil)
+				_, err = s.SendTx(s.GetNode(), "acc0", 2, s.BaseFee(), nil)
 				require.NoError(t, err)
 
-				tx4, err := s.SendTx("node0", "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
+				tx4, err := s.SendTx(s.GetNode(), "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
+				require.NoError(t, err)
+
+				_, err = s.SendTx(s.GetNode(), "acc0", 2, s.BaseFee(), nil)
+				require.NoError(t, err)
+
+				tx6, err := s.SendTx(s.GetNode(), "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
 				require.NoError(t, err)
 
 				if s.OnlyEthTxs() {
-					s.SetExpQueuedTxs(tx2, tx4)
+					s.SetExpQueuedTxs(tx2, tx4, tx6)
 				}
 			},
 			postAction: func(s TestSuite) {
-				txHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
-				require.NoError(t, err)
-
-				s.SetExpPendingTxs(txHash)
-				if s.OnlyEthTxs() {
-					s.PromoteExpTxs(2)
-				}
-			},
-		},
-		{
-			name: "Replacement of multiple pending txs with multi node %s",
-			malleate: func(s TestSuite) {
-				_, err := s.SendTx("node0", "acc0", 1, s.BaseFee(), nil)
-				require.NoError(t, err)
-
-				tx2, err := s.SendTx("node1", "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
-				require.NoError(t, err)
-
-				_, err = s.SendTx("node2", "acc0", 2, s.BaseFee(), nil)
-				require.NoError(t, err)
-
-				tx4, err := s.SendTx("node3", "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
-				require.NoError(t, err)
-
-				if s.OnlyEthTxs() {
-					s.SetExpQueuedTxs(tx2, tx4)
-				}
-			},
-			postAction: func(s TestSuite) {
-				txHash, err := s.SendTx("node0", "acc0", 0, s.BaseFee(), nil)
+				txHash, err := s.SendTx(s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 				require.NoError(t, err)
 
 				s.SetExpPendingTxs(txHash)

@@ -14,16 +14,14 @@ type TestSuite interface {
 	BaseFee() *big.Int
 	BaseFeeX2() *big.Int
 
-	// Expectation
+	// Config
 	OnlyEthTxs() bool
+	GetNode() string
 
-	ExpPendingTxs() []string
-	ExpPendingTx(idx int) string
+	// Expectation of mempool state
+	GetExpPendingTxs() []string
 	SetExpPendingTxs(txs ...string)
-
-	ExpQueuedTxs() []string
-	ExpQueuedTx(idx int) string
+	GetExpQueuedTxs() []string
 	SetExpQueuedTxs(txs ...string)
-
 	PromoteExpTxs(count int)
 }
