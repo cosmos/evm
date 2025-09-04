@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -20,6 +22,7 @@ import (
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
@@ -48,24 +51,18 @@ import (
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 )
 
-// NewRootCmd creates a new root command for evmd. It is called once in the
-// main function.
+// NewRootCmd creates a new root command for evmd with a cleaner, more understandable flow.
+// It eliminates hardcoded constants and the confusing tempApp no-op pattern.
 func NewRootCmd() *cobra.Command {
-	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
-	// and the CLI options for the modules
-	// add keyring to autocli opts
-	noOpEvmAppOptions := func(_ uint64) error {
-		return nil
-	}
-	tempApp := evmd.NewExampleApp(
-		log.NewNopLogger(),
-		dbm.NewMemDB(),
-		nil,
-		true,
-		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		noOpEvmAppOptions,
-	)
+	// Initialize the SDK configuration
+	initSDKConfig()
+
+	// Get the default node home directory
+	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
+
+	// Create a basic app instance for encoding config extraction
+	// We use minimal configuration since this is only for getting codecs/encoders
+	tempApp := createBasicApp(defaultNodeHome)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
@@ -73,6 +70,7 @@ func NewRootCmd() *cobra.Command {
 		TxConfig:          tempApp.GetTxConfig(),
 		Amino:             tempApp.LegacyAmino(),
 	}
+	// Initialize client context with encoding config
 	initClientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
@@ -81,79 +79,274 @@ func NewRootCmd() *cobra.Command {
 		WithInput(os.Stdin).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.FlagBroadcastMode).
-		WithHomeDir(evmdconfig.MustGetDefaultNodeHome()).
+		WithHomeDir(defaultNodeHome).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
 		WithKeyringOptions(cosmosevmkeyring.Option()).
 		WithLedgerHasProtobuf(true)
 
+	// Create root command
 	rootCmd := &cobra.Command{
 		Use:   "evmd",
 		Short: "exemplary Cosmos EVM app",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			// set the default command outputs
-			cmd.SetOut(cmd.OutOrStdout())
-			cmd.SetErr(cmd.ErrOrStderr())
-
-			initClientCtx = initClientCtx.WithCmdContext(cmd.Context())
-			initClientCtx, err := client.ReadPersistentCommandFlags(initClientCtx, cmd.Flags())
-			if err != nil {
-				return err
-			}
-
-			initClientCtx, err = clientcfg.ReadFromClientConfig(initClientCtx)
-			if err != nil {
-				return err
-			}
-
-			// This needs to go after ReadFromClientConfig, as that function
-			// sets the RPC client needed for SIGN_MODE_TEXTUAL. This sign mode
-			// is only available if the client is online.
-			if !initClientCtx.Offline {
-				enabledSignModes := append(tx.DefaultSignModes, signing.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
-				txConfigOpts := tx.ConfigOptions{
-					EnabledSignModes:           enabledSignModes,
-					TextualCoinMetadataQueryFn: txmodule.NewGRPCCoinMetadataQueryFn(initClientCtx),
-				}
-				txConfig, err := tx.NewTxConfigWithOptions(
-					initClientCtx.Codec,
-					txConfigOpts,
-				)
-				if err != nil {
-					return err
-				}
-
-				initClientCtx = initClientCtx.WithTxConfig(txConfig)
-			}
-
-			if err := client.SetCmdClientContextHandler(initClientCtx, cmd); err != nil {
-				return err
-			}
-
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
-			customTMConfig := initCometConfig()
-
-			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+			return setupCommand(cmd, initClientCtx)
 		},
 	}
 
-	initRootCmd(rootCmd, tempApp)
+	// Add all subcommands
+	addSubcommands(rootCmd, tempApp, defaultNodeHome)
 
-	autoCliOpts := tempApp.AutoCliOpts()
-	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
-	autoCliOpts.ClientCtx = initClientCtx
+	// Setup AutoCLI
+	setupAutoCLI(rootCmd, tempApp, initClientCtx)
+
+	return rootCmd
+}
+
+// initSDKConfig initializes the SDK configuration
+func initSDKConfig() {
+	cfg := sdk.GetConfig()
+	evmdconfig.SetBip44CoinType(cfg)
+	cfg.Seal()
+}
+
+// createBasicApp creates a basic app instance for extracting encoding configuration
+func createBasicApp(nodeHome string) *evmd.EVMD {
+	// No-op EVM options for codec extraction only
+	noOpEvmAppOptions := func(_ uint64) error {
+		return nil
+	}
+
+	return evmd.NewExampleApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		true,
+		simtestutil.EmptyAppOptions{},
+		1, // Temporary chain ID, only for codec extraction
+		noOpEvmAppOptions,
+	)
+}
+
+// setupCommand handles the command setup that runs before each command execution.
+func setupCommand(cmd *cobra.Command, initClientCtx client.Context) error {
+	// Set command outputs
+	cmd.SetOut(cmd.OutOrStdout())
+	cmd.SetErr(cmd.ErrOrStderr())
+
+	// Update client context from command
+	initClientCtx = initClientCtx.WithCmdContext(cmd.Context())
+
+	// Read persistent command flags
+	clientCtx, err := client.ReadPersistentCommandFlags(initClientCtx, cmd.Flags())
+	if err != nil {
+		return err
+	}
+
+	// Read from client config file
+	clientCtx, err = clientcfg.ReadFromClientConfig(clientCtx)
+	if err != nil {
+		return err
+	}
+
+	// Setup enhanced transaction config if online
+	if !clientCtx.Offline {
+		clientCtx, err = setupEnhancedTxConfig(clientCtx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Set client context handler
+	if err := client.SetCmdClientContextHandler(clientCtx, cmd); err != nil {
+		return err
+	}
+
+	// Check if this is an init command that should use minimal configuration
+	if isInitCommand(cmd) {
+		// For init commands, use minimal configuration with defaults
+		chainConfig := evmdconfig.ChainConfig{
+			ChainInfo: evmdconfig.ChainInfo{
+				ChainID:    "",   // Will be set by the init command
+				EVMChainID: 9001, // Default EVM chain ID
+			},
+			CoinInfo: evmtypes.EvmCoinInfo{
+				Denom:         "atest",
+				ExtendedDenom: "atest",
+				DisplayDenom:  "test",
+				Decimals:      evmtypes.EighteenDecimals,
+			},
+		}
+
+		// Configure EVM with minimal configuration to prevent nil pointer dereferences
+		// This is essential for commands like 'gentx' that trigger genesis validation
+		if err := evmdconfig.EvmAppOptions(chainConfig); err != nil {
+			return fmt.Errorf("failed to configure EVM for init command: %w", err)
+		}
+
+		customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(chainConfig)
+		customTMConfig := initCometConfig()
+		return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+	}
+
+	// Load chain configuration from app options for non-init commands
+	chainConfig, err := loadChainConfigFromContext(cmd, clientCtx)
+	if err != nil {
+		return err
+	}
+
+	// Initialize app configuration with loaded chain config
+	customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(chainConfig)
+	customTMConfig := initCometConfig()
+
+	// Apply EVM app options if we have a chain ID
+	if chainConfig.ChainInfo.ChainID != "" {
+		if err := evmdconfig.EvmAppOptions(chainConfig); err != nil {
+			return err
+		}
+	}
+
+	// Intercept and handle configurations
+	return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+}
+
+// isInitCommand checks if the current command is an init command that should use minimal configuration
+func isInitCommand(cmd *cobra.Command) bool {
+	// Check the command name and path to identify init-like commands
+	cmdPath := cmd.CommandPath()
+	cmdName := cmd.Name()
+
+	// Commands that need minimal configuration (usually run before full config exists)
+	return strings.Contains(cmdPath, " init") ||
+		strings.Contains(cmdPath, " collect-gentxs") ||
+		strings.Contains(cmdPath, " gentx") ||
+		strings.Contains(cmdPath, " add-genesis-account") ||
+		strings.Contains(cmdPath, " validate-genesis") ||
+		strings.Contains(cmdPath, " keys ") ||
+		strings.Contains(cmdPath, " genesis ") ||
+		strings.Contains(cmdPath, " config ") ||
+		cmdName == "init" ||
+		cmdName == "gentx" ||
+		cmdName == "collect-gentxs" ||
+		cmdName == "add-genesis-account" ||
+		cmdName == "validate-genesis" ||
+		cmdName == "add" || // for keys add
+		cmdName == "set" || // for config set
+		(strings.Contains(cmdPath, "keys") && cmdName == "add") ||
+		(strings.Contains(cmdPath, "config") && cmdName == "set")
+}
+
+// setupEnhancedTxConfig sets up enhanced transaction configuration for online mode.
+func setupEnhancedTxConfig(clientCtx client.Context) (client.Context, error) {
+	enabledSignModes := append(tx.DefaultSignModes, signing.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
+	txConfigOpts := tx.ConfigOptions{
+		EnabledSignModes:           enabledSignModes,
+		TextualCoinMetadataQueryFn: txmodule.NewGRPCCoinMetadataQueryFn(clientCtx),
+	}
+	txConfig, err := tx.NewTxConfigWithOptions(
+		clientCtx.Codec,
+		txConfigOpts,
+	)
+	if err != nil {
+		return clientCtx, err
+	}
+	return clientCtx.WithTxConfig(txConfig), nil
+}
+
+// loadChainConfigFromContext loads chain configuration from the command context and flags.
+func loadChainConfigFromContext(cmd *cobra.Command, clientCtx client.Context) (evmdconfig.ChainConfig, error) {
+	// Create a mock app options from the command flags and viper
+	viper := viper.GetViper()
+
+	// Bind relevant flags to viper
+	if err := bindConfigFlags(cmd, viper); err != nil {
+		return evmdconfig.ChainConfig{}, err
+	}
+
+	// Load configuration using our config loader
+	return evmdconfig.LoadChainConfig(viper)
+}
+
+// bindConfigFlags binds relevant configuration flags to viper.
+func bindConfigFlags(cmd *cobra.Command, v *viper.Viper) error {
+	// Bind chain ID flag
+	if flag := cmd.Flags().Lookup(flags.FlagChainID); flag != nil {
+		if err := v.BindPFlag(flags.FlagChainID, flag); err != nil {
+			return err
+		}
+	}
+
+	// Bind home flag
+	if flag := cmd.Flags().Lookup(flags.FlagHome); flag != nil {
+		if err := v.BindPFlag(flags.FlagHome, flag); err != nil {
+			return err
+		}
+	}
+
+	// Bind EVM chain ID flag
+	if flag := cmd.Flags().Lookup(srvflags.EVMChainID); flag != nil {
+		if err := v.BindPFlag(srvflags.EVMChainID, flag); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// addSubcommands adds all subcommands to the root command.
+func addSubcommands(rootCmd *cobra.Command, app *evmd.EVMD, defaultNodeHome string) {
+	// Create app creator function
+	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
+		return newApp(l, d, w, ao)
+	}
+
+	// Add genesis and utility commands
+	rootCmd.AddCommand(
+		genutilcli.InitCmd(app.BasicModuleManager, defaultNodeHome),
+		genutilcli.Commands(app.TxConfig(), app.BasicModuleManager, defaultNodeHome),
+		cmtcli.NewCompletionCmd(rootCmd, true),
+		debug.Cmd(),
+		confixcmd.ConfigCommand(),
+		pruning.Cmd(sdkAppCreator, defaultNodeHome),
+		snapshot.Cmd(sdkAppCreator),
+		NewTestnetCmd(app.BasicModuleManager, banktypes.GenesisBalancesIterator{}, appCreator{}),
+	)
+
+	// Add Cosmos EVM server commands
+	cosmosevmserver.AddCommands(
+		rootCmd,
+		cosmosevmserver.NewDefaultStartOptions(newApp, defaultNodeHome),
+		appExport,
+		addModuleInitFlags,
+	)
+
+	// Add key management commands
+	rootCmd.AddCommand(
+		cosmosevmcmd.KeyCommands(defaultNodeHome, true),
+	)
+
+	// Add query, tx, and status commands
+	rootCmd.AddCommand(
+		sdkserver.StatusCommand(),
+		queryCommand(),
+		txCommand(),
+	)
+
+	// Add transaction flags
+	if _, err := srvflags.AddTxFlags(rootCmd); err != nil {
+		panic(err)
+	}
+}
+
+// setupAutoCLI sets up the AutoCLI functionality.
+func setupAutoCLI(rootCmd *cobra.Command, app *evmd.EVMD, clientCtx client.Context) {
+	autoCliOpts := app.AutoCliOpts()
+	clientCtx, _ = clientcfg.ReadFromClientConfig(clientCtx)
+	autoCliOpts.ClientCtx = clientCtx
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
 	}
-
-	if initClientCtx.ChainID != "" {
-		if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
-			panic(err)
-		}
-	}
-
-	return rootCmd
 }
 
 // initCometConfig helps to override default CometBFT Config values.
@@ -166,53 +359,6 @@ func initCometConfig() *cmtcfg.Config {
 	// cfg.P2P.MaxNumOutboundPeers = 40
 
 	return cfg
-}
-
-func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
-	cfg := sdk.GetConfig()
-	cfg.Seal()
-
-	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
-	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
-		return newApp(l, d, w, ao)
-	}
-	rootCmd.AddCommand(
-		genutilcli.InitCmd(evmApp.BasicModuleManager, defaultNodeHome),
-		genutilcli.Commands(evmApp.TxConfig(), evmApp.BasicModuleManager, defaultNodeHome),
-		cmtcli.NewCompletionCmd(rootCmd, true),
-		debug.Cmd(),
-		confixcmd.ConfigCommand(),
-		pruning.Cmd(sdkAppCreator, defaultNodeHome),
-		snapshot.Cmd(sdkAppCreator),
-		NewTestnetCmd(evmApp.BasicModuleManager, banktypes.GenesisBalancesIterator{}, appCreator{}),
-	)
-
-	// add Cosmos EVM' flavored TM commands to start server, etc.
-	cosmosevmserver.AddCommands(
-		rootCmd,
-		cosmosevmserver.NewDefaultStartOptions(newApp, defaultNodeHome),
-		appExport,
-		addModuleInitFlags,
-	)
-
-	// add Cosmos EVM key commands
-	rootCmd.AddCommand(
-		cosmosevmcmd.KeyCommands(defaultNodeHome, true),
-	)
-
-	// add keybase, auxiliary RPC, query, genesis, and tx child commands
-	rootCmd.AddCommand(
-		sdkserver.StatusCommand(),
-		queryCommand(),
-		txCommand(),
-	)
-
-	// add general tx flags to the root command
-	var err error
-	_, err = srvflags.AddTxFlags(rootCmd)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func addModuleInitFlags(_ *cobra.Command) {}
@@ -267,30 +413,42 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
-// newApp creates the application
+// newApp creates the application instance with configuration loaded from app options.
 func newApp(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
 	appOpts servertypes.AppOptions,
 ) cosmosevmserver.Application {
-	var cache storetypes.MultiStorePersistentCache
+	// Load chain configuration from app options
+	chainConfig, err := evmdconfig.LoadChainConfig(appOpts)
+	if err != nil {
+		panic(fmt.Errorf("failed to load chain configuration: %w", err))
+	}
 
+	// Setup cache
+	var cache storetypes.MultiStorePersistentCache
 	if cast.ToBool(appOpts.Get(sdkserver.FlagInterBlockCache)) {
 		cache = store.NewCommitKVStoreCacheManager()
 	}
 
+	// Get pruning options
 	pruningOpts, err := sdkserver.GetPruningOptionsFromFlags(appOpts)
 	if err != nil {
 		panic(err)
 	}
 
-	// get the chain id
-	chainID, err := getChainIDFromOpts(appOpts)
-	if err != nil {
-		panic(err)
+	// Use the loaded chain ID from configuration
+	chainID := chainConfig.ChainInfo.ChainID
+	if chainID == "" {
+		// Fallback to trying to get from opts if not in config
+		chainID, err = getChainIDFromOpts(appOpts)
+		if err != nil {
+			panic(err)
+		}
 	}
 
+	// Get snapshot configuration
 	snapshotStore, err := sdkserver.GetSnapshotStore(appOpts)
 	if err != nil {
 		panic(err)
@@ -301,6 +459,7 @@ func newApp(
 		cast.ToUint32(appOpts.Get(sdkserver.FlagStateSyncSnapshotKeepRecent)),
 	)
 
+	// Configure BaseApp options
 	baseappOptions := []func(*baseapp.BaseApp){
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))),
@@ -316,11 +475,12 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
+	// Create the application with loaded configuration
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		chainConfig.ChainInfo.EVMChainID,
+		evmdconfig.EvmAppOptionsFromConfig(chainConfig),
 		baseappOptions...,
 	)
 }
@@ -354,20 +514,40 @@ func appExport(
 	viperAppOpts.Set(sdkserver.FlagInvCheckPeriod, 1)
 	appOpts = viperAppOpts
 
-	// get the chain id
-	chainID, err := getChainIDFromOpts(appOpts)
+	// Load chain configuration
+	chainConfig, err := evmdconfig.LoadChainConfig(appOpts)
 	if err != nil {
-		return servertypes.ExportedApp{}, err
+		return servertypes.ExportedApp{}, fmt.Errorf("failed to load chain configuration for export: %w", err)
 	}
 
+	// Use loaded chain ID
+	chainID := chainConfig.ChainInfo.ChainID
+	if chainID == "" {
+		chainID, err = getChainIDFromOpts(appOpts)
+		if err != nil {
+			return servertypes.ExportedApp{}, err
+		}
+	}
+
+	// Create app at specific height or latest
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(
+			logger, db, traceStore, false, appOpts,
+			chainConfig.ChainInfo.EVMChainID,
+			evmdconfig.EvmAppOptionsFromConfig(chainConfig),
+			baseapp.SetChainID(chainID),
+		)
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(
+			logger, db, traceStore, true, appOpts,
+			chainConfig.ChainInfo.EVMChainID,
+			evmdconfig.EvmAppOptionsFromConfig(chainConfig),
+			baseapp.SetChainID(chainID),
+		)
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

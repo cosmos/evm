@@ -22,7 +22,7 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -36,7 +36,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	t.Helper()
 	ctx := server.NewDefaultContext()
 	ctx.Viper.Set("telemetry.global-labels", []interface{}{})
-	ctx.Viper.Set("evm.evm-chain-id", constants.ExampleChainID.EVMChainID)
+	ctx.Viper.Set("evm.evm-chain-id", testconfig.DefaultEvmChainID)
 
 	baseDir := t.TempDir()
 	nodeDirName := "node"
@@ -52,8 +52,9 @@ func setupMockBackend(t *testing.T) *Backend {
 		Seq:     uint64(1),
 	}
 
-	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
-	clientCtx := client.Context{}.WithChainID(constants.ExampleChainID.ChainID).
+	chainInfo := testconfig.DefaultChainConfig.ChainInfo
+	encodingConfig := encoding.MakeConfig(chainInfo.EVMChainID)
+	clientCtx := client.Context{}.WithChainID(chainInfo.ChainID).
 		WithHeight(1).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithKeyringDir(clientDir).
@@ -69,7 +70,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true
-	backend.Cfg.EVM.EVMChainID = constants.ExampleChainID.EVMChainID
+	backend.Cfg.EVM.EVMChainID = chainInfo.EVMChainID
 	mockEVMQueryClient := mocks.NewEVMQueryClient(t)
 	mockFeeMarketQueryClient := mocks.NewFeeMarketQueryClient(t)
 	backend.QueryClient.QueryClient = mockEVMQueryClient
@@ -86,7 +87,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	mockHeader := &tmtypes.Header{
 		Height:  1,
 		Time:    time.Now(),
-		ChainID: constants.ExampleChainID.ChainID,
+		ChainID: chainInfo.ChainID,
 	}
 	mockBlock := &tmtypes.Block{
 		Header: *mockHeader,

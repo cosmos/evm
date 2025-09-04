@@ -19,9 +19,9 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/testutil/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
@@ -131,11 +131,12 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 		require.True(tb, ok)
 
 		// add sender account
+		denom := evmtypes.CreateDenomStr(testconfig.DefaultDecimals, testconfig.DefaultDisplayDenom)
 		balance := banktypes.Balance{
 			Address: acc.GetAddress().String(),
 			Coins: sdk.NewCoins(
 				sdk.NewCoin(sdk.DefaultBondDenom, amount),
-				sdk.NewCoin(config.ExampleChainDenom, amount),
+				sdk.NewCoin(denom, amount),
 			),
 		}
 
@@ -369,7 +370,7 @@ func (chain *TestChain) SendEvmTx(
 	amount *big.Int,
 	data []byte,
 	gasLimit uint64,
-) (*abci.ExecTxResult, *types.MsgEthereumTx, *types.MsgEthereumTxResponse, error) {
+) (*abci.ExecTxResult, *evmtypes.MsgEthereumTx, *evmtypes.MsgEthereumTxResponse, error) {
 	app, ok := chain.App.(evm.EvmApp)
 	require.True(chain.TB, ok)
 	ctx := chain.GetContext()
@@ -425,12 +426,12 @@ func (chain *TestChain) SendEvmTx(
 	if txResult.Code != 0 {
 		return txResult, nil, nil, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
 	}
-	ethRes, err := types.DecodeTxResponse(txResult.Data)
+	ethRes, err := evmtypes.DecodeTxResponse(txResult.Data)
 	if err != nil {
 		return txResult, nil, nil, err
 	}
 	if ethRes.VmError != "" {
-		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(types.ErrVMExecution, "vm error: %s", ethRes.VmError)
+		return txResult, msgEthereumTx, ethRes, errorsmod.Wrapf(evmtypes.ErrVMExecution, "vm error: %s", ethRes.VmError)
 	}
 
 	chain.Coordinator.IncrementTime()

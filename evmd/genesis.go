@@ -3,8 +3,7 @@ package evmd
 import (
 	"encoding/json"
 
-	"github.com/cosmos/evm/evmd/cmd/evmd/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -39,8 +38,8 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenState.TokenPairs = testconfig.DefaultTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconfig.DefaultWevmosContractMainnet}
 
 	return erc20GenState
 }
@@ -50,7 +49,7 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 // NOTE: for the example chain implementation we are also adding a default minter.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = config.ExampleChainDenom
+	mintGenState.Params.MintDenom = testconfig.DefaultChainConfig.CoinInfo.Denom
 
 	return mintGenState
 }

@@ -10,6 +10,8 @@ import (
 
 	"github.com/cometbft/cometbft/libs/strings"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/server/config"
@@ -127,9 +129,10 @@ var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 type Config struct {
 	config.Config `mapstructure:",squash"`
 
-	EVM     EVMConfig     `mapstructure:"evm"`
-	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`
-	TLS     TLSConfig     `mapstructure:"tls"`
+	EVM     EVMConfig            `mapstructure:"evm"`
+	JSONRPC JSONRPCConfig        `mapstructure:"json-rpc"`
+	TLS     TLSConfig            `mapstructure:"tls"`
+	Coin    evmtypes.EvmCoinInfo `mapstructure:"chain"`
 }
 
 // EVMConfig defines the application configuration values for the EVM.
@@ -335,6 +338,16 @@ func DefaultTLSConfig() *TLSConfig {
 	}
 }
 
+// DefaultEvmCoinInfo returns the default chain configuration
+func DefaultEvmCoinInfo() *evmtypes.EvmCoinInfo {
+	return &evmtypes.EvmCoinInfo{
+		Denom:         "atest",
+		ExtendedDenom: "atest",
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.EighteenDecimals,
+	}
+}
+
 // Validate returns an error if the TLS certificate and key file extensions are invalid.
 func (c TLSConfig) Validate() error {
 	certExt := path.Ext(c.CertificatePath)
@@ -365,6 +378,7 @@ func DefaultConfig() *Config {
 		EVM:     *DefaultEVMConfig(),
 		JSONRPC: *DefaultJSONRPCConfig(),
 		TLS:     *DefaultTLSConfig(),
+		Coin:    *DefaultEvmCoinInfo(),
 	}
 }
 
@@ -389,6 +403,10 @@ func (c Config) ValidateBasic() error {
 
 	if err := c.TLS.Validate(); err != nil {
 		return errorsmod.Wrapf(errortypes.ErrAppConfig, "invalid tls config value: %s", err.Error())
+	}
+
+	if err := c.Coin.Validate(); err != nil {
+		return errorsmod.Wrapf(errortypes.ErrAppConfig, "invalid chain config value: %s", err.Error())
 	}
 
 	return c.Config.ValidateBasic()

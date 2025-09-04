@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -268,7 +269,7 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 	}()
 	evmApp, ok := app.(Application)
 	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+		return errors.New("failed to get server config, app type assertion failed")
 	}
 	evmApp.SetClientCtx(clientCtx)
 

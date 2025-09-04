@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,10 +18,10 @@ func TestSetGetFractionalBalance(t *testing.T) {
 	addr := sdk.AccAddress([]byte("test-address"))
 
 	tests := []struct {
-		name        string
-		address     sdk.AccAddress
-		amount      sdkmath.Int
-		setPanicMsg string
+		name     string
+		address  sdk.AccAddress
+		amount   sdkmath.Int // Function to compute amount after EVM is configured
+		panicMsg string
 	}{
 		{
 			"valid - min amount",
@@ -56,7 +57,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			"invalid - over max amount",
 			addr,
 			types.ConversionFactor(),
-			"amount is invalid: amount 1000000000000 exceeds max of 999999999999",
+			fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", types.ConversionFactor().String(), types.ConversionFactor().SubRaw(1).String()),
 		},
 	}
 
@@ -65,8 +66,8 @@ func TestSetGetFractionalBalance(t *testing.T) {
 			td := newMockedTestData(t)
 			ctx, k := td.ctx, td.keeper
 
-			if tt.setPanicMsg != "" {
-				require.PanicsWithError(t, tt.setPanicMsg, func() {
+			if tt.panicMsg != "" {
+				require.PanicsWithError(t, tt.panicMsg, func() {
 					k.SetFractionalBalance(ctx, tt.address, tt.amount)
 				})
 

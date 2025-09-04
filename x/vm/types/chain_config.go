@@ -10,9 +10,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-// testChainID represents the ChainID used for the purpose of testing.
-const testChainID uint64 = 262144
-
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
 var chainConfig *ChainConfig
@@ -59,10 +56,6 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 }
 
 func DefaultChainConfig(evmChainID uint64) *ChainConfig {
-	if evmChainID == 0 {
-		evmChainID = testChainID
-	}
-
 	homesteadBlock := sdkmath.ZeroInt()
 	daoForkBlock := sdkmath.ZeroInt()
 	eip150Block := sdkmath.ZeroInt()

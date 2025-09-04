@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -119,7 +119,9 @@ func signMsgEthereumTx(t *testing.T, privKey *ethsecp256k1.PrivKey, args *evmsdk
 	msg := evmsdktypes.NewTx(args)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	msg.From = fromAddr.Bytes()
-	ethSigner := ethtypes.LatestSignerForChainID(evmsdktypes.GetEthChainConfig().ChainID)
+	// Use the configured chain ID instead of the default one
+	chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+	ethSigner := ethtypes.LatestSignerForChainID(chainID)
 	require.NoError(t, msg.Sign(ethSigner, utiltx.NewSigner(privKey)))
 	return msg
 }
@@ -144,8 +146,16 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 }
 
 func TestMonoDecorator(t *testing.T) {
-	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
+	chainConfig := testconfig.DefaultChainConfig
+	chainID := chainConfig.ChainInfo.EVMChainID
+
+	// Configure EVM with test configuration
+	configurator := evmsdktypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	evmChainConfig := evmsdktypes.DefaultChainConfig(chainConfig.ChainInfo.EVMChainID)
+	err := configurator.WithChainConfig(evmChainConfig).WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
+	require.NoError(t, err)
+
 	cfg := encoding.MakeConfig(chainID)
 
 	testCases := []struct {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	evmante "github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	commonfactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	testfactory "github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -20,12 +20,16 @@ import (
 
 func (s *EvmUnitAnteTestSuite) TestUpdateCumulativeGasWanted() {
 	keyring := testkeyring.New(1)
-	unitNetwork := network.NewUnitTestNetwork(
-		s.create,
-		network.WithChainID(testconstants.ChainID{
+	chainConfig := testconfig.ChainConfig{
+		ChainInfo: testconfig.ChainInfo{
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
-		}),
+		},
+		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+	}
+	unitNetwork := network.NewUnitTestNetwork(
+		s.create,
+		network.WithChainConfig(chainConfig),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 
@@ -97,12 +101,16 @@ func (s *EvmUnitAnteTestSuite) TestUpdateCumulativeGasWanted() {
 // NOTE: claim rewards are not tested since there is an independent suite to test just that
 func (s *EvmUnitAnteTestSuite) TestConsumeGasAndEmitEvent() {
 	keyring := testkeyring.New(1)
-	unitNetwork := network.NewUnitTestNetwork(
-		s.create,
-		network.WithChainID(testconstants.ChainID{
+	chainConfig := testconfig.ChainConfig{
+		ChainInfo: testconfig.ChainInfo{
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
-		}),
+		},
+		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+	}
+	unitNetwork := network.NewUnitTestNetwork(
+		s.create,
+		network.WithChainConfig(chainConfig),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 	)
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)

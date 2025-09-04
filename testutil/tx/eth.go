@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/server/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -33,7 +34,9 @@ func PrepareEthTx(
 ) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 
-	signer := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	// Always use testconfig chainID for test consistency
+	chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+	signer := ethtypes.LatestSignerForChainID(chainID)
 	txFee := sdk.Coins{}
 	txGasLimit := uint64(0)
 
@@ -139,7 +142,9 @@ func CreateEthTx(
 
 	// If we are creating multiple eth Tx's with different senders, we need to sign here rather than later.
 	if privKey != nil {
-		signer := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+		// Always use testconfig chainID for test consistency
+		chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+		signer := ethtypes.LatestSignerForChainID(chainID)
 		err := msgEthereumTx.Sign(signer, NewSigner(privKey))
 		if err != nil {
 			return nil, err
