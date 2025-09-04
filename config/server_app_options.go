@@ -14,6 +14,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	srvflags "github.com/cosmos/evm/server/flags"
 )
 
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
@@ -80,13 +81,13 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 // GetMinTip reads the min tip from the app options, set from app.toml
 // This field is also known as the minimum priority fee
 func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
-	flag := "min-tip"
-	minTipUint64 := cast.ToUint64(appOpts.Get(flag))
+	minTipUint64 := cast.ToUint64(appOpts.Get(srvflags.EVMMinTip))
 	minTip := uint256.NewInt(minTipUint64)
 
 	if minTip.Cmp(uint256.NewInt(0)) >= 0 { // zero or positive
 		return minTip
 	}
 
+	logger.Error("invalid min tip value in app.toml or flag, falling back to nil", "min_tip", minTipUint64)
 	return nil
 }
