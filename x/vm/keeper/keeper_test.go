@@ -66,8 +66,8 @@ func (suite *KeeperTestSuite) SetupTest() {
 		// Cosmos EVM store keys
 		vmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	okeys := storetypes.NewObjectStoreKeys(vmtypes.ObjectStoreKey)
 	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
-	transientKey := storetypes.NewTransientStoreKey(vmtypes.TransientKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
 	ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
 	encCfg := moduletestutil.MakeTestEncodingConfig()
@@ -87,7 +87,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.vmKeeper = vmkeeper.NewKeeper(
 		encCfg.Codec,
 		key,
-		transientKey,
+		okeys[vmtypes.ObjectStoreKey],
 		keys,
 		authority,
 		suite.accKeeper,

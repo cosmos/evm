@@ -27,8 +27,6 @@ type EVMKeeper interface {
 		stateDB vm.StateDB) *vm.EVM
 	DeductTxCostsFromUserBalance(ctx sdk.Context, fees sdk.Coins, from common.Address) error
 	SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.Int
-	ResetTransientGasUsed(ctx sdk.Context)
-	GetTxIndexTransient(ctx sdk.Context) uint64
 	GetParams(ctx sdk.Context) evmtypes.Params
 	// GetBaseFee returns the BaseFee param from the fee market module
 	// adapted according to the evm denom decimals
@@ -41,7 +39,6 @@ type EVMKeeper interface {
 // FeeMarketKeeper exposes the required feemarket keeper interface required for ante handlers
 type FeeMarketKeeper interface {
 	GetParams(ctx sdk.Context) (params feemarkettypes.Params)
-	AddTransientGasWanted(ctx sdk.Context, gasWanted uint64) (uint64, error)
 	GetBaseFeeEnabled(ctx sdk.Context) bool
 	GetBaseFee(ctx sdk.Context) math.LegacyDec
 }

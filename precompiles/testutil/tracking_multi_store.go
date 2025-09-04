@@ -37,10 +37,6 @@ func (t *TrackingMultiStore) CacheWrapWithTrace(w io.Writer, tc storetypes.Trace
 	return t.Store.CacheWrapWithTrace(w, tc)
 }
 
-func (t *TrackingMultiStore) CacheMultiStoreWithVersion(version int64) (storetypes.CacheMultiStore, error) {
-	return t.Store.CacheMultiStoreWithVersion(version)
-}
-
 func (t *TrackingMultiStore) GetStore(key storetypes.StoreKey) storetypes.Store {
 	return t.Store.GetStore(key)
 }
@@ -61,10 +57,6 @@ func (t *TrackingMultiStore) SetTracingContext(context storetypes.TraceContext) 
 	return t.Store.SetTracingContext(context)
 }
 
-func (t *TrackingMultiStore) LatestVersion() int64 {
-	return t.Store.LatestVersion()
-}
-
 func (t *TrackingMultiStore) Write() {
 	t.Writes++
 	now := time.Now()
@@ -77,6 +69,14 @@ func (t *TrackingMultiStore) CacheMultiStore() storetypes.CacheMultiStore {
 	tms := &TrackingMultiStore{Store: cms}
 	t.HistoricalStores = append(t.HistoricalStores, tms)
 	return tms
+}
+
+func (t *TrackingMultiStore) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
+	return t.Store.GetObjKVStore(key)
+}
+
+func (t *TrackingMultiStore) RunAtomic(cb func(storetypes.CacheMultiStore) error) error {
+	return t.Store.RunAtomic(cb)
 }
 
 // ValidateWrites tests the number of writes to a tree of tracking multi stores,

@@ -1,8 +1,6 @@
 package keeper
 
 import (
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
@@ -13,6 +11,9 @@ import (
 // BeginBlock emits a base fee event which will be adjusted to the evm decimals
 func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 	logger := ctx.Logger().With("begin_block", "evm")
+
+	// cache params object
+	_ = k.GetParams(ctx)
 
 	// Base fee is already set on FeeMarket BeginBlock
 	// that runs before this one
@@ -47,8 +48,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 		k.evmMempool.GetBlockchain().NotifyNewBlock()
 	}
 
-	bloom := ethtypes.BytesToBloom(k.GetBlockBloomTransient(infCtx).Bytes())
-	k.EmitBlockBloomEvent(infCtx, bloom)
+	k.CollectTxBloom(infCtx)
 
 	return nil
 }

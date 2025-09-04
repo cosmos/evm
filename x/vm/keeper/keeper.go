@@ -39,8 +39,8 @@ type Keeper struct {
 	// - storing Bloom filters by block height. Needed for the Web3 API.
 	storeKey storetypes.StoreKey
 
-	// key to access the transient store, which is reset on every block during Commit
-	transientKey storetypes.StoreKey
+	// key to access the object store, which is reset on every block during Commit
+	objectKey storetypes.StoreKey
 
 	// KVStore Keys for modules wired to app
 	storeKeys map[string]*storetypes.KVStoreKey
@@ -86,7 +86,7 @@ type Keeper struct {
 // NewKeeper generates new evm module keeper
 func NewKeeper(
 	cdc codec.BinaryCodec,
-	storeKey, transientKey storetypes.StoreKey,
+	storeKey, objKey storetypes.StoreKey,
 	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
@@ -119,7 +119,7 @@ func NewKeeper(
 		stakingKeeper:    sk,
 		feeMarketWrapper: feeMarketWrapper,
 		storeKey:         storeKey,
-		transientKey:     transientKey,
+		objectKey:        objKey,
 		tracer:           tracer,
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
@@ -138,54 +138,39 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 // ----------------------------------------------------------------------------
 
 // EmitBlockBloomEvent emit block bloom events
-func (k Keeper) EmitBlockBloomEvent(ctx sdk.Context, bloom ethtypes.Bloom) {
+func (k Keeper) EmitBlockBloomEvent(ctx sdk.Context, bloom []byte) {
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			types.EventTypeBlockBloom,
-			sdk.NewAttribute(types.AttributeKeyEthereumBloom, string(bloom.Bytes())),
+			sdk.NewAttribute(types.AttributeKeyEthereumBloom, string(bloom)),
 		),
 	)
+}
+
+// CollectTxBloom collects all tx blooms and emit a single block bloom event
+func (k Keeper) CollectTxBloom(ctx sdk.Context) {
+	store := prefix.NewObjStore(ctx.ObjectStore(k.objectKey), types.KeyPrefixObjectBloom)
+	it := store.Iterator(nil, nil)
+	defer it.Close()
+
+	bloom := new(big.Int)
+	for ; it.Valid(); it.Next() {
+		bloom.Or(bloom, it.Value().(*big.Int))
+	}
+
+	k.EmitBlockBloomEvent(ctx, bloom.Bytes())
+}
+
+// SetTxBloom sets the given bloom bytes to the object store. This value is reset on
+// every block.
+func (k Keeper) SetTxBloom(ctx sdk.Context, bloom *big.Int) {
+	store := ctx.ObjectStore(k.objectKey)
+	store.Set(types.ObjectBloomKey(ctx.TxIndex(), ctx.MsgIndex()), bloom)
 }
 
 // GetAuthority returns the x/evm module authority address
 func (k Keeper) GetAuthority() sdk.AccAddress {
 	return k.authority
-}
-
-// GetBlockBloomTransient returns bloom bytes for the current block height
-func (k Keeper) GetBlockBloomTransient(ctx sdk.Context) *big.Int {
-	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientBloom)
-	heightBz := sdk.Uint64ToBigEndian(uint64(ctx.BlockHeight())) //nolint:gosec // G115 // won't exceed uint64
-	bz := store.Get(heightBz)
-	if len(bz) == 0 {
-		return big.NewInt(0)
-	}
-
-	return new(big.Int).SetBytes(bz)
-}
-
-// SetBlockBloomTransient sets the given bloom bytes to the transient store. This value is reset on
-// every block.
-func (k Keeper) SetBlockBloomTransient(ctx sdk.Context, bloom *big.Int) {
-	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientBloom)
-	heightBz := sdk.Uint64ToBigEndian(uint64(ctx.BlockHeight())) //nolint:gosec // G115 // won't exceed uint64
-	store.Set(heightBz, bloom.Bytes())
-}
-
-// ----------------------------------------------------------------------------
-// Tx
-// ----------------------------------------------------------------------------
-
-// SetTxIndexTransient set the index of processing transaction
-func (k Keeper) SetTxIndexTransient(ctx sdk.Context, index uint64) {
-	store := ctx.TransientStore(k.transientKey)
-	store.Set(types.KeyPrefixTransientTxIndex, sdk.Uint64ToBigEndian(index))
-}
-
-// GetTxIndexTransient returns EVM transaction index on the current block.
-func (k Keeper) GetTxIndexTransient(ctx sdk.Context) uint64 {
-	store := ctx.TransientStore(k.transientKey)
-	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientTxIndex))
 }
 
 // ----------------------------------------------------------------------------
@@ -220,23 +205,6 @@ func (k *Keeper) PostTxProcessing(
 // HasHooks returns true if hooks are set
 func (k *Keeper) HasHooks() bool {
 	return k.hooks != nil
-}
-
-// ----------------------------------------------------------------------------
-// Log
-// ----------------------------------------------------------------------------
-
-// GetLogSizeTransient returns EVM log index on the current block.
-func (k Keeper) GetLogSizeTransient(ctx sdk.Context) uint64 {
-	store := ctx.TransientStore(k.transientKey)
-	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientLogSize))
-}
-
-// SetLogSizeTransient fetches the current EVM log index from the transient store, increases its
-// value by one and then sets the new index back to the transient store.
-func (k Keeper) SetLogSizeTransient(ctx sdk.Context, logSize uint64) {
-	store := ctx.TransientStore(k.transientKey)
-	store.Set(types.KeyPrefixTransientLogSize, sdk.Uint64ToBigEndian(logSize))
 }
 
 // ----------------------------------------------------------------------------
@@ -364,23 +332,20 @@ func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
 }
 
-// ResetTransientGasUsed reset gas used to prepare for execution of current cosmos tx, called in ante handler.
-func (k Keeper) ResetTransientGasUsed(ctx sdk.Context) {
-	store := ctx.TransientStore(k.transientKey)
-	store.Delete(types.KeyPrefixTransientGasUsed)
-}
-
 // GetTransientGasUsed returns the gas used by current cosmos tx.
 func (k Keeper) GetTransientGasUsed(ctx sdk.Context) uint64 {
-	store := ctx.TransientStore(k.transientKey)
-	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientGasUsed))
+	store := ctx.ObjectStore(k.objectKey)
+	v := store.Get(types.ObjectGasUsedKey(ctx.TxIndex()))
+	if v == nil {
+		return 0
+	}
+	return v.(uint64)
 }
 
 // SetTransientGasUsed sets the gas used by current cosmos tx.
 func (k Keeper) SetTransientGasUsed(ctx sdk.Context, gasUsed uint64) {
-	store := ctx.TransientStore(k.transientKey)
-	bz := sdk.Uint64ToBigEndian(gasUsed)
-	store.Set(types.KeyPrefixTransientGasUsed, bz)
+	store := ctx.ObjectStore(k.objectKey)
+	store.Set(types.ObjectGasUsedKey(ctx.TxIndex()), gasUsed)
 }
 
 // AddTransientGasUsed accumulate gas used by each eth msgs included in current cosmos tx.

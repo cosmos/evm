@@ -157,6 +157,15 @@ func (s *Store) LatestVersion() int64 {
 	return int64(s.head)
 }
 
+// GetObjKVStore returns the underlying ObjKVStore for the given key.
+func (s *Store) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
+	store := s.stores[key]
+	if store == nil {
+		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
+	}
+	return store.(storetypes.ObjKVStore)
+}
+
 // Write calls Write on each underlying store.
 func (s *Store) Write() {
 	for _, key := range s.storeKeys {
@@ -164,3 +173,12 @@ func (s *Store) Write() {
 	}
 	s.head = types.InitialHead
 }
+
+// RunAtomic implements the SnapshotMultiStore interface.
+// It executes the given function atomically and returns its error.
+func (s *Store) RunAtomic(cb func(storetypes.CacheMultiStore) error) error {
+	return cb(s)
+}
+
+// Discard is a no-op function to implement the SnapshotMultiStore interface.
+func (s *Store) Discard() {}

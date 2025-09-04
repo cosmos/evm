@@ -71,7 +71,6 @@ func NewMonoDecoratorUtils(
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,
-		BlockTxIndex:       ek.GetTxIndexTransient(ctx),
 		GasWanted:          0,
 		MinPriority:        int64(math.MaxInt64),
 		// TxGasLimit and TxFee are set to zero because they are updated
