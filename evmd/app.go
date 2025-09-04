@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
 	"os"
 
 	"github.com/spf13/cast"
@@ -84,7 +85,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	runtimeservices "github.com/cosmos/cosmos-sdk/runtime/services"
-	"github.com/cosmos/cosmos-sdk/server"
+	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -409,7 +410,7 @@ func NewExampleApp(
 
 	// get skipUpgradeHeights from the app options
 	skipUpgradeHeights := map[int64]bool{}
-	for _, h := range cast.ToIntSlice(appOpts.Get(server.FlagUnsafeSkipUpgrades)) {
+	for _, h := range cast.ToIntSlice(appOpts.Get(sdkserver.FlagUnsafeSkipUpgrades)) {
 		skipUpgradeHeights[int64(h)] = true
 	}
 	homePath := cast.ToString(appOpts.Get(flags.FlagHome))
@@ -765,10 +766,15 @@ func NewExampleApp(
 	// set the EVM priority nonce mempool
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
-		// TODO: Get the actual block gas limit from consensus parameters
+		// Get the block gas limit from genesis file
+		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
+		// Get GetMinTip from app.toml or cli flag configuration
+		mipTip := evmconfig.GetMinTip(appOpts, logger)
+
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: 100_000_000,
+			BlockGasLimit: blockGasLimit,
+			MinTip:        mipTip,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
@@ -1010,7 +1016,7 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 	app.BasicModuleManager.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
 	// register swagger API from root so that other applications can override easily
-	if err := server.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
+	if err := sdkserver.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
 		panic(err)
 	}
 }
