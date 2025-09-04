@@ -359,7 +359,7 @@ evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0atest \
-	--evm.min-tip=10000 \
+	--evm.min-tip=0 \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID"
