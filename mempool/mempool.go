@@ -452,7 +452,7 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 
 	var minTip *uint256.Int
 	gasPrice := m.minGasPrices.AmountOf(m.evmDenom)
-	if !gasPrice.IsZero() {
+	if gasPrice.IsPositive() {
 		minTip = uint256.MustFromBig(gasPrice.BigInt())
 	}
 
