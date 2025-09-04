@@ -768,13 +768,13 @@ func NewExampleApp(
 	if evmtypes.GetChainConfig() != nil {
 		// Get the block gas limit from genesis file
 		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
-		// Get MinGasPrices from app.toml or cli flag configuration
-		minGasPrices := evmconfig.GetMinGasPrices(appOpts, logger)
+		// Get GetMinTip from app.toml or cli flag configuration
+		mipTip := evmconfig.GetMinTip(appOpts, logger)
 
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),
 			BlockGasLimit: blockGasLimit,
-			MinGasPrices:  minGasPrices,
+			MinTip:        mipTip,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)

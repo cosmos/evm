@@ -55,7 +55,7 @@ type (
 		bondDenom     string
 		evmDenom      string
 		blockGasLimit uint64 // Block gas limit from consensus parameters
-		minGasPrices  sdk.DecCoins
+		minTip        *uint256.Int
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -76,7 +76,7 @@ type EVMMempoolConfig struct {
 	AnteHandler      sdk.AnteHandler
 	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	BlockGasLimit    uint64 // Block gas limit from consensus parameters
-	MinGasPrices     sdk.DecCoins
+	MinTip           *uint256.Int
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -182,7 +182,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		bondDenom:     bondDenom,
 		evmDenom:      evmDenom,
 		blockGasLimit: config.BlockGasLimit,
-		minGasPrices:  config.MinGasPrices,
+		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
 	}
 
@@ -450,14 +450,8 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 
 	m.logger.Debug("getting iterators")
 
-	var minTip *uint256.Int
-	gasPrice := m.minGasPrices.AmountOf(m.evmDenom)
-	if gasPrice.IsPositive() {
-		minTip = uint256.MustFromBig(gasPrice.BigInt())
-	}
-
 	pendingFilter := txpool.PendingFilter{
-		MinTip:       minTip,
+		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,

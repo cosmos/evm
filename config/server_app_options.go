@@ -4,6 +4,7 @@ import (
 	"math"
 	"path/filepath"
 
+	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
@@ -63,6 +64,8 @@ func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 
 }
 
 // GetMinGasPrices reads the min gas prices from the app options, set from app.toml
+// This is currently not used, but is kept in case this is useful for the mempool,
+// in addition to the min tip flag
 func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecCoins {
 	minGasPricesStr := cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))
 	minGasPrices, err := sdk.ParseDecCoins(minGasPricesStr)
@@ -72,4 +75,18 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 	}
 
 	return minGasPrices
+}
+
+// GetMinTip reads the min tip from the app options, set from app.toml
+// This field is also known as the minimum priority fee
+func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
+	flag := "min-tip"
+	minTipUint64 := cast.ToUint64(appOpts.Get(flag))
+	minTip := uint256.NewInt(minTipUint64)
+
+	if minTip.Cmp(uint256.NewInt(0)) >= 0 { // zero or positive
+		return minTip
+	}
+
+	return nil
 }
