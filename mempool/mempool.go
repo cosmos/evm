@@ -30,7 +30,9 @@ import (
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
 const (
-	SubscriberName        = "evm"
+	// SubscriberName is the name of the event bus subscriber for the EVM mempool
+	SubscriberName = "evm"
+	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
 	fallbackBlockGasLimit = 100_000_000
 )
 
@@ -102,7 +104,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	}
 
 	if config.BlockGasLimit == 0 {
-		logger.Debug("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
+		logger.Warn("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
 		config.BlockGasLimit = fallbackBlockGasLimit
 	}
 
