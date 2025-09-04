@@ -21,7 +21,7 @@ import (
 //
 // It's usually implemented by the precompile itself.
 type NativeExecutor interface {
-	Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error)
+	Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error)
 }
 
 // Precompile is the base struct for precompiles that requires to access cosmos native storage.
@@ -104,7 +104,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		p.BalanceHandler.BeforeBalanceChange(ctx)
 	}
 
-	bz, err = p.Executor.Execute(ctx, evm, contract, readOnly)
+	bz, err = p.Executor.Execute(ctx, stateDB, contract, readOnly)
 	if err != nil {
 		return bz, err
 	}

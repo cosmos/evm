@@ -99,13 +99,12 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 }
 
-func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	stateDB := evm.StateDB
 	var bz []byte
 
 	switch {

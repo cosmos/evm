@@ -112,7 +112,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 }
 
 // Execute executes the precompiled contract bank query methods defined in the ABI.
-func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+func (p Precompile) Execute(ctx sdk.Context, _ vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
@@ -122,11 +122,11 @@ func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract,
 	switch method.Name {
 	// Bank queries
 	case BalancesMethod:
-		bz, err = p.Balances(ctx, contract, method, args)
+		bz, err = p.Balances(ctx, method, args)
 	case TotalSupplyMethod:
-		bz, err = p.TotalSupply(ctx, contract, method, args)
+		bz, err = p.TotalSupply(ctx, method, args)
 	case SupplyOfMethod:
-		bz, err = p.SupplyOf(ctx, contract, method, args)
+		bz, err = p.SupplyOf(ctx, method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}

@@ -138,7 +138,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 }
 
-func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
+func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	// ERC20 precompiles cannot receive funds because they are not managed by an
 	// EOA and will not be possible to recover funds sent to an instance of
 	// them.This check is a safety measure because currently funds cannot be
@@ -152,7 +152,7 @@ func (p Precompile) Execute(ctx sdk.Context, evm *vm.EVM, contract *vm.Contract,
 		return nil, err
 	}
 
-	return p.HandleMethod(ctx, contract, evm.StateDB, method, args)
+	return p.HandleMethod(ctx, contract, stateDB, method, args)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
