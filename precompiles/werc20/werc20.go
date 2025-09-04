@@ -34,10 +34,7 @@ func init() {
 	}
 }
 
-var (
-	_ vm.PrecompiledContract = &Precompile{}
-	_ cmn.NativeExecutor     = &Precompile{}
-)
+var _ vm.PrecompiledContract = &Precompile{}
 
 // Precompile defines the precompiled contract for WERC20.
 type Precompile struct {
@@ -65,11 +62,9 @@ func NewPrecompile(
 	// use the IWERC20 ABI
 	erc20Precompile.ABI = ABI
 
-	p := &Precompile{
+	return &Precompile{
 		Precompile: erc20Precompile,
 	}
-	p.Executor = p
-	return p
 }
 
 // RequiredGas calculates the contract gas use.
@@ -97,6 +92,12 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	default:
 		return p.Precompile.RequiredGas(input)
 	}
+}
+
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
+	})
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {

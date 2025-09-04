@@ -18,10 +18,7 @@ import (
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
-var (
-	_ vm.PrecompiledContract = &Precompile{}
-	_ cmn.NativeExecutor     = &Precompile{}
-)
+var _ vm.PrecompiledContract = &Precompile{}
 
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -61,7 +58,7 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	addrCdc address.Codec,
 ) *Precompile {
-	p := &Precompile{
+	return &Precompile{
 		Precompile: cmn.Precompile{
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
@@ -75,8 +72,6 @@ func NewPrecompile(
 		distributionQuerier:   distributionQuerier,
 		addrCdc:               addrCdc,
 	}
-	p.Executor = p
-	return p
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.
@@ -97,6 +92,12 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 
 	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+}
+
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
+	})
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {

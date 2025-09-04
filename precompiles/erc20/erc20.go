@@ -54,10 +54,7 @@ func init() {
 	}
 }
 
-var (
-	_ vm.PrecompiledContract = &Precompile{}
-	_ cmn.NativeExecutor     = &Precompile{}
-)
+var _ vm.PrecompiledContract = &Precompile{}
 
 // Precompile defines the precompiled contract for ERC-20.
 type Precompile struct {
@@ -79,7 +76,7 @@ func NewPrecompile(
 	erc20Keeper Erc20Keeper,
 	transferKeeper ibcutils.TransferKeeper,
 ) *Precompile {
-	p := &Precompile{
+	return &Precompile{
 		Precompile: cmn.Precompile{
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
@@ -92,8 +89,6 @@ func NewPrecompile(
 		erc20Keeper:    erc20Keeper,
 		transferKeeper: transferKeeper,
 	}
-	p.Executor = p
-	return p
 }
 
 // RequiredGas calculates the contract gas used for the
@@ -136,6 +131,12 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	default:
 		return 0
 	}
+}
+
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
+	})
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {

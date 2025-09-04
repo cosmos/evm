@@ -32,10 +32,7 @@ const (
 	GasSupplyOf = 2_477
 )
 
-var (
-	_ vm.PrecompiledContract = &Precompile{}
-	_ cmn.NativeExecutor     = &Precompile{}
-)
+var _ vm.PrecompiledContract = &Precompile{}
 
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -70,7 +67,7 @@ func NewPrecompile(
 ) *Precompile {
 	// NOTE: we set an empty gas configuration to avoid extra gas costs
 	// during the run execution
-	p := &Precompile{
+	return &Precompile{
 		Precompile: cmn.Precompile{
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
@@ -80,8 +77,6 @@ func NewPrecompile(
 		bankKeeper:  bankKeeper,
 		erc20Keeper: erc20Keeper,
 	}
-	p.Executor = p
-	return p
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.
@@ -111,8 +106,14 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	return 0
 }
 
+func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
+	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
+		return p.Execute(ctx, contract, readonly)
+	})
+}
+
 // Execute executes the precompiled contract bank query methods defined in the ABI.
-func (p Precompile) Execute(ctx sdk.Context, _ vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
+func (p Precompile) Execute(ctx sdk.Context, contract *vm.Contract, readOnly bool) ([]byte, error) {
 	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err

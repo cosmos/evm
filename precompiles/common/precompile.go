@@ -15,14 +15,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// NativeExecutor abstract the native execution logic of the stateful precompile, it's passed to the base `Precompile`
+// NativeAction abstract the native execution logic of the stateful precompile, it's passed to the base `Precompile`
 // struct, base `Precompile` struct will handle things the native context setup, gas management, panic recovery etc,
 // before and after the execution.
 //
 // It's usually implemented by the precompile itself.
-type NativeExecutor interface {
-	Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error)
-}
+type NativeAction func(ctx sdk.Context) ([]byte, error)
 
 // Precompile is the base struct for precompiles that requires to access cosmos native storage.
 type Precompile struct {
@@ -32,8 +30,6 @@ type Precompile struct {
 
 	// BalanceHandler is optional
 	BalanceHandler *BalanceHandler
-
-	Executor NativeExecutor
 }
 
 // RequiredGas calculates the base minimum required gas for a transaction or a query.
@@ -49,8 +45,8 @@ func (p Precompile) RequiredGas(input []byte, isTransaction bool) uint64 {
 
 // Run prepare the native context to execute native action for stateful precompile,
 // it manages the snapshot and revert of the multi-store.
-func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	bz, err := p.run(evm, contract, readOnly)
+func (p Precompile) RunNativeAction(evm *vm.EVM, contract *vm.Contract, action NativeAction) ([]byte, error) {
+	bz, err := p.runNativeAction(evm, contract, action)
 	if err != nil {
 		return ReturnRevertError(evm, err)
 	}
@@ -58,7 +54,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) ([]by
 	return bz, nil
 }
 
-func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz []byte, err error) {
+func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action NativeAction) (bz []byte, err error) {
 	stateDB, ok := evm.StateDB.(*statedb.StateDB)
 	if !ok {
 		return nil, errors.New(ErrNotRunInEvm)
@@ -104,7 +100,7 @@ func (p Precompile) run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 		p.BalanceHandler.BeforeBalanceChange(ctx)
 	}
 
-	bz, err = p.Executor.Execute(ctx, stateDB, contract, readOnly)
+	bz, err = action(ctx)
 	if err != nil {
 		return bz, err
 	}
