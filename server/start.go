@@ -432,9 +432,6 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
-			m.SetEventBus(bftNode.EventBus())
-		}
 		defer func() {
 			if bftNode.IsRunning() {
 				_ = bftNode.Stop()
