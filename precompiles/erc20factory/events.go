@@ -19,7 +19,7 @@ const (
 )
 
 // EmitCreateEvent emits the Create event.
-func (p Precompile) EmitCreateEvent(ctx sdk.Context, stateDB vm.StateDB, tokenAddress common.Address, tokenType uint8, salt [32]uint8, name string, symbol string, decimals uint8, minter common.Address, premintedSupply *big.Int) error {
+func (p Precompile) EmitCreateEvent(ctx sdk.Context, stateDB vm.StateDB, tokenAddress common.Address, salt [32]uint8, name string, symbol string, decimals uint8, minter common.Address, premintedSupply *big.Int) error {
 	event := p.Events[EventTypeCreate]
 	topics := make([]common.Hash, 2) // Only 2 topics: event ID + tokenAddress
 
@@ -33,15 +33,14 @@ func (p Precompile) EmitCreateEvent(ctx sdk.Context, stateDB vm.StateDB, tokenAd
 
 	// Pack the non-indexed event parameters into the data field
 	arguments := abi.Arguments{
-		event.Inputs[1], // tokenType
-		event.Inputs[2], // salt
-		event.Inputs[3], // name
-		event.Inputs[4], // symbol
-		event.Inputs[5], // decimals
-		event.Inputs[6], // minter
-		event.Inputs[7], // premintedSupply
+		event.Inputs[1], // salt
+		event.Inputs[2], // name
+		event.Inputs[3], // symbol
+		event.Inputs[4], // decimals
+		event.Inputs[5], // minter
+		event.Inputs[6], // premintedSupply
 	}
-	packed, err := arguments.Pack(tokenType, salt, name, symbol, decimals, minter, premintedSupply)
+	packed, err := arguments.Pack(salt, name, symbol, decimals, minter, premintedSupply)
 	if err != nil {
 		return err
 	}

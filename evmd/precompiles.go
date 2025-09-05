@@ -143,7 +143,7 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}
 
-	erc20FactoryPrecompile, err := erc20factory.NewPrecompile(&erc20Keeper, bankKeeper)
+	erc20FactoryPrecompile, err := erc20factory.NewPrecompile(&erc20Keeper, bankKeeper, evmKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate erc20 factory precompile: %w", err))
 	}

@@ -18,12 +18,12 @@ func (p Precompile) CalculateAddress(
 	caller common.Address,
 	args []interface{},
 ) ([]byte, error) {
-	tokenType, salt, err := ParseCalculateAddressArgs(args)
+	salt, err := ParseCalculateAddressArgs(args)
 	if err != nil {
 		return nil, err
 	}
 
-	address := crypto.CreateAddress2(caller, salt, calculateCodeHash(tokenType))
+	address := crypto.CreateAddress2(caller, salt, []byte{})
 
 	return method.Outputs.Pack(address)
 }

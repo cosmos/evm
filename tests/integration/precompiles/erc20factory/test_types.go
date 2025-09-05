@@ -21,18 +21,9 @@ func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
 		{
 			name: "pass - correct arguments",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 			},
 			expPass: true,
-		},
-		{
-			name: "fail - invalid tokenType",
-			args: []interface{}{
-				"invalid tokenType",
-				[32]uint8{},
-			},
-			errContains: "invalid tokenType",
 		},
 		{
 			name: "fail - invalid salt",
@@ -52,11 +43,10 @@ func (s *PrecompileTestSuite) TestParseCalculateAddressArgs() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			tokenType, salt, err := erc20factory.ParseCalculateAddressArgs(tc.args)
+			salt, err := erc20factory.ParseCalculateAddressArgs(tc.args)
 			if tc.expPass {
 				s.Require().NoError(err, "unexpected error parsing the calculate address arguments")
-				s.Require().Equal(tokenType, tc.args[0], "expected different token type")
-				s.Require().Equal(salt, tc.args[1], "expected different salt")
+				s.Require().Equal(salt, tc.args[0], "expected different salt")
 			} else {
 				s.Require().Error(err, "expected an error parsing the calculate address arguments")
 				s.Require().ErrorContains(err, tc.errContains, "expected different error message")
@@ -83,7 +73,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "pass - correct arguments",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -94,21 +83,8 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 			expPass: true,
 		},
 		{
-			name: "fail - invalid tokenType",
-			args: []interface{}{
-				"invalid tokenType",
-				[32]uint8{},
-				name,
-				symbol,
-				decimals,
-				addr,
-				big.NewInt(1000000),
-			},
-		},
-		{
 			name: "fail - invalid salt",
 			args: []interface{}{
-				uint8(0),
 				"invalid salt",
 				name,
 				symbol,
@@ -120,7 +96,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - invalid name",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				uint8(0),
 				symbol,
@@ -133,10 +108,9 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - invalid symbol",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
-				"is",
+				"",
 				decimals,
 				addr,
 				big.NewInt(1000000),
@@ -146,7 +120,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - invalid decimals",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -159,7 +132,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - invalid minter",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -172,7 +144,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - zero address minter",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -185,7 +156,6 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 		{
 			name: "fail - invalid preminted supply",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -205,16 +175,15 @@ func (s *PrecompileTestSuite) TestParseCreateArgs() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			tokenType, salt, name, symbol, decimals, minter, premintedSupply, err := erc20factory.ParseCreateArgs(tc.args)
+			salt, name, symbol, decimals, minter, premintedSupply, err := erc20factory.ParseCreateArgs(tc.args)
 			if tc.expPass {
 				s.Require().NoError(err, "unexpected error parsing the create arguments")
-				s.Require().Equal(tokenType, tc.args[0], "expected different token type")
-				s.Require().Equal(salt, tc.args[1], "expected different salt")
-				s.Require().Equal(name, tc.args[2], "expected different name")
-				s.Require().Equal(symbol, tc.args[3], "expected different symbol")
-				s.Require().Equal(decimals, tc.args[4], "expected different decimals")
-				s.Require().Equal(minter, tc.args[5], "expected different minter")
-				s.Require().Equal(premintedSupply, tc.args[6], "expected different preminted supply")
+				s.Require().Equal(salt, tc.args[0], "expected different salt")
+				s.Require().Equal(name, tc.args[1], "expected different name")
+				s.Require().Equal(symbol, tc.args[2], "expected different symbol")
+				s.Require().Equal(decimals, tc.args[3], "expected different decimals")
+				s.Require().Equal(minter, tc.args[4], "expected different minter")
+				s.Require().Equal(premintedSupply, tc.args[5], "expected different preminted supply")
 			} else {
 				s.Require().Error(err, "expected an error parsing the create arguments")
 				s.Require().ErrorContains(err, tc.errContains, "expected different error message")

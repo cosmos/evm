@@ -23,3 +23,7 @@ type BankKeeper interface {
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 }
+
+type EvmKeeper interface {
+	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
+}

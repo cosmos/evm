@@ -11,7 +11,9 @@ import (
 func (s *PrecompileTestSuite) setupERC20FactoryPrecompile() *erc20factory.Precompile {
 	precompile, err := erc20factory.NewPrecompile(
 		s.network.App.GetErc20Keeper(),
-		s.network.App.GetBankKeeper())
+		s.network.App.GetBankKeeper(),
+		s.network.App.GetEVMKeeper(),
+	)
 	s.Require().NoError(err, "failed to create erc20factory precompile")
 
 	return precompile

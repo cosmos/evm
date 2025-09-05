@@ -14,12 +14,6 @@
         },
         {
           "indexed": false,
-          "internalType": "uint8",
-          "name": "tokenPairType",
-          "type": "uint8"
-        },
-        {
-          "indexed": false,
           "internalType": "bytes32",
           "name": "salt",
           "type": "bytes32"
@@ -61,11 +55,6 @@
     {
       "inputs": [
         {
-          "internalType": "uint8",
-          "name": "tokenPairType",
-          "type": "uint8"
-        },
-        {
           "internalType": "bytes32",
           "name": "salt",
           "type": "bytes32"
@@ -84,11 +73,6 @@
     },
     {
       "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "tokenPairType",
-          "type": "uint8"
-        },
         {
           "internalType": "bytes32",
           "name": "salt",

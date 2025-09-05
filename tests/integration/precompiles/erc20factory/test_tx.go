@@ -14,7 +14,7 @@ import (
 func (s *PrecompileTestSuite) TestCreate() {
 	caller := common.HexToAddress("0x2c7882f69Cd115F470aAEde121f57F932936a56f")
 	mintAddr := common.HexToAddress("0x73657398D483143AF7db7899757e5E7037fB713d")
-	expectedAddress := common.HexToAddress("0x30E56567F73403eD713dA0b0419e4A5330A16896")
+	expectedAddress := common.HexToAddress("0xc5ecc46b3cf020351c2186afCD5C734EE15E4da2")
 	amount := big.NewInt(1000000)
 	decimals := uint8(18)
 	name := "Test"
@@ -32,7 +32,7 @@ func (s *PrecompileTestSuite) TestCreate() {
 	}{
 		{
 			name:    "pass - correct arguments",
-			args:    []interface{}{uint8(0), [32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()), name, symbol, decimals, mintAddr, amount},
+			args:    []interface{}{[32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()), name, symbol, decimals, mintAddr, amount},
 			expPass: true,
 			postExpPass: func(output []byte) {
 				res, err := method.Outputs.Unpack(output)
@@ -50,22 +50,19 @@ func (s *PrecompileTestSuite) TestCreate() {
 			expAddress: expectedAddress,
 		},
 		{
-			name: "fail - invalid tokenType",
+			name: "fail - blocked addresses cannot receive tokens",
 			args: []interface{}{
-				"invalid tokenType",
-				[32]uint8{},
+				[32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()),
 				name,
 				symbol,
 				decimals,
-				mintAddr,
+				erc20types.ModuleAddress,
 				amount,
 			},
-			errContains: "invalid tokenType",
 		},
 		{
 			name: "fail - invalid salt",
 			args: []interface{}{
-				uint8(0),
 				"invalid salt",
 				name,
 				symbol,
@@ -78,7 +75,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 		{
 			name: "fail - invalid name",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				"",
 				symbol,
@@ -91,10 +87,9 @@ func (s *PrecompileTestSuite) TestCreate() {
 		{
 			name: "fail - invalid symbol",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
-				"is",
+				"",
 				decimals,
 				mintAddr,
 				amount,
@@ -104,7 +99,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 		{
 			name: "fail - invalid decimals",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -117,7 +111,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 		{
 			name: "fail - invalid minter",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,
@@ -130,7 +123,6 @@ func (s *PrecompileTestSuite) TestCreate() {
 		{
 			name: "fail - invalid preminted supply",
 			args: []interface{}{
-				uint8(0),
 				[32]uint8{},
 				name,
 				symbol,

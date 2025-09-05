@@ -41,7 +41,7 @@ func (s *PrecompileTestSuite) TestEmitCreateEvent() {
 			s.SetupTest()
 			stateDB := s.network.GetStateDB()
 
-			err := s.precompile.EmitCreateEvent(s.network.GetContext(), stateDB, tc.tokenAddress, tc.tokenType, tc.salt, tc.name, tc.symbol, tc.decimals, tc.minter, tc.premintedSupply)
+			err := s.precompile.EmitCreateEvent(s.network.GetContext(), stateDB, tc.tokenAddress, tc.salt, tc.name, tc.symbol, tc.decimals, tc.minter, tc.premintedSupply)
 			s.Require().NoError(err, "expected create event to be emitted successfully")
 
 			log := stateDB.Logs()[0]

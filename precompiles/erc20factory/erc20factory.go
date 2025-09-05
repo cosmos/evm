@@ -36,11 +36,12 @@ type Precompile struct {
 	cmn.Precompile
 	erc20Keeper ERC20Keeper
 	bankKeeper  BankKeeper
+	evmKeeper   EvmKeeper
 }
 
 // NewPrecompile creates a new bech32 Precompile instance as a
 // PrecompiledContract interface.
-func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper cmn.BankKeeper) (*Precompile, error) {
+func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper cmn.BankKeeper, keeper EvmKeeper) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
 		return nil, err
@@ -54,6 +55,7 @@ func NewPrecompile(erc20Keeper ERC20Keeper, bankKeeper cmn.BankKeeper) (*Precomp
 		},
 		erc20Keeper: erc20Keeper,
 		bankKeeper:  bankKeeper,
+		evmKeeper:   keeper,
 	}
 
 	// SetAddress defines the address of the distribution compile contract.

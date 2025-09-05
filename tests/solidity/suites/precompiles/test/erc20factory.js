@@ -2,19 +2,18 @@ const { expect } = require('chai')
 const hre = require('hardhat')
 
 const abi = [
-  "function create(uint8 tokenPairType, bytes32 salt, string memory name, string memory symbol, uint8 decimals, address minter, uint256 premintedSupply) external returns (address)",
-  "function calculateAddress(uint8 tokenPairType, bytes32 salt) external view returns (address)",
-  "event Create(address indexed tokenAddress, uint8 tokenPairType, bytes32 salt, string name, string symbol, uint8 decimals, address minter, uint256 premintedSupply)"
+  "function create(bytes32 salt, string memory name, string memory symbol, uint8 decimals, address minter, uint256 premintedSupply) external returns (address)",
+  "function calculateAddress(bytes32 salt) external view returns (address)",
+  "event Create(address indexed tokenAddress, bytes32 salt, string name, string symbol, uint8 decimals, address minter, uint256 premintedSupply)"
 ]
 
 describe('ERC20Factory', function () {
 
   it('should calculate the correct address', async function () {
     const salt = '0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234'
-    const tokenPairType = 0
     const erc20Factory = await hre.ethers.getContractAt('IERC20Factory', '0x0000000000000000000000000000000000000900')
       console.log("erc20Factory contract loaded")
-    const expectedAddress = await erc20Factory.calculateAddress(tokenPairType, salt)
+    const expectedAddress = await erc20Factory.calculateAddress(salt)
       console.log("erc20factory calculateAddress")
     expect(expectedAddress).to.equal('0x6a040655fE545126cD341506fCD4571dB3A444F9')
   })
@@ -24,7 +23,6 @@ describe('ERC20Factory', function () {
     const name = 'Test'
     const symbol = 'TEST'
     const decimals = 18
-    const tokenPairType = 0
     const premintedSupply = hre.ethers.parseEther("1000000") // 1M tokens
     const [signer] = await hre.ethers.getSigners()
     const minter = signer.address
@@ -32,8 +30,8 @@ describe('ERC20Factory', function () {
     // Calculate the expected token address before deployment
     const erc20Factory = await hre.ethers.getContractAt('IERC20Factory', '0x0000000000000000000000000000000000000900')
 
-    const tokenAddress = await erc20Factory.calculateAddress(tokenPairType, salt)
-    const tx = await erc20Factory.connect(signer).create(tokenPairType, salt, name, symbol, decimals, minter, premintedSupply)
+    const tokenAddress = await erc20Factory.calculateAddress(salt)
+    const tx = await erc20Factory.connect(signer).create(salt, name, symbol, decimals, minter, premintedSupply)
 
     // Get the token address from the transaction receipt
     const receipt = await tx.wait()
@@ -46,7 +44,6 @@ describe('ERC20Factory', function () {
     const createEvents = await erc20FactoryWithEvents.queryFilter(erc20FactoryWithEvents.filters.Create(), receipt.blockNumber, receipt.blockNumber)
     expect(createEvents.length).to.equal(1)
     expect(createEvents[0].args.tokenAddress).to.equal(tokenAddress)
-    expect(createEvents[0].args.tokenPairType).to.equal(tokenPairType)
     expect(createEvents[0].args.salt).to.equal(salt)
     expect(createEvents[0].args.name).to.equal(name)
     expect(createEvents[0].args.symbol).to.equal(symbol)

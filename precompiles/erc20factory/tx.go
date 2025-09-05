@@ -4,14 +4,13 @@
 package erc20factory
 
 import (
-	"encoding/binary"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/errors"
 	"cosmossdk.io/math"
@@ -33,12 +32,20 @@ func (p Precompile) Create(
 	caller common.Address,
 	args []interface{},
 ) ([]byte, error) {
-	tokenType, salt, name, symbol, decimals, minter, premintedSupply, err := ParseCreateArgs(args)
+	salt, name, symbol, decimals, minter, premintedSupply, err := ParseCreateArgs(args)
 	if err != nil {
 		return nil, err
 	}
 
-	address := crypto.CreateAddress2(caller, salt, calculateCodeHash(tokenType))
+	address := crypto.CreateAddress2(caller, salt, []byte{})
+
+	hash := p.evmKeeper.GetCodeHash(ctx, address)
+	if hash.Cmp(common.BytesToHash(evmtypes.EmptyCodeHash)) != 0 {
+		return nil, errors.Wrapf(
+			erc20types.ErrContractAlreadyExists,
+			"contract already exists at address %s", address.String(),
+		)
+	}
 
 	metadata, err := p.createCoinMetadata(ctx, address, name, symbol, decimals)
 	if err != nil {
@@ -75,7 +82,7 @@ func (p Precompile) Create(
 		return nil, err
 	}
 
-	if err = p.EmitCreateEvent(ctx, stateDB, address, tokenType, salt, name, symbol, decimals, minter, premintedSupply); err != nil {
+	if err = p.EmitCreateEvent(ctx, stateDB, address, salt, name, symbol, decimals, minter, premintedSupply); err != nil {
 		return nil, err
 	}
 
@@ -134,10 +141,4 @@ func (p Precompile) createCoinMetadata(ctx sdk.Context, address common.Address, 
 	}
 
 	return &metadata, nil
-}
-
-func calculateCodeHash(tokenType uint8) []byte {
-	tokenTypeBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(tokenTypeBytes, uint32(tokenType))
-	return tokenTypeBytes
 }

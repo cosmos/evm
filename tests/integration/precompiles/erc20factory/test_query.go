@@ -21,26 +21,15 @@ func (s *PrecompileTestSuite) TestCalculateAddress() {
 			name:   "pass - correct arguments",
 			caller: defaultCaller,
 			args: []interface{}{
-				uint8(0),
 				[32]uint8(common.HexToHash("0x4f5b6f778b28c4d67a9c12345678901234567890123456789012345678901234").Bytes()),
 			},
 			expPass:    true,
-			expAddress: common.HexToAddress("0x188a919f3583f8e02183332E6c73E944E002C553"),
-		},
-		{
-			name:   "fail - invalid tokenType",
-			caller: defaultCaller,
-			args: []interface{}{
-				"invalid tokenType",
-				"invalid salt",
-			},
-			errContains: "invalid tokenType",
+			expAddress: common.HexToAddress("0xc047E2F9302F4dE42115E40CEdb3FA0F1CfbD6b7"),
 		},
 		{
 			name:   "fail - invalid salt",
 			caller: defaultCaller,
 			args: []interface{}{
-				uint8(0),
 				"invalid salt",
 			},
 			errContains: "invalid salt",

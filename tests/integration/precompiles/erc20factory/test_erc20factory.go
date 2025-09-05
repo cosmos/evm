@@ -41,7 +41,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20factory.CalculateAddressMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20factory.CalculateAddressMethod, uint8(0), [32]uint8{})
+				bz, err := s.precompile.Pack(erc20factory.CalculateAddressMethod, [32]uint8{})
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -50,7 +50,7 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20factory.CreateMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20factory.CreateMethod, uint8(0), [32]uint8{}, name, symbol, decimals, mintAddr, amount)
+				bz, err := s.precompile.Pack(erc20factory.CreateMethod, [32]uint8{}, name, symbol, decimals, mintAddr, amount)
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
