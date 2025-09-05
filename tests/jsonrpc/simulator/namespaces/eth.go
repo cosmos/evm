@@ -1671,7 +1671,6 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthFeeHistory), "0x2", "latest", []float64{25.0, 50.0, 75.0})
-
 	if err != nil {
 		if err.Error() == "the method "+string(MethodNameEthFeeHistory)+" does not exist/is not available" ||
 			err.Error() == types.ErrorMethodNotFound {
@@ -1927,7 +1926,6 @@ func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByHash), receipt.BlockHash.Hex())
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2005,7 +2003,6 @@ func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByNumber), blockNumberHex)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2092,7 +2089,6 @@ func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthSimulateV1), simulationReq)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||
@@ -2159,7 +2155,6 @@ func EthPendingTransactions(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var pendingTxs any
 	err := rCtx.Evmd.RPCClient().Call(&pendingTxs, string(MethodNameEthPendingTransactions))
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||

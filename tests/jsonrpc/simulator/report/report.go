@@ -359,7 +359,6 @@ func PrintCategoryMatrix(summary *types.TestSummary) {
 				catSummary.Total)
 		}
 	}
-
 }
 
 func PrintSummary(summary *types.TestSummary) {

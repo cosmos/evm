@@ -77,7 +77,6 @@ type RPCContext struct {
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
-
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {
@@ -134,7 +133,6 @@ func (rCtx *RPCContext) AlreadyTested(rpc RpcName) *RpcResult {
 		}
 	}
 	return nil
-
 }
 
 // CompareRPCCall performs a dual API call and compares response structures
