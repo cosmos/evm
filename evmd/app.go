@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	goruntime "runtime"
+	"sort"
 
 	"github.com/spf13/cast"
 
@@ -76,6 +78,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -287,6 +290,24 @@ func NewExampleApp(
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
+
+	var allKeys []storetypes.StoreKey
+	for _, k := range keys {
+		allKeys = append(allKeys, k)
+	}
+	for _, k := range tkeys {
+		allKeys = append(allKeys, k)
+	}
+	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
+
+	// FIXME workers
+	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		allKeys,
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		true,
+		evmdconfig.ExampleChainDenom,
+	))
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
