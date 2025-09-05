@@ -11,3 +11,17 @@ type TestOption struct {
 	ApplyDynamicFeeTx bool
 	NodeEntries       []string
 }
+
+type TxInfo struct {
+	DstNodeID string
+	TxType    string
+	TxHash    string
+}
+
+func NewTxInfo(nodeID, txType, txHash string) *TxInfo {
+	return &TxInfo{
+		DstNodeID: nodeID,
+		TxHash:    txType,
+		TxType:    txHash,
+	}
+}

@@ -3,70 +3,75 @@ package suite
 import (
 	"fmt"
 	"math/big"
+	"testing"
 
 	sdkmath "cosmossdk.io/math"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 func (s *SystemTestSuite) SendTx(
+	t *testing.T,
 	nodeID string,
 	accID string,
 	nonceIdx uint64,
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
-) (string, error) {
-	if s.TestOption.TxType == TxTypeEVM {
-		return s.SendEthTx(nodeID, accID, nonceIdx, gasPrice, gasTipCap)
+) (*TxInfo, error) {
+	if s.TestOption.TestType == TxTypeCosmos {
+		return s.SendCosmosTx(t, nodeID, accID, nonceIdx, gasPrice, nil)
 	}
-	return s.SendCosmosTx(nodeID, accID, nonceIdx, gasPrice, nil)
+	return s.SendEthTx(t, nodeID, accID, nonceIdx, gasPrice, gasTipCap)
 }
 
 func (s *SystemTestSuite) SendEthTx(
+	t *testing.T,
 	nodeID string,
 	accID string,
 	nonceIdx uint64,
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
-) (string, error) {
+) (*TxInfo, error) {
 	nonce, err := s.NonceAt(nodeID, accID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get future current nonce")
+		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
+
 	gappedNonce := nonce + nonceIdx
 
 	if s.TestOption.ApplyDynamicFeeTx {
-		return s.SendEthDynamicFeeTx(nodeID, accID, gappedNonce, gasPrice, gasTipCap)
+		return s.SendEthDynamicFeeTx(t, nodeID, accID, gappedNonce, gasPrice, gasTipCap)
 	}
-	return s.SendEthLegacyTx(nodeID, accID, gappedNonce, gasPrice)
+	return s.SendEthLegacyTx(t, nodeID, accID, gappedNonce, gasPrice)
 }
 
 func (s *SystemTestSuite) SendEthLegacyTx(
+	t *testing.T,
 	nodeID string,
 	accID string,
 	nonce uint64,
 	gasPrice *big.Int,
-) (string, error) {
+) (*TxInfo, error) {
 	to := s.EthClient.Accs["acc3"].Address
 	value := big.NewInt(1000)
 	gasLimit := uint64(50_000)
 
 	tx := ethtypes.NewTransaction(nonce, to, value, gasLimit, gasPrice, nil)
-
 	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
 	if err != nil {
-		return "", fmt.Errorf("failed to send ")
+		return nil, fmt.Errorf("failed to send eth legacy tx: %v", err)
 	}
 
-	return txHash.Hex(), nil
+	return NewTxInfo(nodeID, txHash.Hex(), TxTypeEVM), nil
 }
 
 func (s *SystemTestSuite) SendEthDynamicFeeTx(
+	t *testing.T,
 	nodeID string,
 	accID string,
 	nonce uint64,
 	gasFeeCap *big.Int,
 	gasTipCap *big.Int,
-) (string, error) {
+) (*TxInfo, error) {
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID:   s.EthClient.ChainID,
 		Nonce:     nonce,
@@ -79,31 +84,34 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 
 	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
 	if err != nil {
-		return "", fmt.Errorf("failed to send dynamic tx")
+		return nil, fmt.Errorf("failed to send eth dynamic fee tx: %v", err)
 	}
 
-	return txHash.Hex(), nil
+	return NewTxInfo(nodeID, txHash.Hex(), TxTypeEVM), nil
 }
 
 func (s *SystemTestSuite) SendCosmosTx(
+	t *testing.T,
 	nodeID string,
 	accID string,
 	nonceIdx uint64,
 	gasPrice *big.Int,
 	_ *big.Int,
-) (string, error) {
+) (*TxInfo, error) {
 	from := s.CosmosClient.Accs[accID].AccAddress
 	to := s.CosmosClient.Accs["acc3"].AccAddress
 	amount := sdkmath.NewInt(1000)
+
 	nonce, err := s.NonceAt(nodeID, accID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get future current nonce")
+		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
 
 	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, gappedNonce, gasPrice)
 	if err != nil {
-		return "", fmt.Errorf("failed to cosmos tx bank send: %v", err)
+		return nil, fmt.Errorf("failed to send cosmos bank send tx: %v", err)
 	}
-	return resp.TxHash, nil
+
+	return NewTxInfo(nodeID, resp.TxHash, TxTypeCosmos), nil
 }

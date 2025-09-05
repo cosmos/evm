@@ -107,7 +107,7 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
-func (ec *EthClient) TxPoolContent(nodeID string) (map[common.Address][]*ethtypes.Transaction, map[common.Address][]*ethtypes.Transaction, error) {
+func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
 	var result TxPoolResult
@@ -119,7 +119,7 @@ func (ec *EthClient) TxPoolContent(nodeID string) (map[common.Address][]*ethtype
 	return result.Pending, result.Queued, nil
 }
 
-func (ec *EthClient) TxPoolContentFrom(nodeID, accID string) (map[common.Address][]*ethtypes.Transaction, map[common.Address][]*ethtypes.Transaction, error) {
+func (ec *EthClient) TxPoolContentFrom(nodeID, accID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 	addr := ec.Accs[accID].Address
 

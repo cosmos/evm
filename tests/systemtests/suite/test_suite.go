@@ -24,8 +24,9 @@ type SystemTestSuite struct {
 	nodeIterator *NodeIterator
 
 	// Transaction Hashes
-	expPendingTxs []string
-	expQueuedTxs  []string
+	expPendingTxs   []*TxInfo
+	expQueuedTxs    []*TxInfo
+	expDiscardedTxs []*TxInfo
 }
 
 func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
@@ -52,6 +53,7 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	// Reset expected pending/queued transactions
 	s.SetExpPendingTxs()
 	s.SetExpQueuedTxs()
+	s.SetExpDiscardedTxs()
 
 	// Reset nodeIterator
 	s.nodeIterator = NewNodeIterator(s.TestOption.NodeEntries)
@@ -64,24 +66,31 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 }
 
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
-	// check txpool
-	pendingTxHashes, queuedTxHashes, err := s.TxPoolContent(s.GetNode())
-	require.NoError(t, err)
+	for _, txInfo := range s.GetExpPendingTxs() {
+		if txInfo.TxType == TxTypeEVM {
+			evmPendingTxHashes, _, err := s.TxPoolContent(txInfo.DstNodeID, TxTypeEVM)
+			require.NoError(t, err)
 
-	for _, txHash := range s.GetExpPendingTxs() {
-		ok := slices.Contains(pendingTxHashes, txHash)
-		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queue txs in mempool", txHash))
+			ok := slices.Contains(evmPendingTxHashes, txInfo.TxHash)
+			require.True(t, ok, fmt.Sprintf("tx %s is not contained in pending txs in %s mempool", txInfo.TxHash, txInfo.TxType))
+		}
 	}
 
-	for _, txHash := range s.GetExpQueuedTxs() {
-		ok := slices.Contains(queuedTxHashes, txHash)
-		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queue txs in mempool", txHash))
+	for _, txInfo := range s.GetExpQueuedTxs() {
+		if txInfo.TxType == TxTypeEVM {
+			_, evmQueuedTxHashes, err := s.TxPoolContent(txInfo.DstNodeID, TxTypeEVM)
+			require.NoError(t, err)
+
+			ok := slices.Contains(evmQueuedTxHashes, txInfo.TxHash)
+			require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
+		}
+
 	}
 }
 
 func (s *SystemTestSuite) AfterEach(t *testing.T) {
-	for _, txHash := range s.GetExpPendingTxs() {
-		err := s.WaitForCommit("node0", txHash, time.Second*15)
+	for _, txInfo := range s.GetExpPendingTxs() {
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
 		require.NoError(t, err)
 	}
 }
@@ -90,36 +99,39 @@ func (s *SystemTestSuite) BaseFee() *big.Int {
 	return s.baseFee
 }
 
-func (s *SystemTestSuite) BaseFeeX2() *big.Int {
-	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
+func (s *SystemTestSuite) BaseFeeX10() *big.Int {
+	return new(big.Int).Mul(s.baseFee, big.NewInt(10))
 }
 
-func (s *SystemTestSuite) OnlyEthTxs() bool {
-	return s.TestOption.TxType == TxTypeEVM
-}
-
-func (s *SystemTestSuite) GetExpPendingTxs() []string {
+func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {
 	return s.expPendingTxs
 }
 
-func (s *SystemTestSuite) GetExpPendingTx(idx int) string {
-	return s.expPendingTxs[idx]
-}
-
-func (s *SystemTestSuite) SetExpPendingTxs(txs ...string) {
+func (s *SystemTestSuite) SetExpPendingTxs(txs ...*TxInfo) {
 	s.expPendingTxs = txs
 }
 
-func (s *SystemTestSuite) GetExpQueuedTxs() []string {
+func (s *SystemTestSuite) GetExpQueuedTxs() []*TxInfo {
 	return s.expQueuedTxs
 }
 
-func (s *SystemTestSuite) GetExpQueuedTx(idx int) string {
-	return s.expQueuedTxs[idx]
+func (s *SystemTestSuite) SetExpQueuedTxs(txs ...*TxInfo) {
+	queuedTxs := make([]*TxInfo, 0)
+	for _, txInfo := range txs {
+		if txInfo.TxType == TxTypeCosmos {
+			continue
+		}
+		queuedTxs = append(queuedTxs, txInfo)
+	}
+	s.expQueuedTxs = queuedTxs
 }
 
-func (s *SystemTestSuite) SetExpQueuedTxs(txs ...string) {
-	s.expQueuedTxs = txs
+func (s *SystemTestSuite) GetExpDiscardedTxs() []*TxInfo {
+	return s.expDiscardedTxs
+}
+
+func (s *SystemTestSuite) SetExpDiscardedTxs(txs ...*TxInfo) {
+	s.expDiscardedTxs = txs
 }
 
 func (s *SystemTestSuite) PromoteExpTxs(count int) {

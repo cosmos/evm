@@ -18,7 +18,7 @@ func (s *SystemTestSuite) DefaultTestOption() []TestOption {
 			ApplyDynamicFeeTx: false,
 		},
 		{
-			TestType:          "EVM LegacyTxsend to multi node",
+			TestType:          "EVM LegacyTx send to multi node",
 			TxType:            TxTypeEVM,
 			ApplyDynamicFeeTx: false,
 			NodeEntries:       []string{"node0", "node1", "node2", "node3", "node0", "node1", "node2", "node3"},

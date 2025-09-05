@@ -35,9 +35,9 @@ const (
 	JsonRPCUrl3 = "http://127.0.0.1:8575"
 
 	NodeRPCUrl0 = "http://127.0.0.1:26657"
-	NodeRPCUrl1 = "http://127.0.0.1:26667"
-	NodeRPCUrl2 = "http://127.0.0.1:26677"
-	NodeRPCUrl3 = "http://127.0.0.1:26687"
+	NodeRPCUrl1 = "http://127.0.0.1:26658"
+	NodeRPCUrl2 = "http://127.0.0.1:26659"
+	NodeRPCUrl3 = "http://127.0.0.1:26660"
 )
 
 type Config struct {

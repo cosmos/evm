@@ -3,18 +3,17 @@ package suite
 import (
 	"fmt"
 	"math/big"
-	"sort"
+	"slices"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/cosmos/evm/tests/systemtests/clients"
 )
 
 func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 	ctx, cli, addr := s.EthClient.Setup(nodeID, accID)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
 	if err != nil {
-		return uint64(0), fmt.Errorf("failed to get block number from %s", nodeID)
+		return uint64(0), fmt.Errorf("failed to get block number from %s: %v", nodeID, err)
 	}
 	if int64(blockNumber) < 0 {
 		return uint64(0), fmt.Errorf("invaid block number %d", blockNumber)
@@ -26,12 +25,15 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	ctx, cli, _ := s.EthClient.Setup(nodeID, "acc0")
 	blockNumber, err := cli.BlockNumber(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get block number from %s: %v", nodeID, err)
+	}
+	if int64(blockNumber) < 0 {
+		return nil, fmt.Errorf("invaid block number %d", blockNumber)
 	}
 
 	block, err := cli.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get block from %s: %v", nodeID, err)
 	}
 
 	return block.BaseFee(), nil
@@ -40,12 +42,15 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 func (s *SystemTestSuite) WaitForCommit(
 	nodeID string,
 	txHash string,
+	txType string,
 	timeout time.Duration,
 ) error {
-	if s.TestOption.TestType == TxTypeEVM {
+	if txType == TxTypeCosmos {
+		return s.waitForCosmosCommmit(nodeID, txHash, timeout)
+	} else if txType == TxTypeEVM {
 		return s.waitForEthCommmit(nodeID, txHash, timeout)
 	}
-	return s.waitForCosmosCommmit(nodeID, txHash, timeout)
+	return fmt.Errorf("invalid txtype: %s", txType)
 }
 
 func (s *SystemTestSuite) waitForEthCommmit(
@@ -82,8 +87,8 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-func (s *SystemTestSuite) TxPoolContent(nodeID string) (pendingTxs, queuedTxs []string, err error) {
-	if s.TestOption.TestType == TxTypeEVM {
+func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
+	if txType == TxTypeEVM {
 		return s.ethTxPoolContent(nodeID)
 	}
 	return s.cosmosTxPoolContent(nodeID)
@@ -92,7 +97,7 @@ func (s *SystemTestSuite) TxPoolContent(nodeID string) (pendingTxs, queuedTxs []
 func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
 	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(nodeID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get txpool content from eth client")
+		return nil, nil, fmt.Errorf("failed to get txpool content from eth client: %v", err)
 	}
 
 	return s.extractTxHashesSorted(pendingTxs), s.extractTxHashesSorted(queuedTxs), nil
@@ -101,7 +106,7 @@ func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queu
 func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
 	result, err := s.CosmosClient.UnconfirmedTxs(nodeID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call unconfired transactions from cosmos cliemt")
+		return nil, nil, fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
 	}
 
 	pendingtxHashes := make([]string, 0)
@@ -113,30 +118,30 @@ func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, q
 }
 
 // extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
-func (s *SystemTestSuite) extractTxHashesSorted(txMap map[common.Address][]*ethtypes.Transaction) []string {
+func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.RPCTransaction) []string {
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration
-	addresses := make([]common.Address, 0, len(txMap))
+	addresses := make([]string, 0, len(txMap))
 	for addr := range txMap {
 		addresses = append(addresses, addr)
 	}
-	sort.Slice(addresses, func(i, j int) bool {
-		return addresses[i].Hex() < addresses[j].Hex()
-	})
+	slices.Sort(addresses)
 
 	// Process addresses in sorted order
 	for _, addr := range addresses {
 		txs := txMap[addr]
 
 		// Sort transactions by nonce for deterministic ordering
-		sort.Slice(txs, func(i, j int) bool {
-			return txs[i].Nonce() < txs[j].Nonce()
-		})
+		nonces := make([]string, 0, len(txs))
+		for nonce := range txs {
+			nonces = append(nonces, nonce)
+		}
+		slices.Sort(nonces)
 
 		// Add transaction hashes to flat result slice
-		for _, tx := range txs {
-			result = append(result, tx.Hash().String())
+		for _, nonce := range nonces {
+			result = append(result, txs[nonce].Hash.Hex())
 		}
 	}
 

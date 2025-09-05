@@ -104,7 +104,7 @@ func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, a
 		return nil, fmt.Errorf("failed to broadcast tx: %v", err)
 	}
 
-	return resp, err
+	return resp, nil
 }
 
 func (c *CosmosClient) WaitForCommit(
@@ -199,8 +199,8 @@ func (c *CosmosClient) signMsgsV2(privKey cryptotypes.PrivKey, accountNumber, se
 		return nil, fmt.Errorf("failed to set empty signatures: %v", err)
 	}
 
-	txBuilder.SetGasLimit(1_000_000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("atest", sdkmath.NewIntFromBigInt(gasPrice).MulRaw(1_000_001))))
+	txBuilder.SetGasLimit(150_000)
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("atest", sdkmath.NewIntFromBigInt(gasPrice).MulRaw(150_001))))
 
 	sigV2, err := clienttx.SignWithPrivKey(
 		context.Background(),
