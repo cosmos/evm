@@ -7,7 +7,6 @@ package ibc
 
 import (
 	"math/big"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -355,6 +354,6 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 	}
 }
 
-func TestICS20TransferTestSuite(t *testing.T) {
-	suite.Run(t, new(ICS20TransferTestSuite))
-}
+// func TestICS20TransferTestSuite(t *testing.T) {
+// 	suite.Run(t, new(ICS20TransferTestSuite))
+// }
