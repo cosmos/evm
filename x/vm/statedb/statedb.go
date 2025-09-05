@@ -104,6 +104,15 @@ func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
 	return sr.Hash()
 }
 
+func (s *StateDB) IsStorageEmpty(addr common.Address) bool {
+	empty := true
+	s.keeper.ForEachStorage(s.ctx, addr, func(key, value common.Hash) bool {
+		empty = false
+		return false
+	})
+	return empty
+}
+
 /*
 	PointCache, Witness, and AccessEvents are all utilized for verkle trees.
 	For now, we just return nil and verkle trees are not supported.
@@ -210,10 +219,20 @@ func (s *StateDB) AddLog(log *ethtypes.Log) {
 	s.journal.append(addLogChange{})
 
 	log.TxHash = s.txConfig.TxHash
-	log.BlockHash = s.txConfig.BlockHash
 	log.TxIndex = s.txConfig.TxIndex
 	log.Index = s.txConfig.LogIndex + uint(len(s.logs))
 	s.logs = append(s.logs, log)
+}
+
+// GetLogs returns the logs matching the specified transaction hash, and annotates
+// them with the given blockNumber and blockHash.
+func (s *StateDB) GetLogs(blockNumber uint64, blockHash common.Hash, blockTime uint64) []*ethtypes.Log {
+	for _, l := range s.logs {
+		l.BlockNumber = blockNumber
+		l.BlockHash = blockHash
+		l.BlockTimestamp = blockTime
+	}
+	return s.logs
 }
 
 // Logs returns the logs of current transaction.
@@ -425,12 +444,11 @@ func (s *StateDB) setStateObject(object *stateObject) {
 // AddPrecompileFn adds a precompileCall journal entry
 // with a snapshot of the multi-store and events previous
 // to the precompile call.
-func (s *StateDB) AddPrecompileFn(addr common.Address, snapshot int, events sdk.Events) error {
-	stateObject := s.getOrNewStateObject(addr)
-	if stateObject == nil {
-		return fmt.Errorf("could not add precompile call to address %s. State object not found", addr)
-	}
-	stateObject.AddPrecompileFn(snapshot, events)
+func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
+	s.journal.append(precompileCallChange{
+		snapshot: snapshot,
+		events:   events,
+	})
 	s.precompileCallsCounter++
 	if s.precompileCallsCounter > types.MaxPrecompileCalls {
 		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)

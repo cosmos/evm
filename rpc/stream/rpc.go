@@ -40,8 +40,9 @@ var (
 		cmttypes.EventTx,
 		sdk.EventTypeMessage,
 		sdk.AttributeKeyModule, evmtypes.ModuleName)).String()
-	blockEvents  = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
-	evmTxHashKey = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	blockEvents          = cmttypes.QueryForEvent(cmttypes.EventNewBlock).String()
+	evmTxHashKey         = fmt.Sprintf("%s.%s", evmtypes.TypeMsgEthereumTx, evmtypes.AttributeKeyEthereumTxHash)
+	NewBlockHeaderEvents = cmtquery.MustCompile(fmt.Sprintf("%s='%s'", cmttypes.EventTypeKey, cmttypes.EventNewBlockHeader))
 )
 
 type RPCHeader struct {
@@ -186,7 +187,7 @@ func (s *RPCStream) start(
 			if err != nil {
 				continue
 			}
-			txLogs, err := evmtypes.DecodeTxLogsFromEvents(dataTx.Result.Data, dataTx.Result.Events, height)
+			txLogs, err := evmtypes.DecodeTxLogs(dataTx.Result.Data, height)
 			if err != nil {
 				s.logger.Error("fail to decode evm tx response", "error", err.Error())
 				continue

@@ -112,23 +112,11 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 			return common.BytesToHash(headerHash)
 
 		case ctx.BlockHeight() > h:
-			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
-			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, err := k.stakingKeeper.GetHistoricalInfo(ctx, h)
-			if err != nil {
-				k.Logger(ctx).Debug("error while getting historical info", "height", h, "error", err.Error())
-				return common.Hash{}
-			}
-
-			header, err := cmttypes.HeaderFromProto(&histInfo.Header)
-			if err != nil {
-				k.Logger(ctx).Error("failed to cast CometBFT header from proto", "error", err)
-				return common.Hash{}
-			}
-
-			return common.BytesToHash(header.Hash())
+			// Case 2: The requested height is historical, query EIP-2935 contract storage for that
+			// see: https://github.com/cosmos/evm/issues/406
+			return k.GetHeaderHash(ctx, height)
 		default:
-			// Case 3: heights greater than the current one returns an empty hash.
+			// Case 3: The requested height is greater than the latest one, return empty hash
 			return common.Hash{}
 		}
 	}
@@ -205,36 +193,54 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	ethLogs := types.LogsToEthereum(res.Logs)
 	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
 
-	if !res.Failed() {
-		var contractAddr common.Address
-		if msg.To == nil {
-			contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	var contractAddr common.Address
+	if msg.To == nil {
+		contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              tx.Type(),
+		PostState:         nil,
+		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
+		Bloom:             bloomReceipt,
+		Logs:              ethLogs,
+		TxHash:            txConfig.TxHash,
+		ContractAddress:   contractAddr,
+		GasUsed:           res.GasUsed,
+		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
+		BlockNumber:       big.NewInt(ctx.BlockHeight()),
+		TransactionIndex:  txConfig.TxIndex,
+	}
+
+	if res.Failed() {
+		receipt.Status = ethtypes.ReceiptStatusFailed
+
+		// If the tx failed we discard the old context and create a new one, so
+		// PostTxProcessing can persist data even if the tx fails.
+		tmpCtx, commitFn = ctx.CacheContext()
+	} else {
+		receipt.Status = ethtypes.ReceiptStatusSuccessful
+	}
+
+	signerAddr, err := signer.Sender(tx)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
+	}
+
+	eventsLen := len(tmpCtx.EventManager().Events())
+
+	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
+	if !k.HasHooks() {
+		// If there are no hooks, we can commit the state immediately if the tx is successful
+		if commitFn != nil && !res.Failed() {
+			commitFn()
 		}
-
-		receipt := &ethtypes.Receipt{
-			Type:              tx.Type(),
-			PostState:         nil,
-			CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
-			Bloom:             bloomReceipt,
-			Logs:              ethLogs,
-			TxHash:            txConfig.TxHash,
-			ContractAddress:   contractAddr,
-			GasUsed:           res.GasUsed,
-			BlockHash:         txConfig.BlockHash,
-			BlockNumber:       big.NewInt(ctx.BlockHeight()),
-			TransactionIndex:  txConfig.TxIndex,
-		}
-
-		signerAddr, err := signer.Sender(tx)
-		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
-		}
-
-		eventsLen := len(tmpCtx.EventManager().Events())
-
+	} else {
 		// Note: PostTxProcessing hooks currently do not charge for gas
-		// and function similar to EndBlockers in abci, but for EVM transactions
-		if err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt); err != nil {
+		// and function similar to EndBlockers in abci, but for EVM transactions.
+		// It will persist data even if the tx fails.
+		err = k.PostTxProcessing(tmpCtx, signerAddr, *msg, receipt)
+		if err != nil {
 			// If hooks returns an error, revert the whole tx.
 			res.VmError = errorsmod.Wrap(err, "failed to execute post transaction processing").Error()
 			k.Logger(ctx).Error("tx post processing failed", "error", err)
@@ -243,11 +249,20 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			res.Logs = nil
 			receipt.Logs = nil
 			receipt.Bloom = ethtypes.Bloom{} // Clear bloom filter
-		} else if commitFn != nil {
-			commitFn()
+		} else {
+			if commitFn != nil {
+				commitFn()
+			}
 
 			// Since the post-processing can alter the log, we need to update the result
-			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			if res.Failed() {
+				res.Logs = nil
+				receipt.Logs = nil
+				receipt.Bloom = ethtypes.Bloom{}
+			} else {
+				res.Logs = types.NewLogsFromEth(receipt.Logs)
+			}
+
 			events := tmpCtx.EventManager().Events()
 			if len(events) > eventsLen {
 				ctx.EventManager().EmitEvents(events[eventsLen:])
@@ -293,7 +308,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal)
 }
 
@@ -379,7 +394,7 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
 	// Gas limit suffices for the floor data cost (EIP-7623)
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if rules.IsPrague {
 		floorDataGas, err := core.FloorDataGas(msg.Data)
 		if err != nil {
@@ -445,12 +460,12 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
 	}
 	// refund gas
-	temporaryGasUsed := msg.GasLimit - leftoverGas
-	refund := GasToRefund(stateDB.GetRefund(), temporaryGasUsed, refundQuotient)
+	maxUsedGas := msg.GasLimit - leftoverGas
+	refund := GasToRefund(stateDB.GetRefund(), maxUsedGas, refundQuotient)
 
 	// update leftoverGas and temporaryGasUsed with refund amount
 	leftoverGas += refund
-	temporaryGasUsed -= refund
+	temporaryGasUsed := maxUsedGas - refund
 
 	// EVM execution error needs to be available for the JSON-RPC client
 	var vmError string
@@ -492,12 +507,14 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		ret = evm.Interpreter().ReturnData()
 	}
 
+	logs := stateDB.GetLogs(uint64(ctx.BlockHeight()), common.BytesToHash(ctx.HeaderHash()), evm.Context.Time) //#nosec G115 -- int overflow is not a concern here
 	return &types.MsgEthereumTxResponse{
-		GasUsed: gasUsed.TruncateInt().Uint64(),
-		VmError: vmError,
-		Ret:     ret,
-		Logs:    types.NewLogsFromEth(stateDB.Logs()),
-		Hash:    txConfig.TxHash.Hex(),
+		GasUsed:    gasUsed.TruncateInt().Uint64(),
+		MaxUsedGas: maxUsedGas,
+		VmError:    vmError,
+		Ret:        ret,
+		Logs:       types.NewLogsFromEth(logs),
+		Hash:       txConfig.TxHash.Hex(),
 	}, nil
 }
 

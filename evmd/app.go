@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -773,10 +774,6 @@ func NewExampleApp(
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
 		app.EVMMempool = evmMempool
 
-		// Set the global mempool for RPC access
-		if err := evmmempool.SetGlobalEVMMempool(evmMempool); err != nil {
-			panic(err)
-		}
 		app.SetMempool(evmMempool)
 		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 		app.SetCheckTxHandler(checkTxHandler)
@@ -1147,6 +1144,25 @@ func (app *EVMD) GetTxConfig() client.TxConfig {
 
 func (app *EVMD) SetClientCtx(clientCtx client.Context) {
 	app.clientCtx = clientCtx
+}
+
+// Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
+func (app *EVMD) Close() error {
+	var err error
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+		app.Logger().Info("Shutting down mempool")
+		err = m.Close()
+	}
+
+	msg := "Application gracefully shutdown"
+	err = errors.Join(err, app.BaseApp.Close())
+	if err == nil {
+		app.Logger().Info(msg)
+	} else {
+		app.Logger().Error(msg, "error", err)
+	}
+
+	return err
 }
 
 // AutoCliOpts returns the autocli options for the app.

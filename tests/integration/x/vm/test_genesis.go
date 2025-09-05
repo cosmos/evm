@@ -119,7 +119,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			ctx = s.network.GetContext()
 			vmdb = statedb.New(
 				ctx, s.network.App.GetEVMKeeper(),
-				statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
+				statedb.NewEmptyTxConfig())
 
 			tc.malleate(s.network)
 			err := vmdb.Commit()
@@ -222,7 +222,7 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 
 	genState := vm.ExportGenesis(s.network.GetContext(), s.network.App.GetEVMKeeper())
 	// Exported accounts 4 default preinstalls
-	s.Require().Len(genState.Accounts, 7)
+	s.Require().Len(genState.Accounts, 8)
 
 	addrs := make([]string, len(genState.Accounts))
 	for i, acct := range genState.Accounts {

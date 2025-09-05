@@ -28,6 +28,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
+	evmmempool "github.com/cosmos/evm/mempool"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -48,6 +49,7 @@ import (
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
@@ -57,6 +59,7 @@ type DBOpener func(opts types.AppOptions, rootDir string, backend dbm.BackendTyp
 type Application interface {
 	types.Application
 	AppWithPendingTxStream
+	GetMempool() sdkmempool.ExtMempool
 	SetClientCtx(clientCtx client.Context)
 }
 
@@ -129,8 +132,8 @@ which accepts a path for the resulting pprof file.
 				return err
 			}
 
-			withTM, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
-			if !withTM {
+			withbft, _ := cmd.Flags().GetBool(srvflags.WithCometBFT)
+			if !withbft {
 				serverCtx.Logger.Info("starting ABCI without CometBFT")
 				return wrapCPUProfile(serverCtx, func() error {
 					return startStandAlone(serverCtx, clientCtx, opts)
@@ -397,7 +400,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	genDocProvider := GenDocProvider(cfg)
 
 	var (
-		tmNode   *node.Node
+		bftNode  *node.Node
 		gRPCOnly = svrCtx.Viper.GetBool(srvflags.GRPCOnly)
 	)
 
@@ -409,7 +412,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		logger.Info("starting node with ABCI CometBFT in-process")
 
 		cmtApp := server.NewCometABCIWrapper(app)
-		tmNode, err = node.NewNode(
+		bftNode, err = node.NewNode(
 			cfg,
 			pvm.LoadOrGenFilePV(cfg.PrivValidatorKeyFile(), cfg.PrivValidatorStateFile()),
 			nodeKey,
@@ -424,14 +427,17 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		if err := tmNode.Start(); err != nil {
+		if err := bftNode.Start(); err != nil {
 			logger.Error("failed start CometBFT server", "error", err.Error())
 			return err
 		}
 
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+			m.SetEventBus(bftNode.EventBus())
+		}
 		defer func() {
-			if tmNode.IsRunning() {
-				_ = tmNode.Stop()
+			if bftNode.IsRunning() {
+				_ = bftNode.Stop()
 			}
 		}()
 	}
@@ -439,8 +445,8 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	// Add the tx service to the gRPC router. We only need to register this
 	// service if API or gRPC or JSONRPC is enabled, and avoid doing so in the general
 	// case, because it spawns a new local CometBFT RPC client.
-	if (config.API.Enable || config.GRPC.Enable || config.JSONRPC.Enable || config.JSONRPC.EnableIndexer) && tmNode != nil {
-		clientCtx = clientCtx.WithClient(local.New(tmNode))
+	if (config.API.Enable || config.GRPC.Enable || config.JSONRPC.Enable || config.JSONRPC.EnableIndexer) && bftNode != nil {
+		clientCtx = clientCtx.WithClient(local.New(bftNode))
 
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
@@ -502,7 +508,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp)
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool))
 		if err != nil {
 			return err
 		}

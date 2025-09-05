@@ -155,7 +155,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 	if err != nil {
 		// Check if this is a nonce gap error that was successfully queued
-		if strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
+		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
 			// Transaction was successfully queued due to nonce gap, return success to client
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
 			return txHash, nil

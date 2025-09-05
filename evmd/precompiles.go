@@ -102,13 +102,21 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper, bankKeeper, options.AddressCodec)
+	stakingPrecompile, err := stakingprecompile.NewPrecompile(
+		stakingKeeper,
+		stakingkeeper.NewMsgServerImpl(&stakingKeeper),
+		stakingkeeper.NewQuerier(&stakingKeeper),
+		bankKeeper,
+		options.AddressCodec,
+	)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
 	}
 
 	distributionPrecompile, err := distprecompile.NewPrecompile(
 		distributionKeeper,
+		distributionkeeper.NewMsgServerImpl(distributionKeeper),
+		distributionkeeper.NewQuerier(distributionKeeper),
 		stakingKeeper,
 		bankKeeper,
 		options.AddressCodec,
@@ -122,7 +130,6 @@ func NewAvailableStaticPrecompiles(
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,
-		evmKeeper,
 	)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate ICS20 precompile: %w", err))
@@ -133,12 +140,24 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
 	}
 
-	govPrecompile, err := govprecompile.NewPrecompile(govKeeper, bankKeeper, codec, options.AddressCodec)
+	govPrecompile, err := govprecompile.NewPrecompile(
+		govkeeper.NewMsgServerImpl(&govKeeper),
+		govkeeper.NewQueryServer(&govKeeper),
+		bankKeeper,
+		codec,
+		options.AddressCodec,
+	)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
 	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper, bankKeeper, options.ValidatorAddrCodec, options.ConsensusAddrCodec)
+	slashingPrecompile, err := slashingprecompile.NewPrecompile(
+		slashingKeeper,
+		slashingkeeper.NewMsgServerImpl(slashingKeeper),
+		bankKeeper,
+		options.ValidatorAddrCodec,
+		options.ConsensusAddrCodec,
+	)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}

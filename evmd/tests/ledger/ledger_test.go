@@ -24,7 +24,6 @@ import (
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	sdktestutilcli "github.com/cosmos/cosmos-sdk/testutil/cli"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdktestutilmod "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 )
@@ -42,7 +41,7 @@ var (
 var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	var (
 		receiverAccAddr sdk.AccAddress
-		encCfg          sdktestutilmod.TestEncodingConfig
+		encCfg          encoding.Config
 		kr              keyring.Keyring
 		mockedIn        sdktestutil.BufferReader
 		clientCtx       client.Context

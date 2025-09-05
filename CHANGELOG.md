@@ -2,7 +2,42 @@
 
 ## UNRELEASED
 
-## v0.4.0
+### DEPENDENCIES
+
+### BUG FIXES
+
+- [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
+- [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
+- [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs
+- [\#495](https://github.com/cosmos/evm/pull/495) Allow immediate SIGINT interrupt when mempool is not empty
+- [\#416](https://github.com/cosmos/evm/pull/416) Fix regression in CometBlockResultByNumber when height is 0 to use the latest block. This fixes eth_getFilterLogs RPC.
+- [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
+- [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d 
+
+### IMPROVEMENTS
+
+- [\#538](https://github.com/cosmos/evm/pull/538) Optimize `eth_estimateGas` gRPC path: short-circuit plain transfers, add optimistic gas bound based on `MaxUsedGas`.
+- [\#513](https://github.com/cosmos/evm/pull/513) Replace `TestEncodingConfig` with production `EncodingConfig` in encoding package to remove test dependencies from production code.
+- [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
+- [\#352](https://github.com/cosmos/evm/pull/352) Remove the creation of a Geth EVM instance, stateDB during the AnteHandler balance check.
+- [\#496](https://github.com/cosmos/evm/pull/496) Simplify mempool instantiation by using configs instead of objects.
+- [\#512](https://github.com/cosmos/evm/pull/512) Add integration test for appside mempool.
+- [\#568](https://github.com/cosmos/evm/pull/568) Avoid unnecessary block notifications when the event bus is already set up.
+- [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
+- [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
+
+### FEATURES
+
+- [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+- [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
+
+### STATE BREAKING
+
+### API-BREAKING
+
+- [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+
+## v0.4.1
 
 ### DEPENDENCIES
 
@@ -45,6 +80,7 @@
 - [\#398](https://github.com/cosmos/evm/pull/398) Post-audit security fixes (batch 4)
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
+- [\#476](https://github.com/cosmos/evm/pull/476) Add revert error e2e tests for contract and precompile calls
 
 ### FEATURES
 
