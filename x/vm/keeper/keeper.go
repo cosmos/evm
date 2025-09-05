@@ -43,7 +43,7 @@ type Keeper struct {
 	objectKey storetypes.StoreKey
 
 	// KVStore Keys for modules wired to app
-	storeKeys map[string]*storetypes.KVStoreKey
+	storeKeys map[string]storetypes.StoreKey
 
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
@@ -86,8 +86,8 @@ type Keeper struct {
 // NewKeeper generates new evm module keeper
 func NewKeeper(
 	cdc codec.BinaryCodec,
-	storeKey, objKey storetypes.StoreKey,
 	keys map[string]*storetypes.KVStoreKey,
+	okeys map[string]*storetypes.ObjectStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
@@ -110,6 +110,13 @@ func NewKeeper(
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
+	storeKeys := make(map[string]storetypes.StoreKey)
+	for k, v := range keys {
+		storeKeys[k] = v
+	}
+	for k, v := range okeys {
+		storeKeys[k] = v
+	}
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
 		cdc:              cdc,
@@ -118,12 +125,12 @@ func NewKeeper(
 		bankWrapper:      bankWrapper,
 		stakingKeeper:    sk,
 		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		objectKey:        objKey,
+		storeKey:         keys[types.StoreKey],
+		objectKey:        okeys[types.ObjectStoreKey],
 		tracer:           tracer,
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
-		storeKeys:        keys,
+		storeKeys:        storeKeys,
 	}
 }
 
@@ -359,7 +366,7 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 }
 
 // KVStoreKeys returns KVStore keys injected to keeper
-func (k Keeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
+func (k Keeper) KVStoreKeys() map[string]storetypes.StoreKey {
 	return k.storeKeys
 }
 

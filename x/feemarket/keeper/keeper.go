@@ -23,7 +23,7 @@ type Keeper struct {
 
 // NewKeeper generates new fee market module keeper
 func NewKeeper(
-	cdc codec.BinaryCodec, authority sdk.AccAddress, storeKey, transientKey storetypes.StoreKey,
+	cdc codec.BinaryCodec, authority sdk.AccAddress, storeKey, objectKey storetypes.StoreKey,
 ) Keeper {
 	// ensure authority account is correctly formatted
 	if err := sdk.VerifyAddressFormat(authority); err != nil {
@@ -34,7 +34,7 @@ func NewKeeper(
 		cdc:       cdc,
 		storeKey:  storeKey,
 		authority: authority,
-		objectKey: transientKey,
+		objectKey: objectKey,
 	}
 }
 
