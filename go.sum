@@ -1238,8 +1238,8 @@ github.com/hashicorp/go-sockaddr v1.0.0/go.mod h1:7Xibr9yA9JjQq1JpNB2Vw7kxv8xerX
 github.com/hashicorp/go-syslog v1.0.0/go.mod h1:qPfqrKkXGihmCqbJM2mZgkZGvKG1dFdvsLplgctolz4=
 github.com/hashicorp/go-uuid v1.0.0/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
 github.com/hashicorp/go-uuid v1.0.1/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
-github.com/hashicorp/go-uuid v1.0.3 h1:2gKiV6YVmrJ1i2CKKa9obLvRieoRGviZFL26PcT/Co8=
-github.com/hashicorp/go-uuid v1.0.3/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
+github.com/hashicorp/go-uuid v1.0.2 h1:cfejS+Tpcp13yd5nYHWDI6qVCny6wyX2Mt5SGur2IGE=
+github.com/hashicorp/go-uuid v1.0.2/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
 github.com/hashicorp/go-version v1.2.0/go.mod h1:fltr4n8CU8Ke44wwGCBoEymUuxUHl09ZGVZPK5anwXA=
 github.com/hashicorp/go-version v1.6.0/go.mod h1:fltr4n8CU8Ke44wwGCBoEymUuxUHl09ZGVZPK5anwXA=
 github.com/hashicorp/go-version v1.7.0 h1:5tqGy27NaOTB8yJKUZELlFAS/LTKJkrmONwQKeRZfjY=
@@ -1414,10 +1414,10 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/pointerstructure v1.2.0 h1:O+i9nHnXS3l/9Wu7r4NrEdwA2VFTicjUEN1uBnDo34A=
 github.com/mitchellh/pointerstructure v1.2.0/go.mod h1:BRAsLI5zgXmw97Lf6s25bs8ohIXc3tViBH44KcwB2g4=
-github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250904015209-0224ec8b6d23 h1:Vb/Xx71BorakWtlMYQxawifzTnyR7OFKH5OWxab2MCM=
-github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250904015209-0224ec8b6d23/go.mod h1:dPjdxEFxnYyfYQqVQqHpT7icEbA/TdfcR4gO8ijnPh0=
-github.com/mmsqe/cosmos-sdk/store v0.0.0-20250904015209-0224ec8b6d23 h1:li42emFGBamNVUNNEwfsyxRNq6CRYBR/7CKNNpRWQAg=
-github.com/mmsqe/cosmos-sdk/store v0.0.0-20250904015209-0224ec8b6d23/go.mod h1:izs0Od3GsYBVGCLEQJC7HKYqAS5VpWK8hITvoF/19dY=
+github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250905083904-27090daee504 h1:x+tdH4ZOnWO823d+rVSOUFJ/Df6SdBEbjaBLc6RAM+Y=
+github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250905083904-27090daee504/go.mod h1:SjzLbXDNHCLLo3VPv+23KsMh0IOWx2Uoa9v/3kepdyg=
+github.com/mmsqe/cosmos-sdk/store v0.0.0-20250905083904-27090daee504 h1:6va9W4n2L90yzi+S8HFenMh0GurwdE/BDo96A1+P8Pg=
+github.com/mmsqe/cosmos-sdk/store v0.0.0-20250905083904-27090daee504/go.mod h1:QY+PHicBEv5N3Pj8Mu9Q17We0w3uIfjhtGDMIwdhofw=
 github.com/mmsqe/ibc-go/v10 v10.0.0-20250904020418-f7f56cf83a9d h1:LW9+f1cQ6fxmxAaQTREFb3RncUmA9Bsw3yhcuUsoiWM=
 github.com/mmsqe/ibc-go/v10 v10.0.0-20250904020418-f7f56cf83a9d/go.mod h1:9V73kfRcIKzA+X1pbrDq+MgZg8fTG5ijDwmonTEg/5E=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -1470,8 +1470,8 @@ github.com/onsi/gomega v1.38.0/go.mod h1:OcXcwId0b9QsE7Y49u+BTrL4IdKOBOKnD6VQNTJ
 github.com/op/go-logging v0.0.0-20160315200505-970db520ece7/go.mod h1:HzydrMdWErDVzsI23lYNej1Htcns9BCg93Dk0bBINWk=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
-github.com/opencontainers/image-spec v1.1.0-rc5 h1:Ygwkfw9bpDvs+c9E34SdgGOj41dX/cbdlwvlWt0pnFI=
-github.com/opencontainers/image-spec v1.1.0-rc5/go.mod h1:X4pATf0uXsnn3g5aiGIsVnJBR4mxhKzfwmvK/B2NTm8=
+github.com/opencontainers/image-spec v1.1.0-rc2 h1:2zx/Stx4Wc5pIPDvIxHXvXtQFW/7XWJGmnM7r3wg034=
+github.com/opencontainers/image-spec v1.1.0-rc2/go.mod h1:3OVijpioIKYWTqjiG0zfF6wvoJ4fAXGbjdZuI2NgsRQ=
 github.com/opencontainers/runc v1.1.12 h1:BOIssBaW1La0/qbNZHXOOa71dZfZEQOzW7dqQf3phss=
 github.com/opencontainers/runc v1.1.12/go.mod h1:S+lQwSfncpBha7XTy/5lBwWgm5+y5Ma/O44Ekby9FK8=
 github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492/go.mod h1:Ngi6UdF0k5OKD5t5wlmGhe/EDKPoUM3BXZSSfIuJbis=

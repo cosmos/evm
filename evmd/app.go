@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 
 	"github.com/spf13/cast"
 
@@ -36,6 +37,7 @@ import (
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -268,7 +270,6 @@ func NewExampleApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
-	bApp.SetTxExecutor(DefaultTxExecutor)
 	bApp.SetDisableBlockGasMeter(true)
 
 	// initialize the Cosmos EVM application configuration
@@ -310,6 +311,18 @@ func NewExampleApp(
 		keys:              keys,
 		tkeys:             tkeys,
 		okeys:             okeys,
+	}
+
+	executor := cast.ToString(appOpts.Get(srvflags.EVMBlockExecutor))
+	switch executor {
+	case cosmosevmserverconfig.BlockExecutorBlockSTM:
+		sdk.SetAddrCacheEnabled(false)
+		workers := cast.ToInt(appOpts.Get(srvflags.EVMBlockSTMWorkers))
+		app.SetTxExecutor(STMTxExecutor(app.GetStoreKeys(), workers))
+	case "", cosmosevmserverconfig.BlockExecutorSequential:
+		app.SetTxExecutor(DefaultTxExecutor)
+	default:
+		panic(fmt.Errorf("unknown EVM block executor: %s", executor))
 	}
 
 	app.ParamsKeeper = initParamsKeeper(appCodec, legacyAmino, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
@@ -987,6 +1000,25 @@ func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
 // NOTE: This is solely used for testing purposes.
 func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
 	return app.memKeys[storeKey]
+}
+
+// GetStoreKeys returns all the stored store keys.
+func (app *EVMD) GetStoreKeys() []storetypes.StoreKey {
+	keys := make([]storetypes.StoreKey, 0, len(app.keys))
+	for _, key := range app.keys {
+		keys = append(keys, key)
+	}
+	for _, key := range app.tkeys {
+		keys = append(keys, key)
+	}
+	for _, key := range app.memKeys {
+		keys = append(keys, key)
+	}
+	for _, key := range app.okeys {
+		keys = append(keys, key)
+	}
+	sort.SliceStable(keys, func(i, j int) bool { return keys[i].Name() < keys[j].Name() })
+	return keys
 }
 
 // GetSubspace returns a param subspace for a given module name.

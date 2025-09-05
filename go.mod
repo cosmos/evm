@@ -267,12 +267,8 @@ require (
 )
 
 replace (
-	cosmossdk.io/store => github.com/mmsqe/cosmos-sdk/store v0.0.0-20250904015209-0224ec8b6d23
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250904015209-0224ec8b6d23
-	github.com/cosmos/ibc-go/v10 => github.com/mmsqe/ibc-go/v10 v10.0.0-20250904020418-f7f56cf83a9d
-
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
@@ -280,6 +276,12 @@ replace (
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.1
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+)
+
+replace (
+	cosmossdk.io/store => github.com/mmsqe/cosmos-sdk/store v0.0.0-20250905083904-27090daee504
+	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250905083904-27090daee504
+	github.com/cosmos/ibc-go/v10 => github.com/mmsqe/ibc-go/v10 v10.0.0-20250904020418-f7f56cf83a9d
 )
 
 retract v0.4.0
