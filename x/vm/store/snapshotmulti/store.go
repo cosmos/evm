@@ -14,14 +14,14 @@ import (
 
 type Store struct {
 	stores    map[storetypes.StoreKey]types.SnapshotKVStore
-	storeKeys []*storetypes.KVStoreKey // ordered keys
+	storeKeys []storetypes.StoreKey // ordered keys
 	head      int
 }
 
 var _ types.SnapshotMultiStore = (*Store)(nil)
 
 // NewStore creates a new Store objectwith CacheMultiStore and KVStoreKeys
-func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStoreKey) *Store {
+func NewStore(cms storetypes.MultiStore, keys map[string]storetypes.StoreKey) *Store {
 	s := &Store{
 		stores:    make(map[storetypes.StoreKey]types.SnapshotKVStore),
 		storeKeys: vmtypes.SortedKVStoreKeys(keys),
@@ -29,8 +29,13 @@ func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStor
 	}
 
 	for _, key := range s.storeKeys {
-		store := cms.GetKVStore(key).(storetypes.CacheKVStore)
-		s.stores[key] = snapshotkv.NewStore(store)
+		if _, ok := key.(*storetypes.KVStoreKey); ok {
+			store := cms.GetKVStore(key)
+			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
+		} else {
+			store := cms.GetObjKVStore(key)
+			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
+		}
 	}
 
 	return s
@@ -44,7 +49,7 @@ func NewStoreWithKVStores(stores map[*storetypes.KVStoreKey]storetypes.CacheWrap
 	}
 
 	for key, store := range stores {
-		s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheKVStore))
+		s.stores[key] = snapshotkv.NewStore(store)
 		s.storeKeys = append(s.storeKeys, key)
 	}
 
@@ -117,7 +122,7 @@ func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return store.CurrentStore()
+	return store.CurrentStore().(storetypes.Store)
 }
 
 // GetKVStore returns an underlying KVStore by key.
@@ -126,7 +131,7 @@ func (s *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
 	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return store.CurrentStore()
+	return store.CurrentStore().(storetypes.KVStore)
 }
 
 // TracingEnabled returns if tracing is enabled for the MultiStore.
@@ -157,6 +162,15 @@ func (s *Store) LatestVersion() int64 {
 	return int64(s.head)
 }
 
+// GetObjKVStore returns the underlying ObjKVStore for the given key.
+func (s *Store) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
+	store := s.stores[key]
+	if store == nil {
+		panic(fmt.Sprintf("obj kv store with key %v has not been registered in stores", key))
+	}
+	return store.CurrentStore().(storetypes.ObjKVStore)
+}
+
 // Write calls Write on each underlying store.
 func (s *Store) Write() {
 	for _, key := range s.storeKeys {
@@ -164,3 +178,12 @@ func (s *Store) Write() {
 	}
 	s.head = types.InitialHead
 }
+
+// RunAtomic implements the SnapshotMultiStore interface.
+// It executes the given function atomically and returns its error.
+func (s *Store) RunAtomic(cb func(storetypes.CacheMultiStore) error) error {
+	return cb(s)
+}
+
+// Discard is a no-op function to implement the SnapshotMultiStore interface.
+func (s *Store) Discard() {}

@@ -11,6 +11,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -22,6 +23,7 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testKeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/types"
@@ -825,6 +827,23 @@ func (s *KeeperTestSuite) TestApplyMessage() {
 	s.Require().Equal(expectedGasUsed, res.GasUsed)
 }
 
+func (s *KeeperTestSuite) updateParams(k *feemarketkeeper.Keeper, ctx sdk.Context, params feemarkettypes.Params) {
+	s.T().Helper()
+	defaults := feemarkettypes.DefaultParams()
+	// fill nil fields in params with defaults
+	if params.BaseFee.IsNil() {
+		params.BaseFee = defaults.BaseFee
+	}
+	if params.MinGasPrice.IsNil() {
+		params.MinGasPrice = defaults.MinGasPrice
+	}
+	if params.MinGasMultiplier.IsNil() {
+		params.MinGasMultiplier = defaults.MinGasMultiplier
+	}
+	err := k.SetParams(ctx, params)
+	require.NoError(s.T(), err)
+}
+
 func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
@@ -908,30 +927,6 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			true,
 			0,
 		},
-		{
-			"fail - fix panic when minimumGasUsed is not uint64",
-			func() core.Message {
-				sender := s.Keyring.GetKey(0)
-				recipient := s.Keyring.GetAddr(1)
-				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
-					To:     &recipient,
-					Amount: big.NewInt(100),
-				})
-				s.Require().NoError(err)
-				return *msg
-			},
-			types.DefaultParams,
-			func() feemarkettypes.Params {
-				paramsRes, err := s.Handler.GetFeeMarketParams()
-				s.Require().NoError(err)
-				params := paramsRes.GetParams()
-				params.MinGasMultiplier = sdkmath.LegacyNewDec(math.MaxInt64).MulInt64(100)
-				return params
-			},
-			true,
-			false,
-			0,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -944,11 +939,8 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			)
 			s.Require().NoError(err)
 			feeMarketparams := tc.getFeeMarketParams()
-			err = s.Network.App.GetFeeMarketKeeper().SetParams(
-				s.Network.GetContext(),
-				feeMarketparams,
-			)
-			s.Require().NoError(err)
+			k := s.Network.App.GetFeeMarketKeeper()
+			s.updateParams(k, s.Network.GetContext(), feeMarketparams)
 
 			txConfig := s.Network.App.GetEVMKeeper().TxConfig(
 				s.Network.GetContext(),

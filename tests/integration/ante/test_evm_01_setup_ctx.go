@@ -14,7 +14,7 @@ import (
 )
 
 func (s *EvmAnteTestSuite) TestEthSetupContextDecorator() {
-	dec := evmante.NewEthSetUpContextDecorator(s.GetNetwork().App.GetEVMKeeper())
+	dec := evmante.NewEthSetUpContextDecorator()
 	ethContractCreationTxParams := &evmtypes.EvmTxArgs{
 		ChainID:  evmtypes.GetEthChainConfig().ChainID,
 		Nonce:    1,

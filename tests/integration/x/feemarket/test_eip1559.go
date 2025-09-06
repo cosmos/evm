@@ -136,6 +136,23 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 	}
 }
 
+func (s *KeeperTestSuite) updateParams(k *keeper.Keeper, ctx sdk.Context, params feemarkettypes.Params) {
+	s.T().Helper()
+	defaults := feemarkettypes.DefaultParams()
+	// fill nil fields in params with defaults
+	if params.BaseFee.IsNil() {
+		params.BaseFee = defaults.BaseFee
+	}
+	if params.MinGasPrice.IsNil() {
+		params.MinGasPrice = defaults.MinGasPrice
+	}
+	if params.MinGasMultiplier.IsNil() {
+		params.MinGasMultiplier = defaults.MinGasMultiplier
+	}
+	err := k.SetParams(ctx, params)
+	require.NoError(s.T(), err)
+}
+
 func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 	var (
 		nw  *network.UnitTestNetwork
@@ -438,9 +455,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 			k := nw.App.GetFeeMarketKeeper()
 
 			// Set up parameters
-			params := tc.setupParams()
-			err := k.SetParams(ctx, params)
-			require.NoError(s.T(), err)
+			s.updateParams(k, ctx, tc.setupParams())
 
 			// Set up block data
 			tc.setupBlockData(k, ctx)
