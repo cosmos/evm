@@ -1,8 +1,8 @@
 package keeper
 
 import (
-	"errors"
 	"fmt"
+	gomath "math"
 
 	"github.com/cosmos/evm/x/feemarket/types"
 
@@ -48,23 +48,17 @@ func (k *Keeper) BeginBlock(ctx sdk.Context) error {
 // The EVM end block logic doesn't update the validator set, thus it returns
 // an empty slice.
 func (k *Keeper) EndBlock(ctx sdk.Context) error {
-	if ctx.BlockGasMeter() == nil {
-		err := errors.New("block gas meter is nil when setting block gas wanted")
+	gasWanted := ctx.BlockGasWanted()
+	gasUsed := ctx.BlockGasUsed()
+
+	if gasWanted > gomath.MaxInt64 {
+		err := fmt.Errorf("integer overflow by integer type conversion. Gas wanted > MaxInt64. Gas wanted: %d", gasWanted)
 		k.Logger(ctx).Error(err.Error())
 		return err
 	}
 
-	gasWanted := math.NewIntFromUint64(k.GetTransientGasWanted(ctx))
-	gasUsed := math.NewIntFromUint64(ctx.BlockGasMeter().GasConsumedToLimit())
-
-	if !gasWanted.IsInt64() {
-		err := fmt.Errorf("integer overflow by integer type conversion. Gas wanted > MaxInt64. Gas wanted: %s", gasWanted)
-		k.Logger(ctx).Error(err.Error())
-		return err
-	}
-
-	if !gasUsed.IsInt64() {
-		err := fmt.Errorf("integer overflow by integer type conversion. Gas used > MaxInt64. Gas used: %s", gasUsed)
+	if gasUsed > gomath.MaxInt64 {
+		err := fmt.Errorf("integer overflow by integer type conversion. Gas used > MaxInt64. Gas used: %d", gasUsed)
 		k.Logger(ctx).Error(err.Error())
 		return err
 	}
@@ -74,8 +68,8 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	// this will be keep BaseFee protected from un-penalized manipulation
 	// more info here https://github.com/evmos/ethermint/pull/1105#discussion_r888798925
 	minGasMultiplier := k.GetParams(ctx).MinGasMultiplier
-	limitedGasWanted := math.LegacyNewDec(gasWanted.Int64()).Mul(minGasMultiplier)
-	updatedGasWanted := math.LegacyMaxDec(limitedGasWanted, math.LegacyNewDec(gasUsed.Int64())).TruncateInt().Uint64()
+	limitedGasWanted := math.LegacyNewDec(int64(gasWanted)).Mul(minGasMultiplier)
+	updatedGasWanted := math.LegacyMaxDec(limitedGasWanted, math.LegacyNewDec(int64(gasUsed))).TruncateInt().Uint64()
 	k.SetBlockGasWanted(ctx, updatedGasWanted)
 
 	defer func() {

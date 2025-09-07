@@ -11,9 +11,8 @@ const (
 	// RouterKey uses module name for routing
 	RouterKey = ModuleName
 
-	// TransientKey is the key to access the FeeMarket transient store, that is reset
-	// during the Commit phase.
-	TransientKey = "transient_" + ModuleName
+	// ObjectStoreKey is the key to access the Fee Market object store
+	ObjectStoreKey = "object:" + ModuleName
 )
 
 // prefix bytes for the feemarket persistent store
@@ -23,7 +22,7 @@ const (
 )
 
 const (
-	prefixTransientBlockGasUsed = iota + 1
+	prefixObjectParams = iota + 1
 )
 
 // KVStore key prefixes
@@ -33,5 +32,5 @@ var (
 
 // Transient Store key prefixes
 var (
-	KeyPrefixTransientBlockGasWanted = []byte{prefixTransientBlockGasUsed}
+	KeyPrefixObjectParams = []byte{prefixObjectParams}
 )

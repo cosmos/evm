@@ -9,25 +9,36 @@ import (
 )
 
 // GetParams returns the total set of fee market parameters.
-func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(types.ParamsKey)
-	if bz == nil {
-		return types.DefaultParams()
+func (k Keeper) GetParams(ctx sdk.Context) types.Params {
+	var params *types.Params
+	objStore := ctx.ObjectStore(k.objectKey)
+	v := objStore.Get(types.KeyPrefixObjectParams)
+	if v == nil {
+		params = new(types.Params)
+		bz := ctx.KVStore(k.storeKey).Get(types.ParamsKey)
+		if bz != nil {
+			k.cdc.MustUnmarshal(bz, params)
+		}
+		objStore.Set(types.KeyPrefixObjectParams, params)
+	} else {
+		params = v.(*types.Params)
 	}
-	k.cdc.MustUnmarshal(bz, &params)
-	return params
+	return *params
 }
 
 // SetParams sets the fee market params in a single key
-func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
-	store := ctx.KVStore(k.storeKey)
-	bz, err := k.cdc.Marshal(&params)
-	if err != nil {
+func (k Keeper) SetParams(ctx sdk.Context, p types.Params) error {
+	if err := p.Validate(); err != nil {
 		return err
 	}
-
+	store := ctx.KVStore(k.storeKey)
+	bz := k.cdc.MustMarshal(&p)
 	store.Set(types.ParamsKey, bz)
+
+	// set to cache as well, decode again to be compatible with the previous behavior
+	var params types.Params
+	k.cdc.MustUnmarshal(bz, &params)
+	ctx.ObjectStore(k.objectKey).Set(types.KeyPrefixObjectParams, &params)
 
 	return nil
 }

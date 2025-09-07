@@ -22,6 +22,12 @@ cache-preimage = {{ .EVM.EnablePreimageRecording }}
 # EVMChainID is the EIP-155 compatible replay protection chain ID. This is separate from the Cosmos chain ID.
 evm-chain-id = {{ .EVM.EVMChainID }}
 
+# BlockExecutor set block executor type, "block-stm" for parallel execution, "sequential" for sequential execution.
+block-executor = "{{ .EVM.BlockExecutor }}"
+
+# BlockSTMWorkers is the number of workers for block-stm execution, 0 means using all available CPUs.
+block-stm-workers = {{ .EVM.BlockSTMWorkers }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################

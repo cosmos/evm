@@ -118,9 +118,16 @@ const (
 
 	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
 	DefaultEnableProfiling = false
+
+	// BlockExecutor set block executor type, "block-stm" for parallel execution, "sequential" for sequential execution.
+	BlockExecutorSequential = "sequential"
+	BlockExecutorBlockSTM   = "block-stm"
 )
 
-var evmTracers = []string{"json", "markdown", "struct", "access_list"}
+var (
+	evmTracers     = []string{"json", "markdown", "struct", "access_list"}
+	blockExecutors = []string{BlockExecutorSequential, BlockExecutorBlockSTM}
+)
 
 // Config defines the server's top level configuration. It includes the default app config
 // from the SDK as well as the EVM configuration to enable the JSON-RPC APIs.
@@ -143,6 +150,10 @@ type EVMConfig struct {
 	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
 	// EVMChainID defines the EIP-155 replay-protection chain ID.
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
+	// BlockExecutor set block executor type, "block-stm" for parallel execution, "sequential" for sequential execution.
+	BlockExecutor string `mapstructure:"block-executor"`
+	// BlockSTMWorkers is the number of workers for block-stm execution, `0` means using all available CPUs.
+	BlockSTMWorkers int `mapstructure:"block-stm-workers"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -212,6 +223,7 @@ func DefaultEVMConfig() *EVMConfig {
 		MaxTxGasWanted:          DefaultMaxTxGasWanted,
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
+		BlockExecutor:           BlockExecutorSequential,
 	}
 }
 
@@ -220,7 +232,9 @@ func (c EVMConfig) Validate() error {
 	if c.Tracer != "" && !strings.StringInSlice(c.Tracer, evmTracers) {
 		return fmt.Errorf("invalid tracer type %s, available types: %v", c.Tracer, evmTracers)
 	}
-
+	if !strings.StringInSlice(c.BlockExecutor, blockExecutors) {
+		return fmt.Errorf("invalid block executor type %s, available types: %v", c.BlockExecutor, blockExecutors)
+	}
 	return nil
 }
 

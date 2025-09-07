@@ -14,33 +14,42 @@ import (
 )
 
 // GetParams returns the total set of evm parameters.
-func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(types.KeyPrefixParams)
-	if bz == nil {
-		return params
+func (k Keeper) GetParams(ctx sdk.Context) types.Params {
+	var params *types.Params
+	objStore := ctx.ObjectStore(k.objectKey)
+	v := objStore.Get(types.KeyPrefixObjectParams)
+	if v == nil {
+		store := ctx.KVStore(k.storeKey)
+		bz := store.Get(types.KeyPrefixParams)
+		params = new(types.Params)
+		if bz != nil {
+			k.cdc.MustUnmarshal(bz, params)
+		}
+		objStore.Set(types.KeyPrefixObjectParams, params)
+	} else {
+		params = v.(*types.Params)
 	}
-	k.cdc.MustUnmarshal(bz, &params)
-	return
+	return *params
 }
 
 // SetParams sets the EVM params each in their individual key for better get performance
-func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
+func (k Keeper) SetParams(ctx sdk.Context, p types.Params) error {
 	// NOTE: We need to sort the precompiles in order to enable searching with binary search
 	// in params.IsActivePrecompile.
-	slices.Sort(params.ActiveStaticPrecompiles)
+	slices.Sort(p.ActiveStaticPrecompiles)
 
-	if err := params.Validate(); err != nil {
+	if err := p.Validate(); err != nil {
 		return err
 	}
-
 	store := ctx.KVStore(k.storeKey)
-	bz, err := k.cdc.Marshal(&params)
-	if err != nil {
-		return err
-	}
-
+	bz := k.cdc.MustMarshal(&p)
 	store.Set(types.KeyPrefixParams, bz)
+
+	// set to cache as well, decode again to be compatible with the previous behavior
+	var params types.Params
+	k.cdc.MustUnmarshal(bz, &params)
+	ctx.ObjectStore(k.objectKey).Set(types.KeyPrefixObjectParams, &params)
+
 	return nil
 }
 

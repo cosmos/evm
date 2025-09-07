@@ -70,6 +70,8 @@ const (
 	EVMMaxTxGasWanted          = "evm.max-tx-gas-wanted"
 	EVMEnablePreimageRecording = "evm.cache-preimage"
 	EVMChainID                 = "evm.evm-chain-id"
+	EVMBlockExecutor           = "evm.block-executor"
+	EVMBlockSTMWorkers         = "evm.block-stm-workers"
 )
 
 // TLS flags
