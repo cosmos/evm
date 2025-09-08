@@ -99,7 +99,7 @@ func TestTxsReplacement(t *testing.T) {
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx)
-					s.PromoteExpTxs(2)
+					s.PromoteExpTxs(3)
 				},
 			},
 		},

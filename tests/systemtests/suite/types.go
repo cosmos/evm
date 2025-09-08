@@ -18,10 +18,10 @@ type TxInfo struct {
 	TxHash    string
 }
 
-func NewTxInfo(nodeID, txType, txHash string) *TxInfo {
+func NewTxInfo(nodeID, txHash, txType string) *TxInfo {
 	return &TxInfo{
 		DstNodeID: nodeID,
-		TxHash:    txType,
-		TxType:    txHash,
+		TxHash:    txHash,
+		TxType:    txType,
 	}
 }
