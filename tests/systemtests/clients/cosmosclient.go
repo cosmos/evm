@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -135,6 +136,48 @@ func (c *CosmosClient) WaitForCommit(
 			}
 
 			return result, nil
+		}
+	}
+}
+
+func (c *CosmosClient) CheckPendingOrCommited(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	hashBytes, err := hex.DecodeString(txHash)
+	if err != nil {
+		return fmt.Errorf("invalid tx hash format: %v", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for transaction %s", txHash)
+		case <-ticker.C:
+			result, err := c.UnconfirmedTxs(nodeID)
+			if err != nil {
+				return fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
+			}
+
+			pendingTxHashes := make([]string, 0)
+			for _, tx := range result.Txs {
+				pendingTxHashes = append(pendingTxHashes, tx.Hash().String())
+			}
+
+			if ok := slices.Contains(pendingTxHashes, txHash); ok {
+				return nil
+			}
+
+			if _, err = c.ClientCtx.Client.Tx(ctx, hashBytes, false); err == nil {
+				return nil
+			}
 		}
 	}
 }

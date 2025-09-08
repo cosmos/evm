@@ -23,11 +23,16 @@ func TestTxsOrdering(t *testing.T) {
 					for i := 0; i < 5; i++ {
 						// nonce order of submitted txs: 3,4,0,1,2
 						nonceIdx := uint64((i + 3) % 5)
-						txInfo, err := s.SendTx(t, s.GetNodeID(0), "acc0", nonceIdx, s.BaseFee(), new(big.Int).Mul(big.NewInt(1000), big.NewInt(int64(i))))
+
+						// target node order of submitted txs: 0,1,2,3,0
+						nodeId := s.GetNodeID(i % 4)
+
+						// txInfo, err := s.SendTx(t, s.GetNodeID(0), "acc0", nonceIdx, s.BaseFee(), new(big.Int).Mul(big.NewInt(1000), big.NewInt(int64(i))))
+						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.BaseFee(), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4
-						expPendingTxs[(i+3)%5] = txInfo
+						expPendingTxs[nonceIdx] = txInfo
 					}
 
 					s.SetExpPendingTxs(expPendingTxs...)

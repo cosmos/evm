@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/test-go/testify/require"
@@ -71,8 +70,6 @@ func TestTxsReplacement(t *testing.T) {
 
 					s.SetExpPendingTxs(txHash)
 					s.PromoteExpTxs(1)
-
-					time.Sleep(time.Second * 2)
 				},
 			},
 		},
@@ -103,8 +100,6 @@ func TestTxsReplacement(t *testing.T) {
 
 					s.SetExpPendingTxs(tx)
 					s.PromoteExpTxs(3)
-
-					time.Sleep(time.Second * 3)
 				},
 			},
 		},

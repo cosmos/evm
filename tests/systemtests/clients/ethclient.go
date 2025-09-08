@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -107,6 +108,42 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
+func (ec *EthClient) CheckPendingOrCommited(
+	nodeID string,
+	txHash string,
+	timeout time.Duration,
+) error {
+	ethCli := ec.Clients[nodeID]
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for transaction %s", txHash)
+		case <-ticker.C:
+			pendingTxs, _, err := ec.TxPoolContent(nodeID)
+			if err != nil {
+				return fmt.Errorf("failed to get txpool content")
+			}
+
+			pendingTxHashes := extractTxHashesSorted(pendingTxs)
+
+			if ok := slices.Contains(pendingTxHashes, txHash); ok {
+				return nil
+			}
+
+			if _, err = ethCli.TransactionReceipt(context.Background(), common.HexToHash(txHash)); err == nil {
+				return nil
+			}
+		}
+	}
+}
+
 func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
@@ -130,4 +167,35 @@ func (ec *EthClient) TxPoolContentFrom(nodeID, accID string) (map[string]map[str
 	}
 
 	return result.Pending, result.Queued, nil
+}
+
+// extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
+func extractTxHashesSorted(txMap map[string]map[string]*RPCTransaction) []string {
+	var result []string
+
+	// Get addresses and sort them for deterministic iteration
+	addresses := make([]string, 0, len(txMap))
+	for addr := range txMap {
+		addresses = append(addresses, addr)
+	}
+	slices.Sort(addresses)
+
+	// Process addresses in sorted order
+	for _, addr := range addresses {
+		txs := txMap[addr]
+
+		// Sort transactions by nonce for deterministic ordering
+		nonces := make([]string, 0, len(txs))
+		for nonce := range txs {
+			nonces = append(nonces, nonce)
+		}
+		slices.Sort(nonces)
+
+		// Add transaction hashes to flat result slice
+		for _, nonce := range nonces {
+			result = append(result, txs[nonce].Hash.Hex())
+		}
+	}
+
+	return result
 }

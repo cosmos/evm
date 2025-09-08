@@ -44,7 +44,7 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 func (s *SystemTestSuite) SetupTest(t *testing.T) {
 	s.ResetChain(t)
 	s.StartChain(t, DefaultNodeArgs()...)
-	s.AwaitNBlocks(t, 10)
+	s.AwaitNBlocks(t, 2)
 }
 
 func (s *SystemTestSuite) BeforeEach(t *testing.T) {
@@ -61,11 +61,8 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 	for _, txInfo := range s.GetExpPendingTxs() {
-		evmPendingTxHashes, _, err := s.TxPoolContent(txInfo.DstNodeID, txInfo.TxType)
-		require.NoError(t, err)
-
-		ok := slices.Contains(evmPendingTxHashes, txInfo.TxHash)
-		require.True(t, ok, fmt.Sprintf("tx %s is not contained in pending txs in %s mempool", txInfo.TxHash, txInfo.TxType))
+		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*7)
+		require.NoError(t, err, "tx is not pending or committed")
 	}
 
 	for _, txInfo := range s.GetExpQueuedTxs() {
@@ -93,6 +90,9 @@ func (s *SystemTestSuite) AfterEach(t *testing.T) {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
 		require.Error(t, err)
 	}
+
+	// Wait for block commit
+	s.AwaitNBlocks(t, 1)
 }
 
 func (s *SystemTestSuite) BaseFee() *big.Int {

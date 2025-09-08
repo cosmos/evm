@@ -49,12 +49,14 @@ func (s *SystemTestSuite) WaitForCommit(
 	txType string,
 	timeout time.Duration,
 ) error {
-	if txType == TxTypeCosmos {
-		return s.waitForCosmosCommmit(nodeID, txHash, timeout)
-	} else if txType == TxTypeEVM {
+	switch txType {
+	case TxTypeEVM:
 		return s.waitForEthCommmit(nodeID, txHash, timeout)
+	case TxTypeCosmos:
+		return s.waitForCosmosCommmit(nodeID, txHash, timeout)
+	default:
+		return fmt.Errorf("invalid txtype: %s", txType)
 	}
-	return fmt.Errorf("invalid txtype: %s", txType)
 }
 
 func (s *SystemTestSuite) waitForEthCommmit(
@@ -91,11 +93,31 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
-	if txType == TxTypeCosmos {
-		return s.cosmosTxPoolContent(nodeID)
+func (s *SystemTestSuite) CheckPendingOrCommitted(
+	nodeID string,
+	txHash string,
+	txType string,
+	timeout time.Duration,
+) error {
+	switch txType {
+	case TxTypeEVM:
+		return s.EthClient.CheckPendingOrCommited(nodeID, txHash, timeout)
+	case TxTypeCosmos:
+		return s.CosmosClient.CheckPendingOrCommited(nodeID, txHash, timeout)
+	default:
+		return fmt.Errorf("invalid tx type")
 	}
-	return s.ethTxPoolContent(nodeID)
+}
+
+func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
+	switch txType {
+	case TxTypeEVM:
+		return s.ethTxPoolContent(nodeID)
+	case TxTypeCosmos:
+		return s.cosmosTxPoolContent(nodeID)
+	default:
+		return nil, nil, fmt.Errorf("invalid tx type")
+	}
 }
 
 func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
