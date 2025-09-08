@@ -36,6 +36,10 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 		return nil, fmt.Errorf("failed to get block from %s: %v", nodeID, err)
 	}
 
+	if block.BaseFee().Cmp(big.NewInt(0)) <= 0 {
+		return nil, fmt.Errorf("failed to get block from %s: %v", nodeID, err)
+	}
+
 	return block.BaseFee(), nil
 }
 

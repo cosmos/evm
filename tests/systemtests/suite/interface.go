@@ -20,7 +20,7 @@ type TestSuite interface {
 
 	// Query
 	BaseFee() *big.Int
-	BaseFeeX10() *big.Int
+	BaseFeeX2() *big.Int
 	WaitForCommit(nodeID string, txHash string, txType string, timeout time.Duration) error
 	TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error)
 
@@ -34,6 +34,5 @@ type TestSuite interface {
 	GetExpQueuedTxs() []*TxInfo
 	SetExpQueuedTxs(txs ...*TxInfo)
 	GetExpDiscardedTxs() []*TxInfo
-	SetExpDiscardedTxs(txs ...*TxInfo)
 	PromoteExpTxs(count int)
 }

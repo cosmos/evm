@@ -22,8 +22,6 @@ type CosmosAccount struct {
 }
 
 type TxPoolResult struct {
-	// Pending map[common.Address][]*ethtypes.Transaction `json:"pending"`
-	// Queued  map[common.Address][]*ethtypes.Transaction `json:"queued"`
 	Pending map[string]map[string]*RPCTransaction `json:"pending"`
 	Queued  map[string]map[string]*RPCTransaction `json:"queued"`
 }

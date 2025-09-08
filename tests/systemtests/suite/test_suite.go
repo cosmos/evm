@@ -53,7 +53,6 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	// Reset expected pending/queued transactions
 	s.SetExpPendingTxs()
 	s.SetExpQueuedTxs()
-	s.SetExpDiscardedTxs()
 
 	// Reset nodeIterator
 	s.nodeIterator = NewNodeIterator(s.TestOption.NodeEntries)
@@ -66,6 +65,8 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 }
 
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
+	time.Sleep(1 * time.Second)
+
 	for _, txInfo := range s.GetExpPendingTxs() {
 		if txInfo.TxType == TxTypeEVM {
 			evmPendingTxHashes, _, err := s.TxPoolContent(txInfo.DstNodeID, TxTypeEVM)
@@ -93,14 +94,19 @@ func (s *SystemTestSuite) AfterEach(t *testing.T) {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
 		require.NoError(t, err)
 	}
+
+	for _, txInfo := range s.GetExpDiscardedTxs() {
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
+		require.Error(t, err)
+	}
 }
 
 func (s *SystemTestSuite) BaseFee() *big.Int {
 	return s.baseFee
 }
 
-func (s *SystemTestSuite) BaseFeeX10() *big.Int {
-	return new(big.Int).Mul(s.baseFee, big.NewInt(10))
+func (s *SystemTestSuite) BaseFeeX2() *big.Int {
+	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
 }
 
 func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {

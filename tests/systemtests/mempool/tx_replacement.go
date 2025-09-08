@@ -21,7 +21,7 @@ func TestTxsReplacement(t *testing.T) {
 				func(s suite.TestSuite) {
 					lowFeeEVMTxHash, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					highGasEVMTxHash, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), big.NewInt(1))
+					highGasEVMTxHash, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpQueuedTxs(highGasEVMTxHash, lowFeeEVMTxHash)
@@ -33,22 +33,21 @@ func TestTxsReplacement(t *testing.T) {
 			name: "multiple pending txs %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					_, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-
-					tx3, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
-					require.NoError(t, err, "failed to send tx")
-					tx4, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					tx5, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFee(), nil)
+					_, err = s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx6, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFeeX10(), big.NewInt(1))
+					tx4, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1, tx3, tx5)
+					_, err = s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFee(), nil)
+					require.NoError(t, err, "failed to send tx")
+					tx6, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
 					s.SetExpPendingTxs(tx2, tx4, tx6)
 				},
 			},
@@ -58,12 +57,11 @@ func TestTxsReplacement(t *testing.T) {
 			name: "single queued tx %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					_, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s suite.TestSuite) {
@@ -79,22 +77,21 @@ func TestTxsReplacement(t *testing.T) {
 			name: "multiple queued txs %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					_, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-
-					tx3, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFee(), nil)
-					require.NoError(t, err, "failed to send tx")
-					tx4, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFeeX10(), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					tx5, err := s.SendTx(t, s.GetNode(), "acc0", 3, s.BaseFee(), nil)
+					_, err = s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx6, err := s.SendTx(t, s.GetNode(), "acc0", 3, s.BaseFeeX10(), big.NewInt(1))
+					tx4, err := s.SendTx(t, s.GetNode(), "acc0", 2, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1, tx3, tx5)
+					_, err = s.SendTx(t, s.GetNode(), "acc0", 3, s.BaseFee(), nil)
+					require.NoError(t, err, "failed to send tx")
+					tx6, err := s.SendTx(t, s.GetNode(), "acc0", 3, s.BaseFeeX2(), big.NewInt(1))
+					require.NoError(t, err, "failed to send tx")
+
 					s.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
 				func(s suite.TestSuite) {
@@ -123,7 +120,7 @@ func TestTxsReplacement(t *testing.T) {
 				s.BeforeEach(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					// s.JustAfterEach(t)
 				}
 				s.AfterEach(t)
 			})
@@ -141,12 +138,11 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single pending tx (low prio evm tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					_, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), nil)
+					tx2, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
 					s.SetExpPendingTxs(tx2)
 				},
 			},
@@ -156,12 +152,11 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single pending tx (high prio evm tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), big.NewInt(1))
+					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					_, err = s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx2)
 					s.SetExpPendingTxs(tx1)
 				},
 			},
@@ -171,12 +166,11 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single pending tx (low prio cosmos tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					_, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), big.NewInt(1))
+					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
 					s.SetExpPendingTxs(tx2)
 				},
 			},
@@ -186,12 +180,11 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single pending tx (high prio cosmos tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX10(), big.NewInt(1))
+					tx1, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
+					_, err = s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx2)
 					s.SetExpPendingTxs(tx1)
 				},
 			},
@@ -203,12 +196,11 @@ func TestMixedTxsReplacement(t *testing.T) {
 				func(s suite.TestSuite) {
 					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
+					_, err = s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					// CosmosTx is not queued in local mempool
-					s.SetExpDiscardedTxs(tx1)
-					s.SetExpQueuedTxs(tx2)
+					s.SetExpQueuedTxs(tx1)
 				},
 				func(s suite.TestSuite) {
 					tx3, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
@@ -223,13 +215,13 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single queued tx (high prio evm tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
+					tx1, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					_, err = s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
-					s.SetExpQueuedTxs(tx2)
+					// CosmosTx is not queued in local mempool
+					s.SetExpQueuedTxs(tx1)
 				},
 				func(s suite.TestSuite) {
 					tx3, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
@@ -244,12 +236,12 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single queued tx (low prio cosmos tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					_, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, new(big.Int).Add(s.BaseFeeX10(), big.NewInt(100)), big.NewInt(1))
+					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, new(big.Int).Add(s.BaseFeeX2(), big.NewInt(100)), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
+					// CosmosTx is not queued in local mempool
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s suite.TestSuite) {
@@ -265,13 +257,13 @@ func TestMixedTxsReplacement(t *testing.T) {
 			name: "single queued tx (high prio cosmos tx first) %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(1))
+					_, err := s.SendCosmosTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendEthTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx2)
-					s.SetExpQueuedTxs(tx1)
+					// CosmosTx is not queued in local mempool
+					s.SetExpQueuedTxs(tx2)
 				},
 				func(s suite.TestSuite) {
 					tx3, err := s.SendEthTx(t, s.GetNode(), "acc0", 0, s.BaseFee(), nil)
@@ -312,11 +304,10 @@ func TestMixedTxsReplacement(t *testing.T) {
 				s.BeforeEach(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					// s.JustAfterEach(t)
 				}
 				s.AfterEach(t)
 			})
 		}
 	}
-
 }

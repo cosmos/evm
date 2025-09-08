@@ -19,12 +19,11 @@ func TestNonceGappedTxs(t *testing.T) {
 			name: "Single nonce gap fill %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
-					tx1, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
+					_, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX10(), big.NewInt(10000))
+					tx2, err := s.SendTx(t, s.GetNode(), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpDiscardedTxs(tx1)
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s suite.TestSuite) {

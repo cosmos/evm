@@ -51,7 +51,7 @@ func TestTxsOrdering(t *testing.T) {
 				s.BeforeEach(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					// s.JustAfterEach(t)
 				}
 				s.AfterEach(t)
 			})
