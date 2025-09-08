@@ -1,8 +1,9 @@
 package mempool
 
 import (
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"testing"
+
+	"github.com/cosmos/evm/evmd/tests/integration"
 
 	"github.com/stretchr/testify/suite"
 
