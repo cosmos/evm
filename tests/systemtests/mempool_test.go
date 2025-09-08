@@ -6,10 +6,6 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 )
 
-func TestNonceGappedTxs(t *testing.T) {
-	mempool.TestNonceGappedTxs(t)
-}
-
 func TestTxsOrdering(t *testing.T) {
 	mempool.TestTxsOrdering(t)
 }

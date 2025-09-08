@@ -26,7 +26,7 @@ type TestSuite interface {
 
 	// Config
 	DefaultTestOption() []TestOption
-	GetNode() string
+	GetNodeID(idx int) string
 
 	// Expectation of mempool state
 	GetExpPendingTxs() []*TxInfo

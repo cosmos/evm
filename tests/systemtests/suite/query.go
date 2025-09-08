@@ -92,10 +92,10 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 }
 
 func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
-	if txType == TxTypeEVM {
-		return s.ethTxPoolContent(nodeID)
+	if txType == TxTypeCosmos {
+		return s.cosmosTxPoolContent(nodeID)
 	}
-	return s.cosmosTxPoolContent(nodeID)
+	return s.ethTxPoolContent(nodeID)
 }
 
 func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {

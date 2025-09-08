@@ -21,8 +21,6 @@ type SystemTestSuite struct {
 
 	TestOption TestOption
 
-	nodeIterator *NodeIterator
-
 	// Transaction Hashes
 	expPendingTxs   []*TxInfo
 	expQueuedTxs    []*TxInfo
@@ -54,9 +52,6 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	s.SetExpPendingTxs()
 	s.SetExpQueuedTxs()
 
-	// Reset nodeIterator
-	s.nodeIterator = NewNodeIterator(s.TestOption.NodeEntries)
-
 	// Get current base fee
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
 	require.NoError(t, err)
@@ -65,28 +60,27 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 }
 
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
-	time.Sleep(1 * time.Second)
-
 	for _, txInfo := range s.GetExpPendingTxs() {
-		if txInfo.TxType == TxTypeEVM {
-			evmPendingTxHashes, _, err := s.TxPoolContent(txInfo.DstNodeID, TxTypeEVM)
-			require.NoError(t, err)
+		evmPendingTxHashes, _, err := s.TxPoolContent(txInfo.DstNodeID, txInfo.TxType)
+		require.NoError(t, err)
 
-			ok := slices.Contains(evmPendingTxHashes, txInfo.TxHash)
-			require.True(t, ok, fmt.Sprintf("tx %s is not contained in pending txs in %s mempool", txInfo.TxHash, txInfo.TxType))
-		}
+		ok := slices.Contains(evmPendingTxHashes, txInfo.TxHash)
+		require.True(t, ok, fmt.Sprintf("tx %s is not contained in pending txs in %s mempool", txInfo.TxHash, txInfo.TxType))
 	}
 
 	for _, txInfo := range s.GetExpQueuedTxs() {
-		if txInfo.TxType == TxTypeEVM {
-			_, evmQueuedTxHashes, err := s.TxPoolContent(txInfo.DstNodeID, TxTypeEVM)
-			require.NoError(t, err)
+		_, evmQueuedTxHashes, err := s.TxPoolContent(txInfo.DstNodeID, txInfo.TxType)
+		require.NoError(t, err)
 
-			ok := slices.Contains(evmQueuedTxHashes, txInfo.TxHash)
-			require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
-		}
-
+		ok := slices.Contains(evmQueuedTxHashes, txInfo.TxHash)
+		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
 	}
+
+	// Get current base fee
+	currentBaseFee, err := s.GetLatestBaseFee("node0")
+	require.NoError(t, err)
+
+	s.baseFee = currentBaseFee
 }
 
 func (s *SystemTestSuite) AfterEach(t *testing.T) {
@@ -157,13 +151,10 @@ func (s *SystemTestSuite) PromoteExpTxs(count int) {
 	s.expQueuedTxs = s.expQueuedTxs[actualCount:]
 }
 
-func (s *SystemTestSuite) GetNode() string {
-	if s.nodeIterator == nil || s.nodeIterator.IsEmpty() {
-		return "node0"
-	}
+func (s *SystemTestSuite) GetNodeID(idx int) string {
+	return fmt.Sprintf("node%d", idx)
+}
 
-	currentNode := s.nodeIterator.Node()
-	s.nodeIterator.Next()
-
-	return currentNode
+func (s *SystemTestSuite) GetAccID(idx int) string {
+	return fmt.Sprintf("acc%d", idx)
 }
