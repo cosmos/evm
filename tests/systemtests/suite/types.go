@@ -5,11 +5,10 @@ const (
 	TxTypeCosmos = "CosmosTx"
 )
 
-type TestOption struct {
-	TestType          string
-	TxType            string
-	ApplyDynamicFeeTx bool
-	NodeEntries       []string
+type TestOptions struct {
+	Description    string
+	TxType         string
+	IsDynamicFeeTx bool
 }
 
 type TxInfo struct {

@@ -17,7 +17,8 @@ func (s *SystemTestSuite) SendTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
-	if s.TestOption.TestType == TxTypeCosmos {
+	options := s.GetOptions()
+	if options != nil && options.TxType == TxTypeCosmos {
 		return s.SendCosmosTx(t, nodeID, accID, nonceIdx, gasPrice, nil)
 	}
 	return s.SendEthTx(t, nodeID, accID, nonceIdx, gasPrice, gasTipCap)
@@ -31,31 +32,31 @@ func (s *SystemTestSuite) SendEthTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
-	nonce, err := s.NonceAt(nodeID, accID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current nonce: %v", err)
-	}
 
-	gappedNonce := nonce + nonceIdx
-
-	if s.TestOption.ApplyDynamicFeeTx {
-		return s.SendEthDynamicFeeTx(t, nodeID, accID, gappedNonce, gasPrice, gasTipCap)
+	options := s.GetOptions()
+	if options != nil && options.IsDynamicFeeTx {
+		return s.SendEthDynamicFeeTx(t, nodeID, accID, nonceIdx, gasPrice, gasTipCap)
 	}
-	return s.SendEthLegacyTx(t, nodeID, accID, gappedNonce, gasPrice)
+	return s.SendEthLegacyTx(t, nodeID, accID, nonceIdx, gasPrice)
 }
 
 func (s *SystemTestSuite) SendEthLegacyTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
-	nonce uint64,
+	nonceIdx uint64,
 	gasPrice *big.Int,
 ) (*TxInfo, error) {
 	to := s.EthClient.Accs["acc3"].Address
 	value := big.NewInt(1000)
 	gasLimit := uint64(50_000)
+	nonce, err := s.NonceAt(nodeID, accID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current nonce: %v", err)
+	}
+	gappedNonce := nonce + nonceIdx
 
-	tx := ethtypes.NewTransaction(nonce, to, value, gasLimit, gasPrice, nil)
+	tx := ethtypes.NewTransaction(gappedNonce, to, value, gasLimit, gasPrice, nil)
 	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send eth legacy tx: %v", err)
@@ -68,13 +69,19 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
-	nonce uint64,
+	nonceIdx uint64,
 	gasFeeCap *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
+	nonce, err := s.NonceAt(nodeID, accID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current nonce: %v", err)
+	}
+	gappedNonce := nonce + nonceIdx
+
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID:   s.EthClient.ChainID,
-		Nonce:     nonce,
+		Nonce:     gappedNonce,
 		To:        &(s.EthClient.Accs["acc3"].Address),
 		Value:     big.NewInt(1000),
 		Gas:       uint64(50_000),
@@ -96,7 +103,7 @@ func (s *SystemTestSuite) SendCosmosTx(
 	accID string,
 	nonceIdx uint64,
 	gasPrice *big.Int,
-	_ *big.Int,
+	gasTipCap *big.Int,
 ) (*TxInfo, error) {
 	from := s.CosmosClient.Accs[accID].AccAddress
 	to := s.CosmosClient.Accs["acc3"].AccAddress

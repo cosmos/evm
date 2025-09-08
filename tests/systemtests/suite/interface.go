@@ -14,9 +14,11 @@ type TestSuite interface {
 	JustAfterEach(t *testing.T)
 
 	// Tx
-	SendTx(t *testing.T, nodeID string, accID string, nonce uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
-	SendEthTx(t *testing.T, nodeID string, accID string, nonce uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
-	SendCosmosTx(t *testing.T, nodeID string, accID string, nonce uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
+	SendTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
+	SendEthTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
+	SendEthLegacyTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int) (*TxInfo, error)
+	SendEthDynamicFeeTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
+	SendCosmosTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int, gasTipCap *big.Int) (*TxInfo, error)
 
 	// Query
 	BaseFee() *big.Int
@@ -25,8 +27,9 @@ type TestSuite interface {
 	TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error)
 
 	// Config
-	DefaultTestOption() []TestOption
-	GetNodeID(idx int) string
+	GetOptions() *TestOptions
+	Node(idx int) string
+	Acc(idx int) string
 
 	// Expectation of mempool state
 	GetExpPendingTxs() []*TxInfo

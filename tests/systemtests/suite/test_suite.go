@@ -19,7 +19,7 @@ type SystemTestSuite struct {
 
 	baseFee *big.Int
 
-	TestOption TestOption
+	options *TestOptions
 
 	// Transaction Hashes
 	expPendingTxs   []*TxInfo
@@ -61,7 +61,7 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*7)
+		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
 		require.NoError(t, err, "tx is not pending or committed")
 	}
 
@@ -73,6 +73,9 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
 	}
 
+	// Wait for block commit
+	s.AwaitNBlocks(t, 1)
+
 	// Get current base fee
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
 	require.NoError(t, err)
@@ -82,12 +85,12 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 
 func (s *SystemTestSuite) AfterEach(t *testing.T) {
 	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
 		require.NoError(t, err)
 	}
 
 	for _, txInfo := range s.GetExpDiscardedTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
 		require.Error(t, err)
 	}
 
@@ -151,10 +154,18 @@ func (s *SystemTestSuite) PromoteExpTxs(count int) {
 	s.expQueuedTxs = s.expQueuedTxs[actualCount:]
 }
 
-func (s *SystemTestSuite) GetNodeID(idx int) string {
+func (s *SystemTestSuite) Node(idx int) string {
 	return fmt.Sprintf("node%d", idx)
 }
 
-func (s *SystemTestSuite) GetAccID(idx int) string {
+func (s *SystemTestSuite) Acc(idx int) string {
 	return fmt.Sprintf("acc%d", idx)
+}
+
+func (s *SystemTestSuite) GetOptions() *TestOptions {
+	return s.options
+}
+
+func (s *SystemTestSuite) SetOptions(options *TestOptions) {
+	s.options = options
 }

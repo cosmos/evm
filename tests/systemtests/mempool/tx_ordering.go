@@ -16,7 +16,7 @@ func TestTxsOrdering(t *testing.T) {
 		bypass  bool
 	}{
 		{
-			name: "Basic ordering of pending txs %s",
+			name: "ordering of pending txs %s",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
 					expPendingTxs := make([]*suite.TxInfo, 5)
@@ -24,10 +24,14 @@ func TestTxsOrdering(t *testing.T) {
 						// nonce order of submitted txs: 3,4,0,1,2
 						nonceIdx := uint64((i + 3) % 5)
 
-						// target node order of submitted txs: 0,1,2,3,0
-						nodeId := s.GetNodeID(i % 4)
+						// For cosmos tx, we should send tx to one node.
+						// Because cosmos pool does not manage queued txs.
+						nodeId := "node0"
+						if s.GetOptions().TxType == suite.TxTypeEVM {
+							// target node order of submitted txs: 0,1,2,3,0
+							nodeId = s.Node(i % 4)
+						}
 
-						// txInfo, err := s.SendTx(t, s.GetNodeID(0), "acc0", nonceIdx, s.BaseFee(), new(big.Int).Mul(big.NewInt(1000), big.NewInt(int64(i))))
 						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.BaseFee(), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
@@ -41,14 +45,27 @@ func TestTxsOrdering(t *testing.T) {
 		},
 	}
 
+	testOptions := []*suite.TestOptions{
+		{
+			Description:    "EVM LegacyTx send",
+			TxType:         suite.TxTypeEVM,
+			IsDynamicFeeTx: false,
+		},
+		{
+			Description:    "EVM DynamicFeeTx send",
+			TxType:         suite.TxTypeEVM,
+			IsDynamicFeeTx: true,
+		},
+	}
+
 	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
 
-	for _, to := range s.DefaultTestOption() {
+	for _, to := range testOptions {
+		s.SetOptions(to)
 		for _, tc := range testCases {
-			s.TestOption = to
-			tc.name = fmt.Sprintf(tc.name, to.TestType)
-			t.Run(tc.name, func(t *testing.T) {
+			testName := fmt.Sprintf(tc.name, to.Description)
+			t.Run(testName, func(t *testing.T) {
 				if tc.bypass {
 					return
 				}
