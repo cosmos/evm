@@ -1,4 +1,4 @@
-//go:build system_test
+// go:build system_test
 
 package mempool
 
@@ -14,13 +14,13 @@ import (
 func TestTxsOrdering(t *testing.T) {
 	testCases := []struct {
 		name    string
-		actions []func(s suite.TestSuite)
+		actions []func(s TestSuite)
 		bypass  bool
 	}{
 		{
 			name: "ordering of pending txs %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					expPendingTxs := make([]*suite.TxInfo, 5)
 					for i := 0; i < 5; i++ {
 						// nonce order of submitted txs: 3,4,0,1,2
