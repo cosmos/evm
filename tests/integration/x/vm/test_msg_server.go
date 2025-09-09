@@ -63,7 +63,6 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				// check expected events were emitted
 				s.Require().NotEmpty(events)
 				s.Require().True(utils.ContainsEventType(events.ToABCIEvents(), types.EventTypeEthereumTx))
-				s.Require().True(utils.ContainsEventType(events.ToABCIEvents(), types.EventTypeTxLog))
 				s.Require().True(utils.ContainsEventType(events.ToABCIEvents(), sdktypes.EventTypeMessage))
 			}
 

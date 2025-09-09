@@ -1,8 +1,6 @@
 package backend
 
 import (
-	"encoding/json"
-
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
@@ -16,12 +14,12 @@ import (
 func (s *TestSuite) TestGetLogs() {
 	_, bz := s.buildEthereumTx()
 	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
-	logs := make([]*evmtypes.Log, 0, 1)
-	var log evmtypes.Log
-	err := json.Unmarshal([]byte("{\"test\": \"hello\"}"), &log) // TODO refactor this to unmarshall to a log struct successfully
-	s.Require().NoError(err)
-
-	logs = append(logs, &log)
+	logs := []*evmtypes.Log{
+		{
+			Data:        []byte("data"),
+			BlockNumber: 1,
+		},
+	}
 
 	testCases := []struct {
 		name         string

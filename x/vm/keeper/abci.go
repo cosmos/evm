@@ -43,7 +43,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	// Gas costs are handled within msg handler so costs should be ignored
 	infCtx := ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 
-	if k.evmMempool != nil {
+	if k.evmMempool != nil && !k.evmMempool.HasEventBus() {
 		k.evmMempool.GetBlockchain().NotifyNewBlock()
 	}
 
