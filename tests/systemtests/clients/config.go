@@ -41,14 +41,14 @@ const (
 )
 
 type Config struct {
-	ChainID    string
-	EVMChainID *big.Int
-	// Accounts []*Account
+	ChainID     string
+	EVMChainID  *big.Int
 	PrivKeys    []string
 	JsonRPCUrls []string
 	NodeRPCUrls []string
 }
 
+// NewConfig creates a new Config instance.
 func NewConfig() (*Config, error) {
 	// evm chainID
 	evmChainID, ok := new(big.Int).SetString(EVMChainID, 10)

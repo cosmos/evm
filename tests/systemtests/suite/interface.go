@@ -36,6 +36,5 @@ type TestSuite interface {
 	SetExpPendingTxs(txs ...*TxInfo)
 	GetExpQueuedTxs() []*TxInfo
 	SetExpQueuedTxs(txs ...*TxInfo)
-	GetExpDiscardedTxs() []*TxInfo
 	PromoteExpTxs(count int)
 }

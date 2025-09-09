@@ -32,6 +32,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
+// CosmosClient is a client for interacting with Cosmos SDK-based nodes.
 type CosmosClient struct {
 	ChainID    string
 	ClientCtx  client.Context
@@ -39,6 +40,7 @@ type CosmosClient struct {
 	Accs       map[string]*CosmosAccount
 }
 
+// NewCosmosClient creates a new CosmosClient instance.
 func NewCosmosClient() (*CosmosClient, error) {
 	config, err := NewConfig()
 	if err != nil {
@@ -86,6 +88,7 @@ func NewCosmosClient() (*CosmosClient, error) {
 	}, nil
 }
 
+// BankSend sends a bank send transaction from one account to another.
 func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
 	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
 
@@ -107,6 +110,7 @@ func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, a
 	return resp, nil
 }
 
+// WaitForCommit waits for a transaction to be committed in a block.
 func (c *CosmosClient) WaitForCommit(
 	nodeID string,
 	txHash string,
@@ -140,6 +144,7 @@ func (c *CosmosClient) WaitForCommit(
 	}
 }
 
+// CheckPendingOrCommited checks if a transaction is either pending in the mempool or already committed.
 func (c *CosmosClient) CheckPendingOrCommited(
 	nodeID string,
 	txHash string,
@@ -182,10 +187,12 @@ func (c *CosmosClient) CheckPendingOrCommited(
 	}
 }
 
+// UnconfirmedTxs retrieves the list of unconfirmed transactions from the node's mempool.
 func (c *CosmosClient) UnconfirmedTxs(nodeID string) (*coretypes.ResultUnconfirmedTxs, error) {
 	return c.RpcClients[nodeID].UnconfirmedTxs(context.Background(), nil)
 }
 
+// newClientContext creates a new client context for the Cosmos SDK.
 func newClientContext(config *Config) (*client.Context, error) {
 	// Create codec and tx config
 	interfaceRegistry := types.NewInterfaceRegistry()
@@ -206,6 +213,7 @@ func newClientContext(config *Config) (*client.Context, error) {
 	return &clientCtx, nil
 }
 
+// signMsgsV2 signs the provided messages using the given private key and returns the signed transaction bytes.
 func (c *CosmosClient) signMsgsV2(privKey cryptotypes.PrivKey, accountNumber, sequence uint64, gasPrice *big.Int, msg sdk.Msg) ([]byte, error) {
 	senderAddr := sdk.AccAddress(privKey.PubKey().Address().Bytes())
 	signMode := signing.SignMode_SIGN_MODE_DIRECT

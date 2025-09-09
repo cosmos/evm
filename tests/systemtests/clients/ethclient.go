@@ -13,12 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+// EthClient is a client for interacting with Ethereum-compatible nodes.
 type EthClient struct {
 	ChainID *big.Int
 	Clients map[string]*ethclient.Client
 	Accs    map[string]*EthAccount
 }
 
+// NewEthClient creates a new EthClient instance.
 func NewEthClient() (*EthClient, error) {
 	config, err := NewConfig()
 	if err != nil {
@@ -55,10 +57,12 @@ func NewEthClient() (*EthClient, error) {
 	}, nil
 }
 
+// Setup prepares the context, client, and address for the given node and account IDs.
 func (ec *EthClient) Setup(nodeID string, accID string) (context.Context, *ethclient.Client, common.Address) {
 	return context.Background(), ec.Clients[nodeID], ec.Accs[accID].Address
 }
 
+// SendRawTransaction sends a raw Ethereum transaction to the specified node.
 func (ec *EthClient) SendRawTransaction(
 	nodeID string,
 	accID string,
@@ -80,6 +84,7 @@ func (ec *EthClient) SendRawTransaction(
 	return signedTx.Hash(), nil
 }
 
+// WaitForCommit waits for a transaction to be committed in a block.
 func (ec *EthClient) WaitForCommit(
 	nodeID string,
 	txHash string,
@@ -108,6 +113,7 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
+// CheckPendingOrCommited checks if a transaction is either pending in the mempool or already committed.
 func (ec *EthClient) CheckPendingOrCommited(
 	nodeID string,
 	txHash string,
@@ -144,6 +150,7 @@ func (ec *EthClient) CheckPendingOrCommited(
 	}
 }
 
+// TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
@@ -151,19 +158,6 @@ func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTra
 	err := ethCli.Client().Call(&result, "txpool_content")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call txpool_content eth api: %v", err)
-	}
-
-	return result.Pending, result.Queued, nil
-}
-
-func (ec *EthClient) TxPoolContentFrom(nodeID, accID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
-	ethCli := ec.Clients[nodeID]
-	addr := ec.Accs[accID].Address
-
-	var result TxPoolResult
-	err := ethCli.Client().Call(&result, "txpool_contentFrom", addr)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call txpool_contentFrom eth api: %v", err)
 	}
 
 	return result.Pending, result.Queued, nil

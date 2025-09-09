@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/clients"
 )
 
+// NonceAt returns the account nonce for the given account at the latest block
 func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 	ctx, cli, addr := s.EthClient.Setup(nodeID, accID)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
@@ -21,6 +22,7 @@ func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 	return cli.NonceAt(ctx, addr, big.NewInt(int64(blockNumber)))
 }
 
+// GetLatestBaseFee returns the base fee of the latest block
 func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	ctx, cli, _ := s.EthClient.Setup(nodeID, "acc0")
 	blockNumber, err := cli.BlockNumber(ctx)
@@ -43,6 +45,7 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	return block.BaseFee(), nil
 }
 
+// BaseFee returns the base fee of the latest block
 func (s *SystemTestSuite) WaitForCommit(
 	nodeID string,
 	txHash string,
@@ -59,6 +62,7 @@ func (s *SystemTestSuite) WaitForCommit(
 	}
 }
 
+// waitForEthCommmit waits for the given eth tx to be committed within the timeout duration
 func (s *SystemTestSuite) waitForEthCommmit(
 	nodeID string,
 	txHash string,
@@ -76,6 +80,7 @@ func (s *SystemTestSuite) waitForEthCommmit(
 	return nil
 }
 
+// waitForCosmosCommmit waits for the given cosmos tx to be committed within the timeout duration
 func (s *SystemTestSuite) waitForCosmosCommmit(
 	nodeID string,
 	txHash string,
@@ -93,6 +98,7 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
+// CheckPendingOrCommitted checks if the given tx is either pending or committed within the timeout duration
 func (s *SystemTestSuite) CheckPendingOrCommitted(
 	nodeID string,
 	txHash string,
@@ -109,6 +115,7 @@ func (s *SystemTestSuite) CheckPendingOrCommitted(
 	}
 }
 
+// TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
 	switch txType {
 	case TxTypeEVM:
@@ -120,6 +127,7 @@ func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTx
 	}
 }
 
+// ethTxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
 	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(nodeID)
 	if err != nil {
@@ -129,6 +137,7 @@ func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queu
 	return s.extractTxHashesSorted(pendingTxs), s.extractTxHashesSorted(queuedTxs), nil
 }
 
+// cosmosTxPoolContent returns the pending tx hashes in the tx pool of the given node
 func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
 	result, err := s.CosmosClient.UnconfirmedTxs(nodeID)
 	if err != nil {

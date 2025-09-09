@@ -9,6 +9,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+// GetOptions retrieves the current test options.
 func (s *SystemTestSuite) SendTx(
 	t *testing.T,
 	nodeID string,
@@ -24,6 +25,7 @@ func (s *SystemTestSuite) SendTx(
 	return s.SendEthTx(t, nodeID, accID, nonceIdx, gasPrice, gasTipCap)
 }
 
+// SendEthTx sends an Ethereum transaction (either Legacy or Dynamic Fee based on options).
 func (s *SystemTestSuite) SendEthTx(
 	t *testing.T,
 	nodeID string,
@@ -32,7 +34,6 @@ func (s *SystemTestSuite) SendEthTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
-
 	options := s.GetOptions()
 	if options != nil && options.IsDynamicFeeTx {
 		return s.SendEthDynamicFeeTx(t, nodeID, accID, nonceIdx, gasPrice, gasTipCap)
@@ -40,6 +41,7 @@ func (s *SystemTestSuite) SendEthTx(
 	return s.SendEthLegacyTx(t, nodeID, accID, nonceIdx, gasPrice)
 }
 
+// SendEthLegacyTx sends an Ethereum legacy transaction.
 func (s *SystemTestSuite) SendEthLegacyTx(
 	t *testing.T,
 	nodeID string,
@@ -47,14 +49,14 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 	nonceIdx uint64,
 	gasPrice *big.Int,
 ) (*TxInfo, error) {
-	to := s.EthClient.Accs["acc3"].Address
-	value := big.NewInt(1000)
-	gasLimit := uint64(50_000)
 	nonce, err := s.NonceAt(nodeID, accID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
+	to := s.EthClient.Accs["acc3"].Address
+	value := big.NewInt(1000)
+	gasLimit := uint64(50_000)
 
 	tx := ethtypes.NewTransaction(gappedNonce, to, value, gasLimit, gasPrice, nil)
 	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
@@ -65,6 +67,7 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 	return NewTxInfo(nodeID, txHash.Hex(), TxTypeEVM), nil
 }
 
+// SendEthDynamicFeeTx sends an Ethereum dynamic fee transaction.
 func (s *SystemTestSuite) SendEthDynamicFeeTx(
 	t *testing.T,
 	nodeID string,
@@ -97,6 +100,7 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 	return NewTxInfo(nodeID, txHash.Hex(), TxTypeEVM), nil
 }
 
+// SendCosmosTx sends a Cosmos transaction.
 func (s *SystemTestSuite) SendCosmosTx(
 	t *testing.T,
 	nodeID string,

@@ -12,19 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// SystemTestSuite implements the TestSuite interface and
+// provides methods for managing test lifecycle,
+// sending transactions, querying state,
+// and managing expected mempool state.
 type SystemTestSuite struct {
 	*systemtests.SystemUnderTest
+	options *TestOptions
+
+	// Clients
 	EthClient    *clients.EthClient
 	CosmosClient *clients.CosmosClient
 
+	// Most recently retrieved base fee
 	baseFee *big.Int
 
-	options *TestOptions
-
-	// Transaction Hashes
-	expPendingTxs   []*TxInfo
-	expQueuedTxs    []*TxInfo
-	expDiscardedTxs []*TxInfo
+	// Expected transaction hashes
+	expPendingTxs []*TxInfo
+	expQueuedTxs  []*TxInfo
 }
 
 func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
@@ -41,12 +46,14 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 	}
 }
 
+// SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
 func (s *SystemTestSuite) SetupTest(t *testing.T) {
 	s.ResetChain(t)
 	s.StartChain(t, DefaultNodeArgs()...)
 	s.AwaitNBlocks(t, 2)
 }
 
+// BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
 func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	// Reset expected pending/queued transactions
 	s.SetExpPendingTxs()
@@ -59,6 +66,7 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 	s.baseFee = currentBaseFee
 }
 
+// JustAfterEach checks the expected mempool state right after each test case
 func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 	for _, txInfo := range s.GetExpPendingTxs() {
 		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
@@ -83,89 +91,13 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 	s.baseFee = currentBaseFee
 }
 
+// AfterEach waits for all expected pending transactions to be committed
 func (s *SystemTestSuite) AfterEach(t *testing.T) {
 	for _, txInfo := range s.GetExpPendingTxs() {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
 		require.NoError(t, err)
 	}
 
-	for _, txInfo := range s.GetExpDiscardedTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
-		require.Error(t, err)
-	}
-
 	// Wait for block commit
 	s.AwaitNBlocks(t, 1)
-}
-
-func (s *SystemTestSuite) BaseFee() *big.Int {
-	return s.baseFee
-}
-
-func (s *SystemTestSuite) BaseFeeX2() *big.Int {
-	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
-}
-
-func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {
-	return s.expPendingTxs
-}
-
-func (s *SystemTestSuite) SetExpPendingTxs(txs ...*TxInfo) {
-	s.expPendingTxs = txs
-}
-
-func (s *SystemTestSuite) GetExpQueuedTxs() []*TxInfo {
-	return s.expQueuedTxs
-}
-
-func (s *SystemTestSuite) SetExpQueuedTxs(txs ...*TxInfo) {
-	queuedTxs := make([]*TxInfo, 0)
-	for _, txInfo := range txs {
-		if txInfo.TxType == TxTypeCosmos {
-			continue
-		}
-		queuedTxs = append(queuedTxs, txInfo)
-	}
-	s.expQueuedTxs = queuedTxs
-}
-
-func (s *SystemTestSuite) GetExpDiscardedTxs() []*TxInfo {
-	return s.expDiscardedTxs
-}
-
-func (s *SystemTestSuite) SetExpDiscardedTxs(txs ...*TxInfo) {
-	s.expDiscardedTxs = txs
-}
-
-func (s *SystemTestSuite) PromoteExpTxs(count int) {
-	if count <= 0 || len(s.expQueuedTxs) == 0 {
-		return
-	}
-
-	// Ensure we don't try to promote more than available
-	actualCount := count
-	if actualCount > len(s.expQueuedTxs) {
-		actualCount = len(s.expQueuedTxs)
-	}
-
-	// Pop from expQueuedTxs and push to expPendingTxs
-	txs := s.expQueuedTxs[:actualCount]
-	s.expPendingTxs = append(s.expPendingTxs, txs...)
-	s.expQueuedTxs = s.expQueuedTxs[actualCount:]
-}
-
-func (s *SystemTestSuite) Node(idx int) string {
-	return fmt.Sprintf("node%d", idx)
-}
-
-func (s *SystemTestSuite) Acc(idx int) string {
-	return fmt.Sprintf("acc%d", idx)
-}
-
-func (s *SystemTestSuite) GetOptions() *TestOptions {
-	return s.options
-}
-
-func (s *SystemTestSuite) SetOptions(options *TestOptions) {
-	s.options = options
 }
