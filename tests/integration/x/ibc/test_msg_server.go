@@ -338,18 +338,17 @@ func (suite *KeeperTestSuite) TestTransfer() {
 			sender = suite.keyring.GetKey(0)
 			ctx = suite.network.GetContext()
 
-			suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
-				suite.network.App.AppCodec(),
-				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
-				suite.network.App.GetSubspace(types.ModuleName),
-				&MockICS4Wrapper{}, // ICS4 Wrapper
-				mockChannelKeeper,
-				suite.network.App.MsgServiceRouter(),
-				suite.network.App.GetAccountKeeper(),
-				suite.network.App.GetBankKeeper(),
-				suite.network.App.GetErc20Keeper(), // Add ERC20 Keeper for ERC20 transfers
-				authAddr,
-			))
+	suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
+		suite.network.App.AppCodec(),
+		runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
+		&MockICS4Wrapper{}, // ICS4 Wrapper
+		mockChannelKeeper,
+		suite.network.App.MsgServiceRouter(),
+		suite.network.App.GetAccountKeeper(),
+		suite.network.App.GetBankKeeper(),
+		suite.network.App.GetErc20Keeper(), // Add ERC20 Keeper for ERC20 transfers
+		authAddr,
+	))
 			msg := tc.malleate()
 
 			// get updated context with the latest changes
@@ -491,18 +490,17 @@ func (suite *KeeperTestSuite) TestPrefixTrimming() {
 			sender = suite.keyring.GetKey(0)
 			ctx = suite.network.GetContext()
 
-			suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
-				suite.network.App.AppCodec(),
-				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
-				suite.network.App.GetSubspace(types.ModuleName),
-				&MockICS4Wrapper{}, // ICS4 Wrapper
-				mockChannelKeeper,
-				suite.network.App.MsgServiceRouter(),
-				suite.network.App.GetAccountKeeper(),
-				suite.network.App.GetBankKeeper(),
-				suite.network.App.GetErc20Keeper(), // Add ERC20 Keeper for ERC20 transfers
-				authAddr,
-			))
+	suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
+		suite.network.App.AppCodec(),
+		runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
+		&MockICS4Wrapper{}, // ICS4 Wrapper
+		mockChannelKeeper,
+		suite.network.App.MsgServiceRouter(),
+		suite.network.App.GetAccountKeeper(),
+		suite.network.App.GetBankKeeper(),
+		suite.network.App.GetErc20Keeper(), // Add ERC20 Keeper for ERC20 transfers
+		authAddr,
+	))
 			msg := tc.malleate()
 
 			// get updated context with the latest changes
