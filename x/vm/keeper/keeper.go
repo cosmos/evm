@@ -81,6 +81,10 @@ type Keeper struct {
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// virtualFeeCollection enabling will use "Virtual" methods from the bank module to accumulate
+	// fees to the fee collector module in the endBlocker instead of using regular sends during tx execution.
+	virtualFeeCollection bool
 }
 
 // NewKeeper generates new evm module keeper
@@ -125,6 +129,15 @@ func NewKeeper(
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        keys,
 	}
+}
+
+func (k *Keeper) EnableVirtualFeeCollection() {
+	/*
+		if types.GetEVMCoinDecimals() != types.EighteenDecimals {
+			panic("virtual fee collection is only enabled for 18 decimal fee denoms")
+			}
+	*/
+	k.virtualFeeCollection = true
 }
 
 // Logger returns a module-specific logger.
