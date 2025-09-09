@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -146,7 +148,7 @@ func TestTxsReplacement(t *testing.T) {
 	}
 }
 
-func TestMixedTxsReplacement(t *testing.T) {
+func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 	testCases := []struct {
 		name    string
 		actions []func(s suite.TestSuite)

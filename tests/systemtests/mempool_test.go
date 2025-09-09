@@ -1,3 +1,5 @@
+//go:build system_test
+
 package systemtests
 
 import (
@@ -12,6 +14,6 @@ func TestTxsOrdering(t *testing.T) {
 
 func TestTxsReplacement(t *testing.T) {
 	mempool.TestTxsReplacement(t)
-	mempool.TestMixedTxsReplacement(t)
+	mempool.TestMixedTxsReplacementEVMAndCosmos(t)
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
