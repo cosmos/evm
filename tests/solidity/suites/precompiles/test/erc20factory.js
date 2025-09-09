@@ -15,7 +15,7 @@ describe('ERC20Factory', function () {
       console.log("erc20Factory contract loaded")
     const expectedAddress = await erc20Factory.calculateAddress(salt)
       console.log("erc20factory calculateAddress")
-    expect(expectedAddress).to.equal('0x6a040655fE545126cD341506fCD4571dB3A444F9')
+    expect(expectedAddress).to.equal('0x8C9521848ee0d03BF47390F98c6dc968DA0b2915')
   })
 
   it('should create a new ERC20 token', async function () {
