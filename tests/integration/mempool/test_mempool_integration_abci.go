@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -14,7 +13,6 @@ import (
 
 // TestTransactionOrderingWithABCIMethodCalls tests transaction ordering based on fees
 func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
-	fmt.Printf("DEBUG: Starting TestTransactionOrderingWithABCIMethodCalls\n")
 	testCases := []struct {
 		name     string
 		setupTxs func() ([]sdk.Tx, []string)
@@ -240,8 +238,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 // TestNonceGappedEVMTransactionsWithABCIMethodCalls tests the behavior of nonce-gapped EVM transactions
 // and the transition from queued to pending when gaps are filled
 func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls() {
-	fmt.Printf("DEBUG: Starting TestNonceGappedEVMTransactionsWithABCIMethodCalls\n")
-
 	testCases := []struct {
 		name       string
 		setupTxs   func() ([]sdk.Tx, []string) // Returns transactions and their expected nonces

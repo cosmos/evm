@@ -29,7 +29,12 @@ import (
 
 var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
 
-const SubscriberName = "evm"
+const (
+	// SubscriberName is the name of the event bus subscriber for the EVM mempool
+	SubscriberName = "evm"
+	// fallbackBlockGasLimit is the default block gas limit is 0 or missing in genesis file
+	fallbackBlockGasLimit = 100_000_000
+)
 
 type (
 	// ExperimentalEVMMempool is a unified mempool that manages both EVM and Cosmos SDK transactions.
@@ -52,6 +57,7 @@ type (
 		bondDenom     string
 		evmDenom      string
 		blockGasLimit uint64 // Block gas limit from consensus parameters
+		minTip        *uint256.Int
 
 		/** Verification **/
 		anteHandler sdk.AnteHandler
@@ -72,6 +78,7 @@ type EVMMempoolConfig struct {
 	AnteHandler      sdk.AnteHandler
 	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
 	BlockGasLimit    uint64 // Block gas limit from consensus parameters
+	MinTip           *uint256.Int
 }
 
 // NewExperimentalEVMMempool creates a new unified mempool for EVM and Cosmos transactions.
@@ -80,10 +87,8 @@ type EVMMempoolConfig struct {
 // of pools and verification functions, with sensible defaults created if not provided.
 func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
 	var (
-		txPool      *txpool.TxPool
-		cosmosPool  sdkmempool.ExtMempool
-		anteHandler sdk.AnteHandler
-		blockchain  *Blockchain
+		cosmosPool sdkmempool.ExtMempool
+		blockchain *Blockchain
 	)
 
 	bondDenom := evmtypes.GetEVMCoinDenom()
@@ -98,13 +103,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		panic("config must not be nil")
 	}
 
-	anteHandler = config.AnteHandler
-	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
-
 	if config.BlockGasLimit == 0 {
-		logger.Debug("block gas limit is 0, setting default", "default_limit", 100_000_000)
-		config.BlockGasLimit = 100_000_000
+		logger.Warn("block gas limit is 0, setting to fallback", "fallback_limit", fallbackBlockGasLimit)
+		config.BlockGasLimit = fallbackBlockGasLimit
 	}
+
+	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
 	legacyConfig := legacypool.DefaultConfig
@@ -174,7 +178,8 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		bondDenom:     bondDenom,
 		evmDenom:      evmDenom,
 		blockGasLimit: config.BlockGasLimit,
-		anteHandler:   anteHandler,
+		minTip:        config.MinTip,
+		anteHandler:   config.AnteHandler,
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -375,7 +380,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 
 // SetEventBus sets CometBFT event bus to listen for new block header event.
 func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
-	if m.eventBus != nil {
+	if m.HasEventBus() {
 		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
 	}
 	m.eventBus = eventBus
@@ -390,12 +395,25 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 	}()
 }
 
-// Close unsubscribes from the CometBFT event bus.
+// HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
+func (m *ExperimentalEVMMempool) HasEventBus() bool {
+	return m.eventBus != nil
+}
+
+// Close unsubscribes from the CometBFT event bus and shuts down the mempool.
 func (m *ExperimentalEVMMempool) Close() error {
+	var errs []error
 	if m.eventBus != nil {
-		return m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents)
+		if err := m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents); err != nil {
+			errs = append(errs, fmt.Errorf("failed to unsubscribe from event bus: %w", err))
+		}
 	}
-	return nil
+
+	if err := m.txPool.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
+	}
+
+	return errors.Join(errs...)
 }
 
 // getEVMMessage validates that the transaction contains exactly one message and returns it if it's an EVM message.
@@ -429,7 +447,7 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 	m.logger.Debug("getting iterators")
 
 	pendingFilter := txpool.PendingFilter{
-		MinTip:       nil,
+		MinTip:       m.minTip,
 		BaseFee:      baseFeeUint,
 		BlobFee:      nil,
 		OnlyPlainTxs: true,
