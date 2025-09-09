@@ -169,10 +169,7 @@ func extractTxHashesSorted(txMap map[string]map[string]*RPCTransaction) []string
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration
-	addresses := make([]string, 0, len(txMap))
-	for addr := range txMap {
-		addresses = append(addresses, addr)
-	}
+	addresses := slices.Collect(maps.Keys(txMap))
 	slices.Sort(addresses)
 
 	// Process addresses in sorted order
