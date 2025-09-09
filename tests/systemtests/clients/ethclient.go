@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 	"time"
@@ -179,10 +180,7 @@ func extractTxHashesSorted(txMap map[string]map[string]*RPCTransaction) []string
 		txs := txMap[addr]
 
 		// Sort transactions by nonce for deterministic ordering
-		nonces := make([]string, 0, len(txs))
-		for nonce := range txs {
-			nonces = append(nonces, nonce)
-		}
+		nonces := slices.Collect(maps.Keys(txs))
 		slices.Sort(nonces)
 
 		// Add transaction hashes to flat result slice

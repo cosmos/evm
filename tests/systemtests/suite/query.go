@@ -2,6 +2,7 @@ package suite
 
 import (
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 	"time"
@@ -157,10 +158,7 @@ func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*cli
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration
-	addresses := make([]string, 0, len(txMap))
-	for addr := range txMap {
-		addresses = append(addresses, addr)
-	}
+	addresses := slices.Collect(maps.Keys(txMap))
 	slices.Sort(addresses)
 
 	// Process addresses in sorted order
@@ -168,10 +166,7 @@ func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*cli
 		txs := txMap[addr]
 
 		// Sort transactions by nonce for deterministic ordering
-		nonces := make([]string, 0, len(txs))
-		for nonce := range txs {
-			nonces = append(nonces, nonce)
-		}
+		nonces := slices.Collect(maps.Keys(txs))
 		slices.Sort(nonces)
 
 		// Add transaction hashes to flat result slice
