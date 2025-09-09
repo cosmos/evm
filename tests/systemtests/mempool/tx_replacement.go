@@ -334,7 +334,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 		bypass  bool
 	}{
 		{
-			name: "dynamic fee tx should replace legacy tx",
+			name: "dynamic fee tx should not replace legacy tx",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
 					tx1, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.BaseFee())
@@ -356,7 +356,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			},
 		},
 		{
-			name: "dynamic fee tx should replace legacy tx 2",
+			name: "dynamic fee tx should replace legacy tx",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
 					_, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.BaseFee())
@@ -380,7 +380,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			},
 		},
 		{
-			name: "legacy tx replace dynamic fee tx",
+			name: "legacy should always not tx replace dynamic fee tx",
 			actions: []func(s suite.TestSuite){
 				func(s suite.TestSuite) {
 					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1, s.BaseFeeX2(),
