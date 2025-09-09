@@ -1,4 +1,4 @@
-package legacypool
+package metrics
 
 import (
 	"fmt"
@@ -328,8 +328,8 @@ func (g *GethCollector) collectGaugeInfo(ch chan<- prometheus.Metric, name strin
 
 var _ prometheus.Collector = &GethCollector{}
 
-// RegisterCollector manually registers a GethCollector with the given registries.
-func RegisterCollector(metricsRegistry metrics.Registry, promRegistry prometheus.Registerer, opts ...CollectorOpts) (prometheus.Collector, error) {
+// EnableGethMetrics manually registers a GethCollector with the given registries.
+func EnableGethMetrics(metricsRegistry metrics.Registry, promRegistry prometheus.Registerer, opts ...CollectorOpts) (prometheus.Collector, error) {
 	var o CollectorOpts
 	if len(opts) > 0 {
 		o = opts[0]
@@ -342,14 +342,6 @@ func RegisterCollector(metricsRegistry metrics.Registry, promRegistry prometheus
 		Namespace: o.Namespace,
 		Subsystem: o.Subsystem,
 	})
-	return collector, promRegistry.Register(collector)
-}
-
-// TODO: lets not use init here and spin this up in app.go or something.
-func init() {
-	_, err := RegisterCollector(metrics.DefaultRegistry, prometheus.DefaultRegisterer, CollectorOpts{Namespace: "geth"})
-	if err != nil {
-		panic(err)
-	}
 	metrics.Enable()
+	return collector, promRegistry.Register(collector)
 }

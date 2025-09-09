@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
+	metrics "github.com/cosmos/evm/metrics"
+	gethmetrics "github.com/ethereum/go-ethereum/metrics"
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -553,6 +556,10 @@ func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error) {
 	if !cfg.Telemetry.Enabled {
 		return nil, nil
+	}
+	_, err := metrics.EnableGethMetrics(gethmetrics.DefaultRegistry, prometheus.DefaultRegisterer, metrics.CollectorOpts{Namespace: "geth"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to enable geth metrics: %w", err)
 	}
 	return telemetry.New(cfg.Telemetry)
 }
