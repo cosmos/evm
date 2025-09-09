@@ -235,7 +235,7 @@ func (g *GethCollector) collectHistogram(ch chan<- prometheus.Metric, name strin
 
 	// quantiles (gauges). Add unit to base if appropriate for your data.
 	qdesc := g.getOrCreateDesc(name, "Geth histogram percentile", []string{"quantile"})
-	qs := []float64{0.5, 0.75, 0.95, 0.99}
+	qs := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
 	qvals := snapshot.Percentiles(qs)
 	for i, qp := range qvals {
 		v := float64(qp)
@@ -270,7 +270,7 @@ func (g *GethCollector) collectResettingTimer(ch chan<- prometheus.Metric, name 
 
 	// percentiles (seconds)
 	qdesc := g.getOrCreateDesc(name+"_seconds", "Geth resetting timer percentile in seconds", []string{"quantile"})
-	qs := []float64{0.5, 0.75, 0.95, 0.99}
+	qs := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
 	qvals := snapshot.Percentiles(qs)
 	for i, qp := range qvals {
 		v := float64(qp) / 1e9
