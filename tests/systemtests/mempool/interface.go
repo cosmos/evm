@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
