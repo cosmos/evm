@@ -49,7 +49,6 @@ func NewGethCollector(opts CollectorOpts) *GethCollector {
 
 // sanitizeName ensures the metric name is Prometheus-compliant
 func sanitizeName(name string) string {
-	// Replace common invalid characters with underscores
 	replacer := strings.NewReplacer(
 		".", "_",
 		"-", "_",
@@ -58,7 +57,6 @@ func sanitizeName(name string) string {
 		":", "_",
 	)
 	s := replacer.Replace(name)
-	// (Optional) collapse double underscores — safe to leave as-is if not desired
 	for strings.Contains(s, "__") {
 		s = strings.ReplaceAll(s, "__", "_")
 	}
@@ -66,7 +64,6 @@ func sanitizeName(name string) string {
 }
 
 func (g *GethCollector) getOrCreateDesc(name, help string, labels []string) *prometheus.Desc {
-	// Create a unique key that includes labels to avoid conflicts
 	key := name
 	if len(labels) > 0 {
 		key = fmt.Sprintf("%s|%s", name, strings.Join(labels, ","))
@@ -100,6 +97,7 @@ func (g *GethCollector) getOrCreateDesc(name, help string, labels []string) *pro
 func (g *GethCollector) Describe(descs chan<- *prometheus.Desc) {
 	// Intentionally empty: unchecked collector pattern.
 	// (Optionally: prometheus.DescribeByCollect(descs, g) to enable static checks.)
+	// This is what the bridge from https://github.com/deathowl/go-metrics-prometheus/blob/master/prometheusmetrics.go#L216-L218 also does.
 }
 
 func (g *GethCollector) Collect(ch chan<- prometheus.Metric) {
@@ -110,7 +108,6 @@ func (g *GethCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}()
 
-		// CRITICAL: Use pointer types and match Geth's actual types
 		switch m := metric.(type) {
 		case *metrics.Counter:
 			g.collectCounter(ch, name, m.Snapshot())
@@ -223,8 +220,8 @@ func (g *GethCollector) collectTimer(ch chan<- prometheus.Metric, name string, s
 }
 
 func (g *GethCollector) collectHistogram(ch chan<- prometheus.Metric, name string, snapshot metrics.HistogramSnapshot) {
-	// Expose as summary-like: quantiles + _sum/_count
-	// If you want true histograms, you'd need to predefine buckets and emit _bucket series.
+	// expose as summary-like: quantiles + _sum/_count
+	// if you want true histograms, you'd need to predefine buckets and emit _bucket series.
 
 	// counters
 	countDesc := g.getOrCreateDesc(name+"_count", "Geth histogram count", nil)
@@ -238,7 +235,7 @@ func (g *GethCollector) collectHistogram(ch chan<- prometheus.Metric, name strin
 
 	// quantiles (gauges). Add unit to base if appropriate for your data.
 	qdesc := g.getOrCreateDesc(name, "Geth histogram percentile", []string{"quantile"})
-	qs := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
+	qs := []float64{0.5, 0.75, 0.95, 0.99}
 	qvals := snapshot.Percentiles(qs)
 	for i, qp := range qvals {
 		v := float64(qp)
@@ -254,20 +251,26 @@ func (g *GethCollector) collectHistogram(ch chan<- prometheus.Metric, name strin
 }
 
 func (g *GethCollector) collectResettingTimer(ch chan<- prometheus.Metric, name string, snapshot *metrics.ResettingTimerSnapshot) {
-	// Skip empty timers like Geth does
+	// skip empty timers like Geth does
 	if snapshot.Count() <= 0 {
 		return
 	}
 
-	// For resetting timer we expose current-window stats as gauges (no cumulative sum)
-	countDesc := g.getOrCreateDesc(name+"_count", "Geth resetting timer count (current window)", nil)
-	if m, err := prometheus.NewConstMetric(countDesc, prometheus.CounterValue, float64(snapshot.Count())); err == nil {
+	desc := g.getOrCreateDesc(
+		name+"_window_events",
+		"Events observed in the current timer window",
+		nil, // no labels
+	)
+	if m, err := prometheus.NewConstMetric(
+		desc, prometheus.GaugeValue,
+		float64(snapshot.Count()),
+	); err == nil {
 		ch <- m
 	}
 
 	// percentiles (seconds)
 	qdesc := g.getOrCreateDesc(name+"_seconds", "Geth resetting timer percentile in seconds", []string{"quantile"})
-	qs := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
+	qs := []float64{0.5, 0.75, 0.95, 0.99}
 	qvals := snapshot.Percentiles(qs)
 	for i, qp := range qvals {
 		v := float64(qp) / 1e9
@@ -307,7 +310,7 @@ func (g *GethCollector) collectGaugeFloat64(ch chan<- prometheus.Metric, name st
 }
 
 func (g *GethCollector) collectGaugeInfo(ch chan<- prometheus.Metric, name string, snapshot metrics.GaugeInfoSnapshot) {
-	// WARNING: dynamic label keys can increase cardinality drastically.
+	// dynamic label keys can increase cardinality drastically.
 	keys := slices.Sorted(maps.Keys(snapshot.Value()))
 	labels := make([]string, 0, len(keys))
 	labelValues := make([]string, 0, len(keys))
@@ -326,7 +329,6 @@ func (g *GethCollector) collectGaugeInfo(ch chan<- prometheus.Metric, name strin
 var _ prometheus.Collector = &GethCollector{}
 
 // RegisterCollector manually registers a GethCollector with the given registries.
-// Prefer explicit registration over init() to avoid surprises in libraries/tests.
 func RegisterCollector(metricsRegistry metrics.Registry, promRegistry prometheus.Registerer, opts ...CollectorOpts) (prometheus.Collector, error) {
 	var o CollectorOpts
 	if len(opts) > 0 {
@@ -343,8 +345,7 @@ func RegisterCollector(metricsRegistry metrics.Registry, promRegistry prometheus
 	return collector, promRegistry.Register(collector)
 }
 
+// TODO: lets not use init here and spin this up in app.go or something.
 func init() {
-	RegisterCollector(metrics.DefaultRegistry, prometheus.DefaultRegisterer, CollectorOpts{
-		Namespace: "geth",
-	})
+	RegisterCollector(metrics.DefaultRegistry, prometheus.DefaultRegisterer, CollectorOpts{Namespace: "geth"})
 }
