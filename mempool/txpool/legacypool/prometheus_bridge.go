@@ -347,5 +347,9 @@ func RegisterCollector(metricsRegistry metrics.Registry, promRegistry prometheus
 
 // TODO: lets not use init here and spin this up in app.go or something.
 func init() {
-	RegisterCollector(metrics.DefaultRegistry, prometheus.DefaultRegisterer, CollectorOpts{Namespace: "geth"})
+	_, err := RegisterCollector(metrics.DefaultRegistry, prometheus.DefaultRegisterer, CollectorOpts{Namespace: "geth"})
+	if err != nil {
+		panic(err)
+	}
+	metrics.Enable()
 }
