@@ -1,7 +1,7 @@
 {
   "app_name": "epixd",
   "app_version": "0.5.0-rc.0-13-ge338d54",
-  "genesis_time": "2025-09-09T15:37:42.204066535Z",
+  "genesis_time": "2025-09-09T16:36:25.998654964Z",
   "chain_id": "epix_1916-1",
   "initial_height": 1,
   "app_hash": null,
@@ -1740,7 +1740,7 @@
         },
         {
           "@type": "/cosmos.auth.v1beta1.BaseAccount",
-          "address": "epix1pkuutx0w0zcr8w7d06vt6stw9mx30png9ll3lt",
+          "address": "epix10zdqt0d77gy4xef729xzu7ls3f4wjn3vxstwgk",
           "pub_key": null,
           "account_number": "246",
           "sequence": "0"
@@ -1870,15 +1870,6 @@
             {
               "denom": "aepix",
               "amount": "20934317777400000000000"
-            }
-          ]
-        },
-        {
-          "address": "epix1pkuutx0w0zcr8w7d06vt6stw9mx30png9ll3lt",
-          "coins": [
-            {
-              "denom": "aepix",
-              "amount": "2000000000000000000"
             }
           ]
         },
@@ -2689,6 +2680,15 @@
             {
               "denom": "aepix",
               "amount": "2074631625000000000000"
+            }
+          ]
+        },
+        {
+          "address": "epix10zdqt0d77gy4xef729xzu7ls3f4wjn3vxstwgk",
+          "coins": [
+            {
+              "denom": "aepix",
+              "amount": "2000000000000000000"
             }
           ]
         },
@@ -4162,10 +4162,10 @@
                 },
                 "min_self_delegation": "1",
                 "delegator_address": "",
-                "validator_address": "epixvaloper1pkuutx0w0zcr8w7d06vt6stw9mx30pnged0f8t",
+                "validator_address": "epixvaloper10zdqt0d77gy4xef729xzu7ls3f4wjn3v6zmksk",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
-                  "key": "zOEiLiE+nr8nlFYFCBalfLLh3J9rovXwY/nfOxo+CNw="
+                  "key": "UugDDzh1HVQr0MCf+PZ7tBJXKdihHNj1FKR8PqgT4gE="
                 },
                 "value": {
                   "denom": "aepix",
@@ -4173,7 +4173,7 @@
                 }
               }
             ],
-            "memo": "3a735fdc3aeea557d68a928bfb48971a852d0416@172.24.137.215:26656",
+            "memo": "909e5e5184355b089a527fb0d66aada8fc0ce56e@172.24.137.215:26656",
             "timeout_height": "0",
             "unordered": false,
             "timeout_timestamp": null,
@@ -4185,7 +4185,7 @@
               {
                 "public_key": {
                   "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
-                  "key": "A1HvnZTX7Z0Hnk5sC1smJVG38TnU9ulVUTRaDNwTPnzz"
+                  "key": "A3pGAJV2W6eJvUxOXFBiYTpc9+GIwbxlomJgIWsA6egD"
                 },
                 "mode_info": {
                   "single": {
@@ -4204,7 +4204,7 @@
             "tip": null
           },
           "signatures": [
-            "+ZpaC7AYVLHKkSf5pEwIlIfdxsX03GBS9yOkzBmfwKkCrwWbKZsKUqkCIYbeVZeCm/P9TjpxA1xH2f8Xls/mUQE="
+            "16KbJOKF0Y3MZMsSlO8qodRx0R+onK4I8ZVRZo/j3q0qimE2eL/pOZS66ys16aV7EGUFGdlkjhhzy1+BdSaMkgE="
           ]
         }
       ]
