@@ -1,5 +1,3 @@
-//go:build system_test
-
 package mempool
 
 import (
@@ -14,13 +12,13 @@ import (
 func TestTxsReplacement(t *testing.T) {
 	testCases := []struct {
 		name    string
-		actions []func(s suite.TestSuite)
+		actions []func(s TestSuite)
 		bypass  bool
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
@@ -33,8 +31,8 @@ func TestTxsReplacement(t *testing.T) {
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
@@ -57,8 +55,8 @@ func TestTxsReplacement(t *testing.T) {
 		},
 		{
 			name: "single queued tx %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
@@ -66,7 +64,7 @@ func TestTxsReplacement(t *testing.T) {
 
 					s.SetExpQueuedTxs(tx2)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					txHash, err := s.SendTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -77,8 +75,8 @@ func TestTxsReplacement(t *testing.T) {
 		},
 		{
 			name: "multiple queued txs %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
@@ -96,7 +94,7 @@ func TestTxsReplacement(t *testing.T) {
 
 					s.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					tx, err := s.SendTx(t, s.Node(3), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -151,13 +149,13 @@ func TestTxsReplacement(t *testing.T) {
 func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 	testCases := []struct {
 		name    string
-		actions []func(s suite.TestSuite)
+		actions []func(s TestSuite)
 		bypass  bool
 	}{
 		{
 			name: "single pending tx (low prio evm tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendCosmosTx(t, s.Node(1), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
@@ -170,8 +168,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single pending tx (high prio evm tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendCosmosTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
@@ -184,8 +182,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single pending tx (low prio cosmos tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
@@ -198,8 +196,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single pending tx (high prio cosmos tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
@@ -212,8 +210,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single queued tx (low prio evm tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
@@ -222,7 +220,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 					// CosmosTx is not queued in local mempool
 					s.SetExpQueuedTxs(tx1)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -233,8 +231,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single queued tx (high prio evm tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
@@ -243,7 +241,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 					// CosmosTx is not queued in local mempool
 					s.SetExpQueuedTxs(tx1)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -254,8 +252,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single queued tx (low prio cosmos tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
@@ -264,7 +262,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 					// CosmosTx is not queued in local mempool
 					s.SetExpQueuedTxs(tx2)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -275,8 +273,8 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 		},
 		{
 			name: "single queued tx (high prio cosmos tx first) %s",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 1, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendEthTx(t, s.Node(0), "acc0", 1, s.BaseFee(), nil)
@@ -285,7 +283,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 					// CosmosTx is not queued in local mempool
 					s.SetExpQueuedTxs(tx2)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					tx3, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -332,13 +330,13 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 	testCases := []struct {
 		name    string
-		actions []func(s suite.TestSuite)
+		actions []func(s TestSuite)
 		bypass  bool
 	}{
 		{
 			name: "dynamic fee tx should not replace legacy tx",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.BaseFee())
 					require.NoError(t, err, "failed to send eth legacy tx")
 
@@ -348,7 +346,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 
 					s.SetExpQueuedTxs(tx1)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.BaseFee())
 					require.NoError(t, err, "failed to send tx")
 
@@ -359,8 +357,8 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 		},
 		{
 			name: "dynamic fee tx should replace legacy tx",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					_, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.BaseFee())
 					require.NoError(t, err, "failed to send eth legacy tx")
 
@@ -372,7 +370,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 
 					s.SetExpQueuedTxs(tx2)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.BaseFee())
 					require.NoError(t, err, "failed to send tx")
 
@@ -383,8 +381,8 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 		},
 		{
 			name: "legacy should always not tx replace dynamic fee tx",
-			actions: []func(s suite.TestSuite){
-				func(s suite.TestSuite) {
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
 					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1, s.BaseFeeX2(),
 						new(big.Int).Sub(s.BaseFee(), big.NewInt(1)))
 					require.NoError(t, err)
@@ -396,7 +394,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					// Legacy tx cannot replace dynamic fee tx.
 					s.SetExpQueuedTxs(tx1)
 				},
-				func(s suite.TestSuite) {
+				func(s TestSuite) {
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.BaseFee())
 					require.NoError(t, err, "failed to send tx")
 

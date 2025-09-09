@@ -37,6 +37,13 @@ go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./...
 --run TestTxsReplacement --verbose --binary evmd --block-time 5s --chain-id local-4221
 ```
 
+### Run test cases for txs rebroadcasting
+
+```shell
+go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... 
+--run TestTxRebroadcasting --verbose --binary evmd --block-time 5s --chain-id local-4221
+```
+
 ## Run Entire test
 
 ```shell

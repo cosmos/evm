@@ -17,3 +17,7 @@ func TestTxsReplacement(t *testing.T) {
 	mempool.TestMixedTxsReplacementEVMAndCosmos(t)
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
+
+func TestTxRebroadcasting(t *testing.T) {
+	mempool.TestTxRebroadcasting(t)
+}
