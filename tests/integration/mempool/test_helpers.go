@@ -3,6 +3,7 @@ package mempool
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -23,7 +24,9 @@ const (
 	TxGas = 100_000
 )
 
-// createCosmosSendTransactionWithKey creates a simple bank send transaction with the specified key
+var MaxGasTipCap = big.NewInt(math.MaxInt64)
+
+// createCosmosSendTx creates a simple bank send transaction with the provided key and gasPrice
 func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big.Int) sdk.Tx {
 	feeDenom := "aatom"
 
@@ -42,10 +45,11 @@ func (s *IntegrationTestSuite) createCosmosSendTx(key keyring.Key, gasPrice *big
 	tx, err := s.factory.BuildCosmosTx(key.Priv, txArgs)
 	s.Require().NoError(err)
 
+	fmt.Printf("DEBUG: Created cosmos transaction successfully\n")
 	return tx
 }
 
-// createEVMTransaction creates an EVM transaction using the provided key
+// createEVMValueTransferTx creates an EVM value transfer transaction using the provided key and gasPrice
 func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce int, gasPrice *big.Int) sdk.Tx {
 	to := s.keyring.GetKey(1).Addr
 
@@ -67,7 +71,7 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 	return tx
 }
 
-// createEVMContractDeployTx creates an EVM transaction for contract deployment
+// createEVMContractDeployTx creates an EVM contract deploy transaction using the provided key and gasPrice
 func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPrice *big.Int, data []byte) sdk.Tx {
 	ethTxArgs := evmtypes.EvmTxArgs{
 		Nonce:    0,
@@ -93,7 +97,7 @@ func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 	return nil
 }
 
-// checkTxs call abci CheckTx for a transaction
+// checkTx calls abci CheckTx for a transaction
 func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) error {
 	txBytes, err := s.network.App.GetTxConfig().TxEncoder()(tx)
 	if err != nil {
@@ -138,7 +142,7 @@ func (s *IntegrationTestSuite) calculateCosmosGasPrice(feeAmount int64, gasLimit
 
 // calculateCosmosEffectiveTip calculates the effective tip for a Cosmos transaction
 // This aligns with EVM transaction prioritization: effective_tip = gas_price - base_fee
-func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasLimit uint64, baseFee *big.Int) *big.Int {
+func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasLimit uint64, gasTipCap, baseFee *big.Int) *big.Int {
 	gasPrice := s.calculateCosmosGasPrice(feeAmount, gasLimit)
 	if baseFee == nil || baseFee.Sign() == 0 {
 		return gasPrice // No base fee, effective tip equals gas price
@@ -148,5 +152,10 @@ func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasL
 		return big.NewInt(0) // Gas price lower than base fee, effective tip is zero
 	}
 
-	return new(big.Int).Sub(gasPrice, baseFee)
+	effectiveTip := new(big.Int).Sub(gasPrice, baseFee)
+	if effectiveTip.Cmp(gasTipCap) > 0 {
+		effectiveTip = gasTipCap
+	}
+
+	return effectiveTip
 }
