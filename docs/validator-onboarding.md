@@ -26,20 +26,24 @@ This comprehensive guide will help you set up and run a validator node on EpixCh
 ## Network Information
 
 ### Mainnet
-- **Chain ID**: `1916`
+
+- **Chain ID**: `epix_1916-1`
 - **EVM Chain ID**: `1916`
-- **RPC Endpoint**: `https://rpc.epixchain.com`
-- **API Endpoint**: `https://api.epixchain.com`
+- **RPC Endpoint**: `https://rpc.epix.zone`
+- **API Endpoint**: `https://api.epix.zone`
 - **Currency**: `EPIX` (base: `aepix`)
 - **Decimals**: 18
+- **Genesis File**: `https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/genesis/mainnet/genesis.json`
 
 ### Testnet
-- **Chain ID**: `1917`
+
+- **Chain ID**: `epix_1917-1`
 - **EVM Chain ID**: `1917`
 - **RPC Endpoint**: `https://rpc.testnet.epix.zone`
 - **API Endpoint**: `https://api.testnet.epix.zone`
 - **Currency**: `EPIX` (base: `aepix`)
 - **Decimals**: 18
+- **Genesis File**: `https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/genesis/testnet/genesis.json`
 
 ## Hardware Requirements
 
@@ -111,7 +115,7 @@ epixd keys add validator --keyring-backend $KEYRING --home ~/.epixd
 
 ```bash
 # Download testnet genesis
-curl -s https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/testnet/genesis.json > ~/.epixd/config/genesis.json
+curl -s https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/genesis/testnet/genesis.json > ~/.epixd/config/genesis.json
 
 # Verify genesis file
 epixd validate-genesis --home ~/.epixd
@@ -183,7 +187,7 @@ epixd keys add validator --keyring-backend $KEYRING --home ~/.epixd
 
 ```bash
 # Download mainnet genesis
-curl -s https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/mainnet/genesis.json > ~/.epixd/config/genesis.json
+curl -s https://raw.githubusercontent.com/EpixZone/EpixChain/main/artifacts/genesis/mainnet/genesis.json > ~/.epixd/config/genesis.json
 
 # Verify genesis file
 epixd validate-genesis --home ~/.epixd
