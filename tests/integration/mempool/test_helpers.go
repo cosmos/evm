@@ -67,6 +67,29 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 	return tx
 }
 
+// createEVMTransaction creates an EVM transaction using the provided key
+func (s *IntegrationTestSuite) createEVMValueTransferDynamicFeeTx(key keyring.Key, nonce int, gasFeeCap, gasTipCap *big.Int) sdk.Tx {
+	to := s.keyring.GetKey(1).Addr
+
+	if nonce < 0 {
+		s.Require().NoError(fmt.Errorf("nonce must be non-negative"))
+	}
+
+	ethTxArgs := evmtypes.EvmTxArgs{
+		Nonce:     uint64(nonce),
+		To:        &to,
+		Amount:    big.NewInt(1000),
+		GasLimit:  TxGas,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Input:     nil,
+	}
+	tx, err := s.factory.GenerateSignedEthTx(key.Priv, ethTxArgs)
+	s.Require().NoError(err)
+
+	return tx
+}
+
 // createEVMContractDeployTx creates an EVM transaction for contract deployment
 func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPrice *big.Int, data []byte) sdk.Tx {
 	ethTxArgs := evmtypes.EvmTxArgs{
