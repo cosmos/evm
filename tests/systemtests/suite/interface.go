@@ -28,6 +28,7 @@ type TestSuite interface {
 
 	// Config
 	GetOptions() *TestOptions
+	Nodes() []string
 	Node(idx int) string
 	Acc(idx int) string
 

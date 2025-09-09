@@ -3,7 +3,6 @@ package suite
 import (
 	"fmt"
 	"math/big"
-	"slices"
 	"testing"
 	"time"
 
@@ -73,12 +72,22 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 		require.NoError(t, err, "tx is not pending or committed")
 	}
 
+	// Should check queued txs does not exist in other node's mempool
+	// This query should be done using go routine because it may take time.
 	for _, txInfo := range s.GetExpQueuedTxs() {
-		_, evmQueuedTxHashes, err := s.TxPoolContent(txInfo.DstNodeID, txInfo.TxType)
-		require.NoError(t, err)
+		if txInfo.TxType != TxTypeEVM {
+			panic("queued txs should be only EVM txs")
+		}
 
-		ok := slices.Contains(evmQueuedTxHashes, txInfo.TxHash)
-		require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
+		for _, nodeID := range s.Nodes() {
+			if nodeID == txInfo.DstNodeID {
+				err := s.EthClient.CheckQueued(txInfo.DstNodeID, txInfo.TxHash, time.Second*15)
+				require.NoError(t, err, fmt.Sprintf("tx %s is not contained in queued txs in %s mempool", txInfo.TxHash, txInfo.TxType))
+			} else {
+				err := s.EthClient.CheckNotReceived(nodeID, txInfo.TxHash, time.Second*15)
+				require.NoError(t, err)
+			}
+		}
 	}
 
 	// Wait for block commit

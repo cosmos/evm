@@ -60,6 +60,15 @@ func (s *SystemTestSuite) PromoteExpTxs(count int) {
 	s.expQueuedTxs = s.expQueuedTxs[actualCount:]
 }
 
+// Nodes returns the node IDs in the system under test
+func (s *SystemTestSuite) Nodes() []string {
+	nodes := make([]string, 4)
+	for i := 0; i < 4; i++ {
+		nodes[i] = fmt.Sprintf("node%d", i)
+	}
+	return nodes
+}
+
 // Node returns the node ID for the given index
 func (s *SystemTestSuite) Node(idx int) string {
 	return fmt.Sprintf("node%d", idx)
