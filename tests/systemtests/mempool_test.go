@@ -11,7 +11,7 @@ func TestTxsOrdering(t *testing.T) {
 }
 
 func TestTxsReplacement(t *testing.T) {
-	// mempool.TestTxsReplacement(t)
+	mempool.TestTxsReplacement(t)
 	mempool.TestMixedTxsReplacement(t)
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
