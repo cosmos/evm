@@ -38,6 +38,7 @@
 ### API-BREAKING
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+- [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
 
 ## v0.4.1
 
