@@ -5,7 +5,7 @@ alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and custo
 
 **Please note**: This repo is undergoing changes while the code is being audited and tested. For the time being we will
 be making v0.x releases. Some breaking changes might occur. While the original evmOS repo is currently being used in
-production on a few chains without fault, Interchain Labs will only mark the Cosmos EVM repository as stable with a v1
+production on a few chains without fault, Cosmos Labs will only mark the Cosmos EVM repository as stable with a v1
 release after the audit, key stability features and benchmarking are completed.
 
 **Visit the official documentation for Cosmos EVM**: [evm.cosmos.network](https://evm.cosmos.network/)
@@ -19,7 +19,7 @@ and customizability to your Cosmos SDK chain.
 - With native support for EVM as VM and seamless EVM<>Cosmos wallet / token / user experience.
 - Leverage IBC with EVM, native support of ERC20 on Cosmos, and more with extensions and precompiles.
 
-Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Interchain Labs and the Interchain Foundation
+Cosmos EVM is a fork of [evmOS](https://github.com/evmos/OS), maintained by Cosmos Labs and the Interchain Foundation
 after the latter funded Tharsis to open-source the original codebase.
 
 **Cosmos EVM is fully open-source under the Apache 2.0 license.** With this open-sourced version, you can get:
@@ -29,7 +29,7 @@ after the latter funded Tharsis to open-source the original codebase.
 - Full access to product partnerships (block explorers, RPCs, indexers etc.)
 - Continuous upgrades, access to product and engineering support
 
-**Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Interchain Labs team](https://share-eu1.hsforms.com/2g6yO-PVaRoKj50rUgG4Pjg2e2sca).**
+**Want to use Cosmos EVM but want to discuss it with an expert first? [Contact the Cosmos Labs team](https://cosmos.network/interest-form).**
 
 For live discussions or support regarding advisories, join the #cosmos-tech channel in Slack.
 [Get a Slack invite here](https://forms.gle/A8jawLgB8zuL1FN36) or join the [Telegram Group](https://t.me/cosmostechstack)
@@ -41,7 +41,7 @@ For live discussions or support regarding advisories, join the #cosmos-tech chan
 Cosmos EVM can easily be integrated into your existing chain
 or added during the development of your upcoming chain launch
 by importing Cosmos EVM as a go module library.
-The Interchain Labs team provides you with integration guides and core protocol support depending on your needs and configurations.
+The Cosmos Labs team provides you with integration guides and core protocol support depending on your needs and configurations.
 **Updated documentation will be releasing soon!**
 
 ### Configurations
