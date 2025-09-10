@@ -31,6 +31,7 @@
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
+- [\#588](https://github.com/cosmos/evm/pull/588) go-ethereum metrics are now available in Cosmos SDK's prometheus telemetry.
 
 ### STATE BREAKING
 
