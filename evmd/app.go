@@ -288,18 +288,21 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
-	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
-	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey)
+	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
+	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
 	var allKeys []storetypes.StoreKey
+	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
 		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	for _, k := range tkeys {
 		allKeys = append(allKeys, k)
 	}
 	for _, k := range okeys {
 		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
 
@@ -492,7 +495,6 @@ func NewExampleApp(
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
-		tkeys[feemarkettypes.TransientKey],
 	)
 
 	// Set up PreciseBank keeper
@@ -511,7 +513,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		appCodec, keys[evmtypes.StoreKey], okeys[evmtypes.ObjectKey], nonTransientKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,

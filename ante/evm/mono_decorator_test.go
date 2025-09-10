@@ -62,13 +62,11 @@ func (k *ExtendedEVMKeeper) SpendableCoin(ctx sdk.Context, addr common.Address) 
 	return uint256.NewInt(0)
 }
 
-func (k *ExtendedEVMKeeper) ResetTransientGasUsed(_ sdk.Context) {}
 func (k *ExtendedEVMKeeper) GetParams(_ sdk.Context) evmsdktypes.Params {
 	return evmsdktypes.DefaultParams()
 }
 func (k *ExtendedEVMKeeper) GetBaseFee(_ sdk.Context) *big.Int           { return big.NewInt(0) }
 func (k *ExtendedEVMKeeper) GetMinGasPrice(_ sdk.Context) math.LegacyDec { return math.LegacyZeroDec() }
-func (k *ExtendedEVMKeeper) GetTxIndexTransient(_ sdk.Context) uint64    { return 0 }
 
 // only methods called by EVMMonoDecorator
 type MockFeeMarketKeeper struct{}
@@ -77,9 +75,6 @@ func (m MockFeeMarketKeeper) GetParams(_ sdk.Context) feemarkettypes.Params {
 	return feemarkettypes.DefaultParams()
 }
 
-func (m MockFeeMarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
-	return 0, nil
-}
 func (m MockFeeMarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool    { return true }
 func (m MockFeeMarketKeeper) GetBaseFee(_ sdk.Context) math.LegacyDec { return math.LegacyZeroDec() }
 
@@ -202,6 +197,12 @@ func TestMonoDecorator(t *testing.T) {
 			monoDec := evm.NewEVMMonoDecorator(accountKeeper, MockFeeMarketKeeper{}, keeper, 0)
 			ctx := sdk.NewContext(nil, tmproto.Header{}, false, log.NewNopLogger())
 			ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(1e19))
+			blockParams := tmproto.BlockParams{
+				MaxBytes: 200000,
+				MaxGas:   81500000, // default limit
+			}
+			consParams := tmproto.ConsensusParams{Block: &blockParams}
+			ctx = ctx.WithConsensusParams(consParams)
 
 			msgs := tc.buildMsgs(privKey)
 			tx, err := utiltx.PrepareEthTx(cfg.TxConfig, nil, toMsgSlice(msgs)...)

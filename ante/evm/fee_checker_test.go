@@ -39,10 +39,6 @@ func (m MockFeemarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool {
 	return true
 }
 
-func (m MockFeemarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
-	return 0, nil
-}
-
 func (m MockFeemarketKeeper) GetParams(_ sdk.Context) (params feemarkettypes.Params) {
 	return feemarkettypes.DefaultParams()
 }

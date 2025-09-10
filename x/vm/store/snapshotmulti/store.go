@@ -14,14 +14,14 @@ import (
 
 type Store struct {
 	stores    map[storetypes.StoreKey]types.SnapshotKVStore
-	storeKeys []*storetypes.KVStoreKey // ordered keys
+	storeKeys []storetypes.StoreKey // ordered keys
 	head      int
 }
 
 var _ types.SnapshotMultiStore = (*Store)(nil)
 
 // NewStore creates a new Store objectwith CacheMultiStore and KVStoreKeys
-func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStoreKey) *Store {
+func NewStore(cms storetypes.MultiStore, keys map[string]storetypes.StoreKey) *Store {
 	s := &Store{
 		stores:    make(map[storetypes.StoreKey]types.SnapshotKVStore),
 		storeKeys: vmtypes.SortedKVStoreKeys(keys),
@@ -29,8 +29,13 @@ func NewStore(cms storetypes.CacheMultiStore, keys map[string]*storetypes.KVStor
 	}
 
 	for _, key := range s.storeKeys {
-		store := cms.GetKVStore(key).(storetypes.CacheKVStore)
-		s.stores[key] = snapshotkv.NewStore(store)
+		if _, ok := key.(*storetypes.KVStoreKey); ok {
+			store := cms.GetKVStore(key)
+			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
+		} else {
+			store := cms.GetObjKVStore(key)
+			s.stores[key] = snapshotkv.NewStore(store.(storetypes.CacheWrap))
+		}
 	}
 
 	return s
@@ -117,7 +122,7 @@ func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return store.CurrentStore()
+	return store.CurrentStore().(storetypes.KVStore)
 }
 
 // GetKVStore returns an underlying KVStore by key.
@@ -126,7 +131,7 @@ func (s *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
 	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	return store.CurrentStore()
+	return store.CurrentStore().(storetypes.KVStore)
 }
 
 func (s *Store) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {

@@ -67,8 +67,9 @@ func (suite *KeeperTestSuite) SetupTest() {
 		vmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
 	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
-	transientKey := storetypes.NewTransientStoreKey(vmtypes.TransientKey)
-	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
+	okey := storetypes.NewObjectStoreKey(vmtypes.ObjectKey)
+	allKeys := []storetypes.StoreKey{key, okey}
+	testCtx := testutil.DefaultContextWithDB(suite.T(), keys[vmtypes.StoreKey], storetypes.NewTransientStoreKey("transient_test"))
 	ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
 	encCfg := moduletestutil.MakeTestEncodingConfig()
 
@@ -87,8 +88,8 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.vmKeeper = vmkeeper.NewKeeper(
 		encCfg.Codec,
 		key,
-		transientKey,
-		keys,
+		okey,
+		allKeys,
 		authority,
 		suite.accKeeper,
 		suite.bankKeeper,

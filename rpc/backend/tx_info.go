@@ -191,7 +191,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 
 	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
 	blockHeaderHash := common.BytesToHash(resBlock.Block.Header.Hash()).Hex()
-	return b.formatTxReceipt(ethMsg, res, blockRes, blockHeaderHash)
+	return b.formatTxReceipt(ethMsg, res, resBlock, blockRes, blockHeaderHash)
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.
