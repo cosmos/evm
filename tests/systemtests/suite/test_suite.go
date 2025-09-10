@@ -123,9 +123,26 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 
 // AfterEach waits for all expected pending transactions to be committed
 func (s *SystemTestSuite) AfterEach(t *testing.T) {
+	// Check all expected pending txs are committed
 	for _, txInfo := range s.GetExpPendingTxs() {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
 		require.NoError(t, err)
+	}
+
+	// Check all evm pending txs are cleared in mempool
+	for i := range s.Nodes() {
+		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
+		require.NoError(t, err)
+
+		require.Len(t, pending, 0, "pending txs are not cleared in mempool")
+	}
+
+	// Check all cosmos pending txs are cleared in mempool
+	for i := range s.Nodes() {
+		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeCosmos)
+		require.NoError(t, err)
+
+		require.Len(t, pending, 0, "pending txs are not cleared in mempool")
 	}
 
 	// Wait for block commit

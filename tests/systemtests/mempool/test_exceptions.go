@@ -95,7 +95,7 @@ func TestMinimumGasPricesZero(t *testing.T) {
 		bypass  bool
 	}{
 		{
-			name: "ordering of pending txs %s",
+			name: "sequencial pending txs %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
 					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
