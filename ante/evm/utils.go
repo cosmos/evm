@@ -25,7 +25,6 @@ type DecoratorUtils struct {
 	BaseFee            *big.Int
 	MempoolMinGasPrice sdkmath.LegacyDec
 	GlobalMinGasPrice  sdkmath.LegacyDec
-	BlockTxIndex       uint64
 	TxGasLimit         uint64
 	GasWanted          uint64
 	MinPriority        int64
@@ -71,7 +70,6 @@ func NewMonoDecoratorUtils(
 		BaseFee:            baseFee,
 		MempoolMinGasPrice: mempoolMinGasPrice,
 		GlobalMinGasPrice:  globalMinGasPrice,
-		BlockTxIndex:       ek.GetTxIndexTransient(ctx),
 		GasWanted:          0,
 		MinPriority:        int64(math.MaxInt64),
 		// TxGasLimit and TxFee are set to zero because they are updated

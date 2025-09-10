@@ -26,7 +26,7 @@ type SnapshotKVStore interface {
 
 	// CurrentStore returns the underlying CacheKVStore that is currently
 	// active (i.e., where reads and writes will be applied).
-	CurrentStore() storetypes.CacheKVStore
+	CurrentStore() storetypes.CacheWrap
 
 	// Commit flushes all pending changes in the current store layer
 	// down to its parent, making them permanent.

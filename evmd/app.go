@@ -7,6 +7,8 @@ import (
 	"io"
 
 	"os"
+	goruntime "runtime"
+	"sort"
 
 	"github.com/spf13/cast"
 
@@ -77,6 +79,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -170,9 +173,9 @@ type EVMD struct {
 	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	tkeys map[string]*storetypes.TransientStoreKey
+	okeys map[string]*storetypes.ObjectStoreKey
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -255,6 +258,8 @@ func NewExampleApp(
 	// 	app.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
 	// }
 	// baseAppOptions = append(baseAppOptions, prepareOpt)
+	//
+	bAppOpts := append(baseAppOptions, baseapp.SetOptimisticExecution())
 
 	bApp := baseapp.NewBaseApp(
 		appName,
@@ -262,7 +267,7 @@ func NewExampleApp(
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
 		encodingConfig.TxConfig.TxDecoder(),
-		baseAppOptions...,
+		bAppOpts...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
@@ -284,8 +289,32 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
+	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
+	var allKeys []storetypes.StoreKey
+	var nonTransientKeys []storetypes.StoreKey
+	for _, k := range keys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	for _, k := range tkeys {
+		allKeys = append(allKeys, k)
+	}
+	for _, k := range okeys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
+
+	// FIXME workers
+	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		allKeys,
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		true,
+		evmdconfig.ExampleChainDenom,
+	))
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -306,6 +335,7 @@ func NewExampleApp(
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
 		tkeys:             tkeys,
+		okeys:             okeys,
 	}
 
 	app.ParamsKeeper = initParamsKeeper(appCodec, legacyAmino, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
@@ -339,6 +369,7 @@ func NewExampleApp(
 		authAddr,
 		logger,
 	)
+	app.BankKeeper = app.BankKeeper.WithObjStoreKey(okeys[banktypes.ObjectStoreKey])
 
 	// optional: enable sign mode textual by overwriting the default tx config (after setting the bank keeper)
 	enabledSignModes := append(authtx.DefaultSignModes, signingtypes.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
@@ -465,7 +496,6 @@ func NewExampleApp(
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
-		tkeys[feemarkettypes.TransientKey],
 	)
 
 	// Set up PreciseBank keeper
@@ -484,7 +514,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		appCodec, keys[evmtypes.StoreKey], okeys[evmtypes.ObjectKey], nonTransientKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -494,6 +524,7 @@ func NewExampleApp(
 		&app.Erc20Keeper,
 		tracer,
 	)
+	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
@@ -674,8 +705,10 @@ func NewExampleApp(
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
 	app.ModuleManager.SetOrderEndBlockers(
-		govtypes.ModuleName, stakingtypes.ModuleName,
-		authtypes.ModuleName, banktypes.ModuleName,
+		banktypes.ModuleName,
+		govtypes.ModuleName,
+		stakingtypes.ModuleName,
+		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
@@ -752,6 +785,7 @@ func NewExampleApp(
 	// initialize stores
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
+	app.MountObjectStores(okeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
@@ -977,13 +1011,6 @@ func (app *EVMD) GetKey(storeKey string) *storetypes.KVStoreKey {
 // NOTE: This is solely to be used for testing purposes.
 func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
 	return app.tkeys[storeKey]
-}
-
-// GetMemKey returns the MemStoreKey for the provided mem key.
-//
-// NOTE: This is solely used for testing purposes.
-func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
-	return app.memKeys[storeKey]
 }
 
 // GetSubspace returns a param subspace for a given module name.

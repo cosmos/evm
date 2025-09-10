@@ -40,6 +40,13 @@ func NewKeeper(
 }
 
 // BANK KEEPER INTERFACE PASSTHROUGHS
+func (k Keeper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
+	return k.bk.SendCoinsFromModuleToAccountVirtual(ctx, senderModule, recipientAddr, amt)
+}
+
+func (k Keeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error {
+	return k.bk.SendCoinsFromAccountToModuleVirtual(ctx, senderAddr, recipientModule, amt)
+}
 
 func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool) {
 	k.bk.IterateTotalSupply(ctx, cb)

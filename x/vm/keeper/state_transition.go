@@ -122,15 +122,16 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	}
 }
 
-func (k *Keeper) initializeBloomFromLogs(ctx sdk.Context, ethLogs []*ethtypes.Log) (bloom *big.Int, bloomReceipt ethtypes.Bloom) {
-	// Compute block bloom filter
-	if len(ethLogs) > 0 {
-		bloom = k.GetBlockBloomTransient(ctx)
-		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: ethLogs}).Bytes()))
-		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
+// logsBloom returns the bloom bytes for the given logs
+func logsBloom(logs []*ethtypes.Log) []byte {
+	var bin ethtypes.Bloom
+	for _, log := range logs {
+		bin.Add(log.Address.Bytes())
+		for _, b := range log.Topics {
+			bin.Add(b[:])
+		}
 	}
-
-	return
+	return bin[:]
 }
 
 func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types.MsgEthereumTxResponse) uint64 {
@@ -191,7 +192,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	}
 
 	ethLogs := types.LogsToEthereum(res.Logs)
-	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
+	// Compute block bloom filter
+	if len(ethLogs) > 0 {
+		k.SetTxBloom(tmpCtx, new(big.Int).SetBytes(logsBloom(ethLogs)))
+	}
 
 	var contractAddr common.Address
 	if msg.To == nil {
@@ -199,17 +203,14 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	}
 
 	receipt := &ethtypes.Receipt{
-		Type:              tx.Type(),
-		PostState:         nil,
-		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
-		Bloom:             bloomReceipt,
-		Logs:              ethLogs,
-		TxHash:            txConfig.TxHash,
-		ContractAddress:   contractAddr,
-		GasUsed:           res.GasUsed,
-		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
-		BlockNumber:       big.NewInt(ctx.BlockHeight()),
-		TransactionIndex:  txConfig.TxIndex,
+		Type:            tx.Type(),
+		PostState:       nil,
+		Logs:            ethLogs,
+		TxHash:          txConfig.TxHash,
+		ContractAddress: contractAddr,
+		GasUsed:         res.GasUsed,
+		BlockHash:       common.BytesToHash(ctx.HeaderHash()),
+		BlockNumber:     big.NewInt(ctx.BlockHeight()),
 	}
 
 	if res.Failed() {
@@ -270,26 +271,14 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		}
 	}
 
-	// update logs and bloom for full view if post processing updated them
-	ethLogs = types.LogsToEthereum(res.Logs)
-	bloom, _ := k.initializeBloomFromLogs(ctx, ethLogs)
-
 	// refund gas to match the Ethereum gas consumption instead of the default SDK one.
 	remainingGas := uint64(0)
 	if msg.GasLimit > res.GasUsed {
 		remainingGas = msg.GasLimit - res.GasUsed
 	}
 	if err = k.RefundGas(ctx, *msg, remainingGas, types.GetEVMCoinDenom()); err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
+		return nil, errorsmod.Wrapf(err, "failed to refund leftover gas to sender %s", msg.From)
 	}
-
-	if len(ethLogs) > 0 {
-		// Update transient block bloom filter
-		k.SetBlockBloomTransient(ctx, bloom)
-		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(ethLogs)))
-	}
-
-	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
 
 	totalGasUsed, err := k.AddTransientGasUsed(ctx, res.GasUsed)
 	if err != nil {

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 
@@ -568,6 +569,7 @@ func (b *Backend) GetBlockReceipts(
 		result[i], err = b.formatTxReceipt(
 			msg,
 			txResult,
+			resBlock,
 			blockRes,
 			blockHash,
 		)
@@ -582,6 +584,7 @@ func (b *Backend) GetBlockReceipts(
 func (b *Backend) formatTxReceipt(
 	ethMsg *evmtypes.MsgEthereumTx,
 	txResult *cosmosevmtypes.TxResult,
+	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 	blockHeaderHash string,
 ) (map[string]interface{}, error) {
@@ -624,6 +627,20 @@ func (b *Backend) formatTxReceipt(
 	)
 	if err != nil {
 		b.Logger.Debug("failed to parse logs", "hash", ethMsg.Hash().String(), "error", err.Error())
+	}
+
+	if txResult.EthTxIndex == -1 {
+		// Fallback to find tx index by iterating all valid eth transactions
+		msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
+		for i := range msgs {
+			if msgs[i].Hash() == ethTx.Hash() {
+				if i > math.MaxInt32 {
+					return nil, errors.New("tx index overflow")
+				}
+				txResult.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
+				break
+			}
+		}
 	}
 
 	// return error if still unable to find the eth tx index
