@@ -107,17 +107,17 @@ func TestTxsReplacement(t *testing.T) {
 
 	testOptions := []*suite.TestOptions{
 		{
-			Description:    "EVM LegacyTx send",
+			Description:    "EVM LegacyTx",
 			TxType:         suite.TxTypeEVM,
 			IsDynamicFeeTx: false,
 		},
 		{
-			Description:    "EVM DynamicFeeTx send",
+			Description:    "EVM DynamicFeeTx",
 			TxType:         suite.TxTypeEVM,
 			IsDynamicFeeTx: true,
 		},
 		{
-			Description:    "Cosmos LegacyTx send",
+			Description:    "Cosmos LegacyTx",
 			TxType:         suite.TxTypeCosmos,
 			IsDynamicFeeTx: false,
 		},

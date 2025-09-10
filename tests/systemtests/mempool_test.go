@@ -18,6 +18,7 @@ func TestTxsReplacement(t *testing.T) {
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
 
-func TestTxRebroadcasting(t *testing.T) {
+func TestExceptions(t *testing.T) {
 	mempool.TestTxRebroadcasting(t)
+	mempool.TestMinimumGasPricesZero(t)
 }

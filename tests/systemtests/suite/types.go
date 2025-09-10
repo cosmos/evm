@@ -42,3 +42,8 @@ func DefaultNodeArgs() []string {
 		NodeArgsJsonrpcAllowUnprotectedTxs,
 	}
 }
+
+// MinimumGasPriceZeroArgs returns the node arguments with minimum gas price set to zero.
+func MinimumGasPriceZeroArgs() []string {
+	return append(DefaultNodeArgs(), "--minimum-gas-prices=0stake")
+}

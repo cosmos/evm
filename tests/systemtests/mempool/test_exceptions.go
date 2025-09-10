@@ -29,16 +29,16 @@ func TestTxRebroadcasting(t *testing.T) {
 
 					// Skip tx4 with nonce 3
 
-					tx5a, err := s.SendTx(t, s.Node(3), "acc0", 4, s.BaseFee(), nil)
+					tx5, err := s.SendTx(t, s.Node(3), "acc0", 4, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx6a, err := s.SendTx(t, s.Node(0), "acc0", 5, s.BaseFee(), nil)
+					tx6, err := s.SendTx(t, s.Node(0), "acc0", 5, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx1, tx2, tx3)
 
 					// At JustAfterEach hook, we will check expected queued txs are not broadcasted.
-					s.SetExpQueuedTxs(tx5a, tx6a)
+					s.SetExpQueuedTxs(tx5, tx6)
 				},
 				func(s TestSuite) {
 					// current nonce is 3.
@@ -59,7 +59,7 @@ func TestTxRebroadcasting(t *testing.T) {
 
 	testOptions := []*suite.TestOptions{
 		{
-			Description:    "EVM LegacyTx send",
+			Description:    "EVM LegacyTx",
 			TxType:         suite.TxTypeEVM,
 			IsDynamicFeeTx: false,
 		},
@@ -67,6 +67,67 @@ func TestTxRebroadcasting(t *testing.T) {
 
 	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
+
+	for _, to := range testOptions {
+		s.SetOptions(to)
+		for _, tc := range testCases {
+			testName := fmt.Sprintf(tc.name, to.Description)
+			t.Run(testName, func(t *testing.T) {
+				if tc.bypass {
+					return
+				}
+
+				s.BeforeEach(t)
+				for _, action := range tc.actions {
+					action(s)
+					s.JustAfterEach(t)
+				}
+				s.AfterEach(t)
+			})
+		}
+	}
+}
+
+func TestMinimumGasPricesZero(t *testing.T) {
+	testCases := []struct {
+		name    string
+		actions []func(s TestSuite)
+		bypass  bool
+	}{
+		{
+			name: "ordering of pending txs %s",
+			actions: []func(s TestSuite){
+				func(s TestSuite) {
+					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
+					require.NoError(t, err, "failed to send tx")
+
+					tx2, err := s.SendTx(t, s.Node(1), "acc0", 1, s.BaseFee(), nil)
+					require.NoError(t, err, "failed to send tx")
+
+					tx3, err := s.SendTx(t, s.Node(2), "acc0", 2, s.BaseFee(), nil)
+					require.NoError(t, err, "failed to send tx")
+
+					s.SetExpPendingTxs(tx1, tx2, tx3)
+				},
+			},
+		},
+	}
+
+	testOptions := []*suite.TestOptions{
+		{
+			Description:    "EVM LegacyTx",
+			TxType:         suite.TxTypeEVM,
+			IsDynamicFeeTx: false,
+		},
+		{
+			Description:    "EVM DynamicFeeTx",
+			TxType:         suite.TxTypeEVM,
+			IsDynamicFeeTx: true,
+		},
+	}
+
+	s := suite.NewSystemTestSuite(t)
+	s.SetupTest(t, suite.MinimumGasPriceZeroArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)

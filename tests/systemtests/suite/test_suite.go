@@ -47,9 +47,13 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 }
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
-func (s *SystemTestSuite) SetupTest(t *testing.T) {
+func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+	if len(nodeStartArgs) == 0 {
+		nodeStartArgs = DefaultNodeArgs()
+	}
+
 	s.ResetChain(t)
-	s.StartChain(t, DefaultNodeArgs()...)
+	s.StartChain(t, nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
 }
 
