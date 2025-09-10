@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	corevm "github.com/ethereum/go-ethereum/core/vm"
-	"github.com/stretchr/testify/require"
 
 	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
@@ -35,6 +34,8 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModuleMatchingErr
 	// No specific errors for SendCoinsFromAccountToModule, only 1 panic if
 	// the module account does not exist
 
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+
 	tests := []struct {
 		name            string
 		sender          sdk.AccAddress
@@ -54,7 +55,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModuleMatchingErr
 			"missing module account - extended",
 			sdk.AccAddress([]byte{2}),
 			"cat",
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			"module account cat does not exist: unknown address",
 		},
 	}
@@ -118,6 +119,9 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 	s.Require().NotEmpty(blockedAddr, "no blocked addresses found")
 	s.Require().NotEmpty(senderModuleName, "no sender module name found")
 
+	integerDenom := s.network.GetEVMDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+
 	tests := []struct {
 		name         string
 		senderModule string
@@ -139,7 +143,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 			"missing module account - extended",
 			"cat",
 			sdk.AccAddress([]byte{2}),
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			"",
 			"module account cat does not exist: unknown address",
 		},
@@ -155,7 +159,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 			"blocked recipient address - extended",
 			senderModuleName,
 			blockedAddr,
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			fmt.Sprintf("%s is not allowed to receive funds: unauthorized", blockedAddr.String()),
 			"",
 		},
@@ -164,17 +168,17 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 			"invalid coins",
 			senderModuleName,
 			sdk.AccAddress([]byte{2}),
-			sdk.Coins{sdk.Coin{Denom: types.IntegerCoinDenom(), Amount: sdkmath.NewInt(-1)}},
-			fmt.Sprintf("-1%s: invalid coins", types.IntegerCoinDenom()),
+			sdk.Coins{sdk.Coin{Denom: integerDenom, Amount: sdkmath.NewInt(-1)}},
+			fmt.Sprintf("-1%s: invalid coins", integerDenom),
 			"",
 		},
 		{
 			"insufficient balance - passthrough",
 			senderModuleName,
 			sdk.AccAddress([]byte{2}),
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			fmt.Sprintf("spendable balance 0%s is smaller than 1000%s: insufficient funds",
-				types.IntegerCoinDenom(), types.IntegerCoinDenom()),
+				integerDenom, integerDenom),
 			"",
 		},
 		{
@@ -183,9 +187,9 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 			sdk.AccAddress([]byte{2}),
 			// We can still test insufficient bal errors with "aatom" since
 			// we also expect it to not exist in x/bank
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			fmt.Sprintf("spendable balance 0%s is smaller than 1000%s: insufficient funds",
-				types.ExtendedCoinDenom(), types.ExtendedCoinDenom()),
+				extendedDenom, extendedDenom),
 			"",
 		},
 	}
@@ -232,8 +236,10 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccountMatchingErr
 }
 
 func (s *KeeperIntegrationTestSuite) TestSendCoinsMatchingErrors() {
-	// Ensure errors match x/bank errors
+	integerDenom := s.network.GetEVMDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
 
+	// Ensure errors match x/bank errors
 	tests := []struct {
 		name          string
 		initialAmount sdk.Coins
@@ -243,32 +249,32 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsMatchingErrors() {
 		{
 			"invalid coins",
 			cs(),
-			sdk.Coins{sdk.Coin{Denom: types.IntegerCoinDenom(), Amount: sdkmath.NewInt(-1)}},
+			sdk.Coins{sdk.Coin{Denom: integerDenom, Amount: sdkmath.NewInt(-1)}},
 			fmt.Sprintf("-1%s: invalid coins",
-				types.IntegerCoinDenom()),
+				integerDenom),
 		},
 		{
 			"insufficient empty balance - passthrough",
 			cs(),
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			fmt.Sprintf("spendable balance 0%s is smaller than 1000%s: insufficient funds",
-				types.IntegerCoinDenom(), types.IntegerCoinDenom()),
+				integerDenom, integerDenom),
 		},
 		{
 			"insufficient empty balance - extended",
 			cs(),
 			// We can still test insufficient bal errors with "aatom" since
 			// we also expect it to not exist in x/bank
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			fmt.Sprintf("spendable balance 0%s is smaller than 1000%s: insufficient funds",
-				types.ExtendedCoinDenom(), types.ExtendedCoinDenom()),
+				extendedDenom, extendedDenom),
 		},
 		{
 			"insufficient non-empty balance - passthrough",
-			cs(c(types.IntegerCoinDenom(), 100), c("usdc", 1000)),
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 100), c("usdc", 1000)),
+			cs(c(integerDenom, 1000)),
 			fmt.Sprintf("spendable balance 100%s is smaller than 1000%s: insufficient funds",
-				types.IntegerCoinDenom(), types.IntegerCoinDenom()),
+				integerDenom, integerDenom),
 		},
 		// non-empty aatom transfer error is tested in SendCoins, not here since
 		// x/bank doesn't hold aatom
@@ -306,6 +312,10 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 	// mocked BankKeeper overcomplicates expected keepers and makes initializing
 	// balances very complex.
 
+	integerDenom := s.network.GetEVMDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name                  string
 		giveStartBalSender    sdk.Coins
@@ -315,11 +325,11 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 	}{
 		{
 			"insufficient balance error denom matches",
-			cs(c(types.ExtendedCoinDenom(), 10), c("usdc", 1000)),
+			cs(c(extendedDenom, 10), c("usdc", 1000)),
 			cs(),
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			fmt.Sprintf("spendable balance 10%s is smaller than 1000%s: insufficient funds",
-				types.ExtendedCoinDenom(), types.ExtendedCoinDenom()),
+				extendedDenom, extendedDenom),
 		},
 		{
 			"passthrough - unrelated",
@@ -330,59 +340,59 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 		},
 		{
 			"passthrough - integer denom",
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			cs(),
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"",
 		},
 		{
 			"passthrough & extended",
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			cs(),
-			cs(c(types.IntegerCoinDenom(), 10), c(types.ExtendedCoinDenom(), 1)),
+			cs(c(integerDenom, 10), c(extendedDenom, 1)),
 			"",
 		},
 		{
 			"aatom send - 1aatom to 0 balance",
 			// Starting balances
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5))),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5))),
 			cs(),
 			// Send amount
-			cs(c(types.ExtendedCoinDenom(), 1)), // aatom
+			cs(c(extendedDenom, 1)), // aatom
 			"",
 		},
 		{
 			"sender borrow from integer",
 			// 1uatom, 0 fractional
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
 			cs(),
 			// Send 1 with 0 fractional balance
-			cs(c(types.ExtendedCoinDenom(), 1)),
+			cs(c(extendedDenom, 1)),
 			"",
 		},
 		{
 			"sender borrow from integer - max fractional amount",
 			// 1uatom, 0 fractional
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
 			cs(),
 			// Max fractional amount
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
 			"",
 		},
 		{
 			"receiver carry",
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			// max fractional amount, carries over to integer
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
-			cs(c(types.ExtendedCoinDenom(), 1)),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
+			cs(c(extendedDenom, 1)),
 			"",
 		},
 		{
 			"receiver carry - max fractional amount",
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5))),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5))),
 			// max fractional amount, carries over to integer
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
 			"",
 		},
 	}
@@ -424,14 +434,14 @@ func (s *KeeperIntegrationTestSuite) TestSendCoins() {
 			// includes uatom, convert it so that its the equivalent aatom
 			// amount so its easier to compare. Compare extended coins only.
 			sendAmountFullExtended := tt.giveAmt
-			sendAmountInteger := tt.giveAmt.AmountOf(types.IntegerCoinDenom())
+			sendAmountInteger := tt.giveAmt.AmountOf(integerDenom)
 			if !sendAmountInteger.IsZero() {
-				integerCoin := sdk.NewCoin(types.IntegerCoinDenom(), sendAmountInteger)
+				integerCoin := sdk.NewCoin(integerDenom, sendAmountInteger)
 				sendAmountFullExtended = sendAmountFullExtended.Sub(integerCoin)
 
 				// Add equivalent extended coin
-				extendedCoinAmount := sendAmountInteger.Mul(types.ConversionFactor())
-				extendedCoin := sdk.NewCoin(types.ExtendedCoinDenom(), extendedCoinAmount)
+				extendedCoinAmount := sendAmountInteger.Mul(types.ConversionFactor(extendedDecimals))
+				extendedCoin := sdk.NewCoin(extendedDenom, extendedCoinAmount)
 				sendAmountFullExtended = sendAmountFullExtended.Add(extendedCoin)
 			}
 
@@ -476,6 +486,10 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsMatrix() {
 	// mocked BankKeeper overcomplicates expected keepers and makes initializing
 	// balances very complex.
 
+	integerDenom := s.network.GetEVMDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	type startBalance struct {
 		name string
 		bal  sdk.Coins
@@ -485,11 +499,11 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsMatrix() {
 	// Test matrix fields:
 	startBalances := []startBalance{
 		{"empty", cs()},
-		{"integer only", cs(c(types.IntegerCoinDenom(), 1000))},
-		{"extended only", cs(c(types.ExtendedCoinDenom(), 1000))},
-		{"integer & extended", cs(c(types.IntegerCoinDenom(), 1000), c(types.ExtendedCoinDenom(), 1000))},
-		{"integer & extended - max fractional", cs(c(types.IntegerCoinDenom(), 1000), ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1)))},
-		{"integer & extended - min fractional", cs(c(types.IntegerCoinDenom(), 1000), c(types.ExtendedCoinDenom(), 1))},
+		{"integer only", cs(c(integerDenom, 1000))},
+		{"extended only", cs(c(extendedDenom, 1000))},
+		{"integer & extended", cs(c(integerDenom, 1000), c(extendedDenom, 1000))},
+		{"integer & extended - max fractional", cs(c(integerDenom, 1000), ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1)))},
+		{"integer & extended - min fractional", cs(c(integerDenom, 1000), c(extendedDenom, 1))},
 	}
 
 	sendAmts := []struct {
@@ -502,23 +516,23 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsMatrix() {
 		},
 		{
 			"integer only",
-			cs(c(types.IntegerCoinDenom(), 10)),
+			cs(c(integerDenom, 10)),
 		},
 		{
 			"extended only",
-			cs(c(types.ExtendedCoinDenom(), 10)),
+			cs(c(extendedDenom, 10)),
 		},
 		{
 			"integer & extended",
-			cs(c(types.IntegerCoinDenom(), 10), c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(integerDenom, 10), c(extendedDenom, 1000)),
 		},
 		{
 			"integer & extended - max fractional",
-			cs(c(types.IntegerCoinDenom(), 10), ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
+			cs(c(integerDenom, 10), ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
 		},
 		{
 			"integer & extended - min fractional",
-			cs(c(types.IntegerCoinDenom(), 10), c(types.ExtendedCoinDenom(), 1)),
+			cs(c(integerDenom, 10), c(extendedDenom, 1)),
 		},
 	}
 
@@ -593,7 +607,8 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModule() {
 	recipientModule := minttypes.ModuleName
 	recipientAddr := s.network.App.GetAccountKeeper().GetModuleAddress(recipientModule)
 
-	sendAmt := cs(c(types.ExtendedCoinDenom(), 1000))
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	sendAmt := cs(c(extendedDenom, 1000))
 
 	s.MintToAccount(sender, sendAmt)
 
@@ -623,11 +638,13 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModule() {
 func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModuleBlockedRecipientCarry() {
 	// Carrying to module account balance. This tests that SendCoinsFromAccountToModule
 	// does not fail when sending to a blocked module account.
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
 
 	sender := sdk.AccAddress([]byte{1})
 
-	sendAmt := cs(c(types.ExtendedCoinDenom(), 1000))
-	sendAmt2 := cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(10)))
+	sendAmt := cs(c(extendedDenom, 1000))
+	sendAmt2 := cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(10)))
 
 	s.MintToAccount(sender, sendAmt.Add(sendAmt2...))
 
@@ -652,10 +669,14 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromAccountToModuleBlockedReci
 func (s *KeeperIntegrationTestSuite) TestSendCoinsBlockedRecipientCarry() {
 	// Same test as TestSendCoinsFromModuleToAccount_Blocked, but with SendCoins
 	// which also should not fail when sending to a blocked module account.
+
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	sender := sdk.AccAddress([]byte{1})
 
-	sendAmt := cs(c(types.ExtendedCoinDenom(), 1000))
-	sendAmt2 := cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(10)))
+	sendAmt := cs(c(extendedDenom, 1000))
+	sendAmt2 := cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(10)))
 
 	s.MintToAccount(sender, sendAmt.Add(sendAmt2...))
 
@@ -684,12 +705,14 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccount() {
 	// of SendCoinsFromAccountToModule, so we are only checking the correct
 	// addresses are being used.
 
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+
 	senderModule := evmtypes.ModuleName
 	senderAddr := s.network.App.GetAccountKeeper().GetModuleAddress(senderModule)
 
 	recipient := sdk.AccAddress([]byte{1})
 
-	sendAmt := cs(c(types.ExtendedCoinDenom(), 1000))
+	sendAmt := cs(c(extendedDenom, 1000))
 
 	s.MintToModuleAccount(senderModule, sendAmt)
 
@@ -717,6 +740,9 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccount() {
 }
 
 func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name        string
 		chainConfig testconfig.ChainConfig
@@ -743,11 +769,11 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 			recipient := sdk.AccAddress([]byte{2})
 
 			// Initial balance large enough to cover many small sends
-			initialBalance := types.ConversionFactor().MulRaw(100)
-			s.MintToAccount(sender, cs(ci(types.ExtendedCoinDenom(), initialBalance)))
+			initialBalance := types.ConversionFactor(extendedDecimals).MulRaw(100)
+			s.MintToAccount(sender, cs(ci(extendedDenom, initialBalance)))
 
 			// Setup test parameters
-			maxSendUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			maxSendUnit := types.ConversionFactor(extendedDecimals).MulRaw(2).SubRaw(1)
 			r := rand.New(rand.NewSource(SEED))
 
 			totalSent := sdkmath.ZeroInt()
@@ -756,7 +782,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 			// Continue transfers as long as sender has balance remaining
 			for {
 				// Check current sender balance
-				senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+				senderAmount := s.GetAllBalances(sender).AmountOf(extendedDenom)
 				if senderAmount.IsZero() {
 					break
 				}
@@ -768,7 +794,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 				}
 				randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxPossibleSend.BigInt())).AddRaw(1)
 
-				sendAmount := cs(ci(types.ExtendedCoinDenom(), randAmount))
+				sendAmount := cs(ci(extendedDenom, randAmount))
 				err := s.network.App.GetPreciseBankKeeper().SendCoins(s.network.GetContext(), sender, recipient, sendAmount)
 				s.NoError(err)
 				totalSent = totalSent.Add(randAmount)
@@ -778,16 +804,16 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 			s.T().Logf("Completed %d random sends, total sent: %s", sentCount, totalSent.String())
 
 			// Check sender balance
-			senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+			senderAmount := s.GetAllBalances(sender).AmountOf(extendedDenom)
 			s.Equal(senderAmount.BigInt().Cmp(big.NewInt(0)), 0, "sender balance should be zero")
 
 			// Check recipient balance
 			recipientBal := s.GetAllBalances(recipient)
-			intReceived := recipientBal.AmountOf(types.ExtendedCoinDenom()).Quo(types.ConversionFactor())
+			intReceived := recipientBal.AmountOf(extendedDenom).Quo(types.ConversionFactor(extendedDecimals))
 			fracReceived := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipient)
 
-			expectedInt := totalSent.Quo(types.ConversionFactor())
-			expectedFrac := totalSent.Mod(types.ConversionFactor())
+			expectedInt := totalSent.Quo(types.ConversionFactor(extendedDecimals))
+			expectedFrac := totalSent.Mod(types.ConversionFactor(extendedDecimals))
 
 			s.Equal(expectedInt.BigInt().Cmp(intReceived.BigInt()), 0, "integer carry mismatch (expected: %s, received: %s)", expectedInt, intReceived)
 			s.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)
@@ -796,18 +822,16 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 }
 
 func FuzzSendCoins(f *testing.F) {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo).Configure()
-	require.NoError(f, err)
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
 
 	f.Add(uint64(100), uint64(0), uint64(2))
 	f.Add(uint64(100), uint64(100), uint64(5))
-	f.Add(types.ConversionFactor().Uint64(), uint64(0), uint64(500))
+	f.Add(types.ConversionFactor(extendedDecimals).Uint64(), uint64(0), uint64(500))
 	f.Add(
-		types.ConversionFactor().MulRaw(2).AddRaw(123948723).Uint64(),
-		types.ConversionFactor().MulRaw(2).Uint64(),
-		types.ConversionFactor().Uint64(),
+		types.ConversionFactor(extendedDecimals).MulRaw(2).AddRaw(123948723).Uint64(),
+		types.ConversionFactor(extendedDecimals).MulRaw(2).Uint64(),
+		types.ConversionFactor(extendedDecimals).Uint64(),
 	)
 
 	f.Fuzz(func(
@@ -826,11 +850,11 @@ func FuzzSendCoins(f *testing.F) {
 		recipient := sdk.AccAddress([]byte{2})
 
 		// Initial balances
-		suite.MintToAccount(sender, cs(c(types.ExtendedCoinDenom(), int64(startBalSender))))      //nolint:gosec // G115
-		suite.MintToAccount(recipient, cs(c(types.ExtendedCoinDenom(), int64(startBalReceiver)))) //nolint:gosec // G115
+		suite.MintToAccount(sender, cs(c(extendedDenom, int64(startBalSender))))      //nolint:gosec // G115
+		suite.MintToAccount(recipient, cs(c(extendedDenom, int64(startBalReceiver)))) //nolint:gosec // G115
 
 		// Send amount
-		sendCoins := cs(c(types.ExtendedCoinDenom(), int64(sendAmount))) //nolint:gosec // G115
+		sendCoins := cs(c(extendedDenom, int64(sendAmount))) //nolint:gosec // G115
 		err := suite.network.App.GetPreciseBankKeeper().SendCoins(suite.network.GetContext(), sender, recipient, sendCoins)
 		if startBalSender < sendAmount {
 			suite.Require().Error(err, "expected insufficient funds error")
@@ -845,16 +869,19 @@ func FuzzSendCoins(f *testing.F) {
 
 		suite.Require().Equal(
 			startBalSender-sendAmount,
-			balSender.AmountOf(types.ExtendedCoinDenom()).Uint64(),
+			balSender.AmountOf(extendedDenom).Uint64(),
 		)
 		suite.Require().Equal(
 			startBalReceiver+sendAmount,
-			balReceiver.AmountOf(types.ExtendedCoinDenom()).Uint64(),
+			balReceiver.AmountOf(extendedDenom).Uint64(),
 		)
 	})
 }
 
 func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //nolint:revive // false positive due to file name
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name        string
 		chainConfig testconfig.ChainConfig
@@ -881,11 +908,11 @@ func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //
 			recipient := sdk.AccAddress([]byte{2})
 
 			// Initial balance large enough to cover many small sends
-			initialBalance := types.ConversionFactor().MulRaw(100)
-			s.MintToAccount(sender, cs(ci(types.ExtendedCoinDenom(), initialBalance)))
+			initialBalance := types.ConversionFactor(extendedDecimals).MulRaw(100)
+			s.MintToAccount(sender, cs(ci(extendedDenom, initialBalance)))
 
 			// Setup test parameters
-			maxSendUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			maxSendUnit := types.ConversionFactor(extendedDecimals).MulRaw(2).SubRaw(1)
 			r := rand.New(rand.NewSource(SEED))
 
 			totalSent := sdkmath.ZeroInt()
@@ -894,7 +921,7 @@ func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //
 			// Continue transfers as long as sender has balance remaining
 			for {
 				// Check current sender balance
-				senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+				senderAmount := s.GetAllBalances(sender).AmountOf(extendedDenom)
 				if senderAmount.IsZero() {
 					break
 				}
@@ -906,7 +933,7 @@ func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //
 				}
 				randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxPossibleSend.BigInt())).AddRaw(1)
 
-				sendAmount := cs(ci(types.ExtendedCoinDenom(), randAmount))
+				sendAmount := cs(ci(extendedDenom, randAmount))
 				msgSend := banktypes.MsgSend{
 					FromAddress: sender.String(),
 					ToAddress:   recipient.String(),
@@ -921,16 +948,16 @@ func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //
 			s.T().Logf("Completed %d random sends, total sent: %s", sentCount, totalSent.String())
 
 			// Check sender balance
-			senderAmount := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+			senderAmount := s.GetAllBalances(sender).AmountOf(extendedDenom)
 			s.Equal(senderAmount.BigInt().Cmp(big.NewInt(0)), 0, "sender balance should be zero")
 
 			// Check recipient balance
 			recipientBal := s.GetAllBalances(recipient)
-			intReceived := recipientBal.AmountOf(types.ExtendedCoinDenom()).Quo(types.ConversionFactor())
+			intReceived := recipientBal.AmountOf(extendedDenom).Quo(types.ConversionFactor(extendedDecimals))
 			fracReceived := s.network.App.GetPreciseBankKeeper().GetFractionalBalance(s.network.GetContext(), recipient)
 
-			expectedInt := totalSent.Quo(types.ConversionFactor())
-			expectedFrac := totalSent.Mod(types.ConversionFactor())
+			expectedInt := totalSent.Quo(types.ConversionFactor(extendedDecimals))
+			expectedFrac := totalSent.Mod(types.ConversionFactor(extendedDecimals))
 
 			s.Equal(expectedInt.BigInt().Cmp(intReceived.BigInt()), 0, "integer carry mismatch (expected: %s, received: %s)", expectedInt, intReceived)
 			s.Equal(expectedFrac.BigInt().Cmp(fracReceived.BigInt()), 0, "fractional balance mismatch (expected: %s, received: %s)", expectedFrac, fracReceived)

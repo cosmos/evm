@@ -115,7 +115,7 @@ func InitAppConfig(chainConfig ChainConfig) (string, interface{}) {
 	//   own app.toml to override, or use this default value.
 	//
 	// In this example application, we set the min gas prices to 0.
-	srvCfg.MinGasPrices = "0" + chainConfig.CoinInfo.Denom
+	srvCfg.MinGasPrices = "0" + chainConfig.CoinInfo.GetDenom()
 
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = chainConfig.ChainInfo.EVMChainID
@@ -129,18 +129,4 @@ func InitAppConfig(chainConfig ChainConfig) (string, interface{}) {
 	}
 
 	return EVMAppTemplate, customAppConfig
-}
-
-// InitAppConfigLegacy provides backward compatibility with the old interface.
-// Deprecated: Use InitAppConfig with ChainConfig instead.
-func InitAppConfigLegacy(denom string, evmChainID uint64) (string, interface{}) {
-	chainConfig := ChainConfig{
-		ChainInfo: ChainInfo{
-			EVMChainID: evmChainID,
-		},
-		CoinInfo: evmtypes.EvmCoinInfo{
-			Denom: denom,
-		},
-	}
-	return InitAppConfig(chainConfig)
 }

@@ -25,7 +25,7 @@ func (s *EvmUnitAnteTestSuite) TestUpdateCumulativeGasWanted() {
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		},
-		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+		EvmConfig: testconfig.DefaultChainConfig.EvmConfig,
 	}
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,
@@ -106,7 +106,7 @@ func (s *EvmUnitAnteTestSuite) TestConsumeGasAndEmitEvent() {
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		},
-		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+		EvmConfig: testconfig.DefaultChainConfig.EvmConfig,
 	}
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,

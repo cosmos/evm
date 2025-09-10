@@ -8,7 +8,6 @@ import (
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/testutil"
 	"github.com/cosmos/evm/x/precisebank/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -16,6 +15,9 @@ import (
 )
 
 func TestGenesisStateValidate_Basic(t *testing.T) {
+	coinInfo := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
+
 	testCases := []struct {
 		name         string
 		genesisState *types.GenesisState
@@ -44,7 +46,7 @@ func TestGenesisStateValidate_Basic(t *testing.T) {
 				types.FractionalBalances{
 					types.NewFractionalBalance(sdk.AccAddress{1}.String(), sdkmath.NewInt(1)),
 				},
-				types.ConversionFactor().SubRaw(1),
+				types.ConversionFactor(extendedDecimals).SubRaw(1),
 			),
 			"",
 		},
@@ -104,7 +106,7 @@ func TestGenesisStateValidate_Basic(t *testing.T) {
 					types.NewFractionalBalance(sdk.AccAddress{1}.String(), sdkmath.NewInt(1)),
 					types.NewFractionalBalance(sdk.AccAddress{2}.String(), sdkmath.NewInt(1)),
 				},
-				types.ConversionFactor(),
+				types.ConversionFactor(extendedDecimals),
 			),
 			"remainder 1000000000000 exceeds max of 999999999999",
 		},
@@ -112,7 +114,7 @@ func TestGenesisStateValidate_Basic(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(tt *testing.T) {
-			err := tc.genesisState.Validate()
+			err := tc.genesisState.Validate(extendedDecimals)
 
 			if tc.wantErr == "" {
 				require.NoError(tt, err)
@@ -125,6 +127,9 @@ func TestGenesisStateValidate_Basic(t *testing.T) {
 }
 
 func TestGenesisStateValidate_Total(t *testing.T) {
+	coinInfo := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
+
 	testCases := []struct {
 		name              string
 		buildGenesisState func() *types.GenesisState
@@ -140,7 +145,7 @@ func TestGenesisStateValidate_Total(t *testing.T) {
 		{
 			"valid - non-zero balances, zero remainder",
 			func() *types.GenesisState {
-				fbs := testutil.GenerateEqualFractionalBalances(t, 100)
+				fbs := testutil.GenerateEqualFractionalBalances(t, 100, extendedDecimals)
 				require.Len(t, fbs, 100)
 
 				return types.NewGenesisState(fbs, sdkmath.ZeroInt())
@@ -150,7 +155,7 @@ func TestGenesisStateValidate_Total(t *testing.T) {
 		{
 			"valid - non-zero balances, non-zero remainder",
 			func() *types.GenesisState {
-				fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, 100)
+				fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, 100, extendedDecimals)
 
 				require.Len(t, fbs, 100)
 				require.NotZero(t, remainder.Int64())
@@ -164,7 +169,7 @@ func TestGenesisStateValidate_Total(t *testing.T) {
 		{
 			"invalid - non-zero balances, invalid remainder",
 			func() *types.GenesisState {
-				fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, 100)
+				fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, 100, extendedDecimals)
 
 				require.Len(t, fbs, 100)
 				require.NotZero(t, remainder.Int64())
@@ -187,7 +192,7 @@ func TestGenesisStateValidate_Total(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(tt *testing.T) {
-			err := tc.buildGenesisState().Validate()
+			err := tc.buildGenesisState().Validate(extendedDecimals)
 
 			if tc.containsErr == "" {
 				require.NoError(tt, err)
@@ -200,6 +205,9 @@ func TestGenesisStateValidate_Total(t *testing.T) {
 }
 
 func TestGenesisState_TotalAmountWithRemainder(t *testing.T) {
+	coinInfo := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name                         string
 		giveBalances                 types.FractionalBalances
@@ -215,28 +223,28 @@ func TestGenesisState_TotalAmountWithRemainder(t *testing.T) {
 		{
 			"non-empty balances, zero remainder",
 			types.FractionalBalances{
-				types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().QuoRaw(2)),
-				types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().QuoRaw(2)),
+				types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
+				types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
 			},
 			sdkmath.ZeroInt(),
-			types.ConversionFactor(),
+			types.ConversionFactor(extendedDecimals),
 		},
 		{
 			"non-empty balances, 1 remainder",
 			types.FractionalBalances{
-				types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().QuoRaw(2)),
-				types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().QuoRaw(2).SubRaw(1)),
+				types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
+				types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2).SubRaw(1)),
 			},
 			sdkmath.OneInt(),
-			types.ConversionFactor(),
+			types.ConversionFactor(extendedDecimals),
 		},
 		{
 			"non-empty balances, max remainder",
 			types.FractionalBalances{
 				types.NewFractionalBalance(sdk.AccAddress{1}.String(), sdkmath.OneInt()),
 			},
-			types.ConversionFactor().SubRaw(1),
-			types.ConversionFactor(),
+			types.ConversionFactor(extendedDecimals).SubRaw(1),
+			types.ConversionFactor(extendedDecimals),
 		},
 	}
 
@@ -247,7 +255,7 @@ func TestGenesisState_TotalAmountWithRemainder(t *testing.T) {
 				tt.giveRemainder,
 			)
 
-			require.NoError(t, gs.Validate(), "genesis state should be valid before testing total amount")
+			require.NoError(t, gs.Validate(extendedDecimals), "genesis state should be valid before testing total amount")
 
 			totalAmt := gs.TotalAmountWithRemainder()
 			require.Equal(t, tt.wantTotalAmountWithRemainder, totalAmt, "total amount should be balances + remainder")
@@ -256,11 +264,8 @@ func TestGenesisState_TotalAmountWithRemainder(t *testing.T) {
 }
 
 func FuzzGenesisStateValidate_NonZeroRemainder(f *testing.F) {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo)
-	err := configurator.Configure()
-	require.NoError(f, err)
+	coinInfo := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
 
 	f.Add(5)
 	f.Add(100)
@@ -272,22 +277,19 @@ func FuzzGenesisStateValidate_NonZeroRemainder(f *testing.F) {
 			t.Skip("count < 2")
 		}
 
-		fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, count)
+		fbs, remainder := testutil.GenerateEqualFractionalBalancesWithRemainder(t, count, extendedDecimals)
 
 		t.Logf("count: %v", count)
 		t.Logf("remainder: %v", remainder)
 
 		gs := types.NewGenesisState(fbs, remainder)
-		require.NoError(t, gs.Validate())
+		require.NoError(t, gs.Validate(extendedDecimals))
 	})
 }
 
 func FuzzGenesisStateValidate_ZeroRemainder(f *testing.F) {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo)
-	err := configurator.Configure()
-	require.NoError(f, err)
+	coinInfo := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
 
 	f.Add(5)
 	f.Add(100)
@@ -299,9 +301,9 @@ func FuzzGenesisStateValidate_ZeroRemainder(f *testing.F) {
 			t.Skip("count < 2")
 		}
 
-		fbs := testutil.GenerateEqualFractionalBalances(t, count)
+		fbs := testutil.GenerateEqualFractionalBalances(t, count, extendedDecimals)
 
 		gs := types.NewGenesisState(fbs, sdkmath.ZeroInt())
-		require.NoError(t, gs.Validate())
+		require.NoError(t, gs.Validate(extendedDecimals))
 	})
 }

@@ -419,7 +419,8 @@ type GovCustomGenesisState struct {
 func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState) cosmosevmtypes.GenesisState {
 	govGen := govtypesv1.DefaultGenesisState()
 	updatedParams := govGen.Params
-	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+	defaultDecimals := testconfig.DefaultDecimals
+	minDepositAmt := sdkmath.NewInt(1e18).Quo(defaultDecimals.ConversionFactor())
 	updatedParams.MinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	updatedParams.ExpeditedMinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	govGen.Params = updatedParams
@@ -464,10 +465,9 @@ func setDefaultMintGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmt
 
 func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
 	coinInfo := evmtypes.EvmCoinInfo{
-		Denom:         testconfig.DefaultDisplayDenom,
-		ExtendedDenom: testconfig.DefaultDisplayDenom,
-		DisplayDenom:  testconfig.DefaultDisplayDenom,
-		Decimals:      testconfig.DefaultDecimals,
+		DisplayDenom:     testconfig.DefaultDisplayDenom,
+		Decimals:         testconfig.DefaultDecimals,
+		ExtendedDecimals: testconfig.DefaultDecimals,
 	}
 
 	erc20Gen := newErc20GenesisState()

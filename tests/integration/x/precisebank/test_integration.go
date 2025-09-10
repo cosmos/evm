@@ -19,6 +19,9 @@ import (
 )
 
 func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecimals() {
+	extendedCoinDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name        string
 		chainConfig testconfig.ChainConfig
@@ -46,12 +49,12 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 			recipient := sdk.AccAddress([]byte{2})
 
 			// Mint initial balance to sender
-			initialBalance := types.ConversionFactor().MulRaw(100)
-			initialCoins := cs(ci(types.ExtendedCoinDenom(), initialBalance))
+			initialBalance := types.ConversionFactor(extendedDecimals).MulRaw(100)
+			initialCoins := cs(ci(extendedCoinDenom, initialBalance))
 			s.Require().NoError(s.network.App.GetPreciseBankKeeper().MintCoins(s.network.GetContext(), moduleName, initialCoins))
 			s.Require().NoError(s.network.App.GetPreciseBankKeeper().SendCoinsFromModuleToAccount(s.network.GetContext(), moduleName, sender, initialCoins))
 
-			maxUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			maxUnit := types.ConversionFactor(extendedDecimals).MulRaw(2).SubRaw(1)
 			r := rand.New(rand.NewSource(SEED))
 
 			// Expected balances tracking
@@ -69,7 +72,7 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 				switch op {
 				case 0: // Mint to sender via module
 					randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxUnit.BigInt())).AddRaw(1)
-					mintCoins := cs(ci(types.ExtendedCoinDenom(), randAmount))
+					mintCoins := cs(ci(extendedCoinDenom, randAmount))
 					if err := s.network.App.GetPreciseBankKeeper().MintCoins(s.network.GetContext(), moduleName, mintCoins); err != nil {
 						continue
 					}
@@ -81,13 +84,13 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 					mintCount++
 
 				case 1: // Burn from sender via module
-					senderBal := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+					senderBal := s.GetAllBalances(sender).AmountOf(extendedCoinDenom)
 					if senderBal.IsZero() {
 						continue
 					}
 					burnable := sdkmath.MinInt(senderBal, maxUnit)
 					randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, burnable.BigInt())).AddRaw(1)
-					burnCoins := cs(ci(types.ExtendedCoinDenom(), randAmount))
+					burnCoins := cs(ci(extendedCoinDenom, randAmount))
 					if err := s.network.App.GetPreciseBankKeeper().SendCoinsFromAccountToModule(s.network.GetContext(), sender, moduleName, burnCoins); err != nil {
 						continue
 					}
@@ -99,13 +102,13 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 					burnCount++
 
 				case 2: // Send from sender to recipient
-					senderBal := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
+					senderBal := s.GetAllBalances(sender).AmountOf(extendedCoinDenom)
 					if senderBal.IsZero() {
 						continue
 					}
 					sendable := sdkmath.MinInt(senderBal, maxUnit)
 					randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, sendable.BigInt())).AddRaw(1)
-					sendCoins := cs(ci(types.ExtendedCoinDenom(), randAmount))
+					sendCoins := cs(ci(extendedCoinDenom, randAmount))
 					if err := s.network.App.GetPreciseBankKeeper().SendCoins(s.network.GetContext(), sender, recipient, sendCoins); err != nil {
 						continue
 					}
@@ -118,13 +121,13 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 			s.T().Logf("Executed operations: %d mints, %d burns, %d sends", mintCount, burnCount, sendCount)
 
 			// Check balances
-			actualSenderBal := s.GetAllBalances(sender).AmountOf(types.ExtendedCoinDenom())
-			actualRecipientBal := s.GetAllBalances(recipient).AmountOf(types.ExtendedCoinDenom())
+			actualSenderBal := s.GetAllBalances(sender).AmountOf(extendedCoinDenom)
+			actualRecipientBal := s.GetAllBalances(recipient).AmountOf(extendedCoinDenom)
 			s.Require().Equal(expectedSenderBal.BigInt().Cmp(actualSenderBal.BigInt()), 0, "Sender balance mismatch (expected: %s, actual: %s)", expectedSenderBal, actualSenderBal)
 			s.Require().Equal(expectedRecipientBal.BigInt().Cmp(actualRecipientBal.BigInt()), 0, "Recipient balance mismatch (expected: %s, actual: %s)", expectedRecipientBal, actualRecipientBal)
 
 			// Check remainder
-			expectedRemainder := burnAmount.Sub(mintAmount).Mod(types.ConversionFactor())
+			expectedRemainder := burnAmount.Sub(mintAmount).Mod(types.ConversionFactor(extendedDecimals))
 			actualRemainder := s.network.App.GetPreciseBankKeeper().GetRemainderAmount(s.network.GetContext())
 			s.Require().Equal(expectedRemainder.BigInt().Cmp(actualRemainder.BigInt()), 0, "Remainder mismatch (expected: %s, actual: %s)", expectedRemainder, actualRemainder)
 		})
@@ -134,6 +137,9 @@ func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecima
 func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 	maxGasLimit := int64(500000)
 	defaultEVMCoinTransferGasLimit := int64(21000)
+
+	extendedCoinDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
 
 	tests := []struct {
 		name        string
@@ -167,8 +173,8 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			gasFee := gasPrice.Mul(sdkmath.NewInt(defaultEVMCoinTransferGasLimit))
 
 			// Burn balance from sender except for initial balance
-			initialBalance := types.ConversionFactor().MulRaw(100)
-			senderBal := s.GetAllBalances(sender.AccAddr).AmountOf(types.ExtendedCoinDenom()).Sub(gasFee).Sub(initialBalance)
+			initialBalance := types.ConversionFactor(extendedDecimals).MulRaw(100)
+			senderBal := s.GetAllBalances(sender.AccAddr).AmountOf(extendedCoinDenom).Sub(gasFee).Sub(initialBalance)
 			_, err = s.factory.ExecuteEthTx(sender.Priv, evmtypes.EvmTxArgs{
 				To:       &burnerAddr,
 				Amount:   senderBal.BigInt(),
@@ -178,7 +184,7 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			s.Require().NoError(err)
 
 			// Burn balance from recipient
-			recipientBal := s.GetAllBalances(recipient.AccAddr).AmountOf(types.ExtendedCoinDenom()).Sub(gasFee)
+			recipientBal := s.GetAllBalances(recipient.AccAddr).AmountOf(extendedCoinDenom).Sub(gasFee)
 			_, err = s.factory.ExecuteEthTx(recipient.Priv, evmtypes.EvmTxArgs{
 				To:       &burnerAddr,
 				Amount:   recipientBal.BigInt(),
@@ -190,7 +196,7 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			err = s.network.NextBlock()
 			s.Require().NoError(err)
 
-			maxSendUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			maxSendUnit := types.ConversionFactor(extendedDecimals).MulRaw(2).SubRaw(1)
 			r := rand.New(rand.NewSource(SEED))
 
 			expectedSenderBal := initialBalance
@@ -235,12 +241,12 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 			s.T().Logf("Completed %d random evm sends", sentCount)
 
 			// Check sender balance
-			actualSenderBal := s.GetAllBalances(sender.AccAddr).AmountOf(types.ExtendedCoinDenom())
+			actualSenderBal := s.GetAllBalances(sender.AccAddr).AmountOf(extendedCoinDenom)
 			s.Require().Equal(expectedSenderBal.BigInt().Cmp(actualSenderBal.BigInt()), 0,
 				"Sender balance mismatch (expected: %s, actual: %s)", expectedSenderBal, actualSenderBal)
 
 			// Check recipient balance
-			actualRecipientBal := s.GetAllBalances(recipient.AccAddr).AmountOf(types.ExtendedCoinDenom())
+			actualRecipientBal := s.GetAllBalances(recipient.AccAddr).AmountOf(extendedCoinDenom)
 			s.Require().Equal(expectedRecipientBal.BigInt().Cmp(actualRecipientBal.BigInt()), 0,
 				"Recipient balance mismatch (expected: %s, actual: %s)", expectedRecipientBal, actualRecipientBal)
 		})

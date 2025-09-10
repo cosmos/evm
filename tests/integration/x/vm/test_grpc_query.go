@@ -40,7 +40,8 @@ import (
 const invalidAddress = "0x0000"
 
 func (s *KeeperTestSuite) TestQueryAccount() {
-	baseDenom := types.GetEVMCoinDenom()
+	baseDenom := s.Network.GetEVMDenom()
+
 	testCases := []struct {
 		msg         string
 		getReq      func() *types.QueryAccountRequest
@@ -198,7 +199,7 @@ func (s *KeeperTestSuite) TestQueryCosmosAccount() {
 }
 
 func (s *KeeperTestSuite) TestQueryBalance() {
-	baseDenom := types.GetEVMCoinDenom()
+	baseDenom := s.Network.GetEVMDenom()
 
 	testCases := []struct {
 		msg           string
@@ -557,6 +558,8 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 	erc20Contract, err := testdata.LoadERC20Contract()
 	s.Require().NoError(err)
 
+	baseDenom := s.Network.GetEVMDenom()
+
 	testCases := []struct {
 		msg             string
 		getArgs         func() types.TransactionArgs
@@ -622,7 +625,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 			func() types.TransactionArgs {
 				addr := s.Keyring.GetAddr(0)
 				hexBigInt := hexutil.Big(*big.NewInt(1))
-				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), sdk.AccAddress(addr.Bytes()), types.GetEVMCoinDenom())
+				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), sdk.AccAddress(addr.Bytes()), baseDenom)
 				value := balance.Amount.Add(sdkmath.NewInt(1))
 				return types.TransactionArgs{
 					To:           &common.Address{},
@@ -641,7 +644,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 			func() types.TransactionArgs {
 				addr := s.Keyring.GetAddr(0)
 				hexBigInt := hexutil.Big(*big.NewInt(1))
-				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), sdk.AccAddress(addr.Bytes()), types.GetEVMCoinDenom())
+				balance := s.Network.App.GetBankKeeper().GetBalance(s.Network.GetContext(), sdk.AccAddress(addr.Bytes()), baseDenom)
 				value := balance.Amount.Sub(sdkmath.NewInt(1))
 				return types.TransactionArgs{
 					To:           &common.Address{},
@@ -1561,6 +1564,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
 
+	// Save initial configure to restore it between tests
+	initialEvmConfig := *s.Network.App.GetEVMKeeper().GetEvmConfig()
+
 	testCases := []struct {
 		name       string
 		getExpResp func() *types.QueryBaseFeeResponse
@@ -1592,7 +1598,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				s.Require().NoError(s.Network.App.GetFeeMarketKeeper().SetParams(s.Network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), *testconfig.DefaultChainConfig.EvmConfig.CoinInfo)
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt
@@ -1602,14 +1608,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				configurator := types.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				coinInfo := testconfig.DefaultChainConfig.CoinInfo
-				err := configurator.
-					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(coinInfo).
-					Configure()
-				s.Require().NoError(err)
+				evmConfig := *s.Network.App.GetEVMKeeper().GetEvmConfig()
+				evmConfig.ChainConfig = chainConfig
+				s.Network.App.GetEVMKeeper().SetEvmConfig(&evmConfig)
 			},
 			true,
 		},
@@ -1631,21 +1632,13 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 		},
 	}
 
-	// Save initial configure to restore it between tests
-	coinInfo := types.EvmCoinInfo{
-		Denom:         types.GetEVMCoinDenom(),
-		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
-		DisplayDenom:  types.GetEVMCoinDisplayDenom(),
-		Decimals:      types.GetEVMCoinDecimals(),
-	}
-	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
-
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set necessary params
 			tc.setParams()
 			// Get the expected response
 			expResp := tc.getExpResp()
+
 			// Function under test
 			res, err := s.Network.GetEvmClient().BaseFee(
 				s.Network.GetContext(),
@@ -1659,13 +1652,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			configurator := types.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err = configurator.
-				WithChainConfig(chainConfig).
-				WithEVMCoinInfo(coinInfo).
-				Configure()
-			s.Require().NoError(err)
+
+			// Reset evm config
+			s.Network.App.GetEVMKeeper().SetEvmConfig(&initialEvmConfig)
 		})
 	}
 }
@@ -1780,6 +1769,8 @@ func (s *KeeperTestSuite) TestEthCall() {
 }
 
 func (s *KeeperTestSuite) TestBalance() {
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	testCases := []struct {
 		name        string
 		returnedBal func() *uint256.Int
@@ -1801,7 +1792,7 @@ func (s *KeeperTestSuite) TestBalance() {
 
 				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types2.ConversionFactor())
+				balance = balance.Quo(types2.ConversionFactor(extendedDecimals))
 				s.Require().NotEqual(balance.String(), "0")
 
 				// replace with vesting account
@@ -1848,7 +1839,7 @@ func (s *KeeperTestSuite) TestBalance() {
 
 				balance, ok := sdkmath.NewIntFromString(balanceResp.Balance)
 				s.Require().True(ok)
-				balance = balance.Quo(types2.ConversionFactor())
+				balance = balance.Quo(types2.ConversionFactor(extendedDecimals))
 				s.Require().NotEqual(balance.String(), "0")
 
 				// replace with vesting account

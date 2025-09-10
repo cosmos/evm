@@ -22,6 +22,9 @@ cache-preimage = {{ .EVM.EnablePreimageRecording }}
 # EVMChainID is the EIP-155 compatible replay protection chain ID. This is separate from the Cosmos chain ID.
 evm-chain-id = {{ .EVM.EVMChainID }}
 
+# MinTip defines the minimum priority fee for the mempool.
+min-tip = {{ .EVM.MinTip }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
@@ -120,15 +123,12 @@ key-path = "{{ .TLS.KeyPath }}"
 
 [coin]
 
-# Denom defines the base denomination used in the chain
-denom = "{{ .Coin.Denom }}"
-
-# ExtendedDenom defines the extended denomination (typically atto-denom for 18 decimals)
-extended-denom = "{{ .Coin.ExtendedDenom }}"
-
 # DisplayDenom defines the display denomination shown to users
 display-denom = "{{ .Coin.DisplayDenom }}"
 
 # Decimals defines the precision/decimals for the base denomination (1-18)
 decimals = {{ .Coin.Decimals }}
+
+# ExtendedDecimals defines the precision/decimals for the extended denomination (typically 18 decimals for atto-denom)
+extended-decimals = {{ .Coin.ExtendedDecimals }}
 `

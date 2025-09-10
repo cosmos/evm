@@ -59,7 +59,8 @@ func (s *KeeperTestSuite) SetupTest() {
 
 	if s.MintFeeCollector {
 		// mint some coin to fee collector
-		coins := sdk.NewCoins(sdk.NewCoin(evmtypes.GetEVMCoinDenom(), sdkmath.NewInt(int64(params.TxGas)-1)))
+		integerDenom := s.Network.GetEVMDenom()
+		coins := sdk.NewCoins(sdk.NewCoin(integerDenom, sdkmath.NewInt(int64(params.TxGas)-1)))
 		balances := []banktypes.Balance{
 			{
 				Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),
@@ -88,7 +89,10 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.Handler = gh
 	s.Keyring = keys
 
-	chainConfig := evmtypes.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+	// get the denom and decimals set on chain initialization
+	// because we'll need to set them again when resetting the chain config
+	coinInfo := s.Network.App.GetEVMKeeper().GetEvmConfig().CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), *coinInfo)
 	if !s.EnableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt
@@ -99,24 +103,6 @@ func (s *KeeperTestSuite) SetupTest() {
 		chainConfig.CancunTime = &maxInt
 		chainConfig.PragueTime = &maxInt
 	}
-	// get the denom and decimals set on chain initialization
-	// because we'll need to set them again when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()
-	extendedDenom := evmtypes.GetEVMCoinExtendedDenom()
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom()
-	decimals := evmtypes.GetEVMCoinDecimals()
-	coinInfo := evmtypes.EvmCoinInfo{
-		Denom:         denom,
-		ExtendedDenom: extendedDenom,
-		DisplayDenom:  displayDenom,
-		Decimals:      decimals,
-	}
-
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.
-		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(coinInfo).
-		Configure()
-	s.Require().NoError(err)
+	evmConfig := evmtypes.NewEvmConfig().WithChainConfig(chainConfig).WithEVMCoinInfo(coinInfo)
+	s.Network.App.GetEVMKeeper().SetEvmConfig(evmConfig)
 }

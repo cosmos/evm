@@ -241,16 +241,11 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 		testconfig.SixDecimalsChainConfig,
 	} {
 		for _, tc := range testCases {
-			s.Run(fmt.Sprintf("%s, %s", chainConfig.ChainInfo.ChainID, tc.name), func() {
-				// Call the configurator to set the EVM coin required for the
-				// function to be tested.
-				configurator := evmtypes.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				s.Require().NoError(configurator.WithEVMCoinInfo(chainConfig.CoinInfo).Configure())
+			s.Run(fmt.Sprintf("%s, %s", chainConfig.ChainID, tc.name), func() {
 
 				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
 				// decimals representation.
-				evmExtendedDenom := evmtypes.GetEVMCoinExtendedDenom()
+				evmExtendedDenom := chainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
 
 				coins := sdktypes.Coins{sdktypes.Coin{Denom: evmExtendedDenom, Amount: amount}}
 

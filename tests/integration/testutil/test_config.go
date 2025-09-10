@@ -31,15 +31,15 @@ func (s *TestSuite) TestWithChainID() {
 	}{
 		{
 			name:            "18 decimals",
-			chainID:         eighteenDecimalsConfig.ChainInfo.ChainID,
-			coinInfo:        eighteenDecimalsConfig.CoinInfo,
+			chainID:         eighteenDecimalsConfig.ChainID,
+			coinInfo:        *eighteenDecimalsConfig.EvmConfig.CoinInfo,
 			expBaseFee:      math.LegacyNewDec(875_000_000),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.EighteenDecimals),
 		},
 		{
 			name:            "6 decimals",
-			chainID:         sixDecimalsConfig.ChainInfo.ChainID,
-			coinInfo:        sixDecimalsConfig.CoinInfo,
+			chainID:         sixDecimalsConfig.ChainID,
+			coinInfo:        *sixDecimalsConfig.EvmConfig.CoinInfo,
 			expBaseFee:      math.LegacyNewDecWithPrec(875, 6),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.SixDecimals),
 		},
@@ -50,7 +50,7 @@ func (s *TestSuite) TestWithChainID() {
 		keyring := testkeyring.New(1)
 
 		// Create chain config for the test case
-		chainConfig := testconfig.CreateChainConfig(tc.chainID, tc.evmChainID, "test", tc.coinInfo.Decimals)
+		chainConfig := testconfig.CreateChainConfig(tc.chainID, tc.evmChainID, nil, "test", tc.coinInfo.Decimals, tc.coinInfo.ExtendedDecimals)
 		options := []network.ConfigOption{
 			network.WithChainConfig(chainConfig),
 			network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
@@ -78,7 +78,7 @@ func (s *TestSuite) TestWithChainID() {
 		)
 
 		// Bank balance should always be in the original amount.
-		cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.coinInfo.Denom)
+		cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.coinInfo.GetDenom())
 		s.NoError(err, "error getting balances")
 		s.Equal(
 			tc.expCosmosAmount.String(),
@@ -102,9 +102,9 @@ func (s *TestSuite) TestWithChainID() {
 }
 
 func (s *TestSuite) TestWithBalances() {
-	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconfig.DefaultChainConfig.CoinInfo.Denom, 1e18))
+	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetDenom(), 1e18))
 	key2Balance := sdk.NewCoins(
-		sdk.NewInt64Coin(testconfig.DefaultChainConfig.CoinInfo.Denom, 2e18),
+		sdk.NewInt64Coin(testconfig.DefaultChainConfig.EvmConfig.Denom, 2e18),
 		sdk.NewInt64Coin("other", 3e18),
 	)
 

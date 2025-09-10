@@ -35,12 +35,13 @@ func PrepareEthTx(
 	txBuilder := txCfg.NewTxBuilder()
 
 	// Always use testconfig chainID for test consistency
-	chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+	evmConfig := testconfig.DefaultChainConfig.EvmConfig
+	chainID := new(big.Int).SetUint64(evmConfig.ChainConfig.ChainId)
 	signer := ethtypes.LatestSignerForChainID(chainID)
 	txFee := sdk.Coins{}
 	txGasLimit := uint64(0)
 
-	baseDenom := evmtypes.GetEVMCoinDenom()
+	baseDenom := evmConfig.CoinInfo.GetDenom()
 
 	// Sign messages and compute gas/fees.
 	for _, m := range msgs {
@@ -112,7 +113,8 @@ func CreateEthTx(
 		copy(toAddr[:], dest)
 	}
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainConfig := testconfig.DefaultChainConfig.EvmConfig.ChainConfig
+	ethConfig := chainConfig.EthereumConfig()
 
 	baseFeeRes, err := evmApp.GetEVMKeeper().BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil {
@@ -126,7 +128,7 @@ func CreateEthTx(
 		gasLimit = 5_000_000
 	}
 	evmTxParams := &evmtypes.EvmTxArgs{
-		ChainID:   chainID,
+		ChainID:   ethConfig.ChainID,
 		Nonce:     nonce,
 		To:        toAddr,
 		Amount:    amount,
@@ -143,7 +145,7 @@ func CreateEthTx(
 	// If we are creating multiple eth Tx's with different senders, we need to sign here rather than later.
 	if privKey != nil {
 		// Always use testconfig chainID for test consistency
-		chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+		chainID := ethConfig.ChainID
 		signer := ethtypes.LatestSignerForChainID(chainID)
 		err := msgEthereumTx.Sign(signer, NewSigner(privKey))
 		if err != nil {

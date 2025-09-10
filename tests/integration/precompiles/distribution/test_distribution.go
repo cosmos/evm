@@ -74,7 +74,7 @@ func (s *PrecompileTestSuite) TestRun() {
 		err error
 	)
 
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.Denom
 
 	testcases := []struct {
 		name        string
@@ -89,7 +89,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 				val, _ := s.network.App.GetStakingKeeper().GetValidator(ctx, valAddr)
-				denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+				denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 				coins := sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
@@ -113,7 +113,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				caller := common.BytesToAddress(valAddr)
 
 				commAmt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
-				denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+				denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(denom, commAmt)}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
@@ -305,7 +305,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 		ctx sdk.Context
 		err error
 	)
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.Denom
 
 	testcases := []struct {
 		name        string

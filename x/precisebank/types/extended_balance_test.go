@@ -7,7 +7,6 @@ import (
 
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -15,10 +14,11 @@ import (
 )
 
 func TestSumExtendedCoin(t *testing.T) {
-	coinInfo := testconfig.SixDecimalsChainConfig.CoinInfo
-	configurator := evmtypes.NewEVMConfigurator()
-	err := configurator.WithEVMCoinInfo(coinInfo).Configure()
-	require.NoError(t, err)
+	chainConfig := testconfig.SixDecimalsChainConfig
+	coinInfo := chainConfig.EvmConfig.CoinInfo
+	integerDenom := coinInfo.GetDenom()
+	extendedDecimals := coinInfo.ExtendedDecimals
+	extendedDenom := coinInfo.GetExtendedDenom()
 
 	tests := []struct {
 		name string
@@ -28,25 +28,25 @@ func TestSumExtendedCoin(t *testing.T) {
 		{
 			"empty",
 			sdk.NewCoins(),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.ZeroInt()),
+			sdk.NewCoin(extendedDenom, sdkmath.ZeroInt()),
 		},
 		{
 			"only integer",
-			sdk.NewCoins(sdk.NewInt64Coin(types.IntegerCoinDenom(), 100)),
-			sdk.NewCoin(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(100)),
+			sdk.NewCoins(sdk.NewInt64Coin(integerDenom, 100)),
+			sdk.NewCoin(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(100)),
 		},
 		{
 			"only extended",
-			sdk.NewCoins(sdk.NewInt64Coin(types.ExtendedCoinDenom(), 100)),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(100)),
+			sdk.NewCoins(sdk.NewInt64Coin(extendedDenom, 100)),
+			sdk.NewCoin(extendedDenom, sdkmath.NewInt(100)),
 		},
 		{
 			"integer and extended",
 			sdk.NewCoins(
-				sdk.NewInt64Coin(types.IntegerCoinDenom(), 100),
-				sdk.NewInt64Coin(types.ExtendedCoinDenom(), 100),
+				sdk.NewInt64Coin(integerDenom, 100),
+				sdk.NewInt64Coin(extendedDenom, 100),
 			),
-			sdk.NewCoin(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(100).AddRaw(100)),
+			sdk.NewCoin(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(100).AddRaw(100)),
 		},
 	}
 

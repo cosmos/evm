@@ -8,10 +8,10 @@ import (
 	"github.com/hashicorp/go-metrics"
 
 	"github.com/cosmos/evm/x/precisebank/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -43,8 +43,8 @@ func (k Keeper) IsSendEnabledCoins(ctx context.Context, coins ...sdk.Coin) error
 // it also checks for the SendEnabled status on the EVM denom. The rest pass through the
 // regular bank keeper implementation.
 func (k Keeper) IsSendEnabledCoin(ctx context.Context, coin sdk.Coin) bool {
-	if coin.Denom == evmtypes.GetEVMCoinExtendedDenom() {
-		return k.bk.IsSendEnabledCoin(ctx, sdk.NewCoin(evmtypes.GetEVMCoinDenom(), coin.Amount.Quo(types.ConversionFactor())))
+	if coin.Denom == k.GetCoinInfo().GetExtendedDenom() {
+		return k.bk.IsSendEnabledCoin(ctx, sdk.NewCoin(k.GetCoinInfo().GetDenom(), coin.Amount.Quo(types.ConversionFactor(k.GetCoinInfo().ExtendedDecimals))))
 	}
 	return k.bk.IsSendEnabledCoin(ctx, coin)
 }
@@ -68,11 +68,12 @@ func (k Keeper) SendCoins(
 	}
 
 	passthroughCoins := amt
-	extendedCoinAmount := amt.AmountOf(types.ExtendedCoinDenom())
+	coinInfo := k.GetCoinInfo()
+	extendedCoinAmount := amt.AmountOf(coinInfo.GetExtendedDenom())
 
 	// Remove the extended coin amount from the passthrough coins
 	if extendedCoinAmount.IsPositive() {
-		subCoin := sdk.NewCoin(types.ExtendedCoinDenom(), extendedCoinAmount)
+		subCoin := sdk.NewCoin(coinInfo.GetExtendedDenom(), extendedCoinAmount)
 		passthroughCoins = amt.Sub(subCoin)
 	}
 
@@ -130,11 +131,13 @@ func (k Keeper) sendExtendedCoins(
 	// Don't create fractional balances for the precisebank module account
 	// The precisebank module account is the reserve and should not have fractional balances
 	moduleAddr := k.ak.GetModuleAddress(types.ModuleName)
+	coinInfo := k.GetCoinInfo()
+
 	if from.Equals(moduleAddr) || to.Equals(moduleAddr) {
 		// For transfers involving the precisebank module account, just do the integer transfer
-		integerAmt := amt.Quo(types.ConversionFactor())
+		integerAmt := amt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals))
 		if integerAmt.IsPositive() {
-			transferCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerAmt)
+			transferCoin := sdk.NewCoin(coinInfo.GetDenom(), integerAmt)
 			if err := k.bk.SendCoins(ctx, from, to, sdk.NewCoins(transferCoin)); err != nil {
 				return k.updateInsufficientFundsError(ctx, from, amt, err)
 			}
@@ -166,12 +169,12 @@ func (k Keeper) sendExtendedCoins(
 
 	// -------------------------------------------------------------------------
 	// Pure stateless calculations
-	integerAmt := amt.Quo(types.ConversionFactor())
-	fractionalAmt := amt.Mod(types.ConversionFactor())
+	integerAmt := amt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals))
+	fractionalAmt := amt.Mod(types.ConversionFactor(coinInfo.ExtendedDecimals))
 
 	// Account new fractional balances
-	senderNewFracBal, senderNeedsBorrow := subFromFractionalBalance(senderFracBal, fractionalAmt)
-	recipientNewFracBal, recipientNeedsCarry := addToFractionalBalance(recipientFracBal, fractionalAmt)
+	senderNewFracBal, senderNeedsBorrow := subFromFractionalBalance(senderFracBal, fractionalAmt, coinInfo.ExtendedDecimals)
+	recipientNewFracBal, recipientNeedsCarry := addToFractionalBalance(recipientFracBal, fractionalAmt, coinInfo.ExtendedDecimals)
 
 	// Case #1: Sender borrow, recipient carry
 	if senderNeedsBorrow && recipientNeedsCarry {
@@ -186,7 +189,7 @@ func (k Keeper) sendExtendedCoins(
 	// Full integer amount transfer, including direct transfer of borrow/carry
 	// if any.
 	if integerAmt.IsPositive() {
-		transferCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerAmt)
+		transferCoin := sdk.NewCoin(coinInfo.GetDenom(), integerAmt)
 		if err := k.bk.SendCoins(ctx, from, to, sdk.NewCoins(transferCoin)); err != nil {
 			return k.updateInsufficientFundsError(ctx, from, amt, err)
 		}
@@ -196,7 +199,7 @@ func (k Keeper) sendExtendedCoins(
 	// Sender borrows by transferring 1 integer amount to reserve to account for
 	// lack of fractional balance.
 	if senderNeedsBorrow && !recipientNeedsCarry {
-		borrowCoin := sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))
+		borrowCoin := sdk.NewCoin(coinInfo.GetDenom(), sdkmath.NewInt(1))
 		if err := k.bk.SendCoinsFromAccountToModule(
 			ctx,
 			from, // sender borrowing
@@ -219,7 +222,7 @@ func (k Keeper) sendExtendedCoins(
 		// a SendCoins operation. Only SendCoinsFromModuleToAccount should check
 		// blocked addrs which is done by the parent SendCoinsFromModuleToAccount
 		// method.
-		carryCoin := sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))
+		carryCoin := sdk.NewCoin(coinInfo.GetDenom(), sdkmath.NewInt(1))
 		if err := k.bk.SendCoins(
 			ctx,
 			reserveAddr,
@@ -255,13 +258,14 @@ func (k Keeper) sendExtendedCoins(
 func subFromFractionalBalance(
 	currentFractionalBalance sdkmath.Int,
 	amountToSub sdkmath.Int,
+	extendedDecimals evmtypes.Decimals,
 ) (sdkmath.Int, bool) {
 	// Enforce that currentFractionalBalance is not a full balance.
-	if currentFractionalBalance.GTE(types.ConversionFactor()) {
+	if currentFractionalBalance.GTE(types.ConversionFactor(extendedDecimals)) {
 		panic("currentFractionalBalance must be less than ConversionFactor")
 	}
 
-	if amountToSub.GTE(types.ConversionFactor()) {
+	if amountToSub.GTE(types.ConversionFactor(extendedDecimals)) {
 		panic("amountToSub must be less than ConversionFactor")
 	}
 
@@ -274,7 +278,7 @@ func subFromFractionalBalance(
 		// Borrowing 1 integer equivalent amount of fractional coins. We need to
 		// add 1 integer equivalent amount to the fractional balance otherwise
 		// the new fractional balance will be negative.
-		newFractionalBalance = newFractionalBalance.Add(types.ConversionFactor())
+		newFractionalBalance = newFractionalBalance.Add(types.ConversionFactor(extendedDecimals))
 	}
 
 	return newFractionalBalance, borrowRequired
@@ -283,13 +287,17 @@ func subFromFractionalBalance(
 // addToFractionalBalance adds a fractional amount to the provided current
 // fractional balance, returning the new fractional balance and true if a carry
 // is required.
-func addToFractionalBalance(currentFractionalBalance sdkmath.Int, amountToAdd sdkmath.Int) (sdkmath.Int, bool) {
+func addToFractionalBalance(
+	currentFractionalBalance sdkmath.Int,
+	amountToAdd sdkmath.Int,
+	extendedDecimals evmtypes.Decimals,
+) (sdkmath.Int, bool) {
 	// Enforce that currentFractionalBalance is not a full balance.
-	if currentFractionalBalance.GTE(types.ConversionFactor()) {
+	if currentFractionalBalance.GTE(types.ConversionFactor(extendedDecimals)) {
 		panic("currentFractionalBalance must be less than ConversionFactor")
 	}
 
-	if amountToAdd.GTE(types.ConversionFactor()) {
+	if amountToAdd.GTE(types.ConversionFactor(extendedDecimals)) {
 		panic("amountToAdd must be less than ConversionFactor")
 	}
 
@@ -297,11 +305,11 @@ func addToFractionalBalance(currentFractionalBalance sdkmath.Int, amountToAdd sd
 
 	// New balance exceeds max fractional balance, so we need to carry it over
 	// to the integer balance.
-	carryRequired := newFractionalBalance.GTE(types.ConversionFactor())
+	carryRequired := newFractionalBalance.GTE(types.ConversionFactor(extendedDecimals))
 
 	if carryRequired {
 		// Carry over to integer amount
-		newFractionalBalance = newFractionalBalance.Sub(types.ConversionFactor())
+		newFractionalBalance = newFractionalBalance.Sub(types.ConversionFactor(extendedDecimals))
 	}
 
 	return newFractionalBalance, carryRequired
@@ -410,9 +418,10 @@ func (k Keeper) updateInsufficientFundsError(
 		return err
 	}
 
+	coinInfo := k.GetCoinInfo()
 	// Check balance is sufficient
-	bal := k.SpendableCoin(ctx, addr, types.ExtendedCoinDenom())
-	coin := sdk.NewCoin(types.ExtendedCoinDenom(), amt)
+	bal := k.SpendableCoin(ctx, addr, coinInfo.GetExtendedDenom())
+	coin := sdk.NewCoin(coinInfo.GetExtendedDenom(), amt)
 
 	// TODO: This checks spendable coins and returns error with spendable
 	// coins, not full balance. If GetBalance() is modified to return the

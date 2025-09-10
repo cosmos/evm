@@ -61,7 +61,7 @@ func (s *KeeperIntegrationTestSuite) GetAllBalances(addr sdk.AccAddress) sdk.Coi
 
 	// Remove integer coins from the balance
 	for _, coin := range bankBalances {
-		if coin.Denom == types.IntegerCoinDenom() {
+		if coin.Denom == s.network.GetEVMDenom() {
 			bankBalances = bankBalances.Sub(coin)
 		}
 	}

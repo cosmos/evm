@@ -49,6 +49,10 @@ func (s *GenesisTestSuite) SetupTestWithChainID(chainConfig testconfig.ChainConf
 }
 
 func (s *GenesisTestSuite) TestInitGenesis() {
+	integerCoinDenom := s.network.GetEVMDenom()
+	extendedCoinDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name         string
 		setupFn      func()
@@ -75,14 +79,14 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
-					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().SubRaw(1)),
-					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
 				},
 				// 2 leftover from 0.999... + 0.999...
 				sdkmath.NewInt(2),
@@ -110,20 +114,20 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				err := s.network.App.GetBankKeeper().BurnCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
-					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().SubRaw(1)),
-					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
 				},
 				// 2 leftover from 0.999... + 0.999...
 				sdkmath.NewInt(2),
 			),
 			fmt.Sprintf("module account balance does not match sum of fractional balances and remainder, balance is 0%s but expected 2000000000000%s (2%s)",
-				types.IntegerCoinDenom(), types.ExtendedCoinDenom(), types.IntegerCoinDenom()),
+				integerCoinDenom, extendedCoinDenom, integerCoinDenom),
 		},
 		{
 			"invalid - module balance excessive",
@@ -133,19 +137,19 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(99))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(99))),
 				)
 				s.Require().NoError(err)
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
-					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().SubRaw(1)),
-					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
+					types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).SubRaw(1)),
 				},
 				sdkmath.NewInt(2),
 			),
 			fmt.Sprintf("module account balance does not match sum of fractional balances and remainder, balance is 100%s but expected 2000000000000%s (2%s)",
-				types.IntegerCoinDenom(), types.ExtendedCoinDenom(), types.IntegerCoinDenom()),
+				integerCoinDenom, extendedCoinDenom, integerCoinDenom),
 		},
 		{
 			"sets module account",
@@ -222,6 +226,8 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 func (s *GenesisTestSuite) TestExportGenesis() {
 	// ExportGenesis(InitGenesis(genesisState)) == genesisState
 	// Must also be valid.
+	integerCoinDenom := s.network.GetEVMDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
 
 	tests := []struct {
 		name             string
@@ -238,21 +244,21 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 				err := s.network.App.GetBankKeeper().BurnCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 
 				err = s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 
 				return types.NewGenesisState(
 					types.FractionalBalances{
-						types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().QuoRaw(2)),
-						types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().QuoRaw(2)),
+						types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
+						types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
 					},
 					sdkmath.ZeroInt(),
 				)
@@ -265,21 +271,21 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 				err := s.network.App.GetBankKeeper().BurnCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 
 				err = s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(integerCoinDenom, sdkmath.NewInt(1))),
 				)
 				s.Require().NoError(err)
 
 				return types.NewGenesisState(
 					types.FractionalBalances{
-						types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor().QuoRaw(2)),
-						types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor().QuoRaw(2).SubRaw(1)),
+						types.NewFractionalBalance(sdk.AccAddress{1}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2)),
+						types.NewFractionalBalance(sdk.AccAddress{2}.String(), types.ConversionFactor(extendedDecimals).QuoRaw(2).SubRaw(1)),
 					},
 					sdkmath.OneInt(),
 				)

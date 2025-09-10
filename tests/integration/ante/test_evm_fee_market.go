@@ -25,8 +25,9 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 	dec := evm.NewGasWantedDecorator(s.GetNetwork().App.GetEVMKeeper(), s.GetNetwork().App.GetFeeMarketKeeper())
 	from, fromPrivKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
-	denom := evmtypes.GetEVMCoinDenom()
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+
+	denom := s.GetNetwork().App.GetEVMKeeper().GetEvmConfig().CoinInfo.GetDenom()
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetDenom()
 
 	testCases := []struct {
 		name              string
@@ -102,7 +103,7 @@ func (s *EvmAnteTestSuite) TestGasWantedDecorator() {
 				acc := s.GetNetwork().App.GetAccountKeeper().NewAccountWithAddress(ctx, from.Bytes())
 				s.Require().NoError(acc.SetSequence(1))
 				s.GetNetwork().App.GetAccountKeeper().SetAccount(ctx, acc)
-				builder, err := s.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), testconfig.DefaultChainConfig.ChainInfo.EVMChainID, gas, amount)
+				builder, err := s.CreateTestEIP712TxBuilderMsgSend(acc.GetAddress(), fromPrivKey, ctx.ChainID(), testconfig.DefaultChainConfig.EvmConfig.ChainConfig.ChainId, gas, amount)
 				s.Require().NoError(err)
 				return builder.GetTx()
 			},

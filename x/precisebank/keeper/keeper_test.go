@@ -8,7 +8,6 @@ import (
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
@@ -42,19 +41,11 @@ func newMockedTestData(t *testing.T) testData {
 
 	// Use consistent chain configuration - SixDecimalsChainConfig for precisebank tests
 	chainConfig := testconfig.SixDecimalsChainConfig
-	chainID := chainConfig.ChainInfo.EVMChainID
+	chainID := chainConfig.EvmConfig.ChainConfig.ChainId
+	ci := chainConfig.EvmConfig.CoinInfo
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
-	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-
-	// Configure EVM with test configuration
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	evmChainConfig := evmtypes.DefaultChainConfig(chainConfig.ChainInfo.EVMChainID)
-	err := configurator.WithChainConfig(evmChainConfig).WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
-	if err != nil {
-		return testData{}
-	}
+	k := keeper.NewKeeper(cdc, storeKey, bk, ak, *ci)
 
 	return testData{
 		ctx:      ctx,

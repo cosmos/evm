@@ -18,7 +18,7 @@ type InitialAmounts struct {
 }
 
 func DefaultInitialAmounts() InitialAmounts {
-	coinInfo := testconfig.DefaultChainConfig.CoinInfo
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 	return InitialAmounts{
 		Base: GetInitialAmount(coinInfo.Decimals),
 		Evm:  GetInitialAmount(coinInfo.Decimals),
@@ -26,7 +26,7 @@ func DefaultInitialAmounts() InitialAmounts {
 }
 
 func DefaultInitialBondedAmount() math.Int {
-	coinInfo := testconfig.DefaultChainConfig.CoinInfo
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 	return GetInitialBondedAmount(coinInfo.Decimals)
 }
 

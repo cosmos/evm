@@ -26,7 +26,7 @@ func NewEvmUnitAnteTestSuite(
 ) *EvmUnitAnteTestSuite {
 	return &EvmUnitAnteTestSuite{
 		create:     create,
-		ChainID:    testconfig.DefaultChainConfig.ChainInfo.ChainID,
-		EvmChainID: testconfig.DefaultChainConfig.ChainInfo.EVMChainID,
+		ChainID:    testconfig.DefaultChainConfig.ChainID,
+		EvmChainID: testconfig.DefaultChainConfig.EvmConfig.ChainConfig.ChainId,
 	}
 }

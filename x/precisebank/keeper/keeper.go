@@ -22,6 +22,8 @@ type Keeper struct {
 
 	bk types.BankKeeper
 	ak types.AccountKeeper
+
+	ci evmtypes.EvmCoinInfo
 }
 
 // NewKeeper creates a new keeper
@@ -30,12 +32,14 @@ func NewKeeper(
 	storeKey storetypes.StoreKey,
 	bk types.BankKeeper,
 	ak types.AccountKeeper,
+	ci evmtypes.EvmCoinInfo,
 ) Keeper {
 	return Keeper{
 		cdc:      cdc,
 		storeKey: storeKey,
 		bk:       bk,
 		ak:       ak,
+		ci:       ci,
 	}
 }
 
@@ -47,4 +51,8 @@ func (k Keeper) IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) b
 
 func (k Keeper) GetSupply(ctx context.Context, denom string) sdk.Coin {
 	return k.bk.GetSupply(ctx, denom)
+}
+
+func (k Keeper) GetCoinInfo() evmtypes.EvmCoinInfo {
+	return k.ci
 }

@@ -5,31 +5,35 @@ import (
 )
 
 type ChainConfig struct {
-	ChainInfo ChainInfo
-	CoinInfo  evmtypes.EvmCoinInfo
-}
-
-type ChainInfo struct {
-	ChainID    string
-	EVMChainID uint64
+	ChainID   string
+	EvmConfig *evmtypes.EvmConfig
 }
 
 // CreateChainConfig allows creating a test chain with custom parameters
-func CreateChainConfig(chainID string, evmChainID uint64, displayDenom string, decimals evmtypes.Decimals) ChainConfig {
-	// extended denom is always 18-decimals (atto) denom
-	denom := evmtypes.CreateDenomStr(decimals, displayDenom)
-	extendedDenom := evmtypes.CreateDenomStr(evmtypes.EighteenDecimals, displayDenom)
+// extendedDecimals is always 18-decimals (atto) denom for EVM chains
+func CreateChainConfig(
+	chainID string,
+	evmChainID uint64,
+	evmChainConfig *evmtypes.ChainConfig,
+	displayDenom string,
+	decimals evmtypes.Decimals,
+	extendedDecimals evmtypes.Decimals,
+) ChainConfig {
+	coinInfo := evmtypes.EvmCoinInfo{
+		DisplayDenom:     displayDenom,
+		Decimals:         decimals,
+		ExtendedDecimals: extendedDecimals,
+	}
+
+	if evmChainConfig == nil {
+		evmChainConfig = evmtypes.DefaultChainConfig(evmChainID, coinInfo)
+	}
+	evmConfig := evmtypes.NewEvmConfig().
+		WithChainConfig(evmChainConfig).
+		WithEVMCoinInfo(&coinInfo)
 
 	return ChainConfig{
-		ChainInfo: ChainInfo{
-			ChainID:    chainID,
-			EVMChainID: evmChainID,
-		},
-		CoinInfo: evmtypes.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
-		},
+		ChainID:   chainID,
+		EvmConfig: evmConfig,
 	}
 }

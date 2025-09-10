@@ -67,7 +67,8 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 	krSigner := utiltx.NewSigner(suite.Keyring.GetPrivKey(0))
 	msg := txBuilder(suite, contractAddr)
 	msg.From = suite.Keyring.GetAddr(0).Bytes()
-	err := msg.Sign(ethtypes.LatestSignerForChainID(types.GetEthChainConfig().ChainID), krSigner)
+	chainID := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
+	err := msg.Sign(ethtypes.LatestSignerForChainID(chainID), krSigner)
 	require.NoError(b, err)
 
 	b.ResetTimer()
@@ -75,7 +76,8 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
+		denom := suite.Network.App.GetEVMKeeper().GetEvmConfig().CoinInfo.GetDenom()
+		fees := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(msg.GetFee()))}
 		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
@@ -93,8 +95,9 @@ func BenchmarkTokenTransfer(b *testing.B) {
 		input, err := erc20Contract.ABI.Pack("transfer", common.HexToAddress("0x378c50D9264C63F3F92B806d4ee56E9D86FfB3Ec"), big.NewInt(1000))
 		require.NoError(b, err)
 		nonce := suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), suite.Keyring.GetAddr(0))
+		chainID := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 		ethTxParams := &types.EvmTxArgs{
-			ChainID:  types.GetEthChainConfig().ChainID,
+			ChainID:  chainID,
 			Nonce:    nonce,
 			To:       &contract,
 			Amount:   big.NewInt(0),
@@ -114,8 +117,9 @@ func BenchmarkEmitLogs(b *testing.B) {
 		input, err := erc20Contract.ABI.Pack("benchmarkLogs", big.NewInt(1000))
 		require.NoError(b, err)
 		nonce := suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), suite.Keyring.GetAddr(0))
+		chainID := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 		ethTxParams := &types.EvmTxArgs{
-			ChainID:  types.GetEthChainConfig().ChainID,
+			ChainID:  chainID,
 			Nonce:    nonce,
 			To:       &contract,
 			Amount:   big.NewInt(0),
@@ -135,8 +139,9 @@ func BenchmarkTokenTransferFrom(b *testing.B) {
 		input, err := erc20Contract.ABI.Pack("transferFrom", suite.Keyring.GetAddr(0), common.HexToAddress("0x378c50D9264C63F3F92B806d4ee56E9D86FfB3Ec"), big.NewInt(0))
 		require.NoError(b, err)
 		nonce := suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), suite.Keyring.GetAddr(0))
+		chainID := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 		ethTxParams := &types.EvmTxArgs{
-			ChainID:  types.GetEthChainConfig().ChainID,
+			ChainID:  chainID,
 			Nonce:    nonce,
 			To:       &contract,
 			Amount:   big.NewInt(0),
@@ -156,8 +161,9 @@ func BenchmarkTokenMint(b *testing.B) {
 		input, err := erc20Contract.ABI.Pack("mint", common.HexToAddress("0x378c50D9264C63F3F92B806d4ee56E9D86FfB3Ec"), big.NewInt(1000))
 		require.NoError(b, err)
 		nonce := suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), suite.Keyring.GetAddr(0))
+		chainID := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 		ethTxParams := &types.EvmTxArgs{
-			ChainID:  types.GetEthChainConfig().ChainID,
+			ChainID:  chainID,
 			Nonce:    nonce,
 			To:       &contract,
 			Amount:   big.NewInt(0),
@@ -178,7 +184,7 @@ func BenchmarkMessageCall(b *testing.B) {
 	input, err := messageCallContract.ABI.Pack("benchmarkMessageCall", big.NewInt(10000))
 	require.NoError(b, err)
 	nonce := suite.Network.App.GetEVMKeeper().GetNonce(suite.Network.GetContext(), suite.Keyring.GetAddr(0))
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := suite.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig()
 	ethTxParams := &types.EvmTxArgs{
 		ChainID:  ethCfg.ChainID,
 		Nonce:    nonce,
@@ -200,7 +206,8 @@ func BenchmarkMessageCall(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
-		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
+		denom := suite.Network.App.GetEVMKeeper().GetEvmConfig().CoinInfo.GetDenom()
+		fees := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(msg.GetFee()))}
 		err = authante.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 

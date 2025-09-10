@@ -120,7 +120,7 @@ func signMsgEthereumTx(t *testing.T, privKey *ethsecp256k1.PrivKey, args *evmsdk
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	msg.From = fromAddr.Bytes()
 	// Use the configured chain ID instead of the default one
-	chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
+	chainID := new(big.Int).SetUint64(testconfig.DefaultChainConfig.EvmConfig.ChainConfig.ChainId)
 	ethSigner := ethtypes.LatestSignerForChainID(chainID)
 	require.NoError(t, msg.Sign(ethSigner, utiltx.NewSigner(privKey)))
 	return msg
@@ -147,14 +147,7 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 
 func TestMonoDecorator(t *testing.T) {
 	chainConfig := testconfig.DefaultChainConfig
-	chainID := chainConfig.ChainInfo.EVMChainID
-
-	// Configure EVM with test configuration
-	configurator := evmsdktypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	evmChainConfig := evmsdktypes.DefaultChainConfig(chainConfig.ChainInfo.EVMChainID)
-	err := configurator.WithChainConfig(evmChainConfig).WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
-	require.NoError(t, err)
+	chainID := chainConfig.EvmConfig.ChainConfig.ChainId
 
 	cfg := encoding.MakeConfig(chainID)
 

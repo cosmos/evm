@@ -35,8 +35,10 @@ func InitGenesis(
 	totalAmt := gs.TotalAmountWithRemainder()
 
 	moduleAddr := ak.GetModuleAddress(types.ModuleName)
-	moduleBal := bk.GetBalance(ctx, moduleAddr, types.IntegerCoinDenom())
-	moduleBalExtended := moduleBal.Amount.Mul(types.ConversionFactor())
+	coinInfo := keeper.GetCoinInfo()
+
+	moduleBal := bk.GetBalance(ctx, moduleAddr, coinInfo.GetDenom())
+	moduleBalExtended := moduleBal.Amount.Mul(types.ConversionFactor(coinInfo.ExtendedDecimals))
 
 	// Compare balances in full precise extended amounts
 	if !totalAmt.Equal(moduleBalExtended) {
@@ -46,15 +48,15 @@ func InitGenesis(
 			fmt.Printf(
 				"WARNING: module account balance does not match sum of fractional balances and remainder, balance is %s but expected %v%s (%v%s). This is expected during testing with default genesis state.\n",
 				moduleBal,
-				totalAmt, types.ExtendedCoinDenom(),
-				totalAmt.Quo(types.ConversionFactor()), types.IntegerCoinDenom(),
+				totalAmt, coinInfo.GetExtendedDenom(),
+				totalAmt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals)), coinInfo.GetDenom(),
 			)
 		} else {
 			// For non-default genesis states, enforce strict validation
 			panic(fmt.Sprintf("module account balance does not match sum of fractional balances and remainder, balance is %s but expected %v%s (%v%s)",
 				moduleBal,
-				totalAmt, types.ExtendedCoinDenom(),
-				totalAmt.Quo(types.ConversionFactor()), types.IntegerCoinDenom(),
+				totalAmt, coinInfo.GetExtendedDenom(),
+				totalAmt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals)), coinInfo.GetDenom(),
 			))
 		}
 	}

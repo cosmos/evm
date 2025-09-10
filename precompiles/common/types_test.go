@@ -24,7 +24,7 @@ func TestNewCoinsResponse(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+		denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 		coin := sdk.NewCoin(denom, tc.amount)
 		coins := sdk.NewCoins(coin)
 		res := common.NewCoinsResponse(coins)
@@ -42,7 +42,7 @@ func TestNewDecCoinsResponse(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+		denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 		coin := sdk.NewDecCoin(denom, tc.amount)
 		coins := sdk.NewDecCoins(coin)
 		res := common.NewDecCoinsResponse(coins)

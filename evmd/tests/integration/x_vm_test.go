@@ -6,6 +6,7 @@ import (
 
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/tests/integration/x/vm"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -32,26 +33,12 @@ func BenchmarkGasEstimation(b *testing.B) {
 	// gh := grpc.NewIntegrationHandler(nw)
 	// tf := factory.New(nw, gh)
 
-	chainConfig := types.DefaultChainConfig(nw.GetEIP155ChainID().Uint64())
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config
-	denom := types.GetEVMCoinDenom()
-	extendedDenom := types.GetEVMCoinExtendedDenom()
-	displayDenom := types.GetEVMCoinDisplayDenom()
-	decimals := types.GetEVMCoinDecimals()
-
-	configurator := types.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.
-		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(types.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
-		}).
-		Configure()
-	require.NoError(b, err)
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := types.DefaultChainConfig(nw.GetEIP155ChainID().Uint64(), *coinInfo)
+	evmConfig := types.NewEvmConfig().WithChainConfig(chainConfig).WithEVMCoinInfo(coinInfo)
+	nw.App.GetEVMKeeper().SetEvmConfig(evmConfig)
 
 	// Use simple transaction args for consistent benchmarking
 	args := types.TransactionArgs{

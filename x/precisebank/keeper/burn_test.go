@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -19,6 +20,11 @@ const burnerModuleName = "burner-module"
 
 func TestBurnCoins_PanicValidations(t *testing.T) {
 	// panic tests for invalid inputs
+
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	integerCoinDenom := coinInfo.GetDenom()
+	extendedCoinDenom := coinInfo.GetExtendedDenom()
+
 	tests := []struct {
 		name            string
 		recipientModule string
@@ -34,7 +40,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 					GetModuleAccount(td.ctx, "notamodule").
 					Return(nil).
 					Once()
-				return cs(c(types.ExtendedCoinDenom(), 1000))
+				return cs(c(extendedCoinDenom, 1000))
 			},
 			"module account notamodule does not exist: unknown address",
 		},
@@ -52,7 +58,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 						// no burn permission
 					)).
 					Once()
-				return cs(c(types.ExtendedCoinDenom(), 1000))
+				return cs(c(extendedCoinDenom, 1000))
 			},
 			fmt.Sprintf("module account %s does not have permissions to burn tokens: unauthorized", burnerModuleName),
 		},
@@ -77,10 +83,10 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 					)).
 					Once()
 
-				coins := cs(c(types.ExtendedCoinDenom(), 1000))
+				coins := cs(c(extendedCoinDenom, 1000))
 				// Will call burnExtendedCoin which calls GetModuleAddress
 				// Also need to borrow 1 integer coin to cover the fractional burn
-				borrowCoin := cs(c(types.IntegerCoinDenom(), 1))
+				borrowCoin := cs(c(integerCoinDenom, 1))
 				td.bk.EXPECT().
 					SendCoinsFromModuleToModule(td.ctx, burnerModuleName, types.ModuleName, borrowCoin).
 					Return(nil).
@@ -94,7 +100,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 			types.ModuleName,
 			func(td testData) sdk.Coins {
 				// No expectations needed - this should panic before any module address calls
-				return cs(c(types.ExtendedCoinDenom(), 1000))
+				return cs(c(extendedCoinDenom, 1000))
 			},
 			"module account precisebank cannot be burned from: unauthorized",
 		},
@@ -123,6 +129,9 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 func TestBurnCoins_Errors(t *testing.T) {
 	// returned errors, not panics
 
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	integerCoinDenom := coinInfo.GetDenom()
+
 	tests := []struct {
 		name            string
 		recipientModule string
@@ -146,10 +155,10 @@ func TestBurnCoins_Errors(t *testing.T) {
 					Once()
 			},
 			sdk.Coins{sdk.Coin{
-				Denom:  types.IntegerCoinDenom(),
+				Denom:  integerCoinDenom,
 				Amount: sdkmath.NewInt(-1000),
 			}},
-			fmt.Sprintf("-1000%s: invalid coins", types.IntegerCoinDenom()),
+			fmt.Sprintf("-1000%s: invalid coins", integerCoinDenom),
 		},
 	}
 

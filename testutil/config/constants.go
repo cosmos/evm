@@ -36,13 +36,13 @@ const (
 // Common test configurations for reuse
 var (
 	// DefaultChainConfig provides a standard 18-decimal cosmos/atom test configuration
-	DefaultChainConfig = CreateChainConfig(DefaultChainID, DefaultEvmChainID, DefaultDisplayDenom, DefaultDecimals)
+	DefaultChainConfig = CreateChainConfig(DefaultChainID, DefaultEvmChainID, nil, DefaultDisplayDenom, DefaultDecimals, DefaultDecimals)
 	// TwoDecimalsChainConfig provides a 2-decimal test configuration
-	TwoDecimalsChainConfig = CreateChainConfig("ostwo-1", 9002, "test2", evmtypes.TwoDecimals)
+	TwoDecimalsChainConfig = CreateChainConfig("ostwo-1", 9002, nil, "test2", evmtypes.TwoDecimals, evmtypes.EighteenDecimals)
 	// SixDecimalsChainConfig provides a 6-decimal test configuration
-	SixDecimalsChainConfig = CreateChainConfig("ossix-1", 9006, "test6", evmtypes.SixDecimals)
+	SixDecimalsChainConfig = CreateChainConfig("ossix-1", 9006, nil, "test6", evmtypes.SixDecimals, evmtypes.EighteenDecimals)
 	// TwelveDecimalsChainConfig provides a 12-decimal test configuration
-	TwelveDecimalsChainConfig = CreateChainConfig("ostwelve-1", 9012, "test12", evmtypes.TwelveDecimals)
+	TwelveDecimalsChainConfig = CreateChainConfig("ostwelve-1", 9012, nil, "test12", evmtypes.TwelveDecimals, evmtypes.EighteenDecimals)
 
 	// DefaultTokenPairs defines a slice containing a pair for the native denom of the default chain
 	DefaultTokenPairs = []erc20types.TokenPair{

@@ -140,7 +140,8 @@ func (s *EvmAnteTestSuite) CreateTestEIP712MsgCreateValidator(from sdk.AccAddres
 	// Build MsgCreateValidator
 	valAddr := sdk.ValAddress(from.Bytes())
 	privEd := ed25519.GenPrivKey()
-	evmDenom := evmtypes.GetEVMCoinDenom()
+	coinInfo := s.network.App.GetEVMKeeper().GetEvmConfig().CoinInfo
+	evmDenom := coinInfo.GetDenom()
 	msgCreate, err := stakingtypes.NewMsgCreateValidator(
 		valAddr.String(),
 		privEd.PubKey(),
@@ -644,7 +645,7 @@ func PrepareAccountsForDelegationRewards(t *testing.T, ctx sdk.Context, app evm.
 
 	// set distribution module account balance which pays out the rewards
 	distrAcc := distrKeeper.GetDistributionAccount(ctx)
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetDenom()
 	err := testutil.FundModuleAccount(ctx, bankKeeper, distrAcc.GetName(), sdk.NewCoins(sdk.NewCoin(attoDenom, totalRewards)))
 	if err != nil {
 		return sdk.Context{}, fmt.Errorf("failed to fund distribution module account: %s", err.Error())

@@ -15,3 +15,5 @@ output = "text"
 node = "tcp://localhost:26657"
 # Transaction broadcasting mode (sync|async)
 broadcast-mode = "sync"
+# Denom to use when sending transactions
+base-denom = "aatom"

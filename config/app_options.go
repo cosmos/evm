@@ -49,7 +49,7 @@ func EvmAppOptionsWithConfigWithReset(
 	}
 
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
-	configurator := evmtypes.NewEVMConfigurator()
+	configurator := evmtypes.NewEvmConfig()
 	if withReset {
 		// reset configuration to set the new one
 		configurator.ResetTestConfig()

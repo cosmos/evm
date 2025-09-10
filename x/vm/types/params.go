@@ -17,33 +17,18 @@ import (
 )
 
 var (
-	// DefaultEVMDenom is the default value for the evm denom
-	DefaultEVMDenom = "atest"
-	// DefaultEVMChainID is the default value for the evm chain ID
-	DefaultEVMChainID = "cosmos_262144-1"
-	// DefaultEVMDecimals is the default value for the evm denom decimal precision
-	DefaultEVMDecimals uint64 = 18
-	// DefaultStaticPrecompiles defines the default active precompiles.
-	DefaultStaticPrecompiles []string
-	// DefaultExtraEIPs defines the default extra EIPs to be included.
-	DefaultExtraEIPs []int64
-	// DefaultEVMChannels defines a list of IBC channels that connect to EVM chains like injective or cronos.
-	DefaultEVMChannels              []string
-	DefaultCreateAllowlistAddresses []string
-	DefaultCallAllowlistAddresses   []string
-	DefaultAccessControl            = AccessControl{
+	defaultHistoryServeWindow = uint64(8192) // same as EIP-2935
+	defaultAccessControl      = AccessControl{
 		Create: AccessControlType{
 			AccessType:        AccessTypePermissionless,
-			AccessControlList: DefaultCreateAllowlistAddresses,
+			AccessControlList: nil,
 		},
 		Call: AccessControlType{
 			AccessType:        AccessTypePermissionless,
-			AccessControlList: DefaultCallAllowlistAddresses,
+			AccessControlList: nil,
 		},
 	}
 )
-
-const DefaultHistoryServeWindow = 8192 // same as EIP-2935
 
 // NewParams creates a new Params instance
 func NewParams(
@@ -60,16 +45,22 @@ func NewParams(
 	}
 }
 
-// DefaultParams returns default evm parameters
+// DefaultParams returns default evm parameters with denom atest
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMDenom,
-		ExtraEIPs:               DefaultExtraEIPs,
-		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
-		EVMChannels:             DefaultEVMChannels,
-		AccessControl:           DefaultAccessControl,
-		HistoryServeWindow:      DefaultHistoryServeWindow,
+		HistoryServeWindow: defaultHistoryServeWindow,
+		AccessControl:      defaultAccessControl,
 	}
+}
+
+// DefaultHistoryServeWindow returns the default EIP-2935 history serve window
+func DefaultHistoryServeWindow() uint64 {
+	return defaultHistoryServeWindow
+}
+
+// DefaultAccessControl returns the default access control, which is permissionless with no access control list
+func DefaultAccessControl() AccessControl {
+	return defaultAccessControl
 }
 
 // validateChannels checks if channels ids are valid

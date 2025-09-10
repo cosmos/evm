@@ -44,7 +44,8 @@ func (k *Keeper) SetRemainderAmount(
 
 	// Ensure the remainder is valid before setting it. Follows the same
 	// validation as FractionalBalance with the same value range.
-	if err := types.ValidateFractionalAmount(amount); err != nil {
+	extendedDecimals := k.GetCoinInfo().ExtendedDecimals
+	if err := types.ValidateFractionalAmount(amount, extendedDecimals); err != nil {
 		panic(fmt.Errorf("remainder amount is invalid: %w", err))
 	}
 

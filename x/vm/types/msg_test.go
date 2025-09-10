@@ -52,12 +52,6 @@ func (suite *MsgsTestSuite) SetupTest() {
 
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
-
-	// Configure EVM with test configuration and reset
-	configurator := types.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconfig.DefaultChainConfig.CoinInfo).Configure()
-	suite.Require().NoError(err)
 }
 
 func (suite *MsgsTestSuite) TestMsgEthereumTx_Constructor() {
@@ -113,17 +107,13 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 			false,
 		},
 	}
-	for _, coinInfo := range []types.EvmCoinInfo{
-		testconfig.SixDecimalsChainConfig.CoinInfo,
-		testconfig.DefaultChainConfig.CoinInfo,
+	for _, coinInfo := range []*types.EvmCoinInfo{
+		testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo,
+		testconfig.DefaultChainConfig.EvmConfig.CoinInfo,
 	} {
 		for _, tc := range testCases {
-			configurator := types.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
-
-			baseDenom := types.GetEVMCoinDenom()
-			extendedDenom := types.GetEVMCoinExtendedDenom()
+			baseDenom := coinInfo.Denom
+			extendedDenom := coinInfo.ExtendedDenom
 
 			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
 			if tc.expError {

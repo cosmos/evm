@@ -52,7 +52,7 @@ var (
 	txArgs evmtypes.EvmTxArgs
 	// minExpRewardOrCommission is the minimun coins expected for validator's rewards or commission
 	// required for the tests
-	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconfig.DefaultChainConfig.CoinInfo.Denom, testRewardsAmt))
+	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconfig.DefaultChainConfig.EvmConfig.Denom, testRewardsAmt))
 )
 
 // Test denomination constants to avoid goconst lint warnings

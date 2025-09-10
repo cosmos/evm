@@ -187,7 +187,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 			func(operatorAddress string) []interface{} {
 				valAddr, err := sdk.ValAddressFromBech32(operatorAddress)
 				s.Require().NoError(err)
-				denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+				denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(denom, math.LegacyNewDecFromInt(amt))}
 				// set outstanding rewards
 				s.Require().NoError(s.network.App.GetDistrKeeper().SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{Rewards: valCommission}))
@@ -253,7 +253,7 @@ func (s *PrecompileTestSuite) TestClaimRewardsEvent() {
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 
 	testCases := []struct {
 		name      string
@@ -297,8 +297,7 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
-	fooDenom, barDenom := "foo", "bar"
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.Denom
 
 	testCases := []struct {
 		name      string
@@ -328,9 +327,9 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 			// New multi-coin deposit test case
 			name: "success - multiple coins => multiple events emitted",
 			coins: sdk.NewCoins(
-				sdk.NewCoin(attoDenom, math.NewInt(10)), // coin #1
-				sdk.NewCoin(fooDenom, math.NewInt(20)),  // coin #2
-				sdk.NewCoin(barDenom, math.NewInt(30)),  // coin #3
+				sdk.NewCoin(attoDenom, math.NewInt(10)),    // coin #1
+				sdk.NewCoin(testFooDenom, math.NewInt(20)), // coin #2
+				sdk.NewCoin(testBarDenom, math.NewInt(30)), // coin #3
 			).Sort(),
 			postCheck: func(coins sdk.Coins) {
 				logs := stDB.Logs()
@@ -385,7 +384,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		stDB *statedb.StateDB
 		amt  = math.NewInt(1e18)
 	)
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.Denom
 	fooDenom, barDenom := "foo", "bar"
 
 	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]

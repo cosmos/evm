@@ -68,6 +68,9 @@ const (
 	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
 	DefaultEVMChainID = 262144
 
+	// DefaultEVMMinTip is the default minimum priority fee for the mempool
+	DefaultEVMMinTip = 0
+
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
 
@@ -146,6 +149,8 @@ type EVMConfig struct {
 	EnablePreimageRecording bool `mapstructure:"cache-preimage"`
 	// EVMChainID defines the EIP-155 replay-protection chain ID.
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
+	// MinTip defines the minimum priority fee for the mempool
+	MinTip uint64 `mapstructure:"min-tip"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -215,6 +220,7 @@ func DefaultEVMConfig() *EVMConfig {
 		MaxTxGasWanted:          DefaultMaxTxGasWanted,
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
+		MinTip:                  DefaultEVMMinTip,
 	}
 }
 
@@ -341,10 +347,9 @@ func DefaultTLSConfig() *TLSConfig {
 // DefaultEvmCoinInfo returns the default chain configuration
 func DefaultEvmCoinInfo() *evmtypes.EvmCoinInfo {
 	return &evmtypes.EvmCoinInfo{
-		Denom:         "atest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     "test",
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	}
 }
 

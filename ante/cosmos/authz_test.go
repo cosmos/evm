@@ -22,17 +22,15 @@ import (
 
 func TestAuthzLimiterDecorator(t *testing.T) {
 	chainConfig := testconfig.DefaultChainConfig
-	evmConfigurator := evmtypes.NewEVMConfigurator().WithEVMCoinInfo(chainConfig.CoinInfo)
-	err := evmConfigurator.Configure()
-	require.NoError(t, err)
+	evmChainID := chainConfig.EvmConfig.ChainConfig.ChainId
+	evmCoinInfo := chainConfig.EvmConfig.CoinInfo
+	evmDenom := evmCoinInfo.GetDenom()
 
-	chainID := chainConfig.ChainInfo.EVMChainID
-	encodingCfg := encoding.MakeConfig(chainID)
+	encodingCfg := encoding.MakeConfig(evmChainID)
 	txCfg := encodingCfg.TxConfig
 	testPrivKeys, testAddresses, err := testutil.GeneratePrivKeyAddressPairs(5)
 	require.NoError(t, err)
 
-	evmDenom := evmtypes.GetEVMCoinDenom()
 	distantFuture := time.Date(9000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	validator := sdk.ValAddress(testAddresses[4])

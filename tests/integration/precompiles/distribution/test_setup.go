@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 	sdkmath "cosmossdk.io/math"
@@ -57,7 +56,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	customGen := network.CustomGenesisState{}
 
 	// mint some coin to fee collector
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetDenom()
 	fooDenom, barDenom := "foo", "bar"
 	coins := sdk.NewCoins(sdk.NewCoin(attoDenom, sdkmath.NewInt(1000000000000000000)))
 	balances := []banktypes.Balance{
@@ -126,7 +125,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	s.bondDenom = bondDenom
 	// TODO: check if this is correct?
-	s.baseDenom = evmtypes.GetEVMCoinDenom()
+	s.baseDenom = s.network.App.GetEVMKeeper().GetEvmConfig().CoinInfo.GetDenom()
 
 	s.factory = txFactory
 	s.grpcHandler = grpcHandler

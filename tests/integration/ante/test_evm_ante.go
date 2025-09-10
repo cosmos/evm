@@ -35,7 +35,7 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 		privKey cryptotypes.PrivKey
 	)
 	to := utiltx.GenerateAddress()
-	attoDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	attoDenom := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
 
 	setup := func() {
 		s.WithFeemarketEnabled(false)
@@ -49,7 +49,10 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 		ctx = s.GetNetwork().GetContext()
 	}
 
-	ethCfg := evmtypes.GetEthChainConfig()
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
+	ethCfg := chainConfig.EthereumConfig()
+
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
 		ChainID:   ethCfg.ChainID,
 		Nonce:     0,
@@ -629,7 +632,7 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 		{
 			"passes - Single-signer EIP-712",
 			func() sdk.Tx {
-				evmDenom := evmtypes.GetEVMCoinDenom()
+				evmDenom := coinInfo.GetDenom()
 				msg := banktypes.NewMsgSend(
 					sdk.AccAddress(privKey.PubKey().Address()),
 					addr[:],
@@ -948,10 +951,12 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithDynamicTxFee() {
 	addr, privKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
 
-	evmChainID := evmtypes.GetEthChainConfig().ChainID
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
+	ethCfg := chainConfig.EthereumConfig()
 
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
-		ChainID:   evmChainID,
+		ChainID:   ethCfg.ChainID,
 		Nonce:     0,
 		Amount:    big.NewInt(10),
 		GasLimit:  100000,
@@ -961,7 +966,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithDynamicTxFee() {
 	}
 
 	ethTxParams := evmtypes.EvmTxArgs{
-		ChainID:   evmChainID,
+		ChainID:   ethCfg.ChainID,
 		Nonce:     0,
 		Amount:    big.NewInt(10),
 		GasLimit:  100000,
@@ -1113,7 +1118,9 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 	addr, privKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
 
-	ethCfg := evmtypes.GetEthChainConfig()
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
+	ethCfg := chainConfig.EthereumConfig()
 
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
 		ChainID:   ethCfg.ChainID,
@@ -1154,11 +1161,11 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 			evmtypes.AccessControl{
 				Create: evmtypes.AccessControlType{
 					AccessType:        evmtypes.AccessTypeRestricted,
-					AccessControlList: evmtypes.DefaultCreateAllowlistAddresses,
+					AccessControlList: nil,
 				},
 				Call: evmtypes.AccessControlType{
 					AccessType:        evmtypes.AccessTypePermissionless,
-					AccessControlList: evmtypes.DefaultCreateAllowlistAddresses,
+					AccessControlList: nil,
 				},
 			},
 			evmtypes.ErrCreateDisabled,
@@ -1170,7 +1177,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 				s.Require().NoError(err)
 				return tx
 			},
-			evmtypes.DefaultAccessControl,
+			evmtypes.DefaultAccessControl(),
 			nil,
 		},
 		{
@@ -1183,11 +1190,11 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 			evmtypes.AccessControl{
 				Create: evmtypes.AccessControlType{
 					AccessType:        evmtypes.AccessTypePermissionless,
-					AccessControlList: evmtypes.DefaultCreateAllowlistAddresses,
+					AccessControlList: nil,
 				},
 				Call: evmtypes.AccessControlType{
 					AccessType:        evmtypes.AccessTypeRestricted,
-					AccessControlList: evmtypes.DefaultCreateAllowlistAddresses,
+					AccessControlList: nil,
 				},
 			},
 			evmtypes.ErrCallDisabled,
@@ -1199,7 +1206,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 				s.Require().NoError(err)
 				return tx
 			},
-			evmtypes.DefaultAccessControl,
+			evmtypes.DefaultAccessControl(),
 			nil,
 		},
 	}
@@ -1238,7 +1245,9 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 
 func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 	addr, privKey := utiltx.NewAddrKey()
-	ethCfg := evmtypes.GetEthChainConfig()
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
+	ethCfg := chainConfig.EthereumConfig()
 	ethSigner := types.LatestSignerForChainID(ethCfg.ChainID)
 
 	ethContractCreationTxParams := &evmtypes.EvmTxArgs{
@@ -1311,8 +1320,12 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 	privKey := s.GetKeyring().GetPrivKey(0)
 	to := utiltx.GenerateAddress()
 
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
+	ethCfg := chainConfig.EthereumConfig()
+
 	txArgs := evmtypes.EvmTxArgs{
-		ChainID:  evmtypes.GetEthChainConfig().ChainID,
+		ChainID:  ethCfg.ChainID,
 		Nonce:    0,
 		To:       &to,
 		Amount:   big.NewInt(10),

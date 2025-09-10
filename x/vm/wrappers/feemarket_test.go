@@ -19,18 +19,15 @@ import (
 )
 
 func TestGetBaseFee(t *testing.T) {
-	defaultCoinInfo := testconfig.DefaultChainConfig.CoinInfo
-	sixDecimalsCoinInfo := testconfig.SixDecimalsChainConfig.CoinInfo
-
 	testCases := []struct {
 		name      string
-		coinInfo  evmtypes.EvmCoinInfo
+		evmConfig *evmtypes.EvmConfig
 		expResult *big.Int
 		mockSetup func(*testutil.MockFeeMarketKeeper)
 	}{
 		{
 			name:      "success - does not convert 18 decimals",
-			coinInfo:  defaultCoinInfo,
+			evmConfig: testconfig.DefaultChainConfig.EvmConfig,
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -40,7 +37,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - convert 6 decimals to 18 decimals",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -50,7 +47,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - nil base fee",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: nil,
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -60,7 +57,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - small amount 18 decimals",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(1e12), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -70,7 +67,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - base fee is zero",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(0),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -80,7 +77,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - truncate decimals with number less than 1",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(0), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -92,17 +89,11 @@ func TestGetBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.evmConfig)
 			result := feeMarketWrapper.GetBaseFee(sdk.Context{})
 
 			require.Equal(t, tc.expResult, result)
@@ -111,19 +102,16 @@ func TestGetBaseFee(t *testing.T) {
 }
 
 func TestCalculateBaseFee(t *testing.T) {
-	defaultCoinInfo := testconfig.DefaultChainConfig.CoinInfo
-	sixDecimalsCoinInfo := testconfig.SixDecimalsChainConfig.CoinInfo
-
 	testCases := []struct {
 		name      string
-		coinInfo  evmtypes.EvmCoinInfo
+		evmConfig *evmtypes.EvmConfig
 		baseFee   sdkmath.LegacyDec
 		expResult *big.Int
 		mockSetup func(*testutil.MockFeeMarketKeeper)
 	}{
 		{
 			name:      "success - does not convert 18 decimals",
-			coinInfo:  defaultCoinInfo,
+			evmConfig: testconfig.DefaultChainConfig.EvmConfig,
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -133,7 +121,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - convert 6 decimals to 18 decimals",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -143,7 +131,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - nil base fee",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: nil,
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -153,7 +141,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - small amount 18 decimals",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(1e12), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -163,7 +151,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - base fee is zero",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(0),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -173,7 +161,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - truncate decimals with number less than 1",
-			coinInfo:  sixDecimalsCoinInfo,
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expResult: big.NewInt(0), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -185,17 +173,11 @@ func TestCalculateBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.evmConfig)
 			result := feeMarketWrapper.CalculateBaseFee(sdk.Context{})
 
 			require.Equal(t, tc.expResult, result)
@@ -204,18 +186,15 @@ func TestCalculateBaseFee(t *testing.T) {
 }
 
 func TestGetParams(t *testing.T) {
-	defaultCoinInfo := testconfig.DefaultChainConfig.CoinInfo
-	sixDecimalsCoinInfo := testconfig.SixDecimalsChainConfig.CoinInfo
-
 	testCases := []struct {
 		name      string
-		coinInfo  evmtypes.EvmCoinInfo
+		evmConfig *evmtypes.EvmConfig
 		expParams feemarkettypes.Params
 		mockSetup func(*testutil.MockFeeMarketKeeper)
 	}{
 		{
-			name:     "success - convert 6 decimals to 18 decimals",
-			coinInfo: sixDecimalsCoinInfo,
+			name:      "success - convert 6 decimals to 18 decimals",
+			evmConfig: testconfig.SixDecimalsChainConfig.EvmConfig,
 			expParams: feemarkettypes.Params{
 				BaseFee:     sdkmath.LegacyNewDec(1e18),
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
@@ -230,8 +209,8 @@ func TestGetParams(t *testing.T) {
 			},
 		},
 		{
-			name:     "success - does not convert 18 decimals",
-			coinInfo: defaultCoinInfo,
+			name:      "success - does not convert 18 decimals",
+			evmConfig: testconfig.DefaultChainConfig.EvmConfig,
 			expParams: feemarkettypes.Params{
 				BaseFee:     sdkmath.LegacyNewDec(1e18),
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
@@ -246,8 +225,8 @@ func TestGetParams(t *testing.T) {
 			},
 		},
 		{
-			name:     "success - nil base fee",
-			coinInfo: defaultCoinInfo,
+			name:      "success - nil base fee",
+			evmConfig: testconfig.DefaultChainConfig.EvmConfig,
 			expParams: feemarkettypes.Params{
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
 			},
@@ -263,17 +242,11 @@ func TestGetParams(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.evmConfig)
 			result := feeMarketWrapper.GetParams(sdk.Context{})
 
 			require.Equal(t, tc.expParams, result)

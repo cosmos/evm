@@ -32,7 +32,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		},
-		CoinInfo: testconfig.DefaultChainConfig.CoinInfo,
+		EvmConfig: testconfig.DefaultChainConfig.EvmConfig,
 	}
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,

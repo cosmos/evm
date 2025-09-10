@@ -48,7 +48,7 @@ func TestKVIndexer(t *testing.T, create network.CreateEvmApp, options ...network
 	clientCtx := client.Context{}.WithTxConfig(encodingConfig.TxConfig).WithCodec(encodingConfig.Codec)
 
 	// build cosmos-sdk wrapper tx
-	denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	denom := testconfig.DefaultChainConfig.EvmConfig.Denom
 	tmTx, err := tx.BuildTx(clientCtx.TxConfig.NewTxBuilder(), denom)
 	require.NoError(t, err)
 	txBz, err := clientCtx.TxConfig.TxEncoder()(tmTx)

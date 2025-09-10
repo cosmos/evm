@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -30,7 +28,8 @@ func (s *KeeperIntegrationTestSuite) TestBlockedRecipient() {
 
 	// To x/precisebank
 	toAddr := s.network.App.GetAccountKeeper().GetModuleAddress(types.ModuleName)
-	amount := cs(c(types.IntegerCoinDenom(), 1000))
+	integerDenom := s.network.GetEVMDenom()
+	amount := cs(c(integerDenom, 1000))
 
 	msg := banktypes.NewMsgSend(fromAddr, toAddr, amount)
 
@@ -48,6 +47,8 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsMatchingErrors() {
 	// consumers. This test ensures that the panics & errors returned by
 	// x/precisebank are identical to x/bank.
 
+	integerDenom := s.network.GetEVMDenom()
+
 	tests := []struct {
 		name            string
 		recipientModule string
@@ -58,7 +59,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsMatchingErrors() {
 		{
 			"invalid module",
 			"notamodule",
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"",
 			"module account notamodule does not exist: unknown address",
 		},
@@ -66,15 +67,15 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsMatchingErrors() {
 			"no mint permissions",
 			// Check app.go to ensure this module has no mint permissions
 			authtypes.FeeCollectorName,
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"",
 			"module account fee_collector does not have permissions to mint tokens: unauthorized",
 		},
 		{
 			"invalid amount",
 			evmtypes.ModuleName,
-			sdk.Coins{sdk.Coin{Denom: types.IntegerCoinDenom(), Amount: sdkmath.NewInt(-100)}},
-			fmt.Sprintf("-100%s: invalid coins", types.IntegerCoinDenom()),
+			sdk.Coins{sdk.Coin{Denom: integerDenom, Amount: sdkmath.NewInt(-100)}},
+			fmt.Sprintf("-100%s: invalid coins", integerDenom),
 			"",
 		},
 	}
@@ -127,6 +128,10 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 		wantBalance sdk.Coins
 	}
 
+	integerDenom := s.network.GetEVMDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name            string
 		recipientModule string
@@ -149,8 +154,8 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			evmtypes.ModuleName,
 			[]mintTest{
 				{
-					mintAmount:  cs(c(types.IntegerCoinDenom(), 1000)),
-					wantBalance: cs(c(types.ExtendedCoinDenom(), 1000000000000000)),
+					mintAmount:  cs(c(integerDenom, 1000)),
+					wantBalance: cs(c(extendedDenom, 1000000000000000)),
 				},
 			},
 		},
@@ -159,12 +164,12 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			evmtypes.ModuleName,
 			[]mintTest{
 				{
-					mintAmount:  cs(c(types.ExtendedCoinDenom(), 1000)),
-					wantBalance: cs(c(types.ExtendedCoinDenom(), 1000)),
+					mintAmount:  cs(c(extendedDenom, 1000)),
+					wantBalance: cs(c(extendedDenom, 1000)),
 				},
 				{
-					mintAmount:  cs(c(types.ExtendedCoinDenom(), 1000)),
-					wantBalance: cs(c(types.ExtendedCoinDenom(), 2000)),
+					mintAmount:  cs(c(extendedDenom, 1000)),
+					wantBalance: cs(c(extendedDenom, 2000)),
 				},
 			},
 		},
@@ -174,13 +179,13 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			[]mintTest{
 				{
 					// Start with (1/4 * 3) = 0.75
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(4).MulRaw(3))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(4).MulRaw(3))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(4).MulRaw(3))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(4).MulRaw(3))),
 				},
 				{
 					// Add another 0.50 to incur carry to test reserve on carry
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(2))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(4).MulRaw(5))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(2))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(4).MulRaw(5))),
 				},
 			},
 		},
@@ -190,14 +195,14 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			[]mintTest{
 				// mint 0.5, acc = 0.5, reserve = 1
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(2))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(2))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(2))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(2))),
 				},
 				// mint another 0.5, acc = 1, reserve = 0
 				// Reserve actually goes down by 1 for integer carry
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().QuoRaw(2))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).QuoRaw(2))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
 				},
 			},
 		},
@@ -206,13 +211,13 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			evmtypes.ModuleName,
 			[]mintTest{
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
 				},
 				// Carry again - exact amount
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor())),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(2))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(2))),
 				},
 			},
 		},
@@ -222,13 +227,13 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			[]mintTest{
 				// MintCoins(C + 100)
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().AddRaw(100))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().AddRaw(100))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).AddRaw(100))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).AddRaw(100))),
 				},
 				// MintCoins(C + 5), total = 2C + 105
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().AddRaw(5))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(2).AddRaw(105))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).AddRaw(5))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(2).AddRaw(105))),
 				},
 			},
 		},
@@ -237,12 +242,12 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			evmtypes.ModuleName,
 			[]mintTest{
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5).AddRaw(100))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5).AddRaw(100))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5).AddRaw(100))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5).AddRaw(100))),
 				},
 				{
-					mintAmount:  cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(2).AddRaw(5))),
-					wantBalance: cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(7).AddRaw(105))),
+					mintAmount:  cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(2).AddRaw(5))),
+					wantBalance: cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(7).AddRaw(105))),
 				},
 			},
 		},
@@ -252,21 +257,21 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 			[]mintTest{
 				{
 					mintAmount: cs(
-						ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5).AddRaw(100)),
+						ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5).AddRaw(100)),
 						c("busd", 1000),
 					),
 					wantBalance: cs(
-						ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(5).AddRaw(100)),
+						ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(5).AddRaw(100)),
 						c("busd", 1000),
 					),
 				},
 				{
 					mintAmount: cs(
-						ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(2).AddRaw(5)),
+						ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(2).AddRaw(5)),
 						c("meow", 40),
 					),
 					wantBalance: cs(
-						ci(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(7).AddRaw(105)),
+						ci(extendedDenom, types.ConversionFactor(extendedDecimals).MulRaw(7).AddRaw(105)),
 						c("busd", 1000),
 						c("meow", 40),
 					),
@@ -302,7 +307,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 				var denoms []string
 				for _, coin := range bankCoins {
 					// Ignore integer coins, query the extended denom instead
-					if coin.Denom == types.IntegerCoinDenom() {
+					if coin.Denom == integerDenom {
 						continue
 					}
 
@@ -312,7 +317,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 				// Add the extended denom to the list of denoms to balance check
 				// Will be included in balance check even if x/bank doesn't have
 				// uatom.
-				denoms = append(denoms, types.ExtendedCoinDenom())
+				denoms = append(denoms, extendedDenom)
 
 				// All balance queries through x/precisebank
 				afterBalance := sdk.NewCoins()
@@ -339,6 +344,9 @@ func (s *KeeperIntegrationTestSuite) TestMintCoins() {
 }
 
 func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name        string
 		chainConfig testconfig.ChainConfig
@@ -366,10 +374,10 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 			minter := sdk.AccAddress([]byte{1})
 
 			// Target balance
-			targetBalance := types.ConversionFactor().MulRaw(100)
+			targetBalance := types.ConversionFactor(extendedDecimals).MulRaw(100)
 
 			// Setup test parameters
-			maxMintUnit := types.ConversionFactor().MulRaw(2).SubRaw(1)
+			maxMintUnit := types.ConversionFactor(extendedDecimals).MulRaw(2).SubRaw(1)
 			r := rand.New(rand.NewSource(SEED))
 
 			totalMinted := sdkmath.ZeroInt()
@@ -378,7 +386,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 			// Continue mints as long as target balance is not reached
 			for {
 				// Check current minter balance
-				minterBal := s.GetAllBalances(minter).AmountOf(types.ExtendedCoinDenom())
+				minterBal := s.GetAllBalances(minter).AmountOf(extendedDenom)
 				if minterBal.GTE(targetBalance) {
 					break
 				}
@@ -389,7 +397,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 				randAmount := sdkmath.NewIntFromBigInt(new(big.Int).Rand(r, maxPossible.BigInt())).AddRaw(1)
 
 				// 1. mint to evm module
-				mintCoins := cs(ci(types.ExtendedCoinDenom(), randAmount))
+				mintCoins := cs(ci(extendedDenom, randAmount))
 				err := s.network.App.GetPreciseBankKeeper().MintCoins(s.network.GetContext(), minterModuleName, mintCoins)
 				s.Require().NoError(err)
 
@@ -404,7 +412,7 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 			s.T().Logf("Completed %d random mints, total minted: %s", mintCount, totalMinted)
 
 			// Check minter balance
-			minterBal := s.GetAllBalances(minter).AmountOf(types.ExtendedCoinDenom())
+			minterBal := s.GetAllBalances(minter).AmountOf(extendedDenom)
 			s.Equal(minterBal.BigInt().Cmp(targetBalance.BigInt()), 0, "minter balance mismatch (expected: %s, actual: %s)", targetBalance, minterBal)
 
 			// Check remainder
@@ -415,17 +423,15 @@ func (s *KeeperIntegrationTestSuite) TestMintCoinsRandomValueMultiDecimals() {
 }
 
 func FuzzMintCoins(f *testing.F) {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(testconfig.SixDecimalsChainConfig.CoinInfo).Configure()
-	require.NoError(f, err)
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
 
 	f.Add(int64(0))
 	f.Add(int64(100))
-	f.Add(types.ConversionFactor().Int64())
-	f.Add(types.ConversionFactor().QuoRaw(2).Int64())
-	f.Add(types.ConversionFactor().MulRaw(5).Int64())
-	f.Add(types.ConversionFactor().MulRaw(2).AddRaw(123948723).Int64())
+	f.Add(types.ConversionFactor(extendedDecimals).Int64())
+	f.Add(types.ConversionFactor(extendedDecimals).QuoRaw(2).Int64())
+	f.Add(types.ConversionFactor(extendedDecimals).MulRaw(5).Int64())
+	f.Add(types.ConversionFactor(extendedDecimals).MulRaw(2).AddRaw(123948723).Int64())
 
 	f.Fuzz(func(t *testing.T, amount int64) {
 		// No negative amounts
@@ -448,14 +454,14 @@ func FuzzMintCoins(f *testing.F) {
 			err := suite.network.App.GetPreciseBankKeeper().MintCoins(
 				suite.network.GetContext(),
 				evmtypes.ModuleName,
-				cs(c(types.ExtendedCoinDenom(), amount)),
+				cs(c(extendedDenom, amount)),
 			)
 			suite.Require().NoError(err)
 		}
 
 		// Check full balances
 		recipientAddr := suite.network.App.GetAccountKeeper().GetModuleAddress(evmtypes.ModuleName)
-		bal := suite.network.App.GetPreciseBankKeeper().GetBalance(suite.network.GetContext(), recipientAddr, types.ExtendedCoinDenom())
+		bal := suite.network.App.GetPreciseBankKeeper().GetBalance(suite.network.GetContext(), recipientAddr, extendedDenom)
 
 		suite.Require().Equalf(
 			amount*mintCount,

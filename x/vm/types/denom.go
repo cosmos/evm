@@ -77,7 +77,7 @@ func (d Decimals) ConversionFactor() math.Int {
 	return ConversionFactor[d]
 }
 
-func (d Decimals) GetDenomPrefix() string {
+func (d Decimals) GetSIPrefix() string {
 	switch d {
 	case OneDecimals:
 		return "d"
@@ -99,8 +99,4 @@ func (d Decimals) GetDenomPrefix() string {
 		// decimals must be one of 1, 2, 3, 6, 9, 12, 15, 18 to have a valid prefix
 		return "invalid"
 	}
-}
-
-func CreateDenomStr(decimals Decimals, displayDenom string) string {
-	return decimals.GetDenomPrefix() + displayDenom
 }

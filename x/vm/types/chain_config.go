@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"math/big"
 
 	gethparams "github.com/ethereum/go-ethereum/params"
@@ -10,19 +9,12 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-// chainConfig is the chain configuration used in the EVM to defined which
-// opcodes are active based on Ethereum upgrades.
-var chainConfig *ChainConfig
-
 // EthereumConfig returns an Ethereum ChainConfig for EVM state transitions.
 // All the negative or nil values are converted to nil
-func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
-	cID := new(big.Int).SetUint64(cc.ChainId)
-	if chainID != nil {
-		cID = chainID
-	}
+func (cc ChainConfig) EthereumConfig() *gethparams.ChainConfig {
+	chainID := new(big.Int).SetUint64(cc.ChainId)
 	return &gethparams.ChainConfig{
-		ChainID:                 cID,
+		ChainID:                 chainID,
 		HomesteadBlock:          getBlockValue(cc.HomesteadBlock),
 		DAOForkBlock:            getBlockValue(cc.DAOForkBlock),
 		DAOForkSupport:          cc.DAOForkSupport,
@@ -55,7 +47,7 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 	}
 }
 
-func DefaultChainConfig(evmChainID uint64) *ChainConfig {
+func DefaultChainConfig(evmChainID uint64, coinInfo EvmCoinInfo) *ChainConfig {
 	homesteadBlock := sdkmath.ZeroInt()
 	daoForkBlock := sdkmath.ZeroInt()
 	eip150Block := sdkmath.ZeroInt()
@@ -77,8 +69,8 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
-		Denom:               DefaultEVMDenom,
-		Decimals:            DefaultEVMDecimals,
+		Denom:               coinInfo.GetDenom(),
+		Decimals:            uint64(coinInfo.Decimals),
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,
@@ -102,25 +94,6 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 		VerkleTime:          nil,
 	}
 	return cfg
-}
-
-// setChainConfig allows to set the `chainConfig` variable modifying the
-// default values. The method is private because it should only be called once
-// in the EVMConfigurator.
-func setChainConfig(cc *ChainConfig) error {
-	if chainConfig != nil {
-		return errors.New("chainConfig already set. Cannot set again the chainConfig")
-	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
-	}
-	if err := config.Validate(); err != nil {
-		return err
-	}
-	chainConfig = config
-
-	return nil
 }
 
 func getBlockValue(block *sdkmath.Int) *big.Int {
@@ -203,7 +176,7 @@ func (cc ChainConfig) Validate() error {
 		return errorsmod.Wrap(err, "VerkleTime")
 	}
 	// NOTE: chain ID is not needed to check config order
-	if err := cc.EthereumConfig(nil).CheckConfigForkOrder(); err != nil {
+	if err := cc.EthereumConfig().CheckConfigForkOrder(); err != nil {
 		return errorsmod.Wrap(err, "invalid config fork order")
 	}
 	return nil

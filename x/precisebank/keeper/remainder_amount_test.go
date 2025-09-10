@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -36,6 +37,9 @@ func TestInvalidRemainderAmount(t *testing.T) {
 	tk := newMockedTestData(t)
 	ctx, k := tk.ctx, tk.keeper
 
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	extendedDecimals := coinInfo.ExtendedDecimals
+
 	// Set negative amount
 	require.PanicsWithError(t, "remainder amount is invalid: non-positive amount -1", func() {
 		k.SetRemainderAmount(ctx, sdkmath.NewInt(-1))
@@ -43,7 +47,7 @@ func TestInvalidRemainderAmount(t *testing.T) {
 
 	// Set amount over max
 	require.PanicsWithError(t, "remainder amount is invalid: amount 1000000000000 exceeds max of 999999999999", func() {
-		k.SetRemainderAmount(ctx, types.ConversionFactor())
+		k.SetRemainderAmount(ctx, types.ConversionFactor(extendedDecimals))
 	})
 }
 

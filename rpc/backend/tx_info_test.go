@@ -52,9 +52,10 @@ func setupMockBackend(t *testing.T) *Backend {
 		Seq:     uint64(1),
 	}
 
-	chainInfo := testconfig.DefaultChainConfig.ChainInfo
-	encodingConfig := encoding.MakeConfig(chainInfo.EVMChainID)
-	clientCtx := client.Context{}.WithChainID(chainInfo.ChainID).
+	chainID := testconfig.DefaultChainConfig.ChainID
+	evmChainConfig := testconfig.DefaultChainConfig.EvmConfig.ChainConfig
+	encodingConfig := encoding.MakeConfig(evmChainConfig.ChainId)
+	clientCtx := client.Context{}.WithChainID(chainID).
 		WithHeight(1).
 		WithTxConfig(encodingConfig.TxConfig).
 		WithKeyringDir(clientDir).
@@ -70,7 +71,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true
-	backend.Cfg.EVM.EVMChainID = chainInfo.EVMChainID
+	backend.Cfg.EVM.EVMChainID = evmChainConfig.ChainId
 	mockEVMQueryClient := mocks.NewEVMQueryClient(t)
 	mockFeeMarketQueryClient := mocks.NewFeeMarketQueryClient(t)
 	backend.QueryClient.QueryClient = mockEVMQueryClient
@@ -87,7 +88,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	mockHeader := &tmtypes.Header{
 		Height:  1,
 		Time:    time.Now(),
-		ChainID: chainInfo.ChainID,
+		ChainID: chainID,
 	}
 	mockBlock := &tmtypes.Block{
 		Header: *mockHeader,

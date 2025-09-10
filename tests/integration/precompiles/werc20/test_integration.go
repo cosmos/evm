@@ -107,13 +107,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			feemarketGenesis.Params.NoBaseFee = true
 			customGenesis[feemarkettypes.ModuleName] = feemarketGenesis
 
-			// Reset evm config here for the standard case
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			Expect(configurator.
-				WithEVMCoinInfo(chainConfig.CoinInfo).
-				Configure()).To(BeNil(), "expected no error setting the evm configurator")
-
 			opts := []network.ConfigOption{
 				network.WithChainConfig(chainConfig),
 				network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
@@ -129,10 +122,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			is.grpcHandler = grpcHandler
 			is.keyring = keyring
 
-			is.wrappedCoinDenom = evmtypes.GetEVMCoinDenom()
-			is.precompileAddrHex = network.GetWEVMOSContractHex(testconfig.ChainInfo{
-				ChainID:    is.network.GetChainID(),
-				EVMChainID: is.network.GetEIP155ChainID().Uint64(),
+			coinInfo := chainConfig.EvmConfig.CoinInfo
+			is.wrappedCoinDenom = coinInfo.GetDenom()
+			is.precompileAddrHex = network.GetWEVMOSContractHex(testconfig.ChainConfig{
+				ChainID:   is.network.GetChainID(),
+				EvmConfig: chainConfig.EvmConfig,
 			})
 
 			ctx := integrationNetwork.GetContext()
@@ -145,7 +139,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				BeTrue(),
 				"expected wevmos to be in the native precompiles",
 			)
-			_, found := is.network.App.GetBankKeeper().GetDenomMetaData(ctx, evmtypes.GetEVMCoinDenom())
+			_, found := is.network.App.GetBankKeeper().GetDenomMetaData(ctx, coinInfo.GetDenom())
 			Expect(found).To(BeTrue(), "expected native token metadata to be registered")
 
 			// Check that WEVMOS is registered in the token pairs map.
@@ -157,7 +151,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			precompileAddr := common.HexToAddress(is.precompileAddrHex)
 			tokenPair = erc20types.NewTokenPair(
 				precompileAddr,
-				evmtypes.GetEVMCoinDenom(),
+				coinInfo.GetDenom(),
 				erc20types.OWNER_MODULE,
 			)
 			precompile, err := werc20.NewPrecompile(
@@ -320,10 +314,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Context("and funds are NOT part of the transaction", func() {
 				When("the method is withdraw", func() {
 					It("it should fail if user doesn't have enough funds", func() {
+						coinInfo := chainConfig.EvmConfig.CoinInfo
 						newUserAcc, newUserPriv := utiltx.NewAccAddressAndKey()
 						newUserBalance := sdk.Coins{sdk.Coin{
-							Denom:  evmtypes.GetEVMCoinDenom(),
-							Amount: math.NewIntFromBigInt(withdrawAmount).Quo(precisebanktypes.ConversionFactor()).SubRaw(1),
+							Denom:  coinInfo.GetDenom(),
+							Amount: math.NewIntFromBigInt(withdrawAmount).Quo(precisebanktypes.ConversionFactor(coinInfo.ExtendedDecimals)).SubRaw(1),
 						}}
 						err := is.network.App.GetBankKeeper().SendCoins(is.network.GetContext(), user.AccAddr, newUserAcc, newUserBalance)
 						Expect(err).ToNot(HaveOccurred(), "expected no error sending tokens")

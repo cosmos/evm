@@ -29,7 +29,7 @@ var (
 	govAcct = authtypes.NewModuleAddress(govtypes.ModuleName)
 	// TestProposalMsgs are msgs used on a proposal.
 	TestProposalMsgs = []sdk.Msg{
-		banktypes.NewMsgSend(govAcct, addr, sdk.NewCoins(sdk.NewCoin(testconfig.DefaultChainConfig.CoinInfo.Denom, math.NewInt(1000)))),
+		banktypes.NewMsgSend(govAcct, addr, sdk.NewCoins(sdk.NewCoin(testconfig.DefaultChainConfig.EvmConfig.Denom, math.NewInt(1000)))),
 	}
 )
 

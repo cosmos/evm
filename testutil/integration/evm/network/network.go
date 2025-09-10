@@ -259,7 +259,7 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	return nil
 }
 
-// GetConfig returns the network's configuration
+// GetBaseDecimal returns the network's base decimal
 func (n *IntegrationNetwork) GetBaseDecimal() evmtypes.Decimals {
 	return n.baseDecimal
 }

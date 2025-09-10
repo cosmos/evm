@@ -57,14 +57,14 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      without extension option
 	//      london hardfork enableness
 	chainConfig := testconfig.DefaultChainConfig
-	chainID := uint64(chainConfig.ChainInfo.EVMChainID)
-	chainDenomAtto := chainConfig.CoinInfo.ExtendedDenom
+	chainID := chainConfig.ChainInfo.EVMChainID
+	chainDenomAtto := chainConfig.EvmConfig.ExtendedDenom
 	encodingConfig := encoding.MakeConfig(chainID)
 
 	// Configure EVM with test configuration
-	configurator := evmtypes.NewEVMConfigurator()
+	configurator := typesutil.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := configurator.WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
+	err := configurator.WithEVMCoinInfo(chainConfig.EvmConfig).Configure()
 	require.NoError(t, err)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()

@@ -20,7 +20,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestGetConfig(t *testing.T) {
-	denom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	denom := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.GetDenom()
 
 	tests := []struct {
 		name    string

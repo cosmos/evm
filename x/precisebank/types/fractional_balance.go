@@ -14,28 +14,14 @@ import (
 // fractional balance to integer balances. This is also 1 greater than the max
 // valid fractional amount (999_999_999_999):
 // 0 < FractionalBalance < conversionFactor
-func ConversionFactor() sdkmath.Int {
-	return sdkmath.NewIntFromBigInt(evmtypes.GetEVMCoinDecimals().ConversionFactor().BigInt())
+func ConversionFactor(decimals evmtypes.Decimals) sdkmath.Int {
+	return sdkmath.NewIntFromBigInt(decimals.ConversionFactor().BigInt())
 }
 
-// IntegerCoinDenom is the denomination for integer coins that are managed by
-// x/bank. This is the "true" denomination of the coin, and is also used for
-// the reserve to back all fractional coins.
-func IntegerCoinDenom() string {
-	return evmtypes.GetEVMCoinDenom()
-}
-
-// ExtendedCoinDenom is the denomination for the extended IntegerCoinDenom. This
-// not only represents the fractional balance, but the total balance of
-// integer + fractional balances.
-func ExtendedCoinDenom() string {
-	return evmtypes.GetEVMCoinExtendedDenom()
-}
-
-// IsExtendedDenomSameAsIntegerDenom returns true if the extended denom is the same as the integer denom
+// IsDenomSameAsExtendedDenom returns true if the denom is the same as the extended denom
 // This happens in 18-decimal chains where both denoms are identical
-func IsExtendedDenomSameAsIntegerDenom() bool {
-	return IntegerCoinDenom() == ExtendedCoinDenom()
+func IsDenomSameAsExtendedDenom(coinInfo evmtypes.EvmCoinInfo) bool {
+	return coinInfo.GetDenom() == coinInfo.GetExtendedDenom()
 }
 
 // FractionalBalance returns a new FractionalBalance with the given address and
@@ -49,19 +35,19 @@ func NewFractionalBalance(address string, amount sdkmath.Int) FractionalBalance 
 
 // Validate returns an error if the FractionalBalance has an invalid address or
 // negative amount.
-func (fb FractionalBalance) Validate() error {
+func (fb FractionalBalance) Validate(decimals evmtypes.Decimals) error {
 	if _, err := sdk.AccAddressFromBech32(fb.Address); err != nil {
 		return err
 	}
 
 	// Validate the amount with the FractionalAmount wrapper
-	return ValidateFractionalAmount(fb.Amount)
+	return ValidateFractionalAmount(fb.Amount, decimals)
 }
 
 // ValidateFractionalAmount checks if an sdkmath.Int is a valid fractional
 // amount, ensuring it is positive and less than or equal to the maximum
 // fractional amount.
-func ValidateFractionalAmount(amt sdkmath.Int) error {
+func ValidateFractionalAmount(amt sdkmath.Int, decimals evmtypes.Decimals) error {
 	if amt.IsNil() {
 		return fmt.Errorf("nil amount")
 	}
@@ -70,8 +56,9 @@ func ValidateFractionalAmount(amt sdkmath.Int) error {
 		return fmt.Errorf("non-positive amount %v", amt)
 	}
 
-	if amt.GTE(ConversionFactor()) {
-		return fmt.Errorf("amount %v exceeds max of %v", amt, ConversionFactor().SubRaw(1))
+	convFactor := ConversionFactor(decimals)
+	if amt.GTE(convFactor) {
+		return fmt.Errorf("amount %v exceeds max of %v", amt, convFactor.SubRaw(1))
 	}
 
 	return nil

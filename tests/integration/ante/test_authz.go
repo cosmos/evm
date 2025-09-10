@@ -31,7 +31,9 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 	distantFuture := time.Date(9000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	nw := suite.GetNetwork()
-	evmDenom := evmtypes.GetEVMCoinDenom()
+
+	coinInfo := nw.App.GetEVMKeeper().GetEvmConfig().CoinInfo
+	evmDenom := coinInfo.GetDenom()
 
 	baseFeeRes, err := nw.GetEvmClient().BaseFee(nw.GetContext(), &evmtypes.QueryBaseFeeRequest{})
 	suite.Require().NoError(err, "failed to get base fee")

@@ -246,7 +246,8 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+	ethCfg := k.evmCfg.ChainConfig.EthereumConfig()
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, ethCfg.ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -329,7 +330,9 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
 	}
-	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+	chainConfig := k.evmCfg.ChainConfig
+	ethCfg := chainConfig.EthereumConfig()
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, ethCfg.ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -338,7 +341,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	// Recap the highest gas limit with account's available balance.
 	if msg.GasFeeCap.BitLen() != 0 {
-		baseDenom := types.GetEVMCoinDenom()
+		baseDenom := k.evmCfg.CoinInfo.GetDenom()
 
 		balance := k.bankWrapper.SpendableCoin(ctx, sdk.AccAddress(args.From.Bytes()), baseDenom)
 		available := balance.Amount
@@ -523,7 +526,9 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	chainConfig := k.evmCfg.ChainConfig
+	ethCfg := chainConfig.EthereumConfig()
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	txConfig := statedb.NewEmptyTxConfig()
 
 	// gas used at this point corresponds to GetProposerAddress & CalculateBaseFee
@@ -614,7 +619,9 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	chainConfig := k.evmCfg.ChainConfig
+	ethCfg := chainConfig.EthereumConfig()
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	txsLength := len(req.Txs)
 	results := make([]*types.TxTraceResult, 0, txsLength)
 
@@ -678,7 +685,7 @@ func (k *Keeper) traceTx(
 	}
 
 	if traceConfig.Overrides != nil {
-		overrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
+		overrides = traceConfig.Overrides.EthereumConfig()
 	}
 
 	logConfig := logger.Config{
@@ -703,13 +710,15 @@ func (k *Keeper) traceTx(
 		TxHash:    txConfig.TxHash,
 	}
 
+	chainConfig := k.evmCfg.ChainConfig
+	ethCfg := chainConfig.EthereumConfig()
 	if traceConfig.Tracer != "" {
 		var cfg json.RawMessage
 		if traceConfig.TracerJsonConfig != "" {
 			cfg = json.RawMessage(traceConfig.TracerJsonConfig)
 		}
 		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg,
-			types.GetEthChainConfig()); err != nil {
+			ethCfg); err != nil {
 			return nil, 0, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -772,10 +781,7 @@ func (k Keeper) GlobalMinGasPrice(c context.Context, _ *types.QueryGlobalMinGasP
 
 // Config implements the Query/Config gRPC method
 func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.QueryConfigResponse, error) {
-	config := types.GetChainConfig()
-	config.Denom = types.GetEVMCoinDenom()
-	config.Decimals = uint64(types.GetEVMCoinDecimals())
-
+	config := k.evmCfg.ChainConfig
 	return &types.QueryConfigResponse{Config: config}, nil
 }
 

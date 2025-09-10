@@ -1,9 +1,9 @@
 package types
 
 import (
-	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 
 	sdkmath "cosmossdk.io/math"
@@ -13,54 +13,55 @@ import (
 
 // ConvertAmountToLegacy18Decimals convert the given amount into a 18 decimals
 // representation.
-func ConvertAmountTo18DecimalsLegacy(amt sdkmath.LegacyDec) sdkmath.LegacyDec {
-	evmCoinDecimal := GetEVMCoinDecimals()
-
-	return amt.MulInt(evmCoinDecimal.ConversionFactor())
+func ConvertAmountTo18DecimalsLegacy(amt sdkmath.LegacyDec, decimals Decimals) sdkmath.LegacyDec {
+	return amt.MulInt(decimals.ConversionFactor())
 }
 
 // ConvertAmountTo18DecimalsBigInt convert the given amount into a 18 decimals
 // representation.
-func ConvertAmountTo18DecimalsBigInt(amt *big.Int) *big.Int {
-	evmCoinDecimal := GetEVMCoinDecimals()
-
-	return new(big.Int).Mul(amt, evmCoinDecimal.ConversionFactor().BigInt())
+func ConvertAmountTo18DecimalsBigInt(amt *big.Int, decimals Decimals) *big.Int {
+	return new(big.Int).Mul(amt, decimals.ConversionFactor().BigInt())
 }
 
 // ConvertAmountTo18Decimals256Int convert the given amount into a 18 decimals
 // representation.
-func ConvertAmountTo18Decimals256Int(amt *uint256.Int) *uint256.Int {
-	evmCoinDecimal := GetEVMCoinDecimals()
-
-	return new(uint256.Int).Mul(amt, uint256.NewInt(evmCoinDecimal.ConversionFactor().Uint64()))
+func ConvertAmountTo18Decimals256Int(amt *uint256.Int, decimals Decimals) *uint256.Int {
+	return new(uint256.Int).Mul(amt, uint256.NewInt(decimals.ConversionFactor().Uint64()))
 }
 
 // ConvertBigIntFrom18DecimalsToLegacyDec converts the given amount into a LegacyDec
 // with the corresponding decimals of the EVM denom.
-func ConvertBigIntFrom18DecimalsToLegacyDec(amt *big.Int) sdkmath.LegacyDec {
-	evmCoinDecimal := GetEVMCoinDecimals()
+func ConvertBigIntFrom18DecimalsToLegacyDec(amt *big.Int, decimals Decimals) sdkmath.LegacyDec {
 	decAmt := sdkmath.LegacyNewDecFromBigInt(amt)
-	return decAmt.QuoInt(evmCoinDecimal.ConversionFactor())
+	return decAmt.QuoInt(decimals.ConversionFactor())
 }
 
-// ConvertEvmCoinDenomToExtendedDenom converts the coin's Denom to the extended denom.
-// Return an error if the coin denom is not the EVM.
-func ConvertEvmCoinDenomToExtendedDenom(coin sdk.Coin) (sdk.Coin, error) {
-	if coin.Denom != GetEVMCoinDenom() {
-		return sdk.Coin{}, fmt.Errorf("expected coin denom %s, received %s", GetEVMCoinDenom(), coin.Denom)
+// ConvertCoinDenomTo18DecimalsDenom converts the coin's Denom to the extended denom.
+func ConvertCoinDenomTo18DecimalsDenom(coin sdk.Coin) (sdk.Coin, error) {
+	if err := sdk.ValidateDenom(coin.Denom); err != nil {
+		return sdk.Coin{}, err
 	}
+	displayDenom := coin.Denom[1:]
+	extendedDenom := CreateDenomStr(EighteenDecimals, displayDenom)
 
-	return sdk.Coin{Denom: GetEVMCoinExtendedDenom(), Amount: coin.Amount}, nil
+	// we are just changing the denom without scaling the amount with conversion factor
+	return sdk.Coin{
+		Denom:  extendedDenom,
+		Amount: coin.Amount,
+	}, nil
 }
 
-// ConvertCoinsDenomToExtendedDenom returns the given coins with the Denom of the evm
+// ConvertCoinsDenomTo18DecimalsDenom returns the given coins with the Denom of the evm
 // coin converted to the extended denom.
-func ConvertCoinsDenomToExtendedDenom(coins sdk.Coins) sdk.Coins {
-	evmDenom := GetEVMCoinDenom()
+func ConvertCoinsDenomTo18DecimalsDenom(coins sdk.Coins, matchDenom string) sdk.Coins {
 	convertedCoins := make(sdk.Coins, len(coins))
 	for i, coin := range coins {
-		if coin.Denom == evmDenom {
-			coin, _ = ConvertEvmCoinDenomToExtendedDenom(coin)
+		var err error
+		if coin.Denom == matchDenom {
+			coin, err = ConvertCoinDenomTo18DecimalsDenom(coin)
+			if err != nil {
+				log.Debug("failed to set denom to 18 decimals, adding zero coin", "error", err)
+			}
 		}
 		convertedCoins[i] = coin
 	}

@@ -297,7 +297,7 @@ func TestGetReceivedCoin(t *testing.T) {
 }
 
 func TestGetSentCoin(t *testing.T) {
-	baseDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
+	baseDenom := testconfig.DefaultChainConfig.EvmConfig.Denom
 
 	testCases := []struct {
 		name      string

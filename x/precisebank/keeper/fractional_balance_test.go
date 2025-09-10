@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -16,6 +17,7 @@ import (
 
 func TestSetGetFractionalBalance(t *testing.T) {
 	addr := sdk.AccAddress([]byte("test-address"))
+	extendedDecimals := testconfig.DefaultChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
 
 	tests := []struct {
 		name     string
@@ -38,7 +40,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 		{
 			"valid - max amount",
 			addr,
-			types.ConversionFactor().SubRaw(1),
+			types.ConversionFactor(extendedDecimals).SubRaw(1),
 			"",
 		},
 		{
@@ -56,8 +58,8 @@ func TestSetGetFractionalBalance(t *testing.T) {
 		{
 			"invalid - over max amount",
 			addr,
-			types.ConversionFactor(),
-			fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", types.ConversionFactor().String(), types.ConversionFactor().SubRaw(1).String()),
+			types.ConversionFactor(extendedDecimals),
+			fmt.Sprintf("amount is invalid: amount %s exceeds max of %s", types.ConversionFactor(extendedDecimals).String(), types.ConversionFactor(extendedDecimals).SubRaw(1).String()),
 		},
 	}
 

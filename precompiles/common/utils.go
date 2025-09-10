@@ -31,7 +31,7 @@ func ParseAddress(event sdk.Event, key string) (sdk.AccAddress, error) {
 	return accAddr, nil
 }
 
-func ParseAmount(event sdk.Event) (*uint256.Int, error) {
+func ParseAmount(event sdk.Event, evmCoinInfo evmtypes.EvmCoinInfo) (*uint256.Int, error) {
 	amountAttr, ok := event.GetAttribute(sdk.AttributeKeyAmount)
 	if !ok {
 		return nil, fmt.Errorf("event %q missing attribute %q", banktypes.EventTypeCoinSpent, sdk.AttributeKeyAmount)
@@ -42,8 +42,8 @@ func ParseAmount(event sdk.Event) (*uint256.Int, error) {
 		return nil, fmt.Errorf("failed to parse coins from %q: %w", amountAttr.Value, err)
 	}
 
-	amountBigInt := amountCoins.AmountOf(evmtypes.GetEVMCoinDenom()).BigInt()
-	amount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amountBigInt))
+	amountBigInt := amountCoins.AmountOf(evmCoinInfo.GetDenom()).BigInt()
+	amount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amountBigInt, evmCoinInfo.Decimals))
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert coin amount to Uint256: %w", err)
 	}

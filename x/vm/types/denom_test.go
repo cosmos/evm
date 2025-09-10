@@ -18,169 +18,143 @@ func TestEvmCoinInfoValidate(t *testing.T) {
 		{
 			name: "valid 18 decimals config",
 			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      EighteenDecimals,
+				DisplayDenom:     "test",
+				Decimals:         EighteenDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
 		{
 			name: "valid 6 decimals config",
 			coinInfo: EvmCoinInfo{
-				Denom:         "utest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      SixDecimals,
+				DisplayDenom:     "test",
+				Decimals:         SixDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
 		{
 			name: "valid 12 decimals config",
 			coinInfo: EvmCoinInfo{
-				Denom:         "ptest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      TwelveDecimals,
+				DisplayDenom:     "test",
+				Decimals:         TwelveDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
 		{
 			name: "valid 1 decimal config",
 			coinInfo: EvmCoinInfo{
-				Denom:         "ctest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      OneDecimals,
+				DisplayDenom:     "test",
+				Decimals:         OneDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
 		{
-			name: "empty denom",
+			name: "empty display denom",
 			coinInfo: EvmCoinInfo{
-				Denom:         "",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      EighteenDecimals,
+				DisplayDenom:     "",
+				Decimals:         EighteenDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass:     false,
-			errContains: "denom cannot be empty",
+			errContains: "display denom cannot be empty",
 		},
 		{
 			name: "invalid denom format - starts with number",
 			coinInfo: EvmCoinInfo{
-				Denom:         "1test", // starts with number
-				ExtendedDenom: "1test", // same as denom to avoid 18-decimal rule conflict
-				DisplayDenom:  "test",
-				Decimals:      EighteenDecimals,
+				DisplayDenom:     "1test",
+				Decimals:         EighteenDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass:     false,
 			errContains: "invalid denom",
 		},
 		{
-			name: "empty extended denom",
-			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "",
-				DisplayDenom:  "test",
-				Decimals:      EighteenDecimals,
-			},
-			expPass:     false,
-			errContains: "extended-denom cannot be empty",
-		},
-		{
 			name: "invalid extended denom format - too short",
 			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "a", // too short
-				DisplayDenom:  "test",
-				Decimals:      SixDecimals, // use 6 decimals to avoid the 18-decimal rule
+				DisplayDenom:     "t",
+				Decimals:         SixDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass:     false,
-			errContains: "invalid extended-denom",
+			errContains: "invalid display denom",
 		},
 		{
-			name: "empty display denom",
+			name: "invalid display denom character",
 			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "",
-				Decimals:      EighteenDecimals,
+				DisplayDenom:     "test@",
+				Decimals:         EighteenDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass:     false,
-			errContains: "display-denom cannot be empty",
+			errContains: "invalid display denom",
 		},
 		{
-			name: "invalid display denom format",
+			name: "zero decimals is invalid",
 			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test@", // invalid character
-				Decimals:      EighteenDecimals,
-			},
-			expPass:     false,
-			errContains: "invalid display-denom",
-		},
-		{
-			name: "zero decimals",
-			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      0,
+				DisplayDenom:     "test",
+				Decimals:         0,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass:     false,
 			errContains: "decimals validation failed",
 		},
 		{
-			name: "invalid decimals over 18",
+			name: "invalid si decimals",
 			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "atest",
-				DisplayDenom:  "test",
-				Decimals:      19,
+				DisplayDenom:     "test",
+				Decimals:         TenDecimals,
+				ExtendedDecimals: TenDecimals,
 			},
 			expPass:     false,
-			errContains: "decimals validation failed",
+			errContains: "invalid extended denom",
 		},
 		{
-			name: "18 decimals with different denom and extended denom",
+			name: "decimals out of valid range",
 			coinInfo: EvmCoinInfo{
-				Denom:         "utest",
-				ExtendedDenom: "atest", // should be same as denom for 18 decimals
-				DisplayDenom:  "test",
-				Decimals:      EighteenDecimals,
+				DisplayDenom:     "test",
+				Decimals:         Decimals(19),
+				ExtendedDecimals: Decimals(19),
 			},
 			expPass:     false,
-			errContains: "denom and extended-denom must be the same for 18 decimals",
+			errContains: "received unsupported decimals",
 		},
 		{
-			name: "6 decimals with different denom and extended denom (valid)",
+			name: "18 decimals with different extended decimals",
 			coinInfo: EvmCoinInfo{
-				Denom:         "utest",
-				ExtendedDenom: "atest", // different is ok for non-18 decimals
-				DisplayDenom:  "test",
-				Decimals:      SixDecimals,
+				DisplayDenom:     "test",
+				Decimals:         EighteenDecimals,
+				ExtendedDecimals: TwelveDecimals,
+			},
+			expPass:     false,
+			errContains: "decimals and extended decimals must be the same for 18 decimals",
+		},
+		{
+			name: "valid 6 decimals with different extended decimals",
+			coinInfo: EvmCoinInfo{
+				DisplayDenom:     "test",
+				Decimals:         SixDecimals,
+				ExtendedDecimals: NineDecimals,
 			},
 			expPass: true,
 		},
 		{
-			name: "valid with special characters in denoms",
+			name: "display denom with valid special characters",
 			coinInfo: EvmCoinInfo{
-				Denom:         "test-coin",
-				ExtendedDenom: "atest-coin",
-				DisplayDenom:  "testcoin",
-				Decimals:      SixDecimals,
+				DisplayDenom:     "test-coin",
+				Decimals:         SixDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
 		{
-			name: "denom with numbers (valid)",
+			name: "display denom with valid numbers",
 			coinInfo: EvmCoinInfo{
-				Denom:         "test123",
-				ExtendedDenom: "atest123",
-				DisplayDenom:  "test123",
-				Decimals:      SixDecimals,
+				DisplayDenom:     "test123",
+				Decimals:         SixDecimals,
+				ExtendedDecimals: EighteenDecimals,
 			},
 			expPass: true,
 		},
@@ -199,54 +173,6 @@ func TestEvmCoinInfoValidate(t *testing.T) {
 			} else {
 				require.Error(t, err, "expected validation to fail for %s", tc.name)
 				require.Contains(t, err.Error(), tc.errContains, "error message should contain expected text")
-			}
-		})
-	}
-}
-
-// TestEvmCoinInfoValidateEdgeCases tests additional edge cases
-func TestEvmCoinInfoValidateEdgeCases(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name     string
-		coinInfo EvmCoinInfo
-		expPass  bool
-	}{
-		{
-			name: "maximum valid decimals",
-			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "btest",
-				DisplayDenom:  "test",
-				Decimals:      SeventeenDecimals, // 17 is max non-18
-			},
-			expPass: true,
-		},
-		{
-			name: "minimum valid decimals",
-			coinInfo: EvmCoinInfo{
-				Denom:         "atest",
-				ExtendedDenom: "btest",
-				DisplayDenom:  "test",
-				Decimals:      OneDecimals,
-			},
-			expPass: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc //nolint:copyloopvar // Needed to work correctly with concurrent tests
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := tc.coinInfo.Validate()
-
-			if tc.expPass {
-				require.NoError(t, err, "expected validation to pass for %s", tc.name)
-			} else {
-				require.Error(t, err, "expected validation to fail for %s", tc.name)
 			}
 		})
 	}

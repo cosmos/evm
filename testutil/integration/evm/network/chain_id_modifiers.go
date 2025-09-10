@@ -7,7 +7,6 @@ package network
 import (
 	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -25,10 +24,7 @@ func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState) b
 // for both extended and native EVM denominations depending on the chain.
 func generateBankGenesisMetadata() []banktypes.Metadata {
 	// Basic denom settings
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom() // e.g., "atom"
-	evmDenom := evmtypes.GetEVMCoinDenom()            // e.g., "uatom"
-	extDenom := types.ExtendedCoinDenom()             // always 18-decimals base denom
-	evmDecimals := evmtypes.GetEVMCoinDecimals()      // native decimal precision, e.g., 6, 12, ..., or 18
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 
 	// Standard metadata fields
 	name := "Cosmos EVM"
@@ -36,34 +32,34 @@ func generateBankGenesisMetadata() []banktypes.Metadata {
 
 	var metas []banktypes.Metadata
 
-	if evmDenom != extDenom {
+	if coinInfo.Decimals != coinInfo.ExtendedDecimals {
 		// This means we are initializing a chain with non-18 decimals
 		//
 		// Note: extDenom is always 18-decimals and handled by the precisebank module's states,
 		// So we don't need to add it to the bank module's metadata.
 		metas = append(metas, banktypes.Metadata{
 			Description: "Native EVM denom metadata",
-			Base:        evmDenom,
+			Base:        coinInfo.GetDenom(),
 			DenomUnits: []*banktypes.DenomUnit{
-				{Denom: evmDenom, Exponent: 0},
-				{Denom: displayDenom, Exponent: uint32(evmDecimals)},
+				{Denom: coinInfo.GetDenom(), Exponent: 0},
+				{Denom: coinInfo.DisplayDenom, Exponent: uint32(coinInfo.Decimals)},
 			},
 			Name:    name,
 			Symbol:  symbol,
-			Display: displayDenom,
+			Display: coinInfo.DisplayDenom,
 		})
 	} else {
 		// EVM native chain: single metadata with 18-decimals
 		metas = append(metas, banktypes.Metadata{
 			Description: "Native 18-decimal denom metadata for Cosmos EVM chain",
-			Base:        evmDenom,
+			Base:        coinInfo.GetDenom(),
 			DenomUnits: []*banktypes.DenomUnit{
-				{Denom: evmDenom, Exponent: 0},
-				{Denom: displayDenom, Exponent: uint32(evmtypes.EighteenDecimals)},
+				{Denom: coinInfo.GetDenom(), Exponent: 0},
+				{Denom: coinInfo.DisplayDenom, Exponent: uint32(evmtypes.EighteenDecimals)},
 			},
 			Name:    name,
 			Symbol:  symbol,
-			Display: displayDenom,
+			Display: coinInfo.DisplayDenom,
 		})
 	}
 
@@ -86,7 +82,7 @@ func updateErc20TokenPairs(coinInfo evmtypes.EvmCoinInfo, tokenPairs []erc20type
 		if tokenPair.Erc20Address == testconfig.DefaultWevmosContractMainnet {
 			updatedTokenPairs[i] = erc20types.TokenPair{
 				Erc20Address:  testconfig.DefaultWevmosContractTestnet,
-				Denom:         coinInfo.Denom,
+				Denom:         coinInfo.GetDenom(),
 				Enabled:       tokenPair.Enabled,
 				ContractOwner: tokenPair.ContractOwner,
 			}

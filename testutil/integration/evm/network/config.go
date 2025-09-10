@@ -51,8 +51,8 @@ func DefaultConfig() Config {
 	account, _ := testtx.NewAccAddressAndKey()
 
 	return Config{
-		chainID:             testconfig.DefaultChainConfig.ChainInfo.ChainID,
-		eip155ChainID:       new(big.Int).SetUint64(testconfig.DefaultChainConfig.ChainInfo.EVMChainID),
+		chainID:             testconfig.DefaultChainConfig.ChainID,
+		eip155ChainID:       new(big.Int).SetUint64(testconfig.DefaultChainConfig.EvmConfig.ChainConfig.ChainId),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
 		initialBondedAmount: DefaultInitialBondedAmount(),
@@ -116,15 +116,15 @@ type ConfigOption func(*Config)
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
 func WithChainConfig(chainConfig testconfig.ChainConfig) ConfigOption {
 	return func(cfg *Config) {
-		cfg.chainID = chainConfig.ChainInfo.ChainID
-		cfg.eip155ChainID = big.NewInt(int64(chainConfig.ChainInfo.EVMChainID)) //nolint:gosec // G115 // won't exceed uint64
+		cfg.chainID = chainConfig.ChainID
+		cfg.eip155ChainID = big.NewInt(int64(chainConfig.EvmConfig.ChainConfig.ChainId)) //nolint:gosec // G115 // won't exceed uint64
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
-			cfg.chainCoins.baseCoin.Denom = chainConfig.CoinInfo.Denom
-			cfg.chainCoins.baseCoin.Decimals = chainConfig.CoinInfo.Decimals
+			cfg.chainCoins.baseCoin.Denom = chainConfig.EvmConfig.CoinInfo.GetDenom()
+			cfg.chainCoins.baseCoin.Decimals = chainConfig.EvmConfig.CoinInfo.Decimals
 		}
-		cfg.chainCoins.evmCoin.Denom = chainConfig.CoinInfo.Denom
-		cfg.chainCoins.evmCoin.Decimals = chainConfig.CoinInfo.Decimals
+		cfg.chainCoins.evmCoin.Denom = chainConfig.EvmConfig.CoinInfo.GetDenom()
+		cfg.chainCoins.evmCoin.Decimals = chainConfig.EvmConfig.CoinInfo.Decimals
 	}
 }
 

@@ -54,8 +54,8 @@ type TestCaseStruct struct {
 }
 
 func TestLedgerPreprocessing(t *testing.T) {
-	coinInfo := testconfig.DefaultChainConfig.CoinInfo
-	evmConfigurator := evmtypes.NewEVMConfigurator().WithEVMCoinInfo(coinInfo)
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig
+	evmConfigurator := evmtypes.NewEvmConfig().WithEVMCoinInfo(coinInfo)
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
 
