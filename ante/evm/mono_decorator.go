@@ -217,13 +217,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	gasWanted := UpdateCumulativeGasWanted(
-		ctx,
-		gas,
-		md.maxGasWanted,
-		decUtils.GasWanted,
-	)
-	decUtils.GasWanted = gasWanted
+	decUtils.GasWanted += gas
 
 	minPriority := GetMsgPriority(
 		ethTx,
