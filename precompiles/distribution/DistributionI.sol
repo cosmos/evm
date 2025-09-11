@@ -16,21 +16,27 @@ DistributionI constant DISTRIBUTION_CONTRACT = DistributionI(
     DISTRIBUTION_PRECOMPILE_ADDRESS
 );
 
-struct ValidatorSlashEvent {
-    uint64 validatorPeriod;
-    Dec fraction;
-}
+    struct ValidatorSlashEvent {
+        uint64 validatorPeriod;
+        Dec fraction;
+    }
 
-struct ValidatorDistributionInfo {
-    string operatorAddress;
-    DecCoin[] selfBondRewards;
-    DecCoin[] commission;
-}
+    struct ValidatorDistributionInfo {
+        string operatorAddress;
+        DecCoin[] selfBondRewards;
+        DecCoin[] commission;
+    }
 
-struct DelegationDelegatorReward {
-    string validatorAddress;
-    DecCoin[] reward;
-}
+    struct DelegationDelegatorReward {
+        string validatorAddress;
+        DecCoin[] reward;
+    }
+
+/// @dev Distribution module parameters
+    struct DistributionParams {
+        Dec communityTax;
+        bool withdrawAddrEnabled;
+    }
 
 /// @author Evmos Team
 /// @title Distribution Precompile Contract
@@ -154,9 +160,9 @@ interface DistributionI {
     function validatorDistributionInfo(
         string memory validatorAddress
     )
-        external
-        view
-        returns (ValidatorDistributionInfo calldata distributionInfo);
+    external
+    view
+    returns (ValidatorDistributionInfo calldata distributionInfo);
 
     /// @dev Queries the outstanding rewards of a validator address.
     /// @param validatorAddress The address of the validator
@@ -186,12 +192,12 @@ interface DistributionI {
         uint64 endingHeight,
         PageRequest calldata pageRequest
     )
-        external
-        view
-        returns (
-            ValidatorSlashEvent[] calldata slashes,
-            PageResponse calldata pageResponse
-        );
+    external
+    view
+    returns (
+        ValidatorSlashEvent[] calldata slashes,
+        PageResponse calldata pageResponse
+    );
 
     /// @dev Queries the total rewards accrued by a delegation from a specific address to a given validator.
     /// @param delegatorAddress The address of the delegator
@@ -210,12 +216,12 @@ interface DistributionI {
     function delegationTotalRewards(
         address delegatorAddress
     )
-        external
-        view
-        returns (
-            DelegationDelegatorReward[] calldata rewards,
-            DecCoin[] calldata total
-        );
+    external
+    view
+    returns (
+        DelegationDelegatorReward[] calldata rewards,
+        DecCoin[] calldata total
+    );
 
     /// @dev Queries all validators, that a given address has delegated to.
     /// @param delegatorAddress The address of the delegator
@@ -234,4 +240,11 @@ interface DistributionI {
     /// @dev Queries the coins in the community pool.
     /// @return coins The coins in the community pool
     function communityPool() external view returns (DecCoin[] calldata coins);
+
+    /// @dev Queries the distribution module parameters.
+    /// @return params The distribution module parameters
+    function getParams()
+    external
+    view
+    returns (DistributionParams memory params);
 }

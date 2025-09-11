@@ -25,103 +25,113 @@ int256 constant DO_NOT_MODIFY_MIN_SELF_DELEGATION = -1;
 
 /// @dev Defines the initial description to be used for creating
 /// a validator.
-struct Description {
-    string moniker;
-    string identity;
-    string website;
-    string securityContact;
-    string details;
-}
+    struct Description {
+        string moniker;
+        string identity;
+        string website;
+        string securityContact;
+        string details;
+    }
 
 /// @dev Defines the initial commission rates to be used for creating
 /// a validator.
-struct CommissionRates {
-    uint256 rate;
-    uint256 maxRate;
-    uint256 maxChangeRate;
-}
+    struct CommissionRates {
+        uint256 rate;
+        uint256 maxRate;
+        uint256 maxChangeRate;
+    }
 
 /// @dev Defines commission parameters for a given validator.
-struct Commission {
-    CommissionRates commissionRates;
-    uint256 updateTime;
-}
+    struct Commission {
+        CommissionRates commissionRates;
+        uint256 updateTime;
+    }
 
 /// @dev Represents a validator in the staking module.
-struct Validator {
-    string operatorAddress;
-    string consensusPubkey;
-    bool jailed;
-    BondStatus status;
-    uint256 tokens;
-    uint256 delegatorShares; // TODO: decimal
-    string description;
-    int64 unbondingHeight;
-    int64 unbondingTime;
-    uint256 commission;
-    uint256 minSelfDelegation;
-}
+    struct Validator {
+        string operatorAddress;
+        string consensusPubkey;
+        bool jailed;
+        BondStatus status;
+        uint256 tokens;
+        uint256 delegatorShares; // TODO: decimal
+        string description;
+        int64 unbondingHeight;
+        int64 unbondingTime;
+        uint256 commission;
+        uint256 minSelfDelegation;
+    }
 
 /// @dev Represents the output of a Redelegations query.
-struct RedelegationResponse {
-    Redelegation redelegation;
-    RedelegationEntryResponse[] entries;
-}
+    struct RedelegationResponse {
+        Redelegation redelegation;
+        RedelegationEntryResponse[] entries;
+    }
 
 /// @dev Represents a redelegation between a delegator and a validator.
-struct Redelegation {
-    string delegatorAddress;
-    string validatorSrcAddress;
-    string validatorDstAddress;
-    RedelegationEntry[] entries;
-}
+    struct Redelegation {
+        string delegatorAddress;
+        string validatorSrcAddress;
+        string validatorDstAddress;
+        RedelegationEntry[] entries;
+    }
 
 /// @dev Represents a RedelegationEntryResponse for the Redelegations query.
-struct RedelegationEntryResponse {
-    RedelegationEntry redelegationEntry;
-    uint256 balance;
-}
+    struct RedelegationEntryResponse {
+        RedelegationEntry redelegationEntry;
+        uint256 balance;
+    }
 
 /// @dev Represents a single Redelegation entry.
-struct RedelegationEntry {
-    int64 creationHeight;
-    int64 completionTime;
-    uint256 initialBalance;
-    uint256 sharesDst; // TODO: decimal
-}
+    struct RedelegationEntry {
+        int64 creationHeight;
+        int64 completionTime;
+        uint256 initialBalance;
+        uint256 sharesDst; // TODO: decimal
+    }
 
 /// @dev Represents the output of the Redelegation query.
-struct RedelegationOutput {
-    string delegatorAddress;
-    string validatorSrcAddress;
-    string validatorDstAddress;
-    RedelegationEntry[] entries;
-}
+    struct RedelegationOutput {
+        string delegatorAddress;
+        string validatorSrcAddress;
+        string validatorDstAddress;
+        RedelegationEntry[] entries;
+    }
 
 /// @dev Represents a single entry of an unbonding delegation.
-struct UnbondingDelegationEntry {
-    int64 creationHeight;
-    int64 completionTime;
-    uint256 initialBalance;
-    uint256 balance;
-    uint64 unbondingId;
-    int64 unbondingOnHoldRefCount;
-}
+    struct UnbondingDelegationEntry {
+        int64 creationHeight;
+        int64 completionTime;
+        uint256 initialBalance;
+        uint256 balance;
+        uint64 unbondingId;
+        int64 unbondingOnHoldRefCount;
+    }
 
 /// @dev Represents the output of the UnbondingDelegation query.
-struct UnbondingDelegationOutput {
-    string delegatorAddress;
-    string validatorAddress;
-    UnbondingDelegationEntry[] entries;
-}
+    struct UnbondingDelegationOutput {
+        string delegatorAddress;
+        string validatorAddress;
+        UnbondingDelegationEntry[] entries;
+    }
 
 /// @dev The status of the validator.
-enum BondStatus {
-    Unspecified,
-    Unbonded,
-    Unbonding,
-    Bonded
-}
+    enum BondStatus {
+        Unspecified,
+        Unbonded,
+        Unbonding,
+        Bonded
+    }
+
+/// @dev Staking module parameters
+    struct StakingParams {
+        uint64 unbondingTime;
+        uint32 maxValidators;
+        uint32 maxEntries;
+        uint32 historicalEntries;
+        string bondDenom;
+        Dec minCommissionRate;
+    }
 
 /// @author Evmos Team
 /// @title Staking Precompiled Contract
@@ -236,9 +246,9 @@ interface StakingI {
         address delegatorAddress,
         string memory validatorAddress
     )
-        external
-        view
-        returns (UnbondingDelegationOutput calldata unbondingDelegation);
+    external
+    view
+    returns (UnbondingDelegationOutput calldata unbondingDelegation);
 
     /// @dev Queries validator info for a given validator address.
     /// @param validatorAddress The address of the validator.
@@ -254,12 +264,12 @@ interface StakingI {
         string memory status,
         PageRequest calldata pageRequest
     )
-        external
-        view
-        returns (
-            Validator[] calldata validators,
-            PageResponse calldata pageResponse
-        );
+    external
+    view
+    returns (
+        Validator[] calldata validators,
+        PageResponse calldata pageResponse
+    );
 
     /// @dev Queries all redelegations from a source to a destination validator for a given delegator.
     /// @param delegatorAddress The address of the delegator.
@@ -288,12 +298,19 @@ interface StakingI {
         string memory dstValidatorAddress,
         PageRequest calldata pageRequest
     )
-        external
-        view
-        returns (
-            RedelegationResponse[] calldata response,
-            PageResponse calldata pageResponse
-        );
+    external
+    view
+    returns (
+        RedelegationResponse[] calldata response,
+        PageResponse calldata pageResponse
+    );
+
+    /// @dev Queries the staking module parameters.
+    /// @return params The staking module parameters
+    function getParams()
+    external
+    view
+    returns (StakingParams memory params);
 
     /// @dev CreateValidator defines an Event emitted when a create a new validator.
     /// @param validatorAddress The address of the validator
