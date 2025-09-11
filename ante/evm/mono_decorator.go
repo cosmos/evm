@@ -217,7 +217,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
-	decUtils.GasWanted += gas
+	if md.maxGasWanted != 0 {
+		decUtils.GasWanted += min(gas, md.maxGasWanted)
+	} else {
+		decUtils.GasWanted += gas
+	}
 
 	minPriority := GetMsgPriority(
 		ethTx,

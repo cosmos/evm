@@ -292,7 +292,7 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 				s.Require().NotNil(tx)
 
 				// Verify it's an EVM transaction
-				if ethMsg, ok := tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx); ok {
+				if ethMsg, ok := tx.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx); ok {
 					ethTx := ethMsg.AsTransaction()
 					s.Require().Equal(big.NewInt(1000000000), ethTx.GasPrice())
 				} else {
@@ -357,7 +357,7 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 				s.Require().NotNil(tx)
 
 				// Verify it's an EVM transaction
-				if ethMsg, ok := tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx); ok {
+				if ethMsg, ok := tx.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx); ok {
 					ethTx := ethMsg.AsTransaction()
 					s.Require().Equal(big.NewInt(1000000000), ethTx.GasPrice())
 				} else {
@@ -466,7 +466,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
 
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
 				ethTx := ethMsg.AsTransaction()
 				s.Require().Equal(big.NewInt(5000000000), ethTx.GasPrice(), "First transaction should be EVM with highest gas price")
@@ -478,7 +478,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx2)
 
 				// Should be Cosmos transaction with high fee
-				feeTx := tx2.(sdk.FeeTx)
+				feeTx := tx2.Tx.(sdk.FeeTx)
 				cosmosGasPrice := s.calculateCosmosGasPrice(feeTx.GetFee().AmountOf("aatom").BigInt().Int64(), feeTx.GetGas())
 				s.Require().Equal(big.NewInt(5000000000), cosmosGasPrice, "Second transaction should be Cosmos with 25000 aatom gas price")
 			},
@@ -504,7 +504,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// First transaction should be high fee
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
 				ethTx := ethMsg.AsTransaction()
 				s.Require().Equal(big.NewInt(5000000000), ethTx.GasPrice())
@@ -534,7 +534,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// First transaction should be high fee
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
 				ethTx := ethMsg.AsTransaction()
 				s.Require().Equal(big.NewInt(5000000000), ethTx.GasPrice())
@@ -542,7 +542,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
-				ethMsg, ok = tx2.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok = tx2.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
 				ethTx = ethMsg.AsTransaction()
 				s.Require().Equal(big.NewInt(1000000000), ethTx.GasPrice())
@@ -573,7 +573,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx1)
 				// Calculate gas price: fee_amount / gas_limit = 5000000000 / 200000 = 25000
 				expectedGasPrice := big.NewInt(5000000000)
-				feeTx := tx1.(sdk.FeeTx)
+				feeTx := tx1.Tx.(sdk.FeeTx)
 				actualGasPrice := s.calculateCosmosGasPrice(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas())
 				s.Require().Equal(expectedGasPrice, actualGasPrice, "Expected gas price should match fee_amount/gas_limit")
 				iterator = iterator.Next()
@@ -605,7 +605,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(tx1)
 
 				// Check if first transaction is EVM (preferred when effective tips are equal)
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok)
 				ethTx := ethMsg.AsTransaction()
 				// For EVM, effective tip = gas_price - base_fee (assuming base fee = 0)
@@ -618,7 +618,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
 
-				feeTx := tx2.(sdk.FeeTx)
+				feeTx := tx2.Tx.(sdk.FeeTx)
 				effectiveTip = s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(1000000000), effectiveTip, "Second transaction should be Cosmos with 1000 aatom effective tip")
 			},
@@ -645,7 +645,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
 
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "First transaction should be EVM due to higher effective tip")
 				ethTx := ethMsg.AsTransaction()
 				effectiveTip := ethTx.GasPrice() // effective_tip = gas_price - 0
@@ -657,7 +657,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
 
-				feeTx := tx2.(sdk.FeeTx)
+				feeTx := tx2.Tx.(sdk.FeeTx)
 				effectiveTip2 := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(2000000000), effectiveTip2, "Second transaction should be Cosmos with 2000 aatom effective tip")
 			},
@@ -684,7 +684,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
 
-				feeTx := tx1.(sdk.FeeTx)
+				feeTx := tx1.Tx.(sdk.FeeTx)
 				effectiveTip := s.calculateCosmosEffectiveTip(feeTx.GetFee().AmountOf("aatom").Int64(), feeTx.GetGas(), big.NewInt(0)) // base fee = 0
 				s.Require().Equal(big.NewInt(5000000000), effectiveTip, "First transaction should be Cosmos with 5000 aatom effective tip")
 
@@ -694,7 +694,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
 
-				ethMsg, ok := tx2.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx2.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "Second transaction should be EVM")
 				ethTx := ethMsg.AsTransaction()
 				effectiveTip2 := ethTx.GasPrice() // effective_tip = gas_price - 0
@@ -744,7 +744,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				// First: EVM 8
 				tx1 := iterator.Tx()
 				s.Require().NotNil(tx1)
-				ethMsg, ok := tx1.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg, ok := tx1.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "First transaction should be EVM with highest gas price")
 				ethTx := ethMsg.AsTransaction()
 				s.Require().Equal(big.NewInt(8000000000), ethTx.GasPrice(), "First transaction should be EVM with 8000 aatom/gas")
@@ -754,7 +754,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx2 := iterator.Tx()
 				s.Require().NotNil(tx2)
-				feeTx2 := tx2.(sdk.FeeTx)
+				feeTx2 := tx2.Tx.(sdk.FeeTx)
 				cosmosGasPrice2 := s.calculateCosmosGasPrice(feeTx2.GetFee().AmountOf("aatom").Int64(), feeTx2.GetGas())
 				s.Require().Equal(big.NewInt(6000000000), cosmosGasPrice2, "Second transaction should be Cosmos with 6000 aatom/gas")
 
@@ -763,7 +763,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx3 := iterator.Tx()
 				s.Require().NotNil(tx3)
-				ethMsg3, ok := tx3.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg3, ok := tx3.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "Third transaction should be EVM")
 				ethTx3 := ethMsg3.AsTransaction()
 				s.Require().Equal(big.NewInt(4000000000), ethTx3.GasPrice(), "Third transaction should be EVM with 4000 aatom/gas")
@@ -773,7 +773,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx4 := iterator.Tx()
 				s.Require().NotNil(tx4)
-				feeTx4 := tx4.(sdk.FeeTx)
+				feeTx4 := tx4.Tx.(sdk.FeeTx)
 				cosmosGasPrice4 := s.calculateCosmosGasPrice(feeTx4.GetFee().AmountOf("aatom").Int64(), feeTx4.GetGas())
 				s.Require().Equal(big.NewInt(3000000000), cosmosGasPrice4, "Fourth transaction should be Cosmos with 3000 aatom/gas")
 
@@ -782,7 +782,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx5 := iterator.Tx()
 				s.Require().NotNil(tx5)
-				ethMsg5, ok := tx5.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
+				ethMsg5, ok := tx5.Tx.GetMsgs()[0].(*evmtypes.MsgEthereumTx)
 				s.Require().True(ok, "Fifth transaction should be EVM")
 				ethTx5 := ethMsg5.AsTransaction()
 				s.Require().Equal(big.NewInt(2000000000), ethTx5.GasPrice(), "Fifth transaction should be EVM with 2000 aatom/gas")
@@ -792,7 +792,7 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 				s.Require().NotNil(iterator)
 				tx6 := iterator.Tx()
 				s.Require().NotNil(tx6)
-				feeTx6 := tx6.(sdk.FeeTx)
+				feeTx6 := tx6.Tx.(sdk.FeeTx)
 				cosmosGasPrice6 := s.calculateCosmosGasPrice(feeTx6.GetFee().AmountOf("aatom").Int64(), feeTx6.GetGas())
 				s.Require().Equal(big.NewInt(1000000000), cosmosGasPrice6, "Sixth transaction should be Cosmos with 1000 aatom/gas")
 
@@ -925,13 +925,13 @@ func (s *IntegrationTestSuite) TestSelectBy() {
 
 			// Track filter function calls to ensure we don't have infinite loops
 			callCount := 0
-			wrappedFilter := func(tx sdk.Tx) bool {
+			wrappedFilter := func(tx mempool.Tx) bool {
 				callCount++
 				// Prevent infinite loops by failing test if too many calls
 				if callCount > 1000 {
 					s.T().Fatal("Possible infinite loop detected - filter called more than 1000 times")
 				}
-				return tc.filterFunc(tx)
+				return tc.filterFunc(tx.Tx)
 			}
 
 			// Test SelectBy directly
