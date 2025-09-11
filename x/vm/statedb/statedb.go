@@ -20,7 +20,6 @@ import (
 
 	"github.com/cosmos/evm/x/vm/store/snapshotmulti"
 	vmstoretypes "github.com/cosmos/evm/x/vm/store/types"
-	"github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	storetypes "cosmossdk.io/store/types"
@@ -76,9 +75,6 @@ type StateDB struct {
 
 	// Per-transaction access list
 	accessList *accessList
-
-	// The count of calls to precompiles
-	precompileCallsCounter uint8
 }
 
 func (s *StateDB) CreateContract(address common.Address) {
@@ -449,10 +445,7 @@ func (s *StateDB) AddPrecompileFn(snapshot int, events sdk.Events) error {
 		snapshot: snapshot,
 		events:   events,
 	})
-	s.precompileCallsCounter++
-	if s.precompileCallsCounter > types.MaxPrecompileCalls {
-		return fmt.Errorf("max calls to precompiles (%d) reached", types.MaxPrecompileCalls)
-	}
+
 	return nil
 }
 
