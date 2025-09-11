@@ -12,10 +12,9 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	cmnmocks "github.com/cosmos/evm/precompiles/common/mocks"
 	testutil "github.com/cosmos/evm/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/vm/statedb"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
 
 	storetypes "cosmossdk.io/store/types"
@@ -25,15 +24,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
-
-func setupBalanceHandlerTest(t *testing.T) {
-	t.Helper()
-
-	sdk.GetConfig().SetBech32PrefixForAccount(testconstants.ExampleBech32Prefix, "")
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	require.NoError(t, configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).Configure())
-}
 
 func TestParseAddress(t *testing.T) {
 	testCases := []struct {
@@ -80,8 +70,6 @@ func TestParseAddress(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupBalanceHandlerTest(t)
-
 			ethAddr, event := tc.maleate()
 
 			addr, err := cmn.ParseAddress(event, tc.key)
@@ -96,6 +84,8 @@ func TestParseAddress(t *testing.T) {
 }
 
 func TestParseAmount(t *testing.T) {
+	evmCoinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+
 	testCases := []struct {
 		name     string
 		maleate  func() sdk.Event
@@ -105,7 +95,7 @@ func TestParseAmount(t *testing.T) {
 		{
 			name: "valid amount",
 			maleate: func() sdk.Event {
-				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 5)).String()
+				coinStr := sdk.NewCoins(sdk.NewInt64Coin(evmCoinInfo.GetDenom(), 5)).String()
 				return sdk.NewEvent("bank", sdk.NewAttribute(sdk.AttributeKeyAmount, coinStr))
 			},
 			expAmt: uint256.NewInt(5),
@@ -128,9 +118,7 @@ func TestParseAmount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupBalanceHandlerTest(t)
-
-			amt, err := cmn.ParseAmount(tc.maleate())
+			amt, err := cmn.ParseAmount(tc.maleate(), *evmCoinInfo)
 			if tc.expError {
 				require.Error(t, err)
 				return
@@ -143,8 +131,6 @@ func TestParseAmount(t *testing.T) {
 }
 
 func TestAfterBalanceChange(t *testing.T) {
-	setupBalanceHandlerTest(t)
-
 	storeKey := storetypes.NewKVStoreKey("test")
 	tKey := storetypes.NewTransientStoreKey("test_t")
 	ctx := sdktestutil.DefaultContext(storeKey, tKey)
@@ -172,7 +158,8 @@ func TestAfterBalanceChange(t *testing.T) {
 	bh := cmn.NewBalanceHandler(bankKeeper)
 	bh.BeforeBalanceChange(ctx)
 
-	coins := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 3))
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	coins := sdk.NewCoins(sdk.NewInt64Coin(coinInfo.GetDenom(), 3))
 	ctx.EventManager().EmitEvents(sdk.Events{
 		banktypes.NewCoinSpentEvent(spenderAcc, coins),
 		banktypes.NewCoinReceivedEvent(receiverAcc, coins),
@@ -186,8 +173,6 @@ func TestAfterBalanceChange(t *testing.T) {
 }
 
 func TestAfterBalanceChangeErrors(t *testing.T) {
-	setupBalanceHandlerTest(t)
-
 	storeKey := storetypes.NewKVStoreKey("test")
 	tKey := storetypes.NewTransientStoreKey("test_t")
 	ctx := sdktestutil.DefaultContext(storeKey, tKey)
@@ -209,7 +194,8 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 	bh.BeforeBalanceChange(ctx)
 
 	// invalid address in event
-	coins := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 1))
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	coins := sdk.NewCoins(sdk.NewInt64Coin(coinInfo.GetDenom(), 1))
 	ctx.EventManager().EmitEvent(banktypes.NewCoinSpentEvent(addr, coins))
 	ctx.EventManager().Events()[len(ctx.EventManager().Events())-1].Attributes[0].Value = "invalid"
 	err = bh.AfterBalanceChange(ctx, stateDB)

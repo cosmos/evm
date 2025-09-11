@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -99,7 +100,12 @@ func (s *AnteTestSuite) SetupTest() {
 
 	s.Require().NotNil(s.network.App.AppCodec())
 
-	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64())
+	// get the denom and decimals set when initialized the chain
+	// to set them again
+	// when resetting the chain config
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), *coinInfo)
 	if !s.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt
@@ -110,27 +116,9 @@ func (s *AnteTestSuite) SetupTest() {
 		chainConfig.CancunTime = &maxInt
 		chainConfig.PragueTime = &maxInt
 	}
+	evmConfig := evmtypes.NewEvmConfig().WithChainConfig(chainConfig).WithEVMCoinInfo(coinInfo)
+	s.network.App.GetEVMKeeper().SetEvmConfig(evmConfig)
 
-	// get the denom and decimals set when initialized the chain
-	// to set them again
-	// when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()
-	extendedDenom := evmtypes.GetEVMCoinExtendedDenom()
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom()
-	decimals := evmtypes.GetEVMCoinDecimals()
-
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.
-		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
-		}).
-		Configure()
-	s.Require().NoError(err)
 }
 
 func (s *AnteTestSuite) WithFeemarketEnabled(enabled bool) {

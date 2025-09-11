@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/server/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -33,11 +34,14 @@ func PrepareEthTx(
 ) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 
-	signer := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	// Always use testconfig chainID for test consistency
+	evmConfig := testconfig.DefaultChainConfig.EvmConfig
+	chainID := new(big.Int).SetUint64(evmConfig.ChainConfig.ChainId)
+	signer := ethtypes.LatestSignerForChainID(chainID)
 	txFee := sdk.Coins{}
 	txGasLimit := uint64(0)
 
-	baseDenom := evmtypes.GetEVMCoinDenom()
+	baseDenom := evmConfig.CoinInfo.GetDenom()
 
 	// Sign messages and compute gas/fees.
 	for _, m := range msgs {
@@ -109,7 +113,8 @@ func CreateEthTx(
 		copy(toAddr[:], dest)
 	}
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainConfig := testconfig.DefaultChainConfig.EvmConfig.ChainConfig
+	ethConfig := chainConfig.EthereumConfig()
 
 	baseFeeRes, err := evmApp.GetEVMKeeper().BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil {
@@ -123,7 +128,7 @@ func CreateEthTx(
 		gasLimit = 5_000_000
 	}
 	evmTxParams := &evmtypes.EvmTxArgs{
-		ChainID:   chainID,
+		ChainID:   ethConfig.ChainID,
 		Nonce:     nonce,
 		To:        toAddr,
 		Amount:    amount,
@@ -139,7 +144,9 @@ func CreateEthTx(
 
 	// If we are creating multiple eth Tx's with different senders, we need to sign here rather than later.
 	if privKey != nil {
-		signer := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+		// Always use testconfig chainID for test consistency
+		chainID := ethConfig.ChainID
+		signer := ethtypes.LatestSignerForChainID(chainID)
 		err := msgEthereumTx.Sign(signer, NewSigner(privKey))
 		if err != nil {
 			return nil, err

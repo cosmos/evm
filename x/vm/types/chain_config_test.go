@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,12 +17,19 @@ func newIntPtr(i int64) *sdkmath.Int {
 }
 
 func TestChainConfigValidate(t *testing.T) {
+	testEvmChainID := uint64(rand.Intn(1000000) + 1)
+	testCoinInfo := types.EvmCoinInfo{
+		DisplayDenom:     "test",
+		Decimals:         types.EighteenDecimals,
+		ExtendedDecimals: types.EighteenDecimals,
+	}
+
 	testCases := []struct {
 		name     string
 		config   types.ChainConfig
 		expError bool
 	}{
-		{"default", *types.DefaultChainConfig(0), false},
+		{"default", *types.DefaultChainConfig(testEvmChainID, testCoinInfo), false},
 		{
 			"valid",
 			types.ChainConfig{

@@ -14,11 +14,10 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -487,14 +486,12 @@ func TestAccountEquivalence(t *testing.T) {
 }
 
 func TestCalcBaseFee(t *testing.T) {
-	for _, chainID := range []constants.ChainID{constants.ExampleChainID, constants.TwelveDecimalsChainID, constants.SixDecimalsChainID} {
-		t.Run(chainID.ChainID, func(t *testing.T) {
-			evmConfigurator := evmtypes.NewEVMConfigurator().
-				WithEVMCoinInfo(constants.ExampleChainCoinInfo[chainID])
-			evmConfigurator.ResetTestConfig()
-			err := evmConfigurator.Configure()
-			require.NoError(t, err)
-
+	for _, chainConfig := range []testconfig.ChainConfig{
+		testconfig.DefaultChainConfig,
+		testconfig.TwelveDecimalsChainConfig,
+		testconfig.SixDecimalsChainConfig,
+	} {
+		t.Run(chainConfig.ChainID, func(t *testing.T) {
 			config := &params.ChainConfig{
 				LondonBlock: big.NewInt(0),
 			}
@@ -603,7 +600,8 @@ func TestCalcBaseFee(t *testing.T) {
 						// baseFeeDelta = 1000000000 * 2500000 / 5000000 / 8 = 62500000
 						// result = max(1000000000 - 62500000, minGasPrice)
 						// result = max(937500000, 1000000000) = 1000000000 (minGasPrice wins)
-						factor := sdkmath.LegacyNewDecFromInt(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+						decimals := chainConfig.EvmConfig.CoinInfo.Decimals
+						factor := sdkmath.LegacyNewDecFromInt(decimals.ConversionFactor())
 						return factor.Mul(sdkmath.LegacyNewDec(1_000_000_000)).TruncateInt().BigInt()
 					}(),
 					expectedError: "",
@@ -712,7 +710,8 @@ func TestCalcBaseFee(t *testing.T) {
 					checkFunc: func(t *testing.T, result *big.Int, parent *ethtypes.Header) {
 						t.Helper()
 						// Should be at least the minimum gas price
-						factor := sdkmath.LegacyNewDecFromInt(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+						decimals := chainConfig.EvmConfig.CoinInfo.Decimals
+						factor := sdkmath.LegacyNewDecFromInt(decimals.ConversionFactor())
 						expectedMinGasPrice := sdkmath.LegacyNewDec(50_000_000_000).Mul(factor).TruncateInt().BigInt()
 						require.True(t, result.Cmp(expectedMinGasPrice) >= 0, "Result should be at least min gas price")
 					},

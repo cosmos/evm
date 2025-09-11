@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/address"
@@ -44,6 +45,7 @@ func randAccAddress() sdk.AccAddress {
 func GenerateEqualFractionalBalances(
 	t *testing.T,
 	count int,
+	extendedDecimals evmtypes.Decimals,
 ) types.FractionalBalances {
 	t.Helper()
 
@@ -69,11 +71,11 @@ func GenerateEqualFractionalBalances(
 		// If it's 0, Validate() will error.
 		// Why start at 2 instead of 1? We want to make sure its divisible
 		// for the last account, more details below.
-		amt := randRange(2, types.ConversionFactor().Int64())
+		amt := randRange(2, types.ConversionFactor(extendedDecimals).Int64())
 		amtInt := sdkmath.NewInt(amt)
 
 		fb := types.NewFractionalBalance(addr, amtInt)
-		require.NoError(t, fb.Validate())
+		require.NoError(t, fb.Validate(extendedDecimals))
 
 		fbs[i] = fb
 
@@ -96,9 +98,9 @@ func GenerateEqualFractionalBalances(
 
 	// Note that we only have this issue in tests since we want to calculate a
 	// new valid remainder, but we only validate in the actual code.
-	amt := types.ConversionFactor().
-		Sub(sum.Mod(types.ConversionFactor())).
-		Mod(types.ConversionFactor())
+	amt := types.ConversionFactor(extendedDecimals).
+		Sub(sum.Mod(types.ConversionFactor(extendedDecimals))).
+		Mod(types.ConversionFactor(extendedDecimals))
 
 	// We only want to generate VALID FractionalBalances - zero would not be
 	// valid, so let's just borrow half of the previous amount. We generated
@@ -110,7 +112,7 @@ func GenerateEqualFractionalBalances(
 	}
 
 	fb := types.NewFractionalBalance(addr, amt)
-	require.NoError(t, fb.Validate())
+	require.NoError(t, fb.Validate(extendedDecimals))
 
 	fbs[count-1] = fb
 
@@ -119,10 +121,10 @@ func GenerateEqualFractionalBalances(
 	for _, fb := range fbs {
 		verificationSum = verificationSum.Add(fb.Amount)
 	}
-	require.True(t, verificationSum.Mod(types.ConversionFactor()).IsZero())
+	require.True(t, verificationSum.Mod(types.ConversionFactor(extendedDecimals)).IsZero())
 
 	// Also make sure no duplicate addresses
-	require.NoError(t, fbs.Validate())
+	require.NoError(t, fbs.Validate(extendedDecimals))
 
 	return fbs
 }
@@ -135,6 +137,7 @@ func GenerateEqualFractionalBalances(
 func GenerateEqualFractionalBalancesWithRemainder(
 	t *testing.T,
 	count int,
+	extendedDecimals evmtypes.Decimals,
 ) (types.FractionalBalances, sdkmath.Int) {
 	t.Helper()
 
@@ -143,7 +146,7 @@ func GenerateEqualFractionalBalancesWithRemainder(
 	countWithRemainder := count + 1
 
 	// Generate 1 additional FractionalBalance so we can use one as remainder
-	fbs := GenerateEqualFractionalBalances(t, countWithRemainder)
+	fbs := GenerateEqualFractionalBalances(t, countWithRemainder, extendedDecimals)
 
 	// Use the last one as remainder
 	remainder := fbs[countWithRemainder-1].Amount

@@ -9,8 +9,8 @@ import (
 
 func TestParamsValidate(t *testing.T) {
 	t.Parallel()
-
 	extraEips := []int64{2929, 1884, 1344}
+
 	testCases := []struct {
 		name        string
 		params      Params
@@ -23,8 +23,12 @@ func TestParamsValidate(t *testing.T) {
 			expPass: true,
 		},
 		{
-			name:    "valid",
-			params:  NewParams(extraEips, nil, nil, DefaultAccessControl),
+			name: "valid",
+			params: func() Params {
+				defaultParams := DefaultParams()
+				defaultParams.ExtraEIPs = extraEips
+				return defaultParams
+			}(),
 			expPass: true,
 		},
 		{
@@ -77,7 +81,8 @@ func TestParamsValidate(t *testing.T) {
 
 func TestParamsEIPs(t *testing.T) {
 	extraEips := []int64{2929, 1884, 1344}
-	params := NewParams(extraEips, nil, nil, DefaultAccessControl)
+	params := DefaultParams()
+	params.ExtraEIPs = extraEips
 	actual := params.EIPs()
 
 	require.Equal(t, []int{2929, 1884, 1344}, actual)

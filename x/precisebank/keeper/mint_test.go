@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -17,6 +18,7 @@ import (
 
 func TestMintCoins_PanicValidations(t *testing.T) {
 	// panic tests for invalid inputs
+	integerDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetDenom()
 
 	tests := []struct {
 		name            string
@@ -35,7 +37,7 @@ func TestMintCoins_PanicValidations(t *testing.T) {
 					Return(nil).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"module account notamodule does not exist: unknown address",
 		},
 		{
@@ -51,7 +53,7 @@ func TestMintCoins_PanicValidations(t *testing.T) {
 					)).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"module account mint does not have permissions to mint tokens: unauthorized",
 		},
 		{
@@ -70,11 +72,11 @@ func TestMintCoins_PanicValidations(t *testing.T) {
 
 				// Will call x/bank MintCoins coins
 				td.bk.EXPECT().
-					MintCoins(td.ctx, minttypes.ModuleName, cs(c(types.IntegerCoinDenom(), 1000))).
+					MintCoins(td.ctx, minttypes.ModuleName, cs(c(integerDenom, 1000))).
 					Return(nil).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"",
 		},
 		{
@@ -84,7 +86,7 @@ func TestMintCoins_PanicValidations(t *testing.T) {
 				// No mock setup needed since this is checked before module
 				// account checks
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			"module account precisebank cannot be minted to: unauthorized",
 		},
 	}
@@ -112,6 +114,8 @@ func TestMintCoins_PanicValidations(t *testing.T) {
 func TestMintCoins_Errors(t *testing.T) {
 	// returned errors, not panics
 
+	integerDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetDenom()
+
 	tests := []struct {
 		name            string
 		recipientModule string
@@ -135,10 +139,10 @@ func TestMintCoins_Errors(t *testing.T) {
 					Once()
 			},
 			sdk.Coins{sdk.Coin{
-				Denom:  types.IntegerCoinDenom(),
+				Denom:  integerDenom,
 				Amount: sdkmath.NewInt(-1000),
 			}},
-			fmt.Sprintf("-1000%s: invalid coins", types.IntegerCoinDenom()),
+			fmt.Sprintf("-1000%s: invalid coins", integerDenom),
 		},
 	}
 
@@ -165,6 +169,10 @@ func TestMintCoins_Errors(t *testing.T) {
 func TestMintCoins_ExpectedCalls(t *testing.T) {
 	// Tests the expected calls to the bank keeper when minting coins
 
+	integerDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetDenom()
+	extendedDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	tests := []struct {
 		name string
 		// Only care about starting fractional balance.
@@ -177,7 +185,7 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 		{
 			"passthrough mint - integer denom",
 			sdkmath.ZeroInt(),
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(integerDenom, 1000)),
 			sdkmath.ZeroInt(),
 		},
 
@@ -190,41 +198,41 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 		{
 			"no carry - 0 starting fractional",
 			sdkmath.ZeroInt(),
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			sdkmath.NewInt(1000),
 		},
 		{
 			"no carry - non-zero fractional",
 			sdkmath.NewInt(1_000_000),
-			cs(c(types.ExtendedCoinDenom(), 1000)),
+			cs(c(extendedDenom, 1000)),
 			sdkmath.NewInt(1_001_000),
 		},
 		{
 			"fractional carry",
 			// max fractional amount
-			types.ConversionFactor().SubRaw(1),
-			cs(c(types.ExtendedCoinDenom(), 1)), // +1 to carry
+			types.ConversionFactor(extendedDecimals).SubRaw(1),
+			cs(c(extendedDenom, 1)), // +1 to carry
 			sdkmath.ZeroInt(),
 		},
 		{
 			"fractional carry max",
 			// max fractional amount + max fractional amount
-			types.ConversionFactor().SubRaw(1),
-			cs(ci(types.ExtendedCoinDenom(), types.ConversionFactor().SubRaw(1))),
-			types.ConversionFactor().SubRaw(2),
+			types.ConversionFactor(extendedDecimals).SubRaw(1),
+			cs(ci(extendedDenom, types.ConversionFactor(extendedDecimals).SubRaw(1))),
+			types.ConversionFactor(extendedDecimals).SubRaw(2),
 		},
 		{
 			"integer with fractional no carry",
 			sdkmath.NewInt(1234),
 			// mint 100 fractional
-			cs(c(types.ExtendedCoinDenom(), 100)),
+			cs(c(extendedDenom, 100)),
 			sdkmath.NewInt(1234 + 100),
 		},
 		{
 			"integer with fractional carry",
-			types.ConversionFactor().SubRaw(100),
+			types.ConversionFactor(extendedDecimals).SubRaw(100),
 			// mint 105 fractional to carry
-			cs(c(types.ExtendedCoinDenom(), 105)),
+			cs(c(extendedDenom, 105)),
 			sdkmath.NewInt(5),
 		},
 	}
@@ -264,20 +272,20 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 			// Determine how much is passed through to x/bank
 			passthroughCoins := tt.mintAmount
 
-			found, extCoins := tt.mintAmount.Find(types.ExtendedCoinDenom())
+			found, extCoins := tt.mintAmount.Find(extendedDenom)
 			if found {
 				// Remove extended coin from passthrough coins
 				passthroughCoins = passthroughCoins.Sub(extCoins)
 			} else {
-				extCoins = sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.ZeroInt())
+				extCoins = sdk.NewCoin(extendedDenom, sdkmath.ZeroInt())
 			}
 
 			require.Equalf(
 				t,
 				sdkmath.ZeroInt(),
-				passthroughCoins.AmountOf(types.ExtendedCoinDenom()),
+				passthroughCoins.AmountOf(extendedDenom),
 				"expected pass through coins should not include %v",
-				types.ExtendedCoinDenom(),
+				extendedDenom,
 			)
 
 			// ----------------------------------------
@@ -295,15 +303,15 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 			// ----------------------------------------
 			// Set expectations for reserve minting when fractional amounts
 			// are minted & remainder is insufficient
-			mintFractionalAmount := extCoins.Amount.Mod(types.ConversionFactor())
+			mintFractionalAmount := extCoins.Amount.Mod(types.ConversionFactor(extendedDecimals))
 			currentRemainder := td.keeper.GetRemainderAmount(td.ctx)
 
-			causesIntegerCarry := fBal.Add(mintFractionalAmount).GTE(types.ConversionFactor())
+			causesIntegerCarry := fBal.Add(mintFractionalAmount).GTE(types.ConversionFactor(extendedDecimals))
 			remainderEnough := currentRemainder.GTE(mintFractionalAmount)
 
 			// Optimization: Carry & insufficient remainder is directly minted
 			if causesIntegerCarry && !remainderEnough {
-				extCoins = extCoins.AddAmount(types.ConversionFactor())
+				extCoins = extCoins.AddAmount(types.ConversionFactor(extendedDecimals))
 			}
 
 			// ----------------------------------------
@@ -315,10 +323,10 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 					Once()
 
 				// Initial integer balance is always 0 for this test
-				mintIntegerAmount := extCoins.Amount.Quo(types.ConversionFactor())
+				mintIntegerAmount := extCoins.Amount.Quo(types.ConversionFactor(extendedDecimals))
 
 				// Minted coins does NOT include roll-over, simply excludes
-				mintCoins := cs(ci(types.IntegerCoinDenom(), mintIntegerAmount))
+				mintCoins := cs(ci(integerDenom, mintIntegerAmount))
 
 				// Only expect MintCoins to be called with mint coins with
 				// non-zero amount.
@@ -339,14 +347,14 @@ func TestMintCoins_ExpectedCalls(t *testing.T) {
 						td.ctx,
 						types.ModuleName,
 						minttypes.ModuleName,
-						cs(c(types.IntegerCoinDenom(), 1)),
+						cs(c(integerDenom, 1)),
 					).
 					Return(nil).
 					Once()
 			}
 
 			if !remainderEnough && !causesIntegerCarry {
-				reserveMintCoins := cs(c(types.IntegerCoinDenom(), 1))
+				reserveMintCoins := cs(c(integerDenom, 1))
 				td.bk.EXPECT().
 					// Mints to x/precisebank
 					MintCoins(td.ctx, types.ModuleName, reserveMintCoins).

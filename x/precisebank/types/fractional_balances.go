@@ -5,18 +5,19 @@ import (
 	"strings"
 
 	sdkmath "cosmossdk.io/math"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // FractionalBalances is a slice of FractionalBalance
 type FractionalBalances []FractionalBalance
 
 // Validate returns an error if any FractionalBalance in the slice is invalid.
-func (fbs FractionalBalances) Validate() error {
+func (fbs FractionalBalances) Validate(extendedDecimals evmtypes.Decimals) error {
 	seenAddresses := make(map[string]struct{})
 
 	for _, fb := range fbs {
 		// Individual FractionalBalance validation
-		if err := fb.Validate(); err != nil {
+		if err := fb.Validate(extendedDecimals); err != nil {
 			return fmt.Errorf("invalid fractional balance for %s: %w", fb.Address, err)
 		}
 

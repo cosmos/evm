@@ -10,7 +10,7 @@ permissions: read-all
 
 jobs:
   cleanup-runs:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: rokroskar/workflow-run-cleanup-action@master
         env:

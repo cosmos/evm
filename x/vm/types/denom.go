@@ -77,13 +77,26 @@ func (d Decimals) ConversionFactor() math.Int {
 	return ConversionFactor[d]
 }
 
-// EvmCoinInfo struct holds the name and decimals of the EVM denom. The EVM denom
-// is the token used to pay fees in the EVM.
-//
-// TODO: move to own file? at least rename file because it's unclear to use "denom"
-type EvmCoinInfo struct {
-	Denom         string
-	ExtendedDenom string
-	DisplayDenom  string
-	Decimals      Decimals
+func (d Decimals) GetSIPrefix() string {
+	switch d {
+	case OneDecimals:
+		return "d"
+	case TwoDecimals:
+		return "c"
+	case ThreeDecimals:
+		return "m"
+	case SixDecimals:
+		return "u"
+	case NineDecimals:
+		return "n"
+	case TwelveDecimals:
+		return "p"
+	case FifteenDecimals:
+		return "f"
+	case EighteenDecimals:
+		return "a"
+	default:
+		// decimals must be one of 1, 2, 3, 6, 9, 12, 15, 18 to have a valid prefix
+		return "invalid"
+	}
 }

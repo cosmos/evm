@@ -45,7 +45,7 @@ func (k *Keeper) TxConfig(ctx sdk.Context, txHash common.Hash) statedb.TxConfig 
 // module parameters. The config generated uses the default JumpTable from the EVM.
 func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks) vm.Config {
 	noBaseFee := true
-	if types.IsLondon(types.GetEthChainConfig(), ctx.BlockHeight()) {
+	if types.IsLondon(k.evmCfg.ChainConfig.EthereumConfig(), ctx.BlockHeight()) {
 		noBaseFee = k.feeMarketWrapper.GetParams(ctx).NoBaseFee
 	}
 

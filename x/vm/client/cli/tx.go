@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
+	serverconfig "github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -74,7 +77,11 @@ func NewRawTxCmd() *cobra.Command {
 				return err
 			}
 
-			baseDenom := types.GetEVMCoinDenom()
+			// Read the base denomination from app.toml config
+			baseDenom, err := getBaseDenomFromConfig(clientCtx)
+			if err != nil {
+				return errors.Wrap(err, "failed to get base denomination from client.tomlconfig")
+			}
 
 			tx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), baseDenom)
 			if err != nil {
@@ -176,4 +183,32 @@ When using '--dry-run' a key name cannot be used, only an 0x or bech32 address.
 	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd
+}
+
+// getBaseDenomFromConfig reads the denomination configuration from client.toml
+func getBaseDenomFromConfig(clientCtx client.Context) (string, error) {
+	homeDir := clientCtx.HomeDir
+	if homeDir == "" {
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get user home directory")
+		}
+		homeDir = filepath.Join(userHome, ".evmd")
+	}
+
+	configPath := filepath.Join(homeDir, "config", "client.toml")
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.SetConfigType("toml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return "", errors.Wrapf(err, "failed to read config file: %s", configPath)
+	}
+
+	config, err := serverconfig.GetConfig(v)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse config")
+	}
+
+	return config.Coin.GetDenom(), nil
 }

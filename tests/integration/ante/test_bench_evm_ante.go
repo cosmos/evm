@@ -26,8 +26,13 @@ func RunBenchmarkEthGasConsumeDecorator(b *testing.B, create network.CreateEvmAp
 	s.SetT(&testing.T{})
 	s.SetupTest()
 	ctx := s.network.GetContext()
+
+	chainConfig := s.network.App.GetEVMKeeper().GetEvmConfig().ChainConfig
+	coinInfo := s.network.App.GetEVMKeeper().GetEvmConfig().CoinInfo
+	ethConfig := chainConfig.EthereumConfig()
+
 	args := &evmtypes.EvmTxArgs{
-		ChainID:  evmtypes.GetEthChainConfig().ChainID,
+		ChainID:  ethConfig.ChainID,
 		Nonce:    1,
 		Amount:   big.NewInt(10),
 		GasLimit: uint64(1_000_000),
@@ -67,7 +72,7 @@ func RunBenchmarkEthGasConsumeDecorator(b *testing.B, create network.CreateEvmAp
 
 				baseFee := s.GetNetwork().App.GetFeeMarketKeeper().GetParams(ctx).BaseFee
 				fee := tx.GetEffectiveFee(baseFee.BigInt())
-				denom := evmtypes.GetEVMCoinDenom()
+				denom := coinInfo.GetDenom()
 				fees := sdk.NewCoins(sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(fee)))
 				bechAddr := sdk.AccAddress(addr.Bytes())
 

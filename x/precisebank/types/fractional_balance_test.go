@@ -6,13 +6,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
 )
 
 func TestConversionFactor_Immutable(t *testing.T) {
-	cf1 := types.ConversionFactor()
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	cf1 := types.ConversionFactor(coinInfo.ExtendedDecimals)
 	origInt64 := cf1.Int64()
 
 	// Get the internal pointer to the big.Int without copying
@@ -24,24 +26,26 @@ func TestConversionFactor_Immutable(t *testing.T) {
 	require.Equal(t, origInt64+5, internalBigInt.Int64())
 
 	// Fetch the max amount again
-	cf2 := types.ConversionFactor()
+	cf2 := types.ConversionFactor(coinInfo.ExtendedDecimals)
 
 	require.Equal(t, origInt64, cf2.Int64(), "conversion factor should be immutable")
 }
 
 func TestConversionFactor_Copied(t *testing.T) {
-	max1 := types.ConversionFactor().BigIntMut()
-	max2 := types.ConversionFactor().BigIntMut()
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	max1 := types.ConversionFactor(coinInfo.ExtendedDecimals).BigIntMut()
+	max2 := types.ConversionFactor(coinInfo.ExtendedDecimals).BigIntMut()
 
 	// Checks that the returned two pointers do not reference the same object
 	require.NotSame(t, max1, max2, "max fractional amount should be copied")
 }
 
 func TestConversionFactor(t *testing.T) {
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 	require.Equal(
 		t,
 		sdkmath.NewInt(1_000_000_000_000),
-		types.ConversionFactor(),
+		types.ConversionFactor(coinInfo.ExtendedDecimals),
 		"conversion factor should have 12 decimal points",
 	)
 }
@@ -70,6 +74,7 @@ func TestNewFractionalBalance(t *testing.T) {
 }
 
 func TestFractionalBalance_Validate(t *testing.T) {
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 	tests := []struct {
 		name        string
 		giveAddress string
@@ -97,7 +102,7 @@ func TestFractionalBalance_Validate(t *testing.T) {
 		{
 			"valid - max balance",
 			"cosmos1gpxd677pp8zr97xvy3pmgk70a9vcpagsprcjap",
-			types.ConversionFactor().SubRaw(1),
+			types.ConversionFactor(coinInfo.ExtendedDecimals).SubRaw(1),
 			"",
 		},
 		{
@@ -133,7 +138,7 @@ func TestFractionalBalance_Validate(t *testing.T) {
 		{
 			"invalid - max amount + 1",
 			"cosmos1gpxd677pp8zr97xvy3pmgk70a9vcpagsprcjap",
-			types.ConversionFactor(),
+			types.ConversionFactor(coinInfo.ExtendedDecimals),
 			"amount 1000000000000 exceeds max of 999999999999",
 		},
 		{
@@ -147,7 +152,7 @@ func TestFractionalBalance_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fb := types.NewFractionalBalance(tt.giveAddress, tt.giveAmount)
-			err := fb.Validate()
+			err := fb.Validate(coinInfo.ExtendedDecimals)
 
 			if tt.wantErr == "" {
 				require.NoError(t, err)

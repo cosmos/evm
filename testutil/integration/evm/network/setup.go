@@ -9,7 +9,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -417,7 +417,8 @@ type GovCustomGenesisState struct {
 func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState) cosmosevmtypes.GenesisState {
 	govGen := govtypesv1.DefaultGenesisState()
 	updatedParams := govGen.Params
-	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+	defaultDecimals := testconfig.DefaultDecimals
+	minDepositAmt := sdkmath.NewInt(1e18).Quo(defaultDecimals.ConversionFactor())
 	updatedParams.MinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	updatedParams.ExpeditedMinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	govGen.Params = updatedParams
@@ -461,12 +462,14 @@ func setDefaultMintGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmt
 }
 
 func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
-	// NOTE: here we are using the setup from the example chain
+	coinInfo := evmtypes.EvmCoinInfo{
+		DisplayDenom:     testconfig.DefaultDisplayDenom,
+		Decimals:         testconfig.DefaultDecimals,
+		ExtendedDecimals: testconfig.DefaultDecimals,
+	}
+
 	erc20Gen := newErc20GenesisState()
-	updatedErc20Gen := updateErc20GenesisStateForChainID(testconstants.ChainID{
-		ChainID:    cosmosEVMApp.ChainID(),
-		EVMChainID: evmChainID,
-	}, *erc20Gen)
+	updatedErc20Gen := updateErc20GenesisStateForCoinInfo(coinInfo, *erc20Gen)
 
 	genesisState[erc20types.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedErc20Gen)
 	return genesisState
@@ -479,8 +482,8 @@ func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, gen
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func newErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenState.TokenPairs = testconfig.DefaultTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconfig.DefaultWevmosContractMainnet}
 
 	return erc20GenState
 }

@@ -32,8 +32,8 @@ import (
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -100,6 +100,15 @@ type Config struct {
 	PrintMnemonic     bool   // print the mnemonic of first validator as log output for testing
 }
 
+// testEvmAppOptions creates an EvmAppOptions function for testing
+func testEvmAppOptions(evmChainID uint64) error {
+	// Use default chain configuration for testing
+	chainConfig := testconfig.DefaultChainConfig
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	return configurator.WithEVMCoinInfo(chainConfig.CoinInfo).Configure()
+}
+
 // DefaultConfig returns a sane default configuration suitable for nearly all
 // testing requirements.
 func DefaultConfig() Config {
@@ -110,8 +119,9 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testEvmAppOptions, baseapp.SetChainID(chainID))
 
+	baseDenom := testconfig.DefaultChainConfig.CoinInfo.Denom
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
 		TxConfig:          tempApp.TxConfig(),
@@ -123,8 +133,8 @@ func DefaultConfig() Config {
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
-		BondDenom:         testconstants.ExampleAttoDenom,
-		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
+		BondDenom:         baseDenom,
+		MinGasPrices:      fmt.Sprintf("0.000006%s", baseDenom),
 		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
 		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
 		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
@@ -144,7 +154,7 @@ func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
 			evmChainID,
-			testconfig.EvmAppOptions,
+			testEvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
@@ -476,7 +486,16 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		testChainConfig := testconfig.DefaultChainConfig
+		// Convert testutil.ChainConfig to evmdconfig.ChainConfig
+		chainConfig := evmdconfig.ChainConfig{
+			ChainInfo: evmdconfig.ChainInfo{
+				ChainID:    testChainConfig.ChainInfo.ChainID,
+				EVMChainID: testChainConfig.ChainInfo.EVMChainID,
+			},
+			CoinInfo: testChainConfig.CoinInfo,
+		}
+		customAppTemplate, _ := evmdconfig.InitAppConfig(chainConfig)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 
