@@ -90,6 +90,7 @@ func (b Blockchain) CurrentBlock() *types.Header {
 	if blockHeight > 1 && b.previousHeaderHash == (common.Hash{}) {
 		return b.zeroHeader
 	}
+
 	blockTime := ctx.BlockTime().Unix()
 	gasUsed := b.feeMarketKeeper.GetBlockGasWanted(ctx)
 	appHash := common.BytesToHash(ctx.BlockHeader().AppHash)
