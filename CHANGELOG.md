@@ -13,6 +13,7 @@
 - [\#416](https://github.com/cosmos/evm/pull/416) Fix regression in CometBlockResultByNumber when height is 0 to use the latest block. This fixes eth_getFilterLogs RPC.
 - [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
 - [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d 
+- [\#595](https://github.com/cosmos/evm/pull/595) Fix max_gas_wanted for mempool.
 
 ### IMPROVEMENTS
 
