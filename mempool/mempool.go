@@ -386,7 +386,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 
 // SetEventBus sets CometBFT event bus to listen for new block header event.
 func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
-	if m.eventBus != nil {
+	if m.HasEventBus() {
 		m.eventBus.Unsubscribe(context.Background(), SubscriberName, stream.NewBlockHeaderEvents) //nolint: errcheck
 	}
 	m.eventBus = eventBus
@@ -399,6 +399,11 @@ func (m *ExperimentalEVMMempool) SetEventBus(eventBus *cmttypes.EventBus) {
 			m.GetBlockchain().NotifyNewBlock()
 		}
 	}()
+}
+
+// HasEventBus returns true if the blockchain is configured to use an event bus for block notifications.
+func (m *ExperimentalEVMMempool) HasEventBus() bool {
+	return m.eventBus != nil
 }
 
 // Close unsubscribes from the CometBFT event bus and shuts down the mempool.
