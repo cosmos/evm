@@ -86,6 +86,10 @@ func (b Blockchain) CurrentBlock() *types.Header {
 	}
 
 	blockHeight := ctx.BlockHeight()
+	// prevent the reorg from triggering after a restart since previousHeaderHash is stored as an in-memory variable
+	if blockHeight > 1 && b.previousHeaderHash == (common.Hash{}) {
+		return b.zeroHeader
+	}
 	blockTime := ctx.BlockTime().Unix()
 	gasUsed := b.feeMarketKeeper.GetBlockGasWanted(ctx)
 	appHash := common.BytesToHash(ctx.BlockHeader().AppHash)
@@ -199,7 +203,7 @@ func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	}
 
 	appHash := ctx.BlockHeader().AppHash
-	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig(common.Hash(appHash)))
+	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig())
 
 	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
 	return stateDB, nil
