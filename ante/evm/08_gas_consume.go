@@ -16,26 +16,6 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// UpdateCumulativeGasWanted updates the cumulative gas wanted
-func UpdateCumulativeGasWanted(
-	ctx sdktypes.Context,
-	msgGasWanted uint64,
-	maxTxGasWanted uint64,
-	cumulativeGasWanted uint64,
-) uint64 {
-	if ctx.IsCheckTx() && maxTxGasWanted != 0 {
-		// We can't trust the tx gas limit, because we'll refund the unused gas.
-		if msgGasWanted > maxTxGasWanted {
-			cumulativeGasWanted += maxTxGasWanted
-		} else {
-			cumulativeGasWanted += msgGasWanted
-		}
-	} else {
-		cumulativeGasWanted += msgGasWanted
-	}
-	return cumulativeGasWanted
-}
-
 // ConsumeFeesAndEmitEvent deduces fees from sender and emits the event
 func ConsumeFeesAndEmitEvent(
 	ctx sdktypes.Context,
