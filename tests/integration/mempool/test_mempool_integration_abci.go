@@ -19,7 +19,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 		// TODO: remove bypass option after anteHandler is fixed.
 		// Current anteHandler rejects valid high-gas transaction to replace low-gas transaction
 		// So, all replacement test cases fail.
-		bypass bool
+		// bypass bool
 	}{
 		{
 			name: "mixed EVM and cosmos transaction ordering",
@@ -49,7 +49,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				lowFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom
+				highFeeEVMTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000), big.NewInt(5000000000)) // 5 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeEVMTx, highFeeEVMTx}
@@ -60,7 +60,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "EVM-only transaction ordering",
@@ -83,63 +82,43 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			},
 		},
 		{
-			name: "cosmos-only transaction replacement",
-			setupTxs: func() ([]sdk.Tx, []string) {
-				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))    // 2 gaatom
-				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
-
-				// Input txs in order
-				inputTxs := []sdk.Tx{mediumFeeTx, lowFeeTx, highFeeTx}
-
-				// Expected txs in order
-				expectedTxs := []sdk.Tx{highFeeTx}
-				expTxHashes := s.getTxHashes(expectedTxs)
-
-				return inputTxs, expTxHashes
-			},
-			bypass: true,
-		},
-		{
 			name: "mixed EVM and Cosmos transactions with equal effective tips",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Create transactions with equal effective tips (assuming base fee = 0)
-				// EVM: 1000 aatom/gas effective tip
-				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom/gas
-
 				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+
+				// Create transactions with equal effective tips (assuming base fee = 0)
+				// EVM: 1000 aatom/gas effective tip
+				evmTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000), big.NewInt(1000000000)) // 1 gaatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transactions with EVM having higher effective tip",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Create EVM transaction with higher gas price
-				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom/gas
-
 				// Create Cosmos transaction with lower gas price
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
+
+				// Create EVM transaction with higher gas price
+				evmTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000), big.NewInt(5000000000)) // 5 gaatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transactions with Cosmos having higher effective tip",
@@ -154,12 +133,11 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				inputTxs := []sdk.Tx{evmTx, cosmosTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{cosmosTx, evmTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transaction ordering with multiple effective tips",
@@ -209,10 +187,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				Height:     1,
 			})
 			s.Require().NoError(err)
-
-			if tc.bypass {
-				return
-			}
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			mpool := s.network.App.GetMempool()
