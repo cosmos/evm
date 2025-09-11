@@ -77,7 +77,7 @@ go build .
 
 ### `scripts/geth/`
 
-- `start-geth.sh` - Start geth node using ethereum/client-go:v1.15.10
+- `start-geth.sh` - Start geth node using ethereum/client-go:v1.16.3
 - `stop-geth.sh` - Stop the geth testing node
 
 ### `scripts/`
