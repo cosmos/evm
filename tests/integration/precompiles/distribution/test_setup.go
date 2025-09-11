@@ -130,7 +130,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.grpcHandler = grpcHandler
 	s.keyring = keyring
 	s.network = nw
-	s.precompile, err = distribution.NewPrecompile(
+	s.precompile = distribution.NewPrecompile(
 		s.network.App.GetDistrKeeper(),
 		distrkeeper.NewMsgServerImpl(s.network.App.GetDistrKeeper()),
 		distrkeeper.NewQuerier(s.network.App.GetDistrKeeper()),
@@ -138,7 +138,4 @@ func (s *PrecompileTestSuite) SetupTest() {
 		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
-	if err != nil {
-		panic(err)
-	}
 }
