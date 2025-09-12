@@ -11,8 +11,8 @@ evm mempool: {
     direction: up
 
     # entities
-    ext mempool interface impl
-    cosmos priority nonce mempool
+    ext mempool\ninterface impl
+    cosmos priority\nnonce mempool
     tx pool: {
         direction: up
 
@@ -34,20 +34,20 @@ evm mempool: {
     }
     
     # edges
-    tx pool.tx pool\ninterface -> ext mempool interface impl: get txs for\nblock building
+    tx pool.tx pool\ninterface -> ext mempool\ninterface impl: get txs for\nblock building
     
-    cosmos priority nonce mempool -> ext mempool interface impl: get txs for\nblock building
+    cosmos priority\nnonce mempool -> ext mempool\ninterface impl: get txs for\nblock building
 
-    ext mempool interface impl -> tx pool.tx pool\ninterface: success/nonce gap failure:\nadd valid evm txs
-    ext mempool interface impl -> tx pool.tx pool\ninterface: recheck tx\neviction
-    ext mempool interface impl -> cosmos priority nonce mempool: add\ncosmos txs
+    ext mempool\ninterface impl -> tx pool.tx pool\ninterface: success/nonce gap failure:\nadd valid evm txs
+    ext mempool\ninterface impl -> tx pool.tx pool\ninterface: recheck tx\neviction
+    ext mempool\ninterface impl -> cosmos priority\nnonce mempool: add\ncosmos txs
 }
 
 # edges
 rebroadcast\ncallback -> comet bft: rebroadcast\nrebuilt tx
 
 evm mempool.tx pool.promotion -> rebroadcast\ncallback: call rebroadcast\ncallback
-evm mempool.ext mempool interface impl -> prepare proposal: get txs for\nblock building
+evm mempool.ext mempool\ninterface impl -> prepare proposal: get txs for\nblock building
 
 comet bft -> broadcast: success:\nbroadcast tx
 comet bft -> check tx\nhandler: send tx for validation
@@ -56,7 +56,7 @@ comet bft -> check tx\nhandler: send tx again\nfor recheck
 check tx\nhandler -> rpc call: queued\nsuccess response
 check tx\nhandler -> comet bft: success: broadcast\nand add to mempool
 check tx\nhandler -> comet bft: recheck tx complete\nfailure: discard from pool
-check tx\nhandler -> evm mempool.ext mempool interface impl: complete failure:\nremove from pending
-check tx\nhandler -> evm mempool.ext mempool interface impl: nonce gap failure:\nadd transaction
-check tx\nhandler -> evm mempool.ext mempool interface impl: success:\nadd txs
-check tx\nhandler -> evm mempool.ext mempool interface impl: recheck tx complete\nfailure: eviction
+check tx\nhandler -> evm mempool.ext mempool\ninterface impl: complete failure:\nremove from pending
+check tx\nhandler -> evm mempool.ext mempool\ninterface impl: nonce gap failure:\nadd transaction
+check tx\nhandler -> evm mempool.ext mempool\ninterface impl: success:\nadd txs
+check tx\nhandler -> evm mempool.ext mempool\ninterface impl: recheck tx complete\nfailure: eviction
