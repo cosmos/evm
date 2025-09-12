@@ -352,7 +352,7 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 		return false // Cannot validate, keep transaction
 	}
 
-	_, err = m.anteHandler(*ctx, tx, true)
+	_, err = m.anteHandler(ctx, tx, true)
 	// Keep nonce gap transactions, remove others that fail validation
 	if errors.Is(err, ErrNonceGap) || errors.Is(err, sdkerrors.ErrInvalidSequence) || errors.Is(err, sdkerrors.ErrOutOfGas) {
 		m.logger.Debug("nonce gap detected, keeping transaction", "error", err)
