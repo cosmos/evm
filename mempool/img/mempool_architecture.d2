@@ -8,13 +8,13 @@ rpc call
 broadcast
 rebroadcast\ncallback: { shape: diamond }
 evm mempool: {
-    direction: left
+    direction: down
 
     # entities
     ext mempool interface impl
     cosmos priority nonce mempool
     tx pool: {
-        direction: left
+        direction: down
 
         # entities
         queued\ntransactions
@@ -30,6 +30,7 @@ evm mempool: {
         promotion -> pending\ntransactions: promote tx
         queued\ntransactions -> promotion: check closed gap\nand promote tx
         pending\ntransactions -> tx pool\ninterface: get txs for\nblock building
+        tx pool\ninterface -> filter: add valid txs
     }
     
     # edges
