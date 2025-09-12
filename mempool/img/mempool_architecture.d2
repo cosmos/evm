@@ -1,20 +1,20 @@
-direction: down
+direction: right
 
 # entities
 prepare proposal
-check tx handler
+check tx\nhandler
 comet bft
 rpc call
 broadcast
 rebroadcast\ncallback: { shape: diamond }
 evm mempool: {
-    direction: down
+    direction: up
 
     # entities
     ext mempool interface impl
     cosmos priority nonce mempool
     tx pool: {
-        direction: down
+        direction: up
 
         # entities
         queued\ntransactions
@@ -50,13 +50,13 @@ evm mempool.tx pool.promotion -> rebroadcast\ncallback: call rebroadcast\ncallba
 evm mempool.ext mempool interface impl -> prepare proposal: get txs for\nblock building
 
 comet bft -> broadcast: success:\nbroadcast tx
-comet bft -> check tx handler: send tx for validation
-comet bft -> check tx handler: send tx again\nfor recheck
+comet bft -> check tx\nhandler: send tx for validation
+comet bft -> check tx\nhandler: send tx again\nfor recheck
 
-check tx handler -> rpc call: queued\nsuccess response
-check tx handler -> comet bft: success: broadcast\nand add to mempool
-check tx handler -> comet bft: recheck tx complete\nfailure: discard from pool
-check tx handler -> evm mempool.ext mempool interface impl: complete failure:\nremove from pending
-check tx handler -> evm mempool.ext mempool interface impl: nonce gap failure:\nadd transaction
-check tx handler -> evm mempool.ext mempool interface impl: success:\nadd txs
-check tx handler -> evm mempool.ext mempool interface impl: recheck tx complete\nfailure: eviction
+check tx\nhandler -> rpc call: queued\nsuccess response
+check tx\nhandler -> comet bft: success: broadcast\nand add to mempool
+check tx\nhandler -> comet bft: recheck tx complete\nfailure: discard from pool
+check tx\nhandler -> evm mempool.ext mempool interface impl: complete failure:\nremove from pending
+check tx\nhandler -> evm mempool.ext mempool interface impl: nonce gap failure:\nadd transaction
+check tx\nhandler -> evm mempool.ext mempool interface impl: success:\nadd txs
+check tx\nhandler -> evm mempool.ext mempool interface impl: recheck tx complete\nfailure: eviction
