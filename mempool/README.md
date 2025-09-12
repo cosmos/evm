@@ -411,7 +411,7 @@ The following diagrams illustrate the complete transaction flow architecture, sh
 
 ### Architecture Overview
 
-![EVM Mempool Architecture](img/mempool_architecture.jpg)
+![EVM Mempool Architecture](img/mempool_architecture.svg)
 
 ### Transaction Flow
 
