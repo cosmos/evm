@@ -66,7 +66,7 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		Coinbase:    common.BytesToAddress(header.ProposerAddress),
 		Root:        common.BytesToHash(header.AppHash),
 		TxHash:      txHash,
-		ReceiptHash: ethtypes.EmptyRootHash,
+		ReceiptHash: ethtypes.EmptyReceiptsHash,
 		Bloom:       bloom,
 		Difficulty:  big.NewInt(0),
 		Number:      big.NewInt(header.Height),
@@ -77,6 +77,14 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		MixDigest:   common.Hash{},
 		Nonce:       ethtypes.BlockNonce{},
 		BaseFee:     baseFee,
+
+		// In chains that use cosmos-sdk and cometbft,
+		// these fields are irrelevant.
+		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash, // EIP-4895: Beacon chain push withdrawals as operations
+		BlobGasUsed:      nil,                            // EIP-4844: Shard Blob Transactions
+		ExcessBlobGas:    nil,                            // EIP-4844: Shard Blob Transactions
+		ParentBeaconRoot: nil,                            // EIP-4788: Beacon block root in the EVM
+		RequestsHash:     &ethtypes.EmptyRequestsHash,    // EIP-7685: General purpose execution layer requests
 	}
 }
 
@@ -136,9 +144,8 @@ func FormatBlock(
 		"transactionsRoot": transactionsRoot,
 		"receiptsRoot":     ethtypes.EmptyRootHash,
 
-		"uncles":          []common.Hash{},
-		"transactions":    transactions,
-		"totalDifficulty": (*hexutil.Big)(big.NewInt(0)),
+		"uncles":       []common.Hash{},
+		"transactions": transactions,
 	}
 
 	if baseFee != nil {
@@ -146,6 +153,95 @@ func FormatBlock(
 	}
 
 	return result
+}
+
+// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
+// transactions.
+func FormatBlock2(header map[string]interface{}, size int, transactions []interface{}) map[string]interface{} {
+	block := header
+	body := map[string]interface{}{
+		"size":         hexutil.Uint64(size), //nolint:gosec // G115 // size won't exceed uint64
+		"transactions": transactions,
+		"uncles":       []common.Hash{},
+		"withdrawals":  []common.Hash{},
+	}
+
+	for k := range body {
+		block[k] = body[k]
+	}
+
+	return block
+}
+
+// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
+// transactions.
+func FormatHeader(
+	header cmttypes.Header, gasLimit int64,
+	gasUsed *big.Int, transactions []interface{}, bloom ethtypes.Bloom,
+	validatorAddr common.Address, baseFee *big.Int,
+) map[string]interface{} {
+	var transactionsRoot common.Hash
+	if len(transactions) == 0 {
+		transactionsRoot = ethtypes.EmptyRootHash
+	} else {
+		transactionsRoot = common.BytesToHash(header.DataHash)
+	}
+
+	result := map[string]interface{}{
+		// Header fields
+		"number":           hexutil.Uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
+		"hash":             hexutil.Bytes(header.Hash()),
+		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
+		"nonce":            ethtypes.BlockNonce{},   // PoW specific
+		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in CometBFT
+		"logsBloom":        bloom,
+		"stateRoot":        hexutil.Bytes(header.AppHash),
+		"miner":            validatorAddr,
+		"mixHash":          common.Hash{},
+		"difficulty":       (*hexutil.Big)(big.NewInt(0)),
+		"extraData":        "0x",
+		"gasLimit":         hexutil.Uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
+		"gasUsed":          (*hexutil.Big)(gasUsed),
+		"timestamp":        hexutil.Uint64(header.Time.Unix()), //nolint:gosec // G115 // won't exceed uint64
+		"transactionsRoot": transactionsRoot,
+		"receiptsRoot":     ethtypes.EmptyRootHash,
+	}
+
+	if baseFee != nil {
+		result["baseFeePerGas"] = (*hexutil.Big)(baseFee)
+	}
+
+	// For withdrawalsRoot, blobGasUsed, excessBlobGas, parentBeaconBlockRoot, requestsHash
+	// these fields are not included as they are not relevant to cosmos-sdk + cometbft chains
+	// and these fields are optional in the go-ethreum codebase
+	// see: https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/core/types/block.go#L95-L108
+
+	return result
+}
+
+func MakeHeader(
+	cmtHeader cmttypes.Header, gasLimit int64,
+	validatorAddr common.Address, baseFee *big.Int,
+) *ethtypes.Header {
+	header := &ethtypes.Header{
+		Root:       common.BytesToHash(hexutil.Bytes(cmtHeader.AppHash)),
+		ParentHash: common.BytesToHash(cmtHeader.LastBlockID.Hash.Bytes()),
+		Coinbase:   validatorAddr,
+		Difficulty: big.NewInt(0),
+		GasLimit:   uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
+		Number:     big.NewInt(cmtHeader.Height),
+		Time:       uint64(cmtHeader.Time.Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
+	}
+
+	if evmtypes.GetEthChainConfig().IsLondon(header.Number) {
+		header.BaseFee = baseFee
+	}
+	if evmtypes.GetEthChainConfig().IsCancun(header.Number, header.Time) {
+		header.ExcessBlobGas = new(uint64)
+		header.BlobGasUsed = new(uint64)
+		header.ParentBeaconRoot = new(common.Hash)
+	}
+	return header
 }
 
 // NewTransactionFromMsg returns a transaction that will serialize to the RPC
@@ -333,4 +429,45 @@ func TxStateDBCommitError(res *abci.ExecTxResult) bool {
 // or if it failed with an ExceedBlockGasLimit error or TxStateDBCommitError error
 func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 	return res.Code == 0 || TxExceedBlockGasLimit(res) || TxStateDBCommitError(res)
+}
+
+// RPCMarshalHeader converts the given header to the RPC output .
+func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[string]interface{} {
+	result := map[string]interface{}{
+		"number":           (*hexutil.Big)(head.Number),
+		"hash":             hexutil.Bytes(cmtHeader.Hash()), // use cometbft header hash
+		"parentHash":       head.ParentHash,
+		"nonce":            head.Nonce,
+		"mixHash":          head.MixDigest,
+		"sha3Uncles":       head.UncleHash,
+		"logsBloom":        head.Bloom,
+		"stateRoot":        head.Root,
+		"miner":            head.Coinbase,
+		"difficulty":       (*hexutil.Big)(head.Difficulty),
+		"extraData":        hexutil.Bytes(head.Extra),
+		"gasLimit":         hexutil.Uint64(head.GasLimit),
+		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))),
+		"timestamp":        hexutil.Uint64(head.Time),
+		"transactionsRoot": head.TxHash,
+		"receiptsRoot":     head.ReceiptHash,
+	}
+	if head.BaseFee != nil {
+		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
+	}
+	if head.WithdrawalsHash != nil {
+		result["withdrawalsRoot"] = head.WithdrawalsHash
+	}
+	if head.BlobGasUsed != nil {
+		result["blobGasUsed"] = hexutil.Uint64(*head.BlobGasUsed)
+	}
+	if head.ExcessBlobGas != nil {
+		result["excessBlobGas"] = hexutil.Uint64(*head.ExcessBlobGas)
+	}
+	if head.ParentBeaconRoot != nil {
+		result["parentBeaconBlockRoot"] = head.ParentBeaconRoot
+	}
+	if head.RequestsHash != nil {
+		result["requestsHash"] = head.RequestsHash
+	}
+	return result
 }

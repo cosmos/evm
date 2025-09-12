@@ -63,6 +63,8 @@ type EVMBackend interface {
 
 	// Blocks Info
 	BlockNumber() (hexutil.Uint64, error)
+	GetHeaderByNumber(blockNum rpctypes.BlockNumber) (map[string]interface{}, error)
+	GetHeaderByHash(hash common.Hash) (map[string]interface{}, error)
 	GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error)
 	GetBlockByHash(hash common.Hash, fullTx bool) (map[string]interface{}, error)
 	GetBlockTransactionCountByHash(hash common.Hash) *hexutil.Uint
