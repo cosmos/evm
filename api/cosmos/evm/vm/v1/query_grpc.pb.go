@@ -33,6 +33,8 @@ const (
 	Query_BaseFee_FullMethodName           = "/cosmos.evm.vm.v1.Query/BaseFee"
 	Query_Config_FullMethodName            = "/cosmos.evm.vm.v1.Query/Config"
 	Query_GlobalMinGasPrice_FullMethodName = "/cosmos.evm.vm.v1.Query/GlobalMinGasPrice"
+	Query_HexToBech32_FullMethodName       = "/cosmos.evm.vm.v1.Query/HexToBech32"
+	Query_Bech32ToHex_FullMethodName       = "/cosmos.evm.vm.v1.Query/Bech32ToHex"
 )
 
 // QueryClient is the client API for Query service.
@@ -75,6 +77,10 @@ type QueryClient interface {
 	// but makes the conversion to 18 decimals
 	// when the evm denom is represented with a different precision.
 	GlobalMinGasPrice(ctx context.Context, in *QueryGlobalMinGasPriceRequest, opts ...grpc.CallOption) (*QueryGlobalMinGasPriceResponse, error)
+	// HexToBech32 converts an Ethereum hex address to bech32 format
+	HexToBech32(ctx context.Context, in *QueryHexToBech32Request, opts ...grpc.CallOption) (*QueryHexToBech32Response, error)
+	// Bech32ToHex converts a bech32 address to Ethereum hex format
+	Bech32ToHex(ctx context.Context, in *QueryBech32ToHexRequest, opts ...grpc.CallOption) (*QueryBech32ToHexResponse, error)
 }
 
 type queryClient struct {
@@ -211,6 +217,24 @@ func (c *queryClient) GlobalMinGasPrice(ctx context.Context, in *QueryGlobalMinG
 	return out, nil
 }
 
+func (c *queryClient) HexToBech32(ctx context.Context, in *QueryHexToBech32Request, opts ...grpc.CallOption) (*QueryHexToBech32Response, error) {
+	out := new(QueryHexToBech32Response)
+	err := c.cc.Invoke(ctx, Query_HexToBech32_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) Bech32ToHex(ctx context.Context, in *QueryBech32ToHexRequest, opts ...grpc.CallOption) (*QueryBech32ToHexResponse, error) {
+	out := new(QueryBech32ToHexResponse)
+	err := c.cc.Invoke(ctx, Query_Bech32ToHex_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -251,6 +275,10 @@ type QueryServer interface {
 	// but makes the conversion to 18 decimals
 	// when the evm denom is represented with a different precision.
 	GlobalMinGasPrice(context.Context, *QueryGlobalMinGasPriceRequest) (*QueryGlobalMinGasPriceResponse, error)
+	// HexToBech32 converts an Ethereum hex address to bech32 format
+	HexToBech32(context.Context, *QueryHexToBech32Request) (*QueryHexToBech32Response, error)
+	// Bech32ToHex converts a bech32 address to Ethereum hex format
+	Bech32ToHex(context.Context, *QueryBech32ToHexRequest) (*QueryBech32ToHexResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -299,6 +327,12 @@ func (UnimplementedQueryServer) Config(context.Context, *QueryConfigRequest) (*Q
 }
 func (UnimplementedQueryServer) GlobalMinGasPrice(context.Context, *QueryGlobalMinGasPriceRequest) (*QueryGlobalMinGasPriceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GlobalMinGasPrice not implemented")
+}
+func (UnimplementedQueryServer) HexToBech32(context.Context, *QueryHexToBech32Request) (*QueryHexToBech32Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HexToBech32 not implemented")
+}
+func (UnimplementedQueryServer) Bech32ToHex(context.Context, *QueryBech32ToHexRequest) (*QueryBech32ToHexResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Bech32ToHex not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -565,6 +599,42 @@ func _Query_GlobalMinGasPrice_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_HexToBech32_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryHexToBech32Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).HexToBech32(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_HexToBech32_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).HexToBech32(ctx, req.(*QueryHexToBech32Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_Bech32ToHex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryBech32ToHexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Bech32ToHex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_Bech32ToHex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Bech32ToHex(ctx, req.(*QueryBech32ToHexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -627,6 +697,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GlobalMinGasPrice",
 			Handler:    _Query_GlobalMinGasPrice_Handler,
+		},
+		{
+			MethodName: "HexToBech32",
+			Handler:    _Query_HexToBech32_Handler,
+		},
+		{
+			MethodName: "Bech32ToHex",
+			Handler:    _Query_Bech32ToHex_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -13526,6 +13526,1686 @@ func (x *fastReflection_QueryGlobalMinGasPriceResponse) ProtoMethods() *protoifa
 	}
 }
 
+var (
+	md_QueryHexToBech32Request             protoreflect.MessageDescriptor
+	fd_QueryHexToBech32Request_hex_address protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_cosmos_evm_vm_v1_query_proto_init()
+	md_QueryHexToBech32Request = File_cosmos_evm_vm_v1_query_proto.Messages().ByName("QueryHexToBech32Request")
+	fd_QueryHexToBech32Request_hex_address = md_QueryHexToBech32Request.Fields().ByName("hex_address")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryHexToBech32Request)(nil)
+
+type fastReflection_QueryHexToBech32Request QueryHexToBech32Request
+
+func (x *QueryHexToBech32Request) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryHexToBech32Request)(x)
+}
+
+func (x *QueryHexToBech32Request) slowProtoReflect() protoreflect.Message {
+	mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[28]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryHexToBech32Request_messageType fastReflection_QueryHexToBech32Request_messageType
+var _ protoreflect.MessageType = fastReflection_QueryHexToBech32Request_messageType{}
+
+type fastReflection_QueryHexToBech32Request_messageType struct{}
+
+func (x fastReflection_QueryHexToBech32Request_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryHexToBech32Request)(nil)
+}
+func (x fastReflection_QueryHexToBech32Request_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryHexToBech32Request)
+}
+func (x fastReflection_QueryHexToBech32Request_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryHexToBech32Request
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryHexToBech32Request) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryHexToBech32Request
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryHexToBech32Request) Type() protoreflect.MessageType {
+	return _fastReflection_QueryHexToBech32Request_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryHexToBech32Request) New() protoreflect.Message {
+	return new(fastReflection_QueryHexToBech32Request)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryHexToBech32Request) Interface() protoreflect.ProtoMessage {
+	return (*QueryHexToBech32Request)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryHexToBech32Request) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.HexAddress != "" {
+		value := protoreflect.ValueOfString(x.HexAddress)
+		if !f(fd_QueryHexToBech32Request_hex_address, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryHexToBech32Request) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		return x.HexAddress != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Request) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		x.HexAddress = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryHexToBech32Request) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		value := x.HexAddress
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Request) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		x.HexAddress = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Request) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		panic(fmt.Errorf("field hex_address of message cosmos.evm.vm.v1.QueryHexToBech32Request is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryHexToBech32Request) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Request.hex_address":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Request"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Request does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryHexToBech32Request) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in cosmos.evm.vm.v1.QueryHexToBech32Request", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryHexToBech32Request) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Request) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryHexToBech32Request) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryHexToBech32Request) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryHexToBech32Request)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.HexAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryHexToBech32Request)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.HexAddress) > 0 {
+			i -= len(x.HexAddress)
+			copy(dAtA[i:], x.HexAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.HexAddress)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryHexToBech32Request)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryHexToBech32Request: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryHexToBech32Request: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field HexAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.HexAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_QueryHexToBech32Response                protoreflect.MessageDescriptor
+	fd_QueryHexToBech32Response_bech32_address protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_cosmos_evm_vm_v1_query_proto_init()
+	md_QueryHexToBech32Response = File_cosmos_evm_vm_v1_query_proto.Messages().ByName("QueryHexToBech32Response")
+	fd_QueryHexToBech32Response_bech32_address = md_QueryHexToBech32Response.Fields().ByName("bech32_address")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryHexToBech32Response)(nil)
+
+type fastReflection_QueryHexToBech32Response QueryHexToBech32Response
+
+func (x *QueryHexToBech32Response) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryHexToBech32Response)(x)
+}
+
+func (x *QueryHexToBech32Response) slowProtoReflect() protoreflect.Message {
+	mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[29]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryHexToBech32Response_messageType fastReflection_QueryHexToBech32Response_messageType
+var _ protoreflect.MessageType = fastReflection_QueryHexToBech32Response_messageType{}
+
+type fastReflection_QueryHexToBech32Response_messageType struct{}
+
+func (x fastReflection_QueryHexToBech32Response_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryHexToBech32Response)(nil)
+}
+func (x fastReflection_QueryHexToBech32Response_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryHexToBech32Response)
+}
+func (x fastReflection_QueryHexToBech32Response_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryHexToBech32Response
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryHexToBech32Response) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryHexToBech32Response
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryHexToBech32Response) Type() protoreflect.MessageType {
+	return _fastReflection_QueryHexToBech32Response_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryHexToBech32Response) New() protoreflect.Message {
+	return new(fastReflection_QueryHexToBech32Response)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryHexToBech32Response) Interface() protoreflect.ProtoMessage {
+	return (*QueryHexToBech32Response)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryHexToBech32Response) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Bech32Address != "" {
+		value := protoreflect.ValueOfString(x.Bech32Address)
+		if !f(fd_QueryHexToBech32Response_bech32_address, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryHexToBech32Response) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		return x.Bech32Address != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Response) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		x.Bech32Address = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryHexToBech32Response) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		value := x.Bech32Address
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Response) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		x.Bech32Address = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Response) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		panic(fmt.Errorf("field bech32_address of message cosmos.evm.vm.v1.QueryHexToBech32Response is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryHexToBech32Response) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryHexToBech32Response.bech32_address":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryHexToBech32Response"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryHexToBech32Response does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryHexToBech32Response) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in cosmos.evm.vm.v1.QueryHexToBech32Response", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryHexToBech32Response) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryHexToBech32Response) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryHexToBech32Response) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryHexToBech32Response) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryHexToBech32Response)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Bech32Address)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryHexToBech32Response)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.Bech32Address) > 0 {
+			i -= len(x.Bech32Address)
+			copy(dAtA[i:], x.Bech32Address)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Bech32Address)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryHexToBech32Response)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryHexToBech32Response: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryHexToBech32Response: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Bech32Address", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Bech32Address = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_QueryBech32ToHexRequest                protoreflect.MessageDescriptor
+	fd_QueryBech32ToHexRequest_bech32_address protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_cosmos_evm_vm_v1_query_proto_init()
+	md_QueryBech32ToHexRequest = File_cosmos_evm_vm_v1_query_proto.Messages().ByName("QueryBech32ToHexRequest")
+	fd_QueryBech32ToHexRequest_bech32_address = md_QueryBech32ToHexRequest.Fields().ByName("bech32_address")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryBech32ToHexRequest)(nil)
+
+type fastReflection_QueryBech32ToHexRequest QueryBech32ToHexRequest
+
+func (x *QueryBech32ToHexRequest) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryBech32ToHexRequest)(x)
+}
+
+func (x *QueryBech32ToHexRequest) slowProtoReflect() protoreflect.Message {
+	mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[30]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryBech32ToHexRequest_messageType fastReflection_QueryBech32ToHexRequest_messageType
+var _ protoreflect.MessageType = fastReflection_QueryBech32ToHexRequest_messageType{}
+
+type fastReflection_QueryBech32ToHexRequest_messageType struct{}
+
+func (x fastReflection_QueryBech32ToHexRequest_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryBech32ToHexRequest)(nil)
+}
+func (x fastReflection_QueryBech32ToHexRequest_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryBech32ToHexRequest)
+}
+func (x fastReflection_QueryBech32ToHexRequest_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryBech32ToHexRequest
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryBech32ToHexRequest) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryBech32ToHexRequest
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryBech32ToHexRequest) Type() protoreflect.MessageType {
+	return _fastReflection_QueryBech32ToHexRequest_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryBech32ToHexRequest) New() protoreflect.Message {
+	return new(fastReflection_QueryBech32ToHexRequest)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryBech32ToHexRequest) Interface() protoreflect.ProtoMessage {
+	return (*QueryBech32ToHexRequest)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryBech32ToHexRequest) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Bech32Address != "" {
+		value := protoreflect.ValueOfString(x.Bech32Address)
+		if !f(fd_QueryBech32ToHexRequest_bech32_address, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryBech32ToHexRequest) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		return x.Bech32Address != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexRequest) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		x.Bech32Address = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryBech32ToHexRequest) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		value := x.Bech32Address
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexRequest) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		x.Bech32Address = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexRequest) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		panic(fmt.Errorf("field bech32_address of message cosmos.evm.vm.v1.QueryBech32ToHexRequest is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryBech32ToHexRequest) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexRequest.bech32_address":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexRequest"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexRequest does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryBech32ToHexRequest) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in cosmos.evm.vm.v1.QueryBech32ToHexRequest", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryBech32ToHexRequest) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexRequest) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryBech32ToHexRequest) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryBech32ToHexRequest) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryBech32ToHexRequest)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.Bech32Address)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryBech32ToHexRequest)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.Bech32Address) > 0 {
+			i -= len(x.Bech32Address)
+			copy(dAtA[i:], x.Bech32Address)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.Bech32Address)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryBech32ToHexRequest)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryBech32ToHexRequest: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryBech32ToHexRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Bech32Address", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.Bech32Address = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
+var (
+	md_QueryBech32ToHexResponse             protoreflect.MessageDescriptor
+	fd_QueryBech32ToHexResponse_hex_address protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_cosmos_evm_vm_v1_query_proto_init()
+	md_QueryBech32ToHexResponse = File_cosmos_evm_vm_v1_query_proto.Messages().ByName("QueryBech32ToHexResponse")
+	fd_QueryBech32ToHexResponse_hex_address = md_QueryBech32ToHexResponse.Fields().ByName("hex_address")
+}
+
+var _ protoreflect.Message = (*fastReflection_QueryBech32ToHexResponse)(nil)
+
+type fastReflection_QueryBech32ToHexResponse QueryBech32ToHexResponse
+
+func (x *QueryBech32ToHexResponse) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_QueryBech32ToHexResponse)(x)
+}
+
+func (x *QueryBech32ToHexResponse) slowProtoReflect() protoreflect.Message {
+	mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[31]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_QueryBech32ToHexResponse_messageType fastReflection_QueryBech32ToHexResponse_messageType
+var _ protoreflect.MessageType = fastReflection_QueryBech32ToHexResponse_messageType{}
+
+type fastReflection_QueryBech32ToHexResponse_messageType struct{}
+
+func (x fastReflection_QueryBech32ToHexResponse_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_QueryBech32ToHexResponse)(nil)
+}
+func (x fastReflection_QueryBech32ToHexResponse_messageType) New() protoreflect.Message {
+	return new(fastReflection_QueryBech32ToHexResponse)
+}
+func (x fastReflection_QueryBech32ToHexResponse_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryBech32ToHexResponse
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_QueryBech32ToHexResponse) Descriptor() protoreflect.MessageDescriptor {
+	return md_QueryBech32ToHexResponse
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_QueryBech32ToHexResponse) Type() protoreflect.MessageType {
+	return _fastReflection_QueryBech32ToHexResponse_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_QueryBech32ToHexResponse) New() protoreflect.Message {
+	return new(fastReflection_QueryBech32ToHexResponse)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_QueryBech32ToHexResponse) Interface() protoreflect.ProtoMessage {
+	return (*QueryBech32ToHexResponse)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_QueryBech32ToHexResponse) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.HexAddress != "" {
+		value := protoreflect.ValueOfString(x.HexAddress)
+		if !f(fd_QueryBech32ToHexResponse_hex_address, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_QueryBech32ToHexResponse) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		return x.HexAddress != ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexResponse) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		x.HexAddress = ""
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_QueryBech32ToHexResponse) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		value := x.HexAddress
+		return protoreflect.ValueOfString(value)
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexResponse) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		x.HexAddress = value.Interface().(string)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexResponse) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		panic(fmt.Errorf("field hex_address of message cosmos.evm.vm.v1.QueryBech32ToHexResponse is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_QueryBech32ToHexResponse) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "cosmos.evm.vm.v1.QueryBech32ToHexResponse.hex_address":
+		return protoreflect.ValueOfString("")
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: cosmos.evm.vm.v1.QueryBech32ToHexResponse"))
+		}
+		panic(fmt.Errorf("message cosmos.evm.vm.v1.QueryBech32ToHexResponse does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_QueryBech32ToHexResponse) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in cosmos.evm.vm.v1.QueryBech32ToHexResponse", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_QueryBech32ToHexResponse) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_QueryBech32ToHexResponse) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_QueryBech32ToHexResponse) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_QueryBech32ToHexResponse) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*QueryBech32ToHexResponse)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		l = len(x.HexAddress)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*QueryBech32ToHexResponse)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if len(x.HexAddress) > 0 {
+			i -= len(x.HexAddress)
+			copy(dAtA[i:], x.HexAddress)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.HexAddress)))
+			i--
+			dAtA[i] = 0xa
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*QueryBech32ToHexResponse)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryBech32ToHexResponse: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: QueryBech32ToHexResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field HexAddress", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.HexAddress = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 // Code generated by protoc-gen-go. DO NOT EDIT.
 // versions:
 // 	protoc-gen-go v1.27.0
@@ -14806,6 +16486,154 @@ func (x *QueryGlobalMinGasPriceResponse) GetMinGasPrice() string {
 	return ""
 }
 
+// QueryHexToBech32Request is the request type for the Query/HexToBech32 RPC method.
+type QueryHexToBech32Request struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// hex_address is the Ethereum hex address to convert to bech32 format.
+	HexAddress string `protobuf:"bytes,1,opt,name=hex_address,json=hexAddress,proto3" json:"hex_address,omitempty"`
+}
+
+func (x *QueryHexToBech32Request) Reset() {
+	*x = QueryHexToBech32Request{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[28]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryHexToBech32Request) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryHexToBech32Request) ProtoMessage() {}
+
+// Deprecated: Use QueryHexToBech32Request.ProtoReflect.Descriptor instead.
+func (*QueryHexToBech32Request) Descriptor() ([]byte, []int) {
+	return file_cosmos_evm_vm_v1_query_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *QueryHexToBech32Request) GetHexAddress() string {
+	if x != nil {
+		return x.HexAddress
+	}
+	return ""
+}
+
+// QueryHexToBech32Response is the response type for the Query/HexToBech32 RPC method.
+type QueryHexToBech32Response struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// bech32_address is the converted bech32 address.
+	Bech32Address string `protobuf:"bytes,1,opt,name=bech32_address,json=bech32Address,proto3" json:"bech32_address,omitempty"`
+}
+
+func (x *QueryHexToBech32Response) Reset() {
+	*x = QueryHexToBech32Response{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[29]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryHexToBech32Response) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryHexToBech32Response) ProtoMessage() {}
+
+// Deprecated: Use QueryHexToBech32Response.ProtoReflect.Descriptor instead.
+func (*QueryHexToBech32Response) Descriptor() ([]byte, []int) {
+	return file_cosmos_evm_vm_v1_query_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *QueryHexToBech32Response) GetBech32Address() string {
+	if x != nil {
+		return x.Bech32Address
+	}
+	return ""
+}
+
+// QueryBech32ToHexRequest is the request type for the Query/Bech32ToHex RPC method.
+type QueryBech32ToHexRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// bech32_address is the bech32 address to convert to hex format.
+	Bech32Address string `protobuf:"bytes,1,opt,name=bech32_address,json=bech32Address,proto3" json:"bech32_address,omitempty"`
+}
+
+func (x *QueryBech32ToHexRequest) Reset() {
+	*x = QueryBech32ToHexRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[30]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryBech32ToHexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryBech32ToHexRequest) ProtoMessage() {}
+
+// Deprecated: Use QueryBech32ToHexRequest.ProtoReflect.Descriptor instead.
+func (*QueryBech32ToHexRequest) Descriptor() ([]byte, []int) {
+	return file_cosmos_evm_vm_v1_query_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *QueryBech32ToHexRequest) GetBech32Address() string {
+	if x != nil {
+		return x.Bech32Address
+	}
+	return ""
+}
+
+// QueryBech32ToHexResponse is the response type for the Query/Bech32ToHex RPC method.
+type QueryBech32ToHexResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// hex_address is the converted Ethereum hex address.
+	HexAddress string `protobuf:"bytes,1,opt,name=hex_address,json=hexAddress,proto3" json:"hex_address,omitempty"`
+}
+
+func (x *QueryBech32ToHexResponse) Reset() {
+	*x = QueryBech32ToHexResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cosmos_evm_vm_v1_query_proto_msgTypes[31]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryBech32ToHexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryBech32ToHexResponse) ProtoMessage() {}
+
+// Deprecated: Use QueryBech32ToHexResponse.ProtoReflect.Descriptor instead.
+func (*QueryBech32ToHexResponse) Descriptor() ([]byte, []int) {
+	return file_cosmos_evm_vm_v1_query_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *QueryBech32ToHexResponse) GetHexAddress() string {
+	if x != nil {
+		return x.HexAddress
+	}
+	return ""
+}
+
 var File_cosmos_evm_vm_v1_query_proto protoreflect.FileDescriptor
 
 var file_cosmos_evm_vm_v1_query_proto_rawDesc = []byte{
@@ -15008,139 +16836,177 @@ var file_cosmos_evm_vm_v1_query_proto_rawDesc = []byte{
 	0x67, 0x61, 0x73, 0x5f, 0x70, 0x72, 0x69, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42,
 	0x1d, 0xc8, 0xde, 0x1f, 0x00, 0xda, 0xde, 0x1f, 0x15, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x73,
 	0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x6d, 0x61, 0x74, 0x68, 0x2e, 0x49, 0x6e, 0x74, 0x52, 0x0b,
-	0x6d, 0x69, 0x6e, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x32, 0x8a, 0x0f, 0x0a, 0x05,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x85, 0x01, 0x0a, 0x07, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76,
-	0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
-	0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
-	0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x61, 0x63, 0x63, 0x6f,
-	0x75, 0x6e, 0x74, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0x9e, 0x01,
-	0x0a, 0x0d, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12,
-	0x2b, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x41, 0x63,
-	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c, 0x2e, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x41, 0x63, 0x63, 0x6f, 0x75,
-	0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x32, 0x82, 0xd3, 0xe4, 0x93,
-	0x02, 0x2c, 0x12, 0x2a, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f,
-	0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5f, 0x61, 0x63, 0x63,
-	0x6f, 0x75, 0x6e, 0x74, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0xaf,
-	0x01, 0x0a, 0x10, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63, 0x63, 0x6f,
-	0x75, 0x6e, 0x74, 0x12, 0x2e, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x56, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x56, 0x61, 0x6c, 0x69,
-	0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x34, 0x12, 0x32, 0x2f, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f,
-	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x2f, 0x7b, 0x63, 0x6f, 0x6e, 0x73, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d,
-	0x12, 0x86, 0x01, 0x0a, 0x07, 0x42, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x25, 0x2e, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x61,
-	0x6e, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2c, 0x82, 0xd3, 0xe4,
-	0x93, 0x02, 0x26, 0x12, 0x24, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d,
-	0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x73, 0x2f,
-	0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0x8b, 0x01, 0x0a, 0x07, 0x53, 0x74,
-	0x6f, 0x72, 0x61, 0x67, 0x65, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
-	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x74,
-	0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x31, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2b, 0x12, 0x29, 0x2f, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73,
-	0x7d, 0x2f, 0x7b, 0x6b, 0x65, 0x79, 0x7d, 0x12, 0x7a, 0x0a, 0x04, 0x43, 0x6f, 0x64, 0x65, 0x12,
-	0x22, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
-	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x64, 0x65,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x29, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x23,
-	0x12, 0x21, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d,
-	0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65,
-	0x73, 0x73, 0x7d, 0x12, 0x77, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x24, 0x2e,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x20, 0x82, 0xd3, 0xe4, 0x93,
-	0x02, 0x1a, 0x12, 0x18, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f,
-	0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x78, 0x0a, 0x07,
-	0x45, 0x74, 0x68, 0x43, 0x61, 0x6c, 0x6c, 0x12, 0x20, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x74, 0x68, 0x43, 0x61,
-	0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x27, 0x2e, 0x63, 0x6f, 0x73, 0x6d,
-	0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x73, 0x67,
-	0x45, 0x74, 0x68, 0x65, 0x72, 0x65, 0x75, 0x6d, 0x54, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x63, 0x6f, 0x73,
-	0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x74,
-	0x68, 0x5f, 0x63, 0x61, 0x6c, 0x6c, 0x12, 0x7e, 0x0a, 0x0b, 0x45, 0x73, 0x74, 0x69, 0x6d, 0x61,
-	0x74, 0x65, 0x47, 0x61, 0x73, 0x12, 0x20, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
-	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x74, 0x68, 0x43, 0x61, 0x6c, 0x6c,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x73, 0x74, 0x69, 0x6d,
-	0x61, 0x74, 0x65, 0x47, 0x61, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x26,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x20, 0x12, 0x1e, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f,
-	0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x73, 0x74, 0x69, 0x6d, 0x61,
-	0x74, 0x65, 0x5f, 0x67, 0x61, 0x73, 0x12, 0x7c, 0x0a, 0x07, 0x54, 0x72, 0x61, 0x63, 0x65, 0x54,
-	0x78, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76,
-	0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63, 0x65, 0x54,
-	0x78, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
-	0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x54, 0x72, 0x61, 0x63, 0x65, 0x54, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
-	0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x72, 0x61, 0x63,
-	0x65, 0x5f, 0x74, 0x78, 0x12, 0x88, 0x01, 0x0a, 0x0a, 0x54, 0x72, 0x61, 0x63, 0x65, 0x42, 0x6c,
-	0x6f, 0x63, 0x6b, 0x12, 0x28, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
-	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63,
-	0x65, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63, 0x65, 0x42, 0x6c, 0x6f, 0x63, 0x6b,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x25, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1f,
-	0x12, 0x1d, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d,
-	0x2f, 0x76, 0x31, 0x2f, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x12,
-	0x7c, 0x0a, 0x07, 0x42, 0x61, 0x73, 0x65, 0x46, 0x65, 0x65, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73,
+	0x6d, 0x69, 0x6e, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x22, 0x44, 0x0a, 0x17, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x48, 0x65, 0x78, 0x54, 0x6f, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x68, 0x65, 0x78, 0x5f, 0x61, 0x64,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x68, 0x65, 0x78,
+	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x3a, 0x08, 0x88, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f,
+	0x00, 0x22, 0x41, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x48, 0x65, 0x78, 0x54, 0x6f, 0x42,
+	0x65, 0x63, 0x68, 0x33, 0x32, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x25, 0x0a,
+	0x0e, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32, 0x41, 0x64, 0x64,
+	0x72, 0x65, 0x73, 0x73, 0x22, 0x4a, 0x0a, 0x17, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x65, 0x63,
+	0x68, 0x33, 0x32, 0x54, 0x6f, 0x48, 0x65, 0x78, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x25, 0x0a, 0x0e, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32, 0x41,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x3a, 0x08, 0x88, 0xa0, 0x1f, 0x00, 0xe8, 0xa0, 0x1f, 0x00,
+	0x22, 0x3b, 0x0a, 0x18, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x54,
+	0x6f, 0x48, 0x65, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1f, 0x0a, 0x0b,
+	0x68, 0x65, 0x78, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0a, 0x68, 0x65, 0x78, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x32, 0xc9, 0x11,
+	0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x85, 0x01, 0x0a, 0x07, 0x41, 0x63, 0x63, 0x6f,
+	0x75, 0x6e, 0x74, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
+	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x41, 0x63, 0x63, 0x6f,
+	0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73,
 	0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75,
-	0x65, 0x72, 0x79, 0x42, 0x61, 0x73, 0x65, 0x46, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76,
-	0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x73, 0x65, 0x46, 0x65,
-	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02,
-	0x1c, 0x12, 0x1a, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76,
-	0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x73, 0x65, 0x5f, 0x66, 0x65, 0x65, 0x12, 0x77, 0x0a,
-	0x06, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x24, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x20, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1a, 0x12, 0x18, 0x2f, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f,
-	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x9f, 0x01, 0x0a, 0x11, 0x47, 0x6c, 0x6f, 0x62, 0x61,
-	0x6c, 0x4d, 0x69, 0x6e, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x12, 0x2f, 0x2e, 0x63,
-	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e,
-	0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x4d, 0x69, 0x6e, 0x47, 0x61,
-	0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x30, 0x2e,
-	0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31,
-	0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x4d, 0x69, 0x6e, 0x47,
-	0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x27, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x21, 0x12, 0x1f, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
-	0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x6d, 0x69, 0x6e, 0x5f, 0x67,
-	0x61, 0x73, 0x5f, 0x70, 0x72, 0x69, 0x63, 0x65, 0x42, 0xad, 0x01, 0x0a, 0x14, 0x63, 0x6f, 0x6d,
+	0x65, 0x72, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x61, 0x63,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12,
+	0x9e, 0x01, 0x0a, 0x0d, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
+	0x74, 0x12, 0x2b, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76,
+	0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c,
 	0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76,
-	0x31, 0x42, 0x0a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
-	0x26, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x73, 0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x61, 0x70,
-	0x69, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f,
-	0x76, 0x31, 0x3b, 0x76, 0x6d, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x43, 0x45, 0x56, 0xaa, 0x02, 0x10,
-	0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x45, 0x76, 0x6d, 0x2e, 0x56, 0x6d, 0x2e, 0x56, 0x31,
-	0xca, 0x02, 0x10, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5c, 0x45, 0x76, 0x6d, 0x5c, 0x56, 0x6d,
-	0x5c, 0x56, 0x31, 0xe2, 0x02, 0x1c, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5c, 0x45, 0x76, 0x6d,
-	0x5c, 0x56, 0x6d, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61,
-	0x74, 0x61, 0xea, 0x02, 0x13, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x3a, 0x3a, 0x45, 0x76, 0x6d,
-	0x3a, 0x3a, 0x56, 0x6d, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x41, 0x63, 0x63,
+	0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x32, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x2c, 0x12, 0x2a, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76,
+	0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5f, 0x61,
+	0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d,
+	0x12, 0xaf, 0x01, 0x0a, 0x10, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x2e, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x56, 0x61,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x56, 0x61,
+	0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x34, 0x12, 0x32,
+	0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76,
+	0x31, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x61, 0x63, 0x63, 0x6f,
+	0x75, 0x6e, 0x74, 0x2f, 0x7b, 0x63, 0x6f, 0x6e, 0x73, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+	0x73, 0x7d, 0x12, 0x86, 0x01, 0x0a, 0x07, 0x42, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x25,
+	0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61,
+	0x6c, 0x61, 0x6e, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2c, 0x82,
+	0xd3, 0xe4, 0x93, 0x02, 0x26, 0x12, 0x24, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65,
+	0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x6c, 0x61, 0x6e, 0x63, 0x65,
+	0x73, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0x8b, 0x01, 0x0a, 0x07,
+	0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26,
+	0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x31, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2b, 0x12, 0x29,
+	0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76,
+	0x31, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2f, 0x7b, 0x61, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x7d, 0x2f, 0x7b, 0x6b, 0x65, 0x79, 0x7d, 0x12, 0x7a, 0x0a, 0x04, 0x43, 0x6f, 0x64,
+	0x65, 0x12, 0x22, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76,
+	0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x64, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f,
+	0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x29, 0x82, 0xd3, 0xe4, 0x93,
+	0x02, 0x23, 0x12, 0x21, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f,
+	0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x2f, 0x7b, 0x61, 0x64, 0x64,
+	0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0x77, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12,
+	0x24, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x61,
+	0x72, 0x61, 0x6d, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x20, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x1a, 0x12, 0x18, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76,
+	0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x78,
+	0x0a, 0x07, 0x45, 0x74, 0x68, 0x43, 0x61, 0x6c, 0x6c, 0x12, 0x20, 0x2e, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x74, 0x68,
+	0x43, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x27, 0x2e, 0x63, 0x6f,
+	0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x4d,
+	0x73, 0x67, 0x45, 0x74, 0x68, 0x65, 0x72, 0x65, 0x75, 0x6d, 0x54, 0x78, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x63,
+	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f,
+	0x65, 0x74, 0x68, 0x5f, 0x63, 0x61, 0x6c, 0x6c, 0x12, 0x7e, 0x0a, 0x0b, 0x45, 0x73, 0x74, 0x69,
+	0x6d, 0x61, 0x74, 0x65, 0x47, 0x61, 0x73, 0x12, 0x20, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x74, 0x68, 0x43, 0x61,
+	0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x73, 0x74,
+	0x69, 0x6d, 0x61, 0x74, 0x65, 0x47, 0x61, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x26, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x20, 0x12, 0x1e, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
+	0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x65, 0x73, 0x74, 0x69,
+	0x6d, 0x61, 0x74, 0x65, 0x5f, 0x67, 0x61, 0x73, 0x12, 0x7c, 0x0a, 0x07, 0x54, 0x72, 0x61, 0x63,
+	0x65, 0x54, 0x78, 0x12, 0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
+	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63,
+	0x65, 0x54, 0x78, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63, 0x65, 0x54, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x72,
+	0x61, 0x63, 0x65, 0x5f, 0x74, 0x78, 0x12, 0x88, 0x01, 0x0a, 0x0a, 0x54, 0x72, 0x61, 0x63, 0x65,
+	0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x12, 0x28, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72,
+	0x61, 0x63, 0x65, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x29, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x72, 0x61, 0x63, 0x65, 0x42, 0x6c, 0x6f,
+	0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x25, 0x82, 0xd3, 0xe4, 0x93,
+	0x02, 0x1f, 0x12, 0x1d, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f,
+	0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x62, 0x6c, 0x6f, 0x63,
+	0x6b, 0x12, 0x7c, 0x0a, 0x07, 0x42, 0x61, 0x73, 0x65, 0x46, 0x65, 0x65, 0x12, 0x25, 0x2e, 0x63,
+	0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e,
+	0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x73, 0x65, 0x46, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
+	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x61, 0x73, 0x65,
+	0x46, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4,
+	0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d,
+	0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x61, 0x73, 0x65, 0x5f, 0x66, 0x65, 0x65, 0x12,
+	0x77, 0x0a, 0x06, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x24, 0x2e, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x25, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x20, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1a, 0x12, 0x18,
+	0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76,
+	0x31, 0x2f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x9f, 0x01, 0x0a, 0x11, 0x47, 0x6c, 0x6f,
+	0x62, 0x61, 0x6c, 0x4d, 0x69, 0x6e, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x12, 0x2f,
+	0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76,
+	0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x4d, 0x69, 0x6e,
+	0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x30, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
+	0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x4d, 0x69,
+	0x6e, 0x47, 0x61, 0x73, 0x50, 0x72, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x27, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x21, 0x12, 0x1f, 0x2f, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x6d, 0x69, 0x6e,
+	0x5f, 0x67, 0x61, 0x73, 0x5f, 0x70, 0x72, 0x69, 0x63, 0x65, 0x12, 0x9b, 0x01, 0x0a, 0x0b, 0x48,
+	0x65, 0x78, 0x54, 0x6f, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x12, 0x29, 0x2e, 0x63, 0x6f, 0x73,
+	0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x48, 0x65, 0x78, 0x54, 0x6f, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65,
+	0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x48, 0x65,
+	0x78, 0x54, 0x6f, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x35, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2f, 0x12, 0x2d, 0x2f, 0x63, 0x6f, 0x73, 0x6d,
+	0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x68, 0x65, 0x78,
+	0x5f, 0x74, 0x6f, 0x5f, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32, 0x2f, 0x7b, 0x68, 0x65, 0x78, 0x5f,
+	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x12, 0x9e, 0x01, 0x0a, 0x0b, 0x42, 0x65, 0x63,
+	0x68, 0x33, 0x32, 0x54, 0x6f, 0x48, 0x65, 0x78, 0x12, 0x29, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f,
+	0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x42, 0x65, 0x63, 0x68, 0x33, 0x32, 0x54, 0x6f, 0x48, 0x65, 0x78, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d,
+	0x2e, 0x76, 0x6d, 0x2e, 0x76, 0x31, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x42, 0x65, 0x63, 0x68,
+	0x33, 0x32, 0x54, 0x6f, 0x48, 0x65, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x38, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x32, 0x12, 0x30, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73,
+	0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x65, 0x63, 0x68, 0x33,
+	0x32, 0x5f, 0x74, 0x6f, 0x5f, 0x68, 0x65, 0x78, 0x2f, 0x7b, 0x62, 0x65, 0x63, 0x68, 0x33, 0x32,
+	0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x7d, 0x42, 0xad, 0x01, 0x0a, 0x14, 0x63, 0x6f,
+	0x6d, 0x2e, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x65, 0x76, 0x6d, 0x2e, 0x76, 0x6d, 0x2e,
+	0x76, 0x31, 0x42, 0x0a, 0x51, 0x75, 0x65, 0x72, 0x79, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01,
+	0x5a, 0x26, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x73, 0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2f, 0x65, 0x76, 0x6d, 0x2f, 0x76, 0x6d,
+	0x2f, 0x76, 0x31, 0x3b, 0x76, 0x6d, 0x76, 0x31, 0xa2, 0x02, 0x03, 0x43, 0x45, 0x56, 0xaa, 0x02,
+	0x10, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x2e, 0x45, 0x76, 0x6d, 0x2e, 0x56, 0x6d, 0x2e, 0x56,
+	0x31, 0xca, 0x02, 0x10, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5c, 0x45, 0x76, 0x6d, 0x5c, 0x56,
+	0x6d, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x1c, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x5c, 0x45, 0x76,
+	0x6d, 0x5c, 0x56, 0x6d, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64,
+	0x61, 0x74, 0x61, 0xea, 0x02, 0x13, 0x43, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x3a, 0x3a, 0x45, 0x76,
+	0x6d, 0x3a, 0x3a, 0x56, 0x6d, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -15155,7 +17021,7 @@ func file_cosmos_evm_vm_v1_query_proto_rawDescGZIP() []byte {
 	return file_cosmos_evm_vm_v1_query_proto_rawDescData
 }
 
-var file_cosmos_evm_vm_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_cosmos_evm_vm_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_cosmos_evm_vm_v1_query_proto_goTypes = []interface{}{
 	(*QueryConfigRequest)(nil),             // 0: cosmos.evm.vm.v1.QueryConfigRequest
 	(*QueryConfigResponse)(nil),            // 1: cosmos.evm.vm.v1.QueryConfigResponse
@@ -15185,29 +17051,33 @@ var file_cosmos_evm_vm_v1_query_proto_goTypes = []interface{}{
 	(*QueryBaseFeeResponse)(nil),           // 25: cosmos.evm.vm.v1.QueryBaseFeeResponse
 	(*QueryGlobalMinGasPriceRequest)(nil),  // 26: cosmos.evm.vm.v1.QueryGlobalMinGasPriceRequest
 	(*QueryGlobalMinGasPriceResponse)(nil), // 27: cosmos.evm.vm.v1.QueryGlobalMinGasPriceResponse
-	(*ChainConfig)(nil),                    // 28: cosmos.evm.vm.v1.ChainConfig
-	(*v1beta1.PageRequest)(nil),            // 29: cosmos.base.query.v1beta1.PageRequest
-	(*Log)(nil),                            // 30: cosmos.evm.vm.v1.Log
-	(*v1beta1.PageResponse)(nil),           // 31: cosmos.base.query.v1beta1.PageResponse
-	(*Params)(nil),                         // 32: cosmos.evm.vm.v1.Params
-	(*MsgEthereumTx)(nil),                  // 33: cosmos.evm.vm.v1.MsgEthereumTx
-	(*TraceConfig)(nil),                    // 34: cosmos.evm.vm.v1.TraceConfig
-	(*timestamppb.Timestamp)(nil),          // 35: google.protobuf.Timestamp
-	(*MsgEthereumTxResponse)(nil),          // 36: cosmos.evm.vm.v1.MsgEthereumTxResponse
+	(*QueryHexToBech32Request)(nil),        // 28: cosmos.evm.vm.v1.QueryHexToBech32Request
+	(*QueryHexToBech32Response)(nil),       // 29: cosmos.evm.vm.v1.QueryHexToBech32Response
+	(*QueryBech32ToHexRequest)(nil),        // 30: cosmos.evm.vm.v1.QueryBech32ToHexRequest
+	(*QueryBech32ToHexResponse)(nil),       // 31: cosmos.evm.vm.v1.QueryBech32ToHexResponse
+	(*ChainConfig)(nil),                    // 32: cosmos.evm.vm.v1.ChainConfig
+	(*v1beta1.PageRequest)(nil),            // 33: cosmos.base.query.v1beta1.PageRequest
+	(*Log)(nil),                            // 34: cosmos.evm.vm.v1.Log
+	(*v1beta1.PageResponse)(nil),           // 35: cosmos.base.query.v1beta1.PageResponse
+	(*Params)(nil),                         // 36: cosmos.evm.vm.v1.Params
+	(*MsgEthereumTx)(nil),                  // 37: cosmos.evm.vm.v1.MsgEthereumTx
+	(*TraceConfig)(nil),                    // 38: cosmos.evm.vm.v1.TraceConfig
+	(*timestamppb.Timestamp)(nil),          // 39: google.protobuf.Timestamp
+	(*MsgEthereumTxResponse)(nil),          // 40: cosmos.evm.vm.v1.MsgEthereumTxResponse
 }
 var file_cosmos_evm_vm_v1_query_proto_depIdxs = []int32{
-	28, // 0: cosmos.evm.vm.v1.QueryConfigResponse.config:type_name -> cosmos.evm.vm.v1.ChainConfig
-	29, // 1: cosmos.evm.vm.v1.QueryTxLogsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	30, // 2: cosmos.evm.vm.v1.QueryTxLogsResponse.logs:type_name -> cosmos.evm.vm.v1.Log
-	31, // 3: cosmos.evm.vm.v1.QueryTxLogsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	32, // 4: cosmos.evm.vm.v1.QueryParamsResponse.params:type_name -> cosmos.evm.vm.v1.Params
-	33, // 5: cosmos.evm.vm.v1.QueryTraceTxRequest.msg:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
-	34, // 6: cosmos.evm.vm.v1.QueryTraceTxRequest.trace_config:type_name -> cosmos.evm.vm.v1.TraceConfig
-	33, // 7: cosmos.evm.vm.v1.QueryTraceTxRequest.predecessors:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
-	35, // 8: cosmos.evm.vm.v1.QueryTraceTxRequest.block_time:type_name -> google.protobuf.Timestamp
-	33, // 9: cosmos.evm.vm.v1.QueryTraceBlockRequest.txs:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
-	34, // 10: cosmos.evm.vm.v1.QueryTraceBlockRequest.trace_config:type_name -> cosmos.evm.vm.v1.TraceConfig
-	35, // 11: cosmos.evm.vm.v1.QueryTraceBlockRequest.block_time:type_name -> google.protobuf.Timestamp
+	32, // 0: cosmos.evm.vm.v1.QueryConfigResponse.config:type_name -> cosmos.evm.vm.v1.ChainConfig
+	33, // 1: cosmos.evm.vm.v1.QueryTxLogsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	34, // 2: cosmos.evm.vm.v1.QueryTxLogsResponse.logs:type_name -> cosmos.evm.vm.v1.Log
+	35, // 3: cosmos.evm.vm.v1.QueryTxLogsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	36, // 4: cosmos.evm.vm.v1.QueryParamsResponse.params:type_name -> cosmos.evm.vm.v1.Params
+	37, // 5: cosmos.evm.vm.v1.QueryTraceTxRequest.msg:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
+	38, // 6: cosmos.evm.vm.v1.QueryTraceTxRequest.trace_config:type_name -> cosmos.evm.vm.v1.TraceConfig
+	37, // 7: cosmos.evm.vm.v1.QueryTraceTxRequest.predecessors:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
+	39, // 8: cosmos.evm.vm.v1.QueryTraceTxRequest.block_time:type_name -> google.protobuf.Timestamp
+	37, // 9: cosmos.evm.vm.v1.QueryTraceBlockRequest.txs:type_name -> cosmos.evm.vm.v1.MsgEthereumTx
+	38, // 10: cosmos.evm.vm.v1.QueryTraceBlockRequest.trace_config:type_name -> cosmos.evm.vm.v1.TraceConfig
+	39, // 11: cosmos.evm.vm.v1.QueryTraceBlockRequest.block_time:type_name -> google.protobuf.Timestamp
 	2,  // 12: cosmos.evm.vm.v1.Query.Account:input_type -> cosmos.evm.vm.v1.QueryAccountRequest
 	4,  // 13: cosmos.evm.vm.v1.Query.CosmosAccount:input_type -> cosmos.evm.vm.v1.QueryCosmosAccountRequest
 	6,  // 14: cosmos.evm.vm.v1.Query.ValidatorAccount:input_type -> cosmos.evm.vm.v1.QueryValidatorAccountRequest
@@ -15222,22 +17092,26 @@ var file_cosmos_evm_vm_v1_query_proto_depIdxs = []int32{
 	24, // 23: cosmos.evm.vm.v1.Query.BaseFee:input_type -> cosmos.evm.vm.v1.QueryBaseFeeRequest
 	0,  // 24: cosmos.evm.vm.v1.Query.Config:input_type -> cosmos.evm.vm.v1.QueryConfigRequest
 	26, // 25: cosmos.evm.vm.v1.Query.GlobalMinGasPrice:input_type -> cosmos.evm.vm.v1.QueryGlobalMinGasPriceRequest
-	3,  // 26: cosmos.evm.vm.v1.Query.Account:output_type -> cosmos.evm.vm.v1.QueryAccountResponse
-	5,  // 27: cosmos.evm.vm.v1.Query.CosmosAccount:output_type -> cosmos.evm.vm.v1.QueryCosmosAccountResponse
-	7,  // 28: cosmos.evm.vm.v1.Query.ValidatorAccount:output_type -> cosmos.evm.vm.v1.QueryValidatorAccountResponse
-	9,  // 29: cosmos.evm.vm.v1.Query.Balance:output_type -> cosmos.evm.vm.v1.QueryBalanceResponse
-	11, // 30: cosmos.evm.vm.v1.Query.Storage:output_type -> cosmos.evm.vm.v1.QueryStorageResponse
-	13, // 31: cosmos.evm.vm.v1.Query.Code:output_type -> cosmos.evm.vm.v1.QueryCodeResponse
-	17, // 32: cosmos.evm.vm.v1.Query.Params:output_type -> cosmos.evm.vm.v1.QueryParamsResponse
-	36, // 33: cosmos.evm.vm.v1.Query.EthCall:output_type -> cosmos.evm.vm.v1.MsgEthereumTxResponse
-	19, // 34: cosmos.evm.vm.v1.Query.EstimateGas:output_type -> cosmos.evm.vm.v1.EstimateGasResponse
-	21, // 35: cosmos.evm.vm.v1.Query.TraceTx:output_type -> cosmos.evm.vm.v1.QueryTraceTxResponse
-	23, // 36: cosmos.evm.vm.v1.Query.TraceBlock:output_type -> cosmos.evm.vm.v1.QueryTraceBlockResponse
-	25, // 37: cosmos.evm.vm.v1.Query.BaseFee:output_type -> cosmos.evm.vm.v1.QueryBaseFeeResponse
-	1,  // 38: cosmos.evm.vm.v1.Query.Config:output_type -> cosmos.evm.vm.v1.QueryConfigResponse
-	27, // 39: cosmos.evm.vm.v1.Query.GlobalMinGasPrice:output_type -> cosmos.evm.vm.v1.QueryGlobalMinGasPriceResponse
-	26, // [26:40] is the sub-list for method output_type
-	12, // [12:26] is the sub-list for method input_type
+	28, // 26: cosmos.evm.vm.v1.Query.HexToBech32:input_type -> cosmos.evm.vm.v1.QueryHexToBech32Request
+	30, // 27: cosmos.evm.vm.v1.Query.Bech32ToHex:input_type -> cosmos.evm.vm.v1.QueryBech32ToHexRequest
+	3,  // 28: cosmos.evm.vm.v1.Query.Account:output_type -> cosmos.evm.vm.v1.QueryAccountResponse
+	5,  // 29: cosmos.evm.vm.v1.Query.CosmosAccount:output_type -> cosmos.evm.vm.v1.QueryCosmosAccountResponse
+	7,  // 30: cosmos.evm.vm.v1.Query.ValidatorAccount:output_type -> cosmos.evm.vm.v1.QueryValidatorAccountResponse
+	9,  // 31: cosmos.evm.vm.v1.Query.Balance:output_type -> cosmos.evm.vm.v1.QueryBalanceResponse
+	11, // 32: cosmos.evm.vm.v1.Query.Storage:output_type -> cosmos.evm.vm.v1.QueryStorageResponse
+	13, // 33: cosmos.evm.vm.v1.Query.Code:output_type -> cosmos.evm.vm.v1.QueryCodeResponse
+	17, // 34: cosmos.evm.vm.v1.Query.Params:output_type -> cosmos.evm.vm.v1.QueryParamsResponse
+	40, // 35: cosmos.evm.vm.v1.Query.EthCall:output_type -> cosmos.evm.vm.v1.MsgEthereumTxResponse
+	19, // 36: cosmos.evm.vm.v1.Query.EstimateGas:output_type -> cosmos.evm.vm.v1.EstimateGasResponse
+	21, // 37: cosmos.evm.vm.v1.Query.TraceTx:output_type -> cosmos.evm.vm.v1.QueryTraceTxResponse
+	23, // 38: cosmos.evm.vm.v1.Query.TraceBlock:output_type -> cosmos.evm.vm.v1.QueryTraceBlockResponse
+	25, // 39: cosmos.evm.vm.v1.Query.BaseFee:output_type -> cosmos.evm.vm.v1.QueryBaseFeeResponse
+	1,  // 40: cosmos.evm.vm.v1.Query.Config:output_type -> cosmos.evm.vm.v1.QueryConfigResponse
+	27, // 41: cosmos.evm.vm.v1.Query.GlobalMinGasPrice:output_type -> cosmos.evm.vm.v1.QueryGlobalMinGasPriceResponse
+	29, // 42: cosmos.evm.vm.v1.Query.HexToBech32:output_type -> cosmos.evm.vm.v1.QueryHexToBech32Response
+	31, // 43: cosmos.evm.vm.v1.Query.Bech32ToHex:output_type -> cosmos.evm.vm.v1.QueryBech32ToHexResponse
+	28, // [28:44] is the sub-list for method output_type
+	12, // [12:28] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
 	12, // [12:12] is the sub-list for extension extendee
 	0,  // [0:12] is the sub-list for field type_name
@@ -15587,6 +17461,54 @@ func file_cosmos_evm_vm_v1_query_proto_init() {
 				return nil
 			}
 		}
+		file_cosmos_evm_vm_v1_query_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryHexToBech32Request); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cosmos_evm_vm_v1_query_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryHexToBech32Response); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cosmos_evm_vm_v1_query_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryBech32ToHexRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cosmos_evm_vm_v1_query_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryBech32ToHexResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -15594,7 +17516,7 @@ func file_cosmos_evm_vm_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_cosmos_evm_vm_v1_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

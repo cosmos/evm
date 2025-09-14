@@ -95,6 +95,16 @@ service Query {
       returns (QueryGlobalMinGasPriceResponse) {
     option (google.api.http).get = "/cosmos/evm/vm/v1/min_gas_price";
   }
+
+  // HexToBech32 converts an Ethereum hex address to bech32 format
+  rpc HexToBech32(QueryHexToBech32Request) returns (QueryHexToBech32Response) {
+    option (google.api.http).get = "/cosmos/evm/vm/v1/hex_to_bech32/{hex_address}";
+  }
+
+  // Bech32ToHex converts a bech32 address to Ethereum hex format
+  rpc Bech32ToHex(QueryBech32ToHexRequest) returns (QueryBech32ToHexResponse) {
+    option (google.api.http).get = "/cosmos/evm/vm/v1/bech32_to_hex/{bech32_address}";
+  }
 }
 
 // QueryConfigRequest defines the request type for querying the config
@@ -362,4 +372,34 @@ message QueryGlobalMinGasPriceResponse {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
+}
+
+// QueryHexToBech32Request is the request type for the Query/HexToBech32 RPC method.
+message QueryHexToBech32Request {
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // hex_address is the Ethereum hex address to convert to bech32 format.
+  string hex_address = 1;
+}
+
+// QueryHexToBech32Response is the response type for the Query/HexToBech32 RPC method.
+message QueryHexToBech32Response {
+  // bech32_address is the converted bech32 address.
+  string bech32_address = 1;
+}
+
+// QueryBech32ToHexRequest is the request type for the Query/Bech32ToHex RPC method.
+message QueryBech32ToHexRequest {
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // bech32_address is the bech32 address to convert to hex format.
+  string bech32_address = 1;
+}
+
+// QueryBech32ToHexResponse is the response type for the Query/Bech32ToHex RPC method.
+message QueryBech32ToHexResponse {
+  // hex_address is the converted Ethereum hex address.
+  string hex_address = 1;
 }

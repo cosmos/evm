@@ -22,6 +22,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -777,6 +778,50 @@ func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.Q
 	config.Decimals = uint64(types.GetEVMCoinDecimals())
 
 	return &types.QueryConfigResponse{Config: config}, nil
+}
+
+// HexToBech32 implements the Query/HexToBech32 gRPC method
+func (k Keeper) HexToBech32(_ context.Context, req *types.QueryHexToBech32Request) (*types.QueryHexToBech32Response, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.HexAddress == "" {
+		return nil, status.Error(codes.InvalidArgument, "hex address cannot be empty")
+	}
+
+	// Validate the hex address format
+	if !common.IsHexAddress(req.HexAddress) {
+		return nil, status.Error(codes.InvalidArgument, "invalid hex address format")
+	}
+
+	// Convert hex address to bech32 using the utility function
+	bech32Address := utils.Bech32StringFromHexAddress(req.HexAddress)
+
+	return &types.QueryHexToBech32Response{
+		Bech32Address: bech32Address,
+	}, nil
+}
+
+// Bech32ToHex implements the Query/Bech32ToHex gRPC method
+func (k Keeper) Bech32ToHex(_ context.Context, req *types.QueryBech32ToHexRequest) (*types.QueryBech32ToHexResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.Bech32Address == "" {
+		return nil, status.Error(codes.InvalidArgument, "bech32 address cannot be empty")
+	}
+
+	// Convert bech32 address to hex using the utility function
+	hexAddress, err := utils.HexAddressFromBech32String(req.Bech32Address)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid bech32 address: %v", err))
+	}
+
+	return &types.QueryBech32ToHexResponse{
+		HexAddress: hexAddress.Hex(),
+	}, nil
 }
 
 // buildTraceCtx builds a context for simulating or tracing transactions by:
