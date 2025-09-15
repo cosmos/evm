@@ -37,7 +37,7 @@ func TestTxRebroadcasting(t *testing.T) {
 
 					s.SetExpPendingTxs(tx1, tx2, tx3)
 
-					// At JustAfterEach hook, we will check expected queued txs are not broadcasted.
+					// At AfterEachAction hook, we will check expected queued txs are not broadcasted.
 					s.SetExpQueuedTxs(tx5, tx6)
 				},
 				func(s TestSuite) {
@@ -50,7 +50,7 @@ func TestTxRebroadcasting(t *testing.T) {
 
 					s.SetExpPendingTxs(tx4)
 
-					// At JustAfterEach hook, we will check expected pending txs are broadcasted.
+					// At AfterEachAction hook, we will check expected pending txs are broadcasted.
 					s.PromoteExpTxs(2)
 				},
 			},
@@ -77,12 +77,12 @@ func TestTxRebroadcasting(t *testing.T) {
 					return
 				}
 
-				s.BeforeEach(t)
+				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					s.AfterEachAction(t)
 				}
-				s.AfterEach(t)
+				s.AfterEachCase(t)
 			})
 		}
 	}
@@ -138,12 +138,12 @@ func TestMinimumGasPricesZero(t *testing.T) {
 					return
 				}
 
-				s.BeforeEach(t)
+				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					s.AfterEachAction(t)
 				}
-				s.AfterEach(t)
+				s.AfterEachCase(t)
 			})
 		}
 	}

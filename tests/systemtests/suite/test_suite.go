@@ -58,7 +58,7 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
-func (s *SystemTestSuite) BeforeEach(t *testing.T) {
+func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {
 	// Reset expected pending/queued transactions
 	s.SetExpPendingTxs()
 	s.SetExpQueuedTxs()
@@ -71,7 +71,7 @@ func (s *SystemTestSuite) BeforeEach(t *testing.T) {
 }
 
 // JustAfterEach checks the expected mempool state right after each test case
-func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
+func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
 	// Check pending txs exist in mempool or already committed
 	for _, txInfo := range s.GetExpPendingTxs() {
 		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
@@ -122,7 +122,7 @@ func (s *SystemTestSuite) JustAfterEach(t *testing.T) {
 }
 
 // AfterEach waits for all expected pending transactions to be committed
-func (s *SystemTestSuite) AfterEach(t *testing.T) {
+func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 	// Check all expected pending txs are committed
 	for _, txInfo := range s.GetExpPendingTxs() {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)

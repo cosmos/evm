@@ -10,9 +10,9 @@ import (
 
 type TestSuite interface {
 	// Test Lifecycle
-	BeforeEach(t *testing.T)
-	AfterEach(t *testing.T)
-	JustAfterEach(t *testing.T)
+	BeforeEachCase(t *testing.T)
+	AfterEachCase(t *testing.T)
+	AfterEachAction(t *testing.T)
 
 	// Tx
 	SendTx(t *testing.T, nodeID string, accID string, nonceIdx uint64, gasPrice *big.Int, gasTipCap *big.Int) (*suite.TxInfo, error)

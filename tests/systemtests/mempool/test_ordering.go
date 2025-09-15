@@ -70,12 +70,12 @@ func TestTxsOrdering(t *testing.T) {
 					return
 				}
 
-				s.BeforeEach(t)
+				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.JustAfterEach(t)
+					s.AfterEachAction(t)
 				}
-				s.AfterEach(t)
+				s.AfterEachCase(t)
 			})
 		}
 	}
