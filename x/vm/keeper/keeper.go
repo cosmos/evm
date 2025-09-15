@@ -81,6 +81,10 @@ type Keeper struct {
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// evmCfg contains the specific EVM configuration details, which must be passed down
+	// to any keepers that require evm config, chain id, and coin info
+	evmCfg *types.EvmConfig
 }
 
 // NewKeeper generates new evm module keeper
@@ -96,6 +100,7 @@ func NewKeeper(
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
+	evmCfg *types.EvmConfig,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -107,8 +112,8 @@ func NewKeeper(
 		panic(err)
 	}
 
-	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
-	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
+	bankWrapper := wrappers.NewBankWrapper(bankKeeper, evmCfg)
+	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk, evmCfg)
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
@@ -124,6 +129,7 @@ func NewKeeper(
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        keys,
+		evmCfg:           evmCfg,
 	}
 }
 
@@ -311,7 +317,7 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, k.evmCfg.CoinInfo.GetDenom())
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {
@@ -326,7 +332,7 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, k.evmCfg.CoinInfo.GetDenom())
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {
@@ -341,7 +347,7 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.evmCfg.ChainConfig.EthereumConfig()
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
@@ -410,7 +416,7 @@ func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.
 func (k Keeper) SetHeaderHash(ctx sdk.Context) {
-	window := uint64(types.DefaultHistoryServeWindow)
+	window := uint64(types.DefaultHistoryServeWindow())
 	params := k.GetParams(ctx)
 	if params.HistoryServeWindow > 0 {
 		window = params.HistoryServeWindow
@@ -428,7 +434,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 
 // GetHeaderHash sets block hash into EIP-2935 compatible storage contract.
 func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
-	window := uint64(types.DefaultHistoryServeWindow)
+	window := uint64(types.DefaultHistoryServeWindow())
 	params := k.GetParams(ctx)
 	if params.HistoryServeWindow > 0 {
 		window = params.HistoryServeWindow
@@ -438,4 +444,16 @@ func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 	var key common.Hash
 	binary.BigEndian.PutUint64(key[24:], ringIndex)
 	return k.GetState(ctx, ethparams.HistoryStorageAddress, key)
+}
+
+// GetEvmChainCfg returns the evm chain config
+// This is primarily to be used for testing
+func (k *Keeper) GetEvmConfig() *types.EvmConfig {
+	return k.evmCfg
+}
+
+// SetEvmChainCfg sets the evm chain config so that methods can access chain and coin info
+// This is primarily to be used for testing
+func (k *Keeper) SetEvmConfig(evmCfg *types.EvmConfig) {
+	k.evmCfg = evmCfg
 }

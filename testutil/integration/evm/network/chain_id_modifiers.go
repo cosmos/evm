@@ -5,9 +5,8 @@
 package network
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -25,10 +24,7 @@ func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState) b
 // for both extended and native EVM denominations depending on the chain.
 func generateBankGenesisMetadata() []banktypes.Metadata {
 	// Basic denom settings
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom() // e.g., "atom"
-	evmDenom := evmtypes.GetEVMCoinDenom()            // e.g., "uatom"
-	extDenom := types.ExtendedCoinDenom()             // always 18-decimals base denom
-	evmDecimals := evmtypes.GetEVMCoinDecimals()      // native decimal precision, e.g., 6, 12, ..., or 18
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
 
 	// Standard metadata fields
 	name := "Cosmos EVM"
@@ -36,62 +32,57 @@ func generateBankGenesisMetadata() []banktypes.Metadata {
 
 	var metas []banktypes.Metadata
 
-	if evmDenom != extDenom {
+	if coinInfo.Decimals != coinInfo.ExtendedDecimals {
 		// This means we are initializing a chain with non-18 decimals
 		//
 		// Note: extDenom is always 18-decimals and handled by the precisebank module's states,
 		// So we don't need to add it to the bank module's metadata.
 		metas = append(metas, banktypes.Metadata{
 			Description: "Native EVM denom metadata",
-			Base:        evmDenom,
+			Base:        coinInfo.GetDenom(),
 			DenomUnits: []*banktypes.DenomUnit{
-				{Denom: evmDenom, Exponent: 0},
-				{Denom: displayDenom, Exponent: uint32(evmDecimals)},
+				{Denom: coinInfo.GetDenom(), Exponent: 0},
+				{Denom: coinInfo.DisplayDenom, Exponent: uint32(coinInfo.Decimals)},
 			},
 			Name:    name,
 			Symbol:  symbol,
-			Display: displayDenom,
+			Display: coinInfo.DisplayDenom,
 		})
 	} else {
 		// EVM native chain: single metadata with 18-decimals
 		metas = append(metas, banktypes.Metadata{
 			Description: "Native 18-decimal denom metadata for Cosmos EVM chain",
-			Base:        evmDenom,
+			Base:        coinInfo.GetDenom(),
 			DenomUnits: []*banktypes.DenomUnit{
-				{Denom: evmDenom, Exponent: 0},
-				{Denom: displayDenom, Exponent: uint32(evmtypes.EighteenDecimals)},
+				{Denom: coinInfo.GetDenom(), Exponent: 0},
+				{Denom: coinInfo.DisplayDenom, Exponent: uint32(evmtypes.EighteenDecimals)},
 			},
 			Name:    name,
 			Symbol:  symbol,
-			Display: displayDenom,
+			Display: coinInfo.DisplayDenom,
 		})
 	}
 
 	return metas
 }
 
-// updateErc20GenesisStateForChainID modify the default genesis state for the
-// erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
-	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
+// updateErc20GenesisStateForCoinInfo modify the default genesis state for the
+// erc20 module on the testing suite depending on the coin info
+func updateErc20GenesisStateForCoinInfo(coinInfo evmtypes.EvmCoinInfo, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
+	erc20GenesisState.TokenPairs = updateErc20TokenPairs(coinInfo, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
 }
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct
-// WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
-	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
-
-	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
-
+// WEVMOS depending on the coin info
+func updateErc20TokenPairs(coinInfo evmtypes.EvmCoinInfo, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	updatedTokenPairs := make([]erc20types.TokenPair, len(tokenPairs))
 	for i, tokenPair := range tokenPairs {
-		if tokenPair.Erc20Address == mainnetAddress {
+		if tokenPair.Erc20Address == testconfig.DefaultWevmosContractMainnet {
 			updatedTokenPairs[i] = erc20types.TokenPair{
-				Erc20Address:  testnetAddress,
-				Denom:         coinInfo.Denom,
+				Erc20Address:  testconfig.DefaultWevmosContractTestnet,
+				Denom:         coinInfo.GetDenom(),
 				Enabled:       tokenPair.Enabled,
 				ContractOwner: tokenPair.ContractOwner,
 			}

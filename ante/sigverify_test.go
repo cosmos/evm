@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/evm/ante"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/server/config"
+	testconfig "github.com/cosmos/evm/testutil/config"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -27,7 +27,7 @@ func TestConsumeSignatureVerificationGas(t *testing.T) {
 	params := authtypes.DefaultParams()
 	msg := []byte{1, 2, 3, 4}
 
-	encodingConfig := encoding.MakeConfig(config.DefaultEVMChainID)
+	encodingConfig := encoding.MakeConfig(testconfig.DefaultChainConfig.ChainInfo.EVMChainID)
 	cdc := encodingConfig.Amino
 
 	p := authtypes.DefaultParams()

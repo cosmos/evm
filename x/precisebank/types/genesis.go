@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	sdkmath "cosmossdk.io/math"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // NewGenesisState creates a new genesis state.
@@ -24,9 +25,9 @@ func DefaultGenesisState() *GenesisState {
 
 // Validate performs basic validation of genesis data returning an  error for
 // any failed validation criteria.
-func (gs *GenesisState) Validate() error {
+func (gs *GenesisState) Validate(extendedDecimals evmtypes.Decimals) error {
 	// Validate all FractionalBalances
-	if err := gs.Balances.Validate(); err != nil {
+	if err := gs.Balances.Validate(extendedDecimals); err != nil {
 		return fmt.Errorf("invalid balances: %w", err)
 	}
 
@@ -39,8 +40,8 @@ func (gs *GenesisState) Validate() error {
 		return fmt.Errorf("negative remainder amount %s", gs.Remainder)
 	}
 
-	if gs.Remainder.GTE(ConversionFactor()) {
-		return fmt.Errorf("remainder %v exceeds max of %v", gs.Remainder, ConversionFactor().SubRaw(1))
+	if gs.Remainder.GTE(ConversionFactor(extendedDecimals)) {
+		return fmt.Errorf("remainder %v exceeds max of %v", gs.Remainder, ConversionFactor(extendedDecimals).SubRaw(1))
 	}
 
 	// Determine if sum(fractionalBalances) + remainder = whole integer value
@@ -48,14 +49,14 @@ func (gs *GenesisState) Validate() error {
 	sum := gs.Balances.SumAmount()
 	sumWithRemainder := sum.Add(gs.Remainder)
 
-	offBy := sumWithRemainder.Mod(ConversionFactor())
+	offBy := sumWithRemainder.Mod(ConversionFactor(extendedDecimals))
 
 	if !offBy.IsZero() {
 		return fmt.Errorf(
 			"sum of fractional balances %v + remainder %v is not a multiple of %v",
 			sum,
 			gs.Remainder,
-			ConversionFactor(),
+			ConversionFactor(extendedDecimals),
 		)
 	}
 

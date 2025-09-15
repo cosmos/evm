@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -85,14 +84,23 @@ type EVMMempoolConfig struct {
 // It initializes both EVM and Cosmos transaction pools, sets up blockchain interfaces,
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
-func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
+func NewExperimentalEVMMempool(
+	getCtxCallback func(height int64, prove bool) (sdk.Context, error),
+	logger log.Logger,
+	vmKeeper VMKeeperI,
+	feeMarketKeeper FeeMarketKeeperI,
+	txConfig client.TxConfig,
+	clientCtx client.Context,
+	config *EVMMempoolConfig,
+	evmCoinInfo *evmtypes.EvmCoinInfo,
+) *ExperimentalEVMMempool {
 	var (
 		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
 	)
 
-	bondDenom := evmtypes.GetEVMCoinDenom()
-	evmDenom := types.ExtendedCoinDenom()
+	bondDenom := evmCoinInfo.GetDenom()
+	evmDenom := evmCoinInfo.GetExtendedDenom()
 
 	// add the mempool name to the logger
 	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")

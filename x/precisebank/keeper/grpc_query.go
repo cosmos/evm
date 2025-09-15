@@ -27,7 +27,8 @@ func (s queryServer) Remainder(
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	remainder := s.keeper.GetRemainderAmount(ctx)
-	remainderCoin := sdk.NewCoin(types.ExtendedCoinDenom(), remainder)
+	coinInfo := s.keeper.GetCoinInfo()
+	remainderCoin := sdk.NewCoin(coinInfo.GetExtendedDenom(), remainder)
 
 	return &types.QueryRemainderResponse{
 		Remainder: remainderCoin,
@@ -47,7 +48,8 @@ func (s queryServer) FractionalBalance(
 	}
 
 	amt := s.keeper.GetFractionalBalance(ctx, address)
-	fractionalBalance := sdk.NewCoin(types.ExtendedCoinDenom(), amt)
+	coinInfo := s.keeper.GetCoinInfo()
+	fractionalBalance := sdk.NewCoin(coinInfo.GetExtendedDenom(), amt)
 
 	return &types.QueryFractionalBalanceResponse{
 		FractionalBalance: fractionalBalance,

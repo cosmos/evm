@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/wallets/ledger"
 	"github.com/cosmos/evm/wallets/ledger/mocks"
@@ -51,7 +51,7 @@ func (suite *LedgerTestSuite) SetupTest() {
 	// We use the testutil network to load the encoding config
 	network.New(suite.create, suite.options...)
 
-	suite.hrp = "cosmos"
+	suite.hrp = sdk.GetConfig().GetBech32AccountAddrPrefix()
 
 	suite.txAmino = suite.getMockTxAmino()
 	suite.txProtobuf = suite.getMockTxProtobuf()
@@ -93,7 +93,7 @@ func (suite *LedgerTestSuite) getMockTxAmino() []byte {
 				}
 			}],
 			"sequence":"6"
-		}`, constants.ExampleChainID.ChainID),
+		}`, testconfig.DefaultChainID),
 		"",
 	)
 
@@ -157,7 +157,7 @@ func (suite *LedgerTestSuite) getMockTxProtobuf() []byte {
 	signBytes, err := tx.DirectSignBytes(
 		bodyBytes,
 		authInfoBytes,
-		constants.ExampleChainID.ChainID,
+		testconfig.DefaultChainID,
 		0,
 	)
 	suite.Require().NoError(err)

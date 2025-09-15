@@ -3,6 +3,7 @@ package precisebank
 import (
 	"context"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -18,14 +19,17 @@ func (s *KeeperIntegrationTestSuite) TestQueryRemainder() {
 	)
 	s.Require().NoError(err)
 
-	expRemainder := sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.ZeroInt())
+	extendedCoinDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
+	expRemainder := sdk.NewCoin(extendedCoinDenom, sdkmath.ZeroInt())
 	s.Require().Equal(expRemainder, res.Remainder)
 
 	// Mint fractional coins to create non-zero remainder
 
 	pbk := s.network.App.GetPreciseBankKeeper()
 
-	coin := sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.OneInt())
+	coin := sdk.NewCoin(extendedCoinDenom, sdkmath.OneInt())
 	err = pbk.MintCoins(
 		s.network.GetContext(),
 		minttypes.ModuleName,
@@ -39,11 +43,14 @@ func (s *KeeperIntegrationTestSuite) TestQueryRemainder() {
 	)
 	s.Require().NoError(err)
 
-	expRemainder.Amount = types.ConversionFactor().Sub(coin.Amount)
+	expRemainder.Amount = types.ConversionFactor(extendedDecimals).Sub(coin.Amount)
 	s.Require().Equal(expRemainder, res.Remainder)
 }
 
 func (s *KeeperIntegrationTestSuite) TestQueryFractionalBalance() {
+	extendedCoinDenom := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.GetExtendedDenom()
+	extendedDecimals := testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo.ExtendedDecimals
+
 	testCases := []struct {
 		name        string
 		giveBalance sdkmath.Int
@@ -58,15 +65,15 @@ func (s *KeeperIntegrationTestSuite) TestQueryFractionalBalance() {
 		},
 		{
 			"max amount",
-			types.ConversionFactor().SubRaw(1),
+			types.ConversionFactor(extendedDecimals).SubRaw(1),
 		},
 		{
 			"multiple integer amounts, 0 fractional",
-			types.ConversionFactor().MulRaw(5),
+			types.ConversionFactor(extendedDecimals).MulRaw(5),
 		},
 		{
 			"multiple integer amounts, non-zero fractional",
-			types.ConversionFactor().MulRaw(5).Add(types.ConversionFactor().QuoRaw(2)),
+			types.ConversionFactor(extendedDecimals).MulRaw(5).Add(types.ConversionFactor(extendedDecimals).QuoRaw(2)),
 		},
 	}
 
@@ -76,7 +83,7 @@ func (s *KeeperIntegrationTestSuite) TestQueryFractionalBalance() {
 
 			addr := sdk.AccAddress([]byte("test"))
 
-			coin := sdk.NewCoin(types.ExtendedCoinDenom(), tc.giveBalance)
+			coin := sdk.NewCoin(extendedCoinDenom, tc.giveBalance)
 			s.MintToAccount(addr, sdk.NewCoins(coin))
 
 			res, err := s.network.GetPreciseBankClient().FractionalBalance(
@@ -88,8 +95,8 @@ func (s *KeeperIntegrationTestSuite) TestQueryFractionalBalance() {
 			s.Require().NoError(err)
 
 			// Only fractional amount, even if minted more than conversion factor
-			expAmount := tc.giveBalance.Mod(types.ConversionFactor())
-			expFractionalBalance := sdk.NewCoin(types.ExtendedCoinDenom(), expAmount)
+			expAmount := tc.giveBalance.Mod(types.ConversionFactor(extendedDecimals))
+			expFractionalBalance := sdk.NewCoin(extendedCoinDenom, expAmount)
 			s.Require().Equal(expFractionalBalance, res.FractionalBalance)
 		})
 	}

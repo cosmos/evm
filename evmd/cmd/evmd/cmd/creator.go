@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
@@ -88,14 +88,20 @@ func (a appCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
+	// Load chain configuration from app options
+	chainConfig, err := evmdconfig.LoadChainConfig(appOpts)
+	if err != nil {
+		panic(fmt.Errorf("failed to load chain configuration: %w", err))
+	}
+
 	return evmd.NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		true,
-		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		appOpts,
+		chainConfig.ChainInfo.EVMChainID,
+		evmdconfig.EvmAppOptionsFromConfig(chainConfig),
 		baseappOptions...,
 	)
 }
@@ -131,14 +137,20 @@ func (a appCreator) appExport(
 		loadLatest = true
 	}
 
+	// Load chain configuration from app options
+	chainConfig, err := evmdconfig.LoadChainConfig(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, fmt.Errorf("failed to load chain configuration: %w", err)
+	}
+
 	evmApp = evmd.NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		loadLatest,
 		appOpts,
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		chainConfig.ChainInfo.EVMChainID,
+		evmdconfig.EvmAppOptionsFromConfig(chainConfig),
 	)
 
 	if height != -1 {

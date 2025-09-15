@@ -1,8 +1,6 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -19,16 +17,17 @@ type EVMOptionsFn func(uint64) error
 
 var sealed = false
 
+// EvmAppOptionsWithConfig sets up EVM configuration with the provided coin info and activators.
 func EvmAppOptionsWithConfig(
 	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 ) error {
 	if sealed {
 		return nil
 	}
 
-	if err := EvmAppOptionsWithConfigWithReset(chainID, chainsCoinInfo, cosmosEVMActivators, false); err != nil {
+	if err := EvmAppOptionsWithConfigWithReset(chainID, coinInfo, activators, false); err != nil {
 		return err
 	}
 
@@ -36,32 +35,28 @@ func EvmAppOptionsWithConfig(
 	return nil
 }
 
+// EvmAppOptionsWithConfigWithReset sets up EVM configuration with an optional reset flag
+// to allow reconfiguration during testing.
 func EvmAppOptionsWithConfigWithReset(
 	chainID uint64,
-	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
-	cosmosEVMActivators map[int]func(*vm.JumpTable),
+	coinInfo evmtypes.EvmCoinInfo,
+	activators map[int]func(*vm.JumpTable),
 	withReset bool,
 ) error {
-	coinInfo, found := chainsCoinInfo[chainID]
-	if !found {
-		return fmt.Errorf("unknown chain id: %d", chainID)
-	}
-
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
 		return err
 	}
 
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
-	configurator := evmtypes.NewEVMConfigurator()
+	configurator := evmtypes.NewEvmConfig()
 	if withReset {
 		// reset configuration to set the new one
 		configurator.ResetTestConfig()
 	}
 	err := configurator.
-		WithExtendedEips(cosmosEVMActivators).
+		WithExtendedEips(activators).
 		WithChainConfig(ethCfg).
-		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {

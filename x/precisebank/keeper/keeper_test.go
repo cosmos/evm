@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	evmosencoding "github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
@@ -40,14 +39,13 @@ func newMockedTestData(t *testing.T) testData {
 	bk := mocks.NewBankKeeper(t)
 	ak := mocks.NewAccountKeeper(t)
 
-	chainID := testconstants.SixDecimalsChainID.EVMChainID
+	// Use consistent chain configuration - SixDecimalsChainConfig for precisebank tests
+	chainConfig := testconfig.SixDecimalsChainConfig
+	chainID := chainConfig.EvmConfig.ChainConfig.ChainId
+	ci := chainConfig.EvmConfig.CoinInfo
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
-	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-	err := config.EvmAppOptions(chainID)
-	if err != nil {
-		return testData{}
-	}
+	k := keeper.NewKeeper(cdc, storeKey, bk, ak, *ci)
 
 	return testData{
 		ctx:      ctx,

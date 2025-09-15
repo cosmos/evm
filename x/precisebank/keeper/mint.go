@@ -45,10 +45,11 @@ func (k Keeper) MintCoins(goCtx context.Context, moduleName string, amt sdk.Coin
 	// Get non-ExtendedCoinDenom coins
 	passthroughCoins := amt
 
-	extendedAmount := amt.AmountOf(types.ExtendedCoinDenom())
+	coinInfo := k.GetCoinInfo()
+	extendedAmount := amt.AmountOf(coinInfo.GetExtendedDenom())
 	if extendedAmount.IsPositive() {
 		// Remove ExtendedCoinDenom from the coins as it is managed by x/precisebank
-		removeCoin := sdk.NewCoin(types.ExtendedCoinDenom(), extendedAmount)
+		removeCoin := sdk.NewCoin(coinInfo.GetExtendedDenom(), extendedAmount)
 		passthroughCoins = amt.Sub(removeCoin)
 	}
 
@@ -91,14 +92,15 @@ func (k Keeper) mintExtendedCoin(
 	amt sdkmath.Int,
 ) error {
 	moduleAddr := k.ak.GetModuleAddress(recipientModuleName)
+	coinInfo := k.GetCoinInfo()
 
 	// Don't create fractional balances for the precisebank module account itself
 	// The precisebank module account is the reserve and should not have fractional balances
 	if recipientModuleName == types.ModuleName {
 		// For the precisebank module account, just mint the integer coins directly
-		integerMintAmount := amt.Quo(types.ConversionFactor())
+		integerMintAmount := amt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals))
 		if integerMintAmount.IsPositive() {
-			integerMintCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerMintAmount)
+			integerMintCoin := sdk.NewCoin(coinInfo.GetDenom(), integerMintAmount)
 			if err := k.bk.MintCoins(ctx, recipientModuleName, sdk.NewCoins(integerMintCoin)); err != nil {
 				return err
 			}
@@ -110,8 +112,8 @@ func (k Keeper) mintExtendedCoin(
 	fractionalAmount := k.GetFractionalBalance(ctx, moduleAddr)
 
 	// Get separated mint amounts
-	integerMintAmount := amt.Quo(types.ConversionFactor())
-	fractionalMintAmount := amt.Mod(types.ConversionFactor())
+	integerMintAmount := amt.Quo(types.ConversionFactor(coinInfo.ExtendedDecimals))
+	fractionalMintAmount := amt.Mod(types.ConversionFactor(coinInfo.ExtendedDecimals))
 
 	// Get previous remainder amount, as we need to it before carry calculation
 	// for the optimization path.
@@ -133,11 +135,11 @@ func (k Keeper) mintExtendedCoin(
 	newFractionalBalance := fractionalAmount.Add(fractionalMintAmount)
 
 	// Case #3 - Integer carry, remainder is sufficient (0 or positive)
-	if newFractionalBalance.GTE(types.ConversionFactor()) && newRemainder.GTE(sdkmath.ZeroInt()) {
+	if newFractionalBalance.GTE(types.ConversionFactor(coinInfo.ExtendedDecimals)) && newRemainder.GTE(sdkmath.ZeroInt()) {
 		// Carry should send from reserve -> account, instead of minting an
 		// extra integer coin. Otherwise doing an extra mint will require a burn
 		// from reserves to maintain exact backing.
-		carryCoin := sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.OneInt())
+		carryCoin := sdk.NewCoin(coinInfo.GetDenom(), sdkmath.OneInt())
 
 		// SendCoinsFromModuleToModule allows for sending coins even if the
 		// recipient module account is blocked.
@@ -154,7 +156,7 @@ func (k Keeper) mintExtendedCoin(
 	// Case #4 - Integer carry, remainder is insufficient
 	// This is the optimization path where the integer mint amount is increased
 	// by 1, instead of doing both a reserve -> account transfer and reserve mint.
-	if newFractionalBalance.GTE(types.ConversionFactor()) && newRemainder.IsNegative() {
+	if newFractionalBalance.GTE(types.ConversionFactor(coinInfo.ExtendedDecimals)) && newRemainder.IsNegative() {
 		integerMintAmount = integerMintAmount.AddRaw(1)
 	}
 
@@ -163,16 +165,16 @@ func (k Keeper) mintExtendedCoin(
 	// fractional amounts x and y where both x and y < ConversionFactor
 	// x + y < (2 * ConversionFactor) - 2
 	// x + y < 1 integer amount + fractional amount
-	if newFractionalBalance.GTE(types.ConversionFactor()) {
+	if newFractionalBalance.GTE(types.ConversionFactor(coinInfo.ExtendedDecimals)) {
 		// Subtract 1 integer equivalent amount of fractional balance. Same
 		// behavior as using .Mod() in this case.
-		newFractionalBalance = newFractionalBalance.Sub(types.ConversionFactor())
+		newFractionalBalance = newFractionalBalance.Sub(types.ConversionFactor(coinInfo.ExtendedDecimals))
 	}
 
 	// Mint new integer amounts in x/bank - including carry over from fractional
 	// amount if any.
 	if integerMintAmount.IsPositive() {
-		integerMintCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerMintAmount)
+		integerMintCoin := sdk.NewCoin(coinInfo.GetDenom(), integerMintAmount)
 
 		if err := k.bk.MintCoins(
 			ctx,
@@ -197,10 +199,10 @@ func (k Keeper) mintExtendedCoin(
 	// Optimization: This is only done when the integer amount does NOT carry,
 	// as a direct account mint is done instead of integer carry transfer +
 	// insufficient remainder reserve mint.
-	wasCarried := fractionalAmount.Add(fractionalMintAmount).GTE(types.ConversionFactor())
+	wasCarried := fractionalAmount.Add(fractionalMintAmount).GTE(types.ConversionFactor(coinInfo.ExtendedDecimals))
 	if prevRemainder.LT(fractionalMintAmount) && !wasCarried {
 		// Always only 1 integer coin, as fractionalMintAmount < ConversionFactor
-		reserveMintCoins := sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.OneInt()))
+		reserveMintCoins := sdk.NewCoins(sdk.NewCoin(coinInfo.GetDenom(), sdkmath.OneInt()))
 		if err := k.bk.MintCoins(ctx, types.ModuleName, reserveMintCoins); err != nil {
 			return fmt.Errorf("failed to mint %s for reserve: %w", reserveMintCoins, err)
 		}
@@ -210,7 +212,7 @@ func (k Keeper) mintExtendedCoin(
 	// This needs to be adjusted back to the corresponding positive value. The
 	// remainder will be always < conversionFactor after add if it is negative.
 	if newRemainder.IsNegative() {
-		newRemainder = newRemainder.Add(types.ConversionFactor())
+		newRemainder = newRemainder.Add(types.ConversionFactor(coinInfo.ExtendedDecimals))
 	}
 
 	k.SetRemainderAmount(ctx, newRemainder)

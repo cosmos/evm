@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -65,7 +66,10 @@ var (
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
 
-const TEST_DENOM = "atest"
+const (
+	TEST_DENOM        = "atest"
+	TEST_EVM_CHAIN_ID = 9000 // Test EVM chain ID, different from mainnet
+)
 
 var mnemonics = []string{
 	"copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom",
@@ -108,7 +112,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().Int(flagNumValidators, 4, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(server.FlagMinGasPrices, fmt.Sprintf("0.000006%s", sdk.DefaultBondDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
+	cmd.Flags().String(server.FlagMinGasPrices, fmt.Sprintf("0.000006%s", TEST_DENOM), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(cosmosevmhd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 
 	// support old flags name for backwards compatibility
@@ -268,12 +272,13 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.EVMChainID
+	evm.EVMChainID = TEST_EVM_CHAIN_ID
 	evmCfg := evmdconfig.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
+		Coin:    *cosmosevmserverconfig.DefaultEvmCoinInfo(),
 	}
 
 	var (
@@ -669,6 +674,22 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 	return nil
 }
 
+// createTestChainConfig creates a chain configuration suitable for testing.
+func createTestChainConfig() evmdconfig.ChainConfig {
+	return evmdconfig.ChainConfig{
+		ChainInfo: evmdconfig.ChainInfo{
+			ChainID:    "test-chain",
+			EVMChainID: TEST_EVM_CHAIN_ID,
+		},
+		CoinInfo: evmtypes.EvmCoinInfo{
+			Denom:         TEST_DENOM,
+			ExtendedDenom: TEST_DENOM,
+			DisplayDenom:  "test",
+			Decimals:      18,
+		},
+	}
+}
+
 // NewTestNetworkFixture returns a new evmd AppConstructor for network simulation tests
 func NewTestNetworkFixture() network.TestFixture {
 	dir, err := os.MkdirTemp("", "evm")
@@ -677,14 +698,16 @@ func NewTestNetworkFixture() network.TestFixture {
 	}
 	defer os.RemoveAll(dir)
 
+	testConfig := createTestChainConfig()
+
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		testConfig.ChainInfo.EVMChainID,
+		evmdconfig.EvmAppOptionsFromConfig(testConfig),
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -694,8 +717,8 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.EVMChainID,
-			evmdconfig.EvmAppOptions,
+			testConfig.ChainInfo.EVMChainID,
+			evmdconfig.EvmAppOptionsFromConfig(testConfig),
 		)
 	}
 

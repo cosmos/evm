@@ -19,17 +19,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func (s *KeeperTestSuite) EvmDenom() string {
-	return evmtypes.GetEVMCoinDenom()
-}
-
 func (s *KeeperTestSuite) StateDB() *statedb.StateDB {
 	return statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewEmptyTxConfig())
 }
 
 // DeployTestContract deploy a test erc20 contract and returns the contract address
 func (s *KeeperTestSuite) DeployTestContract(t require.TestingT, ctx sdk.Context, owner common.Address, supply *big.Int) common.Address {
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainID := s.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(t, err, "failed to load contract")
@@ -91,7 +87,7 @@ func (s *KeeperTestSuite) DeployTestContract(t require.TestingT, ctx sdk.Context
 
 func (s *KeeperTestSuite) TransferERC20Token(t require.TestingT, contractAddr, from, to common.Address, amount *big.Int) *evmtypes.MsgEthereumTx {
 	ctx := s.Network.GetContext()
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainID := s.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 
 	erc20Contract, err := testdata.LoadERC20Contract()
 	require.NoError(t, err, "failed to load contract")
@@ -149,7 +145,7 @@ func (s *KeeperTestSuite) TransferERC20Token(t require.TestingT, contractAddr, f
 // DeployTestMessageCall deploy a test erc20 contract and returns the contract address
 func (s *KeeperTestSuite) DeployTestMessageCall(t require.TestingT) common.Address {
 	ctx := s.Network.GetContext()
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainID := s.Network.App.GetEVMKeeper().GetEvmConfig().ChainConfig.EthereumConfig().ChainID
 
 	testMsgCall, err := testdata.LoadMessageCallContract()
 	require.NoError(t, err)

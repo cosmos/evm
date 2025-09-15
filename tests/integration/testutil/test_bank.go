@@ -14,6 +14,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
+// Note: TestSuite is defined in test_config.go
+
 func (s *TestSuite) TestCheckBalances() {
 	testDenom := "atest"
 	keyring := testkeyring.New(1)

@@ -145,9 +145,16 @@ test-race: ARGS=-race
 test-race: TEST_PACKAGES=$(PACKAGES_UNIT)
 test-race: run-tests
 
+# Chain configuration environment variables
+CHAIN_ENV_VARS = $(if $(CHAIN_ID),CHAIN_ID="$(CHAIN_ID)") \
+                 $(if $(EVM_CHAIN_ID),EVM_CHAIN_ID="$(EVM_CHAIN_ID)") \
+                 $(if $(DISPLAY_DENOM),DISPLAY_DENOM="$(DISPLAY_DENOM)") \
+                 $(if $(DECIMALS),DECIMALS="$(DECIMALS)") \
+				 $(if $(EXTENDED_DECIMALS),EXTENDED_DECIMALS="$(EXTENDED_DECIMALS)")
+
 test-evmd: ARGS=-timeout=15m
 test-evmd:
-	@cd evmd && go test -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
+	@cd evmd && $(CHAIN_ENV_VARS) go test -tags=test -mod=readonly $(ARGS) $(EXTRA_ARGS) $(PACKAGES_EVMD)
 
 test-unit-cover: ARGS=-timeout=15m -coverprofile=coverage.txt -covermode=atomic
 test-unit-cover: TEST_PACKAGES=$(PACKAGES_UNIT)
@@ -196,7 +203,7 @@ test-scripts:
 
 test-solidity:
 	@echo "Beginning solidity tests..."
-	./scripts/run-solidity-tests.sh
+	@$(CHAIN_ENV_VARS) ./scripts/run-solidity-tests.sh
 
 .PHONY: run-tests test test-all $(TEST_TARGETS)
 

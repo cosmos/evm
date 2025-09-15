@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/evm/ante/cosmos"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -21,17 +21,16 @@ import (
 )
 
 func TestAuthzLimiterDecorator(t *testing.T) {
-	evmConfigurator := evmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(constants.ExampleChainCoinInfo[constants.ExampleChainID])
-	err := evmConfigurator.Configure()
-	require.NoError(t, err)
+	chainConfig := testconfig.DefaultChainConfig
+	evmChainID := chainConfig.EvmConfig.ChainConfig.ChainId
+	evmCoinInfo := chainConfig.EvmConfig.CoinInfo
+	evmDenom := evmCoinInfo.GetDenom()
 
-	encodingCfg := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+	encodingCfg := encoding.MakeConfig(evmChainID)
 	txCfg := encodingCfg.TxConfig
 	testPrivKeys, testAddresses, err := testutil.GeneratePrivKeyAddressPairs(5)
 	require.NoError(t, err)
 
-	evmDenom := evmtypes.GetEVMCoinDenom()
 	distantFuture := time.Date(9000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	validator := sdk.ValAddress(testAddresses[4])

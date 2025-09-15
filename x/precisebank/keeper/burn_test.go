@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -18,94 +19,108 @@ import (
 const burnerModuleName = "burner-module"
 
 func TestBurnCoins_PanicValidations(t *testing.T) {
-	td := newMockedTestData(t)
-
 	// panic tests for invalid inputs
+
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	integerCoinDenom := coinInfo.GetDenom()
+	extendedCoinDenom := coinInfo.GetExtendedDenom()
+
 	tests := []struct {
 		name            string
 		recipientModule string
-		setupFn         func(td testData)
-		burnAmount      sdk.Coins
+		setupFn         func(td testData) sdk.Coins // Return coins after EVM setup
 		wantPanic       string
 	}{
 		{
 			"invalid module",
 			"notamodule",
-			func(td testData) {
-				// Make module not found
+			func(td testData) sdk.Coins {
+				// Make module not found - this will panic before GetModuleAddress is called
 				td.ak.EXPECT().
 					GetModuleAccount(td.ctx, "notamodule").
 					Return(nil).
 					Once()
+				return cs(c(extendedCoinDenom, 1000))
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
 			"module account notamodule does not exist: unknown address",
 		},
 		{
 			"no permission",
 			burnerModuleName,
-			func(td testData) {
+			func(td testData) sdk.Coins {
+				moduleAddr := sdk.AccAddress{1}
+				// This will panic before GetModuleAddress is called
 				td.ak.EXPECT().
 					GetModuleAccount(td.ctx, burnerModuleName).
 					Return(authtypes.NewModuleAccount(
-						authtypes.NewBaseAccountWithAddress(sdk.AccAddress{1}),
+						authtypes.NewBaseAccountWithAddress(moduleAddr),
 						burnerModuleName,
 						// no burn permission
 					)).
 					Once()
+				return cs(c(extendedCoinDenom, 1000))
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
 			fmt.Sprintf("module account %s does not have permissions to burn tokens: unauthorized", burnerModuleName),
 		},
 		{
 			"has burn permission",
 			burnerModuleName,
-			func(td testData) {
+			func(td testData) sdk.Coins {
+				moduleAddr := sdk.AccAddress{1}
+				// This case succeeds and calls burnExtendedCoin, which calls GetModuleAddress once
+				td.ak.EXPECT().
+					GetModuleAddress(burnerModuleName).
+					Return(moduleAddr).
+					Once()
+
 				td.ak.EXPECT().
 					GetModuleAccount(td.ctx, burnerModuleName).
 					Return(authtypes.NewModuleAccount(
-						authtypes.NewBaseAccountWithAddress(sdk.AccAddress{1}),
+						authtypes.NewBaseAccountWithAddress(moduleAddr),
 						burnerModuleName,
 						// includes burner permission
 						authtypes.Burner,
 					)).
 					Once()
 
-				// Will call x/bank BurnCoins coins
+				coins := cs(c(extendedCoinDenom, 1000))
+				// Will call burnExtendedCoin which calls GetModuleAddress
+				// Also need to borrow 1 integer coin to cover the fractional burn
+				borrowCoin := cs(c(integerCoinDenom, 1))
 				td.bk.EXPECT().
-					BurnCoins(td.ctx, burnerModuleName, cs(c(types.IntegerCoinDenom(), 1000))).
+					SendCoinsFromModuleToModule(td.ctx, burnerModuleName, types.ModuleName, borrowCoin).
 					Return(nil).
 					Once()
+				return coins
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
 			"",
 		},
 		{
 			"disallow burning from x/precisebank",
 			types.ModuleName,
-			func(td testData) {
-				// No mock setup needed since this is checked before module
-				// account checks
+			func(td testData) sdk.Coins {
+				// No expectations needed - this should panic before any module address calls
+				return cs(c(extendedCoinDenom, 1000))
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
 			"module account precisebank cannot be burned from: unauthorized",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setupFn(td)
+			td := newMockedTestData(t)
+			burnAmount := tt.setupFn(td)
 
 			if tt.wantPanic != "" {
 				require.PanicsWithError(t, tt.wantPanic, func() {
-					_ = td.keeper.BurnCoins(td.ctx, tt.recipientModule, tt.burnAmount)
+					_ = td.keeper.BurnCoins(td.ctx, tt.recipientModule, burnAmount)
 				})
 				return
 			}
 
 			require.NotPanics(t, func() {
 				// Not testing errors, only panics for this test
-				_ = td.keeper.BurnCoins(td.ctx, tt.recipientModule, tt.burnAmount)
+				_ = td.keeper.BurnCoins(td.ctx, tt.recipientModule, burnAmount)
 			})
 		})
 	}
@@ -113,6 +128,9 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 
 func TestBurnCoins_Errors(t *testing.T) {
 	// returned errors, not panics
+
+	coinInfo := testconfig.DefaultChainConfig.EvmConfig.CoinInfo
+	integerCoinDenom := coinInfo.GetDenom()
 
 	tests := []struct {
 		name            string
@@ -137,10 +155,10 @@ func TestBurnCoins_Errors(t *testing.T) {
 					Once()
 			},
 			sdk.Coins{sdk.Coin{
-				Denom:  types.IntegerCoinDenom(),
+				Denom:  integerCoinDenom,
 				Amount: sdkmath.NewInt(-1000),
 			}},
-			fmt.Sprintf("-1000%s: invalid coins", types.IntegerCoinDenom()),
+			fmt.Sprintf("-1000%s: invalid coins", integerCoinDenom),
 		},
 	}
 

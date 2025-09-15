@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -53,9 +52,6 @@ func (suite *MsgsTestSuite) SetupTest() {
 
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
-
-	err := config.EvmAppOptions(9001)
-	suite.Require().NoError(err)
 }
 
 func (suite *MsgsTestSuite) TestMsgEthereumTx_Constructor() {
@@ -111,17 +107,13 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 			false,
 		},
 	}
-	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+	for _, coinInfo := range []*types.EvmCoinInfo{
+		testconfig.SixDecimalsChainConfig.EvmConfig.CoinInfo,
+		testconfig.DefaultChainConfig.EvmConfig.CoinInfo,
 	} {
 		for _, tc := range testCases {
-			configurator := types.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
-
-			baseDenom := types.GetEVMCoinDenom()
-			extendedDenom := types.GetEVMCoinExtendedDenom()
+			baseDenom := coinInfo.Denom
+			extendedDenom := coinInfo.ExtendedDenom
 
 			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
 			if tc.expError {
