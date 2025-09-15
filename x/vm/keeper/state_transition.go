@@ -21,7 +21,6 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
@@ -132,18 +131,6 @@ func logsBloom(logs []*ethtypes.Log) []byte {
 		}
 	}
 	return bin[:]
-}
-
-func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types.MsgEthereumTxResponse) uint64 {
-	cumulativeGasUsed := res.GasUsed
-	if meter != nil {
-		limit := meter.Limit()
-		cumulativeGasUsed += meter.GasConsumed()
-		if cumulativeGasUsed > limit {
-			cumulativeGasUsed = limit
-		}
-	}
-	return cumulativeGasUsed
 }
 
 // ApplyTransaction runs and attempts to perform a state transition with the given transaction (i.e Message), that will

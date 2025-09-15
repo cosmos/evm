@@ -388,5 +388,5 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 		}
 	}
 
-	return
+	return chainID, err
 }

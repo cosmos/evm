@@ -999,7 +999,7 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Call debug_startGoTrace with test parameters
 	filename := "/tmp/go_trace_start.out"
-	
+
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStartGoTrace), filename)
 	if err != nil {
@@ -1024,7 +1024,7 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
-	
+
 	rpcResult := &types.RpcResult{
 		Method:   MethodNameDebugStartGoTrace,
 		Status:   types.Ok,
@@ -1065,7 +1065,7 @@ func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
-	
+
 	rpcResult := &types.RpcResult{
 		Method:   MethodNameDebugStopGoTrace,
 		Status:   types.Ok,
