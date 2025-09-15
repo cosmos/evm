@@ -2,7 +2,6 @@ package types_test
 
 import (
 	"maps"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,8 +26,7 @@ func (p *precompileContract) Run(evm *vm.EVM, contract *vm.Contract, readonly bo
 }
 
 func TestApply(t *testing.T) {
-	blockHash := common.BigToHash(big.NewInt(9999))
-	emptyTxConfig := statedb.NewEmptyTxConfig(blockHash)
+	emptyTxConfig := statedb.NewEmptyTxConfig()
 	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
 	precompiles := map[common.Address]vm.PrecompiledContract{
 		common.BytesToAddress([]byte{0x1}): &precompileContract{},

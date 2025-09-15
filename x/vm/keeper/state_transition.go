@@ -239,7 +239,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		TxHash:            txConfig.TxHash,
 		ContractAddress:   contractAddr,
 		GasUsed:           res.GasUsed,
-		BlockHash:         txConfig.BlockHash,
+		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
 		BlockNumber:       big.NewInt(ctx.BlockHeight()),
 		TransactionIndex:  txConfig.TxIndex,
 	}
@@ -340,7 +340,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 		return nil, errorsmod.Wrap(err, "failed to load evm config")
 	}
 
-	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	txConfig := statedb.NewEmptyTxConfig()
 	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal, nil)
 }
 
@@ -399,8 +399,9 @@ func (k *Keeper) ApplyMessageWithConfig(
 
 	stateDB := statedb.New(ctx, k, txConfig)
 	ethCfg := types.GetEthChainConfig()
-	rules := ethCfg.Rules(big.NewInt(ctx.BlockHeight()), true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
+	// Gas limit suffices for the floor data cost (EIP-7623)
+	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if overrides != nil {
 		precompiles := vm.ActivePrecompiledContracts(rules)
 		if err := overrides.Apply(stateDB, precompiles); err != nil {
@@ -441,7 +442,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
-	// Gas limit suffices for the floor data cost (EIP-7623)
 	if rules.IsPrague {
 		floorDataGas, err := core.FloorDataGas(msg.Data)
 		if err != nil {
@@ -507,12 +507,12 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
 	}
 	// refund gas
-	temporaryGasUsed := msg.GasLimit - leftoverGas
-	refund := GasToRefund(stateDB.GetRefund(), temporaryGasUsed, refundQuotient)
+	maxUsedGas := msg.GasLimit - leftoverGas
+	refund := GasToRefund(stateDB.GetRefund(), maxUsedGas, refundQuotient)
 
 	// update leftoverGas and temporaryGasUsed with refund amount
 	leftoverGas += refund
-	temporaryGasUsed -= refund
+	temporaryGasUsed := maxUsedGas - refund
 
 	// EVM execution error needs to be available for the JSON-RPC client
 	var vmError string
@@ -554,12 +554,14 @@ func (k *Keeper) ApplyMessageWithConfig(
 		ret = evm.Interpreter().ReturnData()
 	}
 
+	logs := stateDB.GetLogs(uint64(ctx.BlockHeight()), common.BytesToHash(ctx.HeaderHash()), evm.Context.Time) //#nosec G115 -- int overflow is not a concern here
 	return &types.MsgEthereumTxResponse{
-		GasUsed: gasUsed.TruncateInt().Uint64(),
-		VmError: vmError,
-		Ret:     ret,
-		Logs:    types.NewLogsFromEth(stateDB.Logs()),
-		Hash:    txConfig.TxHash.Hex(),
+		GasUsed:    gasUsed.TruncateInt().Uint64(),
+		MaxUsedGas: maxUsedGas,
+		VmError:    vmError,
+		Ret:        ret,
+		Logs:       types.NewLogsFromEth(logs),
+		Hash:       txConfig.TxHash.Hex(),
 	}, nil
 }
 
