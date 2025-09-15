@@ -173,52 +173,6 @@ func FormatBlock2(header map[string]interface{}, size int, transactions []interf
 	return block
 }
 
-// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
-// transactions.
-func FormatHeader(
-	header cmttypes.Header, gasLimit int64,
-	gasUsed *big.Int, transactions []interface{}, bloom ethtypes.Bloom,
-	validatorAddr common.Address, baseFee *big.Int,
-) map[string]interface{} {
-	var transactionsRoot common.Hash
-	if len(transactions) == 0 {
-		transactionsRoot = ethtypes.EmptyRootHash
-	} else {
-		transactionsRoot = common.BytesToHash(header.DataHash)
-	}
-
-	result := map[string]interface{}{
-		// Header fields
-		"number":           hexutil.Uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
-		"hash":             hexutil.Bytes(header.Hash()),
-		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
-		"nonce":            ethtypes.BlockNonce{},   // PoW specific
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in CometBFT
-		"logsBloom":        bloom,
-		"stateRoot":        hexutil.Bytes(header.AppHash),
-		"miner":            validatorAddr,
-		"mixHash":          common.Hash{},
-		"difficulty":       (*hexutil.Big)(big.NewInt(0)),
-		"extraData":        "0x",
-		"gasLimit":         hexutil.Uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
-		"gasUsed":          (*hexutil.Big)(gasUsed),
-		"timestamp":        hexutil.Uint64(header.Time.Unix()), //nolint:gosec // G115 // won't exceed uint64
-		"transactionsRoot": transactionsRoot,
-		"receiptsRoot":     ethtypes.EmptyRootHash,
-	}
-
-	if baseFee != nil {
-		result["baseFeePerGas"] = (*hexutil.Big)(baseFee)
-	}
-
-	// For withdrawalsRoot, blobGasUsed, excessBlobGas, parentBeaconBlockRoot, requestsHash
-	// these fields are not included as they are not relevant to cosmos-sdk + cometbft chains
-	// and these fields are optional in the go-ethreum codebase
-	// see: https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/core/types/block.go#L95-L108
-
-	return result
-}
-
 func MakeHeader(
 	cmtHeader cmttypes.Header, gasLimit int64,
 	validatorAddr common.Address, baseFee *big.Int,
@@ -303,14 +257,25 @@ func NewRPCTransaction(
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	switch tx.Type() {
+	case ethtypes.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() != 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
+
 	case ethtypes.AccessListTxType:
 		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+
 	case ethtypes.DynamicFeeTxType:
 		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
 		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
 		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
 		// if the transaction has been mined, compute the effective gas price
