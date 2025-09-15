@@ -1,0 +1,202 @@
+{
+  "name": "EpixChain Documentation",
+  "description": "Comprehensive documentation for EpixChain - The world's first blockchain designed to power a completely decentralized internet",
+  "version": "1.0.0",
+  "repository": "https://github.com/EpixZone/EpixChain",
+  "website": "https://epix.zone",
+  "logo": "docs/assets/epix-logo.png",
+  "favicon": "docs/assets/favicon.ico",
+  "theme": {
+    "primaryColor": "#5954cd",
+    "secondaryColor": "#31bdc6",
+    "accentColor": "#fcfcfc",
+    "backgroundColor": "#5954cd",
+    "textColor": "#fcfcfc"
+  },
+  "navigation": [
+    {
+      "title": "Overview",
+      "path": "docs/overview/",
+      "children": [
+        {
+          "title": "Introduction",
+          "path": "docs/overview/introduction.md"
+        },
+        {
+          "title": "Architecture",
+          "path": "docs/overview/architecture.md"
+        },
+        {
+          "title": "Tokenomics",
+          "path": "docs/overview/tokenomics.md"
+        },
+        {
+          "title": "Roadmap",
+          "path": "docs/overview/roadmap.md"
+        }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "path": "docs/getting-started/",
+      "children": [
+        {
+          "title": "Quick Start",
+          "path": "docs/getting-started/quick-start.md"
+        },
+        {
+          "title": "Installation",
+          "path": "docs/getting-started/installation.md"
+        },
+        {
+          "title": "Network Setup",
+          "path": "docs/getting-started/network-setup.md"
+        },
+        {
+          "title": "Wallet Configuration",
+          "path": "docs/getting-started/wallet-setup.md"
+        }
+      ]
+    },
+    {
+      "title": "For Users",
+      "path": "docs/users/",
+      "children": [
+        {
+          "title": "Wallet Guide",
+          "path": "docs/users/wallet-guide.md"
+        },
+        {
+          "title": "Governance",
+          "path": "docs/users/governance.md"
+        },
+        {
+          "title": "Staking",
+          "path": "docs/users/staking.md"
+        },
+        {
+          "title": "IBC Transfers",
+          "path": "docs/users/ibc-transfers.md"
+        }
+      ]
+    },
+    {
+      "title": "For Developers",
+      "path": "docs/developers/",
+      "children": [
+        {
+          "title": "Smart Contracts",
+          "path": "docs/developers/smart-contracts.md"
+        },
+        {
+          "title": "API Reference",
+          "path": "docs/developers/api-reference.md"
+        },
+        {
+          "title": "Precompiles",
+          "path": "docs/developers/precompiles.md"
+        },
+        {
+          "title": "Testing",
+          "path": "docs/developers/testing.md"
+        },
+        {
+          "title": "Integration Guide",
+          "path": "docs/developers/integration.md"
+        }
+      ]
+    },
+    {
+      "title": "For Validators",
+      "path": "docs/validators/",
+      "children": [
+        {
+          "title": "Validator Setup",
+          "path": "docs/validators/setup.md"
+        },
+        {
+          "title": "Operations",
+          "path": "docs/validators/operations.md"
+        },
+        {
+          "title": "Security",
+          "path": "docs/validators/security.md"
+        },
+        {
+          "title": "Monitoring",
+          "path": "docs/validators/monitoring.md"
+        }
+      ]
+    },
+    {
+      "title": "Modules",
+      "path": "docs/modules/",
+      "children": [
+        {
+          "title": "EpixMint",
+          "path": "docs/modules/epixmint.md"
+        },
+        {
+          "title": "EVM",
+          "path": "docs/modules/evm.md"
+        },
+        {
+          "title": "IBC",
+          "path": "docs/modules/ibc.md"
+        },
+        {
+          "title": "Governance",
+          "path": "docs/modules/governance.md"
+        },
+        {
+          "title": "Staking",
+          "path": "docs/modules/staking.md"
+        }
+      ]
+    },
+    {
+      "title": "Community",
+      "path": "docs/community/",
+      "children": [
+        {
+          "title": "Contributing",
+          "path": "docs/community/contributing.md"
+        },
+        {
+          "title": "Code of Conduct",
+          "path": "docs/community/code-of-conduct.md"
+        },
+        {
+          "title": "Support",
+          "path": "docs/community/support.md"
+        },
+        {
+          "title": "FAQ",
+          "path": "docs/community/faq.md"
+        }
+      ]
+    }
+  ],
+  "social": {
+    "github": "https://github.com/EpixZone/EpixChain",
+    "twitter": "https://x.com/zone_epix",
+    "discord": "https://discord.gg/epix",
+    "website": "https://epix.zone"
+  },
+  "search": {
+    "enabled": true,
+    "provider": "local"
+  },
+  "analytics": {
+    "enabled": false
+  },
+  "features": {
+    "darkMode": true,
+    "editOnGitHub": true,
+    "lastUpdated": true,
+    "contributors": true,
+    "tableOfContents": true,
+    "codeHighlighting": true,
+    "mermaidDiagrams": true
+  }
+}

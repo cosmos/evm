@@ -1,0 +1,167 @@
+# GitDocs Configuration for EpixChain
+# This file configures the GitDocs documentation generator
+
+# Site Configuration
+site:
+  name: "EpixChain Documentation"
+  description: "Comprehensive documentation for EpixChain - The world's first blockchain designed to power a completely decentralized internet"
+  url: "https://docs.epix.zone"
+  logo: "docs/assets/epix-logo.png"
+  favicon: "docs/assets/favicon.ico"
+
+# Repository Information
+repo:
+  url: "https://github.com/EpixZone/EpixChain"
+  edit_page: true
+  edit_uri: "edit/main/"
+
+# Theme Configuration
+theme:
+  name: "material"
+  palette:
+    primary: "#5954cd"
+    accent: "#31bdc6"
+  font:
+    text: "Raleway"
+    code: "Roboto Mono"
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.action.edit
+
+# Navigation Structure
+nav:
+  - Home: "README.md"
+  - Overview:
+    - Introduction: "overview/introduction.md"
+    - Architecture: "overview/architecture.md"
+    - Tokenomics: "overview/tokenomics.md"
+    - Roadmap: "overview/roadmap.md"
+  - Getting Started:
+    - Quick Start: "getting-started/quick-start.md"
+    - Installation: "getting-started/installation.md"
+    - Network Setup: "getting-started/network-setup.md"
+    - Wallet Setup: "getting-started/wallet-setup.md"
+  - For Users:
+    - Wallet Guide: "users/wallet-guide.md"
+    - Governance: "users/governance.md"
+    - Staking: "users/staking.md"
+    - IBC Transfers: "users/ibc-transfers.md"
+  - For Developers:
+    - Smart Contracts: "developers/smart-contracts.md"
+    - API Reference: "developers/api-reference.md"
+    - Precompiles: "developers/precompiles.md"
+    - Testing: "developers/testing.md"
+    - Integration Guide: "developers/integration.md"
+  - For Validators:
+    - Validator Setup: "validators/setup.md"
+    - Operations: "validators/operations.md"
+    - Security: "validators/security.md"
+    - Monitoring: "validators/monitoring.md"
+  - Modules:
+    - EpixMint: "modules/epixmint.md"
+    - EVM: "modules/evm.md"
+    - IBC: "modules/ibc.md"
+    - Governance: "modules/governance.md"
+    - Staking: "modules/staking.md"
+  - Community:
+    - Contributing: "community/contributing.md"
+    - Code of Conduct: "community/code-of-conduct.md"
+    - Support: "community/support.md"
+    - FAQ: "community/faq.md"
+
+# Plugins and Extensions
+plugins:
+  - search:
+      lang: en
+  - git-revision-date-localized:
+      type: date
+  - git-authors
+  - mermaid2:
+      arguments:
+        theme: dark
+  - social:
+      cards_color:
+        fill: "#5954cd"
+        text: "#fcfcfc"
+
+# Markdown Extensions
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+
+# Social Links
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/EpixZone/EpixChain
+      name: GitHub
+    - icon: fontawesome/brands/twitter
+      link: https://x.com/zone_epix
+      name: Twitter
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/epix
+      name: Discord
+    - icon: fontawesome/solid/globe
+      link: https://epix.zone
+      name: Website
+
+# Copyright
+copyright: "Copyright &copy; 2024 EpixChain Community"
+
+# Analytics (optional)
+google_analytics:
+  - "G-XXXXXXXXXX"
+  - "auto"
+
+# Custom CSS
+extra_css:
+  - "assets/extra.css"
+
+# Custom JavaScript
+extra_javascript:
+  - "assets/extra.js"
+
+# Build Settings
+docs_dir: "docs"
+site_dir: "site"
+
+# Development Server
+dev_addr: "127.0.0.1:8000"
+
+# Strict Mode
+strict: true
+
+# Watch Additional Files
+watch:
+  - "docs"
+  - "gitdocs.config.json"
+  - ".gitdocs.yml"
