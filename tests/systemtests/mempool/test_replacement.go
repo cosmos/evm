@@ -158,7 +158,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 				func(s TestSuite) {
 					_, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendCosmosTx(t, s.Node(1), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
+					tx2, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx2)
@@ -172,7 +172,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 				func(s TestSuite) {
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendCosmosTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
+					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx1)
@@ -186,7 +186,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 				func(s TestSuite) {
 					_, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
+					tx2, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx2)
@@ -200,7 +200,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 				func(s TestSuite) {
 					tx1, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeX2(), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFee(), nil)
+					_, err = s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx1)
@@ -380,7 +380,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			},
 		},
 		{
-			name: "legacy should always not tx replace dynamic fee tx",
+			name: "legacy should never replace dynamic fee tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
 					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1, s.BaseFeeX2(),
