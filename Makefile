@@ -402,3 +402,73 @@ mocks:
 	@go get github.com/vektra/mockery/v2
 	@go generate ./...
 	@make format-go
+
+###############################################################################
+###                              D2 Diagrams                                ###
+###############################################################################
+
+D2_THEME=300
+D2_DARK_THEME=200
+D2_LAYOUT=tala
+
+D2_ENV_VARS=D2_THEME=$(D2_THEME) \
+	    D2_DARK_THEME=$(D2_DARK_THEME) \
+	    D2_LAYOUT=$(D2_LAYOUT)
+
+.PHONY: d2check d2watch d2gen d2gen-all
+
+d2check:
+	@echo "🔍 checking if d2 is installed..."
+	@which d2 > /dev/null 2>&1 || { \
+		echo "🔴 d2 is not installed, see installation docs: https://d2lang.com/tour/install/"; \
+		exit 1; \
+	}
+	@echo "🟢 d2 is installed"
+	@echo "🔍 checking if $(D2_LAYOUT) layout is installed..."
+	@d2 layout | grep $(D2_LAYOUT) > /dev/null 2>&1 || { \
+		echo "🔴 $(D2_LAYOUT) layout is not installed, see docs: https://d2lang.com/tour/layouts/"; \
+		exit 1; \
+	}
+	@echo "🟢 $(D2_LAYOUT) layout is installed"
+
+d2watch: d2check
+	@if [ -z "$(FILE)" ]; then \
+		echo "🔴 missing required parameter FILE, the correct usage is: make d2watch FILE=path/to/file.d2"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FILE)" ]; then \
+		echo "🔴 file $(FILE) does not exist"; \
+		exit 1; \
+	fi
+	@echo "🔄 watching $(FILE) for changes..."
+	@dir=$$(dirname "$(FILE)"); \
+	basename=$$(basename "$(FILE)" .d2); \
+	svgfile="$$dir/$$basename.svg"; \
+	printf "📊 generating $$svgfile from $(FILE)... "; \
+	$(D2_ENV_VARS) d2 --watch "$(FILE)" "$$svgfile"
+
+d2gen: d2check
+	@if [ -z "$(FILE)" ]; then \
+		echo "🔴 missing required parameter FILE, the correct usage is: make d2gen FILE=path/to/file.d2"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FILE)" ]; then \
+		echo "🔴 file $(FILE) does not exist"; \
+		exit 1; \
+	fi
+	@dir=$$(dirname "$(FILE)"); \
+	basename=$$(basename "$(FILE)" .d2); \
+	svgfile="$$dir/$$basename.svg"; \
+	printf "📊 generating $$svgfile from $(FILE)... "; \
+	$(D2_ENV_VARS) d2 "$(FILE)" "$$svgfile" > /dev/null 2>&1 && echo "done ✅" || echo "failed ❌";
+
+d2gen-all: d2check
+	@echo "🟢 generating svg files for all d2 diagrams..."
+	@find . -name "*.d2" -type f | while read d2file; do \
+		dir=$$(dirname "$$d2file"); \
+		basename=$$(basename "$$d2file" .d2); \
+		svgfile="$$dir/$$basename.svg"; \
+		printf "📊 generating $$svgfile from $$d2file... "; \
+		$(D2_ENV_VARS) d2 "$$d2file" "$$svgfile" > /dev/null 2>&1 && echo "done ✅" || echo "failed ❌"; \
+	done
+	@echo "✅ svg files generated for all d2 diagrams"
