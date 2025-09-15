@@ -232,10 +232,6 @@ func (b *Backend) CometBlockByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctype
 }
 
 func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, error) {
-	if blockNum == rpctypes.EthPendingBlockNumber {
-		return 0, errors.New("pending block is not available")
-	}
-
 	if blockNum == rpctypes.EthEarliestBlockNumber {
 		status, err := b.ClientCtx.Client.Status(b.Ctx)
 		if err != nil {
@@ -249,6 +245,10 @@ func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, err
 	if height <= 0 {
 		// In cometBFT, LatestBlockNumber, FinalizedBlockNumber, SafeBlockNumber all map to the latest block height.
 		// Fetch the latest block number from the app state, more accurate than the CometBFT block store state.
+		//
+		// For PendingBlockNumber, we alsoe returns the latest block height.
+		// The reason is that CometBFT does not have the concept of pending block,
+		// and the application state is only updated when a block is committed.
 		n, err := b.BlockNumber()
 		if err != nil {
 			return 0, err
@@ -258,6 +258,7 @@ func (b *Backend) getHeightByBlockNum(blockNum rpctypes.BlockNumber) (int64, err
 			return 0, err
 		}
 	}
+
 	return height, nil
 }
 
@@ -460,7 +461,7 @@ func (b *Backend) RPCHeaderFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) (map[string]interface{}, error) {
-	return b.rpcHeaderFromCometBlock(resBlock, blockRes, false)
+	return b.rpcHeaderFromCometBlock2(resBlock, blockRes)
 }
 
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
@@ -470,7 +471,7 @@ func (b *Backend) RPCBlockFromCometBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 	fullTx bool,
 ) (formattedBlock map[string]interface{}, err error) {
-	formattedHeader, err := b.rpcHeaderFromCometBlock(resBlock, blockRes, fullTx)
+	formattedHeader, err := b.rpcHeaderFromCometBlock2(resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
@@ -643,29 +644,27 @@ func (b *Backend) rpcHeaderFromCometBlock(
 func (b *Backend) rpcHeaderFromCometBlock2(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	fullTx bool,
 ) (map[string]interface{}, error) {
-	// ethRPCTxs := []interface{}{}
-	block := resBlock.Block
+	cmtBlock := resBlock.Block
 
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
 		// handle the error for pruned node.
-		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
+		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", cmtBlock.Height, "error", err)
 	}
 
 	req := &evmtypes.QueryValidatorAccountRequest{
-		ConsAddress: sdk.ConsAddress(block.Header.ProposerAddress).String(),
+		ConsAddress: sdk.ConsAddress(cmtBlock.Header.ProposerAddress).String(),
 	}
 
 	var validatorAccAddr sdk.AccAddress
 
-	ctx := rpctypes.ContextWithHeight(block.Height)
+	ctx := rpctypes.ContextWithHeight(cmtBlock.Height)
 	res, err := b.QueryClient.ValidatorAccount(ctx, req)
 	if err != nil {
 		b.Logger.Debug(
 			"failed to query validator operator address",
-			"height", block.Height,
+			"height", cmtBlock.Height,
 			"cons-address", req.ConsAddress,
 			"error", err.Error(),
 		)
@@ -680,12 +679,12 @@ func (b *Backend) rpcHeaderFromCometBlock2(
 
 	validatorAddr := common.BytesToAddress(validatorAccAddr)
 
-	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, block.Height)
+	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, cmtBlock.Height)
 	if err != nil {
 		b.Logger.Error("failed to query consensus params", "error", err.Error())
 	}
 
-	ethHeader := rpctypes.MakeHeader(block.Header, gasLimit, validatorAddr, baseFee)
+	ethHeader := rpctypes.MakeHeader(cmtBlock.Header, gasLimit, validatorAddr, baseFee)
 
 	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
 	txs := make([]*ethtypes.Transaction, len(msgs))
@@ -702,11 +701,16 @@ func (b *Backend) rpcHeaderFromCometBlock2(
 	// receipts
 	blockHash := common.BytesToHash(resBlock.Block.Header.Hash())
 	receipts := make([]*ethtypes.Receipt, len(msgs))
+	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
 		txResult, err := b.GetTxByEthHash(ethMsg.Hash())
 		if err != nil {
 			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
 		}
+
+		cumulatedGasUsed += txResult.GasUsed
+
+		effectiveGasPrice := rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
 
 		var status uint64
 		if txResult.Failed {
@@ -720,27 +724,36 @@ func (b *Backend) rpcHeaderFromCometBlock2(
 			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
 		}
 
+		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
 		logs, err := evmtypes.DecodeMsgLogs(
 			blockRes.TxsResults[txResult.TxIndex].Data,
-			i,
-			uint64(resBlock.Block.Height),
+			msgIndex,
+			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
 		)
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
 
 		receipt := &ethtypes.Receipt{
+			// Consensus fields: These fields are defined by the Yellow Paper
 			Type:              ethMsg.Raw.Type(),
 			PostState:         nil,
 			Status:            status, // convert to 1=success, 0=failure
-			CumulativeGasUsed: uint64(txResult.GasUsed),
+			CumulativeGasUsed: cumulatedGasUsed,
 			Bloom:             bloom,
 			Logs:              logs,
+
+			// Implementation fields: These fields are added by geth when processing a transaction.
 			TxHash:            ethMsg.Hash(),
 			ContractAddress:   contractAddress,
-			GasUsed:           uint64(txResult.GasUsed),
-			BlockHash:         blockHash,
-			BlockNumber:       big.NewInt(block.Height),
-			TransactionIndex:  uint(i),
+			GasUsed:           txResult.GasUsed,
+			EffectiveGasPrice: effectiveGasPrice,
+			BlobGasUsed:       uint64(0),     // EIP-4844 not supported
+			BlobGasPrice:      big.NewInt(0), // EIP-4844 not supported
+
+			// Implementation fields: These fields are added by geth when processing a transaction.
+			BlockHash:        blockHash,
+			BlockNumber:      big.NewInt(cmtBlock.Height),
+			TransactionIndex: uint(i), // #nosec G115 -- checked for int overflow already
 		}
 
 		if err != nil {
@@ -749,43 +762,25 @@ func (b *Backend) rpcHeaderFromCometBlock2(
 		receipts[i] = receipt
 	}
 
+	// Gas Used
+	gasUsed := uint64(0)
+	for _, txsResult := range blockRes.TxsResults {
+		// workaround for cosmos-sdk bug. https://github.com/cosmos/cosmos-sdk/issues/10832
+		if ShouldIgnoreGasUsed(txsResult) {
+			// block gas limit has exceeded, other txs must have failed with same reason.
+			break
+		}
+		gasUsed += uint64(txsResult.GetGasUsed()) // #nosec G115 -- checked for int overflow already
+	}
+	ethHeader.GasUsed = gasUsed
+
+	// create eth block
 	ethBlock := ethtypes.NewBlock(ethHeader, body, receipts, trie.NewStackTrie(nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new eth block: %w", err)
 	}
 
-	ethBlock.Header()
-
-	rpctypes.RPCMarshalHeader(ethHeader, block.Header)
-
-	// bloom, err := b.BlockBloom(blockRes)
-	// if err != nil {
-	// 	b.Logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
-	// }
-
-	// Gas Used
-	// gasUsed := uint64(0)
-	// for _, txsResult := range blockRes.TxsResults {
-	// 	// workaround for cosmos-sdk bug. https://github.com/cosmos/cosmos-sdk/issues/10832
-	// 	if ShouldIgnoreGasUsed(txsResult) {
-	// 		// block gas limit has exceeded, other txs must have failed with same reason.
-	// 		break
-	// 	}
-	// 	gasUsed += uint64(txsResult.GetGasUsed()) // #nosec G115 -- checked for int overflow already
-	// }
-
-	// formattedHeader := rpctypes.FormatHeader(
-	// 	block.Header, gasLimit, new(big.Int).SetUint64(gasUsed),
-	// 	ethRPCTxs, bloom, validatorAddr, baseFee,
-	// )
-
-	// formattedBlock := rpctypes.FormatBlock(
-	// 	block.Header, block.Size(),
-	// 	gasLimit, new(big.Int).SetUint64(gasUsed),
-	// 	ethRPCTxs, bloom, validatorAddr, baseFee,
-	// )
-
-	return rpctypes.RPCMarshalHeader(ethBlock.Header(), block.Header), nil
+	return rpctypes.RPCMarshalHeader(ethBlock.Header(), cmtBlock.Header), nil
 }
 
 // EthBlockByNumber returns the Ethereum Block identified by number.

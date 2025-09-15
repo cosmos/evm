@@ -432,6 +432,9 @@ func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
+// This method is almost same with go-ethereum's RPCMarshalHeader method of ethtypes.Header
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L888-L927)
+// but it uses the cometbft Header to get the block hash.
 func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[string]interface{} {
 	result := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
@@ -470,4 +473,16 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 		result["requestsHash"] = head.RequestsHash
 	}
 	return result
+}
+
+// EffectiveGasPrice computes the transaction gas fee, based on the given basefee value.
+//
+// price = min(gasTipCap + baseFee, gasFeeCap)
+func EffectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
+	fee := tx.GasTipCap()
+	fee = fee.Add(fee, baseFee)
+	if tx.GasFeeCapIntCmp(fee) < 0 {
+		return tx.GasFeeCap()
+	}
+	return fee
 }
