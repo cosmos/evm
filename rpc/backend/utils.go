@@ -269,7 +269,7 @@ func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*eth
 	}
 	blockLogs := [][]*ethtypes.Log{}
 	for _, txResult := range blockRes.TxsResults {
-		logs, err := evmtypes.DecodeTxLogsFromEvents(txResult.Data, txResult.Events, height)
+		logs, err := evmtypes.DecodeTxLogs(txResult.Data, height)
 		if err != nil {
 			return nil, err
 		}

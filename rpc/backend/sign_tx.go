@@ -103,7 +103,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	// NOTE: If error is encountered on the node, the broadcast will not return an error
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
-	if rsp != nil && rsp.Code != 0 {
+	if b.Mempool != nil && rsp != nil && rsp.Code != 0 {
 		if shouldSkip, msg := HandleBroadcastRawLog(rsp.RawLog, txHash); shouldSkip {
 			b.Logger.Debug(msg, "hash", txHash.Hex())
 			return txHash, nil
