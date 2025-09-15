@@ -190,8 +190,24 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	}
 
 	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
-	blockHeaderHash := common.BytesToHash(resBlock.Block.Header.Hash()).Hex()
-	return b.formatTxReceipt(ethMsg, res, blockRes, blockHeaderHash)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get receipts from comet block")
+	}
+
+	var signer ethtypes.Signer
+	ethTx := ethMsg.AsTransaction()
+	if ethTx.Protected() {
+		signer = ethtypes.LatestSignerForChainID(ethTx.ChainId())
+	} else {
+		signer = ethtypes.FrontierSigner{}
+	}
+	from, err := ethMsg.GetSenderLegacy(signer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sender: %w", err)
+	}
+
+	return rpctypes.MarshalReceipt(receipts[0], ethTx, from)
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.

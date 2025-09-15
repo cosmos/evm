@@ -155,24 +155,6 @@ func FormatBlock(
 	return result
 }
 
-// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
-// transactions.
-func FormatBlock2(header map[string]interface{}, size int, transactions []interface{}) map[string]interface{} {
-	block := header
-	body := map[string]interface{}{
-		"size":         hexutil.Uint64(size), //nolint:gosec // G115 // size won't exceed uint64
-		"transactions": transactions,
-		"uncles":       []common.Hash{},
-		"withdrawals":  []common.Hash{},
-	}
-
-	for k := range body {
-		block[k] = body[k]
-	}
-
-	return block
-}
-
 func MakeHeader(
 	cmtHeader cmttypes.Header, gasLimit int64,
 	validatorAddr common.Address, baseFee *big.Int,
@@ -438,6 +420,95 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 		result["requestsHash"] = head.RequestsHash
 	}
 	return result
+}
+
+// RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
+// returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
+// transaction hashes.
+func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, chainID *big.Int) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), cmtBlock.Header)
+	fields["size"] = hexutil.Uint64(block.Size())
+
+	if inclTx {
+		formatTx := func(idx int, tx *ethtypes.Transaction) (interface{}, error) {
+			return tx.Hash(), nil
+		}
+		if fullTx {
+			formatTx = func(idx int, _ *ethtypes.Transaction) (interface{}, error) {
+				msgIdx := uint64(idx) //nolint:gosec // G115
+				return newRPCTransactionFromBlockIndex(block, msgs, msgIdx, chainID)
+			}
+		}
+		txs := block.Transactions()
+		transactions := make([]interface{}, len(txs))
+		var err error
+		for i, tx := range txs {
+			transactions[i], err = formatTx(i, tx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		fields["transactions"] = transactions
+	}
+	uncles := block.Uncles()
+	uncleHashes := make([]common.Hash, len(uncles))
+	for i, uncle := range uncles {
+		uncleHashes[i] = uncle.Hash()
+	}
+	fields["uncles"] = uncleHashes
+	if block.Withdrawals() != nil {
+		fields["withdrawals"] = block.Withdrawals()
+	}
+	return fields, nil
+}
+
+// newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
+func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthereumTx, index uint64, chainID *big.Int) (*RPCTransaction, error) {
+	txs := b.Transactions()
+	if index >= uint64(len(txs)) {
+		return nil, fmt.Errorf("transaction index out of bounds")
+	}
+	return NewRPCTransaction(msgs[index], b.Hash(), b.NumberU64(), index, b.BaseFee(), chainID)
+}
+
+// marshalReceipt marshals a transaction receipt into a JSON object.
+func MarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from common.Address) (map[string]interface{}, error) {
+	fields := map[string]interface{}{
+		"blockHash":         receipt.BlockHash,
+		"blockNumber":       hexutil.Uint64(receipt.BlockNumber.Uint64()),
+		"transactionHash":   tx.Hash(),
+		"transactionIndex":  hexutil.Uint64(receipt.TransactionIndex),
+		"from":              from,
+		"to":                tx.To(),
+		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              receipt.Logs,
+		"logsBloom":         receipt.Bloom,
+		"type":              hexutil.Uint(tx.Type()),
+		"effectiveGasPrice": (*hexutil.Big)(receipt.EffectiveGasPrice),
+	}
+
+	// Assign receipt status or post state.
+	if len(receipt.PostState) > 0 {
+		fields["root"] = hexutil.Bytes(receipt.PostState)
+	} else {
+		fields["status"] = hexutil.Uint(receipt.Status)
+	}
+	if receipt.Logs == nil {
+		fields["logs"] = []*ethtypes.Log{}
+	}
+
+	if tx.Type() == ethtypes.BlobTxType {
+		fields["blobGasUsed"] = hexutil.Uint64(receipt.BlobGasUsed)
+		fields["blobGasPrice"] = (*hexutil.Big)(receipt.BlobGasPrice)
+	}
+
+	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+	if receipt.ContractAddress != (common.Address{}) {
+		fields["contractAddress"] = receipt.ContractAddress
+	}
+	return fields, nil
 }
 
 // EffectiveGasPrice computes the transaction gas fee, based on the given basefee value.

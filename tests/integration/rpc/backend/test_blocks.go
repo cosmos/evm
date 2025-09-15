@@ -878,7 +878,7 @@ func (s *TestSuite) TestBlockBloom() {
 	}
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
-			blockBloom, err := s.backend.BlockBloom(tc.blockRes)
+			blockBloom, err := s.backend.BlockBloomFromCometBlock(tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)

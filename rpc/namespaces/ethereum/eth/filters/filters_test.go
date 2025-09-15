@@ -67,7 +67,7 @@ func (m *MockBackend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.Resu
 	return args.Get(0).(*cmtrpctypes.ResultBlockResults), args.Error(1)
 }
 
-func (m *MockBackend) BlockBloom(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
+func (m *MockBackend) BlockBloomFromCometBlock(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
 	args := m.Called(blockRes)
 	return args.Get(0).(ethtypes.Bloom), args.Error(1)
 }
