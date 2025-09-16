@@ -63,4 +63,5 @@ type EvmApp interface { //nolint:revive
 	GetSubspace(moduleName string) paramstypes.Subspace
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
+	GetObjKey(storeKey string) *storetypes.ObjectStoreKey
 }

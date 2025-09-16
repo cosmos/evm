@@ -2,6 +2,7 @@ package ante
 
 import (
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	errorsmod "cosmossdk.io/errors"
@@ -20,7 +21,7 @@ import (
 type HandlerOptions struct {
 	Cdc                    codec.BinaryCodec
 	AccountKeeper          anteinterfaces.AccountKeeper
-	BankKeeper             anteinterfaces.BankKeeper
+	BankKeeper             evmtypes.BankKeeper
 	IBCKeeper              *ibckeeper.Keeper
 	FeeMarketKeeper        anteinterfaces.FeeMarketKeeper
 	EvmKeeper              anteinterfaces.EVMKeeper

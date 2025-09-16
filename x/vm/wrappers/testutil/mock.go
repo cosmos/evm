@@ -384,6 +384,20 @@ func (mr *MockBankKeeperMockRecorder) SendCoinsFromAccountToModule(ctx, senderAd
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModule", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromAccountToModule), ctx, senderAddr, recipientModule, amt)
 }
 
+// SendCoinsFromAccountToModuleVirtual mocks base method.
+func (m *MockBankKeeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr types.AccAddress, recipientModule string, amt types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCoinsFromAccountToModuleVirtual", ctx, senderAddr, recipientModule, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCoinsFromAccountToModuleVirtual indicates an expected call of SendCoinsFromAccountToModuleVirtual.
+func (mr *MockBankKeeperMockRecorder) SendCoinsFromAccountToModuleVirtual(ctx, senderAddr, recipientModule, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModuleVirtual", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromAccountToModuleVirtual), ctx, senderAddr, recipientModule, amt)
+}
+
 // SendCoinsFromModuleToAccount mocks base method.
 func (m *MockBankKeeper) SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
 	m.ctrl.T.Helper()
@@ -396,6 +410,20 @@ func (m *MockBankKeeper) SendCoinsFromModuleToAccount(ctx context.Context, sende
 func (mr *MockBankKeeperMockRecorder) SendCoinsFromModuleToAccount(ctx, senderModule, recipientAddr, amt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccount", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromModuleToAccount), ctx, senderModule, recipientAddr, amt)
+}
+
+// SendCoinsFromModuleToAccountVirtual mocks base method.
+func (m *MockBankKeeper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCoinsFromModuleToAccountVirtual", ctx, senderModule, recipientAddr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCoinsFromModuleToAccountVirtual indicates an expected call of SendCoinsFromModuleToAccountVirtual.
+func (mr *MockBankKeeperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, senderModule, recipientAddr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccountVirtual", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromModuleToAccountVirtual), ctx, senderModule, recipientAddr, amt)
 }
 
 // SetDenomMetaData mocks base method.
@@ -830,6 +858,20 @@ func (mr *MockBankWrapperMockRecorder) SendCoinsFromAccountToModule(ctx, senderA
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModule", reflect.TypeOf((*MockBankWrapper)(nil).SendCoinsFromAccountToModule), ctx, senderAddr, recipientModule, amt)
 }
 
+// SendCoinsFromAccountToModuleVirtual mocks base method.
+func (m *MockBankWrapper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr types.AccAddress, recipientModule string, amt types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCoinsFromAccountToModuleVirtual", ctx, senderAddr, recipientModule, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCoinsFromAccountToModuleVirtual indicates an expected call of SendCoinsFromAccountToModuleVirtual.
+func (mr *MockBankWrapperMockRecorder) SendCoinsFromAccountToModuleVirtual(ctx, senderAddr, recipientModule, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModuleVirtual", reflect.TypeOf((*MockBankWrapper)(nil).SendCoinsFromAccountToModuleVirtual), ctx, senderAddr, recipientModule, amt)
+}
+
 // SendCoinsFromModuleToAccount mocks base method.
 func (m *MockBankWrapper) SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
 	m.ctrl.T.Helper()
@@ -842,6 +884,20 @@ func (m *MockBankWrapper) SendCoinsFromModuleToAccount(ctx context.Context, send
 func (mr *MockBankWrapperMockRecorder) SendCoinsFromModuleToAccount(ctx, senderModule, recipientAddr, amt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccount", reflect.TypeOf((*MockBankWrapper)(nil).SendCoinsFromModuleToAccount), ctx, senderModule, recipientAddr, amt)
+}
+
+// SendCoinsFromModuleToAccountVirtual mocks base method.
+func (m *MockBankWrapper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCoinsFromModuleToAccountVirtual", ctx, senderModule, recipientAddr, amt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCoinsFromModuleToAccountVirtual indicates an expected call of SendCoinsFromModuleToAccountVirtual.
+func (mr *MockBankWrapperMockRecorder) SendCoinsFromModuleToAccountVirtual(ctx, senderModule, recipientAddr, amt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccountVirtual", reflect.TypeOf((*MockBankWrapper)(nil).SendCoinsFromModuleToAccountVirtual), ctx, senderModule, recipientAddr, amt)
 }
 
 // SetDenomMetaData mocks base method.

@@ -694,8 +694,9 @@ func NewExampleApp(
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
 	app.ModuleManager.SetOrderEndBlockers(
+		banktypes.ModuleName,
 		govtypes.ModuleName, stakingtypes.ModuleName,
-		authtypes.ModuleName, banktypes.ModuleName,
+		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
@@ -1000,6 +1001,13 @@ func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
 // NOTE: This is solely used for testing purposes.
 func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
 	return app.memKeys[storeKey]
+}
+
+// GetObjKey returns the ObjectStoreKey for the provided obj key.
+//
+// NOTE: This is solely used for testing purposes.
+func (app *EVMD) GetObjKey(storeKey string) *storetypes.ObjectStoreKey {
+	return app.okeys[storeKey]
 }
 
 // GetStoreKeys returns all the stored store keys.
