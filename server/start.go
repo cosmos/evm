@@ -220,6 +220,9 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Bool(srvflags.EVMEnablePreimageRecording, cosmosevmserverconfig.DefaultEnablePreimageRecording, "Enables tracking of SHA3 preimages in the EVM (not implemented yet)")                      //nolint:lll
 	cmd.Flags().Uint64(srvflags.EVMChainID, cosmosevmserverconfig.DefaultEVMChainID, "the EIP-155 compatible replay protection chain ID")
 	cmd.Flags().Uint64(srvflags.EVMMinTip, cosmosevmserverconfig.DefaultEVMMinTip, "the minimum priority fee for the mempool")
+	cmd.Flags().String(srvflags.EVMDisplayDenom, cosmosevmserverconfig.DefaultEvmCoinInfoDisplayDenom, "the display denomination for the chain")
+	cmd.Flags().Uint8(srvflags.EVMDecimals, uint8(cosmosevmserverconfig.DefaultEvmCoinInfoDecimals), "the decimals for the base denomination")
+	cmd.Flags().Uint8(srvflags.EVMExtendedDecimals, uint8(cosmosevmserverconfig.DefaultEvmCoinInfoExtendedDecimals), "the decimals for the extended denomination")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")

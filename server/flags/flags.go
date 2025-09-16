@@ -71,6 +71,9 @@ const (
 	EVMEnablePreimageRecording = "evm.cache-preimage"
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMMinTip                  = "evm.min-tip"
+	EVMDisplayDenom            = "evm.coin-info.display-denom"
+	EVMDecimals                = "evm.coin-info.decimals"
+	EVMExtendedDecimals        = "evm.coin-info.extended-decimals"
 )
 
 // TLS flags
