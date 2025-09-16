@@ -282,7 +282,6 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
-	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
 	var allKeys []storetypes.StoreKey
@@ -290,9 +289,6 @@ func NewExampleApp(
 	for _, k := range keys {
 		allKeys = append(allKeys, k)
 		nonTransientKeys = append(nonTransientKeys, k)
-	}
-	for _, k := range tkeys {
-		allKeys = append(allKeys, k)
 	}
 	for _, k := range okeys {
 		allKeys = append(allKeys, k)
@@ -327,7 +323,6 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		tkeys:             tkeys,
 		okeys:             okeys,
 	}
 
@@ -452,7 +447,6 @@ func NewExampleApp(
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
-		nil,
 		app.UpgradeKeeper,
 		authAddr,
 	)
@@ -533,8 +527,8 @@ func NewExampleApp(
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
+		app.GetAccountKeeper().AddressCodec(),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -569,7 +563,7 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
+	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -772,7 +766,6 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountTransientStores(tkeys)
 	app.MountObjectStores(okeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))

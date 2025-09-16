@@ -960,7 +960,8 @@ func (_c *BankKeeper_SpendableCoin_Call) RunAndReturn(run func(context.Context, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

@@ -9,32 +9,14 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttime "github.com/cometbft/cometbft/types/time"
 
-	erc20types "github.com/cosmos/evm/x/erc20/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
-	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	vmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/evm/x/vm/types/mocks"
-	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-
 	storetypes "cosmossdk.io/store/types"
-	evidencetypes "cosmossdk.io/x/evidence/types"
-	"cosmossdk.io/x/feegrant"
-	upgradetypes "cosmossdk.io/x/upgrade/types"
-
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/evm/x/vm/types/mocks"
 )
 
 type KeeperTestSuite struct {
@@ -55,20 +37,11 @@ func TestKeeperTestSuite(t *testing.T) {
 }
 
 func (suite *KeeperTestSuite) SetupTest() {
-	keys := storetypes.NewKVStoreKeys(
-		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
-		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
-		govtypes.StoreKey, consensusparamtypes.StoreKey,
-		upgradetypes.StoreKey, feegrant.StoreKey, evidencetypes.StoreKey, authzkeeper.StoreKey,
-		// ibc keys
-		ibcexported.StoreKey, ibctransfertypes.StoreKey,
-		// Cosmos EVM store keys
-		vmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
-	)
 	key := storetypes.NewKVStoreKey(vmtypes.StoreKey)
 	okey := storetypes.NewObjectStoreKey(vmtypes.ObjectKey)
 	allKeys := []storetypes.StoreKey{key, okey}
-	testCtx := testutil.DefaultContextWithObjectStore(suite.T(), keys[vmtypes.StoreKey], storetypes.NewKVStoreKey("store_test"), keys[vmtypes.ObjectKey])
+	testCtx := testutil.DefaultContextWithObjectStore(suite.T(), key,
+		storetypes.NewTransientStoreKey("store_test"), okey)
 	ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
 	encCfg := moduletestutil.MakeTestEncodingConfig()
 
