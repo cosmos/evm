@@ -33,6 +33,11 @@ func (k *Keeper) GetPrecompileInstance(
 		}, found, nil
 	}
 
+	// Since erc20Keeper is optional, we check if it is nil, in which case we just return that we didn't find the precompile
+	if k.erc20Keeper == nil {
+		return nil, false, nil
+	}
+
 	// Get the precompile from the dynamic precompiles
 	precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address)
 	if err != nil || !found {
