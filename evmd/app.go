@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
+	"sort"
+
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 
 	"os"
 
@@ -278,8 +280,19 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, feemarkettypes.TransientKey)
+	var allKeys []storetypes.StoreKey
+	var nonTransientKeys []storetypes.StoreKey
+	for _, k := range keys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	for _, k := range okeys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -299,7 +312,7 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		tkeys:             tkeys,
+		okeys:             okeys,
 	}
 
 	// removed x/params: no ParamsKeeper initialization
@@ -422,7 +435,6 @@ func NewExampleApp(
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
-		nil,
 		app.UpgradeKeeper,
 		authAddr,
 	)
@@ -515,8 +527,8 @@ func NewExampleApp(
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
+		app.GetAccountKeeper().AddressCodec(),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -551,7 +563,7 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
+	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -735,7 +747,7 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountTransientStores(tkeys)
+	app.MountObjectStores(okeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
