@@ -51,6 +51,7 @@ import (
 // NewRootCmd creates a new root command for evmd. It is called once in the
 // main function.
 func NewRootCmd() *cobra.Command {
+	setupSDKConfig()
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
@@ -154,6 +155,12 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	return rootCmd
+}
+
+func setupSDKConfig() {
+	config := sdk.GetConfig()
+	evmdconfig.SetBech32Prefixes(config)
+	config.Seal()
 }
 
 // initCometConfig helps to override default CometBFT Config values.
