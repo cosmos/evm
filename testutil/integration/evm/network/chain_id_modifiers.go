@@ -91,7 +91,7 @@ func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20type
 		if tokenPair.Erc20Address == mainnetAddress {
 			updatedTokenPairs[i] = erc20types.TokenPair{
 				Erc20Address:  testnetAddress,
-				Denom:         coinInfo.Denom,
+				Denom:         coinInfo.GetDenom(),
 				Enabled:       tokenPair.Enabled,
 				ContractOwner: tokenPair.ContractOwner,
 			}

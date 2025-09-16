@@ -1602,12 +1602,12 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				configurator := types.NewEVMConfigurator()
+				configurator := types.NewEvmConfig()
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
-					Configure()
+					Apply()
 				s.Require().NoError(err)
 			},
 			true,
@@ -1632,10 +1632,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 
 	// Save initial configure to restore it between tests
 	coinInfo := types.EvmCoinInfo{
-		Denom:         types.GetEVMCoinDenom(),
-		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
-		DisplayDenom:  types.GetEVMCoinDisplayDenom(),
-		Decimals:      types.GetEVMCoinDecimals(),
+		DisplayDenom:     types.GetEVMCoinDisplayDenom(),
+		Decimals:         types.GetEVMCoinDecimals(),
+		ExtendedDecimals: types.GetEVMCoinExtendedDecimals(),
 	}
 	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
 
@@ -1658,12 +1657,12 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			configurator := types.NewEVMConfigurator()
+			configurator := types.NewEvmConfig()
 			configurator.ResetTestConfig()
 			err = configurator.
 				WithChainConfig(chainConfig).
 				WithEVMCoinInfo(coinInfo).
-				Configure()
+				Apply()
 			s.Require().NoError(err)
 		})
 	}

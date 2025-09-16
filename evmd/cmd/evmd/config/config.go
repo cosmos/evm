@@ -12,24 +12,21 @@ import (
 // chain id
 var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleDisplayDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
 	SixDecimalsChainID: {
-		Denom:         "utest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.SixDecimals,
+		DisplayDenom:     "test",
+		Decimals:         evmtypes.SixDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	// EVMChainID provides a chain ID used for internal testing
 	EVMChainID: {
-		Denom:         "atest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     "test",
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 }
 

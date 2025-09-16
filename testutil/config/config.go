@@ -12,16 +12,14 @@ import (
 // chain id
 var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleDisplayDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	EVMChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleDisplayDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 }
 

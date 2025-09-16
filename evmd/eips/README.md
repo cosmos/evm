@@ -134,7 +134,7 @@ In this way, even though the custom activators defined $3$ new EIPs, we are goin
 The EVM configuration is the type used to modify the EVM configuration before starting a node. The type is defined as:
 
 ```go
-type EVMConfigurator struct {
+type EvmConfig struct {
 	extendedEIPs             map[int]func(*vm.JumpTable)
 	extendedDefaultExtraEIPs []int64
 	sealed                   bool
@@ -151,18 +151,18 @@ It is important to notice that the configurator will only allow to append new en
 **Cosmos EVM**. The reason behind this choice is to ensure the correct and safe execution of the virtual machine but still
 allowing partners to customize their implementation.
 
-The `EVMConfigurator` type should be constructed using the builder pattern inside the `init()` function of the file so
+The `EvmConfig` type should be constructed using the builder pattern inside the `init()` function of the file so
 that it is run during the creation of the application.
 
 An example of the usage of the configurator is reported below:
 
 ```go
-configurator := evmconfig.NewEVMConfigurator().
+configurator := evmconfig.NewEvmConfig().
     WithExtendedEips(customActivators).
     WithExtendedDefaultExtraEIPs(defaultEnabledEIPs...).
-    Configure()
+    Apply()
 
-err := configurator.Configure()
+err := configurator.Apply()
 ```
 
 Errors are raised when the configurator tries to append an item with the same name of one of the default one. Since

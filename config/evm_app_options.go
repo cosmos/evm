@@ -53,7 +53,7 @@ func EvmAppOptionsWithConfigWithReset(
 	}
 
 	ethCfg := evmtypes.DefaultChainConfig(chainID)
-	configurator := evmtypes.NewEVMConfigurator()
+	configurator := evmtypes.NewEvmConfig()
 	if withReset {
 		// reset configuration to set the new one
 		configurator.ResetTestConfig()
@@ -63,7 +63,7 @@ func EvmAppOptionsWithConfigWithReset(
 		WithChainConfig(ethCfg).
 		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(coinInfo).
-		Configure()
+		Apply()
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func setBaseDenom(ci evmtypes.EvmCoinInfo) (err error) {
 	// So when failing because the denom was already registered, we ignore it and set
 	// the corresponding denom to be base denom
 	defer func() {
-		err = sdk.SetBaseDenom(ci.Denom)
+		err = sdk.SetBaseDenom(ci.GetDenom())
 	}()
 	if err := sdk.RegisterDenom(ci.DisplayDenom, math.LegacyOneDec()); err != nil {
 		return err
@@ -87,5 +87,5 @@ func setBaseDenom(ci evmtypes.EvmCoinInfo) (err error) {
 
 	// sdk.RegisterDenom will automatically overwrite the base denom when the
 	// new setBaseDenom() units are lower than the current base denom's units.
-	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
+	return sdk.RegisterDenom(ci.GetDenom(), math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
 }

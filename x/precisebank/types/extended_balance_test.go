@@ -16,10 +16,10 @@ import (
 
 func TestSumExtendedCoin(t *testing.T) {
 	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
-	configurator := evmtypes.NewEVMConfigurator()
+	configurator := evmtypes.NewEvmConfig()
 	err := configurator.
 		WithEVMCoinInfo(coinInfo).
-		Configure()
+		Apply()
 	require.NoError(t, err)
 
 	tests := []struct {

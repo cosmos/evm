@@ -489,10 +489,10 @@ func TestAccountEquivalence(t *testing.T) {
 func TestCalcBaseFee(t *testing.T) {
 	for _, chainID := range []constants.ChainID{constants.ExampleChainID, constants.TwelveDecimalsChainID, constants.SixDecimalsChainID} {
 		t.Run(chainID.ChainID, func(t *testing.T) {
-			evmConfigurator := evmtypes.NewEVMConfigurator().
+			evmConfigurator := evmtypes.NewEvmConfig().
 				WithEVMCoinInfo(constants.ExampleChainCoinInfo[chainID])
 			evmConfigurator.ResetTestConfig()
-			err := evmConfigurator.Configure()
+			err := evmConfigurator.Apply()
 			require.NoError(t, err)
 
 			config := &params.ChainConfig{
