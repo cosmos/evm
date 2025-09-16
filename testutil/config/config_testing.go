@@ -4,7 +4,6 @@
 package config
 
 import (
-	evmconfig "github.com/cosmos/evm/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -47,27 +46,4 @@ var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		Decimals:         evmtypes.EighteenDecimals,
 		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
-}
-
-// EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain.
-func EvmAppOptions(chainID uint64) error {
-	coinInfo, exists := TestChainsCoinInfo[chainID]
-	if !exists {
-		coinInfo = evmtypes.EvmCoinInfo{
-			DisplayDenom:     "test",
-			Decimals:         evmtypes.EighteenDecimals,
-			ExtendedDecimals: evmtypes.EighteenDecimals,
-		}
-	}
-	chainConfig := evmconfig.NewChainConfig(
-		"test",
-		chainID,
-		cosmosEVMActivators,
-		nil,
-		nil,
-		coinInfo,
-		true,
-	)
-	return chainConfig.ApplyChainConfig()
 }

@@ -3,10 +3,13 @@ package config
 import (
 	"fmt"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	"github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type ChainConfig struct {

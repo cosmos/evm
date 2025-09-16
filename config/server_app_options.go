@@ -8,10 +8,11 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
-	"cosmossdk.io/log"
 	"github.com/cosmos/evm/config/eips"
 	srvflags "github.com/cosmos/evm/server/flags"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
