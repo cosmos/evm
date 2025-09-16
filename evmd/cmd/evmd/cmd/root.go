@@ -130,7 +130,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.DefaultEvmChainID)
+			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -141,7 +141,7 @@ func NewRootCmd() *cobra.Command {
 
 	if initClientCtx.ChainID == "" {
 		// if the chain id is not set in client.toml, populate it with the default evm chain id
-		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmdconfig.DefaultEvmChainID, 10))
+		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmconfig.DefaultEvmChainID, 10))
 	}
 	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
 
@@ -151,7 +151,7 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	chainConfig := evmdconfig.DefaultChainConfig
+	chainConfig := evmconfig.NewTestChainConfig(evmconfig.DefaultEvmChainID)
 
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
@@ -162,7 +162,7 @@ func NewRootCmd() *cobra.Command {
 
 func setupSDKConfig() {
 	config := sdk.GetConfig()
-	evmdconfig.SetBech32Prefixes(config)
+	evmconfig.SetBech32Prefixes(config)
 	config.Seal()
 }
 
@@ -296,7 +296,7 @@ func newApp(
 	}
 
 	// get the chain id
-	chainID, err := evmdconfig.GetChainID(appOpts)
+	chainID, err := evmconfig.GetChainID(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -326,7 +326,7 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
-	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -369,13 +369,13 @@ func appExport(
 	appOpts = viperAppOpts
 
 	// get the chain id
-	chainID, err := evmdconfig.GetChainID(appOpts)
+	chainID, err := evmconfig.GetChainID(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
 
 	// create the chain config
-	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}

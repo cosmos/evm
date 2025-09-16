@@ -12,7 +12,6 @@ import (
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -20,6 +19,8 @@ import (
 	cmtconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/types"
 	tmtime "github.com/cometbft/cometbft/types/time"
+	evmconfig "github.com/cosmos/evm/config"
+	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 
 	dbm "github.com/cosmos/cosmos-db"
 
@@ -268,7 +269,7 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.DefaultEvmChainID
+	evm.EVMChainID = evmconfig.DefaultEvmChainID
 	evmCfg := evmdconfig.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
@@ -683,8 +684,7 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.DefaultEvmChainID,
-		evmdconfig.EvmAppOptions,
+		evmconfig.DefaultChainConfig,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -694,8 +694,7 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.DefaultEvmChainID,
-			evmdconfig.EvmAppOptions,
+			evmconfig.DefaultChainConfig,
 		)
 	}
 

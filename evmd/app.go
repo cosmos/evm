@@ -21,6 +21,7 @@ import (
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/config"
+	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -754,9 +755,9 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// Get the block gas limit from genesis file
-		blockGasLimit := evmdconfig.GetBlockGasLimit(appOpts, logger)
+		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
 		// Get GetMinTip from app.toml or cli flag configuration
-		mipTip := evmdconfig.GetMinTip(appOpts, logger)
+		mipTip := evmconfig.GetMinTip(appOpts, logger)
 
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),

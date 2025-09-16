@@ -27,11 +27,11 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
@@ -110,7 +110,20 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	chainConfig := evmconfig.NewChainConfig(
+		chainID,
+		evmChainID,
+		nil,
+		nil,
+		nil,
+		coinInfo,
+		false,
+	)
+	if err := chainConfig.ApplyChainConfig(); err != nil {
+		panic(err)
+	}
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), chainConfig, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -140,11 +153,23 @@ func DefaultConfig() Config {
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
 func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 	return func(val Validator) servertypes.Application {
+		coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+		chainConfig := evmconfig.NewChainConfig(
+			chainID,
+			evmChainID,
+			nil,
+			nil,
+			nil,
+			coinInfo,
+			false,
+		)
+		if err := chainConfig.ApplyChainConfig(); err != nil {
+			panic(err)
+		}
 		return evmd.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			evmChainID,
-			testconfig.EvmAppOptions,
+			chainConfig,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),

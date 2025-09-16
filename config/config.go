@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/cosmos/evm/config/eips"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -12,7 +13,7 @@ var (
 	DefaultChainConfig = NewChainConfig(
 		DefaultChainID,
 		DefaultEvmChainID,
-		cosmosEVMActivators,
+		eips.CosmosEVMActivators,
 		nil,
 		nil,
 		evmtypes.EvmCoinInfo{
@@ -105,4 +106,24 @@ func SetBip44CoinType(config *sdk.Config) {
 	config.SetCoinType(types.Bip44CoinType)
 	config.SetPurpose(sdk.Purpose)                  // Shared
 	config.SetFullFundraiserPath(types.BIP44HDPath) //nolint: staticcheck
+}
+
+// NewTestChainConfig creates a fresh chain config for testing purposes
+// This avoids the issue of shared EvmConfig instances being sealed
+func NewTestChainConfig(evmChainID uint64) ChainConfig {
+	coinInfo := evmtypes.EvmCoinInfo{
+		DisplayDenom:     DisplayDenom,
+		Decimals:         Decimals,
+		ExtendedDecimals: ExtendedDecimals,
+	}
+
+	return NewChainConfig(
+		DefaultChainID,
+		evmChainID,
+		eips.CosmosEVMActivators,
+		nil,
+		nil,
+		coinInfo,
+		true, // reset = true for testing
+	)
 }

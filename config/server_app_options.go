@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
-	evmconfig "github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/config/eips"
 	srvflags "github.com/cosmos/evm/server/flags"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -103,7 +103,11 @@ func GetChainID(appOpts servertypes.AppOptions) (string, error) {
 	chainID := cast.ToString(appOpts.Get(flags.FlagChainID))
 	if chainID == "" {
 		// if not available, load from client.toml
-		clientCtx := client.Context{}.WithHomeDir(MustGetDefaultNodeHome())
+		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+		if homeDir == "" {
+			return "", errors.New("home directory flag not found in app options")
+		}
+		clientCtx := client.Context{}.WithHomeDir(homeDir)
 		clientCtx, err := config.ReadFromClientConfig(clientCtx)
 		if err != nil {
 			return "", err
@@ -149,7 +153,7 @@ func GetEvmCoinInfo(appOpts servertypes.AppOptions) (*evmtypes.EvmCoinInfo, erro
 	return &evmCoinInfo, nil
 }
 
-func CreateChainConfig(appOpts servertypes.AppOptions) (*evmconfig.ChainConfig, error) {
+func CreateChainConfig(appOpts servertypes.AppOptions) (*ChainConfig, error) {
 	chainID, err := GetChainID(appOpts)
 	if err != nil {
 		return nil, err
@@ -163,10 +167,10 @@ func CreateChainConfig(appOpts servertypes.AppOptions) (*evmconfig.ChainConfig, 
 		return nil, err
 	}
 
-	chainConfig := evmconfig.NewChainConfig(
+	chainConfig := NewChainConfig(
 		chainID,
 		evmChainID,
-		cosmosEVMActivators,
+		eips.CosmosEVMActivators,
 		nil,
 		nil,
 		*evmCoinInfo,

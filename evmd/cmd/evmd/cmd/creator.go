@@ -12,8 +12,8 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
@@ -88,7 +88,7 @@ func (a appCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
-	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -135,7 +135,7 @@ func (a appCreator) appExport(
 		loadLatest = true
 	}
 
-	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}

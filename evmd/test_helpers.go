@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/evm/evmd/cmd/evmd/config"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmconfig "github.com/cosmos/evm/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -44,8 +43,8 @@ func init() {
 
 	// Set the global SDK config for the tests
 	cfg := sdk.GetConfig()
-	config.SetBech32Prefixes(cfg)
-	config.SetBip44CoinType(cfg)
+	evmconfig.SetBech32Prefixes(cfg)
+	evmconfig.SetBip44CoinType(cfg)
 }
 
 func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uint64) (*EVMD, GenesisState) {
@@ -55,7 +54,8 @@ func setup(withGenesis bool, invCheckPeriod uint, chainID string, evmChainID uin
 	appOptions[flags.FlagHome] = defaultNodeHome
 	appOptions[server.FlagInvCheckPeriod] = invCheckPeriod
 
-	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	chainConfig := evmconfig.DefaultChainConfig
+	app := NewExampleApp(log.NewNopLogger(), db, nil, true, appOptions, chainConfig, baseapp.SetChainID(chainID))
 	if withGenesis {
 		return app, app.DefaultGenesis()
 	}
@@ -124,16 +124,15 @@ func SetupWithGenesisValSet(t *testing.T, chainID string, evmChainID uint64, val
 // SetupTestingApp initializes the IBC-go testing application
 // need to keep this design to comply with the ibctesting SetupTestingApp func
 // and be able to set the chainID for the tests properly
-func SetupTestingApp(chainID string, evmChainID uint64) func() (ibctesting.TestingApp, map[string]json.RawMessage) {
+func SetupTestingApp(chainConfig evmconfig.ChainConfig) func() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	return func() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		db := dbm.NewMemDB()
 		app := NewExampleApp(
 			log.NewNopLogger(),
 			db, nil, true,
 			simtestutil.NewAppOptionsWithFlagHome(defaultNodeHome),
-			evmChainID,
-			testconfig.EvmAppOptions,
-			baseapp.SetChainID(chainID),
+			chainConfig,
+			baseapp.SetChainID(chainConfig.ChainID),
 		)
 		return app, app.DefaultGenesis()
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -99,7 +100,8 @@ func (s *AnteTestSuite) SetupTest() {
 
 	s.Require().NotNil(s.network.App.AppCodec())
 
-	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64())
+	coinInfo := constants.ExampleChainCoinInfo[constants.ExampleChainID]
+	chainConfig := evmtypes.DefaultChainConfig(s.network.GetEIP155ChainID().Uint64(), coinInfo)
 	if !s.enableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt

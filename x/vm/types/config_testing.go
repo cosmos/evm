@@ -56,14 +56,22 @@ func setTestChainConfig(cc *ChainConfig) error {
 	if testChainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig. Call the configurators ResetTestConfig method before configuring a new chain.")
 	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
+
+	// If no chain config is provided, create a default one for testing
+	if cc == nil {
+		config := DefaultChainConfig(0, EvmCoinInfo{
+			DisplayDenom:     "test",
+			Decimals:         EighteenDecimals,
+			ExtendedDecimals: EighteenDecimals,
+		})
+		cc = config
 	}
-	if err := config.Validate(); err != nil {
+
+	if err := cc.Validate(); err != nil {
 		return err
 	}
-	testChainConfig = config
+
+	testChainConfig = cc
 	return nil
 }
 

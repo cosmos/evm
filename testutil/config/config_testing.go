@@ -52,5 +52,22 @@ var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 // EvmAppOptions allows to setup the global configuration
 // for the Cosmos EVM chain.
 func EvmAppOptions(chainID uint64) error {
-	return evmconfig.EvmAppOptionsWithConfigWithReset(chainID, TestChainsCoinInfo, cosmosEVMActivators, true)
+	coinInfo, exists := TestChainsCoinInfo[chainID]
+	if !exists {
+		coinInfo = evmtypes.EvmCoinInfo{
+			DisplayDenom:     "test",
+			Decimals:         evmtypes.EighteenDecimals,
+			ExtendedDecimals: evmtypes.EighteenDecimals,
+		}
+	}
+	chainConfig := evmconfig.NewChainConfig(
+		"test",
+		chainID,
+		cosmosEVMActivators,
+		nil,
+		nil,
+		coinInfo,
+		true,
+	)
+	return chainConfig.ApplyChainConfig()
 }

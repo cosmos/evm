@@ -1637,7 +1637,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 		Decimals:         types.GetEVMCoinDecimals(),
 		ExtendedDecimals: types.GetEVMCoinExtendedDecimals(),
 	}
-	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
