@@ -142,7 +142,7 @@ func NewRootCmd() *cobra.Command {
 	initRootCmd(rootCmd, tempApp)
 
 	if initClientCtx.ChainID == "" {
-		// if the chain id is not set in client.toml, set it to the default chain id
+		// if the chain id is not set in client.toml, populate it with the default evm chain id
 		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmdconfig.EVMChainID, 10))
 	}
 	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
@@ -296,7 +296,7 @@ func newApp(
 	}
 
 	// get the chain id
-	chainID, err := getChainIDFromOpts(appOpts)
+	chainID, err := evmdconfig.GetEvmChainID(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -365,7 +365,7 @@ func appExport(
 	appOpts = viperAppOpts
 
 	// get the chain id
-	chainID, err := getChainIDFromOpts(appOpts)
+	chainID, err := evmdconfig.GetEvmChainID(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
@@ -381,22 +381,4 @@ func appExport(
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
-}
-
-// getChainIDFromOpts returns the chain Id from app Opts
-// It first tries to get from the chainId flag, if not available
-// it will load from home
-func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err error) {
-	// Get the chain Id from appOpts
-	chainID = cast.ToString(appOpts.Get(flags.FlagChainID))
-	if chainID == "" {
-		// If not available load from home
-		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return
 }
