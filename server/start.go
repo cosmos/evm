@@ -11,7 +11,7 @@ import (
 
 	gethmetrics "github.com/ethereum/go-ethereum/metrics"
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
-	"github.com/prometheus/client_golang/prometheus"
+	gethprom "github.com/ethereum/go-ethereum/metrics/prometheus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -31,7 +31,6 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
-	metrics "github.com/cosmos/evm/metrics"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -557,10 +556,6 @@ func startTelemetry(cfg cosmosevmserverconfig.Config) (*telemetry.Metrics, error
 	if !cfg.Telemetry.Enabled {
 		return nil, nil
 	}
-	_, err := metrics.EnableGethMetrics(gethmetrics.DefaultRegistry, prometheus.DefaultRegisterer, metrics.CollectorOpts{Namespace: "geth"})
-	if err != nil {
-		return nil, fmt.Errorf("failed to enable geth metrics: %w", err)
-	}
 	return telemetry.New(cfg.Telemetry)
 }
 
@@ -690,6 +685,7 @@ func startAPIServer(
 
 	if svrCfg.Telemetry.Enabled {
 		apiSrv.SetTelemetry(metrics)
+		apiSrv.Router.Handle("/geth/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
 	}
 
 	g.Go(func() error {
