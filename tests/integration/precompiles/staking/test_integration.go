@@ -1896,6 +1896,58 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						txSenderFinalBal := balRes.Balance
 						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)), "expected tx sender balance to be deducted by fees")
 					})
+					It("should test nested precompile calls with revert", func() {
+						outerTimes := int64(3)
+						innerTimes := int64(2)
+						expectedDelegations := outerTimes + 2 // 1 before + outerTimes after catches + 1 after loop
+						expectedDelegationAmount := math.NewInt(10).MulRaw(expectedDelegations)
+
+						callArgs := testutiltypes.CallArgs{
+							ContractABI: stakingReverterContract.ABI,
+							MethodName:  "nestedTryCatchDelegations",
+							Args: []interface{}{
+								big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
+							},
+						}
+
+						expEvents := make([]string, 0, expectedDelegations)
+						for range expectedDelegations {
+							expEvents = append(expEvents, staking.EventTypeDelegate)
+						}
+						delegateCheck := passCheck.WithExpEvents(expEvents...)
+
+						res, _, err := s.factory.CallContractAndCheckLogs(
+							s.keyring.GetPrivKey(0),
+							evmtypes.EvmTxArgs{
+								To:       &stkReverterAddr,
+								GasPrice: gasPrice.BigInt(),
+							},
+							callArgs,
+							delegateCheck,
+						)
+						Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
+						Expect(s.network.NextBlock()).To(BeNil())
+
+						fees := gasPrice.MulRaw(res.GasUsed)
+
+						// delegation should have been created with expected shares
+						qRes, err := s.grpcHandler.GetDelegation(sdk.AccAddress(stkReverterAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
+						Expect(err).To(BeNil())
+						Expect(qRes.DelegationResponse.Delegation.GetDelegatorAddr()).To(Equal(sdk.AccAddress(stkReverterAddr.Bytes()).String()))
+						Expect(qRes.DelegationResponse.Delegation.GetShares().BigInt()).To(Equal(expectedDelegationAmount.BigInt()))
+
+						// contract balance should be deducted by total delegation amount
+						balRes, err := s.grpcHandler.GetBalanceFromBank(stkReverterAddr.Bytes(), s.bondDenom)
+						Expect(err).To(BeNil())
+						contractFinalBalance := balRes.Balance
+						Expect(contractFinalBalance.Amount).To(Equal(contractInitialBalance.Amount.Sub(expectedDelegationAmount)))
+
+						// fees deducted on tx sender only
+						balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
+						Expect(err).To(BeNil())
+						txSenderFinalBal := balRes.Balance
+						Expect(txSenderFinalBal.Amount).To(Equal(txSenderInitialBal.Amount.Sub(fees)))
+					})
 				})
 
 				Context("Table-driven tests for Delegate method", func() {
