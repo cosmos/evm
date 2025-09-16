@@ -496,3 +496,36 @@ func (k Keeper) GetDenomMetaData(ctx context.Context, denom string) (banktypes.M
 func (k Keeper) SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata) {
 	k.bk.SetDenomMetaData(ctx, denomMetaData)
 }
+
+// SendCoinsFromAccountToModuleVirtual sends coins from account to a virtual module account.
+func (k Keeper) SendCoinsFromAccountToModuleVirtual(
+	ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins,
+) error {
+	recipientAcc := k.ak.GetModuleAccount(ctx, recipientModule)
+	if recipientAcc == nil {
+		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule))
+	}
+	convertedCoins := evmtypes.ConvertCoinsDenomToExtendedDenom(amt)
+	if convertedCoins.IsZero() {
+		return nil
+	}
+	return k.SendCoins(ctx, senderAddr, recipientAcc.GetAddress(), convertedCoins)
+}
+
+// SendCoinsFromModuleToAccountVirtual sends coins from account to a virtual module account.
+func (k Keeper) SendCoinsFromModuleToAccountVirtual(
+	ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
+) error {
+	senderAddr := k.ak.GetModuleAddress(senderModule)
+	if senderAddr == nil {
+		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule))
+	}
+	if k.BlockedAddr(recipientAddr) {
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", recipientAddr)
+	}
+	convertedCoins := evmtypes.ConvertCoinsDenomToExtendedDenom(amt)
+	if convertedCoins.IsZero() {
+		return nil
+	}
+	return k.SendCoins(ctx, senderAddr, recipientAddr, convertedCoins)
+}

@@ -61,4 +61,5 @@ type EvmApp interface { //nolint:revive
 	GetAnteHandler() sdk.AnteHandler
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
+	GetObjKey(storeKey string) *storetypes.ObjectStoreKey
 }

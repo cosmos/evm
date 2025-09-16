@@ -252,6 +252,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			Context("when msg.sender is equal to validator address", func() {
 				It("should succeed", func() {
+					txArgs.GasLimit = 500_000
 					// create a new validator
 					newAddr, newPriv := testutiltx.NewAccAddressAndKey()
 					hexAddr := common.BytesToAddress(newAddr.Bytes())
