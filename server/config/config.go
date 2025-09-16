@@ -6,11 +6,11 @@ import (
 	"path"
 	"time"
 
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	"github.com/spf13/viper"
 
 	"github.com/cometbft/cometbft/libs/strings"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 
