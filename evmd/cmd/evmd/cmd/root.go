@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strconv"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -140,18 +141,20 @@ func NewRootCmd() *cobra.Command {
 
 	initRootCmd(rootCmd, tempApp)
 
-	autoCliOpts := tempApp.AutoCliOpts()
+	if initClientCtx.ChainID == "" {
+		// if the chain id is not set in client.toml, set it to the default chain id
+		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmdconfig.EVMChainID, 10))
+	}
 	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
-	autoCliOpts.ClientCtx = initClientCtx
 
+	autoCliOpts := tempApp.AutoCliOpts()
+	autoCliOpts.ClientCtx = initClientCtx
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
 	}
 
-	if initClientCtx.ChainID != "" {
-		if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
-			panic(err)
-		}
+	if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
+		panic(err)
 	}
 
 	return rootCmd
