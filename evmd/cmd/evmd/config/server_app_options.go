@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"math"
 	"path/filepath"
 
@@ -8,7 +9,9 @@ import (
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
+	evmconfig "github.com/cosmos/evm/config"
 	srvflags "github.com/cosmos/evm/server/flags"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
@@ -94,9 +97,9 @@ func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
 	return nil
 }
 
-// GetEvmChainID returns the EVM chain ID from the app options, set from
+// GetChainID returns the EVM chain ID from the app options, set from
 // If not available, it will load from client.toml
-func GetEvmChainID(appOpts servertypes.AppOptions) (string, error) {
+func GetChainID(appOpts servertypes.AppOptions) (string, error) {
 	chainID := cast.ToString(appOpts.Get(flags.FlagChainID))
 	if chainID == "" {
 		// if not available, load from client.toml
@@ -109,4 +112,66 @@ func GetEvmChainID(appOpts servertypes.AppOptions) (string, error) {
 	}
 
 	return chainID, nil
+}
+
+// GetEvmChainID returns the EVM chain ID from the app options, set from flags or app.toml
+func GetEvmChainID(appOpts servertypes.AppOptions) (uint64, error) {
+	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
+	if evmChainID == 0 {
+		return 0, errors.New("evm chain id flag not found in app options")
+	}
+	return evmChainID, nil
+}
+
+func GetEvmCoinInfo(appOpts servertypes.AppOptions) (*evmtypes.EvmCoinInfo, error) {
+	displayDenom := cast.ToString(appOpts.Get(srvflags.EVMDisplayDenom))
+	if displayDenom == "" {
+		return nil, errors.New("display denom flag not found in app options")
+	}
+	decimals := cast.ToUint8(appOpts.Get(srvflags.EVMDecimals))
+	if decimals == 0 {
+		return nil, errors.New("decimals flag not found in app options")
+	}
+	extendedDecimals := cast.ToUint8(appOpts.Get(srvflags.EVMExtendedDecimals))
+	if extendedDecimals == 0 {
+		return nil, errors.New("extended decimals flag not found in app options")
+	}
+
+	evmCoinInfo := evmtypes.EvmCoinInfo{
+		DisplayDenom:     displayDenom,
+		Decimals:         evmtypes.Decimals(decimals),
+		ExtendedDecimals: evmtypes.Decimals(extendedDecimals),
+	}
+	if err := evmCoinInfo.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &evmCoinInfo, nil
+}
+
+func CreateChainConfig(appOpts servertypes.AppOptions) (*evmconfig.ChainConfig, error) {
+	chainID, err := GetChainID(appOpts)
+	if err != nil {
+		return nil, err
+	}
+	evmChainID, err := GetEvmChainID(appOpts)
+	if err != nil {
+		return nil, err
+	}
+	evmCoinInfo, err := GetEvmCoinInfo(appOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	chainConfig := evmconfig.NewChainConfig(
+		chainID,
+		evmChainID,
+		cosmosEVMActivators,
+		nil,
+		nil,
+		*evmCoinInfo,
+		false,
+	)
+
+	return &chainConfig, nil
 }

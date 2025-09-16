@@ -1592,7 +1592,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				s.Require().NoError(s.Network.App.GetFeeMarketKeeper().SetParams(s.Network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+				coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt

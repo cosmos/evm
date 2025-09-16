@@ -16,6 +16,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
+	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
@@ -56,17 +57,14 @@ func NewRootCmd() *cobra.Command {
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
-	noOpEvmAppOptions := func(_ uint64) error {
-		return nil
-	}
+
 	tempApp := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		noOpEvmAppOptions,
+		evmconfig.ChainConfig{},
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -132,7 +130,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
+			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -143,7 +141,7 @@ func NewRootCmd() *cobra.Command {
 
 	if initClientCtx.ChainID == "" {
 		// if the chain id is not set in client.toml, populate it with the default evm chain id
-		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmdconfig.EVMChainID, 10))
+		initClientCtx = initClientCtx.WithChainID(strconv.FormatUint(evmdconfig.DefaultEvmChainID, 10))
 	}
 	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
 
@@ -153,7 +151,9 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
+	chainConfig := evmdconfig.DefaultChainConfig
+
+	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
 
@@ -296,7 +296,7 @@ func newApp(
 	}
 
 	// get the chain id
-	chainID, err := evmdconfig.GetEvmChainID(appOpts)
+	chainID, err := evmdconfig.GetChainID(appOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -326,11 +326,15 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
+	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		panic(err)
+	}
+
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		*chainConfig,
 		baseappOptions...,
 	)
 }
@@ -365,19 +369,25 @@ func appExport(
 	appOpts = viperAppOpts
 
 	// get the chain id
-	chainID, err := evmdconfig.GetEvmChainID(appOpts)
+	chainID, err := evmdconfig.GetChainID(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
+
+	// create the chain config
+	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, *chainConfig, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

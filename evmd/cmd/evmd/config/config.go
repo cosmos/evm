@@ -7,6 +7,23 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// DefaultChainConfig provides a standard 18-decimal cosmos/atom test configuration
+var (
+	DefaultChainConfig = NewChainConfig(
+		DefaultChainID,
+		DefaultEvmChainID,
+		cosmosEVMActivators,
+		nil,
+		nil,
+		evmtypes.EvmCoinInfo{
+			DisplayDenom:     DisplayDenom,
+			Decimals:         Decimals,
+			ExtendedDecimals: ExtendedDecimals,
+		},
+		false,
+	)
+)
+
 // ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
 // that allows initializing the app with different coin info based on the
 // chain id
@@ -23,7 +40,7 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	// EVMChainID provides a chain ID used for internal testing
-	EVMChainID: {
+	DefaultEvmChainID: {
 		DisplayDenom:     "test",
 		Decimals:         evmtypes.EighteenDecimals,
 		ExtendedDecimals: evmtypes.EighteenDecimals,
@@ -49,10 +66,11 @@ const (
 	DisplayDenom = "atom"
 	// BaseDenom defines to the default denomination used in the Cosmos EVM example chain.
 	BaseDenom = "aatom"
-	// BaseDenomUnit defines the precision of the base denomination.
-	BaseDenomUnit = 18
-	// EVMChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.
-	EVMChainID = 262144
+	// Decimals defines the precision of the base denomination.
+	Decimals         = evmtypes.EighteenDecimals
+	ExtendedDecimals = evmtypes.EighteenDecimals
+	// DefaultEvmChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.
+	DefaultEvmChainID = 262144
 	// ExampleChainDenom is the denomination of the Cosmos EVM example chain's base coin.
 	ExampleChainDenom = "aatom"
 	// ExampleDisplayDenom is the display denomination of the Cosmos EVM example chain's base coin.
@@ -65,6 +83,7 @@ const (
 	TwelveDecimalsChainID = 9003
 	// TwoDecimalsChainID is the chain ID for the 2 decimals chain.
 	TwoDecimalsChainID = 9004
+	DefaultChainID     = "cosmos"
 	CosmosChainID      = 262144
 	// TestChainID1 is test chain IDs for IBC E2E test
 	TestChainID1 = 9005

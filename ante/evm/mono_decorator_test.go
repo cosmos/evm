@@ -17,9 +17,9 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -144,9 +144,9 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 }
 
 func TestMonoDecorator(t *testing.T) {
-	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
-	cfg := encoding.MakeConfig(chainID)
+	chainConfig := evmconfig.DefaultChainConfig
+	require.NoError(t, chainConfig.ApplyChainConfig())
+	cfg := encoding.MakeConfig(chainConfig.EvmChainID)
 
 	testCases := []struct {
 		name      string

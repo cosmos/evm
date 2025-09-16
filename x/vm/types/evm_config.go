@@ -23,6 +23,14 @@ func NewEvmConfig() *EvmConfig {
 	return &EvmConfig{}
 }
 
+func (ec *EvmConfig) GetChainConfig() *ChainConfig {
+	return ec.chainConfig
+}
+
+func (ec *EvmConfig) GetEVMCoinInfo() EvmCoinInfo {
+	return ec.evmCoinInfo
+}
+
 // WithExtendedEips allows to add to the go-ethereum activators map the provided
 // EIP activators.
 func (ec *EvmConfig) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTable)) *EvmConfig {

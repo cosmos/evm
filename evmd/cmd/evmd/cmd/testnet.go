@@ -268,7 +268,7 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.EVMChainID
+	evm.EVMChainID = evmdconfig.DefaultEvmChainID
 	evmCfg := evmdconfig.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
@@ -683,7 +683,7 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
+		evmdconfig.DefaultEvmChainID,
 		evmdconfig.EvmAppOptions,
 	)
 
@@ -694,7 +694,7 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.EVMChainID,
+			evmdconfig.DefaultEvmChainID,
 			evmdconfig.EvmAppOptions,
 		)
 	}

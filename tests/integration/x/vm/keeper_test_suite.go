@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -88,7 +89,8 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.Handler = gh
 	s.Keyring = keys
 
-	chainConfig := evmtypes.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	chainConfig := evmtypes.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 	if !s.EnableLondonHF {
 		maxInt := sdkmath.NewInt(math.MaxInt64)
 		chainConfig.LondonBlock = &maxInt

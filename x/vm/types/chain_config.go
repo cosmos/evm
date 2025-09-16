@@ -10,9 +10,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-// testChainID represents the ChainID used for the purpose of testing.
-const testChainID uint64 = 262144
-
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
 var chainConfig *ChainConfig
@@ -58,11 +55,7 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 	}
 }
 
-func DefaultChainConfig(evmChainID uint64) *ChainConfig {
-	if evmChainID == 0 {
-		evmChainID = testChainID
-	}
-
+func DefaultChainConfig(evmChainID uint64, coinInfo EvmCoinInfo) *ChainConfig {
 	homesteadBlock := sdkmath.ZeroInt()
 	daoForkBlock := sdkmath.ZeroInt()
 	eip150Block := sdkmath.ZeroInt()
@@ -84,8 +77,8 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
-		Denom:               DefaultEVMDenom,
-		Decimals:            DefaultEVMDecimals,
+		Denom:               coinInfo.GetDenom(),
+		Decimals:            uint64(coinInfo.Decimals),
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,
@@ -116,17 +109,16 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 // in the EvmConfig.
 func setChainConfig(cc *ChainConfig) error {
 	if chainConfig != nil {
-		return errors.New("chainConfig already set. Cannot set again the chainConfig")
+		return errors.New("chainConfig already set, cannot set again")
 	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
+	if cc == nil {
+		return errors.New("chain config is nil")
 	}
-	if err := config.Validate(); err != nil {
+	if err := cc.Validate(); err != nil {
 		return err
 	}
-	chainConfig = config
 
+	chainConfig = cc
 	return nil
 }
 

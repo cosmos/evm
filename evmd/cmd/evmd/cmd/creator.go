@@ -88,14 +88,18 @@ func (a appCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
+	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		panic(err)
+	}
+
 	return evmd.NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		*chainConfig,
 		baseappOptions...,
 	)
 }
@@ -131,14 +135,18 @@ func (a appCreator) appExport(
 		loadLatest = true
 	}
 
+	chainConfig, err := evmdconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
+
 	evmApp = evmd.NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		loadLatest,
 		appOpts,
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		*chainConfig,
 	)
 
 	if height != -1 {
