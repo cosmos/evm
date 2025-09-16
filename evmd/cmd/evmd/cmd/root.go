@@ -151,8 +151,7 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	chainConfig := evmconfig.NewTestChainConfig(evmconfig.DefaultEvmChainID)
-
+	chainConfig := evmconfig.DefaultChainConfig
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
