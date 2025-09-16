@@ -81,13 +81,11 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.keyring = keyring
 	s.network = nw
 
-	if s.precompile, err = staking.NewPrecompile(
+	s.precompile = staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
 		stakingkeeper.NewMsgServerImpl(s.network.App.GetStakingKeeper()),
 		stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper()),
 		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-	); err != nil {
-		panic(err)
-	}
+	)
 }

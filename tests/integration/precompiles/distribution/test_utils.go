@@ -82,7 +82,7 @@ func (s *PrecompileTestSuite) fundAccountWithBaseDenom(ctx sdk.Context, addr sdk
 	return s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, addr, coins)
 }
 
-func (s *PrecompileTestSuite) getStakingPrecompile() (*staking.Precompile, error) {
+func (s *PrecompileTestSuite) getStakingPrecompile() *staking.Precompile {
 	return staking.NewPrecompile(
 		*s.network.App.GetStakingKeeper(),
 		stakingkeeper.NewMsgServerImpl(s.network.App.GetStakingKeeper()),

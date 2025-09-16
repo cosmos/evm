@@ -14,10 +14,21 @@ import (
 
 var _ vm.PrecompiledContract = &Precompile{}
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   embed.FS
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, "abi.json")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Precompile defines the precompiled contract for Bech32 encoding.
 type Precompile struct {
@@ -28,17 +39,12 @@ type Precompile struct {
 // NewPrecompile creates a new bech32 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(baseGas uint64) (*Precompile, error) {
-	newABI, err := cmn.LoadABI(f, "abi.json")
-	if err != nil {
-		return nil, err
-	}
-
 	if baseGas == 0 {
 		return nil, fmt.Errorf("baseGas cannot be zero")
 	}
 
 	return &Precompile{
-		ABI:     newABI,
+		ABI:     ABI,
 		baseGas: baseGas,
 	}, nil
 }

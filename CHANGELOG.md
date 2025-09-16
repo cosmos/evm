@@ -27,6 +27,7 @@
 - [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
 - [\#582](https://github.com/cosmos/evm/pull/582) Add block max-gas (from genesis.json) and new min-tip (from app.toml/flags) ingestion into mempool config
 - [\#598](https://github.com/cosmos/evm/pull/598) Reduce number of times CreateQueryContext in mempool.
+- [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 
 ### FEATURES
 
@@ -39,6 +40,7 @@
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
 - [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
+- [\#577](https://github.com/cosmos/evm/pull/577) Changed the way to create a stateful precompile based on the cmn.Precompile, change `NewPrecompile` to not return error.
 
 ## v0.4.1
 
