@@ -20,8 +20,8 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
 
-	eighteenDecimalsBaseCoinZero := sdk.Coin{Denom: eighteenDecimalsCoinInfo.Denom, Amount: math.NewInt(0)}
-	sixDecimalsBaseCoinZero := sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(0)}
+	eighteenDecimalsBaseCoinZero := sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(0)}
+	sixDecimalsBaseCoinZero := sdk.Coin{Denom: sixDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(0)}
 
 	testCases := []struct {
 		name        string
@@ -42,28 +42,28 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 			evmCoinInfo: sixDecimalsCoinInfo,
 			coin:        sixDecimalsBaseCoinZero,
 			expErr:      false,
-			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(0)},
+			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.GetExtendedDenom(), Amount: math.NewInt(0)},
 		},
 		{
 			name:        "pass - no conversion with 18 decimals",
 			evmCoinInfo: eighteenDecimalsCoinInfo,
-			coin:        sdk.Coin{Denom: eighteenDecimalsCoinInfo.Denom, Amount: math.NewInt(10)},
+			coin:        sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(10)},
 			expErr:      false,
-			expCoin:     sdk.Coin{Denom: eighteenDecimalsCoinInfo.Denom, Amount: math.NewInt(10)},
+			expCoin:     sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(10)},
 		},
 		{
 			name:        "pass - conversion with 6 decimals",
 			evmCoinInfo: sixDecimalsCoinInfo,
-			coin:        sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(1e12)},
+			coin:        sdk.Coin{Denom: sixDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(1e12)},
 			expErr:      false,
-			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1e12)},
+			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.GetExtendedDenom(), Amount: math.NewInt(1e12)},
 		},
 		{
 			name:        "pass - conversion with amount less than conversion factor",
 			evmCoinInfo: sixDecimalsCoinInfo,
-			coin:        sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(1e11)},
+			coin:        sdk.Coin{Denom: sixDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(1e11)},
 			expErr:      false,
-			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1e11)},
+			expCoin:     sdk.Coin{Denom: sixDecimalsCoinInfo.GetExtendedDenom(), Amount: math.NewInt(1e11)},
 		},
 		{
 			name:        "fail - not evm denom",
@@ -75,9 +75,9 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Configure())
+			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Apply())
 
 			coinConverted, err := evmtypes.ConvertEvmCoinDenomToExtendedDenom(tc.coin)
 
@@ -96,8 +96,8 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
 
 	nonBaseCoin := sdk.Coin{Denom: "btc", Amount: math.NewInt(10)}
-	eighteenDecimalsBaseCoin := sdk.Coin{Denom: eighteenDecimalsCoinInfo.Denom, Amount: math.NewInt(10)}
-	sixDecimalsBaseCoin := sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(10)}
+	eighteenDecimalsBaseCoin := sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(10)}
+	sixDecimalsBaseCoin := sdk.Coin{Denom: sixDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(10)}
 
 	testCases := []struct {
 		name        string
@@ -121,7 +121,7 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 			name:        "pass - only base denom 6 decimals",
 			evmCoinInfo: sixDecimalsCoinInfo,
 			coins:       sdk.Coins{sixDecimalsBaseCoin},
-			expCoins:    sdk.Coins{sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(10)}},
+			expCoins:    sdk.Coins{sdk.Coin{Denom: sixDecimalsCoinInfo.GetExtendedDenom(), Amount: math.NewInt(10)}},
 		},
 		{
 			name:        "pass - multiple coins and base denom 18 decimals",
@@ -133,15 +133,15 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 			name:        "pass - multiple coins and base denom 6 decimals",
 			evmCoinInfo: sixDecimalsCoinInfo,
 			coins:       sdk.Coins{nonBaseCoin, sixDecimalsBaseCoin}.Sort(),
-			expCoins:    sdk.Coins{nonBaseCoin, sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(10)}}.Sort(),
+			expCoins:    sdk.Coins{nonBaseCoin, sdk.Coin{Denom: sixDecimalsCoinInfo.GetExtendedDenom(), Amount: math.NewInt(10)}}.Sort(),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Configure())
+			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Apply())
 
 			coinConverted := evmtypes.ConvertCoinsDenomToExtendedDenom(tc.coins)
 			require.Equal(t, tc.expCoins, coinConverted, "expected a different coin")
@@ -188,9 +188,9 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEVMConfigurator()
+				configurator := evmtypes.NewEvmConfig()
 				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
+				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Apply())
 				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt.ToBig())
 				exp := math.LegacyNewDecFromBigInt(tc.amt.ToBig())
 				if coinInfo.Decimals == evmtypes.SixDecimals {
@@ -226,9 +226,9 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEVMConfigurator()
+				configurator := evmtypes.NewEvmConfig()
 				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
+				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Apply())
 				res := evmtypes.ConvertAmountTo18DecimalsBigInt(tc.amt)
 				exp := tc.amt
 				if coinInfo.Decimals == evmtypes.SixDecimals {

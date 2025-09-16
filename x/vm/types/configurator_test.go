@@ -10,13 +10,13 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 )
 
-func TestEVMConfigurator(t *testing.T) {
-	evmConfigurator := types.NewEVMConfigurator().
+func TestEvmConfigApply(t *testing.T) {
+	evmConfigurator := types.NewEvmConfig().
 		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
-	err := evmConfigurator.Configure()
+	err := evmConfigurator.Apply()
 	require.NoError(t, err)
 
-	err = evmConfigurator.Configure()
+	err = evmConfigurator.Apply()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "sealed", "expected different error")
 }
@@ -24,17 +24,17 @@ func TestEVMConfigurator(t *testing.T) {
 func TestExtendedEips(t *testing.T) {
 	testCases := []struct {
 		name        string
-		malleate    func() *types.EVMConfigurator
+		malleate    func() *types.EvmConfig
 		expPass     bool
 		errContains string
 	}{
 		{
 			"fail - eip already present in activators return an error",
-			func() *types.EVMConfigurator {
+			func() *types.EvmConfig {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					3855: func(_ *vm.JumpTable) {},
 				}
-				ec := types.NewEVMConfigurator().
+				ec := types.NewEvmConfig().
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					WithExtendedEips(extendedEIPs)
 				return ec
@@ -44,11 +44,11 @@ func TestExtendedEips(t *testing.T) {
 		},
 		{
 			"success - new default extra eips without duplication added",
-			func() *types.EVMConfigurator {
+			func() *types.EvmConfig {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					0o000: func(_ *vm.JumpTable) {},
 				}
-				ec := types.NewEVMConfigurator().
+				ec := types.NewEvmConfig().
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					WithExtendedEips(extendedEIPs)
 				return ec
@@ -61,7 +61,7 @@ func TestExtendedEips(t *testing.T) {
 	for _, tc := range testCases {
 		ec := tc.malleate()
 		ec.ResetTestConfig()
-		err := ec.Configure()
+		err := ec.Apply()
 
 		if tc.expPass {
 			require.NoError(t, err)
@@ -76,17 +76,17 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 	defaultExtraEIPsSnapshot := types.DefaultExtraEIPs
 	testCases := []struct {
 		name        string
-		malleate    func() *types.EVMConfigurator
+		malleate    func() *types.EvmConfig
 		postCheck   func()
 		expPass     bool
 		errContains string
 	}{
 		{
 			"fail - duplicate default EIP entiries",
-			func() *types.EVMConfigurator {
+			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1000}
 				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, 1000)
-				ec := types.NewEVMConfigurator().
+				ec := types.NewEvmConfig().
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
@@ -100,9 +100,9 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 		},
 		{
 			"success - empty default extra eip",
-			func() *types.EVMConfigurator {
+			func() *types.EvmConfig {
 				var extendedDefaultExtraEIPs []int64
-				ec := types.NewEVMConfigurator().
+				ec := types.NewEvmConfig().
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
@@ -115,9 +115,9 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 		},
 		{
 			"success - extra default eip added",
-			func() *types.EVMConfigurator {
+			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1001}
-				ec := types.NewEVMConfigurator().
+				ec := types.NewEvmConfig().
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
@@ -135,7 +135,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ec := tc.malleate()
 			ec.ResetTestConfig()
-			err := ec.Configure()
+			err := ec.Apply()
 
 			if tc.expPass {
 				require.NoError(t, err)

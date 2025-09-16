@@ -116,9 +116,9 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 	} {
 		for _, tc := range testCases {
-			configurator := types.NewEVMConfigurator()
+			configurator := types.NewEvmConfig()
 			configurator.ResetTestConfig()
-			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
+			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Apply())
 
 			baseDenom := types.GetEVMCoinDenom()
 			extendedDenom := types.GetEVMCoinExtendedDenom()

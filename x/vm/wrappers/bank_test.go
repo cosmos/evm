@@ -38,12 +38,12 @@ func TestMintAmountToAccount(t *testing.T) {
 		{
 			name:      "success - convert evm coin denom to extended denom",
 			coinInfo:  sixDecimalsCoinInfo,
-			evmDenom:  sixDecimalsCoinInfo.Denom,
+			evmDenom:  sixDecimalsCoinInfo.GetDenom(),
 			amount:    big.NewInt(1e18), // 1 token in 18 decimals
 			recipient: sdk.AccAddress([]byte("test_address")),
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)) // 1 token in 18 decimals
+				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)) // 1 token in 18 decimals
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -62,12 +62,12 @@ func TestMintAmountToAccount(t *testing.T) {
 		{
 			name:      "success - 18 decimals amount not modified",
 			coinInfo:  eighteenDecimalsCoinInfo,
-			evmDenom:  eighteenDecimalsCoinInfo.Denom,
+			evmDenom:  eighteenDecimalsCoinInfo.GetDenom(),
 			amount:    big.NewInt(1e18), // 1 token in 18 decimals
 			recipient: sdk.AccAddress([]byte("test_address")),
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -86,12 +86,12 @@ func TestMintAmountToAccount(t *testing.T) {
 		{
 			name:      "fail - mint coins error",
 			coinInfo:  sixDecimalsCoinInfo,
-			evmDenom:  sixDecimalsCoinInfo.Denom,
+			evmDenom:  sixDecimalsCoinInfo.GetDenom(),
 			amount:    big.NewInt(1e18),
 			recipient: sdk.AccAddress([]byte("test_address")),
 			expectErr: "failed to mint coins to account in bank wrapper",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -104,10 +104,10 @@ func TestMintAmountToAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -146,7 +146,7 @@ func TestBurnAmountFromAccount(t *testing.T) {
 			amount:    big.NewInt(1e18),
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -168,7 +168,7 @@ func TestBurnAmountFromAccount(t *testing.T) {
 			amount:    big.NewInt(1e18),
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -190,7 +190,7 @@ func TestBurnAmountFromAccount(t *testing.T) {
 			amount:    big.NewInt(1e18),
 			expectErr: "failed to burn coins from account in bank wrapper",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -208,7 +208,7 @@ func TestBurnAmountFromAccount(t *testing.T) {
 			amount:    big.NewInt(1e18),
 			expectErr: "burn error",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				expectedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 				expectedCoins := sdk.NewCoins(expectedCoin)
 
 				mbk.EXPECT().
@@ -225,10 +225,10 @@ func TestBurnAmountFromAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -266,14 +266,14 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			coinInfo: eighteenDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 				return coins
 			},
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 
 				mbk.EXPECT().
@@ -290,14 +290,14 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 				return coins
 			},
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 				}...)
 
 				mbk.EXPECT().
@@ -314,7 +314,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			coinInfo: eighteenDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 				return coins
@@ -322,7 +322,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 
@@ -340,7 +340,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 				return coins
@@ -348,7 +348,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 
@@ -366,7 +366,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.ZeroInt()),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.ZeroInt()),
 				}...)
 				return coins
 			},
@@ -386,10 +386,10 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -427,14 +427,14 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			coinInfo: eighteenDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 				return coins
 			},
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 
 				mbk.EXPECT().
@@ -451,14 +451,14 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 				}...)
 				return coins
 			},
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 				}...)
 
 				mbk.EXPECT().
@@ -475,7 +475,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			coinInfo: eighteenDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 				return coins
@@ -483,7 +483,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 
@@ -501,7 +501,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 				return coins
@@ -509,7 +509,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			expectErr: "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
 				expectedCoins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 					sdk.NewCoin("something", sdkmath.NewInt(3e18)),
 				}...)
 
@@ -527,7 +527,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 			coinInfo: sixDecimalsCoinInfo,
 			coins: func() sdk.Coins {
 				coins := sdk.NewCoins([]sdk.Coin{
-					sdk.NewCoin(sixDecimalsCoinInfo.Denom, sdkmath.ZeroInt()),
+					sdk.NewCoin(sixDecimalsCoinInfo.GetDenom(), sdkmath.ZeroInt()),
 				}...)
 				return coins
 			},
@@ -547,10 +547,10 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -591,85 +591,85 @@ func TestGetBalance(t *testing.T) {
 		{
 			name:     "success - convert 6 decimals amount to 18 decimals",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
 					GetBalance(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - convert max int 6 decimals amount to 18 decimals",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e12).MulRaw(maxInt64)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e12).MulRaw(maxInt64))
 
 				mbk.EXPECT().
 					GetBalance(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - does not convert 18 decimals amount",
 			coinInfo: eighteenDecimalsCoinInfo,
-			evmDenom: eighteenDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+			evmDenom: eighteenDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18))
+				returnedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
 					GetBalance(
 						gomock.Any(),
 						account,
-						eighteenDecimalsCoinInfo.Denom,
+						eighteenDecimalsCoinInfo.GetDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - zero balance",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(0)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(0))
 
 				mbk.EXPECT().
 					GetBalance(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - small amount (less than 1 full token)",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)), // 0.0001 token in 18 decimals
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e14)), // 0.0001 token in 18 decimals
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)) // 0.0001 token in 6 decimals
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e14)) // 0.0001 token in 6 decimals
 
 				mbk.EXPECT().
 					GetBalance(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
@@ -685,10 +685,10 @@ func TestGetBalance(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -738,85 +738,85 @@ func TestSppendableCoin(t *testing.T) {
 		{
 			name:     "success - convert 6 decimals amount to 18 decimals",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e18))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
 					SpendableCoin(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - convert max int 6 decimals amount to 18 decimals",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e12).MulRaw(maxInt64)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e12).MulRaw(maxInt64))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e12).MulRaw(maxInt64))
 
 				mbk.EXPECT().
 					SpendableCoin(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - does not convert 18 decimals amount",
 			coinInfo: eighteenDecimalsCoinInfo,
-			evmDenom: eighteenDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18)),
+			evmDenom: eighteenDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.Denom, sdkmath.NewInt(1e18))
+				returnedCoin := sdk.NewCoin(eighteenDecimalsCoinInfo.GetDenom(), sdkmath.NewInt(1e18))
 
 				mbk.EXPECT().
 					SpendableCoin(
 						gomock.Any(),
 						account,
-						eighteenDecimalsCoinInfo.Denom,
+						eighteenDecimalsCoinInfo.GetDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - zero balance",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0)),
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(0)),
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(0))
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(0))
 
 				mbk.EXPECT().
 					SpendableCoin(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
 		{
 			name:     "success - small amount (less than 1 full token)",
 			coinInfo: sixDecimalsCoinInfo,
-			evmDenom: sixDecimalsCoinInfo.Denom,
-			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)), // 0.0001 token in 18 decimals
+			evmDenom: sixDecimalsCoinInfo.GetDenom(),
+			expCoin:  sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e14)), // 0.0001 token in 18 decimals
 			expErr:   "",
 			mockSetup: func(mbk *testutil.MockBankWrapper) {
-				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.ExtendedDenom, sdkmath.NewInt(1e14)) // 0.0001 token in 6 decimals
+				returnedCoin := sdk.NewCoin(sixDecimalsCoinInfo.GetExtendedDenom(), sdkmath.NewInt(1e14)) // 0.0001 token in 6 decimals
 
 				mbk.EXPECT().
 					SpendableCoin(
 						gomock.Any(),
 						account,
-						sixDecimalsCoinInfo.ExtendedDenom,
+						sixDecimalsCoinInfo.GetExtendedDenom(),
 					).Return(returnedCoin)
 			},
 		},
@@ -832,10 +832,10 @@ func TestSppendableCoin(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)

@@ -113,7 +113,7 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 
 // setChainConfig allows to set the `chainConfig` variable modifying the
 // default values. The method is private because it should only be called once
-// in the EVMConfigurator.
+// in the EvmConfig.
 func setChainConfig(cc *ChainConfig) error {
 	if chainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig")

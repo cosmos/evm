@@ -1,7 +1,3 @@
-//
-// The config package provides a convenient way to modify x/evm params and values.
-// Its primary purpose is to be used during application initialization.
-
 //go:build test
 // +build test
 
@@ -19,12 +15,12 @@ import (
 // opcodes are active based on Ethereum upgrades.
 var testChainConfig *ChainConfig
 
-// Configure applies the changes to the virtual machine configuration.
-func (ec *EVMConfigurator) Configure() error {
-	// If Configure method has been already used in the object, return
+// Apply applies the changes to the virtual machine configuration.
+func (ec *EvmConfig) Apply() error {
+	// If Apply method has been already used in the object, return
 	// an error to avoid overriding configuration.
 	if ec.sealed {
-		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
+		return fmt.Errorf("error applying EvmConfig: already sealed and cannot be modified")
 	}
 
 	if err := setTestChainConfig(ec.chainConfig); err != nil {
@@ -50,7 +46,7 @@ func (ec *EVMConfigurator) Configure() error {
 	return nil
 }
 
-func (ec *EVMConfigurator) ResetTestConfig() {
+func (ec *EvmConfig) ResetTestConfig() {
 	vm.ResetActivators()
 	resetEVMCoinInfo()
 	testChainConfig = nil

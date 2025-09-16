@@ -1,7 +1,3 @@
-//
-// The config package provides a convenient way to modify x/evm params and values.
-// Its primary purpose is to be used during application initialization.
-
 package types
 
 import (
@@ -11,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-// EVMConfigurator allows to extend x/evm module configurations. The configurator modifies
+// EvmConfig allows to extend x/evm module configurations. The configurator modifies
 // the EVM before starting the node. This means that all init genesis validations will be
 // applied to each change.
-type EVMConfigurator struct {
+type EvmConfig struct {
 	sealed                   bool
 	extendedEIPs             map[int]func(*vm.JumpTable)
 	extendedDefaultExtraEIPs []int64
@@ -22,35 +18,35 @@ type EVMConfigurator struct {
 	evmCoinInfo              EvmCoinInfo
 }
 
-// NewEVMConfigurator returns a pointer to a new EVMConfigurator object.
-func NewEVMConfigurator() *EVMConfigurator {
-	return &EVMConfigurator{}
+// NewEvmConfig returns a pointer to a new EvmConfig object.
+func NewEvmConfig() *EvmConfig {
+	return &EvmConfig{}
 }
 
 // WithExtendedEips allows to add to the go-ethereum activators map the provided
 // EIP activators.
-func (ec *EVMConfigurator) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTable)) *EVMConfigurator {
+func (ec *EvmConfig) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTable)) *EvmConfig {
 	ec.extendedEIPs = extendedEIPs
 	return ec
 }
 
 // WithExtendedDefaultExtraEIPs update the x/evm DefaultExtraEIPs params
 // by adding provided EIP numbers.
-func (ec *EVMConfigurator) WithExtendedDefaultExtraEIPs(eips ...int64) *EVMConfigurator {
+func (ec *EvmConfig) WithExtendedDefaultExtraEIPs(eips ...int64) *EvmConfig {
 	ec.extendedDefaultExtraEIPs = eips
 	return ec
 }
 
 // WithChainConfig allows to define a custom `chainConfig` to be used in the
 // EVM.
-func (ec *EVMConfigurator) WithChainConfig(cc *ChainConfig) *EVMConfigurator {
+func (ec *EvmConfig) WithChainConfig(cc *ChainConfig) *EvmConfig {
 	ec.chainConfig = cc
 	return ec
 }
 
 // WithEVMCoinInfo allows to define the denom and decimals of the token used as the
 // EVM token.
-func (ec *EVMConfigurator) WithEVMCoinInfo(coinInfo EvmCoinInfo) *EVMConfigurator {
+func (ec *EvmConfig) WithEVMCoinInfo(coinInfo EvmCoinInfo) *EvmConfig {
 	ec.evmCoinInfo = coinInfo
 	return ec
 }
@@ -58,7 +54,7 @@ func (ec *EVMConfigurator) WithEVMCoinInfo(coinInfo EvmCoinInfo) *EVMConfigurato
 func extendDefaultExtraEIPs(extraEIPs []int64) error {
 	for _, eip := range extraEIPs {
 		if slices.Contains(DefaultExtraEIPs, eip) {
-			return fmt.Errorf("error configuring EVMConfigurator: EIP %d is already present in the default list: %v", eip, DefaultExtraEIPs)
+			return fmt.Errorf("error applying EvmConfig: EIP %d is already present in the default list: %v", eip, DefaultExtraEIPs)
 		}
 
 		DefaultExtraEIPs = append(DefaultExtraEIPs, eip)

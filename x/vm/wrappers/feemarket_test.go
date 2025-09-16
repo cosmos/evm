@@ -90,10 +90,10 @@ func TestGetBaseFee(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
@@ -180,10 +180,10 @@ func TestCalculateBaseFee(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
@@ -255,10 +255,10 @@ func TestGetParams(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
+			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
+			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			require.NoError(t, err, "failed to apply EvmConfig")
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)

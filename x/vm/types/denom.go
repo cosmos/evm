@@ -1,11 +1,8 @@
-//
-// The config package provides a convenient way to modify x/evm params and values.
-// Its primary purpose is to be used during application initialization.
-
 package types
 
 import (
 	"fmt"
+	"slices"
 
 	"cosmossdk.io/math"
 )
@@ -57,9 +54,19 @@ var ConversionFactor = map[Decimals]math.Int{
 type Decimals uint8
 
 // Validate checks if the Decimals instance represent a supported decimals value
-// or not.
 func (d Decimals) Validate() error {
-	if 0 < d && d <= EighteenDecimals {
+	validDecimals := []Decimals{
+		OneDecimals,
+		TwoDecimals,
+		ThreeDecimals,
+		SixDecimals,
+		NineDecimals,
+		TwelveDecimals,
+		FifteenDecimals,
+		EighteenDecimals,
+	}
+
+	if slices.Contains(validDecimals, d) {
 		return nil
 	}
 
@@ -77,13 +84,27 @@ func (d Decimals) ConversionFactor() math.Int {
 	return ConversionFactor[d]
 }
 
-// EvmCoinInfo struct holds the name and decimals of the EVM denom. The EVM denom
-// is the token used to pay fees in the EVM.
-//
-// TODO: move to own file? at least rename file because it's unclear to use "denom"
-type EvmCoinInfo struct {
-	Denom         string
-	ExtendedDenom string
-	DisplayDenom  string
-	Decimals      Decimals
+// GetSIPrefix returns the SI prefix for the decimals
+func (d Decimals) GetSIPrefix() string {
+	switch d {
+	case OneDecimals:
+		return "d"
+	case TwoDecimals:
+		return "c"
+	case ThreeDecimals:
+		return "m"
+	case SixDecimals:
+		return "u"
+	case NineDecimals:
+		return "n"
+	case TwelveDecimals:
+		return "p"
+	case FifteenDecimals:
+		return "f"
+	case EighteenDecimals:
+		return "a"
+	default:
+		// decimals must be one of 1, 2, 3, 6, 9, 12, 15, 18 to have a valid prefix
+		return "invalid"
+	}
 }
