@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/contracts"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/precisebank/types"
@@ -21,19 +21,19 @@ import (
 func (s *KeeperIntegrationTestSuite) TestMintBurnSendCoinsRandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 		{
 			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			chainID: testconfig.ExampleTwoDecimalsChainID,
 		},
 		{
 			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			chainID: testconfig.ExampleTwelveDecimalsChainID,
 		},
 	}
 
@@ -137,19 +137,19 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 
 	tests := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 		{
 			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			chainID: testconfig.ExampleTwelveDecimalsChainID,
 		},
 		{
 			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			chainID: testconfig.ExampleTwoDecimalsChainID,
 		},
 	}
 
@@ -250,19 +250,19 @@ func (s *KeeperIntegrationTestSuite) TestSendEvmTxRandomValueMultiDecimals() {
 func (s *KeeperIntegrationTestSuite) TestWATOMWrapUnwrapMultiDecimal() {
 	tests := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 		{
 			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			chainID: testconfig.ExampleTwelveDecimalsChainID,
 		},
 		{
 			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			chainID: testconfig.ExampleTwoDecimalsChainID,
 		},
 	}
 

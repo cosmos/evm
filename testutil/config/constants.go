@@ -17,9 +17,6 @@ const (
 	// ExampleMicroDenom provides an example denom for use in tests
 	ExampleMicroDenom = "uatom"
 
-	// ExampleDisplayDenom provides an example display denom for use in tests
-	ExampleDisplayDenom = "atom"
-
 	// ExampleBech32Prefix provides an example Bech32 prefix for use in tests
 	ExampleBech32Prefix = "cosmos"
 

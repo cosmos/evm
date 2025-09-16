@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -35,9 +35,9 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	coinInfo := constants.ExampleChainCoinInfo[constants.ExampleChainID]
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 	chainConfig := config.NewChainConfig(
-		constants.ExampleChainID.ChainID,
+		testconfig.ExampleChainID.ChainID,
 		evmChainID,
 		nil,
 		nil,
@@ -62,10 +62,10 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
-	coinInfo := constants.ExampleChainCoinInfo[constants.ExampleChainID]
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 	chainConfig := config.NewChainConfig(
-		constants.ExampleChainID.ChainID,
-		constants.ExampleEIP155ChainID,
+		testconfig.ExampleChainID.ChainID,
+		testconfig.ExampleEIP155ChainID,
 		nil,
 		nil,
 		nil,

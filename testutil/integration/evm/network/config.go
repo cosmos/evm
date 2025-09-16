@@ -6,7 +6,7 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testtx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -20,7 +20,7 @@ import (
 )
 
 // defaultChain represents the default chain ID used in the suite setup.
-var defaultChain = testconstants.ExampleChainID
+var defaultChain = testconfig.ExampleChainID
 
 // Config defines the configuration for a chain.
 // It allows for customization of the network to adjust to
@@ -54,8 +54,8 @@ func DefaultConfig() Config {
 	account, _ := testtx.NewAccAddressAndKey()
 
 	return Config{
-		chainID:             testconstants.ExampleChainID.ChainID,
-		eip155ChainID:       big.NewInt(testconstants.ExampleEIP155ChainID),
+		chainID:             testconfig.ExampleChainID.ChainID,
+		eip155ChainID:       big.NewInt(testconfig.ExampleEIP155ChainID),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
 		initialBondedAmount: DefaultInitialBondedAmount(),
@@ -117,13 +117,13 @@ type ConfigOption func(*Config)
 
 // WithChainID sets a custom chainID for the network. Changing the chainID
 // change automatically also the EVM coin used. It panics if the chainID is invalid.
-func WithChainID(chainID testconstants.ChainID) ConfigOption {
-	evmCoinInfo, found := testconstants.ExampleChainCoinInfo[chainID]
+func WithChainID(chainID testconfig.ChainID) ConfigOption {
+	evmCoinInfo, found := testconfig.ExampleChainCoinInfo[chainID]
 	if !found {
 		panic(fmt.Sprintf(
 			"chain id %q not found in chain coin info; available: %v",
 			chainID,
-			testconstants.ExampleChainCoinInfo,
+			testconfig.ExampleChainCoinInfo,
 		))
 	}
 

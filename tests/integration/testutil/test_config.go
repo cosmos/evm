@@ -3,7 +3,7 @@
 package testutil
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	grpchandler "github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
@@ -16,12 +16,12 @@ import (
 )
 
 func (s *TestSuite) TestWithChainID() {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	testCases := []struct {
 		name            string
-		chainID         testconstants.ChainID
+		chainID         testconfig.ChainID
 		evmChainID      uint64
 		coinInfo        evmtypes.EvmCoinInfo
 		expBaseFee      math.LegacyDec
@@ -29,14 +29,14 @@ func (s *TestSuite) TestWithChainID() {
 	}{
 		{
 			name:            "18 decimals",
-			chainID:         testconstants.ExampleChainID,
+			chainID:         testconfig.ExampleChainID,
 			coinInfo:        eighteenDecimalsCoinInfo,
 			expBaseFee:      math.LegacyNewDec(875_000_000),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.EighteenDecimals),
 		},
 		{
 			name:            "6 decimals",
-			chainID:         testconstants.SixDecimalsChainID,
+			chainID:         testconfig.ExampleSixDecimalsChainID,
 			coinInfo:        sixDecimalsCoinInfo,
 			expBaseFee:      math.LegacyNewDecWithPrec(875, 6),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.SixDecimals),
@@ -98,9 +98,9 @@ func (s *TestSuite) TestWithChainID() {
 }
 
 func (s *TestSuite) TestWithBalances() {
-	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 1e18))
+	key1Balance := sdk.NewCoins(sdk.NewInt64Coin(testconfig.ExampleAttoDenom, 1e18))
 	key2Balance := sdk.NewCoins(
-		sdk.NewInt64Coin(testconstants.ExampleAttoDenom, 2e18),
+		sdk.NewInt64Coin(testconfig.ExampleAttoDenom, 2e18),
 		sdk.NewInt64Coin("other", 3e18),
 	)
 

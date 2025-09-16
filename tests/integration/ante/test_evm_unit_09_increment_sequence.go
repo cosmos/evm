@@ -3,7 +3,7 @@ package ante
 import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/mempool"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
@@ -16,7 +16,7 @@ func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,
-		network.WithChainID(testconstants.ChainID{
+		network.WithChainID(testconfig.ChainID{
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		}),

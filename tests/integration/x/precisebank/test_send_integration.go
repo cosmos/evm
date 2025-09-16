@@ -11,7 +11,7 @@ import (
 	corevm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -719,19 +719,19 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsFromModuleToAccount() {
 func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 	tests := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 		{
 			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			chainID: testconfig.ExampleTwelveDecimalsChainID,
 		},
 		{
 			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			chainID: testconfig.ExampleTwoDecimalsChainID,
 		},
 	}
 
@@ -798,7 +798,7 @@ func (s *KeeperIntegrationTestSuite) TestSendCoinsRandomValueMultiDecimals() {
 func FuzzSendCoins(f *testing.F) {
 	configurator := evmtypes.NewEvmConfig()
 	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
+	configurator.WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID])
 	err := configurator.Apply()
 	require.NoError(f, err)
 
@@ -858,19 +858,19 @@ func FuzzSendCoins(f *testing.F) {
 func (s *KeeperIntegrationTestSuite) TestSendMsg_RandomValueMultiDecimals() { //nolint:revive // false positive due to file name
 	tests := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "6 decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 		{
 			name:    "12 decimals",
-			chainID: testconstants.TwelveDecimalsChainID,
+			chainID: testconfig.ExampleTwelveDecimalsChainID,
 		},
 		{
 			name:    "2 decimals",
-			chainID: testconstants.TwoDecimalsChainID,
+			chainID: testconfig.ExampleTwoDecimalsChainID,
 		},
 	}
 

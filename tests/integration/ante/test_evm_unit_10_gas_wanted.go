@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -22,7 +22,7 @@ func (s *EvmUnitAnteTestSuite) TestCheckGasWanted() {
 	keyring := testkeyring.New(1)
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,
-		network.WithChainID(testconstants.ChainID{
+		network.WithChainID(testconfig.ChainID{
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		}),

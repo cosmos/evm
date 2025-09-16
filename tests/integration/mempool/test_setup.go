@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -39,11 +39,11 @@ func NewMempoolIntegrationTestSuite(create network.CreateEvmApp, options ...netw
 
 // SetupTest initializes the test environment with default settings.
 func (s *IntegrationTestSuite) SetupTest() {
-	s.SetupTestWithChainID(testconstants.ExampleChainID)
+	s.SetupTestWithChainID(testconfig.ExampleChainID)
 }
 
 // SetupTestWithChainID initializes the test environment with a specific chain ID.
-func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
+func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconfig.ChainID) {
 	s.keyring = keyring.New(20)
 
 	options := []network.ConfigOption{

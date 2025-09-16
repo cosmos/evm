@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
 	"github.com/cosmos/evm/x/vm/wrappers/testutil"
@@ -23,8 +23,8 @@ import (
 // --------------------------------------TRANSACTIONS-----------------------------------------------
 
 func TestMintAmountToAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	testCases := []struct {
 		name      string
@@ -128,8 +128,8 @@ func TestMintAmountToAccount(t *testing.T) {
 }
 
 func TestBurnAmountFromAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -249,8 +249,8 @@ func TestBurnAmountFromAccount(t *testing.T) {
 }
 
 func TestSendCoinsFromModuleToAccount(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -410,8 +410,8 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 }
 
 func TestSendCoinsFromAccountToModule(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	account := sdk.AccAddress([]byte("test_address"))
 
@@ -573,8 +573,8 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 // ----------------------------------------QUERIES-------------------------------------------------
 
 func TestGetBalance(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))
@@ -720,8 +720,8 @@ func TestGetBalance(t *testing.T) {
 // ----------------------------------------QUERIES-------------------------------------------------
 
 func TestSppendableCoin(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	maxInt64 := int64(9223372036854775807)
 	account := sdk.AccAddress([]byte("test_address"))

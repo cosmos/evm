@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -30,7 +30,7 @@ func (s *EvmUnitAnteTestSuite) TestVerifyAccountBalance() {
 	unitNetwork := network.NewUnitTestNetwork(
 		s.create,
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-		network.WithChainID(testconstants.ChainID{
+		network.WithChainID(testconfig.ChainID{
 			ChainID:    s.ChainID,
 			EVMChainID: s.EvmChainID,
 		}),

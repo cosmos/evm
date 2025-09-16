@@ -12,7 +12,7 @@ import (
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -111,7 +111,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10))))
 				return txBuilder.GetTx()
 			},
 			false,
@@ -156,7 +156,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10))))
 				return txBuilder.GetTx()
 			},
 			true,
@@ -173,7 +173,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
 				return txBuilder.GetTx()
 			},
 			true,
@@ -190,7 +190,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction))))
 
 				option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{})
 				require.NoError(t, err)
@@ -211,7 +211,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
 
 				option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{
 					MaxPriorityPrice: math.LegacyNewDec(5).MulInt(evmtypes.DefaultPriorityReduction),
@@ -234,7 +234,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
 				txBuilder.SetGasLimit(1)
-				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
+				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
 
 				// set negative priority fee
 				option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{

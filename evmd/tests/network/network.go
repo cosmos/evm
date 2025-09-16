@@ -32,7 +32,7 @@ import (
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
@@ -110,7 +110,7 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 	chainConfig := evmconfig.NewChainConfig(
 		chainID,
 		evmChainID,
@@ -136,8 +136,8 @@ func DefaultConfig() Config {
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
-		BondDenom:         testconstants.ExampleAttoDenom,
-		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
+		BondDenom:         testconfig.ExampleAttoDenom,
+		MinGasPrices:      fmt.Sprintf("0.000006%s", testconfig.ExampleAttoDenom),
 		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
 		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
 		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
@@ -153,7 +153,7 @@ func DefaultConfig() Config {
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
 func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 	return func(val Validator) servertypes.Application {
-		coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+		coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 		chainConfig := evmconfig.NewChainConfig(
 			chainID,
 			evmChainID,
@@ -501,7 +501,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		customAppTemplate, _ := evmdconfig.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.ExampleEIP155ChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

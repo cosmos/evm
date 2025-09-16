@@ -9,7 +9,7 @@ import (
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/werc20"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -44,7 +44,7 @@ func NewPrecompileUnitTestSuite(
 // SetupTest allows to configure the testing suite embedding a network with a
 // custom chainID. This is important to check that the correct address is used
 // for the precompile.
-func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
+func (s *PrecompileUnitTestSuite) SetupTest(chainID testconfig.ChainID) {
 	keyring := keyring.New(2)
 
 	options := []network.ConfigOption{
@@ -97,14 +97,14 @@ type WithdrawalEvent struct {
 func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 	testCases := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "mainnet",
-			chainID: testconstants.ExampleChainID,
+			chainID: testconfig.ExampleChainID,
 		}, {
 			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 	}
 
@@ -156,14 +156,14 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 	testCases := []struct {
 		name    string
-		chainID testconstants.ChainID
+		chainID testconfig.ChainID
 	}{
 		{
 			name:    "mainnet",
-			chainID: testconstants.ExampleChainID,
+			chainID: testconfig.ExampleChainID,
 		}, {
 			name:    "six decimals",
-			chainID: testconstants.SixDecimalsChainID,
+			chainID: testconfig.ExampleSixDecimalsChainID,
 		},
 	}
 

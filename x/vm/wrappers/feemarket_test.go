@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -27,7 +27,7 @@ func TestGetBaseFee(t *testing.T) {
 	}{
 		{
 			name:      "success - does not convert 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -37,7 +37,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - convert 6 decimals to 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -47,7 +47,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - nil base fee",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: nil,
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -57,7 +57,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - small amount 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(1e12), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -67,7 +67,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - base fee is zero",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(0),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -77,7 +77,7 @@ func TestGetBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - truncate decimals with number less than 1",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(0), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -117,7 +117,7 @@ func TestCalculateBaseFee(t *testing.T) {
 	}{
 		{
 			name:      "success - does not convert 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -127,7 +127,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - convert 6 decimals to 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(1e18), // 1 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -137,7 +137,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - nil base fee",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: nil,
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -147,7 +147,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - small amount 18 decimals",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(1e12), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -157,7 +157,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - base fee is zero",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(0),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -167,7 +167,7 @@ func TestCalculateBaseFee(t *testing.T) {
 		},
 		{
 			name:      "success - truncate decimals with number less than 1",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo:  testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expResult: big.NewInt(0), // 0.000001 token in 18 decimals
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
@@ -206,7 +206,7 @@ func TestGetParams(t *testing.T) {
 	}{
 		{
 			name:     "success - convert 6 decimals to 18 decimals",
-			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			coinInfo: testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
 			expParams: feemarkettypes.Params{
 				BaseFee:     sdkmath.LegacyNewDec(1e18),
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
@@ -222,7 +222,7 @@ func TestGetParams(t *testing.T) {
 		},
 		{
 			name:     "success - does not convert 18 decimals",
-			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			coinInfo: testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 			expParams: feemarkettypes.Params{
 				BaseFee:     sdkmath.LegacyNewDec(1e18),
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
@@ -238,7 +238,7 @@ func TestGetParams(t *testing.T) {
 		},
 		{
 			name:     "success - nil base fee",
-			coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			coinInfo: testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 			expParams: feemarkettypes.Params{
 				MinGasPrice: sdkmath.LegacyNewDec(1e18),
 			},

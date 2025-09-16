@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/contracts"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -57,7 +57,7 @@ func TestIterateContracts(t *testing.T, create network.CreateEvmApp, options ...
 
 	network.App.GetEVMKeeper().IterateContracts(network.GetContext(), func(addr common.Address, codeHash common.Hash) bool {
 		// NOTE: we only care about the 2 contracts deployed above, not the ERC20 native precompile for the aatom denomination
-		if bytes.Equal(addr.Bytes(), common.HexToAddress(testconstants.WEVMOSContractMainnet).Bytes()) {
+		if bytes.Equal(addr.Bytes(), common.HexToAddress(testconfig.WEVMOSContractMainnet).Bytes()) {
 			return false
 		}
 

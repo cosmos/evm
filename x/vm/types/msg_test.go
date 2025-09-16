@@ -15,7 +15,7 @@ import (
 
 	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -113,8 +113,8 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 		},
 	}
 	for _, coinInfo := range []types.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEvmConfig()

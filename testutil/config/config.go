@@ -65,8 +65,6 @@ const (
 	TestChainID1 = 9005
 	// TestChainID2 is test chain IDs for IBC E2E test
 	TestChainID2 = 9006
-	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
-	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
 )
 
 // SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.

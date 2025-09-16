@@ -13,9 +13,9 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/config/eips"
 	"github.com/cosmos/evm/evmd/tests/eips/testdata"
 	"github.com/cosmos/evm/evmd/tests/integration"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -107,7 +107,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 		})
 
 		It("should enable the new EIP", func() {
-			testconfig.Multiplier = eipMultiplier
+			eips.Multiplier = eipMultiplier
 			newEIP := 0o000
 
 			qRes, err := gh.GetEvmParams()
@@ -259,7 +259,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			Expect(counter.String()).To(Equal(fmt.Sprintf("%d", initialCounterValue+1)), "counter is not correct")
 		})
 		It("should enable the new EIP", func() {
-			testconfig.Multiplier = eipMultiplier
+			eips.Multiplier = eipMultiplier
 			newEIP := 0o001
 
 			qRes, err := gh.GetEvmParams()
@@ -403,7 +403,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 		})
 
 		It("should enable the new EIP", func() {
-			testconfig.SstoreConstantGas = constantGas
+			eips.SstoreConstantGas = constantGas
 			newEIP := 0o002
 
 			qRes, err := gh.GetEvmParams()

@@ -15,7 +15,7 @@ import (
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/precompiles/werc20/testdata"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -50,7 +50,7 @@ type PrecompileIntegrationTestSuite struct {
 }
 
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
-	_ = DescribeTableSubtree("a user interact with the WEVMOS precompiled contract", func(chainId testconstants.ChainID) {
+	_ = DescribeTableSubtree("a user interact with the WEVMOS precompiled contract", func(chainId testconfig.ChainID) {
 		var (
 			is                                         *PrecompileIntegrationTestSuite
 			passCheck, failCheck                       testutil.LogCheckArgs
@@ -71,9 +71,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		// precise balance handling across different decimal configurations
 		var conversionFactor *big.Int
 		switch chainId {
-		case testconstants.SixDecimalsChainID:
+		case testconfig.ExampleSixDecimalsChainID:
 			conversionFactor = big.NewInt(1e12) // For 6-decimal chains
-		case testconstants.TwelveDecimalsChainID:
+		case testconfig.ExampleTwelveDecimalsChainID:
 			conversionFactor = big.NewInt(1e6) // For 12-decimal chains
 		default:
 			conversionFactor = big.NewInt(1) // For 18-decimal chains
@@ -111,7 +111,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			configurator := evmtypes.NewEvmConfig()
 			configurator.ResetTestConfig()
 			Expect(configurator.
-				WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainId]).
+				WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[chainId]).
 				Apply()).To(BeNil(), "expected no error setting the evm configurator")
 
 			opts := []network.ConfigOption{
@@ -130,7 +130,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			is.keyring = keyring
 
 			is.wrappedCoinDenom = evmtypes.GetEVMCoinDenom()
-			is.precompileAddrHex = network.GetWEVMOSContractHex(testconstants.ChainID{
+			is.precompileAddrHex = network.GetWEVMOSContractHex(testconfig.ChainID{
 				ChainID:    is.network.GetChainID(),
 				EVMChainID: is.network.GetEIP155ChainID().Uint64(),
 			})
@@ -552,7 +552,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
 
-					coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ChainID{
+					coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ChainID{
 						ChainID:    is.network.GetChainID(),
 						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
 					}]
@@ -562,9 +562,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 		})
 	},
-		Entry("6 decimals chain", testconstants.SixDecimalsChainID),
-		Entry("12 decimals chain", testconstants.TwelveDecimalsChainID),
-		Entry("18 decimals chain", testconstants.ExampleChainID),
+		Entry("6 decimals chain", testconfig.ExampleSixDecimalsChainID),
+		Entry("12 decimals chain", testconfig.ExampleTwelveDecimalsChainID),
+		Entry("18 decimals chain", testconfig.ExampleChainID),
 	)
 
 	// Run Ginkgo integration tests

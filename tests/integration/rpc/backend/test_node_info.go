@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	"github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -33,13 +33,13 @@ func (s *TestSuite) TestRPCMinGasPrice() {
 		{
 			"pass - default gas price",
 			func() {},
-			big.NewInt(constants.DefaultGasPrice),
+			big.NewInt(testconfig.DefaultGasPrice),
 			true,
 		},
 		{
 			"pass - min gas price is 0",
 			func() {},
-			big.NewInt(constants.DefaultGasPrice),
+			big.NewInt(testconfig.DefaultGasPrice),
 			true,
 		},
 	}
@@ -260,7 +260,7 @@ func (s *TestSuite) TestSetEtherbase() {
 				RegisterStatus(client)
 				RegisterValidatorAccount(QueryClient, s.acc)
 				RegisterParams(QueryClient, &header, 1)
-				c := sdk.NewDecCoin(constants.ExampleAttoDenom, math.NewIntFromBigInt(big.NewInt(1)))
+				c := sdk.NewDecCoin(testconfig.ExampleAttoDenom, math.NewIntFromBigInt(big.NewInt(1)))
 				s.backend.Cfg.SetMinGasPrices(sdk.DecCoins{c})
 				delAddr, _ := s.backend.GetCoinbase()
 				// account, _ := s.backend.ClientCtx.AccountRetriever.GetAccount(s.backend.ClientCtx, delAddr)

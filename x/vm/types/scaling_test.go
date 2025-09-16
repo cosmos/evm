@@ -8,7 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -17,8 +17,8 @@ import (
 )
 
 func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	eighteenDecimalsBaseCoinZero := sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(0)}
 	sixDecimalsBaseCoinZero := sdk.Coin{Denom: sixDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(0)}
@@ -92,8 +92,8 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 }
 
 func TestConvertCoinsFrom18Decimals(t *testing.T) {
-	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
-	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	eighteenDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	sixDecimalsCoinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID]
 
 	nonBaseCoin := sdk.Coin{Denom: "btc", Amount: math.NewInt(10)}
 	eighteenDecimalsBaseCoin := sdk.Coin{Denom: eighteenDecimalsCoinInfo.GetDenom(), Amount: math.NewInt(10)}
@@ -183,8 +183,8 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 	}
 
 	for _, coinInfo := range []evmtypes.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
@@ -221,8 +221,8 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 	}
 
 	for _, coinInfo := range []evmtypes.EvmCoinInfo{
-		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleSixDecimalsChainID],
+		testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID],
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {

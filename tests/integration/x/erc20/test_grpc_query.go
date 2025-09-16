@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
 
@@ -32,7 +32,7 @@ func (s *KeeperTestSuite) TestTokenPairs() {
 					Pagination: &query.PageResponse{
 						Total: 1,
 					},
-					TokenPairs: testconstants.ExampleTokenPairs,
+					TokenPairs: testconfig.ExampleTokenPairs,
 				}
 			},
 			true,
@@ -43,7 +43,7 @@ func (s *KeeperTestSuite) TestTokenPairs() {
 				req = &types.QueryTokenPairsRequest{
 					Pagination: &query.PageRequest{Limit: 10, CountTotal: true},
 				}
-				pairs := testconstants.ExampleTokenPairs
+				pairs := testconfig.ExampleTokenPairs
 				pair := types.NewTokenPair(utiltx.GenerateAddress(), "coin", types.OWNER_MODULE)
 				s.network.App.GetErc20Keeper().SetTokenPair(ctx, pair)
 				pairs = append(pairs, pair)
@@ -59,7 +59,7 @@ func (s *KeeperTestSuite) TestTokenPairs() {
 			"2 pairs registered wo/pagination",
 			func() {
 				req = &types.QueryTokenPairsRequest{}
-				pairs := testconstants.ExampleTokenPairs
+				pairs := testconfig.ExampleTokenPairs
 
 				pair := types.NewTokenPair(utiltx.GenerateAddress(), "coin", types.OWNER_MODULE)
 				pair2 := types.NewTokenPair(utiltx.GenerateAddress(), "coin2", types.OWNER_MODULE)

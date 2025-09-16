@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
@@ -1592,7 +1592,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				s.Require().NoError(s.Network.App.GetFeeMarketKeeper().SetParams(s.Network.GetContext(), feemarketDefault))
 
-				coinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+				coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
@@ -1607,7 +1607,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
+					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
 					Apply()
 				s.Require().NoError(err)
 			},

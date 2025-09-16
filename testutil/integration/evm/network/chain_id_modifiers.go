@@ -5,7 +5,7 @@
 package network
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -72,7 +72,7 @@ func generateBankGenesisMetadata() []banktypes.Metadata {
 
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // erc20 module on the testing suite depending on the chainID.
-func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
+func updateErc20GenesisStateForChainID(chainID testconfig.ChainID, erc20GenesisState erc20types.GenesisState) erc20types.GenesisState {
 	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
@@ -80,11 +80,11 @@ func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20Genes
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct
 // WEVMOS depending on ChainID
-func updateErc20TokenPairs(chainID testconstants.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
+func updateErc20TokenPairs(chainID testconfig.ChainID, tokenPairs []erc20types.TokenPair) []erc20types.TokenPair {
 	testnetAddress := GetWEVMOSContractHex(chainID)
-	coinInfo := testconstants.ExampleChainCoinInfo[chainID]
+	coinInfo := testconfig.ExampleChainCoinInfo[chainID]
 
-	mainnetAddress := GetWEVMOSContractHex(testconstants.ExampleChainID)
+	mainnetAddress := GetWEVMOSContractHex(testconfig.ExampleChainID)
 
 	updatedTokenPairs := make([]erc20types.TokenPair, len(tokenPairs))
 	for i, tokenPair := range tokenPairs {

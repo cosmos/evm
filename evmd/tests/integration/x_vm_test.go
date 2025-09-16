@@ -6,7 +6,7 @@ import (
 
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/tests/integration/x/vm"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -33,7 +33,7 @@ func BenchmarkGasEstimation(b *testing.B) {
 	// gh := grpc.NewIntegrationHandler(nw)
 	// tf := factory.New(nw, gh)
 
-	coinInfo := constants.ExampleChainCoinInfo[constants.ExampleChainID]
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
 	chainConfig := types.DefaultChainConfig(nw.GetEIP155ChainID().Uint64(), coinInfo)
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config

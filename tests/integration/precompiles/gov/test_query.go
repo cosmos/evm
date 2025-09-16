@@ -10,7 +10,7 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/precompiles/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 
 	"cosmossdk.io/math"
 
@@ -29,7 +29,7 @@ var (
 	govAcct = authtypes.NewModuleAddress(govtypes.ModuleName)
 	// TestProposalMsgs are msgs used on a proposal.
 	TestProposalMsgs = []sdk.Msg{
-		banktypes.NewMsgSend(govAcct, addr, sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(1000)))),
+		banktypes.NewMsgSend(govAcct, addr, sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, math.NewInt(1000)))),
 	}
 )
 
