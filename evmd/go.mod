@@ -287,8 +287,8 @@ replace (
 )
 
 replace (
-	cosmossdk.io/store => github.com/mmsqe/cosmos-sdk/store v0.0.0-20250905083904-27090daee504
-	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250905083904-27090daee504
+	cosmossdk.io/store => github.com/mmsqe/cosmos-sdk/store v0.0.0-20250911010452-f028aa05574d
+	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.0-beta2.0.20250911010452-f028aa05574d
 	github.com/cosmos/ibc-go/v10 => github.com/mmsqe/ibc-go/v10 v10.0.0-20250904020418-f7f56cf83a9d
 	github.com/tidwall/btree => github.com/crypto-org-chain/btree v0.0.0-20240406140148-2687063b042c
 )

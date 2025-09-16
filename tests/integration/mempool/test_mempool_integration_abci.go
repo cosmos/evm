@@ -218,7 +218,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			mpool := s.network.App.GetMempool()
 			iterator := mpool.Select(s.network.GetContext(), nil)
 			for _, txHash := range expTxHashes {
-				actualTxHash := s.getTxHash(iterator.Tx())
+				actualTxHash := s.getTxHash(iterator.Tx().Tx)
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
@@ -430,7 +430,7 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 			// Check whether expected transactions are included and returned as pending state in mempool
 			for _, txHash := range expTxHashes {
-				actualTxHash := s.getTxHash(iterator.Tx())
+				actualTxHash := s.getTxHash(iterator.Tx().Tx)
 				s.Require().Equal(txHash, actualTxHash)
 
 				iterator = iterator.Next()
