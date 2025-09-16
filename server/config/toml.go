@@ -28,6 +28,9 @@ block-executor = "{{ .EVM.BlockExecutor }}"
 # BlockSTMWorkers is the number of workers for block-stm execution, 0 means using all available CPUs.
 block-stm-workers = {{ .EVM.BlockSTMWorkers }}
 
+# MinTip defines the minimum priority fee for the mempool.
+min-tip = {{ .EVM.MinTip }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################

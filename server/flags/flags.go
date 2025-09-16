@@ -72,6 +72,7 @@ const (
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMBlockExecutor           = "evm.block-executor"
 	EVMBlockSTMWorkers         = "evm.block-stm-workers"
+	EVMMinTip                  = "evm.min-tip"
 )
 
 // TLS flags

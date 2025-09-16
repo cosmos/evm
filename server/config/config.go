@@ -66,6 +66,9 @@ const (
 	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
 	DefaultEVMChainID = 262144
 
+	// DefaultEVMMinTip is the default minimum priority fee for the mempool
+	DefaultEVMMinTip = 0
+
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
 
@@ -154,6 +157,8 @@ type EVMConfig struct {
 	BlockExecutor string `mapstructure:"block-executor"`
 	// BlockSTMWorkers is the number of workers for block-stm execution, `0` means using all available CPUs.
 	BlockSTMWorkers int `mapstructure:"block-stm-workers"`
+	// MinTip defines the minimum priority fee for the mempool
+	MinTip uint64 `mapstructure:"min-tip"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -224,6 +229,7 @@ func DefaultEVMConfig() *EVMConfig {
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		BlockExecutor:           BlockExecutorSequential,
+		MinTip:                  DefaultEVMMinTip,
 	}
 }
 
