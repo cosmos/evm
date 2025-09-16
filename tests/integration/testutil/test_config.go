@@ -74,7 +74,7 @@ func (s *TestSuite) TestWithChainID() {
 		)
 
 		// Bank balance should always be in the original amount.
-		cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.coinInfo.Denom)
+		cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.coinInfo.GetDenom())
 		s.NoError(err, "error getting balances")
 		s.Equal(
 			tc.expCosmosAmount.String(),
