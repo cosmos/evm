@@ -30,6 +30,7 @@
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
+- [\#405](https://github.com/cosmos/evm/pull/405) Add erc20 factory precompile.
 
 ### STATE BREAKING
 
