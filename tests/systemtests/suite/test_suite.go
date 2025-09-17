@@ -1,9 +1,7 @@
 package suite
 
 import (
-	"fmt"
 	"math/big"
-	"slices"
 	"testing"
 	"time"
 
@@ -72,49 +70,18 @@ func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {
 
 // JustAfterEach checks the expected mempool state right after each test case
 func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
-	// Check pending txs exist in mempool or already committed
-	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.CheckPendingOrCommitted(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*10)
-		require.NoError(t, err, "tx is not pending or committed")
-	}
+	// Check pending txs exist in mempool or already committed - concurrently
+	err := s.CheckTxsPendingAsync(s.GetExpPendingTxs())
+	require.NoError(t, err)
 
-	// Check queued txs only exist in local mempool
-	// (queued txs should be only EVM txs)
-	pendingHashes := make([][]string, len(s.Nodes()))
-	queuedHashes := make([][]string, len(s.Nodes()))
-	for i := range s.Nodes() {
-		pending, queued, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
-		require.NoError(t, err)
-		queuedHashes[i] = queued
-		pendingHashes[i] = pending
-	}
-
-	for _, txInfo := range s.GetExpQueuedTxs() {
-		if txInfo.TxType != TxTypeEVM {
-			panic("queued txs should be only EVM txs")
-		}
-
-		for i := range s.Nodes() {
-			pendingTxHashes := pendingHashes[i]
-			queuedTxHashes := queuedHashes[i]
-
-			if s.Node(i) == txInfo.DstNodeID {
-				ok := slices.Contains(queuedTxHashes, txInfo.TxHash)
-				require.True(t, ok, fmt.Sprintf("tx %s is not contained in queued txs in mempool", txInfo.TxHash))
-			} else {
-				ok := slices.Contains(pendingTxHashes, txInfo.TxHash)
-				require.False(t, ok, fmt.Sprintf("locally queued tx %s is contained in pending txs in mempool of other node", txInfo.TxHash))
-
-				ok = slices.Contains(queuedTxHashes, txInfo.TxHash)
-				require.False(t, ok, fmt.Sprintf("locally queued tx %s is contained in queued txs in mempool of other node", txInfo.TxHash))
-			}
-		}
-	}
+	// Check queued txs only exist in local mempool (queued txs should be only EVM txs)
+	err = s.CheckTxsQueuedSync(s.GetExpQueuedTxs())
+	require.NoError(t, err)
 
 	// Wait for block commit
 	s.AwaitNBlocks(t, 1)
 
-	// Get current base fee
+	// Get current base fee and set it to suite.baseFee
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
 	require.NoError(t, err)
 

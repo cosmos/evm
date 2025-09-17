@@ -114,14 +114,12 @@ func (ec *EthClient) WaitForCommit(
 	}
 }
 
-// CheckPendingOrCommited checks if a transaction is either pending in the mempool or already committed.
-func (ec *EthClient) CheckPendingOrCommited(
+// CheckTxsPending checks if a transaction is either pending in the mempool or already committed.
+func (ec *EthClient) CheckTxsPending(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
 ) error {
-	ethCli := ec.Clients[nodeID]
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -141,10 +139,6 @@ func (ec *EthClient) CheckPendingOrCommited(
 			pendingTxHashes := extractTxHashesSorted(pendingTxs)
 
 			if ok := slices.Contains(pendingTxHashes, txHash); ok {
-				return nil
-			}
-
-			if _, err = ethCli.TransactionReceipt(context.Background(), common.HexToHash(txHash)); err == nil {
 				return nil
 			}
 		}

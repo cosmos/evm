@@ -35,12 +35,17 @@ func TestTxRebroadcasting(t *testing.T) {
 					tx6, err := s.SendTx(t, s.Node(0), "acc0", 5, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx1, tx2, tx3)
-
 					// At AfterEachAction hook, we will check expected queued txs are not broadcasted.
+					s.SetExpPendingTxs(tx1, tx2, tx3)
 					s.SetExpQueuedTxs(tx5, tx6)
 				},
 				func(s TestSuite) {
+					// Wait for 3 blocks.
+					// It is because tx1, tx2, tx3 are sent to different nodes, tx3 needs maximum 3 blocks to be committed.
+					// e.g. node3 is 1st proposer -> tx3 will tale 1 block to be committed.
+					// e.g. node3 is 3rd proposer -> tx3 will take 3 blocks to be committed.
+					s.AwaitNBlocks(t, 3)
+
 					// current nonce is 3.
 					// so, we should set nonce idx to 0.
 					nonce3Idx := uint64(0)
@@ -48,9 +53,8 @@ func TestTxRebroadcasting(t *testing.T) {
 					tx4, err := s.SendTx(t, s.Node(2), "acc0", nonce3Idx, s.BaseFee(), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx4)
-
 					// At AfterEachAction hook, we will check expected pending txs are broadcasted.
+					s.SetExpPendingTxs(tx4)
 					s.PromoteExpTxs(2)
 				},
 			},

@@ -144,8 +144,8 @@ func (c *CosmosClient) WaitForCommit(
 	}
 }
 
-// CheckPendingOrCommited checks if a transaction is either pending in the mempool or already committed.
-func (c *CosmosClient) CheckPendingOrCommited(
+// CheckTxsPending checks if a transaction is either pending in the mempool or already committed.
+func (c *CosmosClient) CheckTxsPending(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -155,11 +155,6 @@ func (c *CosmosClient) CheckPendingOrCommited(
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
-
-	hashBytes, err := hex.DecodeString(txHash)
-	if err != nil {
-		return fmt.Errorf("invalid tx hash format: %v", err)
-	}
 
 	for {
 		select {
@@ -177,10 +172,6 @@ func (c *CosmosClient) CheckPendingOrCommited(
 			}
 
 			if ok := slices.Contains(pendingTxHashes, txHash); ok {
-				return nil
-			}
-
-			if _, err = c.ClientCtx.Client.Tx(ctx, hashBytes, false); err == nil {
 				return nil
 			}
 		}

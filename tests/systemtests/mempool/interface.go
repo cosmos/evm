@@ -39,4 +39,7 @@ type TestSuite interface {
 	GetExpQueuedTxs() []*suite.TxInfo
 	SetExpQueuedTxs(txs ...*suite.TxInfo)
 	PromoteExpTxs(count int)
+
+	// Test Utils
+	AwaitNBlocks(t *testing.T, n int64, duration ...time.Duration)
 }

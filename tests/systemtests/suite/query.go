@@ -99,8 +99,8 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-// CheckPendingOrCommitted checks if the given tx is either pending or committed within the timeout duration
-func (s *SystemTestSuite) CheckPendingOrCommitted(
+// CheckTxsPending checks if the given tx is either pending or committed within the timeout duration
+func (s *SystemTestSuite) CheckTxPending(
 	nodeID string,
 	txHash string,
 	txType string,
@@ -108,9 +108,9 @@ func (s *SystemTestSuite) CheckPendingOrCommitted(
 ) error {
 	switch txType {
 	case TxTypeEVM:
-		return s.EthClient.CheckPendingOrCommited(nodeID, txHash, timeout)
+		return s.EthClient.CheckTxsPending(nodeID, txHash, timeout)
 	case TxTypeCosmos:
-		return s.CosmosClient.CheckPendingOrCommited(nodeID, txHash, timeout)
+		return s.CosmosClient.CheckTxsPending(nodeID, txHash, timeout)
 	default:
 		return fmt.Errorf("invalid tx type")
 	}
