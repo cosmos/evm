@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
+	gethmetrics "github.com/ethereum/go-ethereum/metrics"
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
+	gethprom "github.com/ethereum/go-ethereum/metrics/prometheus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -683,6 +685,7 @@ func startAPIServer(
 
 	if svrCfg.Telemetry.Enabled {
 		apiSrv.SetTelemetry(metrics)
+		apiSrv.Router.Handle("/geth/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
 	}
 
 	g.Go(func() error {
