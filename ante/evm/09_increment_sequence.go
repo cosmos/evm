@@ -22,15 +22,15 @@ func IncrementNonce(
 	accountNonce := account.GetSequence()
 	// we merged the accountNonce verification to accountNonce increment, so when tx includes multiple messages
 	// with same sender, they'll be accepted.
-	if txNonce != accountNonce {
-		if txNonce > accountNonce {
-			return errorsmod.Wrapf(
-				mempool.ErrNonceGap,
-				"tx nonce: %d, account accountNonce: %d", txNonce, accountNonce,
-			)
-		}
+	if txNonce > accountNonce {
 		return errorsmod.Wrapf(
-			errortypes.ErrInvalidSequence,
+			mempool.ErrNonceGap,
+			"tx nonce: %d, account accountNonce: %d", txNonce, accountNonce,
+		)
+	}
+	if txNonce < accountNonce {
+		return errorsmod.Wrapf(
+			mempool.ErrNonceLow,
 			"invalid nonce; got %d, expected %d", txNonce, accountNonce,
 		)
 	}

@@ -218,21 +218,9 @@ func (s *StateDB) cache() error {
 func (s *StateDB) AddLog(log *ethtypes.Log) {
 	s.journal.append(addLogChange{})
 
-	log.TxHash = s.txConfig.TxHash
 	log.TxIndex = s.txConfig.TxIndex
 	log.Index = s.txConfig.LogIndex + uint(len(s.logs))
 	s.logs = append(s.logs, log)
-}
-
-// GetLogs returns the logs matching the specified transaction hash, and annotates
-// them with the given blockNumber and blockHash.
-func (s *StateDB) GetLogs(blockNumber uint64, blockHash common.Hash, blockTime uint64) []*ethtypes.Log {
-	for _, l := range s.logs {
-		l.BlockNumber = blockNumber
-		l.BlockHash = blockHash
-		l.BlockTimestamp = blockTime
-	}
-	return s.logs
 }
 
 // Logs returns the logs of current transaction.

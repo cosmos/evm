@@ -57,9 +57,6 @@ const (
 	// DefaultEnablePreimageRecording is the default value for EnablePreimageRecording
 	DefaultEnablePreimageRecording = false
 
-	// DefaultFixRevertGasRefundHeight is the default height at which to overwrite gas refund
-	DefaultFixRevertGasRefundHeight = 0
-
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
@@ -194,8 +191,6 @@ type JSONRPCConfig struct {
 	EnableIndexer bool `mapstructure:"enable-indexer"`
 	// MetricsAddress defines the metrics server to listen on
 	MetricsAddress string `mapstructure:"metrics-address"`
-	// FixRevertGasRefundHeight defines the upgrade height for fix of revert gas refund logic when transaction reverted
-	FixRevertGasRefundHeight int64 `mapstructure:"fix-revert-gas-refund-height"`
 	// WSOrigins defines the allowed origins for WebSocket connections
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
@@ -248,29 +243,28 @@ func GetDefaultWSOrigins() []string {
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
-		Enable:                   false,
-		API:                      GetDefaultAPINamespaces(),
-		Address:                  DefaultJSONRPCAddress,
-		WsAddress:                DefaultJSONRPCWsAddress,
-		GasCap:                   DefaultGasCap,
-		AllowInsecureUnlock:      DefaultJSONRPCAllowInsecureUnlock,
-		EVMTimeout:               DefaultEVMTimeout,
-		TxFeeCap:                 DefaultTxFeeCap,
-		FilterCap:                DefaultFilterCap,
-		FeeHistoryCap:            DefaultFeeHistoryCap,
-		BlockRangeCap:            DefaultBlockRangeCap,
-		LogsCap:                  DefaultLogsCap,
-		HTTPTimeout:              DefaultHTTPTimeout,
-		HTTPIdleTimeout:          DefaultHTTPIdleTimeout,
-		AllowUnprotectedTxs:      DefaultAllowUnprotectedTxs,
-		BatchRequestLimit:        DefaultBatchRequestLimit,
-		BatchResponseMaxSize:     DefaultBatchResponseMaxSize,
-		MaxOpenConnections:       DefaultMaxOpenConnections,
-		EnableIndexer:            false,
-		MetricsAddress:           DefaultJSONRPCMetricsAddress,
-		FixRevertGasRefundHeight: DefaultFixRevertGasRefundHeight,
-		WSOrigins:                GetDefaultWSOrigins(),
-		EnableProfiling:          DefaultEnableProfiling,
+		Enable:               false,
+		API:                  GetDefaultAPINamespaces(),
+		Address:              DefaultJSONRPCAddress,
+		WsAddress:            DefaultJSONRPCWsAddress,
+		GasCap:               DefaultGasCap,
+		AllowInsecureUnlock:  DefaultJSONRPCAllowInsecureUnlock,
+		EVMTimeout:           DefaultEVMTimeout,
+		TxFeeCap:             DefaultTxFeeCap,
+		FilterCap:            DefaultFilterCap,
+		FeeHistoryCap:        DefaultFeeHistoryCap,
+		BlockRangeCap:        DefaultBlockRangeCap,
+		LogsCap:              DefaultLogsCap,
+		HTTPTimeout:          DefaultHTTPTimeout,
+		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
+		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
+		BatchRequestLimit:    DefaultBatchRequestLimit,
+		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
+		MaxOpenConnections:   DefaultMaxOpenConnections,
+		EnableIndexer:        false,
+		MetricsAddress:       DefaultJSONRPCMetricsAddress,
+		WSOrigins:            GetDefaultWSOrigins(),
+		EnableProfiling:      DefaultEnableProfiling,
 	}
 }
 
