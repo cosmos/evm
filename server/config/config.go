@@ -235,7 +235,7 @@ func (c EVMConfig) Validate() error {
 	}
 
 	if _, err := netip.ParseAddrPort(c.GethMetricsAddr); err != nil {
-		return fmt.Errorf("invalid geth metrics address %q: %v", c.GethMetricsAddr, err)
+		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddr, err)
 	}
 
 	return nil
