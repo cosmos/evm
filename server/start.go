@@ -9,9 +9,8 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
-	gethmetrics "github.com/ethereum/go-ethereum/metrics"
+	evmmetrics "github.com/cosmos/evm/metrics"
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
-	gethprom "github.com/ethereum/go-ethereum/metrics/prometheus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -222,6 +221,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Bool(srvflags.EVMEnablePreimageRecording, cosmosevmserverconfig.DefaultEnablePreimageRecording, "Enables tracking of SHA3 preimages in the EVM (not implemented yet)")                      //nolint:lll
 	cmd.Flags().Uint64(srvflags.EVMChainID, cosmosevmserverconfig.DefaultEVMChainID, "the EIP-155 compatible replay protection chain ID")
 	cmd.Flags().Uint64(srvflags.EVMMinTip, cosmosevmserverconfig.DefaultEVMMinTip, "the minimum priority fee for the mempool")
+	cmd.Flags().String(srvflags.EvmGethMetricsAddr, cosmosevmserverconfig.DefaultGethMetricsAddr, "the address to bind the geth metrics server to")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")
@@ -504,7 +504,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		defer grpcSrv.GracefulStop()
 	}
 
-	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics)
+	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics, config.EVM.GethMetricsAddr)
 
 	if config.JSONRPC.Enable {
 		txApp, ok := app.(AppWithPendingTxStream)
@@ -675,6 +675,7 @@ func startAPIServer(
 	app types.Application,
 	grpcSrv *grpc.Server,
 	metrics *telemetry.Metrics,
+	gethMetricsAddr string,
 ) {
 	if !svrCfg.API.Enable {
 		return
@@ -685,7 +686,7 @@ func startAPIServer(
 
 	if svrCfg.Telemetry.Enabled {
 		apiSrv.SetTelemetry(metrics)
-		apiSrv.Router.Handle("/geth/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
+		evmmetrics.StartGethMetricServer(ctx, gethMetricsAddr)
 	}
 
 	g.Go(func() error {
