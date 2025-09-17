@@ -14,8 +14,7 @@ import (
 	cmtcli "github.com/cometbft/cometbft/libs/cli"
 
 	dbm "github.com/cosmos/cosmos-db"
-	cosmosevmcmd "github.com/cosmos/evm/client"
-	"github.com/cosmos/evm/config"
+	clientkeys "github.com/cosmos/evm/client/keys"
 	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	evmdapp "github.com/cosmos/evm/evmd/app"
@@ -65,7 +64,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.ChainConfig{},
+		evmconfig.DefaultChainConfig,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -82,7 +81,7 @@ func NewRootCmd() *cobra.Command {
 		WithInput(os.Stdin).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.FlagBroadcastMode).
-		WithHomeDir(config.MustGetDefaultNodeHome()).
+		WithHomeDir(evmconfig.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
 		WithKeyringOptions(cosmosevmkeyring.Option()).
@@ -131,7 +130,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := config.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
+			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -182,7 +181,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmdapp.EVMD) {
 	cfg := sdk.GetConfig()
 	cfg.Seal()
 
-	defaultNodeHome := config.MustGetDefaultNodeHome()
+	defaultNodeHome := evmconfig.MustGetDefaultNodeHome()
 	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
 		return newApp(l, d, w, ao)
 	}
@@ -207,7 +206,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmdapp.EVMD) {
 
 	// add Cosmos EVM key commands
 	rootCmd.AddCommand(
-		cosmosevmcmd.KeyCommands(defaultNodeHome, true),
+		clientkeys.KeyCommands(defaultNodeHome, true),
 	)
 
 	// add keybase, auxiliary RPC, query, genesis, and tx child commands
@@ -332,10 +331,11 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		panic(err)
-	}
+	chainConfig := &evmconfig.DefaultChainConfig
+	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	return evmdapp.NewExampleApp(
 		logger, db, traceStore, true,
@@ -381,10 +381,11 @@ func appExport(
 	}
 
 	// create the chain config
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		return servertypes.ExportedApp{}, err
-	}
+	chainConfig := &evmconfig.DefaultChainConfig
+	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	// if err != nil {
+	// 	return servertypes.ExportedApp{}, err
+	// }
 
 	if height != -1 {
 		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
