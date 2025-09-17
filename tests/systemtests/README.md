@@ -26,21 +26,21 @@ cp ./build/evmd ./tests/systemtests/binaries/v0.4
 ### Run test cases for txs ordering
 
 ```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... 
+go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
 --run TestTxsOrdering --verbose --binary evmd --block-time 5s --chain-id local-4221
 ```
 
 ### Run test cases for txs replacement
 
 ```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... 
+go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
 --run TestTxsReplacement --verbose --binary evmd --block-time 5s --chain-id local-4221
 ```
 
 ### Run test exceptions
 
 ```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... 
+go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
 --run TestExceptions --verbose --binary evmd --block-time 5s --chain-id local-4221
 ```
 
