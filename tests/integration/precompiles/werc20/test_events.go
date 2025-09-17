@@ -1,7 +1,6 @@
 package werc20
 
 import (
-	"github.com/cosmos/evm/precompiles/erc20"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/werc20"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
