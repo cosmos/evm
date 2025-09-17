@@ -171,11 +171,15 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 		tokenPair = tp
 	}
 
+	erc20ABI, err := erc20.LoadABI()
+	is.Require().NoError(err)
+
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 	Expect(err).ToNot(HaveOccurred(), "failed to set up %q erc20 precompile", tokenPair.Denom)
 
@@ -188,11 +192,16 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 func setupERC20PrecompileForTokenPair(
 	unitNetwork network.UnitTestNetwork, tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
+	erc20ABI, err := erc20.LoadABI()
+	if err != nil {
+		return nil, err
+	}
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.GetBankKeeper(),
 		unitNetwork.App.GetErc20Keeper(),
 		unitNetwork.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
@@ -215,11 +224,16 @@ func setupERC20PrecompileForTokenPair(
 func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
 	tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
+	erc20ABI, err := erc20.LoadABI()
+	if err != nil {
+		return nil, err
+	}
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
