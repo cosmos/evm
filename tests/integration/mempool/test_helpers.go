@@ -8,6 +8,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -109,7 +110,13 @@ func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPri
 // checkTxs call abci CheckTx for multipile transactions
 func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 	for _, tx := range txs {
-		if err := s.checkTx(tx); err != nil {
+		if res, err := s.checkTx(tx); err != nil {
+			if err != nil {
+				return fmt.Errorf("failed to execute CheckTx for tx: %s", s.getTxHash(tx))
+			}
+			if res.Code != abci.CodeTypeOK {
+				return fmt.Errorf("tx (%s) failed to pass CheckTx with log: %s", s.getTxHash(tx), res.Log)
+			}
 			return err
 		}
 	}
@@ -117,21 +124,34 @@ func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 }
 
 // checkTxs call abci CheckTx for a transaction
-func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) error {
+func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) (*abci.ResponseCheckTx, error) {
 	txBytes, err := s.network.App.GetTxConfig().TxEncoder()(tx)
 	if err != nil {
-		return fmt.Errorf("failed to encode cosmos tx: %w", err)
+		return nil, fmt.Errorf("failed to encode cosmos tx: %w", err)
 	}
 
-	_, err = s.network.App.CheckTx(&abci.RequestCheckTx{
+	res, err := s.network.App.CheckTx(&abci.RequestCheckTx{
 		Tx:   txBytes,
 		Type: abci.CheckTxType_New,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to encode cosmos tx: %w", err)
+		return nil, fmt.Errorf("failed to execute CheckTx: %w", err)
 	}
 
-	return nil
+	return res, nil
+}
+
+func (s *IntegrationTestSuite) getTxBytes(txs []sdk.Tx) ([][]byte, error) {
+	txEncoder := s.network.App.GetTxConfig().TxEncoder()
+	txBytes := make([][]byte, 0)
+	for _, tx := range txs {
+		bz, err := txEncoder(tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode tx: %w", err)
+		}
+		txBytes = append(txBytes, bz)
+	}
+	return txBytes, nil
 }
 
 // getTxHashes returns transaction hashes for multiple transactions
@@ -172,4 +192,23 @@ func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasL
 	}
 
 	return new(big.Int).Sub(gasPrice, baseFee)
+}
+
+// notifyNewBlockToMempool manually triggers a chain head event to notify the mempool about the new block.
+// This simulates the natural event that should occur after block finalization in production.
+// Instead of using the problematic reset mechanism that assumes Ethereum-style reorgs,
+// we use the existing event notification system.
+func (s *IntegrationTestSuite) notifyNewBlockToMempool() {
+	// Get the EVM mempool from the app
+	evmMempool := s.network.App.GetMempool()
+
+	// Access the underlying blockchain interface from the EVM mempool
+	if evmMempoolCast, ok := evmMempool.(*evmmempool.ExperimentalEVMMempool); ok {
+		blockchain := evmMempoolCast.GetBlockchain()
+
+		// Trigger a new block notification
+		// This will send a ChainHeadEvent that the mempool subscribes to,
+		// which should trigger the natural state update and transaction cleanup
+		blockchain.NotifyNewBlock()
+	}
 }
