@@ -15,10 +15,11 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
+	"github.com/cosmos/evm/config"
 	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	evmdapp "github.com/cosmos/evm/evmd/app"
+	testnetcmd "github.com/cosmos/evm/evmd/cmd/testnet"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -30,7 +31,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
-	clientcfg "github.com/cosmos/cosmos-sdk/client/config"
+	sdkclientcfg "github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/debug"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/pruning"
@@ -47,6 +48,7 @@ import (
 	txmodule "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
+	clientflags "github.com/cosmos/evm/client/flags"
 )
 
 // NewRootCmd creates a new root command for evmd. It is called once in the
@@ -57,13 +59,13 @@ func NewRootCmd() *cobra.Command {
 	// and the CLI options for the modules
 	// add keyring to autocli opts
 
-	tempApp := evmd.NewExampleApp(
+	tempApp := evmdapp.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmconfig.ChainConfig{},
+		config.ChainConfig{},
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -80,7 +82,7 @@ func NewRootCmd() *cobra.Command {
 		WithInput(os.Stdin).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.FlagBroadcastMode).
-		WithHomeDir(evmdconfig.MustGetDefaultNodeHome()).
+		WithHomeDir(config.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
 		WithKeyringOptions(cosmosevmkeyring.Option()).
@@ -100,7 +102,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			initClientCtx, err = clientcfg.ReadFromClientConfig(initClientCtx)
+			initClientCtx, err = sdkclientcfg.ReadFromClientConfig(initClientCtx)
 			if err != nil {
 				return err
 			}
@@ -129,7 +131,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
+			customAppTemplate, customAppConfig := config.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -142,7 +144,7 @@ func NewRootCmd() *cobra.Command {
 		// if the chain id is not set in client.toml, populate it with the default evm chain id
 		initClientCtx = initClientCtx.WithChainID(evmconfig.DefaultChainID)
 	}
-	initClientCtx, _ = clientcfg.ReadFromClientConfig(initClientCtx)
+	initClientCtx, _ = sdkclientcfg.ReadFromClientConfig(initClientCtx)
 
 	autoCliOpts := tempApp.AutoCliOpts()
 	autoCliOpts.ClientCtx = initClientCtx
@@ -150,10 +152,10 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	// chainConfig := evmconfig.DefaultChainConfig
-	// if err := chainConfig.ApplyChainConfig(); err != nil {
-	// 	panic(err)
-	// }
+	chainConfig := evmconfig.DefaultChainConfig
+	if err := chainConfig.ApplyChainConfig(); err != nil {
+		panic(err)
+	}
 
 	return rootCmd
 }
@@ -176,11 +178,11 @@ func initCometConfig() *cmtcfg.Config {
 	return cfg
 }
 
-func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
+func initRootCmd(rootCmd *cobra.Command, evmApp *evmdapp.EVMD) {
 	cfg := sdk.GetConfig()
 	cfg.Seal()
 
-	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
+	defaultNodeHome := config.MustGetDefaultNodeHome()
 	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
 		return newApp(l, d, w, ao)
 	}
@@ -192,7 +194,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(sdkAppCreator, defaultNodeHome),
 		snapshot.Cmd(sdkAppCreator),
-		NewTestnetCmd(evmApp.BasicModuleManager, banktypes.GenesisBalancesIterator{}, appCreator{}),
+		testnetcmd.NewTestnetCmd(evmApp.BasicModuleManager, banktypes.GenesisBalancesIterator{}, evmdapp.AppCreator{}),
 	)
 
 	// add Cosmos EVM' flavored TM commands to start server, etc.
@@ -218,6 +220,12 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 	// add general tx flags to the root command
 	var err error
 	_, err = srvflags.AddTxFlags(rootCmd)
+	if err != nil {
+		panic(err)
+	}
+
+	// add custom client flags to the root command
+	err = clientflags.AddClientFlags(rootCmd)
 	if err != nil {
 		panic(err)
 	}
@@ -329,7 +337,7 @@ func newApp(
 		panic(err)
 	}
 
-	return evmd.NewExampleApp(
+	return evmdapp.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
 		*chainConfig,
@@ -348,7 +356,7 @@ func appExport(
 	appOpts servertypes.AppOptions,
 	modulesToExport []string,
 ) (servertypes.ExportedApp, error) {
-	var exampleApp *evmd.EVMD
+	var exampleApp *evmdapp.EVMD
 
 	// this check is necessary as we use the flag in x/upgrade.
 	// we can exit more gracefully by checking the flag here.
@@ -379,13 +387,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, *chainConfig, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, *chainConfig, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

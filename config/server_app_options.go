@@ -8,9 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
-	"github.com/cosmos/evm/config/eips"
 	srvflags "github.com/cosmos/evm/server/flags"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
 
@@ -128,55 +126,55 @@ func GetEvmChainID(appOpts servertypes.AppOptions) (uint64, error) {
 	return evmChainID, nil
 }
 
-func GetEvmCoinInfo(appOpts servertypes.AppOptions) (*evmtypes.EvmCoinInfo, error) {
-	displayDenom := cast.ToString(appOpts.Get(srvflags.EVMDisplayDenom))
-	if displayDenom == "" {
-		return nil, errors.New("display denom flag not found in app options")
-	}
-	decimals := cast.ToUint8(appOpts.Get(srvflags.EVMDecimals))
-	if decimals == 0 {
-		return nil, errors.New("decimals flag not found in app options")
-	}
-	extendedDecimals := cast.ToUint8(appOpts.Get(srvflags.EVMExtendedDecimals))
-	if extendedDecimals == 0 {
-		return nil, errors.New("extended decimals flag not found in app options")
-	}
+// func GetEvmCoinInfo(appOpts servertypes.AppOptions) (*evmtypes.EvmCoinInfo, error) {
+// 	displayDenom := cast.ToString(appOpts.Get(srvflags.EVMDisplayDenom))
+// 	if displayDenom == "" {
+// 		return nil, errors.New("display denom flag not found in app options")
+// 	}
+// 	decimals := cast.ToUint8(appOpts.Get(srvflags.EVMDecimals))
+// 	if decimals == 0 {
+// 		return nil, errors.New("decimals flag not found in app options")
+// 	}
+// 	extendedDecimals := cast.ToUint8(appOpts.Get(srvflags.EVMExtendedDecimals))
+// 	if extendedDecimals == 0 {
+// 		return nil, errors.New("extended decimals flag not found in app options")
+// 	}
 
-	evmCoinInfo := evmtypes.EvmCoinInfo{
-		DisplayDenom:     displayDenom,
-		Decimals:         evmtypes.Decimals(decimals),
-		ExtendedDecimals: evmtypes.Decimals(extendedDecimals),
-	}
-	if err := evmCoinInfo.Validate(); err != nil {
-		return nil, err
-	}
+// 	evmCoinInfo := evmtypes.EvmCoinInfo{
+// 		DisplayDenom:     displayDenom,
+// 		Decimals:         evmtypes.Decimals(decimals),
+// 		ExtendedDecimals: evmtypes.Decimals(extendedDecimals),
+// 	}
+// 	if err := evmCoinInfo.Validate(); err != nil {
+// 		return nil, err
+// 	}
 
-	return &evmCoinInfo, nil
-}
+// 	return &evmCoinInfo, nil
+// }
 
-func CreateChainConfig(appOpts servertypes.AppOptions) (*ChainConfig, error) {
-	chainID, err := GetChainID(appOpts)
-	if err != nil {
-		return nil, err
-	}
-	evmChainID, err := GetEvmChainID(appOpts)
-	if err != nil {
-		return nil, err
-	}
-	evmCoinInfo, err := GetEvmCoinInfo(appOpts)
-	if err != nil {
-		return nil, err
-	}
+// func CreateChainConfig(appOpts servertypes.AppOptions) (*ChainConfig, error) {
+// 	chainID, err := GetChainID(appOpts)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	evmChainID, err := GetEvmChainID(appOpts)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	evmCoinInfo, err := GetEvmCoinInfo(appOpts)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	chainConfig := NewChainConfig(
-		chainID,
-		evmChainID,
-		eips.CosmosEVMActivators,
-		nil,
-		nil,
-		*evmCoinInfo,
-		false,
-	)
+// 	chainConfig := NewChainConfig(
+// 		chainID,
+// 		evmChainID,
+// 		eips.CosmosEVMActivators,
+// 		nil,
+// 		nil,
+// 		*evmCoinInfo,
+// 		false,
+// 	)
 
-	return &chainConfig, nil
-}
+// 	return &chainConfig, nil
+// }

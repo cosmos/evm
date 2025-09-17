@@ -27,11 +27,10 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
-	evmconfig "github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/hd"
-	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
-	"github.com/cosmos/evm/server/config"
+	evmdapp "github.com/cosmos/evm/evmd/app"
+	serverconfig "github.com/cosmos/evm/server/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
@@ -111,7 +110,7 @@ func DefaultConfig() Config {
 	}
 	defer os.RemoveAll(dir)
 	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
-	chainConfig := evmconfig.NewChainConfig(
+	chainConfig := config.NewChainConfig(
 		chainID,
 		evmChainID,
 		nil,
@@ -123,7 +122,7 @@ func DefaultConfig() Config {
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), chainConfig, baseapp.SetChainID(chainID))
+	tempApp := evmdapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), chainConfig, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -154,7 +153,7 @@ func DefaultConfig() Config {
 func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
-		chainConfig := evmconfig.NewChainConfig(
+		chainConfig := config.NewChainConfig(
 			chainID,
 			evmChainID,
 			nil,
@@ -166,7 +165,7 @@ func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 		if err := chainConfig.ApplyChainConfig(); err != nil {
 			panic(err)
 		}
-		return evmd.NewExampleApp(
+		return evmdapp.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
 			chainConfig,
@@ -200,7 +199,7 @@ type (
 	// a client can make RPC and API calls and interact with any client command
 	// or handler.
 	Validator struct {
-		AppConfig     *config.Config
+		AppConfig     *serverconfig.Config
 		ClientCtx     client.Context
 		Ctx           *server.Context
 		Dir           string
@@ -283,7 +282,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 
 	// generate private keys, node IDs, and initial transactions
 	for i := 0; i < cfg.NumValidators; i++ {
-		appCfg := config.DefaultConfig()
+		appCfg := serverconfig.DefaultConfig()
 		appCfg.Pruning = cfg.PruningStrategy
 		appCfg.MinGasPrices = cfg.MinGasPrices
 		appCfg.API.Enable = true
@@ -353,7 +352,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 				appCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%s", port)
 			}
 			appCfg.JSONRPC.Enable = true
-			appCfg.JSONRPC.API = config.GetAPINamespaces()
+			appCfg.JSONRPC.API = serverconfig.GetAPINamespaces()
 		}
 
 		logger := log.NewNopLogger()
@@ -501,7 +500,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.ExampleEIP155ChainID)
+		customAppTemplate, _ := config.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.ExampleEIP155ChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

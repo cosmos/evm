@@ -1,4 +1,4 @@
-package cmd
+package testnet
 
 import (
 	"bufio"
@@ -11,7 +11,6 @@ import (
 
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -19,8 +18,8 @@ import (
 	cmtconfig "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/types"
 	tmtime "github.com/cometbft/cometbft/types/time"
-	evmconfig "github.com/cosmos/evm/config"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	"github.com/cosmos/evm/config"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 
 	dbm "github.com/cosmos/cosmos-db"
 
@@ -75,7 +74,7 @@ var mnemonics = []string{
 	"doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch",
 }
 
-type UnsafeStartValidatorCmdCreator func(ac appCreator) *cobra.Command
+type UnsafeStartValidatorCmdCreator func(ac evmdapp.AppCreator) *cobra.Command
 
 type initArgs struct {
 	algo              string
@@ -126,7 +125,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 // 1. run an in-process testnet or
 // 2. initialize validator configuration files for running a multi-validator testnet in a separate process or
 // 3. update application and consensus state with the local validator info
-func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator, appCreator appCreator) *cobra.Command {
+func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator, appCreator evmdapp.AppCreator) *cobra.Command {
 	testnetCmd := &cobra.Command{
 		Use:                        "testnet",
 		Short:                      "subcommands for starting or configuring local testnets",
@@ -269,8 +268,8 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmconfig.DefaultEvmChainID
-	evmCfg := evmdconfig.EVMAppConfig{
+	evm.EVMChainID = config.DefaultEvmChainID
+	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -442,7 +441,7 @@ func initTestnetFiles(
 			return err
 		}
 
-		srvconfig.SetConfigTemplate(evmdconfig.EVMAppTemplate)
+		srvconfig.SetConfigTemplate(config.EVMAppTemplate)
 
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), evmCfg)
 	}
@@ -678,34 +677,34 @@ func NewTestNetworkFixture() network.TestFixture {
 	}
 	defer os.RemoveAll(dir)
 
-	app := evmd.NewExampleApp(
+	newApp := evmdapp.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmconfig.DefaultChainConfig,
+		config.DefaultChainConfig,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
-		return evmd.NewExampleApp(
+		return evmdapp.NewExampleApp(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmconfig.DefaultChainConfig,
+			config.DefaultChainConfig,
 		)
 	}
 
 	return network.TestFixture{
 		AppConstructor: appCtr,
-		GenesisState:   app.DefaultGenesis(),
+		GenesisState:   newApp.DefaultGenesis(),
 		EncodingConfig: moduletestutil.TestEncodingConfig{
-			InterfaceRegistry: app.InterfaceRegistry(),
-			Codec:             app.AppCodec(),
-			TxConfig:          app.GetTxConfig(),
-			Amino:             app.LegacyAmino(),
+			InterfaceRegistry: newApp.InterfaceRegistry(),
+			Codec:             newApp.AppCodec(),
+			TxConfig:          newApp.GetTxConfig(),
+			Amino:             newApp.LegacyAmino(),
 		},
 	}
 }

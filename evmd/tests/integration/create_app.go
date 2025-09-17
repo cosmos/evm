@@ -6,7 +6,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/config"
-	"github.com/cosmos/evm/evmd"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -48,7 +48,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
-	return evmd.NewExampleApp(
+	return evmdapp.NewExampleApp(
 		logger,
 		db,
 		nil,
@@ -75,7 +75,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
-	app := evmd.NewExampleApp(
+	app := evmdapp.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,

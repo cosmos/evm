@@ -1,4 +1,4 @@
-package evmd
+package app
 
 import (
 	"fmt"

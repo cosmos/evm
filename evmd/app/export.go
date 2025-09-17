@@ -1,4 +1,4 @@
-package evmd
+package app
 
 import (
 	"encoding/json"

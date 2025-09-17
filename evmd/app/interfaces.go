@@ -1,4 +1,4 @@
-package evmd
+package app
 
 import (
 	cmn "github.com/cosmos/evm/precompiles/common"

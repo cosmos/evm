@@ -6,7 +6,7 @@
 ###############################################################################
 
 # The network chain ID
-chain-id = ""
+chain-id = "cosmos"
 
 # The keyring's backend, where the keys are stored (os|file|kwallet|pass|test|memory)
 keyring-backend = "os"
@@ -19,3 +19,14 @@ node = "tcp://localhost:26657"
 
 # Transaction broadcasting mode (sync|async)
 broadcast-mode = "sync"
+
+[coin-info]
+
+# DisplayDenom defines the display denomination shown to users
+display-denom = "atom"
+
+# Decimals defines the precision/decimals for the base denomination (1-18)
+decimals = 18
+
+# ExtendedDecimals defines the precision/decimals for the extended denomination (typically 18 decimals for atto-denom)
+extended-decimals = 18

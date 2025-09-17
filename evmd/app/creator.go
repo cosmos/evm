@@ -1,4 +1,4 @@
-package cmd
+package app
 
 import (
 	"errors"
@@ -13,7 +13,6 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	evmconfig "github.com/cosmos/evm/config"
-	"github.com/cosmos/evm/evmd"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
@@ -24,9 +23,9 @@ import (
 	storetypes "cosmossdk.io/store/types"
 )
 
-type appCreator struct{}
+type AppCreator struct{}
 
-func (a appCreator) newApp(
+func (a AppCreator) newApp(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
@@ -93,7 +92,7 @@ func (a appCreator) newApp(
 		panic(err)
 	}
 
-	return evmd.NewExampleApp(
+	return NewExampleApp(
 		logger,
 		db,
 		traceStore,
@@ -104,7 +103,7 @@ func (a appCreator) newApp(
 	)
 }
 
-func (a appCreator) appExport(
+func (a AppCreator) appExport(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
@@ -114,7 +113,7 @@ func (a appCreator) appExport(
 	appOpts servertypes.AppOptions,
 	modulesToExport []string,
 ) (servertypes.ExportedApp, error) {
-	var evmApp *evmd.EVMD
+	var evmApp *EVMD
 
 	homePath, ok := appOpts.Get(flags.FlagHome).(string)
 	if !ok || homePath == "" {
@@ -140,7 +139,7 @@ func (a appCreator) appExport(
 		return servertypes.ExportedApp{}, err
 	}
 
-	evmApp = evmd.NewExampleApp(
+	evmApp = NewExampleApp(
 		logger,
 		db,
 		traceStore,

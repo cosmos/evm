@@ -1,4 +1,4 @@
-package evmd
+package app
 
 import (
 	"encoding/json"
@@ -18,10 +18,10 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	dbm "github.com/cosmos/cosmos-db"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	evmante "github.com/cosmos/evm/ante"
 	cosmosevmante "github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/config"
-	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -37,7 +37,6 @@ import (
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -100,7 +99,6 @@ import (
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/auth/posthandler"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
-	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	txmodule "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
@@ -138,13 +136,13 @@ func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
 	sdk.DefaultPowerReduction = cosmosevmtypes.AttoPowerReduction
 
-	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
+	DefaultNodeHome = config.MustGetDefaultNodeHome()
 }
 
 const appName = "evmd"
 
-// defaultNodeHome default home directories for the application daemon
-var defaultNodeHome string
+// DefaultNodeHome default home directories for the application daemon
+var DefaultNodeHome string
 
 var (
 	_ runtime.AppI                = (*EVMD)(nil)
@@ -318,7 +316,7 @@ func NewExampleApp(
 	// add keepers
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-		authtypes.ProtoBaseAccount, evmdconfig.GetMaccPerms(),
+		authtypes.ProtoBaseAccount, config.GetMaccPerms(),
 		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
@@ -328,7 +326,7 @@ func NewExampleApp(
 		appCodec,
 		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
 		app.AccountKeeper,
-		evmdconfig.BlockedAddresses(),
+		config.BlockedAddresses(),
 		authAddr,
 		logger,
 	)
@@ -755,9 +753,9 @@ func NewExampleApp(
 	// If you wish to use the noop mempool, remove this codeblock
 	if evmtypes.GetChainConfig() != nil {
 		// Get the block gas limit from genesis file
-		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
+		blockGasLimit := config.GetBlockGasLimit(appOpts, logger)
 		// Get GetMinTip from app.toml or cli flag configuration
-		mipTip := evmconfig.GetMinTip(appOpts, logger)
+		mipTip := config.GetMinTip(appOpts, logger)
 
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
 			AnteHandler:   app.GetAnteHandler(),

@@ -27,8 +27,9 @@ import (
 	"github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/evmd"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/ledger/mocks"
+	testutil "github.com/cosmos/evm/evmd/testutil"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 
@@ -47,7 +48,7 @@ var s *LedgerTestSuite
 type LedgerTestSuite struct {
 	suite.Suite
 
-	app *evmd.EVMD
+	app *evmdapp.EVMD
 	ctx sdk.Context
 
 	ledger       *mocks.SECP256K1
@@ -88,7 +89,7 @@ func (suite *LedgerTestSuite) SetupEvmosApp() {
 
 	// init app
 	chainID := testconfig.ExampleChainID
-	suite.app = evmd.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
+	suite.app = testutil.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
 	suite.ctx = suite.app.NewContextLegacy(false, tmproto.Header{
 		Height:          1,
 		ChainID:         chainID.ChainID,

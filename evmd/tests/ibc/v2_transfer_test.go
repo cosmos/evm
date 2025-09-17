@@ -19,7 +19,7 @@ import (
 
 	testifysuite "github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -150,7 +150,7 @@ func (suite *TransferTestSuiteV2) TestOnSendPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*evmdapp.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(
 				suite.evmChainA.GetContext(),
 				suite.evmChainA.SenderAccount.GetAddress(),
@@ -312,7 +312,7 @@ func (suite *TransferTestSuiteV2) TestOnRecvPacket() {
 			)
 
 			ctx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*evmdapp.EVMD)
 			cbs := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(evmibctesting.TransferPort)
 
 			// malleate payload after it has been sent but before OnRecvPacket callback is called
@@ -379,7 +379,7 @@ func (suite *TransferTestSuiteV2) TestOnAckPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*evmdapp.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
 			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
@@ -486,7 +486,7 @@ func (suite *TransferTestSuiteV2) TestOnTimeoutPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest() // reset
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*evmdapp.EVMD)
 			originalBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), suite.evmChainA.SenderAccount.GetAddress(), tc.sourceDenomToTransfer)
 
 			timeoutTimestamp := uint64(suite.chainB.GetContext().BlockTime().Add(time.Hour).Unix()) //nolint:gosec // G115
