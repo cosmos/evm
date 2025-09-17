@@ -56,6 +56,12 @@ type Precompile struct {
 	BankKeeper cmn.BankKeeper
 }
 
+// LoadABI loads the IERC20Metadata ABI from the embedded abi.json file
+// for the erc20 precompile.
+func LoadABI() (abi.ABI, error) {
+	return cmn.LoadABI(f, abiPath)
+}
+
 // NewPrecompile creates a new ERC-20 Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
@@ -63,15 +69,11 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper ibcutils.TransferKeeper,
+	erc20ABI abi.ABI,
 ) (*Precompile, error) {
-	newABI, err := cmn.LoadABI(f, abiPath)
-	if err != nil {
-		return nil, err
-	}
-
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  newABI,
+			ABI:                  erc20ABI,
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
 		},
