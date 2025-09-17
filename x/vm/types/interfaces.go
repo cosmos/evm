@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
@@ -51,6 +50,7 @@ type BankKeeper interface {
 	GetSupply(ctx context.Context, denom string) sdk.Coin
 	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
+	BlockedAddr(addr sdk.AccAddress) bool
 }
 
 // StakingKeeper returns the historical headers kept in store.
@@ -58,6 +58,11 @@ type StakingKeeper interface {
 	GetHistoricalInfo(ctx context.Context, height int64) (stakingtypes.HistoricalInfo, error)
 	GetValidatorByConsAddr(ctx context.Context, consAddr sdk.ConsAddress) (stakingtypes.Validator, error)
 	ValidatorAddressCodec() address.Codec
+	BondDenom(ctx context.Context) (string, error)
+	MaxValidators(ctx context.Context) (uint32, error)
+	GetDelegatorValidators(ctx context.Context, delegatorAddr sdk.AccAddress, maxRetrieve uint32) (stakingtypes.Validators, error)
+	GetRedelegation(ctx context.Context, delAddr sdk.AccAddress, valSrcAddr, valDstAddr sdk.ValAddress) (red stakingtypes.Redelegation, err error)
+	GetValidator(ctx context.Context, addr sdk.ValAddress) (validator stakingtypes.Validator, err error)
 }
 
 // FeeMarketKeeper defines the expected interfaces needed for the feemarket
@@ -65,11 +70,6 @@ type FeeMarketKeeper interface {
 	GetBaseFee(ctx sdk.Context) math.LegacyDec
 	GetParams(ctx sdk.Context) feemarkettypes.Params
 	CalculateBaseFee(ctx sdk.Context) math.LegacyDec
-}
-
-// Erc20Keeper defines the expected interface needed to instantiate ERC20 precompiles.
-type Erc20Keeper interface {
-	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
 }
 
 // EvmHooks event hooks for evm tx processing

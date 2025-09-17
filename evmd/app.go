@@ -438,7 +438,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -483,9 +483,15 @@ func NewExampleApp(
 		app.PreciseBankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
+		app.IBCKeeper.ChannelKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
+		&app.DistrKeeper,
+		&app.TransferKeeper,
+		&app.GovKeeper,
+		&app.SlashingKeeper,
 		tracer,
+		nil,
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -560,23 +566,6 @@ func NewExampleApp(
 
 	// Override the ICS20 app module
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
-
-	// NOTE: we are adding all available Cosmos EVM EVM extensions.
-	// Not all of them need to be enabled, which can be configured on a per-chain basis.
-	app.EVMKeeper.WithStaticPrecompiles(
-		NewAvailableStaticPrecompiles(
-			*app.StakingKeeper,
-			app.DistrKeeper,
-			app.PreciseBankKeeper,
-			app.Erc20Keeper,
-			app.TransferKeeper,
-			app.IBCKeeper.ChannelKeeper,
-			app.EVMKeeper,
-			app.GovKeeper,
-			app.SlashingKeeper,
-			app.AppCodec(),
-		),
-	)
 
 	/****  Module Options ****/
 
