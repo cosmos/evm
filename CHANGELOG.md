@@ -12,7 +12,8 @@
 - [\#495](https://github.com/cosmos/evm/pull/495) Allow immediate SIGINT interrupt when mempool is not empty
 - [\#416](https://github.com/cosmos/evm/pull/416) Fix regression in CometBlockResultByNumber when height is 0 to use the latest block. This fixes eth_getFilterLogs RPC.
 - [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
-- [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d 
+- [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d
+- [\#591](https://github.com/cosmos/evm/pull/591) CheckTxHandler should handle "invalid nonce" tx
 
 ### IMPROVEMENTS
 
@@ -24,7 +25,8 @@
 - [\#512](https://github.com/cosmos/evm/pull/512) Add integration test for appside mempool.
 - [\#568](https://github.com/cosmos/evm/pull/568) Avoid unnecessary block notifications when the event bus is already set up.
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
-- [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
+- [\#576](https://github.com/cosmos/evm/pull/576) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
+- [\#584](https://github.com/cosmos/evm/pull/584) Fill block hash and timestamp for json rpc.
 - [\#582](https://github.com/cosmos/evm/pull/582) Add block max-gas (from genesis.json) and new min-tip (from app.toml/flags) ingestion into mempool config
 - [\#598](https://github.com/cosmos/evm/pull/598) Reduce number of times CreateQueryContext in mempool.
 - [\#606](https://github.com/cosmos/evm/pull/606) Regenerate mock file for bank keeper related test.
