@@ -19,7 +19,7 @@ var testChainConfig *ChainConfig
 func (ec *EvmConfig) Apply() error {
 	// If Apply method has been already used in the object, return
 	// an error to avoid overriding configuration.
-	if ec.sealed {
+	if IsSealed() {
 		return fmt.Errorf("error applying EvmConfig: already sealed and cannot be modified")
 	}
 
@@ -41,7 +41,7 @@ func (ec *EvmConfig) Apply() error {
 
 	// After applying modifications, the configurator is sealed. This way, it is not possible
 	// to call the configure method twice.
-	ec.sealed = true
+	Seal()
 
 	return nil
 }
@@ -50,6 +50,7 @@ func (ec *EvmConfig) ResetTestConfig() {
 	vm.ResetActivators()
 	resetEVMCoinInfo()
 	testChainConfig = nil
+	sealed = false
 }
 
 func setTestChainConfig(cc *ChainConfig) error {

@@ -51,11 +51,8 @@ func NewChainConfig(
 
 // ApplyEvmConfig applies the evm config to the global singleton chain config and coin info
 func (cc *ChainConfig) ApplyChainConfig() error {
-	if cc.EvmConfig == nil {
-		return nil // no op if evm config is nil
-	}
-	if cc.EvmConfig == nil {
-		return fmt.Errorf("evm config is nil, cannot apply chain config")
+	if cc.EvmConfig == nil || types.IsSealed() {
+		return nil // no op if evm config is nil or sealed
 	}
 	if cc.EvmConfig.GetChainConfig() == nil {
 		return fmt.Errorf("chain config is nil, cannot apply chain config")
@@ -70,6 +67,7 @@ func (cc *ChainConfig) ApplyChainConfig() error {
 // setBaseDenom registers the display denom and base denom and sets the
 // base denom for the chain. The function registered different values based on
 // the EvmCoinInfo to allow different configurations in mainnet and testnet.
+// TODO: look into deprecating this if it is not needed
 func setBaseDenom(ci types.EvmCoinInfo) (err error) {
 	// defer setting the base denom, and capture any potential error from it.
 	// when failing because the denom was already registered, we ignore it and set

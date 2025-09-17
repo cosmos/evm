@@ -14,6 +14,15 @@ CHAINDIR="$HOME/.evmd"
 
 BASEFEE=10000000
 
+# Coin info
+DISPLAY_DENOM="test"
+DECIMALS=18
+EXTENDED_DECIMALS=18
+
+# Extended denom
+EXTENDED_DECIMALS_SI_PREFIX="a" # a = atto (18 decimals)
+EXTENDED_DENOM="${EXTENDED_DECIMALS_SI_PREFIX}${DISPLAY_DENOM}"
+
 # Path variables
 CONFIG_TOML=$CHAINDIR/config/config.toml
 APP_TOML=$CHAINDIR/config/app.toml
@@ -358,7 +367,10 @@ fi
 evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0atest \
+	--minimum-gas-prices=0$EXTENDED_DENOM \
+  --evm.coin-info.display-denom=$DISPLAY_DENOM \
+  --evm.coin-info.decimals=$DECIMALS \
+  --evm.coin-info.extended-decimals=$EXTENDED_DECIMALS \
 	--evm.min-tip=0 \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \

@@ -7,11 +7,21 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+// TOODO: remove singleton pattern and use a context instead
+var sealed = false
+
+func Seal() {
+	sealed = true
+}
+
+func IsSealed() bool {
+	return sealed
+}
+
 // EvmConfig allows to extend x/evm module configurations. The configurator modifies
 // the EVM before starting the node. This means that all init genesis validations will be
 // applied to each change.
 type EvmConfig struct {
-	sealed                   bool
 	extendedEIPs             map[int]func(*vm.JumpTable)
 	extendedDefaultExtraEIPs []int64
 	chainConfig              *ChainConfig
