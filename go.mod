@@ -22,11 +22,11 @@ require (
 	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/ibc-go/modules/capability v1.0.1
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250528142215-7d579b91ac6b
+	github.com/cosmos/ibc-go/v10 v10.3.0
 	github.com/creachadair/tomledit v0.0.28
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/ethereum/go-ethereum v1.15.11
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
@@ -38,6 +38,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cast v1.9.2
 	github.com/spf13/cobra v1.9.1
@@ -142,7 +143,6 @@ require (
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.2.5 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.5-0.20231225225746-43d5d4cd4e0e // indirect
@@ -172,7 +172,6 @@ require (
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huandu/skiplist v1.2.1 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
-	github.com/iancoleman/orderedmap v0.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
@@ -182,6 +181,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -207,7 +207,6 @@ require (
 	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect

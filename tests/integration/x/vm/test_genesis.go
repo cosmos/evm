@@ -119,7 +119,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			ctx = s.network.GetContext()
 			vmdb = statedb.New(
 				ctx, s.network.App.GetEVMKeeper(),
-				statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash())))
+				statedb.NewEmptyTxConfig())
 
 			tc.malleate(s.network)
 			err := vmdb.Commit()

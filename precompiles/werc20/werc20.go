@@ -52,19 +52,16 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper ibcutils.TransferKeeper,
+	erc20ABI abi.ABI,
+	werc20ABI abi.ABI,
 ) (*Precompile, error) {
-	newABI, err := LoadABI()
-	if err != nil {
-		return nil, fmt.Errorf("error loading the ABI: %w", err)
-	}
-
-	erc20Precompile, err := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper)
+	erc20Precompile, err := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper, erc20ABI)
 	if err != nil {
 		return nil, fmt.Errorf("error instantiating the ERC20 precompile: %w", err)
 	}
 
 	// use the IWERC20 ABI
-	erc20Precompile.ABI = newABI
+	erc20Precompile.ABI = werc20ABI
 
 	return &Precompile{
 		Precompile: erc20Precompile,

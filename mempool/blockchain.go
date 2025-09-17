@@ -41,6 +41,7 @@ type Blockchain struct {
 	zeroHeader         *types.Header
 	blockGasLimit      uint64
 	previousHeaderHash common.Hash
+	latestCtx          sdk.Context
 }
 
 // newBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -78,14 +79,17 @@ func (b Blockchain) Config() *params.ChainConfig {
 // including block height, timestamp, gas limits, and base fee (if London fork is active).
 // Returns a zero header as placeholder if the context is not yet available.
 func (b Blockchain) CurrentBlock() *types.Header {
-	ctx, err := b.GetLatestCtx()
-	// This should only error out on the first block.
+	ctx, err := b.GetLatestContext()
 	if err != nil {
-		b.logger.Debug("failed to get latest context, returning zero header", "error", err)
 		return b.zeroHeader
 	}
 
 	blockHeight := ctx.BlockHeight()
+	// prevent the reorg from triggering after a restart since previousHeaderHash is stored as an in-memory variable
+	if blockHeight > 1 && b.previousHeaderHash == (common.Hash{}) {
+		return b.zeroHeader
+	}
+
 	blockTime := ctx.BlockTime().Unix()
 	gasUsed := b.feeMarketKeeper.GetBlockGasWanted(ctx)
 	appHash := common.BytesToHash(ctx.BlockHeader().AppHash)
@@ -164,6 +168,12 @@ func (b Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event
 
 // NotifyNewBlock sends a chain head event when a new block is finalized
 func (b *Blockchain) NotifyNewBlock() {
+	latestCtx, err := b.newLatestContext()
+	if err != nil {
+		b.latestCtx = sdk.Context{}
+		b.logger.Debug("failed to get latest context, notifying chain head", "error", err)
+	}
+	b.latestCtx = latestCtx
 	header := b.CurrentBlock()
 	headerHash := header.Hash()
 
@@ -192,22 +202,34 @@ func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	}
 
 	// Always get the latest context to avoid stale nonce state.
-	ctx, err := b.GetLatestCtx()
+	ctx, err := b.GetLatestContext()
 	if err != nil {
 		// If we can't get the latest context for blocks past 1, something is seriously wrong with the chain state
 		return nil, fmt.Errorf("failed to get latest context for StateAt: %w", err)
 	}
 
 	appHash := ctx.BlockHeader().AppHash
-	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig(common.Hash(appHash)))
+	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig())
 
 	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
 	return stateDB, nil
 }
 
-// GetLatestCtx retrieves the most recent query context from the application.
+// GetLatestContext returns the latest context as updated by the block,
+// or attempts to retrieve it again if unavailable.
+func (b Blockchain) GetLatestContext() (sdk.Context, error) {
+	b.logger.Debug("getting latest context")
+
+	if b.latestCtx.Context() != nil {
+		return b.latestCtx, nil
+	}
+
+	return b.newLatestContext()
+}
+
+// newLatestContext retrieves the most recent query context from the application.
 // This provides access to the current blockchain state for transaction validation and execution.
-func (b Blockchain) GetLatestCtx() (sdk.Context, error) {
+func (b Blockchain) newLatestContext() (sdk.Context, error) {
 	b.logger.Debug("getting latest context")
 
 	ctx, err := b.getCtxCallback(0, false)

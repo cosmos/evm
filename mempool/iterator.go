@@ -255,7 +255,7 @@ func (i *EVMMempoolIterator) extractCosmosEffectiveTip(tx sdk.Tx) *uint256.Int {
 		return nil // Transaction doesn't implement FeeTx interface
 	}
 
-	var bondDenomFeeAmount math.Int
+	bondDenomFeeAmount := math.ZeroInt()
 	fees := feeTx.GetFee()
 	for _, coin := range fees {
 		if coin.Denom == i.bondDenom {
