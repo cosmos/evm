@@ -25,18 +25,24 @@
 - [\#568](https://github.com/cosmos/evm/pull/568) Avoid unnecessary block notifications when the event bus is already set up.
 - [\#511](https://github.com/cosmos/evm/pull/511) Minor code cleanup for `AddPrecompileFn`.
 - [\#544](https://github.com/cosmos/evm/pull/544) Parse logs from the txResult.Data and avoid emitting EVM events to cosmos-sdk events.
+- [\#582](https://github.com/cosmos/evm/pull/582) Add block max-gas (from genesis.json) and new min-tip (from app.toml/flags) ingestion into mempool config
+- [\#598](https://github.com/cosmos/evm/pull/598) Reduce number of times CreateQueryContext in mempool.
+- [\#606](https://github.com/cosmos/evm/pull/606) Regenerate mock file for bank keeper related test.
 
 ### FEATURES
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
-- [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
 - [\#405](https://github.com/cosmos/evm/pull/405) Add erc20 factory precompile.
+- [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
+- [\#588](https://github.com/cosmos/evm/pull/588) go-ethereum metrics are now available in Cosmos SDK's telemetry server at host:port/geth/metrics (default localhost:1317/geth/metrics).
+
 
 ### STATE BREAKING
 
 ### API-BREAKING
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
+- [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
 
 ## v0.4.1
 
