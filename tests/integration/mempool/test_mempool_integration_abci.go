@@ -436,24 +436,21 @@ func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() 
 				return []sdk.Tx{tx0, tx1, tx2}
 			},
 			verifyFunc: func() {
+				// 1. Verify the correct nonce transaction is in mempool
 				mpool := s.network.App.GetMempool()
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
 
-				// Verify the correct nonce transaction is in mempool
-				// nonceCount := mpool.CountTx()
-				// s.Require().Equal(0, nonceCount, "Only the correct nonce transaction should be in mempool")
-
-				// 1. Check current sequence
+				// 2. Check current sequence
 				acc := s.network.App.GetAccountKeeper().GetAccount(s.network.GetContext(), s.keyring.GetAccAddr(0))
 				sequence := acc.GetSequence()
 				s.Require().Equal(uint64(3), sequence)
 
-				// 2. Check new transactions with nonces lower than current nonce fails
+				// 3. Check new transactions with nonces lower than current nonce fails
 				// Current nonce should be 3 after committing nonces 1, 2
 				//
 				// NOTE: The reason we don't try tx with nonce 0 is
 				// because txFactory replace nonce 0 with curreent nonce.
 				// So we just test for nonce 1 and 2.
-
 				key := s.keyring.GetKey(0)
 
 				// Try to add transaction with nonce 1 (lower than current nonce 3) - should fail
@@ -461,25 +458,21 @@ func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() 
 				res, err := s.checkTx(dupTx1)
 				s.Require().NoError(err, "Transaction with nonce 1 should fail when current nonce is 3")
 				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
-
-				beforeNonceCount := mpool.CountTx()
-				s.Require().Equal(0, beforeNonceCount, "Only the correct nonce transaction should be in mempool")
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
 
 				// Try to add transaction with nonce 2 (lower than current nonce 3) - should fail
 				dupTx2 := s.createEVMValueTransferTx(key, 2, big.NewInt(2000000000))
 				res, err = s.checkTx(dupTx2)
 				s.Require().NoError(err, "Transaction with nonce 2 should fail when current nonce is 3")
 				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
 
 				// Verify transaction with correct nonce (3) still works
 				tx3 := s.createEVMValueTransferTx(key, 3, big.NewInt(2000000000))
 				res, err = s.checkTx(tx3)
 				s.Require().NoError(err, "Transaction with correct nonce 3 should succeed")
 				s.Require().Equal(abci.CodeTypeOK, res.Code)
-
-				// Verify the correct nonce transaction is in mempool
-				afterNonceCount := mpool.CountTx()
-				s.Require().Equal(1, afterNonceCount, "Only the correct nonce transaction should be in mempool")
+				s.Require().Equal(1, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
 			},
 		},
 	}

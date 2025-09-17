@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -194,10 +195,9 @@ func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasL
 	return new(big.Int).Sub(gasPrice, baseFee)
 }
 
-// notifyNewBlockToMempool manually triggers a chain head event to notify the mempool about the new block.
-// This simulates the natural event that should occur after block finalization in production.
-// Instead of using the problematic reset mechanism that assumes Ethereum-style reorgs,
-// we use the existing event notification system.
+// notifyNewBlockToMempool triggers the natural block notification mechanism used in production.
+// This sends a ChainHeadEvent that causes the mempool to update its state and remove committed transactions.
+// The event subscription mechanism naturally calls Reset() which triggers the transaction cleanup process.
 func (s *IntegrationTestSuite) notifyNewBlockToMempool() {
 	// Get the EVM mempool from the app
 	evmMempool := s.network.App.GetMempool()
@@ -207,8 +207,15 @@ func (s *IntegrationTestSuite) notifyNewBlockToMempool() {
 		blockchain := evmMempoolCast.GetBlockchain()
 
 		// Trigger a new block notification
-		// This will send a ChainHeadEvent that the mempool subscribes to,
-		// which should trigger the natural state update and transaction cleanup
+		// This sends a ChainHeadEvent that the mempool subscribes to.
+		// The TxPool's event loop receives this and calls Reset() for each subpool,
+		// which naturally removes committed transactions via demoteUnexecutables().
 		blockchain.NotifyNewBlock()
+
+		// The ChainHeadEvent is processed asynchronously, so we need to wait a bit
+		// for the event to be processed and the reset to complete.
+		// In integration tests, this might need a small delay to ensure the event
+		// is processed before we check the mempool state.
+		time.Sleep(100 * time.Millisecond)
 	}
 }
