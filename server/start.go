@@ -686,7 +686,9 @@ func startAPIServer(
 
 	if svrCfg.Telemetry.Enabled {
 		apiSrv.SetTelemetry(metrics)
-		evmmetrics.StartGethMetricServer(ctx, gethMetricsAddr)
+		g.Go(func() error {
+			return evmmetrics.StartGethMetricServer(ctx, svrCtx.Logger.With("server", "geth_metrics"), gethMetricsAddr)
+		})
 	}
 
 	g.Go(func() error {

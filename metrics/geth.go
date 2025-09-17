@@ -3,43 +3,54 @@ package metrics
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
 	gethmetrics "github.com/ethereum/go-ethereum/metrics"
 	gethprom "github.com/ethereum/go-ethereum/metrics/prometheus"
+
+	"cosmossdk.io/log"
 )
 
-// StartGethMetricServer starts the geth metrics server on the specified port.
-func StartGethMetricServer(ctx context.Context, addr string) {
-	// Create a custom mux instead of using the global default
+// StartGethMetricServer starts the geth metrics server on the specified address.
+func StartGethMetricServer(ctx context.Context, log log.Logger, addr string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
 
-	// Create server with custom mux
 	server := &http.Server{
 		Addr:    addr,
 		Handler: mux,
 	}
 
-	// Start server in goroutine
+	errCh := make(chan error, 1)
+
 	go func() {
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("Metrics server error: %v", err)
-		}
+		log.Info("starting geth metrics server...", "address", addr)
+		errCh <- server.ListenAndServe()
 	}()
 
-	// Respect context cancellation
-	go func() {
-		<-ctx.Done()
-		log.Println("Shutting down metrics server...")
+	// Start a blocking select to wait for an indication to stop the server or that
+	// the server failed to start properly.
+	select {
+	case <-ctx.Done():
+		// The calling process canceled or closed the provided context, so we must
+		// gracefully stop the metrics server.
+		log.Info("stopping geth metrics server...", "address", addr)
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("Metrics server shutdown error: %v", err)
+			log.Error("geth metrics server shutdown error", "err", err)
+			return err
 		}
-	}()
+		return nil
+
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("failed to start geth metrics server", "err", err)
+			return err
+		}
+		return nil
+	}
 }
