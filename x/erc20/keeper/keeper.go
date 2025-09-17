@@ -2,10 +2,11 @@ package keeper
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/precompiles/erc20"
-	"github.com/cosmos/evm/precompiles/werc20"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	"github.com/cosmos/evm/precompiles/erc20"
+	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
