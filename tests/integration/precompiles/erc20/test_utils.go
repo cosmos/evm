@@ -172,7 +172,7 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 	}
 
 	erc20ABI, err := erc20.LoadABI()
-	is.Require().NoError(err)
+	Expect(err).To(BeNil())
 
 	precompile, err := erc20.NewPrecompile(
 		tokenPair,
