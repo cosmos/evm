@@ -33,7 +33,7 @@
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
-- [\#588](https://github.com/cosmos/evm/pull/588) go-ethereum metrics are now available in Cosmos SDK's telemetry server at host:port/geth/metrics (default localhost:1317/geth/metrics).
+- [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8080.
 
 ### STATE BREAKING
 
