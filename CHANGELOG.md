@@ -33,7 +33,7 @@
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
-- [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8080.
+- [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8100.
 
 ### STATE BREAKING
 

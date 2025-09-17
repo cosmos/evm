@@ -71,7 +71,7 @@ const (
 	EVMEnablePreimageRecording = "evm.cache-preimage"
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMMinTip                  = "evm.min-tip"
-	EvmGethMetricsAddr         = "evm.geth-metrics-addr"
+	EvmGethMetricsAddress      = "evm.geth-metrics-address"
 )
 
 // TLS flags

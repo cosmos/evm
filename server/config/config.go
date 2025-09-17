@@ -70,8 +70,8 @@ const (
 	// DefaultEVMMinTip is the default minimum priority fee for the mempool
 	DefaultEVMMinTip = 0
 
-	// DefaultGethMetricsAddr is the default port for the geth metrics server.
-	DefaultGethMetricsAddr = `"127.0.0.1:8080"`
+	// DefaultGethMetricsAddress is the default port for the geth metrics server.
+	DefaultGethMetricsAddress = "127.0.0.1:8100"
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
@@ -152,8 +152,8 @@ type EVMConfig struct {
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
 	MinTip uint64 `mapstructure:"min-tip"`
-	// GethMetricsAddr is the address the geth metrics server will bind to. Default 127.0.0.1:8080
-	GethMetricsAddr string `mapstructure:"geth-metrics-addr"`
+	// GethMetricsAddress is the address the geth metrics server will bind to. Default 127.0.0.1:8100
+	GethMetricsAddress string `mapstructure:"geth-metrics-address"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -224,7 +224,7 @@ func DefaultEVMConfig() *EVMConfig {
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
-		GethMetricsAddr:         DefaultGethMetricsAddr,
+		GethMetricsAddress:      DefaultGethMetricsAddress,
 	}
 }
 
@@ -234,8 +234,8 @@ func (c EVMConfig) Validate() error {
 		return fmt.Errorf("invalid tracer type %s, available types: %v", c.Tracer, evmTracers)
 	}
 
-	if _, err := netip.ParseAddrPort(c.GethMetricsAddr); err != nil {
-		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddr, err)
+	if _, err := netip.ParseAddrPort(c.GethMetricsAddress); err != nil {
+		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddress, err)
 	}
 
 	return nil

@@ -18,8 +18,11 @@ func StartGethMetricServer(ctx context.Context, log log.Logger, addr string) err
 	mux.Handle("/metrics", gethprom.Handler(gethmetrics.DefaultRegistry))
 
 	server := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+		Addr:              addr,
+		Handler:           mux,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
