@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
-	evmmetrics "github.com/cosmos/evm/metrics"
 	ethmetricsexp "github.com/ethereum/go-ethereum/metrics/exp"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -30,6 +29,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
+	evmmetrics "github.com/cosmos/evm/metrics"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
