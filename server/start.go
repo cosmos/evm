@@ -271,7 +271,7 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 	}()
 	evmApp, ok := app.(Application)
 	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+		svrCtx.Logger.Error("failed to get server config")
 	}
 	evmApp.SetClientCtx(clientCtx)
 
