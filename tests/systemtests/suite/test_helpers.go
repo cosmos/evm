@@ -96,28 +96,33 @@ func (s *SystemTestSuite) SetOptions(options *TestOptions) {
 // The check runs asynchronously because, if done synchronously, the pending transactions
 // might be committed before the verification takes place.
 func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
-	if len(expPendingTxs) > 0 {
-		var wg sync.WaitGroup
-		errCh := make(chan error, len(expPendingTxs))
+	if len(expPendingTxs) == 0 {
+		return nil
+	}
 
-		for _, txInfo := range expPendingTxs {
-			wg.Add(1)
-			go func(tx *TxInfo) {
-				defer wg.Done()
-				err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*30)
-				if err != nil {
-					errCh <- fmt.Errorf("tx %s is not pending or committed: %v", tx.TxHash, err)
-				}
-			}(txInfo)
-		}
+	// Use mutex to ensure thread-safe error collection
+	var mu sync.Mutex
+	var errors []error
+	var wg sync.WaitGroup
 
-		wg.Wait()
-		close(errCh)
+	for _, txInfo := range expPendingTxs {
+		wg.Add(1)
+		go func(tx *TxInfo) { //nolint:gosec // Concurrency is intentional for parallel tx checking
+			defer wg.Done()
+			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*30)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Errorf("tx %s is not pending or committed: %v", tx.TxHash, err))
+				mu.Unlock()
+			}
+		}(txInfo)
+	}
 
-		// Check for any errors
-		for err := range errCh {
-			return fmt.Errorf("failed to check transactions are pending status: %w", err)
-		}
+	wg.Wait()
+
+	// Return the first error if any occurred
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to check transactions are pending status: %w", errors[0])
 	}
 
 	return nil
