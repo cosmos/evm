@@ -55,7 +55,7 @@ func (k Keeper) OnRecvPacket(
 		WithKVGasConfig(storetypes.GasConfig{}).
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
-	sender, recipient, _, _, err := ibc.GetTransferSenderRecipient(data)
+	recipient, err := k.addressCodec.StringToBytes(data.Receiver)
 	if err != nil {
 		return channeltypes.NewErrorAcknowledgement(err)
 	}
@@ -120,19 +120,19 @@ func (k Keeper) OnRecvPacket(
 			return ack
 		}
 
-		pair, err := k.MintingEnabled(ctx, sender, recipient, coin.Denom)
+		pair, err := k.MintingEnabled(ctx, data.Sender, data.Receiver, recipient, coin.Denom)
 		if err != nil {
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("erc20_callback_failure",
 					sdk.NewAttribute(types.TypeMsgConvertCoin, "mint_failure"),
 					sdk.NewAttribute(types.AttributeKeyCosmosCoin, coin.Denom),
-					sdk.NewAttribute(types.AttributeKeyReceiver, recipient.String()),
+					sdk.NewAttribute(types.AttributeKeyReceiver, data.Receiver),
 				),
 			)
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
-		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient.Bytes()), recipient); err != nil {
+		if err := k.ConvertCoinNativeERC20(ctx, pair, coin.Amount, common.BytesToAddress(recipient), recipient); err != nil {
 			return channeltypes.NewErrorAcknowledgement(err)
 		}
 
@@ -188,7 +188,7 @@ func (k Keeper) OnTimeoutPacket(ctx sdk.Context, _ channeltypes.Packet, data tra
 // ConvertCoinToERC20FromPacket converts the IBC coin to ERC20 after refunding the sender
 // This function is only executed when IBC timeout or an Error ACK happens.
 func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
-	sender, err := sdk.AccAddressFromBech32(data.Sender)
+	sender, err := k.addressCodec.StringToBytes(data.Sender)
 	if err != nil {
 		return err
 	}

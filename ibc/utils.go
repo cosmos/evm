@@ -3,7 +3,6 @@ package ibc
 import (
 	"strings"
 
-	"github.com/cosmos/evm/utils"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
@@ -13,34 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
-
-// GetTransferSenderRecipient returns the sender and recipient sdk.AccAddresses
-// from an ICS20 FungibleTokenPacketData as well as the original sender bech32
-// address from the packet data. This function fails if:
-//   - the packet data is not FungibleTokenPacketData
-//   - sender address is invalid
-//   - recipient address is invalid
-func GetTransferSenderRecipient(data transfertypes.FungibleTokenPacketData) (
-	sender, recipient sdk.AccAddress,
-	senderBech32, recipientBech32 string,
-	err error,
-) {
-	// validate the sender bech32 address from the counterparty chain
-	// and change the bech32 human readable prefix (HRP) of the sender to `evmos`
-	sender, err = utils.GetAccAddressFromBech32(data.Sender)
-	if err != nil {
-		return nil, nil, "", "", errorsmod.Wrap(err, "invalid sender")
-	}
-
-	// validate the recipient bech32 address from the counterparty chain
-	// and change the bech32 human readable prefix (HRP) of the recipient to `evmos`
-	recipient, err = utils.GetAccAddressFromBech32(data.Receiver)
-	if err != nil {
-		return nil, nil, "", "", errorsmod.Wrap(err, "invalid recipient")
-	}
-
-	return sender, recipient, data.Sender, data.Receiver, nil
-}
 
 // GetTransferAmount returns the amount from an ICS20 FungibleTokenPacketData as a string.
 func GetTransferAmount(packet channeltypes.Packet) (string, error) {

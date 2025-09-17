@@ -497,6 +497,7 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.StakingKeeper,
 		&app.TransferKeeper,
+		app.AccountKeeper.AddressCodec(),
 	)
 
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
@@ -537,6 +538,7 @@ func NewExampleApp(
 		app.AccountKeeper,
 		app.EVMKeeper,
 		app.Erc20Keeper,
+		app.AccountKeeper.AddressCodec(),
 	)
 	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
 
