@@ -439,7 +439,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -492,8 +492,8 @@ func NewExampleApp(
 			*app.StakingKeeper,
 			app.DistrKeeper,
 			app.BankKeeper,
-			app.Erc20Keeper,
-			app.TransferKeeper,
+			&app.Erc20Keeper,
+			&app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
 			app.GovKeeper,
 			app.SlashingKeeper,
