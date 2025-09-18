@@ -8,6 +8,7 @@
 
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
 - [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
+- [\#494](https://github.com/cosmos/evm/pull/494) Align temporary reject check for included tx from txpool.
 - [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs
 - [\#495](https://github.com/cosmos/evm/pull/495) Allow immediate SIGINT interrupt when mempool is not empty
 - [\#416](https://github.com/cosmos/evm/pull/416) Fix regression in CometBlockResultByNumber when height is 0 to use the latest block. This fixes eth_getFilterLogs RPC.
