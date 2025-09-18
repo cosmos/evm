@@ -171,11 +171,15 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 		tokenPair = tp
 	}
 
+	erc20ABI, err := erc20.LoadABI()
+	Expect(err).To(BeNil())
+
 	precompile := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 
 	return precompile
@@ -187,11 +191,16 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 func setupERC20PrecompileForTokenPair(
 	unitNetwork network.UnitTestNetwork, tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
+	erc20ABI, err := erc20.LoadABI()
+	if err != nil {
+		return nil, err
+	}
 	precompile := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.GetBankKeeper(),
 		unitNetwork.App.GetErc20Keeper(),
 		unitNetwork.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 	err := unitNetwork.App.GetErc20Keeper().EnableDynamicPrecompile(
 		unitNetwork.GetContext(),
@@ -210,11 +219,16 @@ func setupERC20PrecompileForTokenPair(
 func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
 	tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
+	erc20ABI, err := erc20.LoadABI()
+	if err != nil {
+		return nil, err
+	}
 	precompile := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
+		erc20ABI,
 	)
 
 	// Update the params via gov proposal
