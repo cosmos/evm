@@ -154,7 +154,7 @@ func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, q
 }
 
 // extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
-func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.RPCTransaction) []string {
+func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.EthRPCTransaction) []string {
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration

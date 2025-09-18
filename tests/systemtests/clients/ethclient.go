@@ -146,7 +146,7 @@ func (ec *EthClient) CheckTxsPending(
 }
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTransaction, map[string]map[string]*RPCTransaction, error) {
+func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*EthRPCTransaction, map[string]map[string]*EthRPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
 	var result TxPoolResult
@@ -159,7 +159,7 @@ func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*RPCTra
 }
 
 // extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
-func extractTxHashesSorted(txMap map[string]map[string]*RPCTransaction) []string {
+func extractTxHashesSorted(txMap map[string]map[string]*EthRPCTransaction) []string {
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration
