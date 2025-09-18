@@ -59,7 +59,7 @@ type Keeper struct {
 	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
 	feeMarketWrapper *wrappers.FeeMarketWrapper
-	// erc20Keeper interface needed to instantiate erc20 precompiles
+	// optional erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
 	// consensusKeeper is used to get consensus params during query contexts.
 	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
