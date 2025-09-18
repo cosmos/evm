@@ -9,6 +9,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
+	"github.com/cometbft/cometbft/crypto/tmhash"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/miner"
@@ -66,6 +67,8 @@ type (
 		mtx sync.Mutex
 
 		eventBus *cmttypes.EventBus
+
+		txGases map[string]uint64
 	}
 )
 
@@ -186,6 +189,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
+		txGases:       make(map[string]uint64),
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -210,6 +214,16 @@ func (m *ExperimentalEVMMempool) GetTxPool() *txpool.TxPool {
 // transactions are inserted into the Cosmos sdkmempool. The method assumes
 // transactions have already passed CheckTx validation.
 func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error {
+	var gasLimit uint64
+	if gasTx, ok := tx.(sdkmempool.GasTx); ok {
+		gasLimit = gasTx.GetGas()
+	}
+	return m.InsertWithGasWanted(goCtx, tx, gasLimit)
+}
+
+// InsertWithGasWanted adds a transaction to the appropriate mempool (EVM or Cosmos) with a specified gasWanted value.
+// This method is required to satisfy the ExtMempool interface.
+func (m *ExperimentalEVMMempool) InsertWithGasWanted(goCtx context.Context, tx sdk.Tx, gasWanted uint64) (err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -218,6 +232,7 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 
 	m.logger.Debug("inserting transaction into mempool", "block_height", blockHeight)
 	ethMsg, err := m.getEVMMessage(tx)
+
 	if err == nil {
 		// Insert into EVM pool
 		hash := ethMsg.Hash()
@@ -228,12 +243,19 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 			m.logger.Error("failed to insert EVM transaction", "error", errs[0], "tx_hash", hash)
 			return errs[0]
 		}
+		m.txGases[hash.String()] = gasWanted
 		m.logger.Debug("EVM transaction inserted successfully", "tx_hash", hash)
 		return nil
 	}
 
 	// Insert into cosmos pool for non-EVM transactions
-	m.logger.Debug("inserting Cosmos transaction", "error", err)
+
+	hash, err := m.getCosmosTxHash(tx)
+	if err != nil {
+		return err
+	}
+	m.txGases[hash] = gasWanted
+	m.logger.Debug("inserting Cosmos transaction", "tx_hash", hash)
 	err = m.cosmosPool.Insert(goCtx, tx)
 	if err != nil {
 		m.logger.Error("failed to insert Cosmos transaction", "error", err)
@@ -241,6 +263,15 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		m.logger.Debug("Cosmos transaction inserted successfully")
 	}
 	return err
+}
+
+func (m *ExperimentalEVMMempool) getCosmosTxHash(tx sdk.Tx) (string, error) {
+	txBytes, err := m.txConfig.TxEncoder()(tx)
+	if err == nil {
+		hash := fmt.Sprintf("%X", tmhash.Sum(txBytes))
+		return hash, nil
+	}
+	return "", err
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.
@@ -284,7 +315,7 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain, m.txGases)
 
 	return combinedIterator
 }
@@ -299,7 +330,7 @@ func (m *ExperimentalEVMMempool) CountTx() int {
 // Remove removes a transaction from the appropriate sdkmempool.
 // For EVM transactions, removal is typically handled automatically by the pool
 // based on nonce progression. Cosmos transactions are removed from the Cosmos pool.
-func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
+func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) (err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -318,6 +349,7 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 		} else {
 			m.logger.Debug("skipping manual removal of EVM transaction, leaving to mempool to handle", "tx_hash", hash)
 		}
+		delete(m.txGases, hash.String())
 		return nil
 	}
 
@@ -326,12 +358,19 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	}
 
 	m.logger.Debug("removing Cosmos transaction")
+
 	err = m.cosmosPool.Remove(tx)
 	if err != nil {
 		m.logger.Error("failed to remove Cosmos transaction", "error", err)
 	} else {
 		m.logger.Debug("Cosmos transaction removed successfully")
+		var hash string
+		hash, err = m.getCosmosTxHash(tx)
+		if err == nil {
+			delete(m.txGases, hash)
+		}
 	}
+
 	return err
 }
 
@@ -371,13 +410,13 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 // SelectBy iterates through transactions until the provided filter function returns false.
 // It uses the same unified iterator as Select but allows early termination based on
 // custom criteria defined by the filter function.
-func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
+func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdkmempool.Tx) bool) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain, m.txGases)
 
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()
