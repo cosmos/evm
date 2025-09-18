@@ -385,7 +385,7 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 
 	// If it was a successful transaction or a sequence error, we let the mempool handle the cleaning.
 	// If it was any other Cosmos or antehandler related issue, then we remove it.
-	ctx, err := m.blockchain.GetLatestCtx()
+	ctx, err := m.blockchain.GetLatestContext()
 	if err != nil {
 		m.logger.Debug("cannot get latest context for validation, keeping transaction", "error", err)
 		return false // Cannot validate, keep transaction

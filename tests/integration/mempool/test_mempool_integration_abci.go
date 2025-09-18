@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
@@ -16,10 +18,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 	testCases := []struct {
 		name     string
 		setupTxs func() ([]sdk.Tx, []string)
-		// TODO: remove bypass option after anteHandler is fixed.
-		// Current anteHandler rejects valid high-gas transaction to replace low-gas transaction
-		// So, all replacement test cases fail.
-		bypass bool
 	}{
 		{
 			name: "mixed EVM and cosmos transaction ordering",
@@ -49,7 +47,7 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				lowFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(2000000000)) // 2 gaatom
 
 				// Create second EVM transaction with high fee
-				highFeeEVMTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom
+				highFeeEVMTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000), big.NewInt(5000000000)) // 5 gaatom
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{lowFeeEVMTx, highFeeEVMTx}
@@ -60,7 +58,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "EVM-only transaction ordering",
@@ -83,63 +80,43 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			},
 		},
 		{
-			name: "cosmos-only transaction replacement",
-			setupTxs: func() ([]sdk.Tx, []string) {
-				highFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(5000000000))   // 5 gaatom
-				lowFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000))    // 2 gaatom
-				mediumFeeTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(3000000000)) // 3 gaatom
-
-				// Input txs in order
-				inputTxs := []sdk.Tx{mediumFeeTx, lowFeeTx, highFeeTx}
-
-				// Expected txs in order
-				expectedTxs := []sdk.Tx{highFeeTx}
-				expTxHashes := s.getTxHashes(expectedTxs)
-
-				return inputTxs, expTxHashes
-			},
-			bypass: true,
-		},
-		{
 			name: "mixed EVM and Cosmos transactions with equal effective tips",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Create transactions with equal effective tips (assuming base fee = 0)
-				// EVM: 1000 aatom/gas effective tip
-				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000)) // 1 gaatom/gas
-
 				// Cosmos with same effective tip: 1000 * 200000 = 200000000 aatom total fee
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(1000000000)) // 1 gaatom/gas effective tip
+
+				// Create transactions with equal effective tips (assuming base fee = 0)
+				// EVM: 1000 aatom/gas effective tip
+				evmTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(1000000000), big.NewInt(1000000000)) // 1 gaatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transactions with EVM having higher effective tip",
 			setupTxs: func() ([]sdk.Tx, []string) {
-				// Create EVM transaction with higher gas price
-				evmTx := s.createEVMValueTransferTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000)) // 5 gaatom/gas
-
 				// Create Cosmos transaction with lower gas price
 				cosmosTx := s.createCosmosSendTx(s.keyring.GetKey(0), big.NewInt(2000000000)) // 2 gaatom/gas
+
+				// Create EVM transaction with higher gas price
+				evmTx := s.createEVMValueTransferDynamicFeeTx(s.keyring.GetKey(0), 0, big.NewInt(5000000000), big.NewInt(5000000000)) // 5 gaatom/gas
 
 				// Input txs in order
 				inputTxs := []sdk.Tx{cosmosTx, evmTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{evmTx, cosmosTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transactions with Cosmos having higher effective tip",
@@ -154,12 +131,11 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 				inputTxs := []sdk.Tx{evmTx, cosmosTx}
 
 				// Expected txs in order
-				expectedTxs := []sdk.Tx{cosmosTx, evmTx}
+				expectedTxs := []sdk.Tx{evmTx}
 				expTxHashes := s.getTxHashes(expectedTxs)
 
 				return inputTxs, expTxHashes
 			},
-			bypass: true,
 		},
 		{
 			name: "mixed transaction ordering with multiple effective tips",
@@ -210,10 +186,6 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 			})
 			s.Require().NoError(err)
 
-			if tc.bypass {
-				return
-			}
-
 			// Check whether expected transactions are included and returned as pending state in mempool
 			mpool := s.network.App.GetMempool()
 			iterator := mpool.Select(s.network.GetContext(), nil)
@@ -242,7 +214,6 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 		name       string
 		setupTxs   func() ([]sdk.Tx, []string) // Returns transactions and their expected nonces
 		verifyFunc func(mpool mempool.Mempool)
-		bypass     bool
 	}{
 		{
 			name: "insert transactions with nonce gaps",
@@ -396,7 +367,6 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				count := mpool.CountTx()
 				s.Require().Equal(2, count, "After replacement, both transactions should be pending")
 			},
-			bypass: true,
 		},
 	}
 
@@ -424,10 +394,6 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 			mpool := s.network.App.GetMempool()
 			iterator := mpool.Select(s.network.GetContext(), nil)
 
-			if tc.bypass {
-				return
-			}
-
 			// Check whether expected transactions are included and returned as pending state in mempool
 			for _, txHash := range expTxHashes {
 				actualTxHash := s.getTxHash(iterator.Tx().Tx)
@@ -444,6 +410,97 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 				txHashes = append(txHashes, txHash)
 			}
 			s.Require().Equal(expTxHashes, txHashes)
+		})
+	}
+}
+
+// TestCheckTxHandlerForCommittedAndLowerNonceTxs tests that:
+// 1. Committed transactions are not in the mempool after block finalization
+// 2. New transactions with nonces lower than current nonce fail at mempool level
+func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() {
+	testCases := []struct {
+		name       string
+		setupTxs   func() []sdk.Tx
+		verifyFunc func()
+	}{
+		{
+			name: "EVM transactions: committed txs removed from mempool and lower nonce txs fail",
+			setupTxs: func() []sdk.Tx {
+				key := s.keyring.GetKey(0)
+
+				// Create transactions with sequential nonces (0, 1, 2)
+				tx0 := s.createEVMValueTransferTx(key, 0, big.NewInt(2000000000))
+				tx1 := s.createEVMValueTransferTx(key, 1, big.NewInt(2000000000))
+				tx2 := s.createEVMValueTransferTx(key, 2, big.NewInt(2000000000))
+
+				return []sdk.Tx{tx0, tx1, tx2}
+			},
+			verifyFunc: func() {
+				// 1. Verify the correct nonce transaction is in mempool
+				mpool := s.network.App.GetMempool()
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
+
+				// 2. Check current sequence
+				acc := s.network.App.GetAccountKeeper().GetAccount(s.network.GetContext(), s.keyring.GetAccAddr(0))
+				sequence := acc.GetSequence()
+				s.Require().Equal(uint64(3), sequence)
+
+				// 3. Check new transactions with nonces lower than current nonce fails
+				// Current nonce should be 3 after committing nonces 1, 2
+				//
+				// NOTE: The reason we don't try tx with nonce 0 is
+				// because txFactory replace nonce 0 with curreent nonce.
+				// So we just test for nonce 1 and 2.
+				key := s.keyring.GetKey(0)
+
+				// Try to add transaction with nonce 1 (lower than current nonce 3) - should fail
+				dupTx1 := s.createEVMValueTransferTx(key, 1, big.NewInt(2000000000))
+				res, err := s.checkTx(dupTx1)
+				s.Require().NoError(err, "Transaction with nonce 1 should fail when current nonce is 3")
+				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
+
+				// Try to add transaction with nonce 2 (lower than current nonce 3) - should fail
+				dupTx2 := s.createEVMValueTransferTx(key, 2, big.NewInt(2000000000))
+				res, err = s.checkTx(dupTx2)
+				s.Require().NoError(err, "Transaction with nonce 2 should fail when current nonce is 3")
+				s.Require().Contains(res.GetLog(), core.ErrNonceTooLow.Error())
+				s.Require().Equal(0, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
+
+				// Verify transaction with correct nonce (3) still works
+				tx3 := s.createEVMValueTransferTx(key, 3, big.NewInt(2000000000))
+				res, err = s.checkTx(tx3)
+				s.Require().NoError(err, "Transaction with correct nonce 3 should succeed")
+				s.Require().Equal(abci.CodeTypeOK, res.Code)
+				s.Require().Equal(1, mpool.CountTx(), "Only the correct nonce transaction should be in mempool")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Reset test setup to ensure clean state
+			s.SetupTest()
+
+			txs := tc.setupTxs()
+
+			// Call CheckTx for transactions
+			err := s.checkTxs(txs)
+			s.Require().NoError(err)
+
+			// Finalize block with txs and Commit state
+			txBytes, err := s.getTxBytes(txs)
+			s.Require().NoError(err)
+
+			_, err = s.network.NextBlockWithTxs(txBytes...)
+			s.Require().NoError(err)
+
+			// Manually trigger chain head event to notify mempool about the new block
+			// This simulates the natural block notification that occurs in production
+			s.notifyNewBlockToMempool()
+
+			// Run verification function
+			tc.verifyFunc()
 		})
 	}
 }
