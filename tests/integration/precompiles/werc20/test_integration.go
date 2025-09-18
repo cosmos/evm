@@ -161,18 +161,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				erc20types.OWNER_MODULE,
 			)
 
-			erc20ABI, err := erc20.LoadABI()
-			Expect(err).To(BeNil())
-			werc20ABI, err := werc20.LoadABI()
-			Expect(err).To(BeNil())
-
 			precompile := werc20.NewPrecompile(
 				tokenPair,
 				is.network.App.GetBankKeeper(),
 				is.network.App.GetErc20Keeper(),
 				is.network.App.GetTransferKeeper(),
-				erc20ABI,
-				werc20ABI,
 			)
 			is.precompile = precompile
 

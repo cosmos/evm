@@ -171,18 +171,12 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 		tokenPair = tp
 	}
 
-	erc20ABI, err := erc20.LoadABI()
-	Expect(err).To(BeNil())
-
-	precompile := erc20.NewPrecompile(
+	return erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
-		erc20ABI,
 	)
-
-	return precompile
 }
 
 // setupERC20PrecompileForTokenPair is a helper function to set up an instance of the ERC20 precompile for
@@ -191,22 +185,16 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 func setupERC20PrecompileForTokenPair(
 	unitNetwork network.UnitTestNetwork, tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
-	erc20ABI, err := erc20.LoadABI()
-	if err != nil {
-		return nil, err
-	}
 	precompile := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.GetBankKeeper(),
 		unitNetwork.App.GetErc20Keeper(),
 		unitNetwork.App.GetTransferKeeper(),
-		erc20ABI,
 	)
-	err := unitNetwork.App.GetErc20Keeper().EnableDynamicPrecompile(
+	if err := unitNetwork.App.GetErc20Keeper().EnableDynamicPrecompile(
 		unitNetwork.GetContext(),
 		precompile.Address(),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to add %q erc20 precompile to EVM extensions", tokenPair.Denom)
 	}
 
@@ -219,16 +207,11 @@ func setupERC20PrecompileForTokenPair(
 func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
 	tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
-	erc20ABI, err := erc20.LoadABI()
-	if err != nil {
-		return nil, err
-	}
 	precompile := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
-		erc20ABI,
 	)
 
 	// Update the params via gov proposal
