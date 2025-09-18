@@ -31,6 +31,8 @@
 - [\#598](https://github.com/cosmos/evm/pull/598) Reduce number of times CreateQueryContext in mempool.
 - [\#606](https://github.com/cosmos/evm/pull/606) Regenerate mock file for bank keeper related test.
 - [\#624](https://github.com/cosmos/evm/pull/624) Cleanup unnecessary `fix-revert-gas-refund-height`.
+- [\#635](https://github.com/cosmos/evm/pull/635) Move DefaultStaticPrecompiles to /evm and allow projects to set it by default alongside the keeper.
+
 
 ### FEATURES
 
