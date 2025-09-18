@@ -260,7 +260,7 @@ func NewExampleApp(
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
-	// initialize the Cosmos EVM application configuration
+	// initialize the Cosmos EVM application configuration, if not already initialized
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}

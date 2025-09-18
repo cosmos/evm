@@ -96,7 +96,7 @@ type EVMAppConfig struct {
 
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
-func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
+func InitAppConfig(denom string, evmChainID uint64) (string, *EVMAppConfig) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -124,7 +124,7 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
-	return EVMAppTemplate, customAppConfig
+	return EVMAppTemplate, &customAppConfig
 }
 
 const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate

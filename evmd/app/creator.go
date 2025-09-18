@@ -87,11 +87,10 @@ func (a AppCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
-	chainConfig := &evmconfig.DefaultChainConfig
-	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		panic(err)
+	}
 
 	return NewExampleApp(
 		logger,
@@ -135,11 +134,10 @@ func (a AppCreator) appExport(
 		loadLatest = true
 	}
 
-	chainConfig := &evmconfig.DefaultChainConfig
-	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	// if err != nil {
-	// 	return servertypes.ExportedApp{}, err
-	// }
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
 
 	evmApp = NewExampleApp(
 		logger,

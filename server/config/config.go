@@ -74,7 +74,7 @@ const (
 	// DefaultEvmCoinInfoDecimals is the default decimals for the base denomination
 	DefaultEvmCoinInfoDecimals = evmtypes.EighteenDecimals
 
-	// DefaultEvmCoinInfoExtendedDecimals is the default decimals for the extended denomination
+	// DefaultEvmCoinInfoExtendedDecimals is the default decimals for the extended denomination, typically 18 decimals (atto-denom)
 	DefaultEvmCoinInfoExtendedDecimals = evmtypes.EighteenDecimals
 
 	// DefaultEVMMinTip is the default minimum priority fee for the mempool

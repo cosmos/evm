@@ -15,6 +15,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	clientkeys "github.com/cosmos/evm/client/keys"
+	"github.com/cosmos/evm/config"
 	evmconfig "github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	evmdapp "github.com/cosmos/evm/evmd/app"
@@ -64,7 +65,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmconfig.DefaultChainConfig,
+		config.ChainConfig{},
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -133,7 +134,19 @@ func NewRootCmd() *cobra.Command {
 			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
-			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+			if err := sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, *customAppConfig, customTMConfig); err != nil {
+				return err
+			}
+
+			chainConfig, err := config.CreateChainConfigFromCmd(initClientCtx.ChainID, cmd, false)
+			if err != nil {
+				return err
+			}
+			if err := chainConfig.ApplyChainConfig(); err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
 
@@ -148,11 +161,6 @@ func NewRootCmd() *cobra.Command {
 	autoCliOpts := tempApp.AutoCliOpts()
 	autoCliOpts.ClientCtx = initClientCtx
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
-		panic(err)
-	}
-
-	chainConfig := evmconfig.DefaultChainConfig
-	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
 
@@ -331,11 +339,10 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
-	chainConfig := &evmconfig.DefaultChainConfig
-	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		panic(err)
+	}
 
 	return evmdapp.NewExampleApp(
 		logger, db, traceStore, true,
@@ -381,11 +388,10 @@ func appExport(
 	}
 
 	// create the chain config
-	chainConfig := &evmconfig.DefaultChainConfig
-	// chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	// if err != nil {
-	// 	return servertypes.ExportedApp{}, err
-	// }
+	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
 
 	if height != -1 {
 		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
