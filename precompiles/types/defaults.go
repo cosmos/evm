@@ -1,15 +1,12 @@
 package types
 
 import (
-	"cosmossdk.io/core/address"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	"maps"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -22,9 +19,16 @@ import (
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"maps"
+
+	"cosmossdk.io/core/address"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 // Optionals define some optional params that can be applied to _some_ precompiles.
