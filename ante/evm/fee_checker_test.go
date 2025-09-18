@@ -9,7 +9,6 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/ante/evm"
-	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -24,28 +23,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 )
-
-var _ anteinterfaces.FeeMarketKeeper = MockFeemarketKeeper{}
-
-type MockFeemarketKeeper struct {
-	BaseFee math.LegacyDec
-}
-
-func (m MockFeemarketKeeper) GetBaseFee(_ sdk.Context) math.LegacyDec {
-	return m.BaseFee
-}
-
-func (m MockFeemarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool {
-	return true
-}
-
-func (m MockFeemarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
-	return 0, nil
-}
-
-func (m MockFeemarketKeeper) GetParams(_ sdk.Context) (params feemarkettypes.Params) {
-	return feemarkettypes.DefaultParams()
-}
 
 func TestSDKTxFeeChecker(t *testing.T) {
 	// testCases:
@@ -69,20 +46,22 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	checkTxCtx := sdk.NewContext(nil, tmproto.Header{Height: 1}, true, log.NewNopLogger()).WithMinGasPrices(minGasPrices)
 	deliverTxCtx := sdk.NewContext(nil, tmproto.Header{Height: 1}, false, log.NewNopLogger())
 
+	feemarketParams := feemarkettypes.Params{}
+
 	testCases := []struct {
-		name          string
-		ctx           sdk.Context
-		keeper        anteinterfaces.FeeMarketKeeper
-		buildTx       func() sdk.FeeTx
-		londonEnabled bool
-		expFees       string
-		expPriority   int64
-		expSuccess    bool
+		name              string
+		ctx               sdk.Context
+		feemarketParamsFn func() feemarkettypes.Params
+		buildTx           func() sdk.FeeTx
+		londonEnabled     bool
+		expFees           string
+		expPriority       int64
+		expSuccess        bool
 	}{
 		{
 			"success, genesis tx",
 			genesisCtx,
-			MockFeemarketKeeper{},
+			func() feemarkettypes.Params { return feemarketParams },
 			func() sdk.FeeTx {
 				return encodingConfig.TxConfig.NewTxBuilder().GetTx()
 			},
@@ -94,7 +73,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"fail, min-gas-prices",
 			checkTxCtx,
-			MockFeemarketKeeper{},
+			func() feemarkettypes.Params { return feemarketParams },
 			func() sdk.FeeTx {
 				return encodingConfig.TxConfig.NewTxBuilder().GetTx()
 			},
@@ -106,7 +85,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, min-gas-prices",
 			checkTxCtx,
-			MockFeemarketKeeper{},
+			func() feemarkettypes.Params { return feemarketParams },
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
 				txBuilder.SetGasLimit(1)
@@ -121,7 +100,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, min-gas-prices deliverTx",
 			deliverTxCtx,
-			MockFeemarketKeeper{},
+			func() feemarkettypes.Params { return feemarketParams },
 			func() sdk.FeeTx {
 				return encodingConfig.TxConfig.NewTxBuilder().GetTx()
 			},
@@ -133,8 +112,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"fail, dynamic fee",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(1),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(1)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
@@ -149,8 +129,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, dynamic fee",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(10),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
@@ -166,8 +147,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, dynamic fee priority",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(10),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder()
@@ -183,8 +165,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, dynamic fee empty tipFeeCap",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(10),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
@@ -204,8 +187,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"success, dynamic fee tipFeeCap",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(10),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
@@ -227,8 +211,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 		{
 			"fail, negative dynamic fee tipFeeCap",
 			deliverTxCtx,
-			MockFeemarketKeeper{
-				BaseFee: math.LegacyNewDec(10),
+			func() feemarkettypes.Params {
+				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				return feemarketParams
 			},
 			func() sdk.FeeTx {
 				txBuilder := encodingConfig.TxConfig.NewTxBuilder().(authtx.ExtensionOptionsTxBuilder)
@@ -258,7 +243,8 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			} else {
 				cfg.LondonBlock = big.NewInt(0)
 			}
-			fees, priority, err := evm.NewDynamicFeeChecker(tc.keeper)(tc.ctx, tc.buildTx())
+			feemarketParams := tc.feemarketParamsFn()
+			fees, priority, err := evm.NewDynamicFeeChecker(&feemarketParams)(tc.ctx, tc.buildTx())
 			if tc.expSuccess {
 				require.Equal(t, tc.expFees, fees.String())
 				require.Equal(t, tc.expPriority, priority)

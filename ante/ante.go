@@ -29,8 +29,9 @@ type HandlerOptions struct {
 	SignModeHandler        *txsigning.HandlerMap
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	MaxTxGasWanted         uint64
-	TxFeeChecker           ante.TxFeeChecker
-	PendingTxListener      PendingTxListener
+	// use dynamic fee checker or the cosmos-sdk default one for native transactions
+	DynamicFeeChecker bool
+	PendingTxListener PendingTxListener
 }
 
 // Validate checks if the keepers are defined
@@ -59,13 +60,8 @@ func (options HandlerOptions) Validate() error {
 	if options.SignModeHandler == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "sign mode handler is required for AnteHandler")
 	}
-	if options.TxFeeChecker == nil {
-		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
-	}
-
 	if options.PendingTxListener == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "pending tx listener is required for AnteHandler")
 	}
-
 	return nil
 }

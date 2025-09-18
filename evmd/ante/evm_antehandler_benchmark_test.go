@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/ante"
-	ethante "github.com/cosmos/evm/ante/evm"
 	evmdante "github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
@@ -156,7 +155,7 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		SignModeHandler:        encCfg.TxConfig.SignModeHandler(),
 		SigGasConsumer:         ante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         1_000_000_000,
-		TxFeeChecker:           ethante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
+		DynamicFeeChecker:      true,
 	}
 }
 
