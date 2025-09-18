@@ -96,7 +96,6 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.consensusKeeper,
 		suite.erc20Keeper,
 		"",
-		nil,
 	)
 }
 
