@@ -2,13 +2,6 @@ package keeper
 
 import (
 	"encoding/binary"
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
-	stakingKeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
-	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,7 +31,7 @@ import (
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
 type Keeper struct {
 	// Protobuf codec
-	cdc codec.Codec
+	cdc codec.BinaryCodec
 	// Store key required for the EVM Prefix KVStore. It is required by:
 	// - storing account's Storage State
 	// - storing account's Code
@@ -63,23 +56,16 @@ type Keeper struct {
 	bankWrapper types.BankWrapper
 
 	// access historical headers for EVM state transition execution
-	stakingKeeper *stakingKeeper.Keeper
+	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// erc20Keeper interface needed to instantiate erc20 precompiles
-	erc20Keeper *erc20Keeper.Keeper
+	erc20Keeper types.Erc20Keeper
 	// consensusKeeper is used to get consensus params during query contexts.
 	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
 	// grpc query router. This query router builds a context WITHOUT consensus params, so we manually supply the context
 	// with consensus params when not set in context.
 	consensusKeeper types.ConsensusParamsKeeper
-
-	// default precompile keepers
-	channelKeeper  *channelkeeper.Keeper
-	distrKeeper    *distrkeeper.Keeper
-	transferKeeper *transferkeeper.Keeper
-	govKeeper      *govkeeper.Keeper
-	slashingKeeper *slashingkeeper.Keeper
 
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
@@ -99,23 +85,17 @@ type Keeper struct {
 
 // NewKeeper generates new evm module keeper
 func NewKeeper(
-	cdc codec.Codec,
+	cdc codec.BinaryCodec,
 	storeKey, transientKey storetypes.StoreKey,
 	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
 	bankKeeper types.BankKeeper,
-	sk *stakingKeeper.Keeper,
+	sk types.StakingKeeper,
 	fmk types.FeeMarketKeeper,
-	channelKeeper *channelkeeper.Keeper,
 	consensusKeeper types.ConsensusParamsKeeper,
-	erc20Keeper *erc20Keeper.Keeper,
-	distrKeeper *distrkeeper.Keeper,
-	transferKeeper *transferkeeper.Keeper,
-	govKeeper *govkeeper.Keeper,
-	slashingKeeper *slashingkeeper.Keeper,
+	erc20Keeper types.Erc20Keeper,
 	tracer string,
-	optionalPrecompiles *map[common.Address]vm.PrecompiledContract,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -137,21 +117,12 @@ func NewKeeper(
 		bankWrapper:      bankWrapper,
 		stakingKeeper:    sk,
 		feeMarketWrapper: feeMarketWrapper,
-		channelKeeper:    channelKeeper,
 		storeKey:         storeKey,
 		transientKey:     transientKey,
 		tracer:           tracer,
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
-		distrKeeper:      distrKeeper,
-		transferKeeper:   transferKeeper,
-		govKeeper:        govKeeper,
-		slashingKeeper:   slashingKeeper,
 		storeKeys:        keys,
-	}
-
-	if optionalPrecompiles == nil {
-		k.precompiles = k.DefaultStaticPrecompiles()
 	}
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
 
 	"os"
@@ -483,15 +484,21 @@ func NewExampleApp(
 		app.PreciseBankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
-		app.IBCKeeper.ChannelKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
-		&app.DistrKeeper,
-		&app.TransferKeeper,
-		&app.GovKeeper,
-		&app.SlashingKeeper,
 		tracer,
-		nil,
+	).WithStaticPrecompiles(
+		precompiletypes.DefaultStaticPrecompiles(
+			*app.StakingKeeper,
+			app.DistrKeeper,
+			app.BankKeeper,
+			app.Erc20Keeper,
+			app.TransferKeeper,
+			app.IBCKeeper.ChannelKeeper,
+			app.GovKeeper,
+			app.SlashingKeeper,
+			appCodec,
+		),
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(

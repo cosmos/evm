@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
@@ -50,7 +51,6 @@ type BankKeeper interface {
 	GetSupply(ctx context.Context, denom string) sdk.Coin
 	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
-	BlockedAddr(addr sdk.AccAddress) bool
 }
 
 // StakingKeeper returns the historical headers kept in store.
@@ -70,6 +70,11 @@ type FeeMarketKeeper interface {
 	GetBaseFee(ctx sdk.Context) math.LegacyDec
 	GetParams(ctx sdk.Context) feemarkettypes.Params
 	CalculateBaseFee(ctx sdk.Context) math.LegacyDec
+}
+
+// Erc20Keeper defines the expected interface needed to instantiate ERC20 precompiles.
+type Erc20Keeper interface {
+	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
 }
 
 // EvmHooks event hooks for evm tx processing
