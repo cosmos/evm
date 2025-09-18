@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -29,7 +28,6 @@ const (
 // balanceOf call for each token returned.
 func (p Precompile) Balances(
 	ctx sdk.Context,
-	_ *vm.Contract,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
@@ -73,7 +71,6 @@ func (p Precompile) Balances(
 // call for each token returned.
 func (p Precompile) TotalSupply(
 	ctx sdk.Context,
-	_ *vm.Contract,
 	method *abi.Method,
 	_ []interface{},
 ) ([]byte, error) {
@@ -112,7 +109,6 @@ func (p Precompile) TotalSupply(
 // stored in the x/bank.
 func (p Precompile) SupplyOf(
 	ctx sdk.Context,
-	_ *vm.Contract,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {

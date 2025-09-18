@@ -3,10 +3,6 @@ package keeper
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	"github.com/cosmos/evm/precompiles/erc20"
-	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
@@ -29,10 +25,6 @@ type Keeper struct {
 	evmKeeper      types.EVMKeeper
 	stakingKeeper  types.StakingKeeper
 	transferKeeper *transferkeeper.Keeper
-
-	// cached abis
-	erc20ABI  abi.ABI
-	werc20ABI abi.ABI
 }
 
 // NewKeeper creates new instances of the erc20 Keeper
@@ -51,16 +43,6 @@ func NewKeeper(
 		panic(err)
 	}
 
-	erc20ABI, err := erc20.LoadABI()
-	if err != nil {
-		panic(err)
-	}
-
-	werc20ABI, err := werc20.LoadABI()
-	if err != nil {
-		panic(err)
-	}
-
 	return Keeper{
 		authority:      authority,
 		storeKey:       storeKey,
@@ -70,8 +52,6 @@ func NewKeeper(
 		evmKeeper:      evmKeeper,
 		stakingKeeper:  sk,
 		transferKeeper: transferKeeper,
-		erc20ABI:       erc20ABI,
-		werc20ABI:      werc20ABI,
 	}
 }
 

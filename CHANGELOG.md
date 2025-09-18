@@ -31,6 +31,7 @@
 - [\#598](https://github.com/cosmos/evm/pull/598) Reduce number of times CreateQueryContext in mempool.
 - [\#606](https://github.com/cosmos/evm/pull/606) Regenerate mock file for bank keeper related test.
 - [\#624](https://github.com/cosmos/evm/pull/624) Cleanup unnecessary `fix-revert-gas-refund-height`.
+- [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 
 ### FEATURES
 
@@ -44,6 +45,7 @@
 
 - [\#477](https://github.com/cosmos/evm/pull/477) Refactor precompile constructors to accept keeper interfaces instead of concrete implementations, breaking the existing `NewPrecompile` function signatures.
 - [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
+- [\#577](https://github.com/cosmos/evm/pull/577) Changed the way to create a stateful precompile based on the cmn.Precompile, change `NewPrecompile` to not return error.
 
 ## v0.4.1
 
