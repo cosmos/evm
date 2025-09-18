@@ -138,14 +138,6 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			chainConfig, err := config.CreateChainConfigFromCmd(initClientCtx.ChainID, cmd, false)
-			if err != nil {
-				return err
-			}
-			if err := chainConfig.ApplyChainConfig(); err != nil {
-				return err
-			}
-
 			return nil
 		},
 	}
@@ -161,6 +153,11 @@ func NewRootCmd() *cobra.Command {
 	autoCliOpts := tempApp.AutoCliOpts()
 	autoCliOpts.ClientCtx = initClientCtx
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
+		panic(err)
+	}
+
+	chainConfig := evmconfig.DefaultChainConfig
+	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
 
