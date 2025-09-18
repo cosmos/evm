@@ -25,6 +25,17 @@ evm-chain-id = {{ .EVM.EVMChainID }}
 # MinTip defines the minimum priority fee for the mempool.
 min-tip = {{ .EVM.MinTip }}
 
+[evm.coin-info]
+
+# DisplayDenom defines the display denomination shown to users
+display-denom = "{{ .EVM.CoinInfo.DisplayDenom }}"
+
+# Decimals defines the precision/decimals for the base denomination (1-18)
+decimals = {{ .EVM.CoinInfo.Decimals }}
+
+# ExtendedDecimals defines the precision/decimals for the extended denomination (typically 18 decimals for atto-denom)
+extended-decimals = {{ .EVM.CoinInfo.ExtendedDecimals }}
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################

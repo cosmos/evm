@@ -5,10 +5,9 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/evmd"
-	"github.com/cosmos/evm/evmd/cmd/evmd/config"
+	"github.com/cosmos/evm/config"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 	testconfig "github.com/cosmos/evm/testutil/config"
-	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -36,14 +35,26 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	return evmd.NewExampleApp(
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	chainConfig := config.NewChainConfig(
+		testconfig.ExampleChainID.ChainID,
+		evmChainID,
+		nil,
+		nil,
+		nil,
+		coinInfo,
+		false,
+	)
+	if err := chainConfig.ApplyChainConfig(); err != nil {
+		panic(err)
+	}
+	return evmdapp.NewExampleApp(
 		logger,
 		db,
 		nil,
 		loadLatest,
 		appOptions,
-		evmChainID,
-		testconfig.EvmAppOptions,
+		chainConfig,
 		baseAppOptions...,
 	)
 }
@@ -51,14 +62,26 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
-	app := evmd.NewExampleApp(
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	chainConfig := config.NewChainConfig(
+		testconfig.ExampleChainID.ChainID,
+		testconfig.ExampleEIP155ChainID,
+		nil,
+		nil,
+		nil,
+		coinInfo,
+		false,
+	)
+	if err := chainConfig.ApplyChainConfig(); err != nil {
+		panic(err)
+	}
+	app := evmdapp.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simutils.EmptyAppOptions{},
-		constants.ExampleEIP155ChainID,
-		testconfig.EvmAppOptions,
+		chainConfig,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

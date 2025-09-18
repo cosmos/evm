@@ -21,7 +21,7 @@ func TestChainConfigValidate(t *testing.T) {
 		config   types.ChainConfig
 		expError bool
 	}{
-		{"default", *types.DefaultChainConfig(0), false},
+		{"default", *types.DefaultChainConfig(0, types.EvmCoinInfo{DisplayDenom: "test", Decimals: types.EighteenDecimals, ExtendedDecimals: types.EighteenDecimals}), false},
 		{
 			"valid",
 			types.ChainConfig{

@@ -5,7 +5,7 @@ import (
 
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	"github.com/cosmos/evm/testutil"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
 
 	"cosmossdk.io/math"
@@ -24,7 +24,7 @@ var execTypes = []struct {
 }
 
 func (s *AnteTestSuite) TestMinGasPriceDecorator() {
-	denom := constants.ExampleAttoDenom
+	denom := testconfig.ExampleAttoDenom
 	testMsg := banktypes.MsgSend{
 		FromAddress: "cosmos1x8fhpj9nmhqk8z9kpgjt95ck2xwyue0ptzkucp",
 		ToAddress:   "cosmos1dx67l23hz9l0k9hcher8xz04uj7wf3yu26l2yn",

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/wallets/ledger"
 	"github.com/cosmos/evm/wallets/ledger/mocks"
@@ -93,7 +93,7 @@ func (suite *LedgerTestSuite) getMockTxAmino() []byte {
 				}
 			}],
 			"sequence":"6"
-		}`, constants.ExampleChainID.ChainID),
+		}`, testconfig.ExampleChainID.ChainID),
 		"",
 	)
 
@@ -157,7 +157,7 @@ func (suite *LedgerTestSuite) getMockTxProtobuf() []byte {
 	signBytes, err := tx.DirectSignBytes(
 		bodyBytes,
 		authInfoBytes,
-		constants.ExampleChainID.ChainID,
+		testconfig.ExampleChainID.ChainID,
 		0,
 	)
 	suite.Require().NoError(err)

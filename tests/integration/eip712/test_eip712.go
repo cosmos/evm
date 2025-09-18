@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
 	"github.com/cosmos/evm/testutil/config"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -333,7 +333,7 @@ func (s *TestSuite) TestEIP712() {
 				err = txBuilder.SetSignatures([]signing.SignatureV2{txSig}...)
 				s.Require().NoError(err)
 
-				chainID := constants.ExampleChainID.ChainID
+				chainID := testconfig.ExampleChainID.ChainID
 				if tc.chainID != "" {
 					chainID = tc.chainID
 				}
@@ -347,7 +347,7 @@ func (s *TestSuite) TestEIP712() {
 					AccountNumber: params.accountNumber,
 					Sequence:      params.sequence,
 					PubKey:        pubKey,
-					Address:       sdk.MustBech32ifyAddressBytes(constants.ExampleBech32Prefix, pubKey.Bytes()),
+					Address:       sdk.MustBech32ifyAddressBytes(testconfig.ExampleBech32Prefix, pubKey.Bytes()),
 				}
 
 				bz, err := authsigning.GetSignBytesAdapter(

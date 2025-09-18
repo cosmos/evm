@@ -4,7 +4,6 @@
 package config
 
 import (
-	evmconfig "github.com/cosmos/evm/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -13,51 +12,38 @@ import (
 // chain id
 var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
 	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleDisplayDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	SixDecimalsChainID: {
-		Denom:         "utest",
-		ExtendedDenom: "atest",
-		DisplayDenom:  "test",
-		Decimals:      evmtypes.SixDecimals,
+		DisplayDenom:     "test",
+		Decimals:         evmtypes.SixDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	TwelveDecimalsChainID: {
-		Denom:         "ptest2",
-		ExtendedDenom: "atest2",
-		DisplayDenom:  "test2",
-		Decimals:      evmtypes.TwelveDecimals,
+		DisplayDenom:     "test2",
+		Decimals:         evmtypes.TwelveDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	TwoDecimalsChainID: {
-		Denom:         "ctest3",
-		ExtendedDenom: "atest3",
-		DisplayDenom:  "test3",
-		Decimals:      evmtypes.TwoDecimals,
+		DisplayDenom:     "test3",
+		Decimals:         evmtypes.TwoDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	TestChainID1: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleChainDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	TestChainID2: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleChainDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
 	EVMChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		DisplayDenom:     ExampleChainDenom,
+		Decimals:         evmtypes.EighteenDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
 	},
-}
-
-// EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain.
-func EvmAppOptions(chainID uint64) error {
-	return evmconfig.EvmAppOptionsWithConfigWithReset(chainID, TestChainsCoinInfo, cosmosEVMActivators, true)
 }

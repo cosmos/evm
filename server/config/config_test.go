@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	serverconfig "github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -30,12 +30,12 @@ func TestGetConfig(t *testing.T) {
 			"test unmarshal embedded structs",
 			func() *viper.Viper {
 				v := viper.New()
-				v.Set("minimum-gas-prices", fmt.Sprintf("100%s", constants.ExampleAttoDenom))
+				v.Set("minimum-gas-prices", fmt.Sprintf("100%s", testconfig.ExampleAttoDenom))
 				return v
 			},
 			func() serverconfig.Config {
 				cfg := serverconfig.DefaultConfig()
-				cfg.MinGasPrices = fmt.Sprintf("100%s", constants.ExampleAttoDenom)
+				cfg.MinGasPrices = fmt.Sprintf("100%s", testconfig.ExampleAttoDenom)
 				return *cfg
 			},
 			false,

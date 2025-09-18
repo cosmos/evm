@@ -3,7 +3,7 @@ package precisebank
 import (
 	"github.com/stretchr/testify/suite"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -34,10 +34,10 @@ func NewKeeperIntegrationTestSuite(create network.CreateEvmApp, options ...netwo
 }
 
 func (s *KeeperIntegrationTestSuite) SetupTest() {
-	s.SetupTestWithChainID(testconstants.SixDecimalsChainID)
+	s.SetupTestWithChainID(testconfig.ExampleSixDecimalsChainID)
 }
 
-func (s *KeeperIntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
+func (s *KeeperIntegrationTestSuite) SetupTestWithChainID(chainID testconfig.ChainID) {
 	s.keyring = keyring.New(2)
 
 	options := []network.ConfigOption{

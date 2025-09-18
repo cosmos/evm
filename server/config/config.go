@@ -10,6 +10,8 @@ import (
 
 	"github.com/cometbft/cometbft/libs/strings"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/server/config"
@@ -60,8 +62,17 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
-	// DefaultEVMChainID is the default EVM Chain ID if one is not provided
+	// DefaultEVMChainID is the default EVM Chain ID if one is not provided, should match the value in evmd config
 	DefaultEVMChainID = 262144
+
+	// DefaultEvmCoinInfoDisplayDenom is the default display denomination for the chain
+	DefaultEvmCoinInfoDisplayDenom = "atom"
+
+	// DefaultEvmCoinInfoDecimals is the default decimals for the base denomination
+	DefaultEvmCoinInfoDecimals = evmtypes.EighteenDecimals
+
+	// DefaultEvmCoinInfoExtendedDecimals is the default decimals for the extended denomination, typically 18 decimals (atto-denom)
+	DefaultEvmCoinInfoExtendedDecimals = evmtypes.EighteenDecimals
 
 	// DefaultEVMMinTip is the default minimum priority fee for the mempool
 	DefaultEVMMinTip = 0
@@ -145,6 +156,8 @@ type EVMConfig struct {
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
 	MinTip uint64 `mapstructure:"min-tip"`
+	// CoinInfo defines the coin configuration for the chain
+	CoinInfo evmtypes.EvmCoinInfo `mapstructure:"coin-info"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -213,6 +226,11 @@ func DefaultEVMConfig() *EVMConfig {
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
+		CoinInfo: evmtypes.EvmCoinInfo{
+			DisplayDenom:     DefaultEvmCoinInfoDisplayDenom,
+			Decimals:         DefaultEvmCoinInfoDecimals,
+			ExtendedDecimals: DefaultEvmCoinInfoExtendedDecimals,
+		},
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -487,12 +487,12 @@ func TestAccountEquivalence(t *testing.T) {
 }
 
 func TestCalcBaseFee(t *testing.T) {
-	for _, chainID := range []constants.ChainID{constants.ExampleChainID, constants.TwelveDecimalsChainID, constants.SixDecimalsChainID} {
+	for _, chainID := range []testconfig.ChainID{testconfig.ExampleChainID, testconfig.ExampleTwelveDecimalsChainID, testconfig.ExampleSixDecimalsChainID} {
 		t.Run(chainID.ChainID, func(t *testing.T) {
-			evmConfigurator := evmtypes.NewEVMConfigurator().
-				WithEVMCoinInfo(constants.ExampleChainCoinInfo[chainID])
+			evmConfigurator := evmtypes.NewEvmConfig().
+				WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[chainID])
 			evmConfigurator.ResetTestConfig()
-			err := evmConfigurator.Configure()
+			err := evmConfigurator.Apply()
 			require.NoError(t, err)
 
 			config := &params.ChainConfig{

@@ -9,7 +9,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -463,7 +463,7 @@ func setDefaultMintGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmt
 func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
 	// NOTE: here we are using the setup from the example chain
 	erc20Gen := newErc20GenesisState()
-	updatedErc20Gen := updateErc20GenesisStateForChainID(testconstants.ChainID{
+	updatedErc20Gen := updateErc20GenesisStateForChainID(testconfig.ChainID{
 		ChainID:    cosmosEVMApp.ChainID(),
 		EVMChainID: evmChainID,
 	}, *erc20Gen)
@@ -479,8 +479,8 @@ func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, gen
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func newErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenState.TokenPairs = testconfig.ExampleTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
 
 	return erc20GenState
 }

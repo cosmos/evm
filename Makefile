@@ -31,7 +31,6 @@ export GO111MODULE = on
 
 # evmd is a separate module under ./evmd
 EVMD_DIR      := evmd
-EVMD_MAIN_PKG := ./cmd/evmd
 
 ###############################################################################
 ###                        Build & Install evmd                             ###
@@ -91,7 +90,7 @@ endif
 build: go.sum $(BUILDDIR)/
 	@echo "🏗️  Building evmd to $(BUILDDIR)/$(EXAMPLE_BINARY) ..."
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
-	  go build $(BUILD_FLAGS) -o $(BUILDDIR)/$(EXAMPLE_BINARY) $(EVMD_MAIN_PKG)
+	  go build $(BUILD_FLAGS) -o $(BUILDDIR)/$(EXAMPLE_BINARY)
 
 # Cross-compile for Linux AMD64
 build-linux:
@@ -101,7 +100,7 @@ build-linux:
 install: go.sum
 	@echo "🚚  Installing evmd to $(BINDIR) ..."
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
-	  go install $(BUILD_FLAGS) $(EVMD_MAIN_PKG)
+	  go install $(BUILD_FLAGS)
 
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/

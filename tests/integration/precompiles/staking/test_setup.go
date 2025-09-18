@@ -4,7 +4,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/staking"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -47,7 +47,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(2)
 	customGenesis := network.CustomGenesisState{}
 	// mint some coin to fee collector
-	coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, sdkmath.NewInt(InitialTestBalance)))
+	coins := sdk.NewCoins(sdk.NewCoin(testconfig.ExampleAttoDenom, sdkmath.NewInt(InitialTestBalance)))
 	balances := []banktypes.Balance{
 		{
 			Address: authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(),

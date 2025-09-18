@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
@@ -52,7 +52,7 @@ var (
 	txArgs evmtypes.EvmTxArgs
 	// minExpRewardOrCommission is the minimun coins expected for validator's rewards or commission
 	// required for the tests
-	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconstants.ExampleAttoDenom, testRewardsAmt))
+	minExpRewardOrCommission = sdk.NewDecCoins(sdk.NewDecCoin(testconfig.ExampleAttoDenom, testRewardsAmt))
 )
 
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
@@ -905,8 +905,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				fundAmt := math.NewInt(10)
 				sendAmt := []cmn.Coin{
 					{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
-					{Denom: testconstants.OtherCoinDenoms[0], Amount: fundAmt.BigInt()},
-					{Denom: testconstants.OtherCoinDenoms[1], Amount: fundAmt.BigInt()},
+					{Denom: testconfig.OtherCoinDenoms[0], Amount: fundAmt.BigInt()},
+					{Denom: testconfig.OtherCoinDenoms[1], Amount: fundAmt.BigInt()},
 				}
 				sendSdkCoins, err := cmn.NewSdkCoinsFromCoins(sendAmt)
 				Expect(err).To(BeNil())

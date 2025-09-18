@@ -27,12 +27,11 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/hd"
-	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
-	"github.com/cosmos/evm/server/config"
+	evmdapp "github.com/cosmos/evm/evmd/app"
+	serverconfig "github.com/cosmos/evm/server/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
@@ -110,7 +109,20 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, testconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+	chainConfig := config.NewChainConfig(
+		chainID,
+		evmChainID,
+		nil,
+		nil,
+		nil,
+		coinInfo,
+		false,
+	)
+	if err := chainConfig.ApplyChainConfig(); err != nil {
+		panic(err)
+	}
+	tempApp := evmdapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), chainConfig, baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -123,8 +135,8 @@ func DefaultConfig() Config {
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
-		BondDenom:         testconstants.ExampleAttoDenom,
-		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
+		BondDenom:         testconfig.ExampleAttoDenom,
+		MinGasPrices:      fmt.Sprintf("0.000006%s", testconfig.ExampleAttoDenom),
 		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
 		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
 		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
@@ -140,11 +152,23 @@ func DefaultConfig() Config {
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
 func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 	return func(val Validator) servertypes.Application {
-		return evmd.NewExampleApp(
+		coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+		chainConfig := config.NewChainConfig(
+			chainID,
+			evmChainID,
+			nil,
+			nil,
+			nil,
+			coinInfo,
+			false,
+		)
+		if err := chainConfig.ApplyChainConfig(); err != nil {
+			panic(err)
+		}
+		return evmdapp.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			evmChainID,
-			testconfig.EvmAppOptions,
+			chainConfig,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
@@ -175,7 +199,7 @@ type (
 	// a client can make RPC and API calls and interact with any client command
 	// or handler.
 	Validator struct {
-		AppConfig     *config.Config
+		AppConfig     *serverconfig.Config
 		ClientCtx     client.Context
 		Ctx           *server.Context
 		Dir           string
@@ -258,7 +282,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 
 	// generate private keys, node IDs, and initial transactions
 	for i := 0; i < cfg.NumValidators; i++ {
-		appCfg := config.DefaultConfig()
+		appCfg := serverconfig.DefaultConfig()
 		appCfg.Pruning = cfg.PruningStrategy
 		appCfg.MinGasPrices = cfg.MinGasPrices
 		appCfg.API.Enable = true
@@ -328,7 +352,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 				appCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%s", port)
 			}
 			appCfg.JSONRPC.Enable = true
-			appCfg.JSONRPC.API = config.GetAPINamespaces()
+			appCfg.JSONRPC.API = serverconfig.GetAPINamespaces()
 		}
 
 		logger := log.NewNopLogger()
@@ -476,7 +500,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmdconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		customAppTemplate, _ := config.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.ExampleEIP155ChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

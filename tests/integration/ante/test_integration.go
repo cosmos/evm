@@ -10,7 +10,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	commonfactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -57,7 +57,7 @@ func (s *IntegrationTestSuite) SetupTest() {
 
 	// set non-zero inflation for rewards to accrue (use defaults from SDK for values)
 	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = testconstants.ExampleAttoDenom
+	mintGen.Params.MintDenom = testconfig.ExampleAttoDenom
 	customGen[minttypes.ModuleName] = mintGen
 
 	operatorsAddr := make([]sdk.AccAddress, 3)

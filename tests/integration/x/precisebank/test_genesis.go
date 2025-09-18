@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/x/precisebank"
 	"github.com/cosmos/evm/x/precisebank/types"
@@ -31,10 +31,10 @@ func NewGenesisTestSuite(create network.CreateEvmApp, options ...network.ConfigO
 }
 
 func (s *GenesisTestSuite) SetupTest() {
-	s.SetupTestWithChainID(testconstants.SixDecimalsChainID)
+	s.SetupTestWithChainID(testconfig.ExampleSixDecimalsChainID)
 }
 
-func (s *GenesisTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
+func (s *GenesisTestSuite) SetupTestWithChainID(chainID testconfig.ChainID) {
 	options := []network.ConfigOption{
 		network.WithChainID(chainID),
 	}

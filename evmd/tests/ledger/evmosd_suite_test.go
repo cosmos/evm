@@ -27,9 +27,10 @@ import (
 	"github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/encoding"
-	"github.com/cosmos/evm/evmd"
+	evmdapp "github.com/cosmos/evm/evmd/app"
 	"github.com/cosmos/evm/evmd/tests/ledger/mocks"
-	"github.com/cosmos/evm/testutil/constants"
+	testutil "github.com/cosmos/evm/evmd/testutil"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -47,7 +48,7 @@ var s *LedgerTestSuite
 type LedgerTestSuite struct {
 	suite.Suite
 
-	app *evmd.EVMD
+	app *evmdapp.EVMD
 	ctx sdk.Context
 
 	ledger       *mocks.SECP256K1
@@ -87,8 +88,8 @@ func (suite *LedgerTestSuite) SetupEvmosApp() {
 	consAddress := sdk.ConsAddress(utiltx.GenerateAddress().Bytes())
 
 	// init app
-	chainID := constants.ExampleChainID
-	suite.app = evmd.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
+	chainID := testconfig.ExampleChainID
+	suite.app = testutil.Setup(suite.T(), chainID.ChainID, chainID.EVMChainID)
 	suite.ctx = suite.app.NewContextLegacy(false, tmproto.Header{
 		Height:          1,
 		ChainID:         chainID.ChainID,
@@ -136,7 +137,7 @@ func (suite *LedgerTestSuite) NewKeyringAndCtxs(krHome string, input io.Reader, 
 		WithUseLedger(true).
 		WithKeyring(kr).
 		WithClient(mocks.MockCometRPC{Client: rpcclientmock.Client{}}).
-		WithChainID(constants.ExampleChainIDPrefix + "-13").
+		WithChainID(testconfig.ExampleChainIDPrefix + "-13").
 		WithSignModeStr(flags.SignModeLegacyAminoJSON)
 
 	srvCtx := server.NewDefaultContext()

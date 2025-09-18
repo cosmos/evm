@@ -21,7 +21,7 @@ import (
 	"github.com/cosmos/evm/precompiles/staking/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
-	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
@@ -2673,7 +2673,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Balance.Amount.Int64()).To(Equal(int64(0)), "expected a different delegation balance")
-				Expect(delOut.Balance.Denom).To(Equal(cosmosevmutil.ExampleAttoDenom), "expected a different delegation balance")
+				Expect(delOut.Balance.Denom).To(Equal(testconfig.ExampleAttoDenom), "expected a different delegation balance")
 			})
 
 			It("which exists should return the delegation", func() {
@@ -2694,7 +2694,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Balance).To(Equal(
-					cmn.Coin{Denom: cosmosevmutil.ExampleAttoDenom, Amount: big.NewInt(1e18)}),
+					cmn.Coin{Denom: testconfig.ExampleAttoDenom, Amount: big.NewInt(1e18)}),
 					"expected a different delegation balance",
 				)
 			})

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -50,7 +50,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	tokenPairs := make([]erc20types.TokenPair, 0, len(denoms)+1)
 	tokenPairs = append(tokenPairs,
 		// NOTE: the example token pairs are being added in the integration test utils
-		testconstants.ExampleTokenPairs...,
+		testconfig.ExampleTokenPairs...,
 	)
 
 	dynPrecAddr := make([]string, 0, len(denoms))
@@ -70,7 +70,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	// with the WEVMOS (default is mainnet) and 'xmpl' tokens in the erc20 params
 	erc20GenesisState := erc20types.DefaultGenesisState()
 	erc20GenesisState.TokenPairs = tokenPairs
-	erc20GenesisState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenesisState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
 	erc20GenesisState.DynamicPrecompiles = dynPrecAddr
 
 	// Combine module genesis states
@@ -86,8 +86,8 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 // which is the base denomination of the chain (i.e. the WEVMOS contract).
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
-	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
+	erc20GenState.TokenPairs = testconfig.ExampleTokenPairs
+	erc20GenState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
 
 	return erc20GenState
 }

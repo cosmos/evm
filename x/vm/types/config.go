@@ -1,25 +1,19 @@
-//
-// The config package provides a convenient way to modify x/evm params and values.
-// Its primary purpose is to be used during application initialization.
-
 //go:build !test
 // +build !test
 
 package types
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )
 
-// Configure applies the changes to the virtual machine configuration.
-func (ec *EVMConfigurator) Configure() error {
-	// If Configure method has been already used in the object, return
-	// an error to avoid overriding configuration.
-	if ec.sealed {
-		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
+// Apply applies the changes to the virtual machine configuration.
+func (ec *EvmConfig) Apply() error {
+	// If Apply method has been already used in the object, return nil and no not overwrite
+	// This mirrors the silent behavior of the previous EvmAppOptions implementation
+	if IsSealed() {
+		return nil
 	}
 
 	if err := setChainConfig(ec.chainConfig); err != nil {
@@ -40,12 +34,12 @@ func (ec *EVMConfigurator) Configure() error {
 
 	// After applying modifiers the configurator is sealed. This way, it is not possible
 	// to call the configure method twice.
-	ec.sealed = true
+	Seal()
 
 	return nil
 }
 
-func (ec *EVMConfigurator) ResetTestConfig() {
+func (ec *EvmConfig) ResetTestConfig() {
 	panic("this is only implemented with the 'test' build flag. Make sure you're running your tests using the '-tags=test' flag.")
 }
 

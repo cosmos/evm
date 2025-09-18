@@ -8,7 +8,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/cosmos/evm/ante/evm"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -236,17 +236,17 @@ func (s *EvmUnitAnteTestSuite) TestCheckTxFee() {
 		},
 	}
 
-	for _, chainID := range []testconstants.ChainID{
-		testconstants.ExampleChainID,
-		testconstants.SixDecimalsChainID,
+	for _, chainID := range []testconfig.ChainID{
+		testconfig.ExampleChainID,
+		testconfig.ExampleSixDecimalsChainID,
 	} {
 		for _, tc := range testCases {
 			s.Run(fmt.Sprintf("%s, %s", chainID.ChainID, tc.name), func() {
 				// Call the configurator to set the EVM coin required for the
 				// function to be tested.
-				configurator := evmtypes.NewEVMConfigurator()
+				configurator := evmtypes.NewEvmConfig()
 				configurator.ResetTestConfig()
-				s.Require().NoError(configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainID]).Configure())
+				s.Require().NoError(configurator.WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[chainID]).Apply())
 
 				// If decimals is not 18 decimals, we have to convert txFeeInfo to original
 				// decimals representation.

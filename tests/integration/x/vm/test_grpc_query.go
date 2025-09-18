@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/server/config"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
@@ -1592,7 +1592,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				feemarketDefault := feemarkettypes.DefaultParams()
 				s.Require().NoError(s.Network.App.GetFeeMarketKeeper().SetParams(s.Network.GetContext(), feemarketDefault))
 
-				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+				coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
+				chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 				maxInt := sdkmath.NewInt(math.MaxInt64)
 				chainConfig.LondonBlock = &maxInt
 				chainConfig.ArrowGlacierBlock = &maxInt
@@ -1602,12 +1603,12 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				configurator := types.NewEVMConfigurator()
+				configurator := types.NewEvmConfig()
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
-					Configure()
+					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+					Apply()
 				s.Require().NoError(err)
 			},
 			true,
@@ -1632,12 +1633,11 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 
 	// Save initial configure to restore it between tests
 	coinInfo := types.EvmCoinInfo{
-		Denom:         types.GetEVMCoinDenom(),
-		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
-		DisplayDenom:  types.GetEVMCoinDisplayDenom(),
-		Decimals:      types.GetEVMCoinDecimals(),
+		DisplayDenom:     types.GetEVMCoinDisplayDenom(),
+		Decimals:         types.GetEVMCoinDecimals(),
+		ExtendedDecimals: types.GetEVMCoinExtendedDecimals(),
 	}
-	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
+	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -1658,12 +1658,12 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			configurator := types.NewEVMConfigurator()
+			configurator := types.NewEvmConfig()
 			configurator.ResetTestConfig()
 			err = configurator.
 				WithChainConfig(chainConfig).
 				WithEVMCoinInfo(coinInfo).
-				Configure()
+				Apply()
 			s.Require().NoError(err)
 		})
 	}

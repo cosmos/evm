@@ -1,7 +1,3 @@
-//
-// The config package provides a convenient way to modify x/evm params and values.
-// Its primary purpose is to be used during application initialization.
-
 //go:build test
 // +build test
 
@@ -19,12 +15,12 @@ import (
 // opcodes are active based on Ethereum upgrades.
 var testChainConfig *ChainConfig
 
-// Configure applies the changes to the virtual machine configuration.
-func (ec *EVMConfigurator) Configure() error {
-	// If Configure method has been already used in the object, return
+// Apply applies the changes to the virtual machine configuration.
+func (ec *EvmConfig) Apply() error {
+	// If Apply method has been already used in the object, return
 	// an error to avoid overriding configuration.
-	if ec.sealed {
-		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
+	if IsSealed() {
+		return fmt.Errorf("error applying EvmConfig: already sealed and cannot be modified")
 	}
 
 	if err := setTestChainConfig(ec.chainConfig); err != nil {
@@ -45,29 +41,38 @@ func (ec *EVMConfigurator) Configure() error {
 
 	// After applying modifications, the configurator is sealed. This way, it is not possible
 	// to call the configure method twice.
-	ec.sealed = true
+	Seal()
 
 	return nil
 }
 
-func (ec *EVMConfigurator) ResetTestConfig() {
+func (ec *EvmConfig) ResetTestConfig() {
 	vm.ResetActivators()
 	resetEVMCoinInfo()
 	testChainConfig = nil
+	sealed = false
 }
 
 func setTestChainConfig(cc *ChainConfig) error {
 	if testChainConfig != nil {
 		return errors.New("chainConfig already set. Cannot set again the chainConfig. Call the configurators ResetTestConfig method before configuring a new chain.")
 	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
+
+	// If no chain config is provided, create a default one for testing
+	if cc == nil {
+		config := DefaultChainConfig(0, EvmCoinInfo{
+			DisplayDenom:     "test",
+			Decimals:         EighteenDecimals,
+			ExtendedDecimals: EighteenDecimals,
+		})
+		cc = config
 	}
-	if err := config.Validate(); err != nil {
+
+	if err := cc.Validate(); err != nil {
 		return err
 	}
-	testChainConfig = config
+
+	testChainConfig = cc
 	return nil
 }
 

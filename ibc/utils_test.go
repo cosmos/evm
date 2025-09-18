@@ -7,7 +7,7 @@ import (
 
 	cosmosevmibc "github.com/cosmos/evm/ibc"
 	precompilestestutil "github.com/cosmos/evm/precompiles/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -297,7 +297,7 @@ func TestGetReceivedCoin(t *testing.T) {
 }
 
 func TestGetSentCoin(t *testing.T) {
-	baseDenom := testconstants.ExampleAttoDenom
+	baseDenom := testconfig.ExampleAttoDenom
 
 	testCases := []struct {
 		name      string

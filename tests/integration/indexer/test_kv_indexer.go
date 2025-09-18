@@ -14,7 +14,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/indexer"
-	"github.com/cosmos/evm/testutil/constants"
+	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
@@ -48,7 +48,7 @@ func TestKVIndexer(t *testing.T, create network.CreateEvmApp, options ...network
 	clientCtx := client.Context{}.WithTxConfig(encodingConfig.TxConfig).WithCodec(encodingConfig.Codec)
 
 	// build cosmos-sdk wrapper tx
-	tmTx, err := tx.BuildTx(clientCtx.TxConfig.NewTxBuilder(), constants.ExampleAttoDenom)
+	tmTx, err := tx.BuildTx(clientCtx.TxConfig.NewTxBuilder(), testconfig.ExampleAttoDenom)
 	require.NoError(t, err)
 	txBz, err := clientCtx.TxConfig.TxEncoder()(tmTx)
 	require.NoError(t, err)

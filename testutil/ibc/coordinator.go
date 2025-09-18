@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/testutil/config"
+	evmconfig "github.com/cosmos/evm/config"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
@@ -41,8 +41,9 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int, evmAppCreator i
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := GetChainID(i)
 		evmChainID, err := strconv.ParseUint(GetEvmChainID(i), 10, 64)
+		chainConfig := evmconfig.NewTestChainConfig(evmChainID)
 		require.NoError(t, err)
-		require.NoError(t, config.EvmAppOptions(evmChainID))
+		require.NoError(t, chainConfig.ApplyChainConfig())
 		// setup EVM chains
 		chains[strconv.FormatUint(evmChainID, 10)] = NewTestChain(t, true, coord, chainID)
 	}

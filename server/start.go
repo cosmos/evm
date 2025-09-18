@@ -223,6 +223,10 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMChainID, cosmosevmserverconfig.DefaultEVMChainID, "the EIP-155 compatible replay protection chain ID")
 	cmd.Flags().Uint64(srvflags.EVMMinTip, cosmosevmserverconfig.DefaultEVMMinTip, "the minimum priority fee for the mempool")
 
+	cmd.PersistentFlags().String(srvflags.EVMDisplayDenom, cosmosevmserverconfig.DefaultEvmCoinInfoDisplayDenom, "the display denomination for the chain")
+	cmd.PersistentFlags().Uint8(srvflags.EVMDecimals, uint8(cosmosevmserverconfig.DefaultEvmCoinInfoDecimals), "the decimals for the base denomination")
+	cmd.PersistentFlags().Uint8(srvflags.EVMExtendedDecimals, uint8(cosmosevmserverconfig.DefaultEvmCoinInfoExtendedDecimals), "the decimals for the extended denomination")
+
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")
 
@@ -271,7 +275,7 @@ func startStandAlone(svrCtx *server.Context, clientCtx client.Context, opts Star
 	}()
 	evmApp, ok := app.(Application)
 	if !ok {
-		svrCtx.Logger.Error("failed to get server config", "error", err.Error())
+		svrCtx.Logger.Error("failed to get server config")
 	}
 	evmApp.SetClientCtx(clientCtx)
 
