@@ -56,13 +56,11 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper ibcutils.TransferKeeper,
-  erc20ABI abi.ABI,
-	werc20ABI abi.ABI,
 ) *Precompile {
-	erc20Precompile := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper, erc20ABI)
+	erc20Precompile := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper)
 
 	// use the IWERC20 ABI
-	erc20Precompile.ABI = werc20ABI
+	erc20Precompile.ABI = ABI
 
 	return &Precompile{
 		Precompile: erc20Precompile,

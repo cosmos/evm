@@ -62,10 +62,10 @@ func (k Keeper) InstantiateERC20Precompile(ctx sdk.Context, contractAddr common.
 	}
 
 	if hasWrappedMethods {
-		return werc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper, k.erc20ABI, k.werc20ABI), nil
+		return werc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper), nil
 	}
 
-	return erc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper, k.erc20ABI), nil
+	return erc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper), nil
 }
 
 // RegisterCodeHash checks if a new precompile already exists and registers the code hash it is not

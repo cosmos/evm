@@ -81,7 +81,6 @@ func NewPrecompile(
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper Erc20Keeper,
 	transferKeeper ibcutils.TransferKeeper,
-  erc20ABI abi.ABI,
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
@@ -90,7 +89,7 @@ func NewPrecompile(
 			ContractAddress:      tokenPair.GetERC20Contract(),
 			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
 		},
-		ABI:            erc20ABI,
+		ABI:            ABI,
 		tokenPair:      tokenPair,
 		BankKeeper:     bankKeeper,
 		erc20Keeper:    erc20Keeper,
