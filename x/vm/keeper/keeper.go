@@ -110,7 +110,8 @@ func NewKeeper(
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
-	k := &Keeper{
+	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
+	return &Keeper{
 		cdc:              cdc,
 		authority:        authority,
 		accountKeeper:    ak,
@@ -124,9 +125,6 @@ func NewKeeper(
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        keys,
 	}
-
-	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
-	return k
 }
 
 // Logger returns a module-specific logger.
