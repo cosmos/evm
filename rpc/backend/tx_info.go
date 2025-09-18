@@ -17,6 +17,7 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -131,12 +132,6 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 
 // GetGasUsed returns gasUsed from transaction
 func (b *Backend) GetGasUsed(res *types.TxResult, price *big.Int, gas uint64) uint64 {
-	// patch gasUsed if tx is reverted and happened before height on which fixed was introduced
-	// to return real gas charged
-	// more info at https://github.com/evmos/ethermint/pull/1557
-	if res.Failed && res.Height < b.Cfg.JSONRPC.FixRevertGasRefundHeight {
-		return new(big.Int).Mul(price, new(big.Int).SetUint64(gas)).Uint64()
-	}
 	return res.GasUsed
 }
 
@@ -156,6 +151,13 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		res, err = b.GetTxByEthHash(hash)
 		if err == nil {
 			break // Found the transaction
+		}
+
+		if attempt == maxRetries/2 && b.Mempool != nil {
+			status := b.Mempool.GetTxPool().Status(hash)
+			if status == txpool.TxStatusUnknown {
+				break
+			}
 		}
 
 		if attempt < maxRetries {

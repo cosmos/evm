@@ -710,18 +710,15 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 }
 
 func (s *TestSuite) TestGetGasUsed() {
-	origin := s.backend.Cfg.JSONRPC.FixRevertGasRefundHeight
 	testCases := []struct {
-		name                     string
-		fixRevertGasRefundHeight int64
-		txResult                 *cosmosevmtypes.TxResult
-		price                    *big.Int
-		gas                      uint64
-		exp                      uint64
+		name     string
+		txResult *cosmosevmtypes.TxResult
+		price    *big.Int
+		gas      uint64
+		exp      uint64
 	}{
 		{
 			"success txResult",
-			1,
 			&cosmosevmtypes.TxResult{
 				Height:  1,
 				Failed:  false,
@@ -732,20 +729,7 @@ func (s *TestSuite) TestGetGasUsed() {
 			53026,
 		},
 		{
-			"fail txResult before cap",
-			2,
-			&cosmosevmtypes.TxResult{
-				Height:  1,
-				Failed:  true,
-				GasUsed: 53026,
-			},
-			new(big.Int).SetUint64(200000),
-			5000000000000,
-			1000000000000000000,
-		},
-		{
-			"fail txResult after cap",
-			2,
+			"fail txResult",
 			&cosmosevmtypes.TxResult{
 				Height:  3,
 				Failed:  true,
@@ -758,9 +742,7 @@ func (s *TestSuite) TestGetGasUsed() {
 	}
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
-			s.backend.Cfg.JSONRPC.FixRevertGasRefundHeight = tc.fixRevertGasRefundHeight
 			s.Require().Equal(tc.exp, s.backend.GetGasUsed(tc.txResult, tc.price, tc.gas))
-			s.backend.Cfg.JSONRPC.FixRevertGasRefundHeight = origin
 		})
 	}
 }
