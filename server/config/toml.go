@@ -25,6 +25,9 @@ evm-chain-id = {{ .EVM.EVMChainID }}
 # MinTip defines the minimum priority fee for the mempool.
 min-tip = {{ .EVM.MinTip }}
 
+# GethMetricsAddress defines the addr to bind the geth metrics server to. Default 127.0.0.1:8100.
+geth-metrics-address = "{{ .EVM.GethMetricsAddress }}"
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
