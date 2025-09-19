@@ -1,5 +1,5 @@
 <img
-src="repo_header.png"
+src="repo_header.svg"
 alt="Cosmos EVM - A plug-and-play solution that adds EVM compatibility and customizability to your chain"
 />
 
