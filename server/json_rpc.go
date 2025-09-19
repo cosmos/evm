@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/evm/server/types"
 	"log/slog"
 	"net/http"
 	"time"
@@ -15,14 +16,12 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/server"
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/server"
 )
 
 const shutdownTimeout = 200 * time.Millisecond
@@ -38,7 +37,7 @@ func StartJSONRPC(
 	clientCtx client.Context,
 	g *errgroup.Group,
 	config *serverconfig.Config,
-	indexer cosmosevmtypes.EVMTxIndexer,
+	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
 	mempool *evmmempool.ExperimentalEVMMempool,
 ) (*http.Server, error) {

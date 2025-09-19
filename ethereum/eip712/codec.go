@@ -1,10 +1,11 @@
-package types
+package eip712
 
 import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	types2 "github.com/cosmos/evm/ante/types"
 )
 
 // RegisterInterfaces registers the CometBFT concrete client-related
@@ -23,6 +24,6 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations(
 		(*tx.TxExtensionOptionI)(nil),
 		&ExtensionOptionsWeb3Tx{},
-		&ExtensionOptionDynamicFeeTx{},
+		&types2.ExtensionOptionDynamicFeeTx{},
 	)
 }

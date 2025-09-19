@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	types2 "github.com/cosmos/evm/x/vm/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -8,7 +9,6 @@ import (
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/ibc"
 	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
-	types2 "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"

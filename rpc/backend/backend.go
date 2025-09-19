@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/evm/server/types"
 	"math/big"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	evmmempool "github.com/cosmos/evm/mempool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -100,8 +100,8 @@ type EVMBackend interface {
 
 	// Tx Info
 	GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransaction, error)
-	GetTxByEthHash(txHash common.Hash) (*cosmosevmtypes.TxResult, error)
-	GetTxByTxIndex(height int64, txIndex uint) (*cosmosevmtypes.TxResult, error)
+	GetTxByEthHash(txHash common.Hash) (*types.TxResult, error)
+	GetTxByTxIndex(height int64, txIndex uint) (*types.TxResult, error)
 	GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
 	GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error)
 	GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error)
@@ -166,7 +166,7 @@ type Backend struct {
 	EvmChainID          *big.Int
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
-	Indexer             cosmosevmtypes.EVMTxIndexer
+	Indexer             types.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
 }
@@ -181,7 +181,7 @@ func NewBackend(
 	logger log.Logger,
 	clientCtx client.Context,
 	allowUnprotectedTxs bool,
-	indexer cosmosevmtypes.EVMTxIndexer,
+	indexer types.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)

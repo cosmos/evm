@@ -3,6 +3,8 @@ package types
 import (
 	"context"
 	"fmt"
+	types2 "github.com/cosmos/evm/x/feemarket/types"
+	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 
@@ -333,4 +335,23 @@ func TxStateDBCommitError(res *abci.ExecTxResult) bool {
 // or if it failed with an ExceedBlockGasLimit error or TxStateDBCommitError error
 func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 	return res.Code == 0 || TxExceedBlockGasLimit(res) || TxStateDBCommitError(res)
+}
+
+// CalcBaseFee calculates the basefee of the header.
+func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p types2.Params) (*big.Int, error) {
+	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
+	if !config.IsLondon(parent.Number) {
+		return new(big.Int).SetUint64(params.InitialBaseFee), nil
+	}
+	if p.ElasticityMultiplier == 0 {
+		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")
+	}
+	parentGasTarget := parent.GasLimit / uint64(p.ElasticityMultiplier)
+
+	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+	minGasPrice := p.MinGasPrice.Mul(sdkmath.LegacyNewDecFromInt(factor))
+	return types2.CalcGasBaseFee(
+		parent.GasUsed, parentGasTarget, uint64(p.BaseFeeChangeDenominator),
+		sdkmath.LegacyNewDecFromBigInt(parent.BaseFee), sdkmath.LegacyOneDec(), minGasPrice,
+	).TruncateInt().BigInt(), nil
 }

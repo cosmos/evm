@@ -8,12 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	errorsmod "cosmossdk.io/errors"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
-	"github.com/cosmos/evm/types"
-
-	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -30,7 +28,7 @@ var evmCodec codec.ProtoCodecMarshaler
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
-	types.RegisterInterfaces(registry)
+	eip712.RegisterInterfaces(registry)
 	evmCodec = codec.NewProtoCodec(registry)
 }
 
@@ -204,7 +202,7 @@ func VerifySignature(
 			return errorsmod.Wrap(errortypes.ErrUnknownExtensionOptions, "tx doesn't contain expected amount of extension options")
 		}
 
-		extOpt, ok := opts[0].GetCachedValue().(*types.ExtensionOptionsWeb3Tx)
+		extOpt, ok := opts[0].GetCachedValue().(*eip712.ExtensionOptionsWeb3Tx)
 		if !ok {
 			return errorsmod.Wrap(errortypes.ErrUnknownExtensionOptions, "unknown extension option")
 		}

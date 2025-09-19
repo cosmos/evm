@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/evm/ethereum/eip712"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -81,7 +80,7 @@ func TestLedgerPreprocessing(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, len(hasExtOptsTx.GetExtensionOptions()) == 1)
 
-		expectedExt := types.ExtensionOptionsWeb3Tx{
+		expectedExt := eip712.ExtensionOptionsWeb3Tx{
 			TypedDataChainID: 9001,
 			FeePayer:         feePayerAddress,
 			FeePayerSig:      tc.expectedSignatureBytes,

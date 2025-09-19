@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cosmos/evm/utils"
 	"math"
 	"math/big"
 	"strings"
@@ -13,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/spf13/cast"
 	"google.golang.org/grpc/metadata"
-
-	"github.com/cosmos/evm/types"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
@@ -182,7 +181,7 @@ func (bnh *BlockNumberOrHash) decodeFromString(input string) error {
 			return err
 		}
 
-		bnInt, err := types.SafeInt64(blockNumber)
+		bnInt, err := utils.SafeInt64(blockNumber)
 		if err != nil {
 			return err
 		}

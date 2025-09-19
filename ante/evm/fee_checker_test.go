@@ -1,6 +1,7 @@
 package evm_test
 
 import (
+	"github.com/cosmos/evm/ante/types"
 	"math/big"
 	"testing"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 

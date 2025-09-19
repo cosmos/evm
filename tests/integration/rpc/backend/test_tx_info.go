@@ -3,6 +3,7 @@ package backend
 import (
 	"errors"
 	"fmt"
+	cosmosevmtypes "github.com/cosmos/evm/server/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,7 +19,6 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"

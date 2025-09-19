@@ -8,13 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	cryptocodec "github.com/cosmos/evm/crypto/codec"
-	enccodec "github.com/cosmos/evm/encoding/codec"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-
 	amino "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	cryptocodec "github.com/cosmos/evm/crypto/codec"
+	enccodec "github.com/cosmos/evm/encoding/codec"
 )
 
 var TestCodec amino.Codec
@@ -49,7 +47,7 @@ func TestKeyring(t *testing.T) {
 	require.Nil(t, info)
 
 	mockIn.Reset("password\npassword\n")
-	info, mnemonic, err := kr.NewMnemonic("foo", keyring.English, cosmosevmtypes.BIP44HDPath, keyring.DefaultBIP39Passphrase, EthSecp256k1)
+	info, mnemonic, err := kr.NewMnemonic("foo", keyring.English, BIP44HDPath, keyring.DefaultBIP39Passphrase, EthSecp256k1)
 	require.NoError(t, err)
 	require.NotEmpty(t, mnemonic)
 	require.Equal(t, "foo", info.Name)
@@ -58,7 +56,7 @@ func TestKeyring(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(EthSecp256k1Type), pubKey.Type())
 
-	hdPath := cosmosevmtypes.BIP44HDPath
+	hdPath := BIP44HDPath
 
 	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, hdPath)
 	require.NoError(t, err)
@@ -84,7 +82,7 @@ func TestKeyring(t *testing.T) {
 }
 
 func TestDerivation(t *testing.T) {
-	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, cosmosevmtypes.BIP44HDPath)
+	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, BIP44HDPath)
 	require.NoError(t, err)
 	require.NotEmpty(t, bz)
 
@@ -102,7 +100,7 @@ func TestDerivation(t *testing.T) {
 	wallet, err := NewFromMnemonic(mnemonic)
 	require.NoError(t, err)
 
-	path := MustParseDerivationPath(cosmosevmtypes.BIP44HDPath)
+	path := MustParseDerivationPath(BIP44HDPath)
 	account, err := wallet.Derive(path, false)
 	require.NoError(t, err)
 

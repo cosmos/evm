@@ -1,10 +1,10 @@
 package evm
 
 import (
+	"github.com/cosmos/evm/ante/types"
 	"math/big"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

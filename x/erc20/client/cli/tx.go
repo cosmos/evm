@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/math"

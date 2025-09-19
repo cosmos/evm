@@ -2,6 +2,7 @@ package ante_test
 
 import (
 	"fmt"
+	cosmosevmtypes "github.com/cosmos/evm/ante/types"
 	"math/big"
 	"testing"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/errors"

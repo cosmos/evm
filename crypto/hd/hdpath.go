@@ -1,4 +1,4 @@
-package types
+package hd
 
 import (
 	ethaccounts "github.com/ethereum/go-ethereum/accounts"

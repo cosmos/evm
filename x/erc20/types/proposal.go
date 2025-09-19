@@ -3,9 +3,8 @@ package types
 import (
 	"errors"
 	"fmt"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	"strings"
-
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	errorsmod "cosmossdk.io/errors"
 

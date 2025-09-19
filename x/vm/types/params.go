@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/utils"
 	"math/big"
 	"slices"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/cosmos/evm/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
@@ -167,7 +167,7 @@ func validateAllowlistAddresses(i interface{}) error {
 	}
 
 	for _, address := range addresses {
-		if err := types.ValidateAddress(address); err != nil {
+		if err := utils.ValidateAddress(address); err != nil {
 			return fmt.Errorf("invalid whitelist address: %s", address)
 		}
 	}
@@ -210,7 +210,7 @@ func ValidatePrecompiles(i interface{}) error {
 			return fmt.Errorf("duplicate precompile %s", precompile)
 		}
 
-		if err := types.ValidateAddress(precompile); err != nil {
+		if err := utils.ValidateAddress(precompile); err != nil {
 			return fmt.Errorf("invalid precompile %s", precompile)
 		}
 

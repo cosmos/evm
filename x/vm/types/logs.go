@@ -3,11 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-
-	cosmosevmtypes "github.com/cosmos/evm/types"
 )
 
 // NewTransactionLogs creates a new NewTransactionLogs instance.
