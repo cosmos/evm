@@ -933,7 +933,7 @@ func (app *EVMD) TxConfig() client.TxConfig {
 }
 
 // DefaultGenesis returns a default genesis from the registered AppModuleBasic's.
-func (app *EVMD) DefaultGenesis() map[string]json.RawMessage {
+func (app *EVMD) DefaultGenesis() GenesisState {
 	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
 
 	mintGenState := NewMintGenesisState()
