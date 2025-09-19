@@ -1,13 +1,13 @@
 package evm
 
 import (
-	types2 "github.com/cosmos/evm/ante/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	types2 "github.com/cosmos/evm/ante/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

@@ -2,8 +2,6 @@ package backend
 
 import (
 	"fmt"
-	types2 "github.com/cosmos/evm/server/types"
-	"github.com/cosmos/evm/utils"
 	"math"
 	"math/big"
 	"time"
@@ -21,6 +19,8 @@ import (
 
 	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	types2 "github.com/cosmos/evm/server/types"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

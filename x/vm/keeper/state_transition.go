@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	types2 "github.com/cosmos/evm/ante/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +14,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	types2 "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"

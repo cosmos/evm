@@ -3,7 +3,6 @@ package stream
 import (
 	"context"
 	"fmt"
-	cosmosevmtypes "github.com/cosmos/evm/utils"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +14,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/rpc/types"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"

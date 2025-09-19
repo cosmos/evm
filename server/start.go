@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	types2 "github.com/cosmos/evm/server/types"
 	"io"
 	"net"
 	"os"
@@ -27,9 +26,6 @@ import (
 	"github.com/cometbft/cometbft/rpc/client/local"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log"
-	pruningtypes "cosmossdk.io/store/pruning/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -37,6 +33,11 @@ import (
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
+	types2 "github.com/cosmos/evm/server/types"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/log"
+	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"

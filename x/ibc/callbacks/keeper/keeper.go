@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	types2 "github.com/cosmos/evm/x/vm/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +12,7 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
 	evmante "github.com/cosmos/evm/x/vm/ante"
+	types2 "github.com/cosmos/evm/x/vm/types"
 	callbacktypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"

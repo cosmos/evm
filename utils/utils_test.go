@@ -3,7 +3,6 @@ package utils_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/cosmos/evm/rpc/types"
 	"math/big"
 	"testing"
 
@@ -15,6 +14,7 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
+	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"

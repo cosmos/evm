@@ -25,7 +25,7 @@ import (
 type PrivateAccountAPI struct {
 	backend    backend.EVMBackend
 	logger     log.Logger
-	hdPathIter hd.HDPathIterator
+	hdPathIter hd.PathIterator
 }
 
 // NewAPI creates an instance of the public Personal Eth API.

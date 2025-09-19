@@ -7,12 +7,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+
 	errorsmod "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"

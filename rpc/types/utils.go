@@ -3,8 +3,6 @@ package types
 import (
 	"context"
 	"fmt"
-	types2 "github.com/cosmos/evm/x/feemarket/types"
-	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 
@@ -12,11 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	types2 "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

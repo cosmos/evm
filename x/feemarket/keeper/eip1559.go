@@ -1,9 +1,9 @@
 package keeper
 
 import (
-	"github.com/cosmos/evm/x/feemarket/types"
 	"math"
 
+	"github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"

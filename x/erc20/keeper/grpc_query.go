@@ -2,11 +2,11 @@ package keeper
 
 import (
 	"context"
-	cosmosevmtypes "github.com/cosmos/evm/utils"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/store/prefix"

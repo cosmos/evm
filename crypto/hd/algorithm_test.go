@@ -8,11 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cryptocodec "github.com/cosmos/evm/crypto/codec"
+	enccodec "github.com/cosmos/evm/encoding/codec"
+
 	amino "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	cryptocodec "github.com/cosmos/evm/crypto/codec"
-	enccodec "github.com/cosmos/evm/encoding/codec"
 )
 
 var TestCodec amino.Codec

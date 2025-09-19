@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/evm/server/types"
 	"log/slog"
 	"net/http"
 	"time"
@@ -16,12 +15,14 @@ import (
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/server"
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
+	"github.com/cosmos/evm/server/types"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/server"
 )
 
 const shutdownTimeout = 200 * time.Millisecond

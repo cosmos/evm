@@ -1,10 +1,10 @@
 package network
 
 import (
-	"github.com/cosmos/evm/utils"
 	"math/big"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
+	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"

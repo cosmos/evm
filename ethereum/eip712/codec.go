@@ -1,11 +1,12 @@
 package eip712
 
 import (
+	types2 "github.com/cosmos/evm/ante/types"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	types2 "github.com/cosmos/evm/ante/types"
 )
 
 // RegisterInterfaces registers the CometBFT concrete client-related

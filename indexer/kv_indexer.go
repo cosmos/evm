@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/server/types"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -11,6 +10,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
