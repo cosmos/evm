@@ -17,7 +17,7 @@ require (
 	github.com/cometbft/cometbft v0.38.18
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20250916155236-2dbb0df4f041
-	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250916155236-2dbb0df4f041
+	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250919000353-35f0b72333b9
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358

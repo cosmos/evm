@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
 	"os"
 	"sort"
+
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 
 	goruntime "runtime"
 
@@ -303,7 +304,7 @@ func NewExampleApp(
 		allKeys,
 		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
 		true,
-		evmdconfig.ExampleChainDenom,
+		"atest",
 	))
 
 	// load state streaming if enabled
