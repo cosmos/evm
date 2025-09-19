@@ -288,9 +288,10 @@ func initTestnetFiles(
 		sdkGRPCPort = 9090
 
 		// evmGRPC           = 9900 // TODO: maybe need this? idk.
-		evmJSONRPC        = 8545
-		evmJSONRPCWS      = 8546
-		evmJSONRPCMetrics = 6065
+		evmJSONRPC         = 8545
+		evmJSONRPCWS       = 8546
+		evmJSONRPCMetrics  = 6065
+		evmGethMetricsPort = 8100
 	)
 	p2pPortStart := 26656
 
@@ -317,6 +318,7 @@ func initTestnetFiles(
 			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
 			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
+			evmCfg.EVM.GethMetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmGethMetricsPort+evmPortOffset)
 		} else {
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("0.0.0.0:%d", evmJSONRPCWS)
 			evmCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%d", evmJSONRPC)
