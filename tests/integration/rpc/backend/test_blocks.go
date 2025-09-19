@@ -129,7 +129,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int, _ sdk.AccAddress, _ []byte) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlockNotFound(client, height)
+				resBlock = RegisterBlockNotFound(client, height)
 			},
 			true,
 			true,
@@ -145,7 +145,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int, _ sdk.AccAddress, txBz []byte) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlock(client, height, txBz)
+				resBlock = RegisterBlock(client, height, txBz)
 				RegisterBlockResultsError(client, blockNum.Int64())
 			},
 			true,
@@ -162,8 +162,8 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlock(client, height, txBz)
-				blockRes, _ = RegisterBlockResults(client, blockNum.Int64())
+				resBlock = RegisterBlock(client, height, txBz)
+				blockRes = RegisterBlockResults(client, blockNum.Int64())
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -184,8 +184,8 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlock(client, height, txBz)
-				blockRes, _ = RegisterBlockResults(client, blockNum.Int64())
+				resBlock = RegisterBlock(client, height, txBz)
+				blockRes = RegisterBlockResults(client, blockNum.Int64())
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -288,7 +288,7 @@ func (s *TestSuite) TestGetBlockByHash() {
 			func(hash common.Hash, _ math.Int, _ sdk.AccAddress, txBz []byte) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlockByHash(client, hash, txBz)
+				resBlock = RegisterBlockByHash(client, hash, txBz)
 
 				RegisterBlockResultsError(client, height)
 			},
@@ -306,9 +306,9 @@ func (s *TestSuite) TestGetBlockByHash() {
 			func(hash common.Hash, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlockByHash(client, hash, txBz)
+				resBlock = RegisterBlockByHash(client, hash, txBz)
 
-				blockRes, _ = RegisterBlockResults(client, height)
+				blockRes = RegisterBlockResults(client, height)
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -329,9 +329,9 @@ func (s *TestSuite) TestGetBlockByHash() {
 			func(hash common.Hash, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock, _ = RegisterBlockByHash(client, hash, txBz)
+				resBlock = RegisterBlockByHash(client, hash, txBz)
 
-				blockRes, _ = RegisterBlockResults(client, height)
+				blockRes = RegisterBlockResults(client, height)
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -400,8 +400,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			func(hash common.Hash) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockByHash(client, hash, nil)
-				s.Require().NoError(err)
+				RegisterBlockByHash(client, hash, nil)
 				RegisterBlockResultsError(client, height)
 			},
 			hexutil.Uint(0),
@@ -413,10 +412,8 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			func(hash common.Hash) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockByHash(client, hash, nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				RegisterBlockByHash(client, hash, nil)
+				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(0),
 			true,
@@ -427,10 +424,8 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			func(hash common.Hash) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockByHash(client, hash, bz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				RegisterBlockByHash(client, hash, bz)
+				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(1),
 			true,
@@ -480,8 +475,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, nil)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, height)
 			},
 			hexutil.Uint(0),
@@ -493,10 +487,8 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(0),
 			true,
@@ -507,10 +499,8 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, bz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, bz)
+				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(1),
 			true,
@@ -558,8 +548,7 @@ func (s *TestSuite) TestCometBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockNotFound(client, height)
-				s.Require().NoError(err)
+				RegisterBlockNotFound(client, height)
 			},
 			false,
 			true,
@@ -587,7 +576,7 @@ func (s *TestSuite) TestCometBlockByNumber() {
 
 				tmHeight := appHeight
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterBlock(client, tmHeight, nil)
+				expResultHeader = RegisterBlock(client, tmHeight, nil)
 			},
 			true,
 			true,
@@ -598,7 +587,7 @@ func (s *TestSuite) TestCometBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterBlock(client, height, nil)
+				expResultHeader = RegisterBlock(client, height, nil)
 			},
 			true,
 			true,
@@ -609,7 +598,7 @@ func (s *TestSuite) TestCometBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterBlock(client, height, nil)
+				expResultHeader = RegisterBlock(client, height, nil)
 			},
 			true,
 			true,
@@ -661,8 +650,7 @@ func (s *TestSuite) TestCometBlockResultByNumber() {
 			1,
 			func(blockNum int64) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockResults(client, blockNum)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, blockNum)
 				expBlockRes = &cmtrpctypes.ResultBlockResults{
 					Height:     blockNum,
 					TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
@@ -727,7 +715,7 @@ func (s *TestSuite) TestBlockNumberFromComet() {
 			&blockHash,
 			func(hash *common.Hash) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resHeader, _ = RegisterHeaderByHash(client, *hash, bz)
+				resHeader = RegisterHeaderByHash(client, *hash, bz)
 			},
 			true,
 		},
@@ -793,7 +781,7 @@ func (s *TestSuite) TestBlockNumberFromCometByHash() {
 			common.BytesToHash(emptyBlock.Hash()),
 			func(hash common.Hash) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resHeader, _ = RegisterHeaderByHash(client, hash, bz)
+				resHeader = RegisterHeaderByHash(client, hash, bz)
 			},
 			true,
 		},
@@ -802,7 +790,7 @@ func (s *TestSuite) TestBlockNumberFromCometByHash() {
 			common.BytesToHash(block.Hash()),
 			func(hash common.Hash) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resHeader, _ = RegisterHeaderByHash(client, hash, bz)
+				resHeader = RegisterHeaderByHash(client, hash, bz)
 			},
 			true,
 		},
@@ -1210,6 +1198,9 @@ func (s *TestSuite) TestHeaderByNumber() {
 
 	_, bz := s.buildEthereumTx()
 
+	// Imports needed for added mocks
+	// Note: file already imports these at top; ensure present
+
 	testCases := []struct {
 		name         string
 		blockNumber  ethrpc.BlockNumber
@@ -1224,7 +1215,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeaderError(client, &height)
+				RegisterBlockError(client, height)
 			},
 			false,
 		},
@@ -1235,7 +1226,9 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeaderNotFound(client, height)
+				RegisterBlock(client, height, nil)
+				// Backend now reads block results; emulate failure there
+				RegisterBlockResultsError(client, height)
 			},
 			false,
 		},
@@ -1246,7 +1239,7 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeader(client, &height, nil)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, height)
 			},
 			false,
@@ -1258,11 +1251,13 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, _ math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				resBlock := RegisterBlock(client, height, nil)
+				expResultHeader = &cmtrpctypes.ResultHeader{Header: &resBlock.Block.Header}
+				RegisterBlockResults(client, height)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeError(QueryClient)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1273,11 +1268,13 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				resBlock := RegisterBlock(client, height, nil)
+				expResultHeader = &cmtrpctypes.ResultHeader{Header: &resBlock.Block.Header}
+				RegisterBlockResults(client, height)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1288,11 +1285,14 @@ func (s *TestSuite) TestHeaderByNumber() {
 			func(blockNum ethrpc.BlockNumber, baseFee math.Int) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeader(client, &height, bz)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				resBlock := RegisterBlock(client, height, bz)
+				expResultHeader = &cmtrpctypes.ResultHeader{Header: &resBlock.Block.Header}
+				blockRes := RegisterBlockResults(client, height)
+				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1356,8 +1356,7 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, _ math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterHeaderByHash(client, hash, bz)
-				s.Require().NoError(err)
+				RegisterHeaderByHash(client, hash, bz)
 				RegisterBlockResultsError(client, height)
 			},
 			false,
@@ -1369,11 +1368,12 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, _ math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterHeaderByHash(client, hash, bz)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				expResultHeader = RegisterHeaderByHash(client, hash, bz)
+				RegisterBlockResults(client, height)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeError(QueryClient)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1384,11 +1384,12 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, baseFee math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterHeaderByHash(client, hash, nil)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				expResultHeader = RegisterHeaderByHash(client, hash, nil)
+				RegisterBlockResults(client, height)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1399,11 +1400,12 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, baseFee math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader, _ = RegisterHeaderByHash(client, hash, bz)
-				_, err := RegisterBlockResults(client, height)
-				s.Require().NoError(err)
+				expResultHeader = RegisterHeaderByHash(client, hash, bz)
+				RegisterBlockResults(client, height)
+				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 			},
 			true,
 		},
@@ -1454,8 +1456,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, nil)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, blockNum.Int64())
 			},
 			nil,
@@ -1467,10 +1468,8 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, nil)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, blockNum.Int64())
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, blockNum.Int64())
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				baseFee := math.NewInt(1)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1493,10 +1492,8 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, height, bz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, blockNum.Int64())
-				s.Require().NoError(err)
+				RegisterBlock(client, height, bz)
+				RegisterBlockResults(client, blockNum.Int64())
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				baseFee := math.NewInt(1)
 				RegisterBaseFee(QueryClient, baseFee)
