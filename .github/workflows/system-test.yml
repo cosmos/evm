@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           check-latest: true
       - name: Install Foundry (forge/cast/anvil)
         uses: foundry-rs/foundry-toolchain@v1

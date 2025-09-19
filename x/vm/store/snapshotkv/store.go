@@ -5,7 +5,6 @@ import (
 
 	"github.com/cosmos/evm/x/vm/store/types"
 
-	"cosmossdk.io/store/cachekv"
 	storetypes "cosmossdk.io/store/types"
 )
 
@@ -13,16 +12,16 @@ import (
 // support the evm `StateDB`'s `Snapshot` and `RevertToSnapshot` methods.
 type Store struct {
 	// Store of the initial state before transaction execution
-	initialStore storetypes.CacheKVStore
+	initialStore storetypes.CacheWrap
 
 	// Stack of cached store
-	cacheStores []storetypes.CacheKVStore
+	cacheStores []storetypes.CacheWrap
 }
 
 var _ types.SnapshotKVStore = (*Store)(nil)
 
 // NewStore creates a new Store object
-func NewStore(store storetypes.CacheKVStore) *Store {
+func NewStore(store storetypes.CacheWrap) *Store {
 	return &Store{
 		initialStore: store,
 		cacheStores:  nil,
@@ -31,7 +30,7 @@ func NewStore(store storetypes.CacheKVStore) *Store {
 
 // CurrentStore returns the top of cached store stack.
 // If the stack is empty, returns the initial store.
-func (cs *Store) CurrentStore() storetypes.CacheKVStore {
+func (cs *Store) CurrentStore() storetypes.CacheWrap {
 	l := len(cs.cacheStores)
 	if l == 0 {
 		return cs.initialStore
@@ -53,7 +52,7 @@ func (cs *Store) Commit() {
 // Snapshot pushes a new cached store to the stack,
 // and returns the index of it.
 func (cs *Store) Snapshot() int {
-	cs.cacheStores = append(cs.cacheStores, cachekv.NewStore(cs.CurrentStore()))
+	cs.cacheStores = append(cs.cacheStores, cs.CurrentStore().CacheWrap())
 	return len(cs.cacheStores) - 1
 }
 

@@ -148,17 +148,17 @@ def is_ignored_file(file_path: Path, repo_path: Path) -> bool:
     """
     relative_path = file_path.relative_to(repo_path)
     file_name = file_path.name
-    
+
     for ignored_pattern in IGNORED_FILES:
         # Check if it's a regex pattern (contains regex metacharacters)
-        if any(char in ignored_pattern for char in r'.*+?^${}[]|()\\'):
+        if any(char in ignored_pattern for char in r".*+?^${}[]|()\\"):
             if re.search(ignored_pattern, str(relative_path)):
                 return True
         else:
             # Simple filename match
             if file_name == ignored_pattern:
                 return True
-    
+
     return False
 
 

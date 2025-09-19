@@ -239,5 +239,5 @@ func safeCopyInputs(method *abi.Method, args []interface{}, pageRequest *PageReq
 		}
 	}()
 	err = method.Inputs.Copy(pageRequest, args)
-	return
+	return err
 }

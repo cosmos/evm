@@ -226,7 +226,6 @@ func initGenFiles(cfg Config, genAccounts []authtypes.GenesisAccount, genBalance
 	inflationGenState.Params.MintDenom = cfg.BondDenom
 	cfg.GenesisState[minttypes.ModuleName] = cfg.Codec.MustMarshalJSON(&inflationGenState)
 
-
 	var evmGenState evmtypes.GenesisState
 	cfg.Codec.MustUnmarshalJSON(cfg.GenesisState[evmtypes.ModuleName], &evmGenState)
 
