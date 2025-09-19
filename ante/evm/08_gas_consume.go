@@ -7,7 +7,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	types2 "github.com/cosmos/evm/ante/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -99,7 +99,7 @@ func GetMsgPriority(
 
 // TODO: (@fedekunze) Why is this necessary? This seems to be a duplicate from the CheckGasWanted function.
 func CheckBlockGasLimit(ctx sdktypes.Context, gasWanted uint64, minPriority int64) (sdktypes.Context, error) {
-	blockGasLimit := types2.BlockGasLimit(ctx)
+	blockGasLimit := antetypes.BlockGasLimit(ctx)
 
 	// return error if the tx gas is greater than the block limit (max gas)
 

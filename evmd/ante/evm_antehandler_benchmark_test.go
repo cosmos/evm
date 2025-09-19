@@ -2,12 +2,12 @@ package ante_test
 
 import (
 	"fmt"
-	antetypes "github.com/cosmos/evm/ante/types"
 	"math/big"
 	"testing"
 
 	"github.com/cosmos/evm/ante"
 	ethante "github.com/cosmos/evm/ante/evm"
+	antetypes "github.com/cosmos/evm/ante/types"
 	evmdante "github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
