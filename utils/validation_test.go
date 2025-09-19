@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"github.com/cosmos/evm/utils"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,7 @@ func TestIsEmptyHash(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		require.Equal(t, tc.expEmpty, IsEmptyHash(tc.hash), tc.name)
+		require.Equal(t, tc.expEmpty, utils.IsEmptyHash(tc.hash), tc.name)
 	}
 }
 
@@ -51,7 +52,7 @@ func TestIsZeroAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		require.Equal(t, tc.expEmpty, IsZeroAddress(tc.address), tc.name)
+		require.Equal(t, tc.expEmpty, utils.IsZeroAddress(tc.address), tc.name)
 	}
 }
 
@@ -76,7 +77,7 @@ func TestValidateAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := ValidateAddress(tc.address)
+		err := utils.ValidateAddress(tc.address)
 
 		if tc.expError {
 			require.Error(t, err, tc.name)
@@ -107,7 +108,7 @@ func TestValidateNonZeroAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := ValidateNonZeroAddress(tc.address)
+		err := utils.ValidateNonZeroAddress(tc.address)
 
 		if tc.expError {
 			require.Error(t, err, tc.name)
@@ -132,7 +133,7 @@ func TestSafeInt64(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		value, err := SafeInt64(tc.value)
+		value, err := utils.SafeInt64(tc.value)
 		if tc.expError {
 			require.Error(t, err, tc.name)
 			continue
