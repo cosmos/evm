@@ -21,7 +21,7 @@ import (
 
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -784,5 +784,5 @@ func (k Keeper) Config(_ context.Context, _ *types.QueryConfigRequest) (*types.Q
 // 2. calling BuildEvmExecutionCtx to set up gas configs consistent with Ethereum transaction execution.
 func buildTraceCtx(ctx sdk.Context, gasLimit uint64) sdk.Context {
 	return evmante.BuildEvmExecutionCtx(ctx).
-		WithGasMeter(cosmosevmtypes.NewInfiniteGasMeterWithLimit(gasLimit))
+		WithGasMeter(types.NewInfiniteGasMeterWithLimit(gasLimit))
 }

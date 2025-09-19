@@ -17,7 +17,8 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/server/types"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -581,7 +582,7 @@ func (b *Backend) GetBlockReceipts(
 
 func (b *Backend) formatTxReceipt(
 	ethMsg *evmtypes.MsgEthereumTx,
-	txResult *cosmosevmtypes.TxResult,
+	txResult *types.TxResult,
 	blockRes *cmtrpctypes.ResultBlockResults,
 	blockHeaderHash string,
 ) (map[string]interface{}, error) {

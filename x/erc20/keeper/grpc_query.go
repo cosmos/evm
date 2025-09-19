@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	"cosmossdk.io/store/prefix"

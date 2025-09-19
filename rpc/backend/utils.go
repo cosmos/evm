@@ -18,7 +18,6 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -171,7 +170,7 @@ func (b *Backend) ProcessBlock(
 		if err != nil {
 			return err
 		}
-		nextBaseFee, err := utils.CalcBaseFee(cfg, &header, params.Params)
+		nextBaseFee, err := types.CalcBaseFee(cfg, &header, params.Params)
 		if err != nil {
 			return err
 		}
@@ -260,7 +259,7 @@ func ShouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
 
 // GetLogsFromBlockResults returns the list of event logs from the CometBFT block result response
 func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*ethtypes.Log, error) {
-	height, err := cosmosevmtypes.SafeUint64(blockRes.Height)
+	height, err := utils.SafeUint64(blockRes.Height)
 	if err != nil {
 		return nil, err
 	}

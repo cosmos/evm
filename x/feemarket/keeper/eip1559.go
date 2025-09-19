@@ -3,7 +3,7 @@ package keeper
 import (
 	"math"
 
-	"github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -58,7 +58,7 @@ func (k Keeper) CalculateBaseFee(ctx sdk.Context) sdkmath.LegacyDec {
 	}
 
 	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
-	return utils.CalcGasBaseFee(
+	return types.CalcGasBaseFee(
 		parentGasUsed,
 		parentGasTargetInt.Uint64(),
 		uint64(params.BaseFeeChangeDenominator),

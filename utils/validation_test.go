@@ -1,4 +1,4 @@
-package types_test
+package utils_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 )
 
 func TestIsEmptyHash(t *testing.T) {
@@ -29,7 +29,7 @@ func TestIsEmptyHash(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		require.Equal(t, tc.expEmpty, types.IsEmptyHash(tc.hash), tc.name)
+		require.Equal(t, tc.expEmpty, utils.IsEmptyHash(tc.hash), tc.name)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestIsZeroAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		require.Equal(t, tc.expEmpty, types.IsZeroAddress(tc.address), tc.name)
+		require.Equal(t, tc.expEmpty, utils.IsZeroAddress(tc.address), tc.name)
 	}
 }
 
@@ -77,7 +77,7 @@ func TestValidateAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := types.ValidateAddress(tc.address)
+		err := utils.ValidateAddress(tc.address)
 
 		if tc.expError {
 			require.Error(t, err, tc.name)
@@ -108,7 +108,7 @@ func TestValidateNonZeroAddress(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := types.ValidateNonZeroAddress(tc.address)
+		err := utils.ValidateNonZeroAddress(tc.address)
 
 		if tc.expError {
 			require.Error(t, err, tc.name)
@@ -133,7 +133,7 @@ func TestSafeInt64(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		value, err := types.SafeInt64(tc.value)
+		value, err := utils.SafeInt64(tc.value)
 		if tc.expError {
 			require.Error(t, err, tc.name)
 			continue

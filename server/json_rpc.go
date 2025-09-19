@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/evm/rpc"
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/server/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -38,7 +38,7 @@ func StartJSONRPC(
 	clientCtx client.Context,
 	g *errgroup.Group,
 	config *serverconfig.Config,
-	indexer cosmosevmtypes.EVMTxIndexer,
+	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
 	mempool *evmmempool.ExperimentalEVMMempool,
 ) (*http.Server, error) {

@@ -1,6 +1,7 @@
 package ante_test
 
 import (
+	antetypes "github.com/cosmos/evm/ante/types"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,7 +11,6 @@ import (
 	ethante "github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
-	"github.com/cosmos/evm/types"
 )
 
 //nolint:thelper // RunValidateHandlerOptionsTest is not a helper function; it's an externally called benchmark entry point
@@ -124,7 +124,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),
@@ -143,7 +143,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),

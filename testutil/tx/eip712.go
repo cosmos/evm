@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/evm"
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/ethereum/eip712"
-	"github.com/cosmos/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -164,7 +163,7 @@ func signCosmosEIP712Tx(
 func createTypedData(args typedDataArgs, useLegacy bool) (apitypes.TypedData, error) {
 	if useLegacy {
 		registry := codectypes.NewInterfaceRegistry()
-		types.RegisterInterfaces(registry)
+		eip712.RegisterInterfaces(registry)
 		cryptocodec.RegisterInterfaces(registry)
 		evmCodec := codec.NewProtoCodec(registry)
 

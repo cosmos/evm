@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/ante/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"

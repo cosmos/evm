@@ -1,12 +1,12 @@
 package testutil
 
 import (
+	"github.com/cosmos/evm/testutil"
 	"time"
 
 	cmtypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/math"
 
@@ -48,7 +48,7 @@ var EthDefaultConsensusParams = &cmtypes.ConsensusParams{
 //
 // TODO: are these different genesis functions necessary or can they all be refactored into one?
 // there's also other genesis state functions; some like app.DefaultGenesis() or others in test helpers only.
-func NewTestGenesisState(app evm.EvmApp) cosmosevmtypes.GenesisState {
+func NewTestGenesisState(app evm.EvmApp) testutil.GenesisState {
 	privVal := mock.NewPV()
 	pubKey, err := privVal.GetPubKey()
 	if err != nil {
@@ -70,10 +70,10 @@ func NewTestGenesisState(app evm.EvmApp) cosmosevmtypes.GenesisState {
 	return genesisStateWithValSet(app.AppCodec(), genesisState, valSet, []authtypes.GenesisAccount{acc}, balance)
 }
 
-func genesisStateWithValSet(codec codec.Codec, genesisState cosmosevmtypes.GenesisState,
+func genesisStateWithValSet(codec codec.Codec, genesisState testutil.GenesisState,
 	valSet *cmtypes.ValidatorSet, genAccs []authtypes.GenesisAccount,
 	balances ...banktypes.Balance,
-) cosmosevmtypes.GenesisState {
+) testutil.GenesisState {
 	// set genesis accounts
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)
 	genesisState[authtypes.ModuleName] = codec.MustMarshalJSON(authGenesis)

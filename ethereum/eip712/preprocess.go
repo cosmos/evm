@@ -3,8 +3,6 @@ package eip712
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/types"
-
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -55,7 +53,7 @@ func PreprocessLedgerTx(evmChainID uint64, keyType cosmoskr.KeyType, txBuilder c
 	}
 	// Add ExtensionOptionsWeb3Tx extension with signature
 	var option *codectypes.Any
-	option, err = codectypes.NewAnyWithValue(&types.ExtensionOptionsWeb3Tx{
+	option, err = codectypes.NewAnyWithValue(&ExtensionOptionsWeb3Tx{
 		FeePayer:         feePayerAddr,
 		TypedDataChainID: evmChainID,
 		FeePayerSig:      sigBytes,

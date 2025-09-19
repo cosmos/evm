@@ -14,7 +14,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	cosmosevmtypes "github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"

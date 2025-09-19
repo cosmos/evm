@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cosmos/evm/utils"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,9 +32,9 @@ import (
 	"github.com/cosmos/evm/evmd"
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/server/config"
+	evmtestutil "github.com/cosmos/evm/testutil"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -50,7 +51,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/testutil"
+	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -78,14 +79,14 @@ type Config struct {
 	InterfaceRegistry codectypes.InterfaceRegistry
 	TxConfig          client.TxConfig
 	AccountRetriever  client.AccountRetriever
-	AppConstructor    AppConstructor              // the ABCI application constructor
-	GenesisState      cosmosevmtypes.GenesisState // custom gensis state to provide
-	TimeoutCommit     time.Duration               // the consensus commitment timeout
-	AccountTokens     math.Int                    // the amount of unique validator tokens (e.g. 1000node0)
-	StakingTokens     math.Int                    // the amount of tokens each validator has available to stake
-	BondedTokens      math.Int                    // the amount of tokens each validator stakes
-	NumValidators     int                         // the total number of validators to create and bond
-	ChainID           string                      // the network chain-id
+	AppConstructor    AppConstructor           // the ABCI application constructor
+	GenesisState      evmtestutil.GenesisState // custom gensis state to provide
+	TimeoutCommit     time.Duration            // the consensus commitment timeout
+	AccountTokens     math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
+	StakingTokens     math.Int                 // the amount of tokens each validator has available to stake
+	BondedTokens      math.Int                 // the amount of tokens each validator stakes
+	NumValidators     int                      // the total number of validators to create and bond
+	ChainID           string                   // the network chain-id
 	EVMChainID        uint64
 	BondDenom         string // the staking bond denomination
 	MinGasPrices      string // the minimum gas prices each validator will accept
@@ -125,9 +126,9 @@ func DefaultConfig() Config {
 		NumValidators:     4,
 		BondDenom:         testconstants.ExampleAttoDenom,
 		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
-		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
-		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
-		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
+		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, utils.AttoPowerReduction),
+		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, utils.AttoPowerReduction),
+		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, utils.AttoPowerReduction),
 		PruningStrategy:   pruningtypes.PruningOptionNothing,
 		CleanupDir:        true,
 		SigningAlgo:       string(hd.EthSecp256k1Type),
@@ -391,7 +392,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		addr, secret, err := testutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
+		addr, secret, err := sdktestutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
 		if err != nil {
 			return nil, err
 		}
