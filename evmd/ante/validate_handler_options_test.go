@@ -1,7 +1,7 @@
 package ante_test
 
 import (
-	"github.com/cosmos/evm/ante/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -124,7 +124,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),
@@ -143,7 +143,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),

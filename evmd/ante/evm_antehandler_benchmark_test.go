@@ -2,7 +2,7 @@ package ante_test
 
 import (
 	"fmt"
-	cosmosevmtypes "github.com/cosmos/evm/ante/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	"math/big"
 	"testing"
 
@@ -148,7 +148,7 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
 		BankKeeper:             s.network.App.GetBankKeeper(),
-		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              s.network.App.GetEVMKeeper(),
 		FeegrantKeeper:         s.network.App.GetFeeGrantKeeper(),
 		IBCKeeper:              s.network.App.GetIBCKeeper(),
