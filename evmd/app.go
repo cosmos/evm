@@ -4,12 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
 	"os"
 	"sort"
-
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 
 	goruntime "runtime"
 
@@ -42,6 +39,7 @@ import (
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
