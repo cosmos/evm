@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"path"
 	"time"
 
@@ -57,9 +58,6 @@ const (
 	// DefaultEnablePreimageRecording is the default value for EnablePreimageRecording
 	DefaultEnablePreimageRecording = false
 
-	// DefaultFixRevertGasRefundHeight is the default height at which to overwrite gas refund
-	DefaultFixRevertGasRefundHeight = 0
-
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
@@ -68,6 +66,9 @@ const (
 
 	// DefaultEVMMinTip is the default minimum priority fee for the mempool
 	DefaultEVMMinTip = 0
+
+	// DefaultGethMetricsAddress is the default port for the geth metrics server.
+	DefaultGethMetricsAddress = "127.0.0.1:8100"
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
@@ -148,6 +149,8 @@ type EVMConfig struct {
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
 	MinTip uint64 `mapstructure:"min-tip"`
+	// GethMetricsAddress is the address the geth metrics server will bind to. Default 127.0.0.1:8100
+	GethMetricsAddress string `mapstructure:"geth-metrics-address"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -194,8 +197,6 @@ type JSONRPCConfig struct {
 	EnableIndexer bool `mapstructure:"enable-indexer"`
 	// MetricsAddress defines the metrics server to listen on
 	MetricsAddress string `mapstructure:"metrics-address"`
-	// FixRevertGasRefundHeight defines the upgrade height for fix of revert gas refund logic when transaction reverted
-	FixRevertGasRefundHeight int64 `mapstructure:"fix-revert-gas-refund-height"`
 	// WSOrigins defines the allowed origins for WebSocket connections
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
@@ -218,6 +219,7 @@ func DefaultEVMConfig() *EVMConfig {
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
+		GethMetricsAddress:      DefaultGethMetricsAddress,
 	}
 }
 
@@ -225,6 +227,10 @@ func DefaultEVMConfig() *EVMConfig {
 func (c EVMConfig) Validate() error {
 	if c.Tracer != "" && !strings.StringInSlice(c.Tracer, evmTracers) {
 		return fmt.Errorf("invalid tracer type %s, available types: %v", c.Tracer, evmTracers)
+	}
+
+	if _, err := netip.ParseAddrPort(c.GethMetricsAddress); err != nil {
+		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddress, err)
 	}
 
 	return nil
@@ -248,29 +254,28 @@ func GetDefaultWSOrigins() []string {
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
-		Enable:                   false,
-		API:                      GetDefaultAPINamespaces(),
-		Address:                  DefaultJSONRPCAddress,
-		WsAddress:                DefaultJSONRPCWsAddress,
-		GasCap:                   DefaultGasCap,
-		AllowInsecureUnlock:      DefaultJSONRPCAllowInsecureUnlock,
-		EVMTimeout:               DefaultEVMTimeout,
-		TxFeeCap:                 DefaultTxFeeCap,
-		FilterCap:                DefaultFilterCap,
-		FeeHistoryCap:            DefaultFeeHistoryCap,
-		BlockRangeCap:            DefaultBlockRangeCap,
-		LogsCap:                  DefaultLogsCap,
-		HTTPTimeout:              DefaultHTTPTimeout,
-		HTTPIdleTimeout:          DefaultHTTPIdleTimeout,
-		AllowUnprotectedTxs:      DefaultAllowUnprotectedTxs,
-		BatchRequestLimit:        DefaultBatchRequestLimit,
-		BatchResponseMaxSize:     DefaultBatchResponseMaxSize,
-		MaxOpenConnections:       DefaultMaxOpenConnections,
-		EnableIndexer:            false,
-		MetricsAddress:           DefaultJSONRPCMetricsAddress,
-		FixRevertGasRefundHeight: DefaultFixRevertGasRefundHeight,
-		WSOrigins:                GetDefaultWSOrigins(),
-		EnableProfiling:          DefaultEnableProfiling,
+		Enable:               false,
+		API:                  GetDefaultAPINamespaces(),
+		Address:              DefaultJSONRPCAddress,
+		WsAddress:            DefaultJSONRPCWsAddress,
+		GasCap:               DefaultGasCap,
+		AllowInsecureUnlock:  DefaultJSONRPCAllowInsecureUnlock,
+		EVMTimeout:           DefaultEVMTimeout,
+		TxFeeCap:             DefaultTxFeeCap,
+		FilterCap:            DefaultFilterCap,
+		FeeHistoryCap:        DefaultFeeHistoryCap,
+		BlockRangeCap:        DefaultBlockRangeCap,
+		LogsCap:              DefaultLogsCap,
+		HTTPTimeout:          DefaultHTTPTimeout,
+		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
+		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
+		BatchRequestLimit:    DefaultBatchRequestLimit,
+		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
+		MaxOpenConnections:   DefaultMaxOpenConnections,
+		EnableIndexer:        false,
+		MetricsAddress:       DefaultJSONRPCMetricsAddress,
+		WSOrigins:            GetDefaultWSOrigins(),
+		EnableProfiling:      DefaultEnableProfiling,
 	}
 }
 

@@ -25,6 +25,9 @@ evm-chain-id = {{ .EVM.EVMChainID }}
 # MinTip defines the minimum priority fee for the mempool.
 min-tip = {{ .EVM.MinTip }}
 
+# GethMetricsAddress defines the addr to bind the geth metrics server to. Default 127.0.0.1:8100.
+geth-metrics-address = "{{ .EVM.GethMetricsAddress }}"
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
@@ -92,9 +95,6 @@ enable-indexer = {{ .JSONRPC.EnableIndexer }}
 # MetricsAddress defines the EVM Metrics server address to bind to. Pass --metrics in CLI to enable
 # Prometheus metrics path: /debug/metrics/prometheus
 metrics-address = "{{ .JSONRPC.MetricsAddress }}"
-
-# Upgrade height for fix of revert gas refund logic when transaction reverted.
-fix-revert-gas-refund-height = {{ .JSONRPC.FixRevertGasRefundHeight }}
 
 # Maximum number of requests in a batch.
 batch-request-limit = {{ .JSONRPC.BatchRequestLimit }}
