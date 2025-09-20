@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -35,6 +37,7 @@ const (
 	flagMultiSigThreshold = "multisig-threshold"
 	flagNoSort            = "nosort"
 	flagHDPath            = "hd-path"
+	flagMnemonicSrc       = "source"
 
 	mnemonicEntropySize = 256
 )
@@ -183,19 +186,34 @@ func RunAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 	var mnemonic, bip39Passphrase string
 
 	recoverKey, _ := cmd.Flags().GetBool(flagRecover)
+	mnemonicSrc, _ := cmd.Flags().GetString(flagMnemonicSrc)
 	if recoverKey {
-		mnemonic, err = input.GetString("Enter your bip39 mnemonic", inBuf)
-		if err != nil {
-			return err
+		if mnemonicSrc != "" {
+			mnemonic, err = readMnemonicFromFile(mnemonicSrc)
+			if err != nil {
+				return err
+			}
+		} else {
+			mnemonic, err = input.GetString("Enter your bip39 mnemonic", inBuf)
+			if err != nil {
+				return err
+			}
 		}
 
 		if !bip39.IsMnemonicValid(mnemonic) {
 			return errors.New("invalid mnemonic")
 		}
 	} else if interactive {
-		mnemonic, err = input.GetString("Enter your bip39 mnemonic, or hit enter to generate one.", inBuf)
-		if err != nil {
-			return err
+		if mnemonicSrc != "" {
+			mnemonic, err = readMnemonicFromFile(mnemonicSrc)
+			if err != nil {
+				return err
+			}
+		} else {
+			mnemonic, err = input.GetString("Enter your bip39 mnemonic, or hit enter to generate one.", inBuf)
+			if err != nil {
+				return err
+			}
 		}
 
 		if !bip39.IsMnemonicValid(mnemonic) && mnemonic != "" {
@@ -302,4 +320,18 @@ func validateMultisigThreshold(k, nKeys int) error {
 			"threshold k of n multisignature: %d < %d", nKeys, k)
 	}
 	return nil
+}
+
+func readMnemonicFromFile(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	bz, err := io.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+	return string(bz), nil
 }
