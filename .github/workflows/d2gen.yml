@@ -15,6 +15,7 @@ permissions:
 jobs:
   d2gen:
     runs-on: ubuntu-latest
+    container: terrastruct/d2:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,11 +113,11 @@ jobs:
 
               if (thumbsUp) {
                 console.log('User approved changes with 👍');
-                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=approve\\n');
+                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=approve\n');
                 return 'approve';
               } else if (thumbsDown) {
                 console.log('User declined changes with 👎');
-                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\\n');
+                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\n');
                 return 'decline';
               }
 
@@ -125,7 +126,7 @@ jobs:
             }
 
             console.log('Timeout reached, defaulting to decline');
-            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\\n');
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\n');
             return 'decline';
 
       - name: Debug wait reaction step
