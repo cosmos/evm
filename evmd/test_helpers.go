@@ -40,7 +40,8 @@ type SetupOptions struct {
 
 func init() {
 	// we're setting the minimum gas price to 0 to simplify the tests
-	feemarkettypes.DefaultMinGasPrice = math.LegacyZeroDec()
+	//feemarkettypes.DefaultMinGasPrice = math.LegacyZeroDec()
+	feemarkettypes.DefaultMinGasPrice = math.LegacyNewDec(1)
 
 	// Set the global SDK config for the tests
 	cfg := sdk.GetConfig()
