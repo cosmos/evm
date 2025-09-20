@@ -15,7 +15,7 @@ permissions:
 jobs:
   d2gen:
     runs-on: ubuntu-latest
-    container: terrastruct/d2:latest
+    # container: terrastruct/d2:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
