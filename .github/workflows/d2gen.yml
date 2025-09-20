@@ -110,9 +110,11 @@ jobs:
 
               if (thumbsUp) {
                 console.log('User approved changes with 👍');
+                core.setOutput('result', 'approve');
                 return 'approve';
               } else if (thumbsDown) {
                 console.log('User declined changes with 👎');
+                core.setOutput('result', 'decline');
                 return 'decline';
               }
 
@@ -121,12 +123,23 @@ jobs:
             }
 
             console.log('Timeout reached, defaulting to decline');
+            core.setOutput('result', 'decline');
             return 'decline';
+
+      - name: Always debug outputs
+        run: |
+          echo "🐛 Always running debug - checking all outputs..."
+          echo "Changed files detected: '${{ steps.check_changes.outputs.changed }}'"
+          echo "User reaction result: '${{ steps.wait_reaction.outputs.result }}'"
+          echo "PR comment ID: '${{ steps.pr_comment.outputs.result }}'"
+          echo "Condition 1 (changes): ${{ steps.check_changes.outputs.changed == 'true' }}"
+          echo "Condition 2 (approve): ${{ steps.wait_reaction.outputs.result == 'approve' }}"
+          echo "Combined condition: ${{ steps.check_changes.outputs.changed == 'true' && steps.wait_reaction.outputs.result == 'approve' }}"
 
       - name: Debug step conditions
         if: steps.check_changes.outputs.changed == 'true'
         run: |
-          echo "🐛 Debugging step conditions..."
+          echo "🐛 Conditional debug (changes detected)..."
           echo "Changed files detected: ${{ steps.check_changes.outputs.changed }}"
           echo "User reaction result: ${{ steps.wait_reaction.outputs.result }}"
           echo "Will commit changes: ${{ steps.check_changes.outputs.changed == 'true' && steps.wait_reaction.outputs.result == 'approve' }}"
