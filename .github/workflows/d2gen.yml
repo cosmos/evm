@@ -1,0 +1,170 @@
+name: D2 Gen
+
+on:
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: d2gen-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  d2gen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install D2
+        run: |
+          curl -fsSL https://d2lang.com/install.sh | sh -s -- --tala
+
+      - name: Generate SVG images from D2 
+        env:
+          TSTRUCT_TOKEN: ${{ secrets.TSTRUCT_TOKEN }}
+        run: make d2gen-all
+
+      - name: Check for changes in SVG files
+        id: check_changes
+        run: |
+          if git diff --quiet '*.svg'; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "The following SVG files have changed:"
+            git diff --name-only '*.svg'
+          fi
+
+      - name: Get changed SVG files
+        if: steps.check_changes.outputs.changed == 'true'
+        id: get_changed_files
+        run: |
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only '*.svg'
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create PR comment for approval
+        if: steps.check_changes.outputs.changed == 'true'
+        id: pr_comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changedFiles = `${{ steps.get_changed_files.outputs.files }}`;
+
+            const body = [
+              "## SVG Files Updated 📊",
+              "",
+              "The `make d2gen-all` command has generated updated SVG files from D2 diagrams.",
+              "",
+              "**Changed files:**",
+              "```",
+              changedFiles,
+              "```",
+              "",
+              "Would you like me to commit these changes to this PR?",
+              "",
+              "- 👍 **Yes** - Automatically commit the updated SVG files",
+              "- 👎 **No** - Skip committing, CI will pass without the changes",
+              "",
+              "Please react to this comment with your choice."
+            ].join("\\n");
+
+            const { data: comment } = await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+            return comment.id;
+
+      - name: Wait for user reaction
+        if: steps.check_changes.outputs.changed == 'true'
+        id: wait_reaction
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentId = parseInt('${{ steps.pr_comment.outputs.result }}');
+            const maxWaitTime = 300000; // 5 minutes
+            const pollInterval = 10000; // 10 seconds
+            let elapsedTime = 0;
+
+            while (elapsedTime < maxWaitTime) {
+              const { data: reactions } = await github.rest.reactions.listForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId
+              });
+
+              const thumbsUp = reactions.find(r => r.content === '+1');
+              const thumbsDown = reactions.find(r => r.content === '-1');
+
+              if (thumbsUp) {
+                console.log('User approved changes with 👍');
+                return 'approve';
+              } else if (thumbsDown) {
+                console.log('User declined changes with 👎');
+                return 'decline';
+              }
+
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+              elapsedTime += pollInterval;
+            }
+
+            console.log('Timeout reached, defaulting to decline');
+            return 'decline';
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true' && steps.wait_reaction.outputs.result == 'approve'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add *.svg
+          git commit -m "chore: update generated SVG files from D2 diagrams" -m "🤖 Generated with GitHub Actions"
+          git push
+
+      - name: Update PR comment with result
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentId = parseInt('${{ steps.pr_comment.outputs.result }}');
+            const action = '${{ steps.wait_reaction.outputs.result }}';
+
+            let updateBody;
+            if (action === 'approve') {
+              updateBody = [
+                "## SVG Files Updated ✅",
+                "",
+                "The updated SVG files have been successfully committed to this PR.",
+                "",
+                "**Status:** Changes committed automatically based on user approval."
+              ].join("\\n");
+            } else {
+              updateBody = [
+                "## SVG Files Updated ⏭️",
+                "",
+                "The SVG files have changes but were not committed based on user choice or timeout.",
+                "",
+                "**Status:** CI will pass without committing the changes."
+              ].join("\\n");
+            }
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              body: updateBody
+            });
+
+      - name: Always pass CI
+        run: |
+          echo "SVG generation workflow completed successfully"
+          exit 0
