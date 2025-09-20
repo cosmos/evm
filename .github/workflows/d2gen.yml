@@ -21,10 +21,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          ref: ${{ github.head_ref }}
 
       - name: Install D2
         run: |
           curl -fsSL https://d2lang.com/install.sh | sh -s -- --tala
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Generate SVG images from D2 
         env:
@@ -121,13 +123,40 @@ jobs:
             console.log('Timeout reached, defaulting to decline');
             return 'decline';
 
+      - name: Debug step conditions
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          echo "🐛 Debugging step conditions..."
+          echo "Changed files detected: ${{ steps.check_changes.outputs.changed }}"
+          echo "User reaction result: ${{ steps.wait_reaction.outputs.result }}"
+          echo "Will commit changes: ${{ steps.check_changes.outputs.changed == 'true' && steps.wait_reaction.outputs.result == 'approve' }}"
+
       - name: Commit and push changes
         if: steps.check_changes.outputs.changed == 'true' && steps.wait_reaction.outputs.result == 'approve'
         run: |
+          echo "🔧 Setting up git configuration..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add *.svg
+          
+          echo "📁 Current working directory:"
+          pwd
+          
+          echo "📊 Git status before adding files:"
+          git status
+          
+          echo "🔍 Finding SVG files to add..."
+          find . -name "*.svg" -type f -exec echo "Found: {}" \;
+          
+          echo "➕ Adding all SVG files..."
+          git add . --all
+          
+          echo "📊 Git status after adding files:"
+          git status
+          
+          echo "💾 Committing changes..."
           git commit -m "chore: update generated SVG files from D2 diagrams" -m "🤖 Generated with GitHub Actions"
+          
+          echo "🚀 Pushing to remote..."
           git push
 
       - name: Update PR comment with result
