@@ -66,7 +66,7 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		Coinbase:    common.BytesToAddress(header.ProposerAddress),
 		Root:        common.BytesToHash(header.AppHash),
 		TxHash:      txHash,
-		ReceiptHash: ethtypes.EmptyRootHash,
+		ReceiptHash: ethtypes.EmptyReceiptsHash,
 		Bloom:       bloom,
 		Difficulty:  big.NewInt(0),
 		Number:      big.NewInt(header.Height),
@@ -77,6 +77,14 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		MixDigest:   common.Hash{},
 		Nonce:       ethtypes.BlockNonce{},
 		BaseFee:     baseFee,
+
+		// In chains that use cosmos-sdk and cometbft,
+		// these fields are irrelevant.
+		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash, // EIP-4895: Beacon chain push withdrawals as operations
+		BlobGasUsed:      nil,                            // EIP-4844: Shard Blob Transactions
+		ExcessBlobGas:    nil,                            // EIP-4844: Shard Blob Transactions
+		ParentBeaconRoot: nil,                            // EIP-4788: Beacon block root in the EVM
+		RequestsHash:     &ethtypes.EmptyRequestsHash,    // EIP-7685: General purpose execution layer requests
 	}
 }
 
@@ -136,9 +144,8 @@ func FormatBlock(
 		"transactionsRoot": transactionsRoot,
 		"receiptsRoot":     ethtypes.EmptyRootHash,
 
-		"uncles":          []common.Hash{},
-		"transactions":    transactions,
-		"totalDifficulty": (*hexutil.Big)(big.NewInt(0)),
+		"uncles":       []common.Hash{},
+		"transactions": transactions,
 	}
 
 	if baseFee != nil {
@@ -146,6 +153,31 @@ func FormatBlock(
 	}
 
 	return result
+}
+
+func MakeHeader(
+	cmtHeader cmttypes.Header, gasLimit int64,
+	validatorAddr common.Address, baseFee *big.Int,
+) *ethtypes.Header {
+	header := &ethtypes.Header{
+		Root:       common.BytesToHash(hexutil.Bytes(cmtHeader.AppHash)),
+		ParentHash: common.BytesToHash(cmtHeader.LastBlockID.Hash.Bytes()),
+		Coinbase:   validatorAddr,
+		Difficulty: big.NewInt(0),
+		GasLimit:   uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
+		Number:     big.NewInt(cmtHeader.Height),
+		Time:       uint64(cmtHeader.Time.Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
+	}
+
+	if evmtypes.GetEthChainConfig().IsLondon(header.Number) {
+		header.BaseFee = baseFee
+	}
+	if evmtypes.GetEthChainConfig().IsCancun(header.Number, header.Time) {
+		header.ExcessBlobGas = new(uint64)
+		header.BlobGasUsed = new(uint64)
+		header.ParentBeaconRoot = new(common.Hash)
+	}
+	return header
 }
 
 // NewTransactionFromMsg returns a transaction that will serialize to the RPC
@@ -207,14 +239,25 @@ func NewRPCTransaction(
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	switch tx.Type() {
+	case ethtypes.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() != 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
+
 	case ethtypes.AccessListTxType:
 		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
+
 	case ethtypes.DynamicFeeTxType:
 		al := tx.AccessList()
+		yparity := hexutil.Uint64(v.Sign())
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.YParity = &yparity
 		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
 		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
 		// if the transaction has been mined, compute the effective gas price
@@ -333,4 +376,149 @@ func TxStateDBCommitError(res *abci.ExecTxResult) bool {
 // or if it failed with an ExceedBlockGasLimit error or TxStateDBCommitError error
 func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 	return res.Code == 0 || TxExceedBlockGasLimit(res) || TxStateDBCommitError(res)
+}
+
+// RPCMarshalHeader converts the given header to the RPC output .
+// This method is almost same with go-ethereum's RPCMarshalHeader method of ethtypes.Header
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L888-L927)
+// but it uses the cometbft Header to get the block hash.
+func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[string]interface{} {
+	result := map[string]interface{}{
+		"number":           (*hexutil.Big)(head.Number),
+		"hash":             hexutil.Bytes(cmtHeader.Hash()), // use cometbft header hash
+		"parentHash":       head.ParentHash,
+		"nonce":            head.Nonce,
+		"mixHash":          head.MixDigest,
+		"sha3Uncles":       head.UncleHash,
+		"logsBloom":        head.Bloom,
+		"stateRoot":        head.Root,
+		"miner":            head.Coinbase,
+		"difficulty":       (*hexutil.Big)(head.Difficulty),
+		"extraData":        hexutil.Bytes(head.Extra),
+		"gasLimit":         hexutil.Uint64(head.GasLimit),
+		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))),
+		"timestamp":        hexutil.Uint64(head.Time),
+		"transactionsRoot": head.TxHash,
+		"receiptsRoot":     head.ReceiptHash,
+	}
+	if head.BaseFee != nil {
+		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
+	}
+	if head.WithdrawalsHash != nil {
+		result["withdrawalsRoot"] = head.WithdrawalsHash
+	}
+	if head.BlobGasUsed != nil {
+		result["blobGasUsed"] = hexutil.Uint64(*head.BlobGasUsed)
+	}
+	if head.ExcessBlobGas != nil {
+		result["excessBlobGas"] = hexutil.Uint64(*head.ExcessBlobGas)
+	}
+	if head.ParentBeaconRoot != nil {
+		result["parentBeaconBlockRoot"] = head.ParentBeaconRoot
+	}
+	if head.RequestsHash != nil {
+		result["requestsHash"] = head.RequestsHash
+	}
+	return result
+}
+
+// RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
+// returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
+// transaction hashes.
+func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, chainID *big.Int) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), cmtBlock.Header)
+	fields["size"] = hexutil.Uint64(block.Size())
+
+	if inclTx {
+		formatTx := func(idx int, tx *ethtypes.Transaction) (interface{}, error) {
+			return tx.Hash(), nil
+		}
+		if fullTx {
+			formatTx = func(idx int, _ *ethtypes.Transaction) (interface{}, error) {
+				msgIdx := uint64(idx) //nolint:gosec // G115
+				return newRPCTransactionFromBlockIndex(block, msgs, msgIdx, chainID)
+			}
+		}
+		txs := block.Transactions()
+		transactions := make([]interface{}, len(txs))
+		var err error
+		for i, tx := range txs {
+			transactions[i], err = formatTx(i, tx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		fields["transactions"] = transactions
+	}
+	uncles := block.Uncles()
+	uncleHashes := make([]common.Hash, len(uncles))
+	for i, uncle := range uncles {
+		uncleHashes[i] = uncle.Hash()
+	}
+	fields["uncles"] = uncleHashes
+	if block.Withdrawals() != nil {
+		fields["withdrawals"] = block.Withdrawals()
+	}
+	return fields, nil
+}
+
+// newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
+func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthereumTx, index uint64, chainID *big.Int) (*RPCTransaction, error) {
+	txs := b.Transactions()
+	if index >= uint64(len(txs)) {
+		return nil, fmt.Errorf("transaction index out of bounds")
+	}
+	return NewRPCTransaction(msgs[index], b.Hash(), b.NumberU64(), index, b.BaseFee(), chainID)
+}
+
+// marshalReceipt marshals a transaction receipt into a JSON object.
+func MarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from common.Address) (map[string]interface{}, error) {
+	fields := map[string]interface{}{
+		"blockHash":         receipt.BlockHash,
+		"blockNumber":       hexutil.Uint64(receipt.BlockNumber.Uint64()),
+		"transactionHash":   tx.Hash(),
+		"transactionIndex":  hexutil.Uint64(receipt.TransactionIndex),
+		"from":              from,
+		"to":                tx.To(),
+		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              receipt.Logs,
+		"logsBloom":         receipt.Bloom,
+		"type":              hexutil.Uint(tx.Type()),
+		"effectiveGasPrice": (*hexutil.Big)(receipt.EffectiveGasPrice),
+	}
+
+	// Assign receipt status or post state.
+	if len(receipt.PostState) > 0 {
+		fields["root"] = hexutil.Bytes(receipt.PostState)
+	} else {
+		fields["status"] = hexutil.Uint(receipt.Status)
+	}
+	if receipt.Logs == nil {
+		fields["logs"] = []*ethtypes.Log{}
+	}
+
+	if tx.Type() == ethtypes.BlobTxType {
+		fields["blobGasUsed"] = hexutil.Uint64(receipt.BlobGasUsed)
+		fields["blobGasPrice"] = (*hexutil.Big)(receipt.BlobGasPrice)
+	}
+
+	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+	if receipt.ContractAddress != (common.Address{}) {
+		fields["contractAddress"] = receipt.ContractAddress
+	}
+	return fields, nil
+}
+
+// EffectiveGasPrice computes the transaction gas fee, based on the given basefee value.
+//
+// price = min(gasTipCap + baseFee, gasFeeCap)
+func EffectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
+	fee := tx.GasTipCap()
+	fee = fee.Add(fee, baseFee)
+	if tx.GasFeeCapIntCmp(fee) < 0 {
+		return tx.GasFeeCap()
+	}
+	return fee
 }

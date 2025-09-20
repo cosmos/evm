@@ -23,9 +23,11 @@ import (
 type BlockNumber int64
 
 const (
-	EthPendingBlockNumber  = BlockNumber(-2)
-	EthLatestBlockNumber   = BlockNumber(-1)
-	EthEarliestBlockNumber = BlockNumber(0)
+	EthEarliestBlockNumber  = BlockNumber(-5)
+	EthSafeBlockNumber      = BlockNumber(-4)
+	EthFinalizedBlockNumber = BlockNumber(-3)
+	EthLatestBlockNumber    = BlockNumber(-2)
+	EthPendingBlockNumber   = BlockNumber(-1)
 )
 
 const (
