@@ -17,6 +17,7 @@ import (
 // EVMConfig creates the EVMConfig based on current state
 func (k *Keeper) EVMConfig(ctx sdk.Context, proposerAddress sdk.ConsAddress) (*statedb.EVMConfig, error) {
 	params := k.GetParams(ctx)
+	feemarketParams := k.feeMarketWrapper.GetParams(ctx)
 
 	// get the coinbase address from the block proposer
 	coinbase, err := k.GetCoinbaseAddress(ctx, proposerAddress)
@@ -25,10 +26,12 @@ func (k *Keeper) EVMConfig(ctx sdk.Context, proposerAddress sdk.ConsAddress) (*s
 	}
 
 	baseFee := k.GetBaseFee(ctx)
+
 	return &statedb.EVMConfig{
-		Params:   params,
-		CoinBase: coinbase,
-		BaseFee:  baseFee,
+		Params:          params,
+		FeeMarketParams: feemarketParams,
+		CoinBase:        coinbase,
+		BaseFee:         baseFee,
 	}, nil
 }
 
@@ -46,7 +49,7 @@ func (k *Keeper) TxConfig(ctx sdk.Context, txHash common.Hash) statedb.TxConfig 
 func (k Keeper) VMConfig(ctx sdk.Context, _ core.Message, cfg *statedb.EVMConfig, tracer *tracing.Hooks) vm.Config {
 	noBaseFee := true
 	if types.IsLondon(types.GetEthChainConfig(), ctx.BlockHeight()) {
-		noBaseFee = k.feeMarketWrapper.GetParams(ctx).NoBaseFee
+		noBaseFee = cfg.FeeMarketParams.NoBaseFee
 	}
 
 	return vm.Config{

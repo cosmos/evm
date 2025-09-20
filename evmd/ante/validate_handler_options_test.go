@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
-	ethante "github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/types"
@@ -114,7 +113,6 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				EvmKeeper:       nw.App.GetEVMKeeper(),
 				SigGasConsumer:  ante.SigVerificationGasConsumer,
 				SignModeHandler: nw.App.GetTxConfig().SignModeHandler(),
-				TxFeeChecker:    nil,
 			},
 			false,
 		},
@@ -132,7 +130,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				SignModeHandler:        nw.GetEncodingConfig().TxConfig.SignModeHandler(),
 				SigGasConsumer:         ante.SigVerificationGasConsumer,
 				MaxTxGasWanted:         40000000,
-				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				DynamicFeeChecker:      true,
 				PendingTxListener:      nil,
 			},
 			false,
@@ -151,7 +149,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				SignModeHandler:        nw.GetEncodingConfig().TxConfig.SignModeHandler(),
 				SigGasConsumer:         ante.SigVerificationGasConsumer,
 				MaxTxGasWanted:         40000000,
-				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				DynamicFeeChecker:      true,
 				PendingTxListener:      func(hash common.Hash) {},
 			},
 			true,

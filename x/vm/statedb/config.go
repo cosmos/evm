@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/types"
 )
 
@@ -38,6 +39,7 @@ func NewEmptyTxConfig() TxConfig {
 // It's mainly to reduce the number of method parameters
 type EVMConfig struct {
 	Params                  types.Params
+	FeeMarketParams         feemarkettypes.Params
 	CoinBase                common.Address
 	BaseFee                 *big.Int
 	EnablePreimageRecording bool

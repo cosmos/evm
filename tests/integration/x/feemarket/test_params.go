@@ -62,7 +62,7 @@ func (s *KeeperTestSuite) TestSetGetParams() {
 				return true
 			},
 			func() interface{} {
-				return nw.App.GetFeeMarketKeeper().GetBaseFeeEnabled(ctx)
+				return nw.App.GetFeeMarketKeeper().GetParams(ctx).IsBaseFeeEnabled(ctx.BlockHeight())
 			},
 			true,
 		},
@@ -76,7 +76,7 @@ func (s *KeeperTestSuite) TestSetGetParams() {
 				return true
 			},
 			func() interface{} {
-				return nw.App.GetFeeMarketKeeper().GetBaseFeeEnabled(ctx)
+				return nw.App.GetFeeMarketKeeper().GetParams(ctx).IsBaseFeeEnabled(ctx.BlockHeight())
 			},
 			false,
 		},
