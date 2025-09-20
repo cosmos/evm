@@ -94,11 +94,13 @@ jobs:
         with:
           script: |
             const commentId = parseInt('${{ steps.pr_comment.outputs.result }}');
-            const maxWaitTime = 300000; // 5 minutes
-            const pollInterval = 10000; // 10 seconds
+            console.log('Starting wait for user reaction, commentId:', commentId);
+            const maxWaitTime = 60000; // 1 minute for testing
+            const pollInterval = 5000; // 5 seconds
             let elapsedTime = 0;
 
             while (elapsedTime < maxWaitTime) {
+              console.log(`Polling for reactions (${elapsedTime/1000}s elapsed)...`);
               const { data: reactions } = await github.rest.reactions.listForIssueComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -110,11 +112,11 @@ jobs:
 
               if (thumbsUp) {
                 console.log('User approved changes with 👍');
-                core.setOutput('result', 'approve');
+                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=approve\\n');
                 return 'approve';
               } else if (thumbsDown) {
                 console.log('User declined changes with 👎');
-                core.setOutput('result', 'decline');
+                require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\\n');
                 return 'decline';
               }
 
@@ -123,8 +125,16 @@ jobs:
             }
 
             console.log('Timeout reached, defaulting to decline');
-            core.setOutput('result', 'decline');
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'result=decline\\n');
             return 'decline';
+
+      - name: Debug wait reaction step
+        if: always()
+        run: |
+          echo "🔍 Checking if wait_reaction step ran..."
+          echo "Wait reaction step conclusion: ${{ steps.wait_reaction.conclusion }}"
+          echo "Wait reaction step outcome: ${{ steps.wait_reaction.outcome }}"
+          echo "Wait reaction step outputs.result: '${{ steps.wait_reaction.outputs.result }}'"
 
       - name: Always debug outputs
         run: |
