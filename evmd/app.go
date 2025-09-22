@@ -786,7 +786,7 @@ func NewExampleApp(
 		defaultConfig.GlobalSlots *= 30
 		defaultConfig.GlobalQueue *= 30
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			LegacyPoolConfig: &legacypool.Config{},
+			LegacyPoolConfig: &defaultConfig,
 			AnteHandler:      app.GetAnteHandler(),
 			BlockGasLimit:    blockGasLimit,
 			MinTip:           mipTip,
