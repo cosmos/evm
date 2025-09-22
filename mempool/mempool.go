@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cosmos/evm/mempool/txpool/locals"
 	"sync"
+	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -46,9 +48,10 @@ type (
 		vmKeeper VMKeeperI
 
 		/** Mempools **/
-		txPool       *txpool.TxPool
-		legacyTxPool *legacypool.LegacyPool
-		cosmosPool   sdkmempool.ExtMempool
+		txPool         *txpool.TxPool
+		legacyTxPool   *legacypool.LegacyPool
+		localTxTracker *locals.TxTracker
+		cosmosPool     sdkmempool.ExtMempool
 
 		/** Utils **/
 		logger        log.Logger
@@ -127,6 +130,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		// from queued into pending, noting their readiness to be executed.
 		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
 			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
+			fmt.Println(clientCtx)
 			return broadcastEVMTransactions(clientCtx, txConfig, txs)
 		}
 	}
@@ -141,6 +145,21 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	}
 	if _, ok := txPool.Subpools[0].(*legacypool.LegacyPool); !ok {
 		panic("tx pool should contain only legacypool")
+	}
+
+	var localTxTracker *locals.TxTracker
+
+	if !legacyConfig.NoLocals {
+		rejournal := legacyConfig.Rejournal
+		if rejournal < time.Second {
+			logger.Debug("Sanitizing invalid txpool journal time", "provided", rejournal, "updated", time.Second)
+			rejournal = time.Second
+		}
+		localTxTracker = locals.New(legacyConfig.Journal, rejournal, blockchain.Config(), txPool)
+		err := localTxTracker.Start()
+		if err != nil {
+			return nil
+		}
 	}
 
 	// Create Cosmos Mempool from configuration
@@ -174,18 +193,19 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:      vmKeeper,
-		txPool:        txPool,
-		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:    cosmosPool,
-		logger:        logger,
-		txConfig:      txConfig,
-		blockchain:    blockchain,
-		bondDenom:     bondDenom,
-		evmDenom:      evmDenom,
-		blockGasLimit: config.BlockGasLimit,
-		minTip:        config.MinTip,
-		anteHandler:   config.AnteHandler,
+		vmKeeper:       vmKeeper,
+		txPool:         txPool,
+		legacyTxPool:   txPool.Subpools[0].(*legacypool.LegacyPool),
+		localTxTracker: localTxTracker,
+		cosmosPool:     cosmosPool,
+		logger:         logger,
+		txConfig:       txConfig,
+		blockchain:     blockchain,
+		bondDenom:      bondDenom,
+		evmDenom:       evmDenom,
+		blockGasLimit:  config.BlockGasLimit,
+		minTip:         config.MinTip,
+		anteHandler:    config.AnteHandler,
 	}
 
 	vmKeeper.SetEvmMempool(evmMempool)
@@ -303,6 +323,10 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	if m.blockchain.latestCtx.BlockHeight() == 0 {
+		return nil
+	}
+
 	m.logger.Debug("removing transaction from mempool")
 
 	msg, err := m.getEVMMessage(tx)
@@ -417,6 +441,10 @@ func (m *ExperimentalEVMMempool) Close() error {
 
 	if err := m.txPool.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close txpool: %w", err))
+	}
+
+	if err := m.localTxTracker.Stop(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close localTxTracker: %w", err))
 	}
 
 	return errors.Join(errs...)
