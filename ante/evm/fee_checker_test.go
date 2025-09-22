@@ -58,9 +58,9 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      without extension option
 	//      london hardfork enableness
 
-	err := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, false).Apply()
+	err := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, false).Apply()
 	require.NoError(t, err)
-	encodingConfig := encoding.MakeConfig(evmconfig.DefaultEvmChainID)
+	encodingConfig := encoding.MakeConfig(evmtypes.DefaultEvmChainID)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))

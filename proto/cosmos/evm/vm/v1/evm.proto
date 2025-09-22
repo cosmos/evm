@@ -36,6 +36,7 @@ message Params {
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
   uint64 history_serve_window = 10;
+  uint64 evm_chain_id = 11;
 }
 
 // AccessControl defines the permission policy of the EVM
@@ -185,10 +186,12 @@ message ChainConfig {
   reserved 22, 23;
   // chain_id is the id of the chain (EIP-155)
   uint64 chain_id = 24;
-  // denom is the denomination used on the EVM
-  string denom = 25;
-  // decimals is the real decimal precision of the denomination used on the EVM
-  uint64 decimals = 26;
+//  // denom is the denomination used on the EVM
+//  string denom = 25;
+//  // decimals is the real decimal precision of the denomination used on the EVM
+//  uint64 decimals = 26;
+
+  reserved 25, 26;
 
   // shanghai_time: Shanghai switch time (nil = no fork, 0 = already on
   // shanghai)

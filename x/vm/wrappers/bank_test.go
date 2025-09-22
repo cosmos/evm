@@ -104,7 +104,7 @@ func TestMintAmountToAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -226,7 +226,7 @@ func TestBurnAmountFromAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -388,7 +388,7 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -550,7 +550,7 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -689,7 +689,7 @@ func TestGetBalance(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -837,7 +837,7 @@ func TestSppendableCoin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")

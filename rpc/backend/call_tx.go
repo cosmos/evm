@@ -42,13 +42,7 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	// signers to be backwards-compatible with old transactions.
 	cfg := b.ChainConfig()
 	if cfg == nil {
-		coinInfo := evmtypes.EvmCoinInfo{
-			DisplayDenom:  evmtypes.GetEVMCoinDisplayDenom(),
-			Decimals:      evmtypes.GetEVMCoinDecimals(),
-			BaseDenom:     evmtypes.GetEVMCoinDenom(),
-			ExtendedDenom: evmtypes.GetEVMCoinExtendedDenom(),
-		}
-		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64(), coinInfo).EthereumConfig(nil)
+		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64()).EthereumConfig(nil)
 	}
 
 	signer := ethtypes.LatestSigner(cfg)

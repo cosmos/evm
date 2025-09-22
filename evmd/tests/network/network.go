@@ -122,7 +122,7 @@ func DefaultConfig() Config {
 	if err := chainConfig.ApplyChainConfig(); err != nil {
 		panic(err)
 	}
-	tempApp := evmdapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), chainConfig, baseapp.SetChainID(chainID))
+	tempApp := evmdapp.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -165,14 +165,7 @@ func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
 		if err := chainConfig.ApplyChainConfig(); err != nil {
 			panic(err)
 		}
-		return evmdapp.NewExampleApp(
-			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
-			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			chainConfig,
-			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
-			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
-			baseapp.SetChainID(chainID),
-		)
+		return evmdapp.NewExampleApp(val.Ctx.Logger, dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir), baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)), baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices), baseapp.SetChainID(chainID))
 	}
 }
 

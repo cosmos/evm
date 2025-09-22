@@ -20,7 +20,7 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	if bz == nil {
 		return params
 	}
-	k.cdc.MustUnmarshal(bz, &params)
+	k.encodingConfig.Codec.MustUnmarshal(bz, &params)
 	return
 }
 
@@ -35,7 +35,7 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 	}
 
 	store := ctx.KVStore(k.storeKey)
-	bz, err := k.cdc.Marshal(&params)
+	bz, err := k.encodingConfig.Codec.Marshal(&params)
 	if err != nil {
 		return err
 	}

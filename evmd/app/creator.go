@@ -92,7 +92,6 @@ func (a AppCreator) newApp(
 		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
-		nil,
 		baseappOptions...,
 	)
 }

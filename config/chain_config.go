@@ -9,10 +9,7 @@ func NewDefaultEvmConfig(
 	evmChainID uint64,
 	reset bool,
 ) *evmtypes.EvmConfig {
-	chainConfig := evmtypes.DefaultChainConfig(
-		DefaultEvmChainID,
-		DefaultEvmCoinInfo,
-	)
+	chainConfig := evmtypes.DefaultChainConfig(evmtypes.DefaultEvmChainID)
 	return evmtypes.NewEvmConfig().
 		WithChainConfig(chainConfig).
 		WithExtendedEips(eips.CosmosEVMActivators)

@@ -1,11 +1,4 @@
-package config
-
-import (
-	serverflags "github.com/cosmos/evm/server/config"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-)
-
-const ()
+package types
 
 const (
 	// DefaultGasPrice is the default gas price used for setting gas-related calculations
@@ -13,7 +6,7 @@ const (
 	// DefaultChainID is the default chain ID
 	DefaultChainID = "cosmos"
 	// DefaultEvmChainID defines the default EVM chain ID
-	DefaultEvmChainID = serverflags.DefaultEVMChainID
+	DefaultEvmChainID = 262144
 	// DefaultDisplayDenom defines the display denom for the default EVM coin info
 	DefaultDisplayDenom = "atom"
 	// DefaultExtendedDenom defines the extended denom for the default EVM coin info
@@ -21,12 +14,12 @@ const (
 	// DefaultBaseDenom defines the base denom for the default EVM coin info
 	DefaultBaseDenom = "aatom"
 	// DefaultDecimals defines the decimals for the default EVM coin info
-	DefaultDecimals = evmtypes.EighteenDecimals
+	DefaultDecimals = EighteenDecimals
 	// DefaultWevmosContractMainnet is the default WEVMOS contract address for mainnet
 	DefaultWevmosContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
 )
 
-var DefaultEvmCoinInfo = evmtypes.EvmCoinInfo{
+var DefaultEvmCoinInfo = EvmCoinInfo{
 	DisplayDenom:  DefaultDisplayDenom,
 	Decimals:      DefaultDecimals,
 	BaseDenom:     DefaultBaseDenom,

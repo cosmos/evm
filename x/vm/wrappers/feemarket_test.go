@@ -91,7 +91,7 @@ func TestGetBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			require.NoError(t, evmConfig.Apply(), "failed to apply EvmConfig")
 			err := types.SetEVMCoinInfo(tc.coinInfo)
@@ -182,7 +182,7 @@ func TestCalculateBaseFee(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM evmConfig to have access to the EVM coin info.
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
@@ -259,7 +259,7 @@ func TestGetParams(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup EVM evmConfig to have access to the EVM coin info.
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")

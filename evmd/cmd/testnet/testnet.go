@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	types2 "github.com/cosmos/evm/x/vm/types"
 	"net"
 	"os"
 	"path/filepath"
@@ -268,7 +269,7 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = config.DefaultEvmChainID
+	evm.EVMChainID = types2.DefaultEvmChainID
 	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,

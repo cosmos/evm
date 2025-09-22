@@ -4,7 +4,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	enccodec "github.com/cosmos/evm/encoding/codec"
-	"github.com/cosmos/evm/ethereum/eip712"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -30,7 +29,7 @@ type Config struct {
 }
 
 // MakeConfig creates a new Config and returns it
-func MakeConfig(evmChainID uint64) Config {
+func MakeConfig() Config {
 	cdc := amino.NewLegacyAmino()
 	signingOptions := signing.Options{
 		AddressCodec: address.Bech32Codec{
@@ -56,7 +55,6 @@ func MakeConfig(evmChainID uint64) Config {
 	// This is needed for the EIP712 txs because currently is using
 	// the deprecated method legacytx.StdSignBytes
 	legacytx.RegressionTestingAminoCodec = cdc
-	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
 	return Config{
 		InterfaceRegistry: interfaceRegistry,

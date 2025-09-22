@@ -76,7 +76,7 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			require.NoError(t, evmConfig.Apply())
 			require.NoError(t, evmtypes.SetEVMCoinInfo(tc.evmCoinInfo))

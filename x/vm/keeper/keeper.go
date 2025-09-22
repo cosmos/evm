@@ -2,6 +2,9 @@ package keeper
 
 import (
 	"encoding/binary"
+	"github.com/cosmos/evm/config/eips"
+	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/ethereum/eip712"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,14 +27,12 @@ import (
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
 type Keeper struct {
-	// Protobuf codec
-	cdc codec.BinaryCodec
+	encodingConfig *encoding.Config
 	// Store key required for the EVM Prefix KVStore. It is required by:
 	// - storing account's Storage State
 	// - storing account's Code
@@ -85,7 +86,7 @@ type Keeper struct {
 
 // NewKeeper generates new evm module keeper
 func NewKeeper(
-	cdc codec.BinaryCodec,
+	encodingConfig *encoding.Config,
 	storeKey, transientKey storetypes.StoreKey,
 	keys map[string]*storetypes.KVStoreKey,
 	authority sdk.AccAddress,
@@ -96,6 +97,7 @@ func NewKeeper(
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
+	evmChainID uint64,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -110,9 +112,27 @@ func NewKeeper(
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
+	eip712.SetEncodingConfig(encodingConfig.Amino, encodingConfig.InterfaceRegistry, evmChainID)
+
+	chainConfig := types.DefaultChainConfig(
+		evmChainID,
+	)
+	evmConfig := types.NewEvmConfig().
+		WithChainConfig(chainConfig).
+		WithExtendedEips(eips.CosmosEVMActivators)
+
+	// NOTE: the default chain id serves as a marker denoting that we're in our "temporary app" stage of the root command.
+	// Is there a better way to do this?
+	if chainConfig.ChainId != types.DefaultEvmChainID {
+		err := evmConfig.Apply()
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
-		cdc:              cdc,
+		encodingConfig:   encodingConfig,
 		authority:        authority,
 		accountKeeper:    ak,
 		bankWrapper:      bankWrapper,
@@ -443,4 +463,9 @@ func (k Keeper) GetHeaderHash(ctx sdk.Context, height uint64) common.Hash {
 	var key common.Hash
 	binary.BigEndian.PutUint64(key[24:], ringIndex)
 	return k.GetState(ctx, ethparams.HistoryStorageAddress, key)
+}
+
+// GetEncodingConfig gets the encoding config for the VM module
+func (k Keeper) GetEncodingConfig() *encoding.Config {
+	return k.encodingConfig
 }

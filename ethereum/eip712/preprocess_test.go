@@ -57,7 +57,7 @@ type TestCaseStruct struct {
 func TestLedgerPreprocessing(t *testing.T) {
 	// Update bech32 prefix
 	sdk.GetConfig().SetBech32PrefixForAccount(sdk.Bech32MainPrefix, "")
-	evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+	evmConfig := evmconfig.NewDefaultEvmConfig(evmtypes.DefaultEvmChainID, true)
 	evmConfig.ResetTestConfig()
 	err := evmConfig.Apply()
 	require.NoError(t, err)

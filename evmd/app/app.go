@@ -205,48 +205,13 @@ type EVMD struct {
 }
 
 // NewExampleApp returns a reference to an initialized EVMD.
-func NewExampleApp(
-	logger log.Logger,
-	db dbm.DB,
-	traceStore io.Writer,
-	loadLatest bool,
-	appOpts servertypes.AppOptions,
-	evmConfig *evmtypes.EvmConfig,
-	baseAppOptions ...func(*baseapp.BaseApp),
-) *EVMD {
-	evmChainID := config.GetEvmChainIDWithDefault(appOpts, evmConfig, logger)
-	encodingConfig := evmosencoding.MakeConfig(evmChainID)
+func NewExampleApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool, appOpts servertypes.AppOptions, baseAppOptions ...func(*baseapp.BaseApp)) *EVMD {
+	encodingConfig := evmosencoding.MakeConfig()
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
-
-	// Below we could construct and set an application specific mempool and
-	// ABCI 1.0 PrepareProposal and ProcessProposal handlers. These defaults are
-	// already set in the SDK's BaseApp, this shows an example of how to override
-	// them.
-	//
-	// Example:
-	//
-	// bApp := baseapp.NewBaseApp(...)
-	// nonceMempool := evmmempool.NewSenderNonceMempool()
-	// abciPropHandler := NewDefaultProposalHandler(nonceMempool, bApp)
-	//
-	// bApp.SetMempool(nonceMempool)
-	// bApp.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
-	// bApp.SetProcessProposal(abciPropHandler.ProcessProposalHandler())
-	//
-	// Alternatively, you can construct BaseApp options, append those to
-	// baseAppOptions and pass them to NewBaseApp.
-	//
-	// Example:
-	//
-	// prepareOpt = func(app *baseapp.BaseApp) {
-	// 	abciPropHandler := baseapp.NewDefaultProposalHandler(nonceMempool, app)
-	// 	app.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
-	// }
-	// baseAppOptions = append(baseAppOptions, prepareOpt)
 
 	bApp := baseapp.NewBaseApp(
 		appName,
@@ -260,15 +225,6 @@ func NewExampleApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
-
-	// initialize the Cosmos EVM application configuration, if not already initialized
-	if evmConfig == nil {
-		evmConfig = config.NewDefaultEvmConfig(evmChainID, false)
-	}
-
-	if err := evmConfig.Apply(); err != nil {
-		panic(err)
-	}
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -476,11 +432,15 @@ func NewExampleApp(
 
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
+	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
+	if evmChainID == 0 {
+		evmChainID = evmtypes.DefaultEvmChainID
+	}
 
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		&encodingConfig, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -489,6 +449,7 @@ func NewExampleApp(
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		tracer,
+		evmChainID,
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -756,7 +717,7 @@ func NewExampleApp(
 
 	// set the EVM priority nonce mempool
 	// If you wish to use the noop mempool, remove this codeblock
-	if evmConfig != nil {
+	if evmtypes.GetChainConfig() != nil {
 		// Get the block gas limit from genesis file
 		blockGasLimit := config.GetBlockGasLimit(appOpts, logger)
 		// Get GetMinTip from app.toml or cli flag configuration
@@ -895,11 +856,6 @@ func (app *EVMD) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
-
-	//// Perform cross-module genesis validation before initialization
-	//if err := app.validateCrossModuleGenesis(genesisState); err != nil {
-	//	panic(fmt.Errorf("cross-module genesis validation failed: %w", err))
-	//}
 
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		panic(err)

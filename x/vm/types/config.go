@@ -4,6 +4,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )
@@ -13,6 +14,7 @@ func (ec *EvmConfig) Apply() error {
 	// If Apply method has been already used in the object, return nil and no not overwrite
 	// This retains the previous silent behavior
 	if IsSealed() {
+		fmt.Println("already sealed")
 		return nil
 	}
 

@@ -144,9 +144,9 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 }
 
 func TestMonoDecorator(t *testing.T) {
-	evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, false)
+	evmConfig := evmconfig.NewDefaultEvmConfig(evmsdktypes.DefaultEvmChainID, false)
 	require.NoError(t, evmConfig.Apply())
-	cfg := encoding.MakeConfig(evmconfig.DefaultEvmChainID)
+	cfg := encoding.MakeConfig(evmsdktypes.DefaultEvmChainID)
 
 	testCases := []struct {
 		name      string

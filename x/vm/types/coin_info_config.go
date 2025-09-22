@@ -60,6 +60,11 @@ func SetEVMCoinInfo(eci EvmCoinInfo) error {
 	return nil
 }
 
+// SetEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
+func GetEVMCoinInfo() *EvmCoinInfo {
+	return evmCoinInfo
+}
+
 // setBaseDenom registers the display denom and base denom and sets the
 // base denom for the chain. The function registered different values based on
 // the EvmCoinInfo to allow different configurations in mainnet and testnet.

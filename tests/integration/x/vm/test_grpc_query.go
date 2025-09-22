@@ -1604,7 +1604,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+				evmConfig := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true)
 				evmConfig.ResetTestConfig()
 				s.Require().NoError(evmConfig.Apply())
 				err := types.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
@@ -1656,7 +1656,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true)
 			evmConfig.ResetTestConfig()
 			err = types.SetEVMCoinInfo(coinInfo)
 			s.Require().NoError(err)

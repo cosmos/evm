@@ -2,7 +2,6 @@ package vm
 
 import (
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -19,8 +18,6 @@ func InitGenesis(
 	ctx sdk.Context,
 	k *keeper.Keeper,
 	accountKeeper types.AccountKeeper,
-	stakingKeeper types.StakingKeeper,
-	bankKeeper types.BankKeeper,
 	data types.GenesisState,
 ) []abci.ValidatorUpdate {
 	err := k.SetParams(ctx, data.Params)

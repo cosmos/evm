@@ -55,7 +55,7 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 	}
 }
 
-func DefaultChainConfig(evmChainID uint64, coinInfo EvmCoinInfo) *ChainConfig {
+func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 	homesteadBlock := sdkmath.ZeroInt()
 	daoForkBlock := sdkmath.ZeroInt()
 	eip150Block := sdkmath.ZeroInt()
@@ -77,8 +77,6 @@ func DefaultChainConfig(evmChainID uint64, coinInfo EvmCoinInfo) *ChainConfig {
 
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
-		Denom:               coinInfo.GetDenom(),
-		Decimals:            uint64(coinInfo.Decimals),
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,

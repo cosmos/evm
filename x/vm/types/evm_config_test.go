@@ -12,7 +12,7 @@ import (
 )
 
 func TestEvmConfigApply(t *testing.T) {
-	evmConfigurator := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+	evmConfigurator := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true)
 	evmConfigurator.ResetTestConfig()
 	err := types.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestExtendedEips(t *testing.T) {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					3855: func(_ *vm.JumpTable) {},
 				}
-				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
+				ec := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -48,7 +48,7 @@ func TestExtendedEips(t *testing.T) {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					0o000: func(_ *vm.JumpTable) {},
 				}
-				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
+				ec := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -85,7 +85,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1000}
 				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, 1000)
-				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
+				ec := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -100,7 +100,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			"success - empty default extra eip",
 			func() *types.EvmConfig {
 				var extendedDefaultExtraEIPs []int64
-				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
+				ec := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -114,7 +114,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			"success - extra default eip added",
 			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1001}
-				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
+				ec := evmconfig.NewDefaultEvmConfig(types.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},

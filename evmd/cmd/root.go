@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"github.com/cosmos/evm/x/vm/types"
 	"io"
 	"os"
 
@@ -64,7 +65,6 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		nil,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -130,7 +130,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(evmconfig.DefaultEvmCoinInfo.GetDenom(), evmconfig.DefaultEvmChainID)
+			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(types.DefaultEvmCoinInfo.GetDenom(), types.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, *customAppConfig, customTMConfig)
@@ -141,7 +141,7 @@ func NewRootCmd() *cobra.Command {
 
 	if initClientCtx.ChainID == "" {
 		// if the chain id is not set in client.toml, populate it with the default evm chain id
-		initClientCtx = initClientCtx.WithChainID(evmconfig.DefaultChainID)
+		initClientCtx = initClientCtx.WithChainID(types.DefaultChainID)
 	}
 	initClientCtx, _ = sdkclientcfg.ReadFromClientConfig(initClientCtx)
 
@@ -314,12 +314,7 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
-	return evmdapp.NewExampleApp(
-		logger, db, traceStore, true,
-		appOpts,
-		nil,
-		baseappOptions...,
-	)
+	return evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, baseappOptions...)
 }
 
 // appExport creates a new application (optionally at a given height) and exports state.
@@ -358,13 +353,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, nil, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, nil, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

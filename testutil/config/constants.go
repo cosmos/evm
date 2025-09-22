@@ -1,7 +1,6 @@
 package config
 
 import (
-	evmconfig "github.com/cosmos/evm/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -48,11 +47,11 @@ var (
 		ExtendedDenom: "atest2",
 	}
 	// ExampleAttoDenom provides an example denom for use in tests
-	ExampleAttoDenom = evmconfig.DefaultEvmCoinInfo.GetDenom()
+	ExampleAttoDenom = evmtypes.DefaultEvmCoinInfo.GetDenom()
 	// ExampleMicroDenom provides an example micro denom for use in tests
 	ExampleMicroDenom = SixDecimalEvmCoinInfo.GetDenom()
 	// WevmosContractMainnet is the WEVMOS contract address for mainnet
-	WevmosContractMainnet = evmconfig.DefaultWevmosContractMainnet
+	WevmosContractMainnet = evmtypes.DefaultWevmosContractMainnet
 	// WevmosContractTestnet is the WEVMOS contract address for testnet
 	WevmosContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
 	// ExampleEvmAddress1 is the example EVM address
@@ -64,13 +63,13 @@ var (
 // TestChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
 // used to initialize the app with different coin info based on the chain id
 var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
-	TestChainID1:                evmconfig.DefaultEvmCoinInfo,
-	TestChainID2:                evmconfig.DefaultEvmCoinInfo,
-	TwoDecimalsChainID:          TwoDecimalEvmCoinInfo,
-	SixDecimalsChainID:          SixDecimalEvmCoinInfo,
-	TwelveDecimalsChainID:       TwelveDecimalEvmCoinInfo,
-	EighteenDecimalsChainID:     evmconfig.DefaultEvmCoinInfo,
-	evmconfig.DefaultEvmChainID: evmconfig.DefaultEvmCoinInfo,
+	TestChainID1:               evmtypes.DefaultEvmCoinInfo,
+	TestChainID2:               evmtypes.DefaultEvmCoinInfo,
+	TwoDecimalsChainID:         TwoDecimalEvmCoinInfo,
+	SixDecimalsChainID:         SixDecimalEvmCoinInfo,
+	TwelveDecimalsChainID:      TwelveDecimalEvmCoinInfo,
+	EighteenDecimalsChainID:    evmtypes.DefaultEvmCoinInfo,
+	evmtypes.DefaultEvmChainID: evmtypes.DefaultEvmCoinInfo,
 }
 
 // TODO: consolidate the ChainID and uint64 maps and update tests accordingly
@@ -127,7 +126,7 @@ var (
 
 // ExampleChainCoinInfo provides the coin info for the example chain
 var ExampleChainCoinInfo = map[ChainID]evmtypes.EvmCoinInfo{
-	ExampleChainID:               evmconfig.DefaultEvmCoinInfo,
+	ExampleChainID:               evmtypes.DefaultEvmCoinInfo,
 	ExampleTwoDecimalsChainID:    TwoDecimalEvmCoinInfo,
 	ExampleSixDecimalsChainID:    SixDecimalEvmCoinInfo,
 	ExampleTwelveDecimalsChainID: TwelveDecimalEvmCoinInfo,

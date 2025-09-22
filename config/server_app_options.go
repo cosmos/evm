@@ -145,7 +145,7 @@ func GetEvmChainIDWithDefault(
 		logger.Warn("failed to get evm chain config, evm chain config is nil")
 	}
 
-	logger.Info("failed to get evm chain id, using default evm chain id", "default_evm_chain_id", DefaultEvmChainID)
+	logger.Info("failed to get evm chain id, using default evm chain id", "default_evm_chain_id", evmtypes.DefaultEvmChainID)
 
-	return DefaultEvmChainID
+	return evmtypes.DefaultEvmChainID
 }

@@ -3,7 +3,6 @@ package app
 import (
 	"encoding/json"
 
-	"github.com/cosmos/evm/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -40,7 +39,7 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconfig.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{config.DefaultWevmosContractMainnet}
+	erc20GenState.NativePrecompiles = []string{evmtypes.DefaultWevmosContractMainnet}
 
 	return erc20GenState
 }
@@ -50,7 +49,7 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 // NOTE: for the example chain implementation we are also adding a default minter.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = config.DefaultEvmCoinInfo.GetDenom()
+	mintGenState.Params.MintDenom = evmtypes.DefaultEvmCoinInfo.GetDenom()
 
 	return mintGenState
 }

@@ -253,6 +253,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   jq '.app_state["gov"]["params"]["min_deposit"][0]["denom"]="'$EXTENDED_DENOM'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["gov"]["params"]["expedited_min_deposit"][0]["denom"]="'$EXTENDED_DENOM'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["evm"]["params"]["evm_denom"]="'$EXTENDED_DENOM'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state["evm"]["params"]["evm_chain_id"]="'4221'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state["mint"]["params"]["mint_denom"]="'$EXTENDED_DENOM'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   jq '.app_state["bank"]["denom_metadata"]=[{"description":"The native staking token for evmd.","denom_units":[{"denom":"'$EXTENDED_DENOM'","exponent":0,"aliases":["atto'$DISPLAY_DENOM'"]},{"denom":"'$DISPLAY_DENOM'","exponent":'$DECIMALS',"aliases":[]}],"base":"'$EXTENDED_DENOM'","display":"'$DISPLAY_DENOM'","name":"'$DISPLAY_DENOM'","symbol":"'$DISPLAY_DENOM'","uri":"","uri_hash":""}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"

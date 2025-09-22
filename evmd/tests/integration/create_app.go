@@ -34,15 +34,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	return evmdapp.NewExampleApp(
-		logger,
-		db,
-		nil,
-		loadLatest,
-		appOptions,
-		nil,
-		baseAppOptions...,
-	)
+	return evmdapp.NewExampleApp(logger, db, nil, loadLatest, appOptions, baseAppOptions...)
 }
 
 // SetupEvmd initializes a new evmd app with default genesis state.

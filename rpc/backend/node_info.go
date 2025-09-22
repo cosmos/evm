@@ -11,7 +11,6 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
@@ -345,7 +344,7 @@ func (b *Backend) RPCMinGasPrice() *big.Int {
 	minGasPrice := b.Cfg.GetMinGasPrices()
 	amt := minGasPrice.AmountOf(baseDenom)
 	if amt.IsNil() || amt.IsZero() {
-		return big.NewInt(evmconfig.DefaultGasPrice)
+		return big.NewInt(evmtypes.DefaultGasPrice)
 	}
 
 	return evmtypes.ConvertAmountTo18DecimalsLegacy(amt).TruncateInt().BigInt()
