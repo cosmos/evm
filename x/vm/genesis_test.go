@@ -27,27 +27,21 @@ func TestDeriveEvmCoinInfoFromBankMetadata(t *testing.T) {
 				Display:     "test",
 				DenomUnits: []*banktypes.DenomUnit{
 					{Denom: "atest", Exponent: 0},
-					{Denom: "test", Exponent: 18},
+					{Denom: "atest", Exponent: 0},
 				},
 			},
 			evmDenom:    "atest",
-			expectError: false,
-			expectedInfo: types.EvmCoinInfo{
-				DisplayDenom:     "test",
-				Decimals:         types.EighteenDecimals,
-				ExtendedDecimals: types.EighteenDecimals,
-			},
+			expectError: true,
 		},
 		{
-			name: "valid 6-decimal token with atto alias",
+			name: "valid 6-decimal token",
 			metadata: banktypes.Metadata{
-				Description: "Test token with 6 decimals and atto alias",
+				Description: "Test token with 6 decimals",
 				Base:        "utest",
 				Display:     "test",
 				DenomUnits: []*banktypes.DenomUnit{
 					{Denom: "utest", Exponent: 0},
-					{Denom: "test", Exponent: 6},
-					{Denom: "atest", Exponent: 18, Aliases: []string{"attotest"}},
+					{Denom: "utest", Exponent: 12},
 				},
 			},
 			evmDenom:    "utest",
@@ -59,14 +53,13 @@ func TestDeriveEvmCoinInfoFromBankMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid - no 18-decimal variant",
+			name: "invalid - not exactly 2 denom units",
 			metadata: banktypes.Metadata{
-				Description: "Test token without 18-decimal variant",
+				Description: "Test token with wrong number of units",
 				Base:        "utest",
 				Display:     "test",
 				DenomUnits: []*banktypes.DenomUnit{
 					{Denom: "utest", Exponent: 0},
-					{Denom: "test", Exponent: 6},
 				},
 			},
 			evmDenom:    "utest",
@@ -80,10 +73,38 @@ func TestDeriveEvmCoinInfoFromBankMetadata(t *testing.T) {
 				Display:     "test",
 				DenomUnits: []*banktypes.DenomUnit{
 					{Denom: "utest", Exponent: 0},
-					{Denom: "test", Exponent: 18},
+					{Denom: "utest", Exponent: 12},
 				},
 			},
-			evmDenom:    "atest", // Different from metadata base
+			evmDenom:    "mtest",
+			expectError: true,
+		},
+		{
+			name: "invalid - display denom mismatch",
+			metadata: banktypes.Metadata{
+				Description: "Test token with display denom mismatch",
+				Base:        "utest",
+				Display:     "test",
+				DenomUnits: []*banktypes.DenomUnit{
+					{Denom: "utest", Exponent: 0},
+					{Denom: "uwrong", Exponent: 12},
+				},
+			},
+			evmDenom:    "utest",
+			expectError: true,
+		},
+		{
+			name: "invalid - invalid SI prefix",
+			metadata: banktypes.Metadata{
+				Description: "Test token with invalid SI prefix",
+				Base:        "xtest",
+				Display:     "test",
+				DenomUnits: []*banktypes.DenomUnit{
+					{Denom: "xtest", Exponent: 0},
+					{Denom: "xtest", Exponent: 12},
+				},
+			},
+			evmDenom:    "xtest",
 			expectError: true,
 		},
 	}
@@ -121,7 +142,7 @@ func TestValidateStakingBondDenomWithBankMetadata(t *testing.T) {
 		expectError      bool
 	}{
 		{
-			name:             "valid staking bond denom with 18-decimal variant",
+			name:             "valid staking bond denom with 6-decimal",
 			stakingBondDenom: "ustake",
 			bankMetadata: []banktypes.Metadata{
 				{
@@ -130,8 +151,7 @@ func TestValidateStakingBondDenomWithBankMetadata(t *testing.T) {
 					Display:     "stake",
 					DenomUnits: []*banktypes.DenomUnit{
 						{Denom: "ustake", Exponent: 0},
-						{Denom: "stake", Exponent: 6},
-						{Denom: "astake", Exponent: 18, Aliases: []string{"attostake"}},
+						{Denom: "ustake", Exponent: 12},
 					},
 				},
 			},
@@ -144,16 +164,16 @@ func TestValidateStakingBondDenomWithBankMetadata(t *testing.T) {
 			expectError:      true,
 		},
 		{
-			name:             "invalid - no 18-decimal variant",
+			name:             "invalid - invalid metadata structure",
 			stakingBondDenom: "ustake",
 			bankMetadata: []banktypes.Metadata{
 				{
-					Description: "Staking token without 18-decimal variant",
+					Description: "Staking token with invalid structure",
 					Base:        "ustake",
 					Display:     "stake",
 					DenomUnits: []*banktypes.DenomUnit{
 						{Denom: "ustake", Exponent: 0},
-						{Denom: "stake", Exponent: 6},
+						{Denom: "mstake", Exponent: 3},
 					},
 				},
 			},

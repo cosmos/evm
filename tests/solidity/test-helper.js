@@ -4,6 +4,9 @@ const { spawn } = require('child_process')
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 
+// Chain ID constant for local test node
+const TEST_CHAIN_ID = '262144'
+
 const logger = {
   warn: (msg) => console.error(`WARN: ${msg}`),
   err: (msg) => console.error(`ERR: ${msg}`),
@@ -13,33 +16,6 @@ const logger = {
 function panic (errMsg) {
   logger.err(errMsg)
   process.exit(-1)
-}
-
-// Function to extract EVMChainID from Go config file
-function extractChainIDFromGo(goFilePath) {
-  try {
-    if (!fs.existsSync(goFilePath)) {
-      logger.warn(`Go config file not found at ${goFilePath}, using default chain ID: 262144`)
-      return 262144
-    }
-
-    const goFileContent = fs.readFileSync(goFilePath, 'utf8')
-
-    // Look for DefaultEVMChainID = number
-    const chainIdMatch = goFileContent.match(/DefaultEVMChainID\s*=\s*(\d+)/)
-
-    if (chainIdMatch) {
-      const chainId = parseInt(chainIdMatch[1], 10)
-      logger.info(`Extracted DefaultEVMChainID from Go config: ${chainId}`)
-      return chainId
-    }
-
-    logger.warn('DefaultEVMChainID not found in Go file, using default: 262144')
-    return 262144
-  } catch (error) {
-    logger.warn(`Error reading Go config file: ${error.message}, using default: 262144`)
-    return 262144
-  }
 }
 
 // Function to update Hardhat config with the extracted chain ID
@@ -123,9 +99,7 @@ function syncConfiguration() {
 
   // Create backup before modifying
   const backupPath = backupHardhatConfig(hardhatConfigPath)
-
-  const chainId = extractChainIDFromGo(goConfigPath)
-  updateHardhatConfig(chainId, hardhatConfigPath)
+  updateHardhatConfig(TEST_CHAIN_ID, hardhatConfigPath)
 
   return { hardhatConfigPath, backupPath }
 }
@@ -316,7 +290,7 @@ function setupNetwork ({ runConfig, timeout }) {
     const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
     const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
 
-    const osdProc = spawn(scriptPath, ['-y'], {
+    const osdProc = spawn(scriptPath, ['-y', '-e', TEST_CHAIN_ID], {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })

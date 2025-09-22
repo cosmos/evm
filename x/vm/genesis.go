@@ -2,7 +2,6 @@ package vm
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -137,31 +136,11 @@ func ValidateStakingBondDenomWithBankMetadata(stakingBondDenom string, bankMetad
 			"The bank module genesis must include metadata for the staking bond denomination", stakingBondDenom)
 	}
 
-	// For staking bond denom, we need to ensure it has an 18-decimal variant for EVM compatibility
-	found18DecimalVariant := false
-	for _, unit := range bondMetadata.DenomUnits {
-		if unit.Exponent == 18 {
-			found18DecimalVariant = true
-			break
-		}
-		// Check aliases for 18-decimal variants (like "atto" prefix)
-		for _, alias := range unit.Aliases {
-			if strings.HasPrefix(alias, "atto") || strings.Contains(alias, "18") {
-				found18DecimalVariant = true
-				break
-			}
-		}
-		if found18DecimalVariant {
-			break
-		}
-	}
-
-	if !found18DecimalVariant {
-		return fmt.Errorf(
-			"staking bond denom %s requires an 18-decimal variant in bank metadata for EVM compatibility, "+
-				"but none found. This is required for proper EVM gas token handling",
-			stakingBondDenom,
-		)
+	// Validate that the metadata can be used to derive valid coin info for EVM compatibility
+	_, err := types.DeriveCoinInfoFromMetadata(*bondMetadata, stakingBondDenom)
+	if err != nil {
+		return fmt.Errorf("invalid bank metadata for staking bond denom %s: %w. "+
+			"The staking bond denomination requires proper EVM-compatible metadata", stakingBondDenom, err)
 	}
 
 	return nil

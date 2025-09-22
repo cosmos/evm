@@ -2,10 +2,10 @@ package types
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cosmos/evm/types"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -112,85 +112,67 @@ func ValidateGenesisWithBankMetadata(evmGenesis GenesisState, bankMetadata []ban
 
 // DeriveCoinInfoFromMetadata extracts EvmCoinInfo from bank metadata
 func DeriveCoinInfoFromMetadata(metadata banktypes.Metadata, evmDenom string) (*EvmCoinInfo, error) {
-	// Validate that the base denom matches the evm_denom
 	if metadata.Base != evmDenom {
 		return nil, fmt.Errorf("metadata base denom (%s) does not match evm_denom (%s)", metadata.Base, evmDenom)
 	}
-
-	// Find the base and display denominations
-	var baseDenomUnit *banktypes.DenomUnit
-	var displayDenomUnit *banktypes.DenomUnit
-
-	for _, unit := range metadata.DenomUnits {
-		if unit.Denom == metadata.Base {
-			baseDenomUnit = unit
-		}
-		if unit.Denom == metadata.Display {
-			displayDenomUnit = unit
-		}
+	if len(metadata.DenomUnits) != 2 {
+		return nil, fmt.Errorf("metadata must have exactly 2 denom units, got: %d", len(metadata.DenomUnits))
 	}
 
-	if baseDenomUnit == nil {
-		return nil, fmt.Errorf("base denom unit not found in metadata for denom: %s", metadata.Base)
-	}
-	if displayDenomUnit == nil {
-		return nil, fmt.Errorf("display denom unit not found in metadata for denom: %s", metadata.Display)
-	}
-
-	// Base denom should have exponent 0
-	if baseDenomUnit.Exponent != 0 {
-		return nil, fmt.Errorf("base denom unit must have exponent 0, got: %d", baseDenomUnit.Exponent)
-	}
-
-	// Calculate decimals from display unit exponent
-	decimals := Decimals(displayDenomUnit.Exponent)
-	if err := decimals.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid decimals derived from metadata: %w", err)
-	}
-
-	// For the extended decimals, we need to ensure we have an 18-decimal variant
+	foundBase := false
+	displayDenom := ""
+	baseDecimals := Decimals(0)
+	baseDecimalsInferred := Decimals(0)
 	extendedDecimals := EighteenDecimals
 
-	// If the base decimals are already 18, use them as extended decimals
-	if decimals == EighteenDecimals {
-		extendedDecimals = decimals
-	} else {
-		// For non-18 decimal tokens, we require that there is an 18-decimal variant
-		// This would typically be handled by the precisebank module
-		// Check if there's an atto-variant or 18-decimal alias
-		found18DecimalVariant := false
-		for _, unit := range metadata.DenomUnits {
-			if unit.Exponent == 18 {
-				found18DecimalVariant = true
-				break
+	for _, unit := range metadata.DenomUnits {
+		if unit.Denom == metadata.Base && unit.Exponent == 0 {
+			if sdk.ValidateDenom(unit.Denom) != nil {
+				return nil, fmt.Errorf("invalid base denom: %s", unit.Denom)
 			}
-			// Check aliases for 18-decimal variants (like "atto" prefix)
-			for _, alias := range unit.Aliases {
-				if strings.HasPrefix(alias, "atto") || strings.Contains(alias, "18") {
-					found18DecimalVariant = true
-					break
-				}
+			displayDenom = unit.Denom[1:]
+			dec, err := DecimalsFromSIPrefix(unit.Denom[:1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid base denom: %s, %w", unit.Denom, err)
 			}
-			if found18DecimalVariant {
-				break
-			}
+			baseDecimalsInferred = dec
+			foundBase = true
+			continue
 		}
 
-		if !found18DecimalVariant {
-			return nil, fmt.Errorf(
-				"evm_denom %s requires an 18-decimal variant in bank metadata for EVM compatibility, but none found",
-				evmDenom,
-			)
+		if sdk.ValidateDenom(unit.Denom) != nil {
+			return nil, fmt.Errorf("invalid extended denom: %s", unit.Denom)
 		}
+		dd := unit.Denom[1:]
+		if dd != displayDenom {
+			return nil, fmt.Errorf("display denom mismatch: %s != %s", dd, displayDenom)
+		}
+		decInferred, err := DecimalsFromSIPrefix(unit.Denom[:1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid extended denom: %s, %w", unit.Denom, err)
+		}
+		baseDecs := EighteenDecimals - Decimals(unit.Exponent)
+		if baseDecs != decInferred {
+			return nil, fmt.Errorf("extended decimals mismatch: %s != %s", extendedDecimals, decInferred)
+		}
+		baseDecimals = decInferred
+		if baseDecimalsInferred != baseDecimals {
+			return nil, fmt.Errorf("base decimals mismatch: %s != %s", baseDecimalsInferred, baseDecimals)
+		}
+	}
+
+	if baseDecimals == 0 || extendedDecimals == 0 || displayDenom == "" || !foundBase {
+		return nil, fmt.Errorf(
+			"invalid base or extended denom: %s, %s, %s, %t",
+			baseDecimals, extendedDecimals, displayDenom, foundBase,
+		)
 	}
 
 	coinInfo := &EvmCoinInfo{
-		DisplayDenom:     metadata.Display,
-		Decimals:         decimals,
+		DisplayDenom:     displayDenom,
+		Decimals:         baseDecimals,
 		ExtendedDecimals: extendedDecimals,
 	}
-
-	// Validate the derived coin info
 	if err := coinInfo.Validate(); err != nil {
 		return nil, fmt.Errorf("derived coin info is invalid: %w", err)
 	}

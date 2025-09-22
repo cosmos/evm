@@ -53,6 +53,7 @@ Usage: $0 [options]
 Options:
   -y                       Overwrite existing chain data without prompt
   -n                       Do not overwrite existing chain data
+  -e CHAIN_ID              Set custom chain ID (default: 9001)
   --no-install             Skip 'make install'
   --remote-debugging       Build with nooptimization,nostrip
   --additional-users N     Create N extra users: dev4, dev5, ...
@@ -71,6 +72,13 @@ while [[ $# -gt 0 ]]; do
     -n)
       echo "Flag -n passed -> Not overwriting the previous chain data."
       overwrite="n"; shift
+      ;;
+    -e)
+      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+        echo "Error: -e requires a chain ID."; usage; exit 1
+      fi
+      CHAINID="$2"; shift 2
+      echo "Using custom chain ID: $CHAINID"
       ;;
     --no-install)
       echo "Flag --no-install passed -> Skipping installation of the evmd binary."

@@ -108,3 +108,26 @@ func (d Decimals) GetSIPrefix() string {
 		return "invalid"
 	}
 }
+
+func DecimalsFromSIPrefix(prefix string) (Decimals, error) {
+	switch prefix {
+	case "d":
+		return OneDecimals, nil
+	case "c":
+		return TwoDecimals, nil
+	case "m":
+		return ThreeDecimals, nil
+	case "u":
+		return SixDecimals, nil
+	case "n":
+		return NineDecimals, nil
+	case "p":
+		return TwelveDecimals, nil
+	case "f":
+		return FifteenDecimals, nil
+	case "a":
+		return EighteenDecimals, nil
+	default:
+		return 0, fmt.Errorf("invalid SI prefix: %s", prefix)
+	}
+}
