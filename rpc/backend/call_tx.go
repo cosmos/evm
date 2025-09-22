@@ -43,9 +43,10 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	cfg := b.ChainConfig()
 	if cfg == nil {
 		coinInfo := evmtypes.EvmCoinInfo{
-			DisplayDenom:     evmtypes.GetEVMCoinDisplayDenom(),
-			Decimals:         evmtypes.GetEVMCoinDecimals(),
-			ExtendedDecimals: evmtypes.GetEVMCoinExtendedDecimals(),
+			DisplayDenom:  evmtypes.GetEVMCoinDisplayDenom(),
+			Decimals:      evmtypes.GetEVMCoinDecimals(),
+			BaseDenom:     evmtypes.GetEVMCoinDenom(),
+			ExtendedDenom: evmtypes.GetEVMCoinExtendedDenom(),
 		}
 		cfg = evmtypes.DefaultChainConfig(b.EvmChainID.Uint64(), coinInfo).EthereumConfig(nil)
 	}

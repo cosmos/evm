@@ -5,7 +5,6 @@ import (
 
 	"github.com/cosmos/evm/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -72,110 +71,21 @@ func (gs GenesisState) Validate() error {
 	return gs.Params.Validate()
 }
 
-// ValidateGenesisWithBankMetadata validates the EVM genesis state against bank metadata
-// to ensure proper configuration for EVM coin derivation. This function should be called
-// during genesis validation when both bank and EVM module genesis states are available.
-func ValidateGenesisWithBankMetadata(evmGenesis GenesisState, bankMetadata []banktypes.Metadata) error {
-	// Basic validation first
-	if err := evmGenesis.Validate(); err != nil {
-		return err
-	}
-
-	// Get the evm_denom from VM params
-	evmDenom := evmGenesis.Params.EvmDenom
-	if evmDenom == "" {
-		return fmt.Errorf("evm_denom parameter is empty")
-	}
-
-	// Find the bank metadata for the evm_denom
-	var evmMetadata *banktypes.Metadata
-	for _, metadata := range bankMetadata {
-		if metadata.Base == evmDenom {
-			evmMetadata = &metadata
-			break
-		}
-	}
-
-	if evmMetadata == nil {
-		return fmt.Errorf("bank metadata not found for evm_denom: %s. "+
-			"The bank module genesis must include metadata for the EVM denomination", evmDenom)
-	}
-
-	// Validate that the metadata can be used to derive valid coin info
-	_, err := DeriveCoinInfoFromMetadata(*evmMetadata, evmDenom)
-	if err != nil {
-		return fmt.Errorf("invalid bank metadata for evm_denom %s: %w", evmDenom, err)
-	}
-
-	return nil
-}
-
 // DeriveCoinInfoFromMetadata extracts EvmCoinInfo from bank metadata
 func DeriveCoinInfoFromMetadata(metadata banktypes.Metadata, evmDenom string) (*EvmCoinInfo, error) {
-	if metadata.Base != evmDenom {
-		return nil, fmt.Errorf("metadata base denom (%s) does not match evm_denom (%s)", metadata.Base, evmDenom)
-	}
-	if len(metadata.DenomUnits) != 2 {
-		return nil, fmt.Errorf("metadata must have exactly 2 denom units, got: %d", len(metadata.DenomUnits))
-	}
-
-	foundBase := false
-	displayDenom := ""
-	baseDecimals := Decimals(0)
-	baseDecimalsInferred := Decimals(0)
-	extendedDecimals := EighteenDecimals
-
-	for _, unit := range metadata.DenomUnits {
-		if unit.Denom == metadata.Base && unit.Exponent == 0 {
-			if sdk.ValidateDenom(unit.Denom) != nil {
-				return nil, fmt.Errorf("invalid base denom: %s", unit.Denom)
-			}
-			displayDenom = unit.Denom[1:]
-			dec, err := DecimalsFromSIPrefix(unit.Denom[:1])
-			if err != nil {
-				return nil, fmt.Errorf("invalid base denom: %s, %w", unit.Denom, err)
-			}
-			baseDecimalsInferred = dec
-			foundBase = true
-			continue
-		}
-
-		if sdk.ValidateDenom(unit.Denom) != nil {
-			return nil, fmt.Errorf("invalid extended denom: %s", unit.Denom)
-		}
-		dd := unit.Denom[1:]
-		if dd != displayDenom {
-			return nil, fmt.Errorf("display denom mismatch: %s != %s", dd, displayDenom)
-		}
-		decInferred, err := DecimalsFromSIPrefix(unit.Denom[:1])
-		if err != nil {
-			return nil, fmt.Errorf("invalid extended denom: %s, %w", unit.Denom, err)
-		}
-		baseDecs := EighteenDecimals - Decimals(unit.Exponent)
-		if baseDecs != decInferred {
-			return nil, fmt.Errorf("extended decimals mismatch: %s != %s", extendedDecimals, decInferred)
-		}
-		baseDecimals = decInferred
-		if baseDecimalsInferred != baseDecimals {
-			return nil, fmt.Errorf("base decimals mismatch: %s != %s", baseDecimalsInferred, baseDecimals)
+	var baseDecimals uint32
+	for _, denomUnit := range metadata.DenomUnits {
+		if denomUnit.Denom == metadata.Display {
+			baseDecimals = denomUnit.Exponent
 		}
 	}
 
-	if baseDecimals == 0 || extendedDecimals == 0 || displayDenom == "" || !foundBase {
-		return nil, fmt.Errorf(
-			"invalid base or extended denom: %s, %s, %s, %t",
-			baseDecimals, extendedDecimals, displayDenom, foundBase,
-		)
-	}
+	fmt.Println(evmDenom)
 
-	coinInfo := &EvmCoinInfo{
-		DisplayDenom:     displayDenom,
-		Decimals:         baseDecimals,
-		ExtendedDecimals: extendedDecimals,
-	}
-	if err := coinInfo.Validate(); err != nil {
-		return nil, fmt.Errorf("derived coin info is invalid: %w", err)
-	}
-
-	return coinInfo, nil
+	return &EvmCoinInfo{
+		DisplayDenom:  metadata.Display,
+		Decimals:      Decimals(baseDecimals),
+		BaseDenom:     metadata.Base,
+		ExtendedDenom: evmDenom,
+	}, nil
 }

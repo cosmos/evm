@@ -5,7 +5,6 @@ package types
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"cosmossdk.io/math"
@@ -33,7 +32,7 @@ func GetEVMCoinDecimals() Decimals {
 // GetEVMCoinExtendedDecimals returns the extended decimals used in the
 // representation of the EVM coin.
 func GetEVMCoinExtendedDecimals() Decimals {
-	return evmCoinInfo.ExtendedDecimals
+	return 18
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
@@ -52,22 +51,10 @@ func SetEVMCoinInfo(eci EvmCoinInfo) error {
 		return errors.New("EVM coin info already set")
 	}
 
-	if eci.Decimals == EighteenDecimals {
-		if eci.Decimals != eci.ExtendedDecimals {
-			return errors.New("EVM coin decimals and extended decimals must be the same for 18 decimals")
-		}
-	}
-	if err := eci.Validate(); err != nil {
-		return fmt.Errorf("validation failed for evm coin info: %w", err)
-	}
-
 	// prevent any external pointers or references to evmCoinInfoxx
 	evmCoinInfoOnce.Do(func() {
 		setBaseDenom(eci)
-		evmCoinInfo = new(EvmCoinInfo)
-		evmCoinInfo.DisplayDenom = eci.DisplayDenom
-		evmCoinInfo.Decimals = eci.Decimals
-		evmCoinInfo.ExtendedDecimals = eci.ExtendedDecimals
+		evmCoinInfo = &eci
 	})
 
 	return nil

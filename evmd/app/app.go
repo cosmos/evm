@@ -266,9 +266,6 @@ func NewExampleApp(
 		evmConfig = config.NewDefaultEvmConfig(evmChainID, false)
 	}
 
-	if evmConfig == nil {
-		evmConfig = config.NewDefaultEvmConfig(evmChainID, false)
-	}
 	if err := evmConfig.Apply(); err != nil {
 		panic(err)
 	}
@@ -611,7 +608,7 @@ func NewExampleApp(
 		ibctm.NewAppModule(tmLightClientModule),
 		transferModule,
 		// Cosmos EVM modules
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.AccountKeeper.AddressCodec()),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.StakingKeeper, app.BankKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
@@ -759,7 +756,7 @@ func NewExampleApp(
 
 	// set the EVM priority nonce mempool
 	// If you wish to use the noop mempool, remove this codeblock
-	if evmtypes.GetChainConfig() != nil {
+	if evmConfig != nil {
 		// Get the block gas limit from genesis file
 		blockGasLimit := config.GetBlockGasLimit(appOpts, logger)
 		// Get GetMinTip from app.toml or cli flag configuration
@@ -892,52 +889,6 @@ func (app *EVMD) Configurator() module.Configurator {
 	return app.configurator
 }
 
-// validateCrossModuleGenesis performs cross-module genesis validation to ensure
-// consistency between different modules' genesis states.
-func (app *EVMD) validateCrossModuleGenesis(genesisState cosmosevmtypes.GenesisState) error {
-	// Unmarshal bank genesis state to get denomination metadata
-	var bankGenesis banktypes.GenesisState
-	if bankRaw, ok := genesisState[banktypes.ModuleName]; ok {
-		if err := app.appCodec.UnmarshalJSON(bankRaw, &bankGenesis); err != nil {
-			return fmt.Errorf("failed to unmarshal bank genesis: %w", err)
-		}
-	} else {
-		return fmt.Errorf("bank module genesis state not found")
-	}
-
-	// Unmarshal VM genesis state
-	var vmGenesis evmtypes.GenesisState
-	if vmRaw, ok := genesisState[evmtypes.ModuleName]; ok {
-		if err := app.appCodec.UnmarshalJSON(vmRaw, &vmGenesis); err != nil {
-			return fmt.Errorf("failed to unmarshal vm genesis: %w", err)
-		}
-	} else {
-		return fmt.Errorf("vm module genesis state not found")
-	}
-
-	// Validate EVM genesis against bank metadata
-	if err := evmtypes.ValidateGenesisWithBankMetadata(vmGenesis, bankGenesis.DenomMetadata); err != nil {
-		return fmt.Errorf("EVM genesis validation against bank metadata failed: %w", err)
-	}
-
-	// Unmarshal staking genesis state to validate bond denom
-	var stakingGenesis stakingtypes.GenesisState
-	if stakingRaw, ok := genesisState[stakingtypes.ModuleName]; ok {
-		if err := app.appCodec.UnmarshalJSON(stakingRaw, &stakingGenesis); err != nil {
-			return fmt.Errorf("failed to unmarshal staking genesis: %w", err)
-		}
-
-		// Validate that staking bond denom has proper bank metadata for EVM compatibility
-		if err := vm.ValidateStakingBondDenomWithBankMetadata(stakingGenesis.Params.BondDenom, bankGenesis.DenomMetadata); err != nil {
-			return fmt.Errorf("staking bond denom validation against bank metadata failed: %w", err)
-		}
-	} else {
-		return fmt.Errorf("staking module genesis state not found")
-	}
-
-	return nil
-}
-
 // InitChainer application update at chain initialization
 func (app *EVMD) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	var genesisState cosmosevmtypes.GenesisState
@@ -945,10 +896,10 @@ func (app *EVMD) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci
 		panic(err)
 	}
 
-	// Perform cross-module genesis validation before initialization
-	if err := app.validateCrossModuleGenesis(genesisState); err != nil {
-		panic(fmt.Errorf("cross-module genesis validation failed: %w", err))
-	}
+	//// Perform cross-module genesis validation before initialization
+	//if err := app.validateCrossModuleGenesis(genesisState); err != nil {
+	//	panic(fmt.Errorf("cross-module genesis validation failed: %w", err))
+	//}
 
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		panic(err)

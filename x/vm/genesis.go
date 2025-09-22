@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // InitGenesis initializes genesis state based on exported genesis
@@ -20,6 +19,8 @@ func InitGenesis(
 	ctx sdk.Context,
 	k *keeper.Keeper,
 	accountKeeper types.AccountKeeper,
+	stakingKeeper types.StakingKeeper,
+	bankKeeper types.BankKeeper,
 	data types.GenesisState,
 ) []abci.ValidatorUpdate {
 	err := k.SetParams(ctx, data.Params)
@@ -106,6 +107,7 @@ func deriveAndSetEvmCoinInfo(ctx sdk.Context, k *keeper.Keeper, params types.Par
 	}
 
 	coinInfo, err := types.DeriveCoinInfoFromMetadata(metadata, evmDenom)
+	fmt.Println(coinInfo)
 	if err != nil {
 		return fmt.Errorf("failed to derive coin info from bank metadata: %w", err)
 	}
@@ -113,34 +115,6 @@ func deriveAndSetEvmCoinInfo(ctx sdk.Context, k *keeper.Keeper, params types.Par
 	// Set the evmCoinInfo globally
 	if err := types.SetEVMCoinInfo(*coinInfo); err != nil {
 		return fmt.Errorf("failed to set EVM coin info: %w", err)
-	}
-
-	return nil
-}
-
-// ValidateStakingBondDenomWithBankMetadata validates that the required staking bond denom
-// is included in the bank metadata and has proper EVM compatibility.
-// This function can be called at the app level to ensure proper configuration.
-func ValidateStakingBondDenomWithBankMetadata(stakingBondDenom string, bankMetadata []banktypes.Metadata) error {
-	// Find the bank metadata for the staking bond denom
-	var bondMetadata *banktypes.Metadata
-	for _, metadata := range bankMetadata {
-		if metadata.Base == stakingBondDenom {
-			bondMetadata = &metadata
-			break
-		}
-	}
-
-	if bondMetadata == nil {
-		return fmt.Errorf("bank metadata not found for staking bond denom: %s. "+
-			"The bank module genesis must include metadata for the staking bond denomination", stakingBondDenom)
-	}
-
-	// Validate that the metadata can be used to derive valid coin info for EVM compatibility
-	_, err := types.DeriveCoinInfoFromMetadata(*bondMetadata, stakingBondDenom)
-	if err != nil {
-		return fmt.Errorf("invalid bank metadata for staking bond denom %s: %w. "+
-			"The staking bond denomination requires proper EVM-compatible metadata", stakingBondDenom, err)
 	}
 
 	return nil

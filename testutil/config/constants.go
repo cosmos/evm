@@ -28,21 +28,24 @@ const (
 var (
 	// TwoDecimalEvmCoinInfo is the EvmCoinInfo for the 2 decimals chain
 	TwoDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
-		DisplayDenom:     "test3",
-		Decimals:         evmtypes.TwoDecimals,
-		ExtendedDecimals: evmtypes.EighteenDecimals,
+		DisplayDenom:  "test3",
+		Decimals:      evmtypes.TwoDecimals,
+		BaseDenom:     "ttest3",
+		ExtendedDenom: "atest3",
 	}
 	// SixDecimalEvmCoinInfo is the EvmCoinInfo for the 6 decimals chain
 	SixDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
-		DisplayDenom:     "test",
-		Decimals:         evmtypes.SixDecimals,
-		ExtendedDecimals: evmtypes.EighteenDecimals,
+		DisplayDenom:  "test",
+		Decimals:      evmtypes.SixDecimals,
+		BaseDenom:     "utest",
+		ExtendedDenom: "atest",
 	}
 	// TwelveDecimalEvmCoinInfo is the EvmCoinInfo for a 12 decimals chain
 	TwelveDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
-		DisplayDenom:     "test2",
-		Decimals:         evmtypes.TwelveDecimals,
-		ExtendedDecimals: evmtypes.EighteenDecimals,
+		DisplayDenom:  "test2",
+		Decimals:      evmtypes.TwelveDecimals,
+		BaseDenom:     "twtest2",
+		ExtendedDenom: "atest2",
 	}
 	// ExampleAttoDenom provides an example denom for use in tests
 	ExampleAttoDenom = evmconfig.DefaultEvmCoinInfo.GetDenom()

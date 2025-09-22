@@ -104,16 +104,20 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 // AppModule implements an application module for the evm module.
 type AppModule struct {
 	AppModuleBasic
-	keeper *keeper.Keeper
-	ak     types.AccountKeeper
+	keeper        *keeper.Keeper
+	ak            types.AccountKeeper
+	stakingKeeper types.StakingKeeper
+	bankKeeper    types.BankKeeper
 }
 
 // NewAppModule creates a new AppModule object
-func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, ac address.Codec) AppModule {
+func NewAppModule(k *keeper.Keeper, ak types.AccountKeeper, stakingKeeper types.StakingKeeper, bankKeeper types.BankKeeper, ac address.Codec) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{ac: ac},
 		keeper:         k,
 		ak:             ak,
+		stakingKeeper:  stakingKeeper,
+		bankKeeper:     bankKeeper,
 	}
 }
 
@@ -147,7 +151,7 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState types.GenesisState
 	cdc.MustUnmarshalJSON(data, &genesisState)
-	InitGenesis(ctx, am.keeper, am.ak, genesisState)
+	InitGenesis(ctx, am.keeper, am.ak, am.stakingKeeper, am.bankKeeper, genesisState)
 	return []abci.ValidatorUpdate{}
 }
 
