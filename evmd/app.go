@@ -8,8 +8,6 @@ import (
 	"os"
 	"sort"
 
-	goruntime "runtime"
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -26,6 +24,7 @@ import (
 	evmosencoding "github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/evmd/ante"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -782,10 +781,14 @@ func NewExampleApp(
 		// Get GetMinTip from app.toml or cli flag configuration
 		mipTip := evmconfig.GetMinTip(appOpts, logger)
 
+		defaultConfig := legacypool.DefaultConfig
+		defaultConfig.GlobalSlots *= 30
+		defaultConfig.GlobalQueue *= 30
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: blockGasLimit,
-			MinTip:        mipTip,
+			LegacyPoolConfig: &legacypool.Config{},
+			AnteHandler:      app.GetAnteHandler(),
+			BlockGasLimit:    blockGasLimit,
+			MinTip:           mipTip,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
