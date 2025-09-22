@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
+
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 
 	"os"
 
@@ -491,7 +492,7 @@ func NewExampleApp(
 		precompiletypes.DefaultStaticPrecompiles(
 			*app.StakingKeeper,
 			app.DistrKeeper,
-			app.BankKeeper,
+			app.PreciseBankKeeper,
 			&app.Erc20Keeper,
 			&app.TransferKeeper,
 			app.IBCKeeper.ChannelKeeper,
