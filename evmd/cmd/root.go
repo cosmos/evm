@@ -48,13 +48,12 @@ import (
 	txmodule "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
-	clientflags "github.com/cosmos/evm/client/flags"
 )
 
 // NewRootCmd creates a new root command for evmd. It is called once in the
 // main function.
 func NewRootCmd() *cobra.Command {
-	setupSDKConfig()
+	config.SetupSdkConfig()
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
@@ -65,7 +64,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.ChainConfig{},
+		nil,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -131,14 +130,10 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(evmconfig.BaseDenom, evmconfig.DefaultEvmChainID)
+			customAppTemplate, customAppConfig := evmconfig.InitAppConfig(evmconfig.DefaultEvmCoinInfo.GetDenom(), evmconfig.DefaultEvmChainID)
 			customTMConfig := initCometConfig()
 
-			if err := sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, *customAppConfig, customTMConfig); err != nil {
-				return err
-			}
-
-			return nil
+			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, *customAppConfig, customTMConfig)
 		},
 	}
 
@@ -156,18 +151,7 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	chainConfig := evmconfig.DefaultChainConfig
-	if err := chainConfig.ApplyChainConfig(); err != nil {
-		panic(err)
-	}
-
 	return rootCmd
-}
-
-func setupSDKConfig() {
-	config := sdk.GetConfig()
-	evmconfig.SetBech32Prefixes(config)
-	config.Seal()
 }
 
 // initCometConfig helps to override default CometBFT Config values.
@@ -224,12 +208,6 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmdapp.EVMD) {
 	// add general tx flags to the root command
 	var err error
 	_, err = srvflags.AddTxFlags(rootCmd)
-	if err != nil {
-		panic(err)
-	}
-
-	// add custom client flags to the root command
-	err = clientflags.AddClientFlags(rootCmd)
 	if err != nil {
 		panic(err)
 	}
@@ -336,15 +314,10 @@ func newApp(
 		baseapp.SetChainID(chainID),
 	}
 
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		panic(err)
-	}
-
 	return evmdapp.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		*chainConfig,
+		nil,
 		baseappOptions...,
 	)
 }
@@ -384,20 +357,14 @@ func appExport(
 		return servertypes.ExportedApp{}, err
 	}
 
-	// create the chain config
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		return servertypes.ExportedApp{}, err
-	}
-
 	if height != -1 {
-		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, *chainConfig, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, false, appOpts, nil, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, *chainConfig, baseapp.SetChainID(chainID))
+		exampleApp = evmdapp.NewExampleApp(logger, db, traceStore, true, appOpts, nil, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

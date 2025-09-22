@@ -27,10 +27,6 @@ func (ec *EvmConfig) Apply() error {
 		return err
 	}
 
-	if err := setTestingEVMCoinInfo(ec.evmCoinInfo); err != nil {
-		return err
-	}
-
 	if err := extendDefaultExtraEIPs(ec.extendedDefaultExtraEIPs); err != nil {
 		return err
 	}

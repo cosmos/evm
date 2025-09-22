@@ -60,7 +60,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Enabled:      true,
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -85,7 +85,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Enabled:      true,
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -110,7 +110,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Enabled:      true,
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -135,7 +135,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Enabled:      true,
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -155,7 +155,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Enabled:      true,
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -186,13 +186,13 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				TokenPairs: testconfig.ExampleTokenPairs,
 				Allowances: []types.Allowance{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        testconfig.ExampleEvmAddressAlice,
 						Spender:      testconfig.ExampleEvmAddressBob,
 						Value:        math.NewInt(100),
 					},
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        testconfig.ExampleEvmAddressAlice,
 						Spender:      testconfig.ExampleEvmAddressBob,
 						Value:        math.NewInt(100),
@@ -207,7 +207,7 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				Params: types.DefaultParams(),
 				TokenPairs: []types.TokenPair{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
@@ -229,14 +229,14 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				Params: types.DefaultParams(),
 				TokenPairs: []types.TokenPair{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
 				Allowances: []types.Allowance{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        "bad",
 						Spender:      testconfig.ExampleEvmAddressBob,
 						Value:        math.NewInt(-1),
@@ -251,14 +251,14 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				Params: types.DefaultParams(),
 				TokenPairs: []types.TokenPair{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
 				Allowances: []types.Allowance{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        testconfig.ExampleEvmAddressAlice,
 						Spender:      "bad",
 						Value:        math.NewInt(-1),
@@ -273,14 +273,14 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				Params: types.DefaultParams(),
 				TokenPairs: []types.TokenPair{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
 				Allowances: []types.Allowance{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        testconfig.ExampleEvmAddressAlice,
 						Spender:      testconfig.ExampleEvmAddressBob,
 						Value:        math.NewInt(0),
@@ -295,14 +295,14 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 				Params: types.DefaultParams(),
 				TokenPairs: []types.TokenPair{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Denom:        testconfig.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
 				Allowances: []types.Allowance{
 					{
-						Erc20Address: testconfig.WEVMOSContractMainnet,
+						Erc20Address: testconfig.WevmosContractMainnet,
 						Owner:        testconfig.ExampleEvmAddressAlice,
 						Spender:      testconfig.ExampleEvmAddressBob,
 						Value:        math.NewInt(-1),

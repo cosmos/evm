@@ -3,6 +3,7 @@ package types_test
 import (
 	"testing"
 
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 
@@ -11,9 +12,9 @@ import (
 )
 
 func TestEvmConfigApply(t *testing.T) {
-	evmConfigurator := types.NewEvmConfig().
-		WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
-	err := evmConfigurator.Apply()
+	evmConfigurator := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+	evmConfigurator.ResetTestConfig()
+	err := types.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
 	require.NoError(t, err)
 
 	err = evmConfigurator.Apply()
@@ -34,8 +35,7 @@ func TestExtendedEips(t *testing.T) {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					3855: func(_ *vm.JumpTable) {},
 				}
-				ec := types.NewEvmConfig().
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -48,8 +48,7 @@ func TestExtendedEips(t *testing.T) {
 				extendedEIPs := map[int]func(*vm.JumpTable){
 					0o000: func(_ *vm.JumpTable) {},
 				}
-				ec := types.NewEvmConfig().
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
 					WithExtendedEips(extendedEIPs)
 				return ec
 			},
@@ -86,8 +85,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1000}
 				types.DefaultExtraEIPs = append(types.DefaultExtraEIPs, 1000)
-				ec := types.NewEvmConfig().
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -102,8 +100,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			"success - empty default extra eip",
 			func() *types.EvmConfig {
 				var extendedDefaultExtraEIPs []int64
-				ec := types.NewEvmConfig().
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},
@@ -117,8 +114,7 @@ func TestExtendedDefaultExtraEips(t *testing.T) {
 			"success - extra default eip added",
 			func() *types.EvmConfig {
 				extendedDefaultExtraEIPs := []int64{1001}
-				ec := types.NewEvmConfig().
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
+				ec := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true).
 					WithExtendedDefaultExtraEIPs(extendedDefaultExtraEIPs...)
 				return ec
 			},

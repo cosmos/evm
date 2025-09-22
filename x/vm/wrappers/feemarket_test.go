@@ -7,8 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	evmconfig "github.com/cosmos/evm/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	"github.com/cosmos/evm/x/vm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
 	"github.com/cosmos/evm/x/vm/wrappers/testutil"
@@ -89,11 +91,11 @@ func TestGetBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
-			require.NoError(t, err, "failed to apply EvmConfig")
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			require.NoError(t, evmConfig.Apply(), "failed to apply EvmConfig")
+			err := types.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err)
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
@@ -179,11 +181,13 @@ func TestCalculateBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			// Setup EVM evmConfig to have access to the EVM coin info.
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = types.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err)
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
@@ -254,11 +258,13 @@ func TestGetParams(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			// Setup EVM evmConfig to have access to the EVM coin info.
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = types.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err)
 
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)

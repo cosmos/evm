@@ -132,6 +132,11 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", types.ModuleName)
 }
 
+// GetBankKeeper returns the underlying bank keeper for accessing bank metadata.
+func (k Keeper) GetBankKeeper() types.BankKeeper {
+	return k.bankWrapper
+}
+
 // ----------------------------------------------------------------------------
 // Block Bloom
 // Required by Web3 API.

@@ -29,7 +29,7 @@ import (
 func setupBalanceHandlerTest(t *testing.T) {
 	t.Helper()
 
-	sdk.GetConfig().SetBech32PrefixForAccount(testconfig.ExampleBech32Prefix, "")
+	sdk.GetConfig().SetBech32PrefixForAccount(sdk.Bech32MainPrefix, "")
 	configurator := evmtypes.NewEvmConfig()
 	configurator.ResetTestConfig()
 	require.NoError(t, configurator.WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).Apply())

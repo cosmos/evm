@@ -11,6 +11,7 @@ import (
 
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	"github.com/cosmos/evm/server/config"
@@ -33,13 +34,13 @@ func (s *TestSuite) TestRPCMinGasPrice() {
 		{
 			"pass - default gas price",
 			func() {},
-			big.NewInt(testconfig.DefaultGasPrice),
+			big.NewInt(evmconfig.DefaultGasPrice),
 			true,
 		},
 		{
 			"pass - min gas price is 0",
 			func() {},
-			big.NewInt(testconfig.DefaultGasPrice),
+			big.NewInt(evmconfig.DefaultGasPrice),
 			true,
 		},
 	}

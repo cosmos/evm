@@ -5,9 +5,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/config"
 	evmdapp "github.com/cosmos/evm/evmd/app"
-	testconfig "github.com/cosmos/evm/testutil/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -18,6 +16,7 @@ import (
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	testconfig "github.com/cosmos/evm/testutil/config"
 )
 
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
@@ -35,26 +34,13 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
-	chainConfig := config.NewChainConfig(
-		testconfig.ExampleChainID.ChainID,
-		evmChainID,
-		nil,
-		nil,
-		nil,
-		coinInfo,
-		false,
-	)
-	if err := chainConfig.ApplyChainConfig(); err != nil {
-		panic(err)
-	}
 	return evmdapp.NewExampleApp(
 		logger,
 		db,
 		nil,
 		loadLatest,
 		appOptions,
-		chainConfig,
+		nil,
 		baseAppOptions...,
 	)
 }
@@ -62,26 +48,13 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
-	coinInfo := testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]
-	chainConfig := config.NewChainConfig(
-		testconfig.ExampleChainID.ChainID,
-		testconfig.ExampleEIP155ChainID,
-		nil,
-		nil,
-		nil,
-		coinInfo,
-		false,
-	)
-	if err := chainConfig.ApplyChainConfig(); err != nil {
-		panic(err)
-	}
 	app := evmdapp.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simutils.EmptyAppOptions{},
-		chainConfig,
+		nil,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
@@ -89,10 +62,10 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	fmGen.Params.NoBaseFee = true
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
 	stakingGen := stakingtypes.DefaultGenesisState()
-	stakingGen.Params.BondDenom = config.ExampleChainDenom
+	stakingGen.Params.BondDenom = testconfig.ExampleAttoDenom
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
 	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = config.ExampleChainDenom
+	mintGen.Params.MintDenom = testconfig.ExampleAttoDenom
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
 
 	return app, genesisState

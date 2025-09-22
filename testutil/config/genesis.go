@@ -37,7 +37,7 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{WEVMOSContractMainnet}
+	erc20GenState.NativePrecompiles = []string{WevmosContractMainnet}
 
 	return erc20GenState
 }
@@ -47,7 +47,7 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 // NOTE: for the example chain implementation we are also adding a default minter.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = ExampleChainDenom
+	mintGenState.Params.MintDenom = ExampleAttoDenom
 
 	return mintGenState
 }

@@ -480,7 +480,7 @@ func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, gen
 func newErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconfig.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
+	erc20GenState.NativePrecompiles = []string{testconfig.WevmosContractMainnet}
 
 	return erc20GenState
 }

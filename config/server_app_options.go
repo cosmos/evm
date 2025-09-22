@@ -2,15 +2,12 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"path/filepath"
 
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
-	"github.com/spf13/cobra"
 
-	"github.com/cosmos/evm/config/eips"
 	srvflags "github.com/cosmos/evm/server/flags"
 
 	"cosmossdk.io/log"
@@ -100,8 +97,7 @@ func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
 	return nil
 }
 
-// GetChainID returns the EVM chain ID from the app options, set from
-// If not available, it will load from client.toml
+// GetChainID returns the chain ID from the app options, set from flags or app.toml
 func GetChainID(appOpts servertypes.AppOptions) (string, error) {
 	chainID := cast.ToString(appOpts.Get(flags.FlagChainID))
 	if chainID == "" {
@@ -127,94 +123,29 @@ func GetEvmChainID(appOpts servertypes.AppOptions) (uint64, error) {
 	if evmChainID == 0 {
 		return 0, errors.New("evm chain id flag not found in app options")
 	}
+
 	return evmChainID, nil
 }
 
-func GetEvmCoinInfo(appOpts servertypes.AppOptions) (*evmtypes.EvmCoinInfo, error) {
-	displayDenom := cast.ToString(appOpts.Get(srvflags.EVMDisplayDenom))
-	if displayDenom == "" {
-		return nil, errors.New("display denom flag not found in app options")
-	}
-	decimals := cast.ToUint8(appOpts.Get(srvflags.EVMDecimals))
-	if decimals == 0 {
-		return nil, errors.New("decimals flag not found in app options")
-	}
-	extendedDecimals := cast.ToUint8(appOpts.Get(srvflags.EVMExtendedDecimals))
-	if extendedDecimals == 0 {
-		return nil, errors.New("extended decimals flag not found in app options")
-	}
-
-	evmCoinInfo := evmtypes.EvmCoinInfo{
-		DisplayDenom:     displayDenom,
-		Decimals:         evmtypes.Decimals(decimals),
-		ExtendedDecimals: evmtypes.Decimals(extendedDecimals),
-	}
-	if err := evmCoinInfo.Validate(); err != nil {
-		return nil, err
-	}
-
-	return &evmCoinInfo, nil
-}
-
-func CreateChainConfig(appOpts servertypes.AppOptions) (*ChainConfig, error) {
-	chainID, err := GetChainID(appOpts)
-	if err != nil {
-		return nil, err
-	}
+func GetEvmChainIDWithDefault(
+	appOpts servertypes.AppOptions,
+	evmConfig *evmtypes.EvmConfig,
+	logger log.Logger) uint64 {
 	evmChainID, err := GetEvmChainID(appOpts)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return evmChainID
 	}
-	evmCoinInfo, err := GetEvmCoinInfo(appOpts)
-	if err != nil {
-		return nil, err
-	}
+	logger.Warn("failed to get evm chain id from app options", "error", err)
 
-	chainConfig := NewChainConfig(
-		chainID,
-		evmChainID,
-		eips.CosmosEVMActivators,
-		nil,
-		nil,
-		*evmCoinInfo,
-		false,
-	)
-
-	return &chainConfig, nil
-}
-
-func CreateChainConfigFromCmd(chainID string, cmd *cobra.Command, reset bool) (*ChainConfig, error) {
-	evmChainID := cast.ToUint64(cmd.Flag(srvflags.EVMChainID).Value.String())
-	displayDenom := cast.ToString(cmd.Flag(srvflags.EVMDisplayDenom).Value.String())
-	decimals := cast.ToUint8(cmd.Flag(srvflags.EVMDecimals).Value.String())
-	extendedDecimals := cast.ToUint8(cmd.Flag(srvflags.EVMExtendedDecimals).Value.String())
-
-	if chainID == "" || evmChainID == 0 || displayDenom == "" || decimals == 0 || extendedDecimals == 0 {
-		return nil, fmt.Errorf(
-			"cannot create chain config, missing one or more required config values: chain id: %s, evm chain id: %d, display denom: %s, decimals: %d, extended decimals: %d",
-			chainID, evmChainID, displayDenom, decimals, extendedDecimals,
-		)
+	if evmConfig != nil {
+		evmChainConfig := evmConfig.GetChainConfig()
+		if evmChainConfig != nil {
+			return evmChainConfig.ChainId
+		}
+		logger.Warn("failed to get evm chain config, evm chain config is nil")
 	}
 
-	evmCoinInfo := evmtypes.EvmCoinInfo{
-		DisplayDenom:     displayDenom,
-		Decimals:         evmtypes.Decimals(decimals),
-		ExtendedDecimals: evmtypes.Decimals(extendedDecimals),
-	}
-	err := evmCoinInfo.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("cannot create chain config, invalid evm coin info: %w", err)
-	}
+	logger.Info("failed to get evm chain id, using default evm chain id", "default_evm_chain_id", DefaultEvmChainID)
 
-	chainConfig := NewChainConfig(
-		chainID,
-		evmChainID,
-		eips.CosmosEVMActivators,
-		nil,
-		nil,
-		evmCoinInfo,
-		reset,
-	)
-
-	return &chainConfig, nil
+	return DefaultEvmChainID
 }

@@ -12,7 +12,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	evmconfig "github.com/cosmos/evm/config"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
@@ -87,18 +86,13 @@ func (a AppCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		panic(err)
-	}
-
 	return NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
-		*chainConfig,
+		nil,
 		baseappOptions...,
 	)
 }
@@ -134,18 +128,13 @@ func (a AppCreator) appExport(
 		loadLatest = true
 	}
 
-	chainConfig, err := evmconfig.CreateChainConfig(appOpts)
-	if err != nil {
-		return servertypes.ExportedApp{}, err
-	}
-
 	evmApp = NewExampleApp(
 		logger,
 		db,
 		traceStore,
 		loadLatest,
 		appOpts,
-		*chainConfig,
+		nil,
 	)
 
 	if height != -1 {

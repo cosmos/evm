@@ -16,6 +16,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/server/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -1603,12 +1604,10 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				configurator := types.NewEvmConfig()
-				configurator.ResetTestConfig()
-				err := configurator.
-					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID]).
-					Apply()
+				evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+				evmConfig.ResetTestConfig()
+				s.Require().NoError(evmConfig.Apply())
+				err := types.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
 				s.Require().NoError(err)
 			},
 			true,
@@ -1637,7 +1636,6 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 		Decimals:         types.GetEVMCoinDecimals(),
 		ExtendedDecimals: types.GetEVMCoinExtendedDecimals(),
 	}
-	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64(), coinInfo)
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
@@ -1658,12 +1656,11 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			configurator := types.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err = configurator.
-				WithChainConfig(chainConfig).
-				WithEVMCoinInfo(coinInfo).
-				Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err = types.SetEVMCoinInfo(coinInfo)
+			s.Require().NoError(err)
+			err = evmConfig.Apply()
 			s.Require().NoError(err)
 		})
 	}

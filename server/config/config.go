@@ -68,15 +68,6 @@ const (
 	// DefaultEVMChainID is the default EVM Chain ID if one is not provided, should match the value in evmd config
 	DefaultEVMChainID = 262144
 
-	// DefaultEvmCoinInfoDisplayDenom is the default display denomination for the chain
-	DefaultEvmCoinInfoDisplayDenom = "atom"
-
-	// DefaultEvmCoinInfoDecimals is the default decimals for the base denomination
-	DefaultEvmCoinInfoDecimals = evmtypes.EighteenDecimals
-
-	// DefaultEvmCoinInfoExtendedDecimals is the default decimals for the extended denomination, typically 18 decimals (atto-denom)
-	DefaultEvmCoinInfoExtendedDecimals = evmtypes.EighteenDecimals
-
 	// DefaultEVMMinTip is the default minimum priority fee for the mempool
 	DefaultEVMMinTip = 0
 
@@ -231,11 +222,6 @@ func DefaultEVMConfig() *EVMConfig {
 		EVMChainID:              DefaultEVMChainID,
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
-		CoinInfo: evmtypes.EvmCoinInfo{
-			DisplayDenom:     DefaultEvmCoinInfoDisplayDenom,
-			Decimals:         DefaultEvmCoinInfoDecimals,
-			ExtendedDecimals: DefaultEvmCoinInfoExtendedDecimals,
-		},
 	}
 }
 

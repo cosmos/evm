@@ -683,7 +683,7 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.DefaultChainConfig,
+		nil,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -693,7 +693,7 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			config.DefaultChainConfig,
+			nil,
 		)
 	}
 

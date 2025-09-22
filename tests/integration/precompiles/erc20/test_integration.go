@@ -251,7 +251,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			passCheck = failCheck.WithExpPass(true)
 
 			erc20Keeper := is.network.App.GetErc20Keeper()
-			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconfig.WEVMOSContractMainnet))
+			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconfig.WevmosContractMainnet))
 			Expect(available).To(BeTrue())
 
 			revertContractAddr, err = is.factory.DeployContract(
@@ -261,7 +261,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Contract: revertCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
-					ConstructorArgs: []interface{}{common.HexToAddress(testconfig.WEVMOSContractMainnet)},
+					ConstructorArgs: []interface{}{common.HexToAddress(testconfig.WevmosContractMainnet)},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), "failed to deploy reverter contract")

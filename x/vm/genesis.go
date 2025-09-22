@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -12,6 +13,7 @@ import (
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // InitGenesis initializes genesis state based on exported genesis
@@ -24,6 +26,11 @@ func InitGenesis(
 	err := k.SetParams(ctx, data.Params)
 	if err != nil {
 		panic(fmt.Errorf("error setting params %s", err))
+	}
+
+	// Derive and set evmCoinInfo from bank metadata and VM params
+	if err := deriveAndSetEvmCoinInfo(ctx, k, data.Params); err != nil {
+		panic(fmt.Errorf("error deriving EVM coin info from genesis: %w", err))
 	}
 
 	// ensure evm module account is set
@@ -84,4 +91,78 @@ func ExportGenesis(ctx sdk.Context, k *keeper.Keeper) *types.GenesisState {
 		Accounts: ethGenAccounts,
 		Params:   k.GetParams(ctx),
 	}
+}
+
+// deriveAndSetEvmCoinInfo derives the EVM coin info from bank metadata and VM params and sets it
+func deriveAndSetEvmCoinInfo(ctx sdk.Context, k *keeper.Keeper, params types.Params) error {
+	evmDenom := params.EvmDenom
+	if evmDenom == "" {
+		return fmt.Errorf("evm_denom parameter is empty")
+	}
+
+	bankKeeper := k.GetBankKeeper()
+	metadata, found := bankKeeper.GetDenomMetaData(ctx, evmDenom)
+	if !found {
+		return fmt.Errorf("bank metadata not found for evm_denom: %s", evmDenom)
+	}
+
+	coinInfo, err := types.DeriveCoinInfoFromMetadata(metadata, evmDenom)
+	if err != nil {
+		return fmt.Errorf("failed to derive coin info from bank metadata: %w", err)
+	}
+
+	// Set the evmCoinInfo globally
+	if err := types.SetEVMCoinInfo(*coinInfo); err != nil {
+		return fmt.Errorf("failed to set EVM coin info: %w", err)
+	}
+
+	return nil
+}
+
+// ValidateStakingBondDenomWithBankMetadata validates that the required staking bond denom
+// is included in the bank metadata and has proper EVM compatibility.
+// This function can be called at the app level to ensure proper configuration.
+func ValidateStakingBondDenomWithBankMetadata(stakingBondDenom string, bankMetadata []banktypes.Metadata) error {
+	// Find the bank metadata for the staking bond denom
+	var bondMetadata *banktypes.Metadata
+	for _, metadata := range bankMetadata {
+		if metadata.Base == stakingBondDenom {
+			bondMetadata = &metadata
+			break
+		}
+	}
+
+	if bondMetadata == nil {
+		return fmt.Errorf("bank metadata not found for staking bond denom: %s. "+
+			"The bank module genesis must include metadata for the staking bond denomination", stakingBondDenom)
+	}
+
+	// For staking bond denom, we need to ensure it has an 18-decimal variant for EVM compatibility
+	found18DecimalVariant := false
+	for _, unit := range bondMetadata.DenomUnits {
+		if unit.Exponent == 18 {
+			found18DecimalVariant = true
+			break
+		}
+		// Check aliases for 18-decimal variants (like "atto" prefix)
+		for _, alias := range unit.Aliases {
+			if strings.HasPrefix(alias, "atto") || strings.Contains(alias, "18") {
+				found18DecimalVariant = true
+				break
+			}
+		}
+		if found18DecimalVariant {
+			break
+		}
+	}
+
+	if !found18DecimalVariant {
+		return fmt.Errorf(
+			"staking bond denom %s requires an 18-decimal variant in bank metadata for EVM compatibility, "+
+				"but none found. This is required for proper EVM gas token handling",
+			stakingBondDenom,
+		)
+	}
+
+	return nil
 }

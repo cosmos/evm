@@ -1,124 +1,131 @@
 package config
 
 import (
+	evmconfig "github.com/cosmos/evm/config"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
-	// DefaultGasPrice is used in testing as the default to use for transactions
-	DefaultGasPrice = 20
+	// TestChainID1 is test chain IDs for IBC E2E test
+	TestChainID1 = 9005
+	// TestChainID2 is test chain IDs for IBC E2E test
+	TestChainID2 = 9006
+	// TwoDecimalsChainID is the chain ID for the 2 decimals chain.
+	TwoDecimalsChainID = 9004
+	// SixDecimalsChainID is the chain ID for the 6 decimals chain.
+	SixDecimalsChainID = 9002
+	// TwelveDecimalsChainID is the chain ID for the 12 decimals chain.
+	TwelveDecimalsChainID = 9003
+	// EighteenDecimalsChainID is the chain ID for the 18 decimals chain.
+	EighteenDecimalsChainID = 9001
+)
 
+// TODO: update display denoms so that they less arbitrary (e.g. twodec, sixdec, twelvedec)
+var (
+	// TwoDecimalEvmCoinInfo is the EvmCoinInfo for the 2 decimals chain
+	TwoDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
+		DisplayDenom:     "test3",
+		Decimals:         evmtypes.TwoDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
+	}
+	// SixDecimalEvmCoinInfo is the EvmCoinInfo for the 6 decimals chain
+	SixDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
+		DisplayDenom:     "test",
+		Decimals:         evmtypes.SixDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
+	}
+	// TwelveDecimalEvmCoinInfo is the EvmCoinInfo for a 12 decimals chain
+	TwelveDecimalEvmCoinInfo = evmtypes.EvmCoinInfo{
+		DisplayDenom:     "test2",
+		Decimals:         evmtypes.TwelveDecimals,
+		ExtendedDecimals: evmtypes.EighteenDecimals,
+	}
 	// ExampleAttoDenom provides an example denom for use in tests
-	ExampleAttoDenom = "aatom"
-
-	// ExampleMicroDenom provides an example denom for use in tests
-	ExampleMicroDenom = "uatom"
-
-	// ExampleBech32Prefix provides an example Bech32 prefix for use in tests
-	ExampleBech32Prefix = "cosmos"
-
-	// ExampleEIP155ChainID provides an example EIP-155 chain ID for use in tests
-	ExampleEIP155ChainID = 9001
-
-	// WEVMOSContractMainnet is the WEVMOS contract address for mainnet
-	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
-	// WEVMOSContractTestnet is the WEVMOS contract address for testnet
-	WEVMOSContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
+	ExampleAttoDenom = evmconfig.DefaultEvmCoinInfo.GetDenom()
+	// ExampleMicroDenom provides an example micro denom for use in tests
+	ExampleMicroDenom = SixDecimalEvmCoinInfo.GetDenom()
+	// WevmosContractMainnet is the WEVMOS contract address for mainnet
+	WevmosContractMainnet = evmconfig.DefaultWevmosContractMainnet
+	// WevmosContractTestnet is the WEVMOS contract address for testnet
+	WevmosContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
 	// ExampleEvmAddress1 is the example EVM address
 	ExampleEvmAddressAlice = "0x1e0DE5DB1a39F99cBc67B00fA3415181b3509e42"
 	// ExampleEvmAddress2 is the example EVM address
 	ExampleEvmAddressBob = "0x0AFc8e15F0A74E98d0AEC6C67389D2231384D4B2"
 )
 
+// TestChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
+// used to initialize the app with different coin info based on the chain id
+var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
+	TestChainID1:                evmconfig.DefaultEvmCoinInfo,
+	TestChainID2:                evmconfig.DefaultEvmCoinInfo,
+	TwoDecimalsChainID:          TwoDecimalEvmCoinInfo,
+	SixDecimalsChainID:          SixDecimalEvmCoinInfo,
+	TwelveDecimalsChainID:       TwelveDecimalEvmCoinInfo,
+	EighteenDecimalsChainID:     evmconfig.DefaultEvmCoinInfo,
+	evmconfig.DefaultEvmChainID: evmconfig.DefaultEvmCoinInfo,
+}
+
+// TODO: consolidate the ChainID and uint64 maps and update tests accordingly
 type ChainID struct {
 	ChainID    string `json:"chain_id"`
 	EVMChainID uint64 `json:"evm_chain_id"`
 }
 
 var (
-	// ExampleChainIDPrefix provides a chain ID prefix for EIP-155 that can be used in tests
-	ExampleChainIDPrefix = "cosmos"
-
 	// ExampleChainID provides a chain ID that can be used in tests
 	ExampleChainID = ChainID{
-		ChainID:    ExampleChainIDPrefix + "-1",
-		EVMChainID: 9001,
+		ChainID:    sdk.Bech32MainPrefix + "-1",
+		EVMChainID: EighteenDecimalsChainID,
 	}
-
-	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
-	ExampleSixDecimalsChainID = ChainID{
-		ChainID:    "ossix-2",
-		EVMChainID: 9002,
-	}
-
-	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
-	ExampleTwelveDecimalsChainID = ChainID{
-		ChainID:    "ostwelve-3",
-		EVMChainID: 9003,
-	}
-
 	// TwoDecimalsChainID provides a chain ID which is being set up with 2 decimals
 	ExampleTwoDecimalsChainID = ChainID{
 		ChainID:    "ostwo-4",
-		EVMChainID: 9004,
+		EVMChainID: TwoDecimalsChainID,
 	}
-
-	// ExampleChainCoinInfo provides the coin info for the example chain
-	//
-	// It is a map of the chain id and its corresponding EvmCoinInfo
-	// that allows initializing the app with different coin info based on the
-	// chain id
-	ExampleChainCoinInfo = map[ChainID]evmtypes.EvmCoinInfo{
-		ExampleChainID: {
-			DisplayDenom:     ExampleDisplayDenom,
-			Decimals:         evmtypes.EighteenDecimals,
-			ExtendedDecimals: evmtypes.EighteenDecimals,
-		},
-		ExampleSixDecimalsChainID: {
-			DisplayDenom:     "test",
-			Decimals:         evmtypes.SixDecimals,
-			ExtendedDecimals: evmtypes.EighteenDecimals,
-		},
-		ExampleTwelveDecimalsChainID: {
-			DisplayDenom:     "test2",
-			Decimals:         evmtypes.TwelveDecimals,
-			ExtendedDecimals: evmtypes.EighteenDecimals,
-		},
-		ExampleTwoDecimalsChainID: {
-			DisplayDenom:     "test3",
-			Decimals:         evmtypes.TwoDecimals,
-			ExtendedDecimals: evmtypes.EighteenDecimals,
-		},
+	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
+	ExampleSixDecimalsChainID = ChainID{
+		ChainID:    "ossix-2",
+		EVMChainID: SixDecimalsChainID,
 	}
-
-	// OtherCoinDenoms provides a list of other coin denoms that can be used in tests
-	OtherCoinDenoms = []string{
-		"foo",
-		"bar",
+	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
+	ExampleTwelveDecimalsChainID = ChainID{
+		ChainID:    "ostwelve-3",
+		EVMChainID: TwelveDecimalsChainID,
 	}
-
-	// ExampleTokenPairs creates a slice of token pairs, that contains a pair for the native denom of the example chain
-	// implementation.
+	// ExampleTokenPairs creates a slice of token pairs for the native denom of the example chain.
 	ExampleTokenPairs = []erc20types.TokenPair{
 		{
-			Erc20Address:  WEVMOSContractMainnet,
+			Erc20Address:  WevmosContractMainnet,
 			Denom:         ExampleAttoDenom,
 			Enabled:       true,
 			ContractOwner: erc20types.OWNER_MODULE,
 		},
 	}
-
-	// ExampleAllowances creates a slice of allowances, that contains an allowance for the native denom of the example chain
-	// implementation.
+	// ExampleAllowances creates a slice of allowances for the native denom of the example chain.
 	ExampleAllowances = []erc20types.Allowance{
 		{
-			Erc20Address: WEVMOSContractMainnet,
+			Erc20Address: WevmosContractMainnet,
 			Owner:        ExampleEvmAddressAlice,
 			Spender:      ExampleEvmAddressBob,
 			Value:        math.NewInt(100),
 		},
 	}
+	// OtherCoinDenoms provides a list of other coin denoms that can be used in tests
+	OtherCoinDenoms = []string{
+		"foo",
+		"bar",
+	}
 )
+
+// ExampleChainCoinInfo provides the coin info for the example chain
+var ExampleChainCoinInfo = map[ChainID]evmtypes.EvmCoinInfo{
+	ExampleChainID:               evmconfig.DefaultEvmCoinInfo,
+	ExampleTwoDecimalsChainID:    TwoDecimalEvmCoinInfo,
+	ExampleSixDecimalsChainID:    SixDecimalEvmCoinInfo,
+	ExampleTwelveDecimalsChainID: TwelveDecimalEvmCoinInfo,
+}

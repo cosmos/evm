@@ -11,7 +11,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/cosmos/evm/testutil/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -59,7 +58,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 				err := cmn.UnpackLog(s.precompile.ABI, &setWithdrawerAddrEvent, distribution.EventTypeSetWithdrawAddress, *log)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), setWithdrawerAddrEvent.Caller)
-				s.Require().Equal(sdk.MustBech32ifyAddressBytes(config.Bech32Prefix, s.keyring.GetAddr(0).Bytes()), setWithdrawerAddrEvent.WithdrawerAddress)
+				s.Require().Equal(sdk.MustBech32ifyAddressBytes(sdk.Bech32MainPrefix, s.keyring.GetAddr(0).Bytes()), setWithdrawerAddrEvent.WithdrawerAddress)
 			},
 			20000,
 			false,

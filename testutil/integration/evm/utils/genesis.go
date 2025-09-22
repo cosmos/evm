@@ -70,7 +70,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	// with the WEVMOS (default is mainnet) and 'xmpl' tokens in the erc20 params
 	erc20GenesisState := erc20types.DefaultGenesisState()
 	erc20GenesisState.TokenPairs = tokenPairs
-	erc20GenesisState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
+	erc20GenesisState.NativePrecompiles = []string{testconfig.WevmosContractMainnet}
 	erc20GenesisState.DynamicPrecompiles = dynPrecAddr
 
 	// Combine module genesis states
@@ -87,7 +87,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconfig.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconfig.WEVMOSContractMainnet}
+	erc20GenState.NativePrecompiles = []string{testconfig.WevmosContractMainnet}
 
 	return erc20GenState
 }

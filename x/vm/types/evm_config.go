@@ -25,7 +25,6 @@ type EvmConfig struct {
 	extendedEIPs             map[int]func(*vm.JumpTable)
 	extendedDefaultExtraEIPs []int64
 	chainConfig              *ChainConfig
-	evmCoinInfo              EvmCoinInfo
 }
 
 // NewEvmConfig returns a pointer to a new EvmConfig object.
@@ -37,8 +36,11 @@ func (ec *EvmConfig) GetChainConfig() *ChainConfig {
 	return ec.chainConfig
 }
 
-func (ec *EvmConfig) GetEVMCoinInfo() EvmCoinInfo {
-	return ec.evmCoinInfo
+// WithChainConfig allows to define a custom `chainConfig` to be used in the
+// EVM.
+func (ec *EvmConfig) WithChainConfig(cc *ChainConfig) *EvmConfig {
+	ec.chainConfig = cc
+	return ec
 }
 
 // WithExtendedEips allows to add to the go-ethereum activators map the provided
@@ -52,20 +54,6 @@ func (ec *EvmConfig) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTable)) 
 // by adding provided EIP numbers.
 func (ec *EvmConfig) WithExtendedDefaultExtraEIPs(eips ...int64) *EvmConfig {
 	ec.extendedDefaultExtraEIPs = eips
-	return ec
-}
-
-// WithChainConfig allows to define a custom `chainConfig` to be used in the
-// EVM.
-func (ec *EvmConfig) WithChainConfig(cc *ChainConfig) *EvmConfig {
-	ec.chainConfig = cc
-	return ec
-}
-
-// WithEVMCoinInfo allows to define the denom and decimals of the token used as the
-// EVM token.
-func (ec *EvmConfig) WithEVMCoinInfo(coinInfo EvmCoinInfo) *EvmConfig {
-	ec.evmCoinInfo = coinInfo
 	return ec
 }
 

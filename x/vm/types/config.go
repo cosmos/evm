@@ -11,16 +11,12 @@ import (
 // Apply applies the changes to the virtual machine configuration.
 func (ec *EvmConfig) Apply() error {
 	// If Apply method has been already used in the object, return nil and no not overwrite
-	// This mirrors the silent behavior of the previous EvmAppOptions implementation
+	// This retains the previous silent behavior
 	if IsSealed() {
 		return nil
 	}
 
 	if err := setChainConfig(ec.chainConfig); err != nil {
-		return err
-	}
-
-	if err := setEVMCoinInfo(ec.evmCoinInfo); err != nil {
 		return err
 	}
 

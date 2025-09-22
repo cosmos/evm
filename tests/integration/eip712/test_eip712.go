@@ -12,7 +12,6 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
-	"github.com/cosmos/evm/testutil/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -73,7 +72,7 @@ func (s *TestSuite) SetupTest() {
 	s.clientCtx = client.Context{}.WithTxConfig(s.config.TxConfig)
 	s.denom = evmtypes.GetEVMCoinDenom()
 
-	sdk.GetConfig().SetBech32PrefixForAccount(config.Bech32Prefix, "")
+	sdk.GetConfig().SetBech32PrefixForAccount(sdk.Bech32MainPrefix, "")
 }
 
 // createTestAddress creates random test addresses for messages
@@ -347,7 +346,7 @@ func (s *TestSuite) TestEIP712() {
 					AccountNumber: params.accountNumber,
 					Sequence:      params.sequence,
 					PubKey:        pubKey,
-					Address:       sdk.MustBech32ifyAddressBytes(testconfig.ExampleBech32Prefix, pubKey.Bytes()),
+					Address:       sdk.MustBech32ifyAddressBytes(sdk.Bech32MainPrefix, pubKey.Bytes()),
 				}
 
 				bz, err := authsigning.GetSignBytesAdapter(

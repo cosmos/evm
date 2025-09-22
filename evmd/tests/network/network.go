@@ -500,7 +500,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := config.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.ExampleEIP155ChainID)
+		customAppTemplate, _ := config.InitAppConfig(testconfig.ExampleAttoDenom, testconfig.EighteenDecimalsChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

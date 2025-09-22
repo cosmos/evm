@@ -41,9 +41,9 @@ func BenchmarkGasEstimation(b *testing.B) {
 	decimals := types.GetEVMCoinDecimals()
 	extendedDecimals := types.GetEVMCoinExtendedDecimals()
 
-	configurator := types.NewEvmConfig()
-	configurator.ResetTestConfig()
-	err := configurator.
+	evmConfig := types.NewEvmConfig()
+	evmConfig.ResetTestConfig()
+	err := evmConfig.
 		WithChainConfig(chainConfig).
 		WithEVMCoinInfo(types.EvmCoinInfo{
 			DisplayDenom:     displayDenom,

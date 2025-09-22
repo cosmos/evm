@@ -8,6 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	evmconfig "github.com/cosmos/evm/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -75,9 +76,10 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Apply())
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			require.NoError(t, evmConfig.Apply())
+			require.NoError(t, evmtypes.SetEVMCoinInfo(tc.evmCoinInfo))
 
 			coinConverted, err := evmtypes.ConvertEvmCoinDenomToExtendedDenom(tc.coin)
 
@@ -139,9 +141,10 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Apply())
+			evmConfig := evmtypes.NewEvmConfig()
+			evmConfig.ResetTestConfig()
+			require.NoError(t, evmConfig.Apply())
+			require.NoError(t, evmtypes.SetEVMCoinInfo(tc.evmCoinInfo))
 
 			coinConverted := evmtypes.ConvertCoinsDenomToExtendedDenom(tc.coins)
 			require.Equal(t, tc.expCoins, coinConverted, "expected a different coin")
@@ -188,9 +191,10 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEvmConfig()
-				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Apply())
+				evmConfig := evmtypes.NewEvmConfig()
+				evmConfig.ResetTestConfig()
+				require.NoError(t, evmConfig.Apply())
+				require.NoError(t, evmtypes.SetEVMCoinInfo(coinInfo))
 				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt.ToBig())
 				exp := math.LegacyNewDecFromBigInt(tc.amt.ToBig())
 				if coinInfo.Decimals == evmtypes.SixDecimals {
@@ -226,9 +230,10 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEvmConfig()
-				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Apply())
+				evmConfig := evmtypes.NewEvmConfig()
+				evmConfig.ResetTestConfig()
+				require.NoError(t, evmConfig.Apply())
+				require.NoError(t, evmtypes.SetEVMCoinInfo(coinInfo))
 				res := evmtypes.ConvertAmountTo18DecimalsBigInt(tc.amt)
 				exp := tc.amt
 				if coinInfo.Decimals == evmtypes.SixDecimals {

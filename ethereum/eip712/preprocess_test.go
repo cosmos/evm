@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/ethereum/eip712"
 	testconfig "github.com/cosmos/evm/testutil/config"
@@ -30,7 +31,7 @@ import (
 // Testing Constants
 var (
 	// chainID is used in EIP-712 tests.
-	chainID = uint64(testconfig.ExampleEIP155ChainID)
+	chainID = uint64(testconfig.EighteenDecimalsChainID)
 
 	ctx = client.Context{}.WithTxConfig(
 		encoding.MakeConfig(chainID).TxConfig,
@@ -39,7 +40,7 @@ var (
 	// feePayerAddress is the address of the fee payer used in EIP-712 tests.
 	feePayerAddress = fmt.Sprintf(
 		"%s17xpfvakm2amg962yls6f84z3kell8c5lserqta",
-		testconfig.ExampleBech32Prefix,
+		sdk.Bech32MainPrefix,
 	)
 )
 
@@ -55,10 +56,12 @@ type TestCaseStruct struct {
 
 func TestLedgerPreprocessing(t *testing.T) {
 	// Update bech32 prefix
-	sdk.GetConfig().SetBech32PrefixForAccount(testconfig.ExampleBech32Prefix, "")
-	evmConfigurator := evmtypes.NewEvmConfig().
-		WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
-	err := evmConfigurator.Apply()
+	sdk.GetConfig().SetBech32PrefixForAccount(sdk.Bech32MainPrefix, "")
+	evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+	evmConfig.ResetTestConfig()
+	err := evmConfig.Apply()
+	require.NoError(t, err)
+	err = evmtypes.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
 	require.NoError(t, err)
 
 	testCases := []TestCaseStruct{

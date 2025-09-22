@@ -41,9 +41,9 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int, evmAppCreator i
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := GetChainID(i)
 		evmChainID, err := strconv.ParseUint(GetEvmChainID(i), 10, 64)
-		chainConfig := evmconfig.NewTestChainConfig(evmChainID)
+		chainConfig := evmconfig.NewDefaultEvmConfig(evmChainID, false)
 		require.NoError(t, err)
-		require.NoError(t, chainConfig.ApplyChainConfig())
+		require.NoError(t, chainConfig.Apply())
 		// setup EVM chains
 		chains[strconv.FormatUint(evmChainID, 10)] = NewTestChain(t, true, coord, chainID)
 	}

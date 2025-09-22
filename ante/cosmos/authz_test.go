@@ -21,9 +21,7 @@ import (
 )
 
 func TestAuthzLimiterDecorator(t *testing.T) {
-	evmConfigurator := evmtypes.NewEvmConfig().
-		WithEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
-	err := evmConfigurator.Apply()
+	err := evmtypes.SetEVMCoinInfo(testconfig.ExampleChainCoinInfo[testconfig.ExampleChainID])
 	require.NoError(t, err)
 
 	encodingCfg := encoding.MakeConfig(testconfig.ExampleChainID.EVMChainID)

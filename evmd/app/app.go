@@ -211,10 +211,11 @@ func NewExampleApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
-	chainConfig config.ChainConfig,
+	evmConfig *evmtypes.EvmConfig,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
-	encodingConfig := evmosencoding.MakeConfig(chainConfig.EvmChainID)
+	evmChainID := config.GetEvmChainIDWithDefault(appOpts, evmConfig, logger)
+	encodingConfig := evmosencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -261,7 +262,14 @@ func NewExampleApp(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	// initialize the Cosmos EVM application configuration, if not already initialized
-	if err := chainConfig.ApplyChainConfig(); err != nil {
+	if evmConfig == nil {
+		evmConfig = config.NewDefaultEvmConfig(evmChainID, false)
+	}
+
+	if evmConfig == nil {
+		evmConfig = config.NewDefaultEvmConfig(evmChainID, false)
+	}
+	if err := evmConfig.Apply(); err != nil {
 		panic(err)
 	}
 
@@ -884,11 +892,62 @@ func (app *EVMD) Configurator() module.Configurator {
 	return app.configurator
 }
 
+// validateCrossModuleGenesis performs cross-module genesis validation to ensure
+// consistency between different modules' genesis states.
+func (app *EVMD) validateCrossModuleGenesis(genesisState cosmosevmtypes.GenesisState) error {
+	// Unmarshal bank genesis state to get denomination metadata
+	var bankGenesis banktypes.GenesisState
+	if bankRaw, ok := genesisState[banktypes.ModuleName]; ok {
+		if err := app.appCodec.UnmarshalJSON(bankRaw, &bankGenesis); err != nil {
+			return fmt.Errorf("failed to unmarshal bank genesis: %w", err)
+		}
+	} else {
+		return fmt.Errorf("bank module genesis state not found")
+	}
+
+	// Unmarshal VM genesis state
+	var vmGenesis evmtypes.GenesisState
+	if vmRaw, ok := genesisState[evmtypes.ModuleName]; ok {
+		if err := app.appCodec.UnmarshalJSON(vmRaw, &vmGenesis); err != nil {
+			return fmt.Errorf("failed to unmarshal vm genesis: %w", err)
+		}
+	} else {
+		return fmt.Errorf("vm module genesis state not found")
+	}
+
+	// Validate EVM genesis against bank metadata
+	if err := evmtypes.ValidateGenesisWithBankMetadata(vmGenesis, bankGenesis.DenomMetadata); err != nil {
+		return fmt.Errorf("EVM genesis validation against bank metadata failed: %w", err)
+	}
+
+	// Unmarshal staking genesis state to validate bond denom
+	var stakingGenesis stakingtypes.GenesisState
+	if stakingRaw, ok := genesisState[stakingtypes.ModuleName]; ok {
+		if err := app.appCodec.UnmarshalJSON(stakingRaw, &stakingGenesis); err != nil {
+			return fmt.Errorf("failed to unmarshal staking genesis: %w", err)
+		}
+
+		// Validate that staking bond denom has proper bank metadata for EVM compatibility
+		if err := vm.ValidateStakingBondDenomWithBankMetadata(stakingGenesis.Params.BondDenom, bankGenesis.DenomMetadata); err != nil {
+			return fmt.Errorf("staking bond denom validation against bank metadata failed: %w", err)
+		}
+	} else {
+		return fmt.Errorf("staking module genesis state not found")
+	}
+
+	return nil
+}
+
 // InitChainer application update at chain initialization
 func (app *EVMD) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	var genesisState cosmosevmtypes.GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
+	}
+
+	// Perform cross-module genesis validation before initialization
+	if err := app.validateCrossModuleGenesis(genesisState); err != nil {
+		panic(fmt.Errorf("cross-module genesis validation failed: %w", err))
 	}
 
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {

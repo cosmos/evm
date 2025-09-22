@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	evmconfig "github.com/cosmos/evm/config"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/wrappers"
@@ -103,11 +104,12 @@ func TestMintAmountToAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -224,11 +226,12 @@ func TestBurnAmountFromAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -385,11 +388,12 @@ func TestSendCoinsFromModuleToAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -546,11 +550,12 @@ func TestSendCoinsFromAccountToModule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -684,11 +689,12 @@ func TestGetBalance(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)
@@ -831,11 +837,12 @@ func TestSppendableCoin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEvmConfig()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Apply()
+			evmConfig := evmconfig.NewDefaultEvmConfig(evmconfig.DefaultEvmChainID, true)
+			evmConfig.ResetTestConfig()
+			err := evmConfig.Apply()
 			require.NoError(t, err, "failed to apply EvmConfig")
+			err = evmtypes.SetEVMCoinInfo(tc.coinInfo)
+			require.NoError(t, err, "failed to set EvmCoinInfo")
 
 			// Setup mock controller
 			ctrl := gomock.NewController(t)

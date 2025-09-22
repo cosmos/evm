@@ -13,7 +13,7 @@ import (
 )
 
 func (s *KeeperTestSuite) TestCallEVM() {
-	wcosmosEVMContract := common.HexToAddress(testconfig.WEVMOSContractMainnet)
+	wcosmosEVMContract := common.HexToAddress(testconfig.WevmosContractMainnet)
 	testCases := []struct {
 		name    string
 		method  string
@@ -47,7 +47,7 @@ func (s *KeeperTestSuite) TestCallEVM() {
 
 func (s *KeeperTestSuite) TestCallEVMWithData() {
 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
-	wcosmosEVMContract := common.HexToAddress(testconfig.WEVMOSContractMainnet)
+	wcosmosEVMContract := common.HexToAddress(testconfig.WevmosContractMainnet)
 	testCases := []struct {
 		name     string
 		from     common.Address

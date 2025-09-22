@@ -368,10 +368,8 @@ evmd start "$TRACE" \
 	--pruning nothing \
 	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0$EXTENDED_DENOM \
-  --evm.coin-info.display-denom=$DISPLAY_DENOM \
-  --evm.coin-info.decimals=$DECIMALS \
-  --evm.coin-info.extended-decimals=$EXTENDED_DECIMALS \
 	--evm.min-tip=0 \
 	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
-	--chain-id "$CHAINID"
+	--chain-id "$CHAINID" \
+	--evm.evm-chain-id=$CHAINID
