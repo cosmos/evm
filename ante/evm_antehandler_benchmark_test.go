@@ -1,11 +1,10 @@
-package ante_test
+package ante
 
 import (
 	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/cosmos/evm/ante"
 	ethante "github.com/cosmos/evm/ante/evm"
 	evmdante "github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/evmd/tests/integration"
@@ -142,9 +141,9 @@ func (s *benchmarkSuite) generateTxType(txType string) (sdktypes.Tx, error) {
 	}
 }
 
-func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
+func (s *benchmarkSuite) generateHandlerOptions() HandlerOptions {
 	encCfg := s.network.GetEncodingConfig()
-	return ante.HandlerOptions{
+	return HandlerOptions{
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
 		BankKeeper:             s.network.App.GetBankKeeper(),
@@ -154,7 +153,7 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		IBCKeeper:              s.network.App.GetIBCKeeper(),
 		FeeMarketKeeper:        s.network.App.GetFeeMarketKeeper(),
 		SignModeHandler:        encCfg.TxConfig.SignModeHandler(),
-		SigGasConsumer:         ante.SigVerificationGasConsumer,
+		SigGasConsumer:         SigVerificationGasConsumer,
 		MaxTxGasWanted:         1_000_000_000,
 		TxFeeChecker:           ethante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
 	}
