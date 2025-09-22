@@ -173,14 +173,16 @@ epixd start --home ~/.epixd
 ```bash
 # Set variables for mainnet
 MONIKER="your-validator-name"
-CHAIN_ID="1916"
+CHAIN_ID="epix_1916-1"
 KEYRING="os"  # Use secure keyring for mainnet
 
-# Initialize node
+# Initialize node (this also generates a validator consensus signing key at `~/.epixd/config/priv_validator_key.json`)
 epixd init $MONIKER --chain-id $CHAIN_ID --home ~/.epixd
 
-# Create or import validator key (SECURE THIS KEY!)
+# Create validator operator key (SECURE THIS KEY!). This key is used to sign the `create-validator` transaction and to withdraw commissions.
 epixd keys add validator --keyring-backend $KEYRING --home ~/.epixd
+# OR import validator operator key (prompts for seed phrase)
+epixd keys add validator --recover --keyring-backend $KEYRING --home ~/.epixd
 ```
 
 ### 2. Download Genesis File
@@ -197,7 +199,7 @@ epixd validate-genesis --home ~/.epixd
 
 ```bash
 # Set persistent peers (update with current mainnet peers)
-PEERS="mainnet_peer1@ip1:26656,mainnet_peer2@ip2:26656"
+PEERS="1b7b67ff660e8609ad8dc75149509fafff7bd82b@84.203.116.103:26656"
 sed -i "s/persistent_peers = \"\"/persistent_peers = \"$PEERS\"/" ~/.epixd/config/config.toml
 
 # Set minimum gas prices
@@ -229,7 +231,7 @@ epixd status | jq .SyncInfo.catching_up
 # Create validator (adjust values as needed)
 epixd tx staking create-validator \
   --amount=1000000000000000000aepix \
-  --pubkey=$(epixd tendermint show-validator --home ~/.epixd) \
+  --pubkey=$(epixd comet show-validator --home ~/.epixd) \
   --moniker="$MONIKER" \
   --chain-id="$CHAIN_ID" \
   --commission-rate="0.05" \
