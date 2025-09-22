@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"io"
 
 	"os"
@@ -486,6 +487,18 @@ func NewExampleApp(
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		tracer,
+	).WithStaticPrecompiles(
+		precompiletypes.DefaultStaticPrecompiles(
+			*app.StakingKeeper,
+			app.DistrKeeper,
+			app.BankKeeper,
+			&app.Erc20Keeper,
+			&app.TransferKeeper,
+			app.IBCKeeper.ChannelKeeper,
+			app.GovKeeper,
+			app.SlashingKeeper,
+			appCodec,
+		),
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -560,23 +573,6 @@ func NewExampleApp(
 
 	// Override the ICS20 app module
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
-
-	// NOTE: we are adding all available Cosmos EVM EVM extensions.
-	// Not all of them need to be enabled, which can be configured on a per-chain basis.
-	app.EVMKeeper.WithStaticPrecompiles(
-		NewAvailableStaticPrecompiles(
-			*app.StakingKeeper,
-			app.DistrKeeper,
-			app.PreciseBankKeeper,
-			app.Erc20Keeper,
-			app.TransferKeeper,
-			app.IBCKeeper.ChannelKeeper,
-			app.EVMKeeper,
-			app.GovKeeper,
-			app.SlashingKeeper,
-			app.AppCodec(),
-		),
-	)
 
 	/****  Module Options ****/
 
