@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
 
@@ -280,19 +279,8 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
-	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	var allKeys []storetypes.StoreKey
-	var nonTransientKeys []storetypes.StoreKey
-	for _, k := range keys {
-		allKeys = append(allKeys, k)
-		nonTransientKeys = append(nonTransientKeys, k)
-	}
-	for _, k := range okeys {
-		allKeys = append(allKeys, k)
-		nonTransientKeys = append(nonTransientKeys, k)
-	}
-	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
+	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, feemarkettypes.TransientKey)
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -312,7 +300,6 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		okeys:             okeys,
 	}
 
 	// removed x/params: no ParamsKeeper initialization
@@ -747,7 +734,6 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountObjectStores(okeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
