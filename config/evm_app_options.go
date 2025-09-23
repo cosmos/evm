@@ -89,9 +89,3 @@ func setBaseDenom(ci evmtypes.EvmCoinInfo) (err error) {
 	// new setBaseDenom() units are lower than the current base denom's units.
 	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
 }
-
-// EvmAppOptions allows to setup the global configuration
-// for the Cosmos EVM chain.
-func EvmAppOptions(chainID uint64) error {
-	return EvmAppOptionsWithConfig(chainID, ChainsCoinInfo, cosmosEVMActivators)
-}

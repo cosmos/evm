@@ -31,6 +31,30 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - Remove this
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.EighteenDecimals,
 	},
+	TwelveDecimalsChainID: {
+		Denom:         "ptest2",
+		ExtendedDenom: "atest2",
+		DisplayDenom:  "test2",
+		Decimals:      evmtypes.TwelveDecimals,
+	},
+	TwoDecimalsChainID: {
+		Denom:         "ctest3",
+		ExtendedDenom: "atest3",
+		DisplayDenom:  "test3",
+		Decimals:      evmtypes.TwoDecimals,
+	},
+	TestChainID1: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleChainDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
+	TestChainID2: {
+		Denom:         ExampleChainDenom,
+		ExtendedDenom: ExampleChainDenom,
+		DisplayDenom:  ExampleChainDenom,
+		Decimals:      evmtypes.EighteenDecimals,
+	},
 }
 
 const (
