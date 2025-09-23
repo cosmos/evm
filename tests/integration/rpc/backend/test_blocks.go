@@ -247,9 +247,10 @@ func (s *TestSuite) TestGetBlockByHash() {
 		blockRes *cmtrpctypes.ResultBlockResults
 		resBlock *cmtrpctypes.ResultBlock
 	)
-	msgEthereumTx, bz := s.buildEthereumTx()
+	msgEthereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
 
-	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
+	block := cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil)
 
 	testCases := []struct {
 		name         string
@@ -341,13 +342,29 @@ func (s *TestSuite) TestGetBlockByHash() {
 			math.NewInt(1).BigInt(),
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			msgEthereumTx,
-			bz,
+			signedBz,
 			func(hash common.Hash, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				resBlock = RegisterBlockByHash(client, hash, txBz)
 
-				blockRes = RegisterBlockResults(client, height)
+				// Provide MsgEthereumTxResponse in Data for logs, and ethereum_tx events for indexer
+				var err error
+				blockRes, err = RegisterBlockResultsWithEventLog(client, height)
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				// Index the block so GetTxByEthHash can find the tx when building receipts
+				err = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				s.Require().NoError(err)
+
+				// blockRes = RegisterBlockResults(client, height)
 				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
