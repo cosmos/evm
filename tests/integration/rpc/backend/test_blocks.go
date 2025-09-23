@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/cometbft/cometbft/abci/types"
@@ -22,6 +23,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -183,25 +185,25 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			msgEthereumTx,
 			signedBz,
-            func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
-                height := blockNum.Int64()
-                client := s.backend.ClientCtx.Client.(*mocks.Client)
-                resBlock = RegisterBlock(client, height, txBz)
-                // Provide MsgEthereumTxResponse in Data for logs, and ethereum_tx events for indexer
-                var err error
-                blockRes, err = RegisterBlockResultsWithEventLog(client, height)
-                s.Require().NoError(err)
-                txHash := msgEthereumTx.AsTransaction().Hash()
-                blockRes.TxsResults[0].Events = []types.Event{
-                    {Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
-                        {Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
-                        {Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
-                        {Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
-                    }},
-                }
-                // Index the block so GetTxByEthHash can find the tx when building receipts
-                _ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
-                RegisterConsensusParams(client, height)
+			func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
+				height := blockNum.Int64()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				resBlock = RegisterBlock(client, height, txBz)
+				// Provide MsgEthereumTxResponse in Data for logs, and ethereum_tx events for indexer
+				var err error
+				blockRes, err = RegisterBlockResultsWithEventLog(client, height)
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				// Index the block so GetTxByEthHash can find the tx when building receipts
+				_ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1551,7 +1553,8 @@ func (s *TestSuite) TestEthBlockByNumber() {
 }
 
 func (s *TestSuite) TestEthBlockFromCometBlock() {
-	msgEthereumTx, bz := s.buildEthereumTx()
+	msgEthereumTx, _ := s.buildEthereumTx()
+	bz := s.signAndEncodeEthTx(msgEthereumTx)
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
 	testCases := []struct {
@@ -1559,7 +1562,8 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 		baseFee      *big.Int
 		resBlock     *cmtrpctypes.ResultBlock
 		blockRes     *cmtrpctypes.ResultBlockResults
-		registerMock func(math.Int, int64)
+		validator    sdk.AccAddress
+		registerMock func(math.Int, int64, sdk.AccAddress)
 		expEthBlock  *ethtypes.Block
 		expPass      bool
 	}{
@@ -1573,9 +1577,13 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 				Height:     1,
 				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
 			},
-			func(baseFee math.Int, _ int64) {
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
+			func(baseFee math.Int, _ int64, validator sdk.AccAddress) {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterConsensusParams(client, 1)
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			ethtypes.NewBlock(
 				ethrpc.EthHeaderFromComet(
@@ -1607,9 +1615,13 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 					},
 				},
 			},
-			func(baseFee math.Int, _ int64) {
+			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
+			func(baseFee math.Int, _ int64, validator sdk.AccAddress) {
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterConsensusParams(client, 1)
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			ethtypes.NewBlock(
 				ethrpc.EthHeaderFromComet(
@@ -1627,16 +1639,45 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
 			s.SetupTest() // reset test and queries
-			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.blockRes.Height)
+			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.blockRes.Height, tc.validator)
+
+			// If the case includes an ethereum tx, ensure logs/data and indexer are prepared
+			if len(tc.resBlock.Block.Txs) > 0 && len(tc.blockRes.TxsResults) > 0 {
+				// Provide MsgEthereumTxResponse in Data
+				anyValue, err := codectypes.NewAnyWithValue(&evmtypes.MsgEthereumTxResponse{})
+				s.Require().NoError(err)
+				data, err := proto.Marshal(&sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyValue}})
+				s.Require().NoError(err)
+				tc.blockRes.TxsResults[0].Data = data
+
+				// Inject ethereum_tx events for indexer parsing
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				tc.blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				s.Require().NoError(s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults))
+			}
 
 			ethBlock, err := s.backend.EthBlockFromCometBlock(tc.resBlock, tc.blockRes)
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				s.Require().Equal(tc.expEthBlock.Header(), ethBlock.Header())
-				s.Require().Equal(tc.expEthBlock.Uncles(), ethBlock.Uncles())
-				s.Require().Equal(tc.expEthBlock.ReceiptHash(), ethBlock.ReceiptHash())
-				for i, tx := range tc.expEthBlock.Transactions() {
+
+				msgs := s.backend.EthMsgsFromCometBlock(tc.resBlock, tc.blockRes)
+				txs := make([]*ethtypes.Transaction, len(msgs))
+				for i, m := range msgs {
+					txs[i] = m.AsTransaction()
+				}
+
+				expBlock := s.buildEthBlock(tc.blockRes, tc.resBlock, msgs, tc.validator, tc.baseFee)
+				s.Require().Equal(expBlock.Header(), ethBlock.Header())
+				s.Require().Equal(expBlock.Uncles(), ethBlock.Uncles())
+				s.Require().Equal(expBlock.ReceiptHash(), ethBlock.ReceiptHash())
+				for i, tx := range expBlock.Transactions() {
 					s.Require().Equal(tx.Data(), ethBlock.Transactions()[i].Data())
 				}
 

@@ -171,6 +171,24 @@ func (s *TestSuite) buildFormattedBlock(
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) map[string]interface{} {
+	var msgs []*evmtypes.MsgEthereumTx
+	if tx != nil {
+		msgs = []*evmtypes.MsgEthereumTx{tx}
+	}
+	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
+	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock.Block, msgs, true, fullTx, s.backend.EvmChainID)
+	s.Require().NoError(err)
+
+	return res
+}
+
+func (s *TestSuite) buildEthBlock(
+	blockRes *cmtrpctypes.ResultBlockResults,
+	resBlock *cmtrpctypes.ResultBlock,
+	msgs []*evmtypes.MsgEthereumTx,
+	validator sdk.AccAddress,
+	baseFee *big.Int,
+) *ethtypes.Block {
 	// Replay core steps of EthBlockFromCometBlock using known inputs
 	cmtHeader := resBlock.Block.Header
 
@@ -185,12 +203,6 @@ func (s *TestSuite) buildFormattedBlock(
 	ethHeader := rpctypes.MakeHeader(cmtHeader, gasLimit, miner, baseFee)
 
 	// 4) Prepare msgs and txs
-	var msgs []*evmtypes.MsgEthereumTx
-	if tx != nil {
-		msgs = []*evmtypes.MsgEthereumTx{tx}
-	} else {
-		msgs = s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
-	}
 	txs := make([]*ethtypes.Transaction, len(msgs))
 	for i, m := range msgs {
 		txs[i] = m.AsTransaction()
@@ -217,11 +229,7 @@ func (s *TestSuite) buildFormattedBlock(
 
 	// 7) Construct eth block and marshal
 	body := &ethtypes.Body{Transactions: txs, Uncles: []*ethtypes.Header{}, Withdrawals: []*ethtypes.Withdrawal{}}
-	ethBlock := ethtypes.NewBlock(ethHeader, body, receipts, trie.NewStackTrie(nil))
-
-	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock.Block, msgs, true, fullTx, s.backend.EvmChainID)
-	s.Require().NoError(err)
-	return res
+	return ethtypes.NewBlock(ethHeader, body, receipts, trie.NewStackTrie(nil))
 }
 
 func shouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
