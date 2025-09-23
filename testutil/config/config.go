@@ -10,7 +10,7 @@ import (
 // ChainsCoinInfo is a map of the chain id and its corresponding EvmCoinInfo
 // that allows initializing the app with different coin info based on the
 // chain id
-var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{
+var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - Remove this
 	EighteenDecimalsChainID: {
 		Denom:         ExampleChainDenom,
 		ExtendedDenom: ExampleChainDenom,

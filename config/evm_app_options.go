@@ -19,7 +19,7 @@ type EVMOptionsFn func(uint64) error
 
 var sealed = false
 
-func EvmAppOptionsWithConfig(
+func EvmAppOptionsWithConfig( // TODO:VLAD - This should all be set within the VM module
 	chainID uint64,
 	chainsCoinInfo map[uint64]evmtypes.EvmCoinInfo,
 	cosmosEVMActivators map[int]func(*vm.JumpTable),

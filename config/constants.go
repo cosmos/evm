@@ -1,6 +1,6 @@
 package config
 
-const (
+const ( // TODO:VLAD - Clean this up
 	// ExampleChainDenom is the denomination of the Cosmos EVM example chain's base coin.
 	ExampleChainDenom = "aatom"
 

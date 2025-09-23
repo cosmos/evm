@@ -211,42 +211,16 @@ func NewExampleApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
-	evmChainID uint64,
-	evmAppOptions evmconfig.EVMOptionsFn,
+	evmChainID uint64, // TODO:VLAD - Remove this
+	evmAppOptions evmconfig.EVMOptionsFn, // TODO:VLAD - Remove this
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
-	encodingConfig := evmosencoding.MakeConfig(evmChainID)
+	encodingConfig := evmosencoding.MakeConfig(evmChainID) // TODO:VLAD - Remove chain id from this
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
-
-	// Below we could construct and set an application specific mempool and
-	// ABCI 1.0 PrepareProposal and ProcessProposal handlers. These defaults are
-	// already set in the SDK's BaseApp, this shows an example of how to override
-	// them.
-	//
-	// Example:
-	//
-	// bApp := baseapp.NewBaseApp(...)
-	// nonceMempool := evmmempool.NewSenderNonceMempool()
-	// abciPropHandler := NewDefaultProposalHandler(nonceMempool, bApp)
-	//
-	// bApp.SetMempool(nonceMempool)
-	// bApp.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
-	// bApp.SetProcessProposal(abciPropHandler.ProcessProposalHandler())
-	//
-	// Alternatively, you can construct BaseApp options, append those to
-	// baseAppOptions and pass them to NewBaseApp.
-	//
-	// Example:
-	//
-	// prepareOpt = func(app *baseapp.BaseApp) {
-	// 	abciPropHandler := baseapp.NewDefaultProposalHandler(nonceMempool, app)
-	// 	app.SetPrepareProposal(abciPropHandler.PrepareProposalHandler())
-	// }
-	// baseAppOptions = append(baseAppOptions, prepareOpt)
 
 	bApp := baseapp.NewBaseApp(
 		appName,
@@ -262,6 +236,7 @@ func NewExampleApp(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	// initialize the Cosmos EVM application configuration
+	// TODO:VLAD - Remove this
 	if err := evmAppOptions(evmChainID); err != nil {
 		panic(err)
 	}
@@ -1122,7 +1097,7 @@ func (app *EVMD) GetTxConfig() client.TxConfig {
 	return app.txConfig
 }
 
-func (app *EVMD) SetClientCtx(clientCtx client.Context) {
+func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove this if possible
 	app.clientCtx = clientCtx
 }
 
