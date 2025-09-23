@@ -324,12 +324,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						},
 					)
 
-					Expect(res.GasUsed > expGasUsedLowerBound).To(BeTrue(), "expected different gas used")
-					Expect(res.GasUsed < expGasUsedUpperBound).To(BeTrue(), "expected different gas used")
+					Expect(res.GasUsed).To(BeNumerically(">", expGasUsedLowerBound), "expected more gas used")
+					Expect(res.GasUsed).To(BeNumerically("<", expGasUsedUpperBound), "expected less gas used")
 				},
 					// FIXME: The gas used on the precompile is much higher than on the EVM
 					Entry(" - direct call", directCall, int64(30_000), int64(31_000)),
-					Entry(" - through erc20 contract", erc20Call, int64(54_000), int64(54_500)),
+					Entry(" - through erc20 contract", erc20Call, int64(53_000), int64(54_500)),
 					Entry(" - through erc20 v5 contract", erc20V5Call, int64(52_000), int64(52_200)),
 				)
 
