@@ -515,10 +515,15 @@ func MarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from co
 //
 // price = min(gasTipCap + baseFee, gasFeeCap)
 func EffectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
+	if baseFee == nil {
+		return tx.GasFeeCap()
+	}
+
 	fee := tx.GasTipCap()
 	fee = fee.Add(fee, baseFee)
 	if tx.GasFeeCapIntCmp(fee) < 0 {
 		return tx.GasFeeCap()
 	}
+
 	return fee
 }

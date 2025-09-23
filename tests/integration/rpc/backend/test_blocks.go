@@ -406,8 +406,9 @@ func (s *TestSuite) TestGetBlockByHash() {
 }
 
 func (s *TestSuite) TestGetBlockTransactionCountByHash() {
-	_, bz := s.buildEthereumTx()
-	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
+	ethereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(ethereumTx)
+	block := cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil)
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
 	testCases := []struct {
@@ -457,7 +458,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 			func(hash common.Hash) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlockByHash(client, hash, bz)
+				RegisterBlockByHash(client, hash, signedBz)
 				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(1),
@@ -480,8 +481,9 @@ func (s *TestSuite) TestGetBlockTransactionCountByHash() {
 }
 
 func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
-	_, bz := s.buildEthereumTx()
-	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
+	ethereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(ethereumTx)
+	block := cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil)
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
 	testCases := []struct {
@@ -532,7 +534,7 @@ func (s *TestSuite) TestGetBlockTransactionCountByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlock(client, height, bz)
+				RegisterBlock(client, height, signedBz)
 				RegisterBlockResults(client, height)
 			},
 			hexutil.Uint(1),
@@ -845,7 +847,7 @@ func (s *TestSuite) TestBlockNumberFromCometByHash() {
 	}
 }
 
-func (s *TestSuite) TestBlockBloom() {
+func (s *TestSuite) TestBlockBloomFromCometBlock() {
 	testCases := []struct {
 		name          string
 		blockRes      *cmtrpctypes.ResultBlockResults
@@ -912,8 +914,38 @@ func (s *TestSuite) TestBlockBloom() {
 }
 
 func (s *TestSuite) TestGetEthBlockFromComet() {
-	msgEthereumTx, bz := s.buildEthereumTx()
+	msgEthereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
+	txHash := msgEthereumTx.AsTransaction().Hash()
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
+
+	anyValue, err := codectypes.NewAnyWithValue(&evmtypes.MsgEthereumTxResponse{
+		Logs: []*evmtypes.Log{
+			{Data: []byte("data")},
+		},
+	})
+	s.Require().NoError(err)
+	data, err := proto.Marshal(&sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyValue}})
+	s.Require().NoError(err)
+	blockRes := &cmtrpctypes.ResultBlockResults{
+		Height: 1,
+		TxsResults: []*types.ExecTxResult{
+			{
+				Code:    0,
+				GasUsed: 0,
+				Data:    data,
+				Events: []types.Event{
+					{
+						Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+							{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+							{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+							{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+						},
+					},
+				},
+			},
+		},
+	}
 
 	testCases := []struct {
 		name         string
@@ -933,10 +965,7 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(common.Address{}.Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{Block: emptyBlock},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			false,
 			func(baseFee math.Int, validator sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -955,12 +984,9 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			true,
 			func(_ math.Int, validator sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -979,12 +1005,9 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(common.Address{}.Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			true,
 			func(baseFee math.Int, _ sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1003,12 +1026,9 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			true,
 			func(baseFee math.Int, validator sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1027,7 +1047,7 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
 			&cmtrpctypes.ResultBlockResults{
 				Height: 1,
@@ -1057,12 +1077,9 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			false,
 			func(baseFee math.Int, validator sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1081,12 +1098,9 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			int64(1),
 			&cmtrpctypes.ResultBlock{
-				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil),
+				Block: cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil),
 			},
-			&cmtrpctypes.ResultBlockResults{
-				Height:     1,
-				TxsResults: []*types.ExecTxResult{{Code: 0, GasUsed: 0}},
-			},
+			blockRes,
 			true,
 			func(baseFee math.Int, validator sdk.AccAddress, height int64) {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
@@ -1105,46 +1119,17 @@ func (s *TestSuite) TestGetEthBlockFromComet() {
 			s.SetupTest() // reset test and queries
 			tc.registerMock(math.NewIntFromBigInt(tc.baseFee), tc.validator, tc.height)
 
+			if len(tc.resBlock.Block.Txs) > 0 && len(tc.blockRes.TxsResults) > 0 {
+				err := s.backend.Indexer.IndexBlock(tc.resBlock.Block, tc.blockRes.TxsResults)
+				s.Require().NoError(err)
+			}
 			block, err := s.backend.RPCBlockFromCometBlock(tc.resBlock, tc.blockRes, tc.fullTx)
 
-			var expBlock map[string]interface{}
-			header := tc.resBlock.Block.Header
-			gasLimit := int64(^uint32(0))                                                // for `MaxGas = -1` (DefaultConsensusParams)
-			gasUsed := new(big.Int).SetUint64(uint64(tc.blockRes.TxsResults[0].GasUsed)) //nolint:gosec // G115 // won't exceed uint64
-
-			root := common.Hash{}.Bytes()
-			receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
-			bloom := ethtypes.CreateBloom(receipt)
-
-			ethRPCTxs := []interface{}{}
-
+			var tx *evmtypes.MsgEthereumTx
 			if tc.expTxs {
-				if tc.fullTx {
-					rpcTx, err := ethrpc.NewRPCTransaction(
-						msgEthereumTx,
-						common.BytesToHash(header.Hash()),
-						uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
-						uint64(0),
-						tc.baseFee,
-						s.backend.EvmChainID,
-					)
-					s.Require().NoError(err)
-					ethRPCTxs = []interface{}{rpcTx}
-				} else {
-					ethRPCTxs = []interface{}{msgEthereumTx.Hash()}
-				}
+				tx = msgEthereumTx
 			}
-
-			expBlock = ethrpc.FormatBlock(
-				header,
-				tc.resBlock.Block.Size(),
-				gasLimit,
-				gasUsed,
-				ethRPCTxs,
-				bloom,
-				common.BytesToAddress(tc.validator.Bytes()),
-				tc.baseFee,
-			)
+			expBlock := s.buildFormattedBlock(tc.blockRes, tc.resBlock, tc.fullTx, tx, tc.validator, tc.baseFee)
 
 			if tc.expPass {
 				s.Require().Equal(expBlock, block)

@@ -193,8 +193,8 @@ func (s *TestSuite) buildEthBlock(
 	cmtHeader := resBlock.Block.Header
 
 	// 1) Gas limit from consensus params
-	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.ContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
-	s.Require().NoError(err)
+	// if failed to query consensus params, default gasLimit is applied.
+	gasLimit, _ := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.ContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
 
 	// 2) Miner from provided validator
 	miner := common.BytesToAddress(validator.Bytes())

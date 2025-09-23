@@ -250,7 +250,12 @@ func (b *Backend) ReceiptsFromCometBlock(
 
 		cumulatedGasUsed += txResult.GasUsed
 
-		effectiveGasPrice := rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
+		var effectiveGasPrice *big.Int
+		if baseFee != nil {
+			effectiveGasPrice = rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
+		} else {
+			effectiveGasPrice = ethMsg.Raw.Transaction.GasFeeCap()
+		}
 
 		var status uint64
 		if txResult.Failed {
