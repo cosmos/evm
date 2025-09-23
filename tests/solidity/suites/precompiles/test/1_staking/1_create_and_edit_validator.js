@@ -7,7 +7,7 @@ const {
     findEvent, waitWithTimeout, RETRY_DELAY_FUNC
 } = require('../common')
 
-describe('StakingI – createValidator', function () {
+describe('StakingI – createValidator', function() {
     const GAS_LIMIT = DEFAULT_GAS_LIMIT // skip gas estimation for simplicity
 
     let staking, signer
@@ -19,7 +19,7 @@ describe('StakingI – createValidator', function () {
         staking = await hre.ethers.getContractAt('StakingI', STAKING_PRECOMPILE_ADDRESS)
     })
 
-    it('should create a validator successfully', async function () {
+    it('should create a validator successfully', async function() {
         // Define the validator’s descriptive metadata
         const description = {
             moniker: 'TestValidator',
@@ -49,7 +49,7 @@ describe('StakingI – createValidator', function () {
             signer.address,
             pubkey,
             deposit,
-            {gasLimit: GAS_LIMIT}
+            { gasLimit: GAS_LIMIT }
         )
 
         // Wait for 2 confirmations and log the transaction hash
@@ -81,7 +81,7 @@ describe('StakingI – createValidator', function () {
         expect(info.status).to.equal(3n) // BondStatus.Bonded === 3
         expect(info.tokens).to.equal(deposit)
         expect(info.delegatorShares).to.be.gt(0n)
-        expect(info.description).to.equal(description.details)
+        expect(info.description).to.equal(description)
         expect(info.unbondingHeight).to.equal(0n)
         expect(info.unbondingTime).to.equal(0n)
         expect(info.commission).to.equal(commissionRates.rate)
@@ -106,7 +106,7 @@ describe('StakingI – createValidator', function () {
             signer.address,
             DO_NOT_MODIFY,    // leave commissionRate unchanged
             DO_NOT_MODIFY,    // leave minSelfDelegation unchanged
-            {gasLimit: GAS_LIMIT}
+            { gasLimit: GAS_LIMIT }
         )
         const editReceipt = await waitWithTimeout(editTx, 20000, RETRY_DELAY_FUNC)
         console.log('EditValidator tx hash:', editTx.hash)
