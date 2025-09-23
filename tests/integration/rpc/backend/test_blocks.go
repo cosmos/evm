@@ -324,9 +324,11 @@ func (s *TestSuite) TestGetBlockByHash() {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				resBlock = RegisterBlockByHash(client, hash, txBz)
-
 				blockRes = RegisterBlockResults(client, height)
 				RegisterConsensusParams(client, height)
+
+				err := s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+				s.Require().NoError(err)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -1250,19 +1252,6 @@ func (s *TestSuite) TestHeaderByNumber() {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterBlock(client, height, nil)
-				// Backend now reads block results; emulate failure there
-				RegisterBlockResultsError(client, height)
-			},
-			false,
-		},
-		{
-			"fail - header not found for height",
-			ethrpc.BlockNumber(1),
-			math.NewInt(1).BigInt(),
-			func(blockNum ethrpc.BlockNumber, _ math.Int) {
-				height := blockNum.Int64()
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, height)
 			},
 			false,
@@ -1373,10 +1362,16 @@ func (s *TestSuite) TestHeaderByNumber() {
 }
 
 func (s *TestSuite) TestHeaderByHash() {
-	var expResultHeader *cmtrpctypes.ResultHeader
+	var (
+		blockRes *cmtrpctypes.ResultBlockResults
+		resBlock *cmtrpctypes.ResultBlock
+	)
 
-	_, bz := s.buildEthereumTx()
-	block := cmttypes.MakeBlock(1, []cmttypes.Tx{bz}, nil, nil)
+	msgEthereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
+	validator := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
+
+	block := cmttypes.MakeBlock(1, []cmttypes.Tx{signedBz}, nil, nil)
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 
 	testCases := []struct {
@@ -1392,29 +1387,7 @@ func (s *TestSuite) TestHeaderByHash() {
 			math.NewInt(1).BigInt(),
 			func(hash common.Hash, _ math.Int) {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeaderByHashError(client, hash, bz)
-			},
-			false,
-		},
-		{
-			"fail - header not found for height",
-			common.BytesToHash(block.Hash()),
-			math.NewInt(1).BigInt(),
-			func(hash common.Hash, _ math.Int) {
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeaderByHashNotFound(client, hash, bz)
-			},
-			false,
-		},
-		{
-			"fail - header not found for height",
-			common.BytesToHash(block.Hash()),
-			math.NewInt(1).BigInt(),
-			func(hash common.Hash, _ math.Int) {
-				height := int64(1)
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterHeaderByHash(client, hash, bz)
-				RegisterBlockResultsError(client, height)
+				RegisterBlockByHashError(client, hash, signedBz)
 			},
 			false,
 		},
@@ -1425,12 +1398,23 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, _ math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeaderByHash(client, hash, bz)
-				RegisterBlockResults(client, height)
+				resBlock = RegisterBlockByHash(client, hash, signedBz)
+				var err error
+				blockRes, err = RegisterBlockResultsWithEventLog(client, height)
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFeeError(QueryClient)
-				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			true,
 		},
@@ -1441,12 +1425,13 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, baseFee math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeaderByHash(client, hash, nil)
-				RegisterBlockResults(client, height)
+				resBlock = RegisterBlockByHash(client, hash, nil)
+				blockRes = RegisterBlockResults(client, height)
+				s.Require().NoError(s.backend.Indexer.IndexBlock(block, blockRes.TxsResults))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
-				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			true,
 		},
@@ -1457,12 +1442,23 @@ func (s *TestSuite) TestHeaderByHash() {
 			func(hash common.Hash, baseFee math.Int) {
 				height := int64(1)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				expResultHeader = RegisterHeaderByHash(client, hash, bz)
-				RegisterBlockResults(client, height)
+				resBlock = RegisterBlockByHash(client, hash, signedBz)
+				var err error
+				blockRes, err = RegisterBlockResultsWithEventLog(client, height)
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults))
 				RegisterConsensusParams(client, height)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
-				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			true,
 		},
@@ -1475,7 +1471,9 @@ func (s *TestSuite) TestHeaderByHash() {
 			header, err := s.backend.HeaderByHash(tc.hash)
 
 			if tc.expPass {
-				expHeader := ethrpc.EthHeaderFromComet(*expResultHeader.Header, ethtypes.Bloom{}, tc.baseFee)
+				msgs := s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+				expHeader := s.buildEthBlock(blockRes, resBlock, msgs, validator, tc.baseFee).Header()
+
 				s.Require().NoError(err)
 				s.Require().Equal(expHeader, header)
 			} else {
