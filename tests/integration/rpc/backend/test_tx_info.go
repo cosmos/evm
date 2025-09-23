@@ -636,7 +636,16 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterBlock(client, 1, txBz)
-				RegisterBlockResults(client, 1)
+				blockRes, err := RegisterBlockResultsWithEventLog(client, 1)
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []abci.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			msgEthereumTx,
