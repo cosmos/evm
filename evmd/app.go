@@ -799,7 +799,8 @@ func NewExampleApp(
 		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 		app.SetCheckTxHandler(checkTxHandler)
 
-		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		verifier := NewProposalVerifier(app, txConfig.TxEncoder())
+		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, verifier)
 		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
 		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
 	}
