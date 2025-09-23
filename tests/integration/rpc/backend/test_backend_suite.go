@@ -5,11 +5,15 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/suite"
+	"github.com/ethereum/go-ethereum/trie"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -80,14 +84,14 @@ func (s *TestSuite) SetupTest() {
 
 	nw := network.New(s.create, s.options...)
 	encodingConfig := nw.GetEncodingConfig()
-    clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
-        WithHeight(1).
-        WithTxConfig(encodingConfig.TxConfig).
-        WithCodec(encodingConfig.Codec).
-        WithKeyringDir(clientDir).
-        WithKeyring(keyRing).
-        WithAccountRetriever(client.TestAccountRetriever{Accounts: accounts}).
-        WithClient(mocks.NewClient(s.T()))
+	clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
+		WithHeight(1).
+		WithTxConfig(encodingConfig.TxConfig).
+		WithCodec(encodingConfig.Codec).
+		WithKeyringDir(clientDir).
+		WithKeyring(keyRing).
+		WithAccountRetriever(client.TestAccountRetriever{Accounts: accounts}).
+		WithClient(mocks.NewClient(s.T()))
 
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
@@ -167,42 +171,61 @@ func (s *TestSuite) buildFormattedBlock(
 	validator sdk.AccAddress,
 	baseFee *big.Int,
 ) map[string]interface{} {
-	header := resBlock.Block.Header
-	gasLimit := int64(^uint32(0))                                             // for `MaxGas = -1` (DefaultConsensusParams)
-	gasUsed := new(big.Int).SetUint64(uint64(blockRes.TxsResults[0].GasUsed)) //nolint:gosec // G115 // won't exceed uint64
+	// Replay core steps of EthBlockFromCometBlock using known inputs
+	cmtHeader := resBlock.Block.Header
 
-	root := common.Hash{}.Bytes()
-	receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
-	bloom := ethtypes.CreateBloom(receipt)
+	// 1) Gas limit from consensus params
+	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(rpctypes.ContextWithHeight(cmtHeader.Height), s.backend.ClientCtx, cmtHeader.Height)
+	s.Require().NoError(err)
 
-	ethRPCTxs := []interface{}{}
+	// 2) Miner from provided validator
+	miner := common.BytesToAddress(validator.Bytes())
+
+	// 3) Build ethereum header
+	ethHeader := rpctypes.MakeHeader(cmtHeader, gasLimit, miner, baseFee)
+
+	// 4) Prepare msgs and txs
+	var msgs []*evmtypes.MsgEthereumTx
 	if tx != nil {
-		if fullTx {
-			rpcTx, err := rpctypes.NewRPCTransaction(
-				tx,
-				common.BytesToHash(header.Hash()),
-				uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
-				uint64(0),
-				baseFee,
-				s.backend.EvmChainID,
-			)
-			s.Require().NoError(err)
-			ethRPCTxs = []interface{}{rpcTx}
-		} else {
-			ethRPCTxs = []interface{}{tx.Hash()}
-		}
+		msgs = []*evmtypes.MsgEthereumTx{tx}
+	} else {
+		msgs = s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+	}
+	txs := make([]*ethtypes.Transaction, len(msgs))
+	for i, m := range msgs {
+		txs[i] = m.AsTransaction()
 	}
 
-	return rpctypes.FormatBlock(
-		header,
-		resBlock.Block.Size(),
-		gasLimit,
-		gasUsed,
-		ethRPCTxs,
-		bloom,
-		common.BytesToAddress(validator.Bytes()),
-		baseFee,
-	)
+	// 5) Build receipts
+	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	s.Require().NoError(err)
+
+	// 6) Gas used
+	var gasUsed uint64
+	for _, r := range blockRes.TxsResults {
+		if shouldIgnoreGasUsed(r) {
+			break
+		}
+		gas := r.GetGasUsed()
+		if gas < 0 {
+			s.T().Errorf("negative gas used value: %d", gas)
+			continue
+		}
+		gasUsed += uint64(gas)
+	}
+	ethHeader.GasUsed = gasUsed
+
+	// 7) Construct eth block and marshal
+	body := &ethtypes.Body{Transactions: txs, Uncles: []*ethtypes.Header{}, Withdrawals: []*ethtypes.Withdrawal{}}
+	ethBlock := ethtypes.NewBlock(ethHeader, body, receipts, trie.NewStackTrie(nil))
+
+	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock.Block, msgs, true, fullTx, s.backend.EvmChainID)
+	s.Require().NoError(err)
+	return res
+}
+
+func shouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
+	return res.GetCode() == 11 && strings.Contains(res.GetLog(), "no block gas left to run tx: out of gas")
 }
 
 func (s *TestSuite) generateTestKeyring(clientDir string) (keyring.Keyring, error) {
