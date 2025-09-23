@@ -1484,8 +1484,16 @@ func (s *TestSuite) TestHeaderByHash() {
 }
 
 func (s *TestSuite) TestEthBlockByNumber() {
-	msgEthereumTx, bz := s.buildEthereumTx()
+	var (
+		blockRes *cmtrpctypes.ResultBlockResults
+		resBlock *cmtrpctypes.ResultBlock
+	)
+
+	msgEthereumTx, _ := s.buildEthereumTx()
+	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
 	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
+	validator := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
+	baseFee := math.NewInt(1)
 
 	testCases := []struct {
 		name         string
@@ -1511,7 +1519,7 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlock(client, height, nil)
+				resBlock = RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, blockNum.Int64())
 			},
 			nil,
@@ -1523,11 +1531,12 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlock(client, height, nil)
-				RegisterBlockResults(client, blockNum.Int64())
+				resBlock = RegisterBlock(client, height, nil)
+				blockRes = RegisterBlockResults(client, blockNum.Int64())
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				baseFee := math.NewInt(1)
+				RegisterConsensusParams(client, height)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			ethtypes.NewBlock(
 				ethrpc.EthHeaderFromComet(
@@ -1547,11 +1556,23 @@ func (s *TestSuite) TestEthBlockByNumber() {
 			func(blockNum ethrpc.BlockNumber) {
 				height := blockNum.Int64()
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterBlock(client, height, bz)
-				RegisterBlockResults(client, blockNum.Int64())
+				resBlock = RegisterBlock(client, height, signedBz)
+				var err error
+				blockRes, err = RegisterBlockResultsWithEventLog(client, blockNum.Int64())
+				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []types.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				s.Require().NoError(s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults))
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				baseFee := math.NewInt(1)
+				RegisterConsensusParams(client, height)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, validator)
 			},
 			ethtypes.NewBlock(
 				ethrpc.EthHeaderFromComet(
@@ -1577,10 +1598,17 @@ func (s *TestSuite) TestEthBlockByNumber() {
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				s.Require().Equal(tc.expEthBlock.Header(), ethBlock.Header())
-				s.Require().Equal(tc.expEthBlock.Uncles(), ethBlock.Uncles())
-				s.Require().Equal(tc.expEthBlock.ReceiptHash(), ethBlock.ReceiptHash())
-				for i, tx := range tc.expEthBlock.Transactions() {
+
+				msgs := s.backend.EthMsgsFromCometBlock(resBlock, blockRes)
+				txs := make([]*ethtypes.Transaction, len(msgs))
+				for i, m := range msgs {
+					txs[i] = m.AsTransaction()
+				}
+				expEthBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee.BigInt())
+				s.Require().Equal(expEthBlock.Header(), ethBlock.Header())
+				s.Require().Equal(expEthBlock.Uncles(), ethBlock.Uncles())
+				s.Require().Equal(expEthBlock.ReceiptHash(), ethBlock.ReceiptHash())
+				for i, tx := range expEthBlock.Transactions() {
 					s.Require().Equal(tx.Data(), ethBlock.Transactions()[i].Data())
 				}
 
@@ -1603,7 +1631,6 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 		blockRes     *cmtrpctypes.ResultBlockResults
 		validator    sdk.AccAddress
 		registerMock func(math.Int, int64, sdk.AccAddress)
-		expEthBlock  *ethtypes.Block
 		expPass      bool
 	}{
 		{
@@ -1624,16 +1651,6 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 				RegisterConsensusParams(client, 1)
 				RegisterValidatorAccount(QueryClient, validator)
 			},
-			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromComet(
-					emptyBlock.Header,
-					ethtypes.Bloom{},
-					math.NewInt(1).BigInt(),
-				),
-				&ethtypes.Body{},
-				nil,
-				nil,
-			),
 			true,
 		},
 		{
@@ -1662,16 +1679,6 @@ func (s *TestSuite) TestEthBlockFromCometBlock() {
 				RegisterConsensusParams(client, 1)
 				RegisterValidatorAccount(QueryClient, validator)
 			},
-			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromComet(
-					emptyBlock.Header,
-					ethtypes.Bloom{},
-					math.NewInt(1).BigInt(),
-				),
-				&ethtypes.Body{Transactions: []*ethtypes.Transaction{msgEthereumTx.AsTransaction()}},
-				nil,
-				trie.NewStackTrie(nil),
-			),
 			true,
 		},
 	}
