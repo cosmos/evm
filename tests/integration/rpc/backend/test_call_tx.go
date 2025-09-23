@@ -73,7 +73,7 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-                RegisterBlock(client, height, nil)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResults(client, 1)
 				RegisterConsensusParams(client, height)
 				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
@@ -97,7 +97,7 @@ func (s *TestSuite) TestResend() {
 				feeMarketClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				RegisterParams(QueryClient, &header, height)
 				RegisterFeeMarketParams(feeMarketClient, 1)
-                RegisterBlock(client, height, nil)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResults(client, 1)
 				RegisterConsensusParams(client, height)
 				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
@@ -118,7 +118,7 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-                RegisterBlock(client, height, nil)
+				RegisterBlock(client, height, nil)
 				RegisterBlockResults(client, 1)
 				RegisterConsensusParams(client, height)
 				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
@@ -151,13 +151,13 @@ func (s *TestSuite) TestResend() {
 		},
 		{
 			"fail - Block error",
-            func() {
-                var header metadata.MD
-                client := s.backend.ClientCtx.Client.(*mocks.Client)
-                QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-                RegisterParams(QueryClient, &header, height)
-                RegisterBlockError(client, height)
-            },
+			func() {
+				var header metadata.MD
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterParams(QueryClient, &header, height)
+				RegisterBlockError(client, height)
+			},
 			evmtypes.TransactionArgs{
 				Nonce: &txNonce,
 			},
@@ -173,12 +173,12 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-                RegisterBlock(client, height, nil)
-                RegisterBlockResults(client, 1)
-                RegisterConsensusParams(client, height)
-                RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
-                RegisterBaseFee(QueryClient, baseFee)
-            },
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterBaseFee(QueryClient, baseFee)
+			},
 			evmtypes.TransactionArgs{
 				Nonce:                &txNonce,
 				GasPrice:             nil,
@@ -197,12 +197,12 @@ func (s *TestSuite) TestResend() {
 				var header metadata.MD
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-                RegisterParams(QueryClient, &header, height)
-                RegisterBlock(client, height, nil)
-                RegisterBlockResults(client, 1)
-                RegisterConsensusParams(client, height)
-                RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
-                RegisterBaseFee(QueryClient, baseFee)
+				RegisterParams(QueryClient, &header, height)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterBaseFee(QueryClient, baseFee)
 			},
 			evmtypes.TransactionArgs{
 				Nonce:                &txNonce,
@@ -216,20 +216,20 @@ func (s *TestSuite) TestResend() {
 		},
 		{
 			"fail - Pending transactions error",
-            func() {
-                var header metadata.MD
-                client := s.backend.ClientCtx.Client.(*mocks.Client)
-                QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-                RegisterBlock(client, height, nil)
-                RegisterHeader(client, &height, nil)
-                RegisterBlockResults(client, 1)
-                RegisterConsensusParams(client, height)
-                RegisterBaseFee(QueryClient, baseFee)
-                RegisterEstimateGas(QueryClient, callArgs)
-                RegisterParams(QueryClient, &header, height)
-                RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
-                RegisterUnconfirmedTxsError(client, nil)
-            },
+			func() {
+				var header metadata.MD
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterBlock(client, height, nil)
+				RegisterHeader(client, &height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterBaseFee(QueryClient, baseFee)
+				RegisterEstimateGas(QueryClient, callArgs)
+				RegisterParams(QueryClient, &header, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterUnconfirmedTxsError(client, nil)
+			},
 			evmtypes.TransactionArgs{
 				Nonce:                &txNonce,
 				To:                   &toAddr,
@@ -246,20 +246,20 @@ func (s *TestSuite) TestResend() {
 		},
 		{
 			"fail - Not Ethereum txs",
-            func() {
-                var header metadata.MD
-                client := s.backend.ClientCtx.Client.(*mocks.Client)
-                QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-                RegisterBlock(client, height, nil)
-                RegisterHeader(client, &height, nil)
-                RegisterBlockResults(client, 1)
-                RegisterConsensusParams(client, height)
-                RegisterBaseFee(QueryClient, baseFee)
-                RegisterEstimateGas(QueryClient, callArgs)
-                RegisterParams(QueryClient, &header, height)
-                RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
-                RegisterUnconfirmedTxsEmpty(client, nil)
-            },
+			func() {
+				var header metadata.MD
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterBlock(client, height, nil)
+				RegisterHeader(client, &height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterBaseFee(QueryClient, baseFee)
+				RegisterEstimateGas(QueryClient, callArgs)
+				RegisterParams(QueryClient, &header, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterUnconfirmedTxsEmpty(client, nil)
+			},
 			evmtypes.TransactionArgs{
 				Nonce:                &txNonce,
 				To:                   &toAddr,
@@ -509,7 +509,6 @@ func (s *TestSuite) TestGasPrice() {
 				RegisterParams(QueryClient, &header, height)
 				RegisterGlobalMinGasPrice(QueryClient, 1)
 				RegisterBlock(client, height, nil)
-				RegisterHeader(client, &height, nil)
 				RegisterBlockResults(client, 1)
 				RegisterConsensusParams(client, height)
 				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
@@ -528,7 +527,6 @@ func (s *TestSuite) TestGasPrice() {
 				RegisterFeeMarketParamsError(feeMarketClient, 1)
 				RegisterParams(QueryClient, &header, height)
 				RegisterBlock(client, height, nil)
-				RegisterHeader(client, &height, nil)
 				RegisterBlockResults(client, 1)
 				RegisterConsensusParams(client, height)
 				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
