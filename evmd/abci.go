@@ -1,8 +1,18 @@
 package evmd
 
 import (
+	"time"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/mempool"
+)
+
+const (
+	PrepareProposalDuration = "prepare_proposal_duration"
+	ProcessProposalDuration = "process_proposal_duration"
 )
 
 var _ baseapp.ProposalTxVerifier = ExtProposalVerifier{}
@@ -25,4 +35,28 @@ func (v ExtProposalVerifier) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) 
 		return nil, err
 	}
 	return bz, nil
+}
+
+type ExtProposalHandler struct {
+	baseapp.DefaultProposalHandler
+}
+
+func NewExtProposalHandler(mp mempool.Mempool, txVerifier baseapp.ProposalTxVerifier) *ExtProposalHandler {
+	return &ExtProposalHandler{
+		*baseapp.NewDefaultProposalHandler(mp, txVerifier),
+	}
+}
+
+func (h *ExtProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
+	return func(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+		defer telemetry.MeasureSince(time.Now(), PrepareProposalDuration)
+		return h.DefaultProposalHandler.PrepareProposalHandler()(ctx, req)
+	}
+}
+
+func (h *ExtProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
+	return func(ctx sdk.Context, req *abci.RequestProcessProposal) (*abci.ResponseProcessProposal, error) {
+		defer telemetry.MeasureSince(time.Now(), ProcessProposalDuration)
+		return h.DefaultProposalHandler.ProcessProposalHandler()(ctx, req)
+	}
 }
