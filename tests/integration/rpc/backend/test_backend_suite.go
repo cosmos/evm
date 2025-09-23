@@ -176,7 +176,7 @@ func (s *TestSuite) buildFormattedBlock(
 		msgs = []*evmtypes.MsgEthereumTx{tx}
 	}
 	ethBlock := s.buildEthBlock(blockRes, resBlock, msgs, validator, baseFee)
-	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock.Block, msgs, true, fullTx, s.backend.EvmChainID)
+	res, err := rpctypes.RPCMarshalBlock(ethBlock, resBlock.Block, msgs, true, fullTx, s.backend.ChainConfig())
 	s.Require().NoError(err)
 
 	return res

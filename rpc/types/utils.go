@@ -8,8 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	ethparams "github.com/ethereum/go-ethereum/params"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -185,38 +187,30 @@ func MakeHeader(
 func NewTransactionFromMsg(
 	msg *evmtypes.MsgEthereumTx,
 	blockHash common.Hash,
-	blockNumber, index uint64,
+	blockNumber, blockTime, index uint64,
 	baseFee *big.Int,
-	chainID *big.Int,
+	config *ethparams.ChainConfig,
 ) (*RPCTransaction, error) {
-	return NewRPCTransaction(msg, blockHash, blockNumber, index, baseFee, chainID)
+	return NewRPCTransaction(msg.AsTransaction(), blockHash, blockNumber, blockTime, index, baseFee, config), nil
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func NewRPCTransaction(
-	msg *evmtypes.MsgEthereumTx,
+	tx *ethtypes.Transaction,
 	blockHash common.Hash,
 	blockNumber,
+	blockTime uint64,
 	index uint64,
-	baseFee,
-	chainID *big.Int,
-) (*RPCTransaction, error) {
-	tx := msg.AsTransaction()
+	baseFee *big.Int,
+	config *ethparams.ChainConfig,
+) *RPCTransaction {
 	// Determine the signer. For replay-protected transactions, use the most permissive
 	// signer, because we assume that signers are backwards-compatible with old
 	// transactions. For non-protected transactions, the frontier signer is used
 	// because the latest signer will reject the unprotected transactions.
-	var signer ethtypes.Signer
-	if tx.Protected() {
-		signer = ethtypes.LatestSignerForChainID(tx.ChainId())
-	} else {
-		signer = ethtypes.FrontierSigner{}
-	}
-	from, err := msg.GetSenderLegacy(signer)
-	if err != nil {
-		return nil, err
-	}
+	signer := ethtypes.MakeSigner(config, new(big.Int).SetUint64(blockNumber), blockTime)
+	from, _ := ethtypes.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 	result := &RPCTransaction{
 		Type:     hexutil.Uint64(tx.Type()),
@@ -231,7 +225,6 @@ func NewRPCTransaction(
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
-		ChainID:  (*hexutil.Big)(chainID),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = &blockHash
@@ -306,7 +299,23 @@ func NewRPCTransaction(
 		result.AuthorizationList = tx.SetCodeAuthorizations()
 	}
 
-	return result, nil
+	return result
+}
+
+// NewRPCPendingTransaction returns a pending transaction that will serialize to the RPC representation
+func NewRPCPendingTransaction(tx *ethtypes.Transaction, current *ethtypes.Header, config *params.ChainConfig) *RPCTransaction {
+	var (
+		baseFee     *big.Int
+		blockNumber = uint64(0)
+		blockTime   = uint64(0)
+	)
+	if current != nil {
+		baseFee = eip1559.CalcBaseFee(config, current)
+		blockNumber = current.Number.Uint64()
+		blockTime = current.Time
+	}
+
+	return NewRPCTransaction(tx, common.Hash{}, blockNumber, blockTime, 0, baseFee, config)
 }
 
 // effectiveGasPrice computes the transaction gas fee, based on the given basefee value.
@@ -425,28 +434,24 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
-func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, chainID *big.Int) (map[string]interface{}, error) {
+func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
 	fields := RPCMarshalHeader(block.Header(), cmtBlock.Header)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
-		formatTx := func(idx int, tx *ethtypes.Transaction) (interface{}, error) {
-			return tx.Hash(), nil
+		formatTx := func(idx int, tx *ethtypes.Transaction) interface{} {
+			return tx.Hash()
 		}
 		if fullTx {
-			formatTx = func(idx int, _ *ethtypes.Transaction) (interface{}, error) {
+			formatTx = func(idx int, _ *ethtypes.Transaction) interface{} {
 				msgIdx := uint64(idx) //nolint:gosec // G115
-				return newRPCTransactionFromBlockIndex(block, msgs, msgIdx, chainID)
+				return newRPCTransactionFromBlockIndex(block, msgs, msgIdx, config)
 			}
 		}
 		txs := block.Transactions()
 		transactions := make([]interface{}, len(txs))
-		var err error
 		for i, tx := range txs {
-			transactions[i], err = formatTx(i, tx)
-			if err != nil {
-				return nil, err
-			}
+			transactions[i] = formatTx(i, tx)
 		}
 		fields["transactions"] = transactions
 	}
@@ -463,12 +468,12 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*ev
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthereumTx, index uint64, chainID *big.Int) (*RPCTransaction, error) {
+func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthereumTx, index uint64, config *ethparams.ChainConfig) *RPCTransaction {
 	txs := b.Transactions()
 	if index >= uint64(len(txs)) {
-		return nil, fmt.Errorf("transaction index out of bounds")
+		return nil
 	}
-	return NewRPCTransaction(msgs[index], b.Hash(), b.NumberU64(), index, b.BaseFee(), chainID)
+	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), b.Time(), index, b.BaseFee(), config)
 }
 
 // marshalReceipt marshals a transaction receipt into a JSON object.

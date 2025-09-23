@@ -80,15 +80,17 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", blockRes.Height, "error", err)
 	}
 
-	height := uint64(res.Height)    //#nosec G115 -- checked for int overflow already
+	height := uint64(res.Height) //#nosec G115 -- checked for int overflow already
+	blockTime := uint64(block.Block.Time.Unix())
 	index := uint64(res.EthTxIndex) //#nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
 		common.BytesToHash(block.BlockID.Hash.Bytes()),
 		height,
+		blockTime,
 		index,
 		baseFee,
-		b.EvmChainID,
+		b.ChainConfig(),
 	)
 }
 
@@ -116,8 +118,9 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 				common.Hash{},
 				uint64(0),
 				uint64(0),
+				uint64(0),
 				nil,
-				b.EvmChainID,
+				b.ChainConfig(),
 			)
 			if err != nil {
 				return nil, err
@@ -398,14 +401,16 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 	}
 
 	height := uint64(block.Block.Height) // #nosec G115 -- checked for int overflow already
-	index := uint64(idx)                 // #nosec G115 -- checked for int overflow already
+	blockTime := uint64(block.Block.Time.Unix())
+	index := uint64(idx) // #nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
 		common.BytesToHash(block.Block.Hash()),
 		height,
+		blockTime,
 		index,
 		baseFee,
-		b.EvmChainID,
+		b.ChainConfig(),
 	)
 }
 

@@ -46,7 +46,8 @@ func (s *TestSuite) TestGetTransactionByHash() {
 		},
 	}
 
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	blockTime := uint64(block.Time.Unix())
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -128,7 +129,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 func (s *TestSuite) TestGetTransactionsByHashPending() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -188,7 +189,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 
 func (s *TestSuite) TestGetTxByEthHash() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -298,13 +299,15 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 		},
 	}
 
+	blockTime := uint64(defaultBlock.Time.Unix())
 	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,
+		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.EvmChainID,
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string
@@ -392,13 +395,15 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 	msgEthTx, bz := s.buildEthereumTx()
 	defaultBlock := types.MakeBlock(1, []types.Tx{bz}, nil, nil)
+	blockTime := uint64(defaultBlock.Time.Unix())
 	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,
+		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.EvmChainID,
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string
