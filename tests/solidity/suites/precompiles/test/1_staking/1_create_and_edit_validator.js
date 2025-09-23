@@ -81,7 +81,11 @@ describe('StakingI – createValidator', function() {
         expect(info.status).to.equal(3n) // BondStatus.Bonded === 3
         expect(info.tokens).to.equal(deposit)
         expect(info.delegatorShares).to.be.gt(0n)
-        expect(info.description).to.equal(description)
+        expect(info.description.moniker).to.equal(description.moniker)
+        expect(info.description.identity).to.equal(description.identity)
+        expect(info.description.website).to.equal(description.website)
+        expect(info.description.securityContact).to.equal(description.securityContact)
+        expect(info.description.details).to.equal(description.details)
         expect(info.unbondingHeight).to.equal(0n)
         expect(info.unbondingTime).to.equal(0n)
         expect(info.commission).to.equal(commissionRates.rate)
@@ -90,13 +94,12 @@ describe('StakingI – createValidator', function() {
         // --- editValidator ---
 
         // prepare edit parameters: only update 'details'
-        const updatedDetails = 'updated unit-test validator'
         const editDescription = {
             moniker: '[do-not-modify]',
             identity: '[do-not-modify]',
             website: '[do-not-modify]',
             securityContact: '[do-not-modify]',
-            details: updatedDetails,
+            details: 'updated unit-test validator',
         }
         const DO_NOT_MODIFY = -1
 
@@ -120,7 +123,13 @@ describe('StakingI – createValidator', function() {
 
         // verify on-chain state after edit
         const updatedInfo = parseValidator(await staking.validator(signer.address))
-        expect(updatedInfo.description).to.equal(updatedDetails)
+        // only the "details" field is updated:
+        expect(updatedInfo.description.details).to.equal(editDescription.details)
+        // the other fields are unchanged:
+        expect(updatedInfo.description.moniker).to.equal(description.moniker)
+        expect(updatedInfo.description.identity).to.equal(description.identity)
+        expect(updatedInfo.description.website).to.equal(description.website)
+        expect(updatedInfo.description.securityContact).to.equal(description.securityContact)
 
         const pageReq = { key: '0x', offset: 0, limit: 100, countTotal: false, reverse: false }
         const out = await staking.validators('', pageReq)
