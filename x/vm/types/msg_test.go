@@ -54,6 +54,8 @@ func (suite *MsgsTestSuite) SetupTest() {
 	encodingConfig := encoding.MakeConfig(suite.chainID.Uint64())
 	suite.clientCtx = client.Context{}.WithTxConfig(encodingConfig.TxConfig)
 
+	configurator := types.NewEVMConfigurator()
+	configurator.ResetTestConfig()
 	err := evmconfig.EvmAppOptions(9001)
 	suite.Require().NoError(err)
 }
