@@ -1,7 +1,9 @@
-package eips_test
+package integration_test
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/eips/testdata"
+	"github.com/cosmos/evm/evmd/tests/integration"
 	"math/big"
 	"testing"
 
@@ -13,8 +15,6 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	"github.com/cosmos/evm/evmd/eips/testdata"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	testconfig "github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"

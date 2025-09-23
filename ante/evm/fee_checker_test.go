@@ -1,6 +1,7 @@
 package evm_test
 
 import (
+	evmconfig "github.com/cosmos/evm/config"
 	"math/big"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      london hardfork enableness
 	chainID := uint64(config.EighteenDecimalsChainID)
 	encodingConfig := encoding.MakeConfig(chainID)
-	err := config.EvmAppOptions(chainID)
+	err := evmconfig.EvmAppOptions(chainID)
 	require.NoError(t, err)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()

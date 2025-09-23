@@ -36,8 +36,6 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 
-	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -138,7 +136,7 @@ func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
 	sdk.DefaultPowerReduction = cosmosevmtypes.AttoPowerReduction
 
-	defaultNodeHome = evmdconfig.MustGetDefaultNodeHome()
+	defaultNodeHome = evmconfig.MustGetDefaultNodeHome()
 }
 
 const appName = "evmd"
@@ -319,7 +317,7 @@ func NewExampleApp(
 	// add keepers
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-		authtypes.ProtoBaseAccount, evmdconfig.GetMaccPerms(),
+		authtypes.ProtoBaseAccount, evmconfig.GetMaccPerms(),
 		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
@@ -329,7 +327,7 @@ func NewExampleApp(
 		appCodec,
 		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
 		app.AccountKeeper,
-		evmdconfig.BlockedAddresses(),
+		evmconfig.BlockedAddresses(),
 		authAddr,
 		logger,
 	)

@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"context"
+	evmconfig "github.com/cosmos/evm/config"
 	"math/big"
 	"testing"
 	"time"
@@ -145,7 +146,7 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 
 func TestMonoDecorator(t *testing.T) {
 	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
+	require.NoError(t, evmconfig.EvmAppOptions(chainID))
 	cfg := encoding.MakeConfig(chainID)
 
 	testCases := []struct {
