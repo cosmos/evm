@@ -270,6 +270,9 @@ func (b *Backend) ReceiptsFromCometBlock(
 			msgIndex,
 			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+		}
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
 
@@ -297,9 +300,6 @@ func (b *Backend) ReceiptsFromCometBlock(
 			TransactionIndex: uint(i), // #nosec G115 -- checked for int overflow already
 		}
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
-		}
 		receipts[i] = receipt
 	}
 

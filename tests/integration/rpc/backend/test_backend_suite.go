@@ -80,13 +80,14 @@ func (s *TestSuite) SetupTest() {
 
 	nw := network.New(s.create, s.options...)
 	encodingConfig := nw.GetEncodingConfig()
-	clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
-		WithHeight(1).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithKeyringDir(clientDir).
-		WithKeyring(keyRing).
-		WithAccountRetriever(client.TestAccountRetriever{Accounts: accounts}).
-		WithClient(mocks.NewClient(s.T()))
+    clientCtx := client.Context{}.WithChainID(ChainID.ChainID).
+        WithHeight(1).
+        WithTxConfig(encodingConfig.TxConfig).
+        WithCodec(encodingConfig.Codec).
+        WithKeyringDir(clientDir).
+        WithKeyring(keyRing).
+        WithAccountRetriever(client.TestAccountRetriever{Accounts: accounts}).
+        WithClient(mocks.NewClient(s.T()))
 
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)

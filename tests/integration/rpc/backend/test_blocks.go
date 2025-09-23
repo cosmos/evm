@@ -88,7 +88,9 @@ func (s *TestSuite) TestGetBlockByNumber() {
 		blockRes *cmtrpctypes.ResultBlockResults
 		resBlock *cmtrpctypes.ResultBlock
 	)
-	msgEthereumTx, bz := s.buildEthereumTx()
+	msgEthereumTx, _ := s.buildEthereumTx()
+	// Produce a real Ethereum tx (with ExtensionOptions) for indexing-based lookups
+	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
 
 	testCases := []struct {
 		name         string
@@ -180,13 +182,26 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			math.NewInt(1).BigInt(),
 			sdk.AccAddress(utiltx.GenerateAddress().Bytes()),
 			msgEthereumTx,
-			bz,
-			func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
-				height := blockNum.Int64()
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				resBlock = RegisterBlock(client, height, txBz)
-				blockRes = RegisterBlockResults(client, blockNum.Int64())
-				RegisterConsensusParams(client, height)
+			signedBz,
+            func(blockNum ethrpc.BlockNumber, baseFee math.Int, validator sdk.AccAddress, txBz []byte) {
+                height := blockNum.Int64()
+                client := s.backend.ClientCtx.Client.(*mocks.Client)
+                resBlock = RegisterBlock(client, height, txBz)
+                // Provide MsgEthereumTxResponse in Data for logs, and ethereum_tx events for indexer
+                var err error
+                blockRes, err = RegisterBlockResultsWithEventLog(client, height)
+                s.Require().NoError(err)
+                txHash := msgEthereumTx.AsTransaction().Hash()
+                blockRes.TxsResults[0].Events = []types.Event{
+                    {Type: evmtypes.EventTypeEthereumTx, Attributes: []types.EventAttribute{
+                        {Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+                        {Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+                        {Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+                    }},
+                }
+                // Index the block so GetTxByEthHash can find the tx when building receipts
+                _ = s.backend.Indexer.IndexBlock(resBlock.Block, blockRes.TxsResults)
+                RegisterConsensusParams(client, height)
 
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterBaseFee(QueryClient, baseFee)
@@ -204,6 +219,7 @@ func (s *TestSuite) TestGetBlockByNumber() {
 			block, err := s.backend.GetBlockByNumber(tc.blockNumber, tc.fullTx)
 
 			if tc.expPass {
+				s.Require().NoError(err)
 				if tc.expNoop {
 					s.Require().Nil(block)
 				} else {
@@ -217,8 +233,6 @@ func (s *TestSuite) TestGetBlockByNumber() {
 					)
 					s.Require().Equal(expBlock, block)
 				}
-				s.Require().NoError(err)
-
 			} else {
 				s.Require().Error(err)
 			}
