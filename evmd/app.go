@@ -803,6 +803,7 @@ func NewExampleApp(
 		abciProposalHandler := NewExtProposalHandler(evmMempool, verifier)
 		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
 		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+		app.SetProcessProposal(abciProposalHandler.ProcessProposalHandler())
 	}
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
