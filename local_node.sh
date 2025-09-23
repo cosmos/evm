@@ -249,39 +249,6 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 
   jq '.consensus.params.block.max_gas="10000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_prevote = "1s"/timeout_prevote = "500ms"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_precommit = "1s"/timeout_precommit = "500ms"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
-    sed -i '' 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
-  else
-    sed -i 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_prevote = "1s"/timeout_prevote = "500ms"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_precommit = "1s"/timeout_precommit = "500ms"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
-    sed -i 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
-  fi
-
-  # enable prometheus metrics and all APIs for dev node
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
-    sed -i '' 's/prometheus-retention-time = 0/prometheus-retention-time  = 1000000000000/g' "$APP_TOML"
-    sed -i '' 's/enabled = false/enabled = true/g' "$APP_TOML"
-    sed -i '' 's/enable = false/enable = true/g' "$APP_TOML"
-  else
-    sed -i 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
-    sed -i 's/prometheus-retention-time  = "0"/prometheus-retention-time  = "1000000000000"/g' "$APP_TOML"
-    sed -i 's/enabled = false/enabled = true/g' "$APP_TOML"
-    sed -i 's/enable = false/enable = true/g' "$APP_TOML"
-  fi
-
   # Change proposal periods
   sed -i.bak 's/"max_deposit_period": "172800s"/"max_deposit_period": "30s"/g' "$GENESIS"
   sed -i.bak 's/"voting_period": "172800s"/"voting_period": "30s"/g' "$GENESIS"
@@ -289,6 +256,22 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 
   # fund validator (devs already funded in the loop)
   evmd genesis add-genesis-account "$VAL_KEY" 100000000000000000000000000atest --keyring-backend "$KEYRING" --home "$CHAINDIR"
+
+  # ---------- Config customizations ----------
+  sed -i.bak 's/timeout_propose = "3s"/timeout_propose = "2s"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "200ms"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_prevote = "1s"/timeout_prevote = "500ms"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_prevote_delta = "500ms"/timeout_prevote_delta = "200ms"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_precommit = "1s"/timeout_precommit = "500ms"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "200ms"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$CONFIG_TOML"
+  sed -i.bak 's/timeout_broadcast_tx_commit = "10s"/timeout_broadcast_tx_commit = "5s"/g' "$CONFIG_TOML"
+
+  # enable prometheus metrics and all APIs for dev node
+  sed -i.bak 's/prometheus = false/prometheus = true/' "$CONFIG_TOML"
+  sed -i.bak 's/prometheus-retention-time  = "0"/prometheus-retention-time  = "1000000000000"/g' "$APP_TOML"
+  sed -i.bak 's/enabled = false/enabled = true/g' "$APP_TOML"
+  sed -i.bak 's/enable = false/enable = true/g' "$APP_TOML"
 
   # --------- maybe generate additional users ---------
   # start with provided/default list
