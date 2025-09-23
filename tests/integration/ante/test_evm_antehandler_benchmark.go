@@ -2,11 +2,11 @@ package ante
 
 import (
 	"fmt"
-	ante2 "github.com/cosmos/evm/ante"
+	ante "github.com/cosmos/evm/ante"
 	"math/big"
 	"testing"
 
-	ethante "github.com/cosmos/evm/ante/evm"
+	evmante "github.com/cosmos/evm/ante/evm"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -80,7 +80,7 @@ func RunBenchmarkAnteHandler(b *testing.B, create network.CreateEvmApp, options 
 		}
 
 		handlerOptions := suite.generateHandlerOptions()
-		ante := ante2.NewAnteHandler(handlerOptions)
+		anteHandler := ante.NewAnteHandler(handlerOptions)
 		b.StartTimer()
 
 		b.Run(fmt.Sprintf("tx_type_%v", v.name), func(b *testing.B) {
@@ -101,9 +101,9 @@ func RunBenchmarkAnteHandler(b *testing.B, create network.CreateEvmApp, options 
 				b.StartTimer()
 
 				// Run benchmark
-				_, err = ante(ctx, tx, v.simulate)
+				_, err = anteHandler(ctx, tx, v.simulate)
 				if err != nil {
-					b.Fatal(errors.Wrap(err, "failed to run ante handler"))
+					b.Fatal(errors.Wrap(err, "failed to run anteHandler"))
 				}
 			}
 		})
@@ -140,9 +140,9 @@ func (s *benchmarkSuite) generateTxType(txType string) (sdktypes.Tx, error) {
 	}
 }
 
-func (s *benchmarkSuite) generateHandlerOptions() ante2.HandlerOptions {
+func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 	encCfg := s.network.GetEncodingConfig()
-	return ante2.HandlerOptions{
+	return ante.HandlerOptions{
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
 		BankKeeper:             s.network.App.GetBankKeeper(),
@@ -152,8 +152,8 @@ func (s *benchmarkSuite) generateHandlerOptions() ante2.HandlerOptions {
 		IBCKeeper:              s.network.App.GetIBCKeeper(),
 		FeeMarketKeeper:        s.network.App.GetFeeMarketKeeper(),
 		SignModeHandler:        encCfg.TxConfig.SignModeHandler(),
-		SigGasConsumer:         ante2.SigVerificationGasConsumer,
+		SigGasConsumer:         ante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         1_000_000_000,
-		TxFeeChecker:           ethante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
+		TxFeeChecker:           evmante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
 	}
 }
