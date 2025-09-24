@@ -1,6 +1,3 @@
-//go:build test
-// +build test
-
 package mempool_test
 
 import (
@@ -9,20 +6,22 @@ import (
 	"testing"
 	"time"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	"github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/testutil/config"
-
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
+	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/mocks"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // createMockContext creates a basic mock context for testing
@@ -53,7 +52,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper.On("ForEachStorage", mock.Anything, common.Address{}, mock.AnythingOfType("func(common.Hash, common.Hash) bool")).Maybe()
 	mockVMKeeper.On("KVStoreKeys").Return(make(map[string]*storetypes.KVStoreKey)).Maybe()
 
-	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(config.TestChainsCoinInfo[config.EVMChainID]).Configure()
+	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(config.ChainsCoinInfo[config.EighteenDecimalsChainID]).Configure()
 	require.NoError(t, err)
 
 	// Mock context callback that returns a valid context
