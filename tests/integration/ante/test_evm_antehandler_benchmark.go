@@ -1,13 +1,12 @@
-package ante_test
+package ante
 
 import (
 	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/cosmos/evm/ante"
-	ethante "github.com/cosmos/evm/ante/evm"
-	"github.com/cosmos/evm/evmd/tests/integration"
+	ante "github.com/cosmos/evm/ante"
+	evmante "github.com/cosmos/evm/ante/evm"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -81,7 +80,7 @@ func RunBenchmarkAnteHandler(b *testing.B, create network.CreateEvmApp, options 
 		}
 
 		handlerOptions := suite.generateHandlerOptions()
-		ante := ante.NewAnteHandler(handlerOptions)
+		anteHandler := ante.NewAnteHandler(handlerOptions)
 		b.StartTimer()
 
 		b.Run(fmt.Sprintf("tx_type_%v", v.name), func(b *testing.B) {
@@ -102,9 +101,9 @@ func RunBenchmarkAnteHandler(b *testing.B, create network.CreateEvmApp, options 
 				b.StartTimer()
 
 				// Run benchmark
-				_, err = ante(ctx, tx, v.simulate)
+				_, err = anteHandler(ctx, tx, v.simulate)
 				if err != nil {
-					b.Fatal(errors.Wrap(err, "failed to run ante handler"))
+					b.Fatal(errors.Wrap(err, "failed to run anteHandler"))
 				}
 			}
 		})
@@ -155,11 +154,6 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		SignModeHandler:        encCfg.TxConfig.SignModeHandler(),
 		SigGasConsumer:         ante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         1_000_000_000,
-		TxFeeChecker:           ethante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
+		TxFeeChecker:           evmante.NewDynamicFeeChecker(s.network.App.GetFeeMarketKeeper()),
 	}
-}
-
-func BenchmarkAnteHandler(b *testing.B) {
-	// Run the benchmark with a mock EVM app
-	RunBenchmarkAnteHandler(b, integration.CreateEvmd)
 }
