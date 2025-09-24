@@ -118,6 +118,7 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 }
 
 // MakeHeader make initial ethereum header based on cometbft header.
+//
 // This method refers to chainMaker.makeHeader method of go-ethereum
 // (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/core/chain_makers.go#L596-L623)
 func MakeHeader(
