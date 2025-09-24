@@ -38,6 +38,7 @@
 - [\#635](https://github.com/cosmos/evm/pull/635) Move DefaultStaticPrecompiles to /evm and allow projects to set it by default alongside the keeper.
 - [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 - [\#648](https://github.com/cosmos/evm/pull/648) Move all `ante` logic such as `NewAnteHandler` from the `evmd` package to `evm/ante` so it can be used as library functions.
+- [\#652](https://github.com/cosmos/evm/pull/652) Don't log "tx not found" errors during genesis initialization when using EVM mempool.
 
 ### FEATURES
 

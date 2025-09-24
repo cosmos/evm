@@ -327,7 +327,7 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 
 	m.logger.Debug("removing Cosmos transaction")
 	err = m.cosmosPool.Remove(tx)
-	if err != nil {
+	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		m.logger.Error("failed to remove Cosmos transaction", "error", err)
 	} else {
 		m.logger.Debug("Cosmos transaction removed successfully")
