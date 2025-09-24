@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/werc20"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -73,20 +72,12 @@ func (s *PrecompileUnitTestSuite) SetupTest(chainID testconstants.ChainID) {
 	s.Require().True(found, "expected wevmos precompile to be registered in the tokens map")
 	s.Require().Equal(s.precompileAddrHex, tokenPair.Erc20Address, "expected a different address of the contract")
 
-	erc20ABI, err := erc20.LoadABI()
-	s.Require().NoError(err)
-	werc20ABI, err := werc20.LoadABI()
-	s.Require().NoError(err)
-
-	precompile, err := werc20.NewPrecompile(
+	precompile := werc20.NewPrecompile(
 		tokenPair,
 		s.network.App.GetBankKeeper(),
 		s.network.App.GetErc20Keeper(),
 		s.network.App.GetTransferKeeper(),
-		erc20ABI,
-		werc20ABI,
 	)
-	s.Require().NoError(err, "failed to instantiate the werc20 precompile")
 	s.Require().NotNil(precompile)
 	s.precompile = precompile
 }

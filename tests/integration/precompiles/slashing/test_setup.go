@@ -36,7 +36,6 @@ func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.Conf
 
 func (s *PrecompileTestSuite) SetupTest() {
 	keyring := testkeyring.New(3)
-	var err error
 	options := []network.ConfigOption{
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		network.WithValidatorOperators([]sdk.AccAddress{
@@ -55,13 +54,11 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.grpcHandler = grpcHandler
 	s.keyring = keyring
 
-	if s.precompile, err = slashing.NewPrecompile(
+	s.precompile = slashing.NewPrecompile(
 		s.network.App.GetSlashingKeeper(),
 		slashingkeeper.NewMsgServerImpl(s.network.App.GetSlashingKeeper()),
 		s.network.App.GetBankKeeper(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
-	); err != nil {
-		panic(err)
-	}
+	)
 }

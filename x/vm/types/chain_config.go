@@ -11,7 +11,7 @@ import (
 )
 
 // testChainID represents the ChainID used for the purpose of testing.
-const testChainID uint64 = 262144
+const testChainID uint64 = 262144 // TODO:VLAD - Consolidate into a single object across the entire repo
 
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
@@ -84,8 +84,8 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 
 	cfg := &ChainConfig{
 		ChainId:             evmChainID,
-		Denom:               DefaultEVMDenom,
-		Decimals:            DefaultEVMDecimals,
+		Denom:               DefaultEVMDenom,    // TODO:VLAD - Remove this
+		Decimals:            DefaultEVMDecimals, // TODO:VLAD - Remove this
 		HomesteadBlock:      &homesteadBlock,
 		DAOForkBlock:        &daoForkBlock,
 		DAOForkSupport:      true,
