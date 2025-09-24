@@ -8,6 +8,7 @@ const (
 	NodeArgsApiEnable                  = "--api.enable=true"
 	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
+	NodeArgsLongTimeoutCommit          = "--consensus.timeout_commit=10s"
 )
 
 // TestOptions defines the options for a test case.
@@ -46,4 +47,14 @@ func DefaultNodeArgs() []string {
 // MinimumGasPriceZeroArgs returns the node arguments with minimum gas price set to zero.
 func MinimumGasPriceZeroArgs() []string {
 	return append(DefaultNodeArgs(), "--minimum-gas-prices=0stake")
+}
+
+// LongTimeoutNodeArgs returns the node arguments with a longer timeout_commit for flaky tests.
+func LongTimeoutNodeArgs() []string {
+	return append(DefaultNodeArgs(), NodeArgsLongTimeoutCommit)
+}
+
+// LongTimeoutWithMinimumGasPriceZeroArgs returns node arguments with both long timeout and zero minimum gas price.
+func LongTimeoutWithMinimumGasPriceZeroArgs() []string {
+	return append(DefaultNodeArgs(), NodeArgsLongTimeoutCommit, "--minimum-gas-prices=0stake")
 }

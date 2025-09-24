@@ -59,7 +59,7 @@ func TestTxsOrdering(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.LongTimeoutNodeArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)

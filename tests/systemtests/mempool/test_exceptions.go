@@ -70,7 +70,7 @@ func TestTxRebroadcasting(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.LongTimeoutNodeArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
@@ -131,7 +131,7 @@ func TestMinimumGasPricesZero(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t, suite.MinimumGasPriceZeroArgs()...)
+	s.SetupTest(t, suite.LongTimeoutWithMinimumGasPriceZeroArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)

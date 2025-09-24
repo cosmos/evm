@@ -124,7 +124,7 @@ func TestTxsReplacement(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.LongTimeoutNodeArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
@@ -305,7 +305,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.LongTimeoutNodeArgs()...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
@@ -406,7 +406,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.LongTimeoutNodeArgs()...)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
