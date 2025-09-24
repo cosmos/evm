@@ -97,6 +97,7 @@
 - [\#442](https://github.com/cosmos/evm/pull/442) Prevent nil pointer by checking error in gov precompile FromResponse.
 - [\#387](https://github.com/cosmos/evm/pull/387) (Experimental) EVM-compatible appside mempool
 - [\#476](https://github.com/cosmos/evm/pull/476) Add revert error e2e tests for contract and precompile calls
+- [\#599](https://github.com/cosmos/evm/pull/599) Align jsonrpc apis with geth v1.16.3
 
 ### FEATURES
 
