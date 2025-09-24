@@ -144,11 +144,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
 		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
 			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
+				ctx := sdk.UnwrapSDKContext(goCtx)
 				cosmosTxFee, ok := tx.(sdk.FeeTx)
 				if !ok {
 					return math.ZeroInt()
 				}
-				found, coin := cosmosTxFee.GetFee().Find(evmtypes.GetEVMCoinDenom())
+				found, coin := cosmosTxFee.GetFee().Find(vmKeeper.GetEvmCoinInfo(ctx).Denom)
 				if !found {
 					return math.ZeroInt()
 				}
@@ -273,10 +274,11 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, evmtypes.GetEVMCoinDenom(), m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
 
 	return combinedIterator
 }
@@ -366,10 +368,11 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, evmtypes.GetEVMCoinDenom(), m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
 
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()

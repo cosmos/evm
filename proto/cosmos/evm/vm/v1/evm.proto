@@ -353,3 +353,10 @@ message Preinstall {
   // code in hex format for the preinstall contract
   string code = 3;
 }
+
+message EvmCoinInfo {
+  string denom = 1;
+  string extended_denom = 2;
+  string display_denom = 3;
+  uint32 decimals = 4;
+}

@@ -352,7 +352,8 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
+	coinInfo := k.GetEvmCoinInfo(ctx)
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)

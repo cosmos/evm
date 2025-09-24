@@ -239,11 +239,15 @@ func SetGlobalConfigVariables(ctx sdk.Context, vmKeeper *keeper.Keeper, bankKeep
 		Denom:         params.EvmDenom,
 		ExtendedDenom: extendedDenom,
 		DisplayDenom:  evmDenomMetadata.Display,
-		Decimals:      decimals,
+		Decimals:      decimals.Uint32(),
 	}
 
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
+		panic(err)
+	}
+
+	if err := vmKeeper.SetEvmCoinInfo(ctx, coinInfo); err != nil {
 		panic(err)
 	}
 
