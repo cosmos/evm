@@ -1,0 +1,23 @@
+syntax = "proto3";
+package topholders.v1;
+
+import "gogoproto/gogo.proto";
+import "topholders/v1/query.proto";
+
+option go_package = "github.com/cosmos/evm/x/topholders/types";
+
+// GenesisState defines the topholders module's genesis state.
+message GenesisState {
+  // cache contains the initial top holders cache data
+  TopHoldersCache cache = 1;
+}
+
+// TopHoldersCache represents the cached top holders data
+message TopHoldersCache {
+  // holders contains the list of top token holders
+  repeated HolderInfo holders = 1 [(gogoproto.nullable) = false];
+  // last_updated is the timestamp when the data was last updated
+  int64 last_updated = 2;
+  // block_height is the block height when the data was last updated
+  int64 block_height = 3;
+}

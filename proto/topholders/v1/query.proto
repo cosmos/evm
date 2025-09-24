@@ -1,0 +1,86 @@
+syntax = "proto3";
+package topholders.v1;
+
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+
+option go_package = "github.com/cosmos/evm/x/topholders/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // TopHolders returns the top token holders
+  rpc TopHolders(QueryTopHoldersRequest) returns (QueryTopHoldersResponse) {
+    option (google.api.http).get = "/topholders/v1/top_holders";
+  }
+
+  // CacheStatus returns the status of the cache
+  rpc CacheStatus(QueryCacheStatusRequest) returns (QueryCacheStatusResponse) {
+    option (google.api.http).get = "/topholders/v1/cache_status";
+  }
+}
+
+// QueryTopHoldersRequest is the request type for the Query/TopHolders RPC method.
+message QueryTopHoldersRequest {
+  // pagination defines an optional pagination for the request.
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryTopHoldersResponse is the response type for the Query/TopHolders RPC method.
+message QueryTopHoldersResponse {
+  // holders contains the list of top token holders
+  repeated HolderInfo holders = 1 [(gogoproto.nullable) = false];
+  // pagination defines the pagination in the response.
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+  // last_updated is the timestamp when the data was last updated
+  int64 last_updated = 3;
+  // block_height is the block height when the data was last updated
+  int64 block_height = 4;
+  // total_count is the total number of holders in the cache
+  uint32 total_count = 5;
+}
+
+// QueryCacheStatusRequest is the request type for the Query/CacheStatus RPC method.
+message QueryCacheStatusRequest {}
+
+// QueryCacheStatusResponse is the response type for the Query/CacheStatus RPC method.
+message QueryCacheStatusResponse {
+  // last_updated is the timestamp when the cache was last updated
+  int64 last_updated = 1;
+  // block_height is the block height when the cache was last updated
+  int64 block_height = 2;
+  // total_holders is the total number of holders in the cache
+  uint32 total_holders = 3;
+  // is_updating indicates if a cache update is currently in progress
+  bool is_updating = 4;
+}
+
+// HolderInfo represents information about a token holder
+message HolderInfo {
+  // address is the account address
+  string address = 1;
+  // liquid_balance is the liquid token balance
+  string liquid_balance = 2 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // bonded_balance is the bonded/delegated token balance
+  string bonded_balance = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // unbonding_balance is the unbonding token balance
+  string unbonding_balance = 4 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // total_balance is the total token balance (liquid + bonded + unbonding)
+  string total_balance = 5 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // rank is the holder's rank by total balance
+  uint32 rank = 6;
+  // module_tag is an optional tag for module addresses
+  string module_tag = 7;
+}

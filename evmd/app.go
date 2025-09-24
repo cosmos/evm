@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"os"
 
@@ -49,6 +50,9 @@ import (
 	"github.com/cosmos/evm/x/precisebank"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
+	"github.com/cosmos/evm/x/topholders"
+	topholderskeeper "github.com/cosmos/evm/x/topholders/keeper"
+	topholderstypes "github.com/cosmos/evm/x/topholders/types"
 	"github.com/cosmos/evm/x/vm"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -205,6 +209,8 @@ type EVMD struct {
 	Erc20Keeper       erc20keeper.Keeper
 	PreciseBankKeeper precisebankkeeper.Keeper
 	EpixMintKeeper    epixmintkeeper.Keeper
+	TopHoldersKeeper  topholderskeeper.Keeper // Optional: only initialized if enabled in config
+	topHoldersEnabled bool                      // Track if TopHolders module is enabled
 	EVMMempool        *evmmempool.ExperimentalEVMMempool
 
 	// the module manager
@@ -280,7 +286,11 @@ func NewExampleApp(
 		panic(err)
 	}
 
-	keys := storetypes.NewKVStoreKeys(
+	// Check if TopHolders module is enabled
+	topHoldersEnabled := cast.ToBool(appOpts.Get("topholders.enable"))
+
+	// Base store keys
+	storeKeys := []string{
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
 		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
 		govtypes.StoreKey, paramstypes.StoreKey, consensusparamtypes.StoreKey,
@@ -289,7 +299,21 @@ func NewExampleApp(
 		ibcexported.StoreKey, ibctransfertypes.StoreKey,
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey, epixminttypes.StoreKey,
-	)
+	}
+
+	// Conditionally add TopHolders store key if enabled AND this is a fresh node
+	// For existing nodes, we'll run TopHolders in memory-only mode to avoid store version mismatch
+	if topHoldersEnabled {
+		// Check if this is a fresh node by looking for existing database
+		dbPath := filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), "data", "application.db")
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			// Fresh node - safe to add store key
+			storeKeys = append(storeKeys, topholderstypes.StoreKey)
+		}
+		// For existing nodes, we'll skip adding the store key and run in memory-only mode
+	}
+
+	keys := storetypes.NewKVStoreKeys(storeKeys...)
 
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey, evmtypes.TransientKey, feemarkettypes.TransientKey)
 
@@ -495,6 +519,35 @@ func NewExampleApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
+	// Set up TopHolders keeper (only if enabled in config)
+	app.topHoldersEnabled = topHoldersEnabled
+	if topHoldersEnabled {
+		var storeKey storetypes.StoreKey
+		var memKey storetypes.StoreKey
+
+		// Check if store key exists (for new nodes) or use nil (for existing nodes)
+		if key, exists := keys[topholderstypes.StoreKey]; exists {
+			storeKey = key
+			memKey = key // Use same key for simplicity
+		} else {
+			// For backward compatibility with existing nodes, use nil store keys
+			storeKey = nil
+			memKey = nil
+			logger.Info("TopHolders module running in memory-only mode for backward compatibility")
+		}
+
+		app.TopHoldersKeeper = topholderskeeper.NewKeeper(
+			appCodec,
+			storeKey,
+			memKey,
+			authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+			app.BankKeeper,
+			app.StakingKeeper,
+			app.AccountKeeper,
+			logger,
+		)
+	}
+
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
@@ -607,7 +660,7 @@ func NewExampleApp(
 
 	// NOTE: Any module instantiated in the module manager that is later modified
 	// must be passed by reference here.
-	app.ModuleManager = module.NewManager(
+	modules := []module.AppModule{
 		genutil.NewAppModule(
 			app.AccountKeeper, app.StakingKeeper,
 			app, app.txConfig,
@@ -635,24 +688,39 @@ func NewExampleApp(
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
 		epixmint.NewAppModule(app.EpixMintKeeper),
-	)
+	}
+
+	// Conditionally add TopHolders module if enabled
+	if topHoldersEnabled {
+		modules = append(modules, topholders.NewAppModule(app.TopHoldersKeeper))
+	}
+
+	app.ModuleManager = module.NewManager(modules...)
 
 	// BasicModuleManager defines the module BasicManager which is in charge of setting up basic,
 	// non-dependant module elements, such as codec registration and genesis verification.
 	// By default, it is composed of all the modules from the module manager.
 	// Additionally, app module basics can be overwritten by passing them as an argument.
+	basicModuleOverrides := map[string]module.AppModuleBasic{
+		genutiltypes.ModuleName: genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
+		stakingtypes.ModuleName: staking.AppModuleBasic{},
+		govtypes.ModuleName: gov.NewAppModuleBasic(
+			[]govclient.ProposalHandler{
+				paramsclient.ProposalHandler,
+			},
+		),
+		ibctransfertypes.ModuleName: transfer.AppModuleBasic{AppModuleBasic: &ibctransfer.AppModuleBasic{}},
+	}
+
+	// Conditionally add TopHolders module basic if enabled
+	if topHoldersEnabled {
+		basicModuleOverrides[topholderstypes.ModuleName] = topholders.AppModuleBasic{}
+		logger.Info("TopHolders module added to BasicModuleManager", "module", topholderstypes.ModuleName)
+	}
+
 	app.BasicModuleManager = module.NewBasicManagerFromManager(
 		app.ModuleManager,
-		map[string]module.AppModuleBasic{
-			genutiltypes.ModuleName: genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
-			stakingtypes.ModuleName: staking.AppModuleBasic{},
-			govtypes.ModuleName: gov.NewAppModuleBasic(
-				[]govclient.ProposalHandler{
-					paramsclient.ProposalHandler,
-				},
-			),
-			ibctransfertypes.ModuleName: transfer.AppModuleBasic{AppModuleBasic: &ibctransfer.AppModuleBasic{}},
-		},
+		basicModuleOverrides,
 	)
 	app.BasicModuleManager.RegisterLegacyAminoCodec(legacyAmino)
 	app.BasicModuleManager.RegisterInterfaces(interfaceRegistry)
@@ -669,9 +737,18 @@ func NewExampleApp(
 	//
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	// NOTE: capability module's beginblocker must come before any modules using capabilities (e.g. IBC)
-	app.ModuleManager.SetOrderBeginBlockers(
+	// Build BeginBlockers order
+	beginBlockers := []string{
 		epixminttypes.ModuleName, // Custom mint module
+	}
 
+	// Conditionally add TopHolders module to BeginBlockers if enabled
+	if topHoldersEnabled {
+		beginBlockers = append(beginBlockers, topholderstypes.ModuleName)
+	}
+
+	// Add remaining modules
+	beginBlockers = append(beginBlockers,
 		// IBC modules
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
 
@@ -689,9 +766,13 @@ func NewExampleApp(
 		vestingtypes.ModuleName,
 	)
 
+	app.ModuleManager.SetOrderBeginBlockers(beginBlockers...)
+
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
-	app.ModuleManager.SetOrderEndBlockers(
+
+	// Build EndBlockers order
+	endBlockers := []string{
 		govtypes.ModuleName, stakingtypes.ModuleName,
 		authtypes.ModuleName, banktypes.ModuleName,
 
@@ -702,11 +783,22 @@ func NewExampleApp(
 		ibcexported.ModuleName, ibctransfertypes.ModuleName,
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName, epixminttypes.ModuleName,
+	}
+
+	// Conditionally add TopHolders module to EndBlockers if enabled
+	if topHoldersEnabled {
+		endBlockers = append(endBlockers, topholderstypes.ModuleName)
+	}
+
+	// Add remaining modules
+	endBlockers = append(endBlockers,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
 		feegrant.ModuleName, paramstypes.ModuleName, upgradetypes.ModuleName, consensusparamtypes.ModuleName,
 		precisebanktypes.ModuleName,
 		vestingtypes.ModuleName,
 	)
+
+	app.ModuleManager.SetOrderEndBlockers(endBlockers...)
 
 	// NOTE: The genutils module must occur after staking so that pools are
 	// properly initialized with tokens from genesis accounts.
@@ -725,11 +817,19 @@ func NewExampleApp(
 		feemarkettypes.ModuleName,
 		erc20types.ModuleName,
 		precisebanktypes.ModuleName,
+	}
 
+	// Conditionally add TopHolders module to genesis order if enabled
+	if topHoldersEnabled {
+		genesisModuleOrder = append(genesisModuleOrder, topholderstypes.ModuleName)
+	}
+
+	// Add remaining modules
+	genesisModuleOrder = append(genesisModuleOrder,
 		ibctransfertypes.ModuleName,
 		genutiltypes.ModuleName, evidencetypes.ModuleName, authz.ModuleName,
 		feegrant.ModuleName, upgradetypes.ModuleName, vestingtypes.ModuleName,
-	}
+	)
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
 
