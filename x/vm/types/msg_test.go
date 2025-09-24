@@ -2,7 +2,6 @@ package types_test
 
 import (
 	"fmt"
-	evmconfig "github.com/cosmos/evm/config"
 	"math"
 	"math/big"
 	"reflect"
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"

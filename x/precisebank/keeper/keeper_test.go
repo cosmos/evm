@@ -1,9 +1,9 @@
 package keeper_test
 
 import (
-	evmconfig "github.com/cosmos/evm/config"
 	"testing"
 
+	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/keeper"

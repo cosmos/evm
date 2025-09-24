@@ -2,7 +2,14 @@ package eips
 
 import (
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/crypto/types"
+	"math/big"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+
 	"github.com/cosmos/evm/eips"
 	"github.com/cosmos/evm/eips/testdata"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -12,12 +19,8 @@ import (
 	"github.com/cosmos/evm/testutil/keyring"
 	types2 "github.com/cosmos/evm/testutil/types"
 	types3 "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
-	"math/big"
-	"testing"
+
+	"github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
 // RunTests
@@ -28,6 +31,7 @@ import (
 //  3. Deploy and interact with contracts to compute the gas used AFTER enabling
 //     the EIP.
 func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
+	t.Helper()
 	_ = ginkgo.Describe("EIP-0000 - ", ginkgo.Ordered, func() {
 		var (
 			in network.Network
@@ -125,6 +129,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 
 		ginkgo.It("should change CREATE opcode constant gas after enabling EIP", func() {
 			qRes, err := gh.GetEvmParams()
+			gomega.Expect(err).To(gomega.BeNil(), "failed to get evm params")
 			_ = qRes.Params
 			gasCostPre := params.CreateGas
 

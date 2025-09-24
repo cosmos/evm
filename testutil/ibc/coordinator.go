@@ -2,13 +2,13 @@ package ibctesting
 
 import (
 	"fmt"
-	evmconfig "github.com/cosmos/evm/config"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	evmconfig "github.com/cosmos/evm/config"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 

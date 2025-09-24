@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/cosmos/evm/eips"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	"github.com/cosmos/evm/eips"
 )
 
 // cosmosEVMActivators defines a map of opcode modifiers associated

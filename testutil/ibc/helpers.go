@@ -1,7 +1,6 @@
 package ibctesting
 
 import (
-	"github.com/cosmos/evm/config"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -10,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/evm/config"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"

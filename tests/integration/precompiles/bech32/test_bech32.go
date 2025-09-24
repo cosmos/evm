@@ -1,11 +1,11 @@
 package bech32
 
 import (
-	"github.com/cosmos/evm/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/precompiles/bech32"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
