@@ -83,9 +83,9 @@ func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *b
 		// In chains that use cosmos-sdk and cometbft,
 		// these fields are irrelevant.
 		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash, // EIP-4895: Beacon chain push withdrawals as operations
-		BlobGasUsed:      nil,                            // EIP-4844: Shard Blob Transactions
-		ExcessBlobGas:    nil,                            // EIP-4844: Shard Blob Transactions
-		ParentBeaconRoot: nil,                            // EIP-4788: Beacon block root in the EVM
+		BlobGasUsed:      new(uint64),                    // EIP-4844: Shard Blob Transactions
+		ExcessBlobGas:    new(uint64),                    // EIP-4844: Shard Blob Transactions
+		ParentBeaconRoot: &ethtypes.EmptyRootHash,        // EIP-4788: Beacon block root in the EVM
 		RequestsHash:     &ethtypes.EmptyRequestsHash,    // EIP-7685: General purpose execution layer requests
 	}
 }
@@ -113,50 +113,6 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 	return gasLimit, nil
 }
 
-// FormatBlock creates an ethereum block from a CometBFT header and ethereum-formatted
-// transactions.
-func FormatBlock(
-	header cmttypes.Header, size int, gasLimit int64,
-	gasUsed *big.Int, transactions []interface{}, bloom ethtypes.Bloom,
-	validatorAddr common.Address, baseFee *big.Int,
-) map[string]interface{} {
-	var transactionsRoot common.Hash
-	if len(transactions) == 0 {
-		transactionsRoot = ethtypes.EmptyRootHash
-	} else {
-		transactionsRoot = common.BytesToHash(header.DataHash)
-	}
-
-	result := map[string]interface{}{
-		"number":           hexutil.Uint64(header.Height), //nolint:gosec // G115 // won't exceed uint64
-		"hash":             hexutil.Bytes(header.Hash()),
-		"parentHash":       common.BytesToHash(header.LastBlockID.Hash.Bytes()),
-		"nonce":            ethtypes.BlockNonce{},   // PoW specific
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // No uncles in CometBFT
-		"logsBloom":        bloom,
-		"stateRoot":        hexutil.Bytes(header.AppHash),
-		"miner":            validatorAddr,
-		"mixHash":          common.Hash{},
-		"difficulty":       (*hexutil.Big)(big.NewInt(0)),
-		"extraData":        "0x",
-		"size":             hexutil.Uint64(size),     //nolint:gosec // G115 // size won't exceed uint64
-		"gasLimit":         hexutil.Uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
-		"gasUsed":          (*hexutil.Big)(gasUsed),
-		"timestamp":        hexutil.Uint64(header.Time.Unix()), //nolint:gosec // G115 // won't exceed uint64
-		"transactionsRoot": transactionsRoot,
-		"receiptsRoot":     ethtypes.EmptyRootHash,
-
-		"uncles":       []common.Hash{},
-		"transactions": transactions,
-	}
-
-	if baseFee != nil {
-		result["baseFeePerGas"] = (*hexutil.Big)(baseFee)
-	}
-
-	return result
-}
-
 func MakeHeader(
 	cmtHeader cmttypes.Header, gasLimit int64,
 	validatorAddr common.Address, baseFee *big.Int,
@@ -168,7 +124,7 @@ func MakeHeader(
 		Difficulty: big.NewInt(0),
 		GasLimit:   uint64(gasLimit), //nolint:gosec // G115 // gas limit won't exceed uint64
 		Number:     big.NewInt(cmtHeader.Height),
-		Time:       uint64(cmtHeader.Time.Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
+		Time:       uint64(cmtHeader.Time.UTC().Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
 	}
 
 	if evmtypes.GetEthChainConfig().IsLondon(header.Number) {
@@ -475,8 +431,8 @@ func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthe
 	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), b.Time(), index, b.BaseFee(), config)
 }
 
-// marshalReceipt marshals a transaction receipt into a JSON object.
-func MarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from common.Address) (map[string]interface{}, error) {
+// RPCMarshalReceipt marshals a transaction receipt into a JSON object.
+func RPCMarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from common.Address) (map[string]interface{}, error) {
 	fields := map[string]interface{}{
 		"blockHash":         receipt.BlockHash,
 		"blockNumber":       hexutil.Uint64(receipt.BlockNumber.Uint64()),

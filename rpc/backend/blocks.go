@@ -216,7 +216,7 @@ func (b *Backend) GetBlockReceipts(
 			return nil, fmt.Errorf("failed to get sender: %w", err)
 		}
 
-		result[i], err = rpctypes.MarshalReceipt(receipts[i], tx, from)
+		result[i], err = rpctypes.RPCMarshalReceipt(receipts[i], tx, from)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal receipt")
 		}

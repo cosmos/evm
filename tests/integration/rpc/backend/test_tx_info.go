@@ -46,7 +46,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 		},
 	}
 
-	blockTime := uint64(block.Time.Unix())
+	blockTime := uint64(block.Time.UTC().Unix())
 	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
@@ -299,7 +299,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 		},
 	}
 
-	blockTime := uint64(defaultBlock.Time.Unix())
+	blockTime := uint64(defaultBlock.Time.UTC().Unix())
 	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
@@ -395,7 +395,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 	msgEthTx, bz := s.buildEthereumTx()
 	defaultBlock := types.MakeBlock(1, []types.Tx{bz}, nil, nil)
-	blockTime := uint64(defaultBlock.Time.Unix())
+	blockTime := uint64(defaultBlock.Time.UTC().Unix())
 	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),

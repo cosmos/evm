@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc/metadata"
 
@@ -1491,7 +1490,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 
 	msgEthereumTx, _ := s.buildEthereumTx()
 	signedBz := s.signAndEncodeEthTx(msgEthereumTx)
-	emptyBlock := cmttypes.MakeBlock(1, []cmttypes.Tx{}, nil, nil)
 	validator := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
 	baseFee := math.NewInt(1)
 
@@ -1499,7 +1497,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 		name         string
 		blockNumber  ethrpc.BlockNumber
 		registerMock func(ethrpc.BlockNumber)
-		expEthBlock  *ethtypes.Block
 		expPass      bool
 	}{
 		{
@@ -1510,7 +1507,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterBlockError(client, height)
 			},
-			nil,
 			false,
 		},
 		{
@@ -1522,7 +1518,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				resBlock = RegisterBlock(client, height, nil)
 				RegisterBlockResultsError(client, blockNum.Int64())
 			},
-			nil,
 			false,
 		},
 		{
@@ -1538,16 +1533,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				RegisterBaseFee(QueryClient, baseFee)
 				RegisterValidatorAccount(QueryClient, validator)
 			},
-			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromComet(
-					emptyBlock.Header,
-					ethtypes.Bloom{},
-					math.NewInt(1).BigInt(),
-				),
-				&ethtypes.Body{},
-				nil,
-				nil,
-			),
 			true,
 		},
 		{
@@ -1574,18 +1559,6 @@ func (s *TestSuite) TestEthBlockByNumber() {
 				RegisterBaseFee(QueryClient, baseFee)
 				RegisterValidatorAccount(QueryClient, validator)
 			},
-			ethtypes.NewBlock(
-				ethrpc.EthHeaderFromComet(
-					emptyBlock.Header,
-					ethtypes.Bloom{},
-					math.NewInt(1).BigInt(),
-				),
-				&ethtypes.Body{
-					Transactions: []*ethtypes.Transaction{msgEthereumTx.AsTransaction()},
-				},
-				nil,
-				trie.NewStackTrie(nil),
-			),
 			true,
 		},
 	}

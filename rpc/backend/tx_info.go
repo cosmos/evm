@@ -81,7 +81,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	}
 
 	height := uint64(res.Height) //#nosec G115 -- checked for int overflow already
-	blockTime := uint64(block.Block.Time.Unix())
+	blockTime := uint64(block.Block.Time.UTC().Unix())
 	index := uint64(res.EthTxIndex) //#nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
@@ -212,7 +212,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("failed to get sender: %w", err)
 	}
 
-	return rpctypes.MarshalReceipt(receipts[0], ethTx, from)
+	return rpctypes.RPCMarshalReceipt(receipts[0], ethTx, from)
 }
 
 // GetTransactionLogs returns the transaction logs identified by hash.
@@ -401,7 +401,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 	}
 
 	height := uint64(block.Block.Height) // #nosec G115 -- checked for int overflow already
-	blockTime := uint64(block.Block.Time.Unix())
+	blockTime := uint64(block.Block.Time.UTC().Unix())
 	index := uint64(idx) // #nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,

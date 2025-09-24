@@ -189,10 +189,6 @@ func (b *Backend) EthBlockFromCometBlock(
 
 	// 9. create eth block
 	ethBlock := ethtypes.NewBlock(ethHeader, body, receipts, trie.NewStackTrie(nil))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new eth block: %w", err)
-	}
-
 	return ethBlock, nil
 }
 
