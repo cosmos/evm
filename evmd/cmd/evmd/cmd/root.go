@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"io"
 	"os"
 
@@ -18,6 +17,7 @@ import (
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
+	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -63,7 +63,7 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
+		evmdconfig.EVMChainID,
 		noOpEvmAppOptions,
 	)
 
@@ -81,7 +81,7 @@ func NewRootCmd() *cobra.Command {
 		WithInput(os.Stdin).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.FlagBroadcastMode).
-		WithHomeDir(config.MustGetDefaultNodeHome()).
+		WithHomeDir(evmdconfig.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
 		WithKeyringOptions(cosmosevmkeyring.Option()).
@@ -130,7 +130,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := config.InitAppConfig(config.BaseDenom, config.EVMChainID) // TODO:VLAD - Remove this
+			customAppTemplate, customAppConfig := evmdconfig.InitAppConfig(evmdconfig.BaseDenom, evmdconfig.EVMChainID)
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -147,8 +147,8 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
-	if initClientCtx.ChainID != "" { // TODO:VLAD - Remove this
-		if err := config.EvmAppOptions(config.EVMChainID); err != nil {
+	if initClientCtx.ChainID != "" {
+		if err := evmdconfig.EvmAppOptions(evmdconfig.EVMChainID); err != nil {
 			panic(err)
 		}
 	}
@@ -172,7 +172,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 	cfg := sdk.GetConfig()
 	cfg.Seal()
 
-	defaultNodeHome := config.MustGetDefaultNodeHome()
+	defaultNodeHome := evmdconfig.MustGetDefaultNodeHome()
 	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
 		return newApp(l, d, w, ao)
 	}
@@ -319,8 +319,8 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		config.EVMChainID,    // TODO:VLAD - Remove this
-		config.EvmAppOptions, // TODO:VLAD - Remove this
+		evmdconfig.EVMChainID,
+		evmdconfig.EvmAppOptions,
 		baseappOptions...,
 	)
 }
@@ -361,13 +361,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, evmdconfig.EVMChainID, evmdconfig.EvmAppOptions, baseapp.SetChainID(chainID))
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
@@ -382,7 +382,7 @@ func getChainIDFromOpts(appOpts servertypes.AppOptions) (chainID string, err err
 	if chainID == "" {
 		// If not available load from home
 		homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-		chainID, err = config.GetChainIDFromHome(homeDir)
+		chainID, err = evmdconfig.GetChainIDFromHome(homeDir)
 		if err != nil {
 			return "", err
 		}

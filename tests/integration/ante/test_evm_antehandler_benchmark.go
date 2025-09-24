@@ -2,10 +2,10 @@ package ante
 
 import (
 	"fmt"
+	ante "github.com/cosmos/evm/ante"
 	"math/big"
 	"testing"
 
-	ante "github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
