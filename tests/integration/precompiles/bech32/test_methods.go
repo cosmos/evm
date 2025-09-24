@@ -2,12 +2,12 @@ package bech32
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/config"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/testutil/config"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

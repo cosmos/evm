@@ -1,6 +1,7 @@
 package distribution
 
 import (
+	"github.com/cosmos/evm/config"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +12,6 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 
