@@ -1,13 +1,17 @@
+//go:build test
+// +build test
+
 package mempool_test
 
 import (
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	"github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/testutil/config"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/testutil/config"
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
