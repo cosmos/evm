@@ -314,7 +314,6 @@ func NewRPCPendingTransaction(tx *ethtypes.Transaction, current *ethtypes.Header
 		blockNumber = current.Number.Uint64()
 		blockTime = current.Time
 	}
-
 	return NewRPCTransaction(tx, common.Hash{}, blockNumber, blockTime, 0, baseFee, config)
 }
 
@@ -520,6 +519,9 @@ func MarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from co
 //
 // price = min(gasTipCap + baseFee, gasFeeCap)
 func EffectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
+	if tx == nil {
+		return big.NewInt(0)
+	}
 	if baseFee == nil {
 		return tx.GasFeeCap()
 	}
