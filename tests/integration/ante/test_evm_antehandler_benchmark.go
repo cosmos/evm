@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	ante "github.com/cosmos/evm/ante"
+	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
