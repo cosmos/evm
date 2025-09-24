@@ -1136,6 +1136,9 @@ func (app *EVMD) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfi
 	// Register grpc-gateway routes for all modules.
 	app.BasicModuleManager.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
+	// Register bank supply proxy for aepix/epix denom
+	RegisterBankSupplyProxy(apiSvr.Router, clientCtx)
+
 	// register swagger API from root so that other applications can override easily
 	if err := sdkserver.RegisterSwaggerAPI(apiSvr.ClientCtx, apiSvr.Router, apiConfig.Swagger); err != nil {
 		panic(err)

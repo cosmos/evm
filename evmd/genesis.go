@@ -11,6 +11,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
@@ -89,4 +90,39 @@ func NewFeeMarketGenesisState() *feemarkettypes.GenesisState {
 	feeMarketGenState.Params.EnableHeight = 0
 
 	return feeMarketGenState
+}
+
+// NewBankGenesisState returns the default genesis state for the bank module with
+// coin metadata for aepix/epix denominations.
+//
+// NOTE: This adds metadata so that the bank module recognizes both the base
+// denomination (aepix) and display denomination (epix).
+func NewBankGenesisState() *banktypes.GenesisState {
+	bankGenState := banktypes.DefaultGenesisState()
+
+	// Add metadata for aepix/epix denominations
+	epixMetadata := banktypes.Metadata{
+		Description: "The native staking and governance token of the EpixChain",
+		Base:        config.EpixChainDenom, // "aepix"
+		// NOTE: Denom units MUST be increasing by exponent
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    config.EpixChainDenom, // "aepix"
+				Exponent: 0,
+				Aliases:  []string{"aepix"},
+			},
+			{
+				Denom:    config.EpixDisplayDenom, // "epix"
+				Exponent: 18,
+				Aliases:  []string{"epix"},
+			},
+		},
+		Name:    "EpixChain",
+		Symbol:  "EPIX",
+		Display: config.EpixDisplayDenom, // "epix"
+	}
+
+	bankGenState.DenomMetadata = []banktypes.Metadata{epixMetadata}
+
+	return bankGenState
 }
