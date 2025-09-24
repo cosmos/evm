@@ -16,6 +16,7 @@
 - [\#591](https://github.com/cosmos/evm/pull/591) CheckTxHandler should handle "invalid nonce" tx
 - [\#643](https://github.com/cosmos/evm/pull/643) Support for mnemonic source (file, stdin,etc) flag in key add command.
 - [\#645](https://github.com/cosmos/evm/pull/645) Align precise bank keeper for correct decimal conversion in evmd.
+- [\#656](https://github.com/cosmos/evm/pull/656) Fix race condition in mempool
 
 ### IMPROVEMENTS
 
