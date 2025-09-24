@@ -25,6 +25,7 @@ func GetQueryCmd() *cobra.Command {
 		GetAnnualProvisionsCmd(),
 		GetCurrentSupplyCmd(),
 		GetMaxSupplyCmd(),
+		GetSupplyOfCmd(),
 	)
 	return cmd
 }
@@ -156,6 +157,37 @@ func GetMaxSupplyCmd() *cobra.Command {
 			queryClient := types.NewQueryClient(clientCtx)
 
 			res, err := queryClient.MaxSupply(cmd.Context(), &types.QueryMaxSupplyRequest{})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+// GetSupplyOfCmd returns the command for querying the supply of a specific denomination.
+func GetSupplyOfCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "supply-of [denom]",
+		Short: "Query the supply of a specific denomination (aepix or epix)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			denom := args[0]
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.SupplyOf(cmd.Context(), &types.QuerySupplyOfRequest{
+				Denom: denom,
+			})
 			if err != nil {
 				return err
 			}

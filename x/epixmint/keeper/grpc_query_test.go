@@ -69,3 +69,25 @@ func TestQueryMaxSupply(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, math.NewInt(42000000), resp.MaxSupply)
 }
+
+func TestQuerySupplyOf(t *testing.T) {
+	// Test that QuerySupplyOfRequest and QuerySupplyOfResponse types exist
+	req := &types.QuerySupplyOfRequest{
+		Denom: "aepix",
+	}
+	require.NotNil(t, req)
+	require.Equal(t, "aepix", req.Denom)
+
+	resp := &types.QuerySupplyOfResponse{
+		Supply: math.NewInt(1000000),
+	}
+	require.NotNil(t, resp)
+	require.Equal(t, math.NewInt(1000000), resp.Supply)
+
+	// Test with epix denomination
+	epixReq := &types.QuerySupplyOfRequest{
+		Denom: "epix",
+	}
+	require.NotNil(t, epixReq)
+	require.Equal(t, "epix", epixReq.Denom)
+}

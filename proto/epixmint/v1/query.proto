@@ -35,6 +35,11 @@ service Query {
   rpc MaxSupply(QueryMaxSupplyRequest) returns (QueryMaxSupplyResponse) {
     option (google.api.http).get = "/epix/mint/v1beta1/max_supply";
   }
+
+  // SupplyOf queries the supply of a specific denomination.
+  rpc SupplyOf(QuerySupplyOfRequest) returns (QuerySupplyOfResponse) {
+    option (google.api.http).get = "/epix/mint/v1beta1/supply/{denom}";
+  }
 }
 
 // QueryParamsRequest defines the request type for querying x/epixmint parameters.
@@ -92,6 +97,22 @@ message QueryMaxSupplyRequest {}
 message QueryMaxSupplyResponse {
   // max_supply is the maximum total supply that can ever be minted
   string max_supply = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// QuerySupplyOfRequest defines the request type for querying supply of a specific denomination.
+message QuerySupplyOfRequest {
+  // denom is the coin denomination to query supply for
+  string denom = 1;
+}
+
+// QuerySupplyOfResponse defines the response type for querying supply of a specific denomination.
+message QuerySupplyOfResponse {
+  // supply is the supply of the specified denomination
+  string supply = 1 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false

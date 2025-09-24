@@ -24,6 +24,7 @@ const (
 	Query_AnnualProvisions_FullMethodName = "/epixmint.v1.Query/AnnualProvisions"
 	Query_CurrentSupply_FullMethodName    = "/epixmint.v1.Query/CurrentSupply"
 	Query_MaxSupply_FullMethodName        = "/epixmint.v1.Query/MaxSupply"
+	Query_SupplyOf_FullMethodName         = "/epixmint.v1.Query/SupplyOf"
 )
 
 // QueryClient is the client API for Query service.
@@ -40,6 +41,8 @@ type QueryClient interface {
 	CurrentSupply(ctx context.Context, in *QueryCurrentSupplyRequest, opts ...grpc.CallOption) (*QueryCurrentSupplyResponse, error)
 	// MaxSupply queries the maximum supply of the mint denomination.
 	MaxSupply(ctx context.Context, in *QueryMaxSupplyRequest, opts ...grpc.CallOption) (*QueryMaxSupplyResponse, error)
+	// SupplyOf queries the supply of a specific denomination.
+	SupplyOf(ctx context.Context, in *QuerySupplyOfRequest, opts ...grpc.CallOption) (*QuerySupplyOfResponse, error)
 }
 
 type queryClient struct {
@@ -95,6 +98,15 @@ func (c *queryClient) MaxSupply(ctx context.Context, in *QueryMaxSupplyRequest, 
 	return out, nil
 }
 
+func (c *queryClient) SupplyOf(ctx context.Context, in *QuerySupplyOfRequest, opts ...grpc.CallOption) (*QuerySupplyOfResponse, error) {
+	out := new(QuerySupplyOfResponse)
+	err := c.cc.Invoke(ctx, Query_SupplyOf_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -109,6 +121,8 @@ type QueryServer interface {
 	CurrentSupply(context.Context, *QueryCurrentSupplyRequest) (*QueryCurrentSupplyResponse, error)
 	// MaxSupply queries the maximum supply of the mint denomination.
 	MaxSupply(context.Context, *QueryMaxSupplyRequest) (*QueryMaxSupplyResponse, error)
+	// SupplyOf queries the supply of a specific denomination.
+	SupplyOf(context.Context, *QuerySupplyOfRequest) (*QuerySupplyOfResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -130,6 +144,9 @@ func (UnimplementedQueryServer) CurrentSupply(context.Context, *QueryCurrentSupp
 }
 func (UnimplementedQueryServer) MaxSupply(context.Context, *QueryMaxSupplyRequest) (*QueryMaxSupplyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MaxSupply not implemented")
+}
+func (UnimplementedQueryServer) SupplyOf(context.Context, *QuerySupplyOfRequest) (*QuerySupplyOfResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SupplyOf not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -234,6 +251,24 @@ func _Query_MaxSupply_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_SupplyOf_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuerySupplyOfRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).SupplyOf(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_SupplyOf_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).SupplyOf(ctx, req.(*QuerySupplyOfRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -260,6 +295,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MaxSupply",
 			Handler:    _Query_MaxSupply_Handler,
+		},
+		{
+			MethodName: "SupplyOf",
+			Handler:    _Query_SupplyOf_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

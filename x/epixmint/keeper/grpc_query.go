@@ -94,3 +94,39 @@ func (k Keeper) MaxSupply(c context.Context, req *types.QueryMaxSupplyRequest) (
 		MaxSupply: params.MaxSupply,
 	}, nil
 }
+
+// SupplyOf returns the supply of a specific denomination.
+func (k Keeper) SupplyOf(c context.Context, req *types.QuerySupplyOfRequest) (*types.QuerySupplyOfResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	if req.Denom == "" {
+		return nil, status.Error(codes.InvalidArgument, "denom cannot be empty")
+	}
+
+	params := k.GetParams(c)
+
+	// Get the supply of the mint denomination (aepix)
+	mintDenomSupply := k.bankKeeper.GetSupply(c, params.MintDenom)
+
+	switch req.Denom {
+	case "aepix":
+		// Return the raw supply in aepix (base denomination)
+		return &types.QuerySupplyOfResponse{
+			Supply: mintDenomSupply.Amount,
+		}, nil
+	case "epix":
+		// Convert from aepix to epix (divide by 10^18)
+		// Note: This returns the supply expressed in EPIX units as an integer
+		// The fractional part is truncated (e.g., 1.7 EPIX becomes 1)
+		// This follows Cosmos SDK conventions where supply is always an integer
+		conversionFactor := math.NewInt(1000000000000000000) // 10^18
+		epixSupply := mintDenomSupply.Amount.Quo(conversionFactor)
+		return &types.QuerySupplyOfResponse{
+			Supply: epixSupply,
+		}, nil
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unsupported denomination: %s. Supported denominations are 'aepix' and 'epix'", req.Denom)
+	}
+}
