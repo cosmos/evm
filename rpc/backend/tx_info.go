@@ -80,9 +80,9 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", blockRes.Height, "error", err)
 	}
 
-	height := uint64(res.Height) //#nosec G115 -- checked for int overflow already
-	blockTime := uint64(block.Block.Time.UTC().Unix())
-	index := uint64(res.EthTxIndex) //#nosec G115 -- checked for int overflow already
+	height := uint64(res.Height)                       //#nosec G115 -- checked for int overflow already
+	blockTime := uint64(block.Block.Time.UTC().Unix()) //#nosec G115 -- checked for int overflow already
+	index := uint64(res.EthTxIndex)                    //#nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
 		common.BytesToHash(block.BlockID.Hash.Bytes()),
@@ -400,9 +400,9 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Block.Height, "error", err)
 	}
 
-	height := uint64(block.Block.Height) // #nosec G115 -- checked for int overflow already
-	blockTime := uint64(block.Block.Time.UTC().Unix())
-	index := uint64(idx) // #nosec G115 -- checked for int overflow already
+	height := uint64(block.Block.Height)               // #nosec G115 -- checked for int overflow already
+	blockTime := uint64(block.Block.Time.UTC().Unix()) // #nosec G115 -- checked for int overflow already
+	index := uint64(idx)                               // #nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
 		common.BytesToHash(block.Block.Hash()),

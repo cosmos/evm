@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
 	ethparams "github.com/ethereum/go-ethereum/params"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -196,14 +195,14 @@ func NewRPCTransaction(
 
 	case ethtypes.AccessListTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign())
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec // G115
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
 
 	case ethtypes.DynamicFeeTxType:
 		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign())
+		yparity := hexutil.Uint64(v.Sign()) //nolint:gosec // G115
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.YParity = &yparity
@@ -259,7 +258,7 @@ func NewRPCTransaction(
 }
 
 // NewRPCPendingTransaction returns a pending transaction that will serialize to the RPC representation
-func NewRPCPendingTransaction(tx *ethtypes.Transaction, current *ethtypes.Header, config *params.ChainConfig) *RPCTransaction {
+func NewRPCPendingTransaction(tx *ethtypes.Transaction, current *ethtypes.Header, config *ethparams.ChainConfig) *RPCTransaction {
 	var (
 		baseFee     *big.Int
 		blockNumber = uint64(0)
@@ -315,7 +314,7 @@ func CheckTxFee(gasPrice *big.Int, gas uint64, minCap float64) error {
 	}
 	totalfee := new(big.Float).SetInt(new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gas)))
 	// 1 token in atto units (1e18)
-	oneToken := new(big.Float).SetInt(big.NewInt(params.Ether))
+	oneToken := new(big.Float).SetInt(big.NewInt(ethparams.Ether))
 	// quo = rounded(x/y)
 	feeEth := new(big.Float).Quo(totalfee, oneToken)
 	// no need to check error from parsing
@@ -360,7 +359,7 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
-		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))),
+		"gasUsed":          (*hexutil.Big)(big.NewInt(int64(head.GasUsed))), //nolint:gosec // G115
 		"timestamp":        hexutil.Uint64(head.Time),
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
@@ -399,8 +398,8 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*ev
 		}
 		if fullTx {
 			formatTx = func(idx int, _ *ethtypes.Transaction) interface{} {
-				msgIdx := uint64(idx) //nolint:gosec // G115
-				return newRPCTransactionFromBlockIndex(block, msgs, msgIdx, config)
+				txIdx := uint64(idx) //nolint:gosec // G115
+				return newRPCTransactionFromBlockIndex(block, txIdx, config)
 			}
 		}
 		txs := block.Transactions()
@@ -423,7 +422,7 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*ev
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockIndex(b *ethtypes.Block, msgs []*evmtypes.MsgEthereumTx, index uint64, config *ethparams.ChainConfig) *RPCTransaction {
+func newRPCTransactionFromBlockIndex(b *ethtypes.Block, index uint64, config *ethparams.ChainConfig) *RPCTransaction {
 	txs := b.Transactions()
 	if index >= uint64(len(txs)) {
 		return nil

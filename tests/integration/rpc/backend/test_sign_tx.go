@@ -83,12 +83,12 @@ func (s *TestSuite) TestSendTransaction() {
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
 				RegisterParams(QueryClient, &header, height)
-                RegisterBlock(client, height, nil)
-                RegisterBlockResults(client, 1)
-                RegisterBaseFee(QueryClient, baseFee)
-                RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
-                RegisterConsensusParams(client, height)
-            },
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterConsensusParams(client, height)
+			},
 			evmtypes.TransactionArgs{
 				From:     &from,
 				To:       &toAddr,

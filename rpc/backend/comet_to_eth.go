@@ -13,10 +13,10 @@ import (
 
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/x/vm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
@@ -227,7 +227,7 @@ func (b *Backend) MinerFromCometBlock(
 func (b *Backend) ReceiptsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgs []*types.MsgEthereumTx,
+	msgs []*evmtypes.MsgEthereumTx,
 ) ([]*ethtypes.Receipt, error) {
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
@@ -250,7 +250,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		if baseFee != nil {
 			effectiveGasPrice = rpctypes.EffectiveGasPrice(ethMsg.Raw.Transaction, baseFee)
 		} else {
-			effectiveGasPrice = ethMsg.Raw.Transaction.GasFeeCap()
+			effectiveGasPrice = ethMsg.Raw.GasFeeCap()
 		}
 
 		var status uint64
