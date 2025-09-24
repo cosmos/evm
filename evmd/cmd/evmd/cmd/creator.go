@@ -95,7 +95,6 @@ func (a appCreator) newApp(
 		true,
 		simtestutil.EmptyAppOptions{},
 		config.EVMChainID,
-		config.EvmAppOptions,
 		baseappOptions...,
 	)
 }
@@ -138,7 +137,6 @@ func (a appCreator) appExport(
 		loadLatest,
 		appOpts,
 		config.EVMChainID,
-		config.EvmAppOptions,
 	)
 
 	if height != -1 {

@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -131,7 +132,9 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 						s.network.GetContext(),
 						s.network.App.GetEVMKeeper(),
 						s.network.App.GetAccountKeeper(),
+						s.network.App.GetBankKeeper(),
 						*tc.genState,
+						&sync.Once{},
 					)
 				})
 			} else {
@@ -140,7 +143,9 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 						ctx,
 						s.network.App.GetEVMKeeper(),
 						s.network.App.GetAccountKeeper(),
+						s.network.App.GetBankKeeper(),
 						*tc.genState,
+						&sync.Once{},
 					)
 				})
 				// verify state for each account

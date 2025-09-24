@@ -1,15 +1,13 @@
 package config
 
 import (
+	"cosmossdk.io/math"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	"cosmossdk.io/math"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // EVMOptionsFn defines a function type for setting app options specifically for

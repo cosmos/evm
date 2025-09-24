@@ -36,6 +36,11 @@ message Params {
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
   uint64 history_serve_window = 10;
+  ExtendedDenomOptions extended_denom_options = 11;
+}
+
+message ExtendedDenomOptions {
+  string extended_denom = 1;
 }
 
 // AccessControl defines the permission policy of the EVM

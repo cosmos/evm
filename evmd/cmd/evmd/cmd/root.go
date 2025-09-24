@@ -54,9 +54,6 @@ func NewRootCmd() *cobra.Command {
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
-	noOpEvmAppOptions := func(_ uint64) error {
-		return nil
-	}
 	tempApp := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
@@ -64,7 +61,6 @@ func NewRootCmd() *cobra.Command {
 		true,
 		simtestutil.EmptyAppOptions{},
 		config.EVMChainID,
-		noOpEvmAppOptions,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -145,12 +141,6 @@ func NewRootCmd() *cobra.Command {
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
-	}
-
-	if initClientCtx.ChainID != "" { // TODO:VLAD - Remove this
-		if err := config.EvmAppOptions(config.EVMChainID); err != nil {
-			panic(err)
-		}
 	}
 
 	return rootCmd
@@ -319,8 +309,7 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		config.EVMChainID,    // TODO:VLAD - Remove this
-		config.EvmAppOptions, // TODO:VLAD - Remove this
+		config.EVMChainID, // TODO:VLAD - Remove this
 		baseappOptions...,
 	)
 }
@@ -361,13 +350,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config.EVMChainID, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove appoptions and evmchainid
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config.EVMChainID, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -54,8 +53,6 @@ type (
 		logger        log.Logger
 		txConfig      client.TxConfig
 		blockchain    *Blockchain
-		bondDenom     string
-		evmDenom      string
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
 
@@ -90,9 +87,6 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
 	)
-
-	bondDenom := evmtypes.GetEVMCoinDenom()
-	evmDenom := types.ExtendedCoinDenom()
 
 	// add the mempool name to the logger
 	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")
@@ -154,7 +148,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 				if !ok {
 					return math.ZeroInt()
 				}
-				found, coin := cosmosTxFee.GetFee().Find(bondDenom)
+				found, coin := cosmosTxFee.GetFee().Find(evmtypes.GetEVMCoinDenom())
 				if !found {
 					return math.ZeroInt()
 				}
@@ -181,8 +175,6 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		logger:        logger,
 		txConfig:      txConfig,
 		blockchain:    blockchain,
-		bondDenom:     bondDenom,
-		evmDenom:      evmDenom,
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
@@ -284,7 +276,7 @@ func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkme
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, evmtypes.GetEVMCoinDenom(), m.blockchain.Config().ChainID, m.blockchain)
 
 	return combinedIterator
 }
@@ -377,7 +369,7 @@ func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f f
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, evmtypes.GetEVMCoinDenom(), m.blockchain.Config().ChainID, m.blockchain)
 
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()

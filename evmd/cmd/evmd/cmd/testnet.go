@@ -686,7 +686,6 @@ func NewTestNetworkFixture() network.TestFixture {
 		true,
 		simtestutil.EmptyAppOptions{},
 		config.EVMChainID,
-		config.EvmAppOptions,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -697,7 +696,6 @@ func NewTestNetworkFixture() network.TestFixture {
 			true,
 			simtestutil.EmptyAppOptions{},
 			config.EVMChainID,
-			config.EvmAppOptions,
 		)
 	}
 

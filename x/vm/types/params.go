@@ -20,7 +20,7 @@ var (
 	// DefaultEVMDenom is the default value for the evm denom
 	DefaultEVMDenom = "atest"
 	// DefaultEVMChainID is the default value for the evm chain ID
-	DefaultEVMChainID = "cosmos_262144-1"
+	DefaultEVMChainID uint64 = 262144
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
 	DefaultEVMDecimals uint64 = 18
 	// DefaultStaticPrecompiles defines the default active precompiles.

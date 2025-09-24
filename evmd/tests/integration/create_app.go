@@ -42,7 +42,6 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		loadLatest,
 		appOptions,
 		evmChainID,
-		config.EvmAppOptions,
 		baseAppOptions...,
 	)
 }
@@ -57,7 +56,6 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		true,
 		simutils.EmptyAppOptions{},
 		constants.ExampleEIP155ChainID,
-		config.EvmAppOptions,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

@@ -22,10 +22,6 @@ func (ec *EVMConfigurator) Configure() error {
 		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
 	}
 
-	if err := setChainConfig(ec.chainConfig); err != nil {
-		return err
-	}
-
 	if err := setEVMCoinInfo(ec.evmCoinInfo); err != nil {
 		return err
 	}
