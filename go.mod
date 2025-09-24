@@ -294,7 +294,7 @@ replace (
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	// use btree fork for bstm
-	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924230859-81ebf7753778
+	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
 
 retract v0.4.0
