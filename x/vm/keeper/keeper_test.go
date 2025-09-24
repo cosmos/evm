@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"github.com/cosmos/evm/config"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -95,6 +96,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.fmKeeper,
 		suite.consensusKeeper,
 		suite.erc20Keeper,
+		config.EighteenDecimalsChainID,
 		"",
 	)
 }

@@ -1635,7 +1635,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 		Denom:         types.GetEVMCoinDenom(),
 		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
 		DisplayDenom:  types.GetEVMCoinDisplayDenom(),
-		Decimals:      types.GetEVMCoinDecimals(),
+		Decimals:      types.GetEVMCoinDecimals().Uint32(),
 	}
 	chainConfig := types.DefaultChainConfig(s.Network.GetEIP155ChainID().Uint64())
 
