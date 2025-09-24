@@ -7,7 +7,6 @@ import (
 
 	"github.com/cosmos/evm/ante"
 	ethante "github.com/cosmos/evm/ante/evm"
-	evmdante "github.com/cosmos/evm/evmd/ante"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -82,7 +81,7 @@ func RunBenchmarkAnteHandler(b *testing.B, create network.CreateEvmApp, options 
 		}
 
 		handlerOptions := suite.generateHandlerOptions()
-		ante := evmdante.NewAnteHandler(handlerOptions)
+		ante := ante.NewAnteHandler(handlerOptions)
 		b.StartTimer()
 
 		b.Run(fmt.Sprintf("tx_type_%v", v.name), func(b *testing.B) {

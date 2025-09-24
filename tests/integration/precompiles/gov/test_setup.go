@@ -138,13 +138,11 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.network = nw
 
 	govKeeper := s.network.App.GetGovKeeper()
-	if s.precompile, err = gov.NewPrecompile(
+	s.precompile = gov.NewPrecompile(
 		govkeeper.NewMsgServerImpl(&govKeeper),
 		govkeeper.NewQueryServer(&govKeeper),
 		s.network.App.GetBankKeeper(),
 		s.network.App.AppCodec(),
 		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-	); err != nil {
-		panic(err)
-	}
+	)
 }
