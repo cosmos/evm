@@ -300,7 +300,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 	}
 
 	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
-	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
+	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,
@@ -396,7 +396,7 @@ func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 	msgEthTx, bz := s.buildEthereumTx()
 	defaultBlock := types.MakeBlock(1, []types.Tx{bz}, nil, nil)
 	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
-	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
+	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,

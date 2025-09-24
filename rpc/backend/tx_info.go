@@ -91,7 +91,7 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 		index,
 		baseFee,
 		b.ChainConfig(),
-	)
+	), nil
 }
 
 // GetTransactionByHashPending find pending tx from mempool
@@ -113,7 +113,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 
 		if msg.Hash() == txHash {
 			// use zero block values since it's not included in a block yet
-			rpctx, err := rpctypes.NewTransactionFromMsg(
+			return rpctypes.NewTransactionFromMsg(
 				msg,
 				common.Hash{},
 				uint64(0),
@@ -121,11 +121,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 				uint64(0),
 				nil,
 				b.ChainConfig(),
-			)
-			if err != nil {
-				return nil, err
-			}
-			return rpctx, nil
+			), nil
 		}
 	}
 
@@ -411,7 +407,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 		index,
 		baseFee,
 		b.ChainConfig(),
-	)
+	), nil
 }
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the

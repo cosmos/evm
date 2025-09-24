@@ -54,6 +54,11 @@ func RawTxToEthTx(clientCtx client.Context, txBz cmttypes.Tx) ([]*evmtypes.MsgEt
 
 // EthHeaderFromComet is an util function that returns an Ethereum Header
 // from a CometBFT Header.
+//
+// TODO: Remove this function.
+// Currently, this function is only used in rpc/stream package for websocket api.
+// But there are many missing fields in returned eth header.
+// When kv_indexer is improved and we can get eth header from indexer, we can remove this function.
 func EthHeaderFromComet(header cmttypes.Header, bloom ethtypes.Bloom, baseFee *big.Int) *ethtypes.Header {
 	txHash := ethtypes.EmptyRootHash
 	if len(header.DataHash) != 0 {
@@ -112,6 +117,9 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 	return gasLimit, nil
 }
 
+// MakeHeader make initial ethereum header based on cometbft header.
+// This method refers to chainMaker.makeHeader method of go-ethereum
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/core/chain_makers.go#L596-L623)
 func MakeHeader(
 	cmtHeader cmttypes.Header, gasLimit int64,
 	validatorAddr common.Address, baseFee *big.Int,
@@ -145,12 +153,15 @@ func NewTransactionFromMsg(
 	blockNumber, blockTime, index uint64,
 	baseFee *big.Int,
 	config *ethparams.ChainConfig,
-) (*RPCTransaction, error) {
-	return NewRPCTransaction(msg.AsTransaction(), blockHash, blockNumber, blockTime, index, baseFee, config), nil
+) *RPCTransaction {
+	return NewRPCTransaction(msg.AsTransaction(), blockHash, blockNumber, blockTime, index, baseFee, config)
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
+//
+// This method refers to internal package method of go-ethereum v1.16.3 - newRPCTransaction
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L991-L1081)
 func NewRPCTransaction(
 	tx *ethtypes.Transaction,
 	blockHash common.Hash,
@@ -342,7 +353,8 @@ func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
-// This method is almost same with go-ethereum's RPCMarshalHeader method of ethtypes.Header
+//
+// This method refers to internal package method of go-ethereum v1.16.3 - RPCMarshalHeader
 // (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L888-L927)
 // but it uses the cometbft Header to get the block hash.
 func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[string]interface{} {
@@ -388,6 +400,9 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
+//
+// This method refers to go-ethereum v1.16.3 internal package method - RPCMarshalBlock
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L929-L962)
 func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
 	fields := RPCMarshalHeader(block.Header(), cmtBlock.Header)
 	fields["size"] = hexutil.Uint64(block.Size())
@@ -431,6 +446,9 @@ func newRPCTransactionFromBlockIndex(b *ethtypes.Block, index uint64, config *et
 }
 
 // RPCMarshalReceipt marshals a transaction receipt into a JSON object.
+//
+// This method refers to go-ethereum v1.16.3 internal package method marshalReceipt
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L1478-L1518)
 func RPCMarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from common.Address) (map[string]interface{}, error) {
 	fields := map[string]interface{}{
 		"blockHash":         receipt.BlockHash,
@@ -473,6 +491,9 @@ func RPCMarshalReceipt(receipt *ethtypes.Receipt, tx *ethtypes.Transaction, from
 // EffectiveGasPrice computes the transaction gas fee, based on the given basefee value.
 //
 // price = min(gasTipCap + baseFee, gasFeeCap)
+//
+// This method refers to go-ethereum v1.16.3 internal package method, effectiveGasPrice.
+// (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L1083-L1093)
 func EffectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
 	if tx == nil {
 		return big.NewInt(0)
