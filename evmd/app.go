@@ -327,6 +327,9 @@ func NewExampleApp(
 		okeys:             okeys,
 	}
 
+	// Disable block gas meter since we're executing in parallel
+	app.SetDisableBlockGasMeter(true)
+
 	// removed x/params: no ParamsKeeper initialization
 
 	// get authority address
