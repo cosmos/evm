@@ -2,10 +2,10 @@ package integration
 
 import (
 	"encoding/json"
-	"github.com/cosmos/evm/config"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
