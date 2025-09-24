@@ -1,11 +1,11 @@
 package constants_test
 
 import (
+	"github.com/cosmos/evm/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/constants"
 )
 

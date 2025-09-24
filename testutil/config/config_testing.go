@@ -4,6 +4,7 @@
 package config
 
 import (
+	"github.com/cosmos/evm/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -11,46 +12,46 @@ import (
 // that allows initializing the app with different coin info based on the
 // chain id
 var TestChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - Remove this
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
+	config.EighteenDecimalsChainID: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
-	SixDecimalsChainID: {
+	config.SixDecimalsChainID: {
 		Denom:         "utest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
 		Decimals:      evmtypes.SixDecimals,
 	},
-	TwelveDecimalsChainID: {
+	config.TwelveDecimalsChainID: {
 		Denom:         "ptest2",
 		ExtendedDenom: "atest2",
 		DisplayDenom:  "test2",
 		Decimals:      evmtypes.TwelveDecimals,
 	},
-	TwoDecimalsChainID: {
+	config.TwoDecimalsChainID: {
 		Denom:         "ctest3",
 		ExtendedDenom: "atest3",
 		DisplayDenom:  "test3",
 		Decimals:      evmtypes.TwoDecimals,
 	},
-	TestChainID1: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
+	config.TestChainID1: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleChainDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
-	TestChainID2: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleChainDenom,
+	config.TestChainID2: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleChainDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
 	EVMChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
 }

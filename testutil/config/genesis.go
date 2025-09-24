@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"github.com/cosmos/evm/config"
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -48,7 +49,7 @@ func NewErc20GenesisState() *erc20types.GenesisState {
 // NOTE: for the example chain implementation we are also adding a default minter.
 func NewMintGenesisState() *minttypes.GenesisState {
 	mintGenState := minttypes.DefaultGenesisState()
-	mintGenState.Params.MintDenom = ExampleChainDenom
+	mintGenState.Params.MintDenom = config.ExampleChainDenom
 
 	return mintGenState
 }

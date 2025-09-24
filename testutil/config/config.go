@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -11,16 +12,16 @@ import (
 // that allows initializing the app with different coin info based on the
 // chain id
 var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - Remove this
-	EighteenDecimalsChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
+	config.EighteenDecimalsChainID: {
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
 	EVMChainID: {
-		Denom:         ExampleChainDenom,
-		ExtendedDenom: ExampleChainDenom,
-		DisplayDenom:  ExampleDisplayDenom,
+		Denom:         config.ExampleChainDenom,
+		ExtendedDenom: config.ExampleChainDenom,
+		DisplayDenom:  config.ExampleDisplayDenom,
 		Decimals:      evmtypes.EighteenDecimals,
 	},
 }
