@@ -4,11 +4,12 @@ go 1.25.0
 
 require (
 	cosmossdk.io/api v0.9.2
+	cosmossdk.io/client/v2 v2.0.0-beta.7
 	cosmossdk.io/core v0.11.3
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20250916155236-2dbb0df4f041
+	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647
 	cosmossdk.io/tools/confix v0.1.2
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0
@@ -120,7 +121,7 @@ require (
 	github.com/cometbft/cometbft-db v0.14.1 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250919000353-35f0b72333b9 // indirect
+	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.6 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
@@ -292,6 +293,8 @@ replace (
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.1
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+	// use btree fork for bstm
+	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
 
 retract v0.4.0

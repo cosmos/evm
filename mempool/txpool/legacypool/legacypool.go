@@ -1095,7 +1095,7 @@ func (pool *LegacyPool) RemoveTx(hash common.Hash, outofbound bool, unreserve bo
 // removeTx removes a single transaction from the queue, moving all subsequent
 // transactions back to the future queue.
 //
-// In unreserve is false, the account will not be relinquished to the main txpool
+// If unreserve is false, the account will not be relinquished to the main txpool
 // even if there are no more references to it. This is used to handle a race when
 // a tx being added, and it evicts a previously scheduled tx from the same account,
 // which could lead to a premature release of the lock.
