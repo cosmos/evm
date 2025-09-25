@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/evm/config"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -268,8 +268,8 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.EVMChainID
-	evmCfg := evmdconfig.EVMAppConfig{
+	evm.EVMChainID = config.EVMChainID
+	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -443,7 +443,7 @@ func initTestnetFiles(
 			return err
 		}
 
-		srvconfig.SetConfigTemplate(evmdconfig.EVMAppTemplate)
+		srvconfig.SetConfigTemplate(config.EVMAppTemplate)
 
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), evmCfg)
 	}
@@ -685,8 +685,8 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		config.EVMChainID,
+		config.EvmAppOptions,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -696,8 +696,8 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.EVMChainID,
-			evmdconfig.EvmAppOptions,
+			config.EVMChainID,
+			config.EvmAppOptions,
 		)
 	}
 
