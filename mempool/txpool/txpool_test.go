@@ -1,7 +1,6 @@
 package txpool_test
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -85,7 +84,7 @@ func TestTxPool(t *testing.T) {
 	wg.Add(1)
 	subpool.On("Reset", height1Header, height3Header).Run(func(args mock.Arguments) {
 		defer wg.Done()
-		fmt.Printf("reset called with non sequential headers. old head hash %s, new head parent hash %s\n", height1Header.Hash(), height3Header.Hash())
+		require.Equal(t, height1Header.Hash(), height3Header.ParentHash, "sub pool reset got mismatch old head hash and new head parent hash")
 	}).Once()
 
 	// wait to make sure we have called subpool with the unexpected state
