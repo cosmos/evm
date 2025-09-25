@@ -6,13 +6,13 @@ import (
 )
 
 func LoadSimpleERC20() (evmtypes.CompiledContract, error) {
-	return contractutils.LoadContractFromJSONFile("SimpleERC20.json")
+	return contractutils.LoadContractFromJSONFile("account_abstraction/tokens/SimpleERC20.json")
 }
 
 func LoadSimpleEntryPoint() (evmtypes.CompiledContract, error) {
-	return contractutils.LoadContractFromJSONFile("SimpleEntryPoint.json")
+	return contractutils.LoadContractFromJSONFile("account_abstraction//entrypoint/SimpleEntryPoint.json")
 }
 
 func LoadSimpleSmartWallet() (evmtypes.CompiledContract, error) {
-	return contractutils.LoadContractFromJSONFile("SimpleSmartWallet.json")
+	return contractutils.LoadContractFromJSONFile("account_abstraction/smartwallet/SimpleSmartWallet.json")
 }
