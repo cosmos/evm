@@ -5,9 +5,9 @@
 package network
 
 import (
+	"github.com/cosmos/evm/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -15,20 +15,22 @@ import (
 
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // bank module of the testing suite depending on the chainID.
-func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState) banktypes.GenesisState {
-	bankGenesisState.DenomMetadata = generateBankGenesisMetadata()
+func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState, evmChainID uint64) banktypes.GenesisState {
+	bankGenesisState.DenomMetadata = generateBankGenesisMetadata(evmChainID)
 
 	return bankGenesisState
 }
 
 // generateBankGenesisMetadata generates the metadata entries
 // for both extended and native EVM denominations depending on the chain.
-func generateBankGenesisMetadata() []banktypes.Metadata {
+func generateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
+	denomConfig := config.ChainsCoinInfo[evmChainID]
+
 	// Basic denom settings
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom() // e.g., "atom"
-	evmDenom := evmtypes.GetEVMCoinDenom()            // e.g., "uatom"
-	extDenom := types.ExtendedCoinDenom()             // always 18-decimals base denom
-	evmDecimals := evmtypes.GetEVMCoinDecimals()      // native decimal precision, e.g., 6, 12, ..., or 18
+	displayDenom := denomConfig.DisplayDenom // e.g., "atom"
+	evmDenom := denomConfig.Denom            // e.g., "uatom"
+	extDenom := denomConfig.ExtendedDenom    // always 18-decimals base denom
+	evmDecimals := denomConfig.Decimals      // native decimal precision, e.g., 6, 12, ..., or 18
 
 	// Standard metadata fields
 	name := "Cosmos EVM"
@@ -76,6 +78,15 @@ func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20Genes
 	erc20GenesisState.TokenPairs = updateErc20TokenPairs(chainID, erc20GenesisState.TokenPairs)
 
 	return erc20GenesisState
+}
+
+// updateErc20GenesisStateForChainID modify the default genesis state for the
+// erc20 module on the testing suite depending on the chainID.
+func updateVMGenesisStateForChainID(chainID testconstants.ChainID, vmGenesisState evmtypes.GenesisState) evmtypes.GenesisState {
+	vmGenesisState.Params.EvmDenom = config.ChainsCoinInfo[chainID.EVMChainID].Denom
+	vmGenesisState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: config.ChainsCoinInfo[chainID.EVMChainID].ExtendedDenom}
+
+	return vmGenesisState
 }
 
 // updateErc20TokenPairs modifies the erc20 token pairs to use the correct

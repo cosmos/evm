@@ -72,10 +72,12 @@ const (
 	Bech32PrefixConsAddr = Bech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus
 	// Bech32PrefixConsPub defines the Bech32 prefix of a consensus node public key.
 	Bech32PrefixConsPub = Bech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
-	// DisplayDenom defines the denomination displayed to users in client applications.
-	DisplayDenom = "atom"
-	// BaseDenom defines to the default denomination used in the Cosmos EVM example chain.
-	BaseDenom = "aatom"
+	// TestDisplayDenom defines the denomination displayed to users in client applications.
+	TestDisplayDenom = "atom"
+	// TestEvmDenom defines the non-18-decimal denomination
+	TestEvmDenom = "uatom"
+	// TestExtendedDenom defines to the default denomination used in the Cosmos EVM example chain.
+	TestExtendedDenom = "aatom"
 	// BaseDenomUnit defines the precision of the base denomination.
 	BaseDenomUnit = 18
 	// EVMChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.

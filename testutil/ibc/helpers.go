@@ -23,9 +23,9 @@ const FeeAmt = 10000000000
 
 func FeeCoins() sdk.Coins {
 	// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
-	// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
+	// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s TestExtendedDenom.
 	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
-	return sdk.Coins{sdk.NewInt64Coin(config.BaseDenom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
+	return sdk.Coins{sdk.NewInt64Coin(config.TestExtendedDenom, new(big.Int).Mul(big.NewInt(FeeAmt), sdkExp).Int64())}
 }
 
 // SignAndDeliver signs and delivers a transaction. No simulation occurs as the
@@ -42,7 +42,7 @@ func SignAndDeliver(
 		txCfg,
 		msgs,
 		// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
-		// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
+		// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s TestExtendedDenom.
 		FeeCoins(),
 		simtestutil.DefaultGenTxGas,
 		chainID,

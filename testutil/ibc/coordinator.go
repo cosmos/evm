@@ -2,13 +2,13 @@ package ibctesting
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/x/vm/types"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	evmconfig "github.com/cosmos/evm/config"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
@@ -39,10 +39,11 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int, evmAppCreator i
 
 	ibctesting.DefaultTestingAppInit = evmAppCreator
 	for i := 1; i <= nEVMChains; i++ {
+		configurator := types.NewEVMConfigurator()
+		configurator.ResetTestConfig()
 		chainID := GetChainID(i)
 		evmChainID, err := strconv.ParseUint(GetEvmChainID(i), 10, 64)
 		require.NoError(t, err)
-		require.NoError(t, evmconfig.EvmAppOptions(evmChainID))
 		// setup EVM chains
 		chains[strconv.FormatUint(evmChainID, 10)] = NewTestChain(t, true, coord, chainID)
 	}

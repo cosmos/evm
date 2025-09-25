@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/config"
 	"maps"
 	"slices"
 	"time"
@@ -299,7 +300,7 @@ type BankCustomGenesisState struct {
 }
 
 // setDefaultBankGenesisState sets the default bank genesis state
-func setDefaultBankGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams BankCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultBankGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams BankCustomGenesisState, evmChainID uint64) cosmosevmtypes.GenesisState {
 	bankGenesis := banktypes.NewGenesisState(
 		banktypes.DefaultGenesisState().Params,
 		overwriteParams.balances,
@@ -307,7 +308,7 @@ func setDefaultBankGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmt
 		[]banktypes.Metadata{},
 		[]banktypes.SendEnabled{},
 	)
-	updatedBankGen := updateBankGenesisStateForChainID(*bankGenesis)
+	updatedBankGen := updateBankGenesisStateForChainID(*bankGenesis, evmChainID)
 	genesisState[banktypes.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedBankGen)
 	return genesisState
 }
@@ -414,10 +415,13 @@ type GovCustomGenesisState struct {
 }
 
 // setDefaultGovGenesisState sets the default gov genesis state
-func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState) cosmosevmtypes.GenesisState {
+func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState cosmosevmtypes.GenesisState, overwriteParams GovCustomGenesisState, evmChainID uint64) cosmosevmtypes.GenesisState {
 	govGen := govtypesv1.DefaultGenesisState()
+
+	denomConfig := config.ChainsCoinInfo[evmChainID]
+
 	updatedParams := govGen.Params
-	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.GetEVMCoinDecimals().ConversionFactor())
+	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.Decimals(denomConfig.Decimals).ConversionFactor())
 	updatedParams.MinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	updatedParams.ExpeditedMinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	govGen.Params = updatedParams
@@ -485,6 +489,30 @@ func newErc20GenesisState() *erc20types.GenesisState {
 	return erc20GenState
 }
 
+func setDefaultVMGenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState cosmosevmtypes.GenesisState) cosmosevmtypes.GenesisState {
+	// NOTE: here we are using the setup from the example chain
+	var vmGen evmtypes.GenesisState
+	cosmosEVMApp.AppCodec().MustUnmarshalJSON(genesisState[evmtypes.ModuleName], &vmGen)
+	updatedVMGen := updateVMGenesisStateForChainID(testconstants.ChainID{
+		ChainID:    cosmosEVMApp.ChainID(),
+		EVMChainID: evmChainID,
+	}, vmGen)
+
+	genesisState[evmtypes.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedVMGen)
+	return genesisState
+}
+
+// newErc20GenesisState returns the default genesis state for the ERC20 module.
+// This is a duplicate of the function in utils to avoid an import cycle
+//
+// NOTE: for the example chain implementation we are also adding a default token pair,
+// which is the base denomination of the chain (i.e. the WEVMOS contract).
+func newVMGenesisState() *evmtypes.GenesisState {
+	vmGenState := evmtypes.DefaultGenesisState()
+
+	return vmGenState
+}
+
 // defaultAuthGenesisState sets the default genesis state
 // for the testing setup
 func newDefaultGenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, params defaultGenesisParams) cosmosevmtypes.GenesisState {
@@ -492,12 +520,13 @@ func newDefaultGenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, params d
 
 	genesisState = setDefaultAuthGenesisState(cosmosEVMApp, genesisState, params.genAccounts)
 	genesisState = setDefaultStakingGenesisState(cosmosEVMApp, genesisState, params.staking)
-	genesisState = setDefaultBankGenesisState(cosmosEVMApp, genesisState, params.bank)
-	genesisState = setDefaultGovGenesisState(cosmosEVMApp, genesisState, params.gov)
+	genesisState = setDefaultBankGenesisState(cosmosEVMApp, genesisState, params.bank, evmChainID)
+	genesisState = setDefaultGovGenesisState(cosmosEVMApp, genesisState, params.gov, evmChainID)
 	genesisState = setDefaultFeeMarketGenesisState(cosmosEVMApp, genesisState, params.feemarket)
 	genesisState = setDefaultSlashingGenesisState(cosmosEVMApp, genesisState, params.slashing)
 	genesisState = setDefaultMintGenesisState(cosmosEVMApp, genesisState, params.mint)
 	genesisState = setDefaultErc20GenesisState(cosmosEVMApp, evmChainID, genesisState)
+	genesisState = setDefaultVMGenesisState(cosmosEVMApp, evmChainID, genesisState)
 
 	return genesisState
 }

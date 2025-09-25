@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"math/big"
 
 	gethparams "github.com/ethereum/go-ethereum/params"
@@ -106,25 +105,6 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 		VerkleTime:          nil,
 	}
 	return cfg
-}
-
-// SetChainConfig allows to set the `chainConfig` variable modifying the
-// default values. The method is private because it should only be called once
-// in the EVMConfigurator.
-func SetChainConfig(cc *ChainConfig) error {
-	if chainConfig != nil && chainConfig.ChainId != DefaultEVMChainID {
-		return errors.New("chainConfig already set. Cannot set again the chainConfig")
-	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
-	}
-	if err := config.Validate(); err != nil {
-		return err
-	}
-	chainConfig = config
-
-	return nil
 }
 
 func getBlockValue(block *sdkmath.Int) *big.Int {

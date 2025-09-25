@@ -18,7 +18,9 @@ import (
 
 var (
 	// DefaultEVMDenom is the default value for the evm denom
-	DefaultEVMDenom = "atest"
+	DefaultEVMDenom = "uatom"
+	// DefaultEVMExtendedDenom is the default value for the evm extended denom
+	DefaultEVMExtendedDenom = "aatom"
 	// DefaultEVMChainID is the default value for the evm chain ID
 	DefaultEVMChainID uint64 = 262144
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
@@ -69,6 +71,7 @@ func DefaultParams() Params {
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
 		HistoryServeWindow:      DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
 	}
 }
 
