@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -15,6 +16,7 @@ import (
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/config"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -829,18 +831,31 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
+
+	testAddr := utiltx.GenerateAddress()
+	balance := (*hexutil.Big)(big.NewInt(1000000000000000000))
+	nonce := hexutil.Uint64(0)
+
+	overrides := rpctypes.StateOverride{
+		testAddr: rpctypes.OverrideAccount{
+			Balance: &balance,
+			Nonce:   &nonce,
+		},
+	}
+
 	testCases := []struct {
 		name               string
 		getMessage         func() core.Message
 		getEVMParams       func() types.Params
 		getFeeMarketParams func() feemarkettypes.Params
+		overrides          *rpctypes.StateOverride
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
 	}{
 		{
-			"success - messsage applied ok with default params",
-			func() core.Message {
+			name: "success - messsage applied ok with default params",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -850,15 +865,74 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			types.DefaultParams,
-			feemarkettypes.DefaultParams,
-			false,
-			false,
-			params.TxGas,
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
 		},
 		{
-			"call contract tx with config param EnableCall = false",
-			func() core.Message {
+			name: "success - message applied with balance override",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:       &recipient,
+					Amount:   big.NewInt(100),
+					GasLimit: params.TxGas,
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &overrides,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "success - simple transfer from overridden address",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(50),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &overrides,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "success - empty state overrides",
+			getMessage: func() core.Message {
+				sender := s.Keyring.GetKey(0)
+				recipient := s.Keyring.GetAddr(1)
+				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
+					To:     &recipient,
+					Amount: big.NewInt(100),
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          &rpctypes.StateOverride{},
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas,
+		},
+		{
+			name: "call contract tx with config param EnableCall = false",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -869,7 +943,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			func() types.Params {
+			getEVMParams: func() types.Params {
 				defaultParams := types.DefaultParams()
 				defaultParams.AccessControl = types.AccessControl{
 					Call: types.AccessControlType{
@@ -878,14 +952,15 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				}
 				return defaultParams
 			},
-			feemarkettypes.DefaultParams,
-			false,
-			true,
-			0,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           true,
+			expectedGasUsed:    0,
 		},
 		{
-			"create contract tx with config param EnableCreate = false",
-			func() core.Message {
+			name: "create contract tx with config param EnableCreate = false",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
 					Amount: big.NewInt(100),
@@ -894,7 +969,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			func() types.Params {
+			getEVMParams: func() types.Params {
 				defaultParams := types.DefaultParams()
 				defaultParams.AccessControl = types.AccessControl{
 					Create: types.AccessControlType{
@@ -903,14 +978,15 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				}
 				return defaultParams
 			},
-			feemarkettypes.DefaultParams,
-			false,
-			true,
-			0,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           true,
+			expectedGasUsed:    0,
 		},
 		{
-			"fail - fix panic when minimumGasUsed is not uint64",
-			func() core.Message {
+			name: "fail - fix panic when minimumGasUsed is not uint64",
+			getMessage: func() core.Message {
 				sender := s.Keyring.GetKey(0)
 				recipient := s.Keyring.GetAddr(1)
 				msg, err := s.Factory.GenerateGethCoreMsg(sender.Priv, types.EvmTxArgs{
@@ -920,17 +996,18 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				return *msg
 			},
-			types.DefaultParams,
-			func() feemarkettypes.Params {
+			getEVMParams: types.DefaultParams,
+			getFeeMarketParams: func() feemarkettypes.Params {
 				paramsRes, err := s.Handler.GetFeeMarketParams()
 				s.Require().NoError(err)
 				params := paramsRes.GetParams()
 				params.MinGasMultiplier = sdkmath.LegacyNewDec(math.MaxInt64).MulInt64(100)
 				return params
 			},
-			true,
-			false,
-			0,
+			overrides:       nil,
+			expErr:          true,
+			expVMErr:        false,
+			expectedGasUsed: 0,
 		},
 	}
 
@@ -961,8 +1038,16 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			)
 			s.Require().NoError(err)
 
-			// Function being tested
-			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(s.Network.GetContext(), msg, nil, true, config, txConfig, false)
+			res, err := s.Network.App.GetEVMKeeper().ApplyMessageWithConfig(
+				s.Network.GetContext(),
+				msg,
+				nil,
+				true,
+				config,
+				txConfig,
+				false,
+				tc.overrides,
+			)
 
 			if tc.expErr {
 				s.Require().Error(err)
@@ -973,11 +1058,6 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			}
 
 			err = s.Network.NextBlock()
-			if tc.expVMErr {
-				s.Require().NotEmpty(res.VmError)
-				return
-			}
-
 			if tc.expVMErr {
 				s.Require().NotEmpty(res.VmError)
 				return

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"path/filepath"
 	"testing"
@@ -112,9 +113,24 @@ func setupMockBackend(t *testing.T) *Backend {
 }
 
 func TestCreateAccessList(t *testing.T) {
+	from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
+	overrides := json.RawMessage(`{
+        "` + to.Hex() + `": {
+            "balance": "0x1000000000000000000",
+            "nonce": "0x1",
+            "code": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063c6888fa11461003b578063c8e7ca2e14610057575b600080fd5b610055600480360381019061005091906100a3565b610075565b005b61005f61007f565b60405161006c91906100e1565b60405180910390f35b8060008190555050565b60008054905090565b600080fd5b6000819050919050565b61009d8161008a565b81146100a857600080fd5b50565b6000813590506100ba81610094565b92915050565b6000602082840312156100d6576100d5610085565b5b60006100e4848285016100ab565b91505092915050565b6100f68161008a565b82525050565b600060208201905061011160008301846100ed565b9291505056fea2646970667358221220c7d2d7c0b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b264736f6c634300080a0033",
+            "storage": {
+                "0x0000000000000000000000000000000000000000000000000000000000000000": "0x123"
+            }
+        }
+    }`)
+	invalidOverrides := json.RawMessage(`{"invalid": json}`)
+	emptyOverrides := json.RawMessage(`{}`)
 	testCases := []struct {
 		name          string
 		malleate      func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash)
+		overrides     *json.RawMessage
 		expectError   bool
 		errorContains string
 		expectGasUsed bool
@@ -123,8 +139,6 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "success - basic transaction",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(21000)
 				value := (*hexutil.Big)(big.NewInt(1000))
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
@@ -151,8 +165,6 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "success - transaction with data",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(100000)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
 				data := hexutil.Bytes("0xa9059cbb")
@@ -179,11 +191,8 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "success - transaction with existing access list",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(100000)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
-
 				accessList := ethtypes.AccessList{
 					{
 						Address: common.HexToAddress("0x1111111111111111111111111111111111111111"),
@@ -215,8 +224,6 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "success - transaction with specific block hash",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(21000)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
 
@@ -241,10 +248,8 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "error - missing from address",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(21000)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
-
 				args := evmtypes.TransactionArgs{
 					To:       &to,
 					Gas:      &gas,
@@ -265,8 +270,6 @@ func TestCreateAccessList(t *testing.T) {
 		{
 			name: "error - invalid gas limit",
 			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
-				from := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
-				to := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef")
 				gas := hexutil.Uint64(0)
 				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
 
@@ -288,6 +291,74 @@ func TestCreateAccessList(t *testing.T) {
 			expectGasUsed: false,
 			expectAccList: false,
 		},
+		{
+			name: "pass - With state overrides",
+			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
+				gas := hexutil.Uint64(21000)
+				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
+				args := evmtypes.TransactionArgs{
+					From:     &from,
+					To:       &to,
+					Gas:      &gas,
+					GasPrice: gasPrice,
+				}
+				blockNum := rpctypes.EthLatestBlockNumber
+				blockNumOrHash := rpctypes.BlockNumberOrHash{
+					BlockNumber: &blockNum,
+				}
+				return args, blockNumOrHash
+			},
+			overrides:     &overrides,
+			expectError:   false,
+			expectGasUsed: true,
+			expectAccList: true,
+		},
+		{
+			name: "fail - Invalid state overrides JSON",
+			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
+				gas := hexutil.Uint64(21000)
+				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
+				args := evmtypes.TransactionArgs{
+					From:     &from,
+					To:       &to,
+					Gas:      &gas,
+					GasPrice: gasPrice,
+				}
+				blockNum := rpctypes.EthLatestBlockNumber
+				blockNumOrHash := rpctypes.BlockNumberOrHash{
+					BlockNumber: &blockNum,
+				}
+
+				return args, blockNumOrHash
+			},
+			overrides:     &invalidOverrides,
+			expectError:   true,
+			expectGasUsed: false,
+			expectAccList: false,
+		},
+		{
+			name: "pass - Empty state overrides",
+			malleate: func() (evmtypes.TransactionArgs, rpctypes.BlockNumberOrHash) {
+				gas := hexutil.Uint64(21000)
+				gasPrice := (*hexutil.Big)(big.NewInt(20000000000))
+				args := evmtypes.TransactionArgs{
+					From:     &from,
+					To:       &to,
+					Gas:      &gas,
+					GasPrice: gasPrice,
+				}
+				blockNum := rpctypes.EthLatestBlockNumber
+				blockNumOrHash := rpctypes.BlockNumberOrHash{
+					BlockNumber: &blockNum,
+				}
+
+				return args, blockNumOrHash
+			},
+			overrides:     &emptyOverrides,
+			expectError:   false,
+			expectGasUsed: true,
+			expectAccList: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -303,7 +374,7 @@ func TestCreateAccessList(t *testing.T) {
 				require.NotEqual(t, common.Address{}, args.GetFrom(), "From address should not be zero")
 			}
 
-			result, err := backend.CreateAccessList(args, blockNumOrHash)
+			result, err := backend.CreateAccessList(args, blockNumOrHash, tc.overrides)
 
 			if tc.expectError {
 				require.Error(t, err)
