@@ -39,8 +39,8 @@ IGNORED_FILES: List[str] = [
     # Ignore vendored contracts pulled in through package managers
     r"node_modules/.*\.sol$",
     r"lib/.*\.sol$",
-    # Ignore all other test contracts outside of tests/testutil
-    r"tests/(?!contracts).*\.sol$",
+    # Ignore all other test contracts outside of tests/contracts
+    r"tests/(?!contracts/).*\.sol$",
     # Ignore Foundry-style script and test contracts
     r".*\.s\.sol$",
     r".*\.t\.sol$",
