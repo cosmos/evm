@@ -309,8 +309,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			)
 			Expect(escrowBalance.Amount).To(Equal(math.ZeroInt()), "Escrow balance should be 0 before transfer")
 
-			// send some tokens to the conoract address
+			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
+			fundAmtConverted := fundAmt.Mul(math.NewInt(1e12))
 			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
@@ -319,14 +320,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			)
 			Expect(err).To(BeNil(), "Failed to send tokens to contract address")
 			// check contract balance
-			contractBalance := evmAppA.GetBankKeeper().GetBalance(
+			contractBalance := evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				ics20CallerAddr.Bytes(),
-				sourceBondDenom,
+				ics20CallerAddr,
 			)
-			Expect(contractBalance.Amount).To(Equal(fundAmt), "Contract balance should be equal to the fund amount")
+			Expect(contractBalance.ToBig()).To(Equal(fundAmt.Mul(math.NewInt(1e12)).BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
+			sendAmtConverted := sendAmt.Mul(math.NewInt(1e12))
 			callArgs := testutiltypes.CallArgs{
 				ContractABI: ics20CallerContract.ABI,
 				MethodName:  "testIbcTransferWithTransfer",
@@ -355,7 +356,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).To(BeNil(), "Failed to testTransfer")
-			expectedContractBalance := fundAmt.Sub(sendAmt)
+			expectedContractBalance := fundAmtConverted.Sub(sendAmtConverted)
 			if tc.before {
 				expectedContractBalance = expectedContractBalance.Sub(math.NewInt(15))
 			}
@@ -363,12 +364,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				expectedContractBalance = expectedContractBalance.Sub(math.NewInt(15))
 			}
 			// balance after transfer should be 0
-			contractBalance = evmAppA.GetBankKeeper().GetBalance(
+			contractBalance = evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				ics20CallerAddr.Bytes(),
-				sourceBondDenom,
+				ics20CallerAddr,
 			)
-			Expect(contractBalance.Amount).To(Equal(expectedContractBalance), "Contract balance should be equal to the expected amount after transfer")
+			Expect(contractBalance.ToBig()).To(Equal(expectedContractBalance.BigInt()), "Contract balance should be equal to the expected amount after transfer")
 			escrowBalance = evmAppA.GetBankKeeper().GetBalance(
 				s.chainA.GetContext(),
 				escrowAddr,
@@ -399,12 +399,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
 			escrowAddr := types.GetEscrowAddress(sourcePortID, sourceChannelID)
-			escrowBalance := evmAppA.GetBankKeeper().GetBalance(
+			escrowBalance := evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				escrowAddr,
-				sourceBondDenom,
+				common.BytesToAddress(escrowAddr.Bytes()),
 			)
-			Expect(escrowBalance.Amount).To(Equal(math.ZeroInt()), "Escrow balance should be 0 before transfer")
+			Expect(escrowBalance.ToBig().Uint64()).To(Equal(math.ZeroInt().Uint64()), "Escrow balance should be 0 before transfer")
 
 			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
@@ -415,13 +414,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				sdk.NewCoins(sdk.NewCoin(sourceBondDenom, fundAmt)),
 			)
 			Expect(err).To(BeNil(), "Failed to send tokens to contract address")
-			contractBalance := evmAppA.GetBankKeeper().GetBalance(
+			contractBalance := evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				ics20CallerAddr.Bytes(),
-				sourceBondDenom,
+				common.BytesToAddress(ics20CallerAddr.Bytes()),
 			)
 			// check contract balance
-			Expect(contractBalance.Amount).To(Equal(fundAmt), "Contract balance should be equal to the fund amount")
+			Expect(contractBalance.ToBig()).To(Equal(fundAmt.Mul(math.NewInt(1e12)).BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
 			callArgs := testutiltypes.CallArgs{
@@ -452,24 +450,21 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				0,
 			)
 			Expect(err).To(BeNil(), "Failed to testTransfer")
-			contractBalanceAfter := evmAppA.GetBankKeeper().GetBalance(
+			contractBalanceAfter := evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				ics20CallerAddr.Bytes(),
-				sourceBondDenom,
+				common.BytesToAddress(ics20CallerAddr.Bytes()),
 			)
-			Expect(contractBalanceAfter.Amount).To(Equal(contractBalance.Amount.Sub(math.NewInt(15))))
-			escrowBalance = evmAppA.GetBankKeeper().GetBalance(
+			Expect(contractBalanceAfter.ToBig()).To(Equal(math.NewIntFromBigInt(contractBalance.ToBig()).Sub(math.NewInt(15)).BigInt()), "Contract balance should be equal to the expected amount after transfer")
+			escrowBalance = evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				escrowAddr,
-				sourceBondDenom,
+				common.BytesToAddress(escrowAddr.Bytes()),
 			)
-			Expect(escrowBalance.Amount).To(Equal(math.ZeroInt()))
-			randomAccBalance := evmAppA.GetBankKeeper().GetBalance(
+			Expect(escrowBalance.ToBig().Uint64()).To(Equal(math.ZeroInt().BigInt().Uint64()))
+			randomAccBalance := evmAppA.GetEVMKeeper().GetBalance(
 				s.chainA.GetContext(),
-				randomAccAddr,
-				sourceBondDenom,
+				common.BytesToAddress(randomAccAddr.Bytes()),
 			)
-			Expect(randomAccBalance.Amount).To(Equal(math.NewInt(15)))
+			Expect(randomAccBalance.ToBig()).To(Equal(math.NewInt(15).BigInt()))
 		})
 	})
 
