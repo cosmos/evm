@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"github.com/cosmos/evm/config"
 	"io"
 	"path/filepath"
 
@@ -13,7 +14,6 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
@@ -94,8 +94,8 @@ func (a appCreator) newApp(
 		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		config.EVMChainID,
+		config.EvmAppOptions,
 		baseappOptions...,
 	)
 }
@@ -137,8 +137,8 @@ func (a appCreator) appExport(
 		traceStore,
 		loadLatest,
 		appOpts,
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		config.EVMChainID,
+		config.EvmAppOptions,
 	)
 
 	if height != -1 {
