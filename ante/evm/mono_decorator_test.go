@@ -145,7 +145,6 @@ func toMsgSlice(msgs []*evmsdktypes.MsgEthereumTx) []sdk.Msg {
 
 func TestMonoDecorator(t *testing.T) {
 	chainID := uint64(config.EighteenDecimalsChainID)
-	require.NoError(t, config.EvmAppOptions(chainID))
 	cfg := encoding.MakeConfig(chainID)
 
 	testCases := []struct {

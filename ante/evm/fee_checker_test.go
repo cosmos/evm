@@ -59,8 +59,6 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      london hardfork enableness
 	chainID := uint64(config.EighteenDecimalsChainID)
 	encodingConfig := encoding.MakeConfig(chainID)
-	err := config.EvmAppOptions(chainID)
-	require.NoError(t, err)
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))

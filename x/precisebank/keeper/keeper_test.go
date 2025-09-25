@@ -44,7 +44,6 @@ func newMockedTestData(t *testing.T) testData {
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-	err := evmconfig.EvmAppOptions(chainID)
 	if err != nil {
 		return testData{}
 	}
