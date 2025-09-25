@@ -33,6 +33,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+const (
+	hex    = "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
+	bech32 = "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
+)
+
 func TestIsSupportedKeys(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -86,6 +91,53 @@ func TestIsSupportedKeys(t *testing.T) {
 	}
 }
 
+func TestIsBech32Address(t *testing.T) {
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
+
+	testCases := []struct {
+		name    string
+		address string
+		expResp bool
+	}{
+		{
+			"blank bech32 address",
+			" ",
+			false,
+		},
+		{
+			"invalid bech32 address",
+			"evmos",
+			false,
+		},
+		{
+			"invalid address bytes",
+			"cosmos1123",
+			false,
+		},
+		{
+			"evmos address",
+			"evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv",
+			true,
+		},
+		{
+			"cosmos address",
+			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
+			true,
+		},
+		{
+			"osmosis address",
+			"osmo1qql8ag4cluz6r4dz28p3w00dnc9w8ueuhnecd2",
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		isValid := utils.IsBech32Address(tc.address)
+		require.Equal(t, tc.expResp, isValid, tc.name)
+	}
+}
+
 func TestGetAccAddressFromBech32(t *testing.T) {
 	config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
@@ -116,8 +168,8 @@ func TestGetAccAddressFromBech32(t *testing.T) {
 		},
 		{
 			"evmos address",
-			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
-			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
+			"evmos1ltzy54ms24v590zz37r2q9hrrdcc8eslndsqwv",
+			"cosmos1ltzy54ms24v590zz37r2q9hrrdcc8esl3vpw5y",
 			false,
 		},
 		{
@@ -253,9 +305,6 @@ func TestAccAddressFromBech32(t *testing.T) {
 func TestAddressConversion(t *testing.T) {
 	config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
-
-	hex := "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
-	bech32 := "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
 
 	require.Equal(t, bech32, utils.Bech32StringFromHexAddress(hex))
 	gotAddr, err := utils.HexAddressFromBech32String(bech32)
