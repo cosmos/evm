@@ -15,6 +15,36 @@ import (
 	"github.com/cosmos/evm/x/topholders/types"
 )
 
+// getAllModuleNames returns a list of all module names in the system
+func getAllModuleNames() []string {
+	return []string{
+		authtypes.FeeCollectorName,     // "fee_collector"
+		distrtypes.ModuleName,          // "distribution"
+		"transfer",                     // IBC transfer module
+		"mint",                         // mint module
+		stakingtypes.BondedPoolName,    // "bonded_tokens_pool"
+		stakingtypes.NotBondedPoolName, // "not_bonded_tokens_pool"
+		govtypes.ModuleName,            // "gov"
+		"epixmint",                     // epixmint module
+		"evm",                          // EVM module
+		"feemarket",                    // feemarket module
+		"erc20",                        // ERC20 module
+		"precisebank",                  // precisebank module
+	}
+}
+
+// IsModuleAddress checks if the given address is a module address
+func IsModuleAddress(address string) bool {
+	moduleNames := getAllModuleNames()
+	for _, moduleName := range moduleNames {
+		moduleAddr := authtypes.NewModuleAddress(moduleName).String()
+		if address == moduleAddr {
+			return true
+		}
+	}
+	return false
+}
+
 // getModuleTag returns a human-readable tag for module addresses
 func getModuleTag(address string) string {
 	// Map of known module addresses to their tags
@@ -27,6 +57,11 @@ func getModuleTag(address string) string {
 		authtypes.NewModuleAddress("mint").String():                         "Mint",
 		authtypes.NewModuleAddress("ibc").String():                          "IBC",
 		authtypes.NewModuleAddress("transfer").String():                     "IBC Transfer",
+		authtypes.NewModuleAddress("epixmint").String():                     "Epix Mint",
+		authtypes.NewModuleAddress("evm").String():                          "EVM",
+		authtypes.NewModuleAddress("feemarket").String():                    "Fee Market",
+		authtypes.NewModuleAddress("erc20").String():                        "ERC20",
+		authtypes.NewModuleAddress("precisebank").String():                  "Precise Bank",
 	}
 
 	if tag, exists := moduleAddresses[address]; exists {
@@ -37,9 +72,8 @@ func getModuleTag(address string) string {
 
 // shouldExcludeAddress returns true if the address should be excluded from top holders
 func shouldExcludeAddress(address string) bool {
-	// Exclude fee collector as it's an accumulation of all transaction fees
-	feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName).String()
-	return address == feeCollectorAddr
+	// Exclude all module addresses as they are not relevant to the richlist
+	return IsModuleAddress(address)
 }
 
 // UpdateCache updates the top holders cache by scanning all accounts
