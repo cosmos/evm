@@ -7,12 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // CheckSenderBalance validates that the tx cost value is positive and that the
@@ -54,7 +57,12 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 	// Deduct fees from the user balance. Notice that it is used
 	// the bankWrapper to properly convert fees from the 18 decimals
 	// representation to the original one before calling into the bank keeper.
-	if err := authante.DeductFees(k.bankWrapper, ctx, signerAcc, fees); err != nil {
+	if k.virtualFeeCollection {
+		err = DeductFees(k.bankWrapper, ctx, signerAcc, fees)
+	} else {
+		err = authante.DeductFees(k.bankWrapper, ctx, signerAcc, fees)
+	}
+	if err != nil {
 		return errorsmod.Wrapf(err, "failed to deduct full gas cost %s from the user %s balance", fees, from)
 	}
 
@@ -115,4 +123,18 @@ func VerifyFee(
 	}
 
 	return sdk.Coins{{Denom: denom, Amount: sdkmath.NewIntFromBigInt(feeAmt)}}, nil
+}
+
+// DeductFees deducts fees from the given account.
+func DeductFees(bankKeeper types.BankKeeper, ctx sdk.Context, acc sdk.AccountI, fees sdk.Coins) error {
+	if !fees.IsValid() {
+		return errorsmod.Wrapf(errortypes.ErrInsufficientFee, "invalid fee amount: %s", fees)
+	}
+
+	err := bankKeeper.SendCoinsFromAccountToModuleVirtual(ctx, acc.GetAddress(), authtypes.FeeCollectorName, fees)
+	if err != nil {
+		return errorsmod.Wrap(errortypes.ErrInsufficientFunds, err.Error())
+	}
+
+	return nil
 }

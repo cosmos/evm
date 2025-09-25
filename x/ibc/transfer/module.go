@@ -29,7 +29,7 @@ type AppModule struct {
 
 // NewAppModule creates a new 20-transfer module
 func NewAppModule(k keeper.Keeper) AppModule {
-	am := ibctransfer.NewAppModule(*k.Keeper)
+	am := ibctransfer.NewAppModule(k.Keeper)
 	return AppModule{
 		AppModule: &am,
 		keeper:    k,
@@ -43,14 +43,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 
 	m := ibctransferkeeper.NewMigrator(*am.keeper.Keeper)
-
-	if err := cfg.RegisterMigration(types.ModuleName, 2, m.MigrateTotalEscrowForDenom); err != nil {
-		panic(fmt.Sprintf("failed to migrate transfer app from version 2 to 3: %v", err))
-	}
-
-	if err := cfg.RegisterMigration(types.ModuleName, 3, m.MigrateParams); err != nil {
-		panic(fmt.Errorf("failed to migrate transfer app version 3 to 4 (self-managed params migration): %v", err))
-	}
 
 	if err := cfg.RegisterMigration(types.ModuleName, 4, m.MigrateDenomMetadata); err != nil {
 		panic(fmt.Errorf("failed to migrate transfer app from version 4 to 5 (set denom metadata migration): %v", err))

@@ -27,9 +27,7 @@ type MockIBCModule struct {
 // It calls the underlying app's OnChanOpenInit callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanOpenInit(
+func (m *MockIBCModule) OnChanOpenInit(
 	ctx sdk.Context,
 	order channeltypes.Order,
 	connectionHops []string,
@@ -46,9 +44,7 @@ func (m MockIBCModule) OnChanOpenInit(
 // It calls the underlying app's OnChanOpenTry callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanOpenTry(
+func (m *MockIBCModule) OnChanOpenTry(
 	ctx sdk.Context,
 	order channeltypes.Order,
 	connectionHops []string,
@@ -65,9 +61,7 @@ func (m MockIBCModule) OnChanOpenTry(
 // It calls the underlying app's OnChanOpenAck callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanOpenAck(
+func (m *MockIBCModule) OnChanOpenAck(
 	ctx sdk.Context,
 	portID,
 	channelID,
@@ -82,9 +76,7 @@ func (m MockIBCModule) OnChanOpenAck(
 // It calls the underlying app's OnChanOpenConfirm callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanOpenConfirm(
+func (m *MockIBCModule) OnChanOpenConfirm(
 	ctx sdk.Context,
 	portID,
 	channelID string,
@@ -97,9 +89,7 @@ func (m MockIBCModule) OnChanOpenConfirm(
 // It calls the underlying app's OnChanCloseInit callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanCloseInit(
+func (m *MockIBCModule) OnChanCloseInit(
 	ctx sdk.Context,
 	portID,
 	channelID string,
@@ -112,9 +102,7 @@ func (m MockIBCModule) OnChanCloseInit(
 // It calls the underlying app's OnChanCloseConfirm callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnChanCloseConfirm(
+func (m *MockIBCModule) OnChanCloseConfirm(
 	ctx sdk.Context,
 	portID,
 	channelID string,
@@ -127,9 +115,7 @@ func (m MockIBCModule) OnChanCloseConfirm(
 // It calls the underlying app's OnRecvPacket callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnRecvPacket(
+func (m *MockIBCModule) OnRecvPacket(
 	ctx sdk.Context,
 	channelVersion string,
 	packet channeltypes.Packet,
@@ -143,9 +129,7 @@ func (m MockIBCModule) OnRecvPacket(
 // It calls the underlying app's OnAcknowledgementPacket callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnAcknowledgementPacket(
+func (m *MockIBCModule) OnAcknowledgementPacket(
 	ctx sdk.Context,
 	channelVersion string,
 	packet channeltypes.Packet,
@@ -160,9 +144,7 @@ func (m MockIBCModule) OnAcknowledgementPacket(
 // It calls the underlying app's OnTimeoutPacket callback.
 //
 //	and escaping revive for unused parameters which are okay since they indicate the expected mocked interface
-//
-//nolint:all // escaping govet since we can copy locks here as it is a test
-func (m MockIBCModule) OnTimeoutPacket(
+func (m *MockIBCModule) OnTimeoutPacket(
 	ctx sdk.Context,
 	channelVersion string,
 	packet channeltypes.Packet,
@@ -171,6 +153,8 @@ func (m MockIBCModule) OnTimeoutPacket(
 	args := m.Called()
 	return args.Error(0)
 }
+
+func (m *MockIBCModule) SetICS4Wrapper(wrapper porttypes.ICS4Wrapper) {}
 
 func TestModule(t *testing.T) {
 	mockModule := &MockIBCModule{}
@@ -183,6 +167,7 @@ func TestModule(t *testing.T) {
 	mockModule.On("OnRecvPacket").Return(channeltypes.NewResultAcknowledgement([]byte("ack")))
 	mockModule.On("OnAcknowledgementPacket").Return(nil)
 	mockModule.On("OnTimeoutPacket").Return(nil)
+	mockModule.On("SetICS4Wrapper").Return()
 
 	module := cosmosevmibc.NewModule(mockModule)
 
@@ -205,4 +190,5 @@ func TestModule(t *testing.T) {
 	require.NoError(t, err)
 	err = module.OnTimeoutPacket(sdk.Context{}, "", channeltypes.Packet{}, nil)
 	require.NoError(t, err)
+	module.SetICS4Wrapper(nil)
 }

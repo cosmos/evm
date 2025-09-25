@@ -49,6 +49,10 @@ func (t *TrackingMultiStore) GetKVStore(key storetypes.StoreKey) storetypes.KVSt
 	return t.Store.GetKVStore(key)
 }
 
+func (t *TrackingMultiStore) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
+	return t.Store.GetObjKVStore(key)
+}
+
 func (t *TrackingMultiStore) TracingEnabled() bool {
 	return t.Store.TracingEnabled()
 }

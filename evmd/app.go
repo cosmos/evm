@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
-
 	"os"
+	goruntime "runtime"
+	"sort"
 
 	"github.com/spf13/cast"
 
@@ -25,6 +24,7 @@ import (
 	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/x/erc20"
@@ -36,6 +36,9 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 
+	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
+
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -74,6 +77,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -163,9 +167,9 @@ type EVMD struct {
 	pendingTxListeners []evmante.PendingTxListener
 
 	// keys to access the substores
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	tkeys map[string]*storetypes.TransientStoreKey
+	okeys map[string]*storetypes.ObjectStoreKey
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -222,13 +226,15 @@ func NewExampleApp(
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
 
+	bAppOpts := append(baseAppOptions, baseapp.SetOptimisticExecution())
+
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
 		encodingConfig.TxConfig.TxDecoder(),
-		baseAppOptions...,
+		bAppOpts...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
@@ -251,8 +257,28 @@ func NewExampleApp(
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 	)
+	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, feemarkettypes.TransientKey)
+	var allKeys []storetypes.StoreKey
+	var nonTransientKeys []storetypes.StoreKey
+	for _, k := range keys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	for _, k := range okeys {
+		allKeys = append(allKeys, k)
+		nonTransientKeys = append(nonTransientKeys, k)
+	}
+	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
+
+	// FIXME workers
+	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		allKeys,
+		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		true,
+		"atest",
+	))
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -272,8 +298,11 @@ func NewExampleApp(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
-		tkeys:             tkeys,
+		okeys:             okeys,
 	}
+
+	// Disable block gas meter since we're executing in parallel
+	app.SetDisableBlockGasMeter(true)
 
 	// removed x/params: no ParamsKeeper initialization
 
@@ -306,6 +335,7 @@ func NewExampleApp(
 		authAddr,
 		logger,
 	)
+	app.BankKeeper = app.BankKeeper.WithObjStoreKey(okeys[banktypes.ObjectStoreKey])
 
 	// optional: enable sign mode textual by overwriting the default tx config (after setting the bank keeper)
 	enabledSignModes := append(authtx.DefaultSignModes, signingtypes.SignMode_SIGN_MODE_TEXTUAL) //nolint:gocritic
@@ -395,7 +425,6 @@ func NewExampleApp(
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibcexported.StoreKey]),
-		nil,
 		app.UpgradeKeeper,
 		authAddr,
 	)
@@ -432,7 +461,6 @@ func NewExampleApp(
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
 		keys[feemarkettypes.StoreKey],
-		tkeys[feemarkettypes.TransientKey],
 	)
 
 	// Set up PreciseBank keeper
@@ -451,7 +479,7 @@ func NewExampleApp(
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
 		// TODO: check why this is not adjusted to use the runtime module methods like SDK native keepers
-		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		appCodec, keys[evmtypes.StoreKey], okeys[evmtypes.ObjectKey], nonTransientKeys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper,
 		app.PreciseBankKeeper,
@@ -473,6 +501,7 @@ func NewExampleApp(
 			appCodec,
 		),
 	)
+	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
@@ -488,8 +517,8 @@ func NewExampleApp(
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
+		app.GetAccountKeeper().AddressCodec(),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -524,7 +553,7 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(transferStack, app.IBCKeeper.ChannelKeeper, app.CallbackKeeper, maxCallbackGas)
+	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -631,8 +660,10 @@ func NewExampleApp(
 	// NOTE: the feemarket module should go last in order of end blockers that are actually doing something,
 	// to get the full block gas used.
 	app.ModuleManager.SetOrderEndBlockers(
-		govtypes.ModuleName, stakingtypes.ModuleName,
-		authtypes.ModuleName, banktypes.ModuleName,
+		banktypes.ModuleName,
+		govtypes.ModuleName,
+		stakingtypes.ModuleName,
+		authtypes.ModuleName,
 
 		// Cosmos EVM EndBlockers
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
@@ -708,7 +739,7 @@ func NewExampleApp(
 
 	// initialize stores
 	app.MountKVStores(keys)
-	app.MountTransientStores(tkeys)
+	app.MountObjectStores(okeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
@@ -728,10 +759,14 @@ func NewExampleApp(
 		// Get GetMinTip from app.toml or cli flag configuration
 		mipTip := evmconfig.GetMinTip(appOpts, logger)
 
+		defaultConfig := legacypool.DefaultConfig
+		defaultConfig.GlobalSlots *= 30
+		defaultConfig.GlobalQueue *= 30
 		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: blockGasLimit,
-			MinTip:        mipTip,
+			LegacyPoolConfig: &defaultConfig,
+			AnteHandler:      app.GetAnteHandler(),
+			BlockGasLimit:    blockGasLimit,
+			MinTip:           mipTip,
 		}
 
 		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
@@ -741,9 +776,11 @@ func NewExampleApp(
 		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
 		app.SetCheckTxHandler(checkTxHandler)
 
-		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
+		verifier := NewProposalVerifier(app, txConfig.TxEncoder())
+		abciProposalHandler := NewExtProposalHandler(evmMempool, verifier)
 		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
 		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+		app.SetProcessProposal(abciProposalHandler.ProcessProposalHandler())
 	}
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
@@ -934,13 +971,6 @@ func (app *EVMD) GetKey(storeKey string) *storetypes.KVStoreKey {
 // NOTE: This is solely to be used for testing purposes.
 func (app *EVMD) GetTKey(storeKey string) *storetypes.TransientStoreKey {
 	return app.tkeys[storeKey]
-}
-
-// GetMemKey returns the MemStoreKey for the provided mem key.
-//
-// NOTE: This is solely used for testing purposes.
-func (app *EVMD) GetMemKey(storeKey string) *storetypes.MemoryStoreKey {
-	return app.memKeys[storeKey]
 }
 
 // SimulationManager implements the SimulationApp interface

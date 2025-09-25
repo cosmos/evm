@@ -133,3 +133,7 @@ func (im Module) UnmarshalPacketData(ctx sdk.Context, portID string, channelID s
 	}
 	return pd.UnmarshalPacketData(ctx, portID, channelID, bz)
 }
+
+func (im Module) SetICS4Wrapper(wrapper porttypes.ICS4Wrapper) {
+	im.app.SetICS4Wrapper(wrapper)
+}
