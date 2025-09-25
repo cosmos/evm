@@ -67,7 +67,7 @@ func (m *MockBackend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.Resu
 	return args.Get(0).(*cmtrpctypes.ResultBlockResults), args.Error(1)
 }
 
-func (m *MockBackend) BlockBloom(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
+func (m *MockBackend) BlockBloomFromCometBlock(blockRes *cmtrpctypes.ResultBlockResults) (ethtypes.Bloom, error) {
 	args := m.Called(blockRes)
 	return args.Get(0).(ethtypes.Bloom), args.Error(1)
 }
@@ -131,7 +131,7 @@ func TestLogs(t *testing.T) {
 				backend := &MockBackend{}
 				backend.On("HeaderByNumber", mock.Anything).Return(fakeHeader, nil)
 				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
-				backend.On("BlockBloom", fakeBlockRes).Return(ethtypes.Bloom{}, errors.New("bloom error"))
+				backend.On("BlockBloomFromCometBlock", fakeBlockRes).Return(ethtypes.Bloom{}, errors.New("bloom error"))
 				return backend
 			},
 			criteria: filters.FilterCriteria{
@@ -148,7 +148,7 @@ func TestLogs(t *testing.T) {
 				backend := &MockBackend{}
 				backend.On("CometBlockByHash", blockHash).Return(fakeBlock, nil)
 				backend.On("CometBlockResultByNumber", &blockHeight).Return(fakeBlockRes, nil)
-				backend.On("BlockBloom", fakeBlockRes).Return(fakeBloom, nil)
+				backend.On("BlockBloomFromCometBlock", fakeBlockRes).Return(fakeBloom, nil)
 				return backend
 			},
 			criteria: filters.FilterCriteria{

@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
-	"google.golang.org/grpc/metadata"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -47,7 +46,8 @@ func (s *TestSuite) TestGetTransactionByHash() {
 		},
 	}
 
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	blockTime := uint64(block.Time.UTC().Unix()) //nolint:gosec // G115
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, blockTime, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -70,8 +70,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			"fail - Block Result error",
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, 1, txBz)
-				s.Require().NoError(err)
+				RegisterBlock(client, 1, txBz)
 				RegisterBlockResultsError(client, 1)
 			},
 			msgEthereumTx,
@@ -83,10 +82,8 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, txBz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, 1, txBz)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFeeError(QueryClient)
 			},
 			msgEthereumTx,
@@ -98,10 +95,8 @@ func (s *TestSuite) TestGetTransactionByHash() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, txBz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, 1, txBz)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			msgEthereumTx,
@@ -134,7 +129,7 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 func (s *TestSuite) TestGetTransactionsByHashPending() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -194,7 +189,7 @@ func (s *TestSuite) TestGetTransactionsByHashPending() {
 
 func (s *TestSuite) TestGetTxByEthHash() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction, _ := rpctypes.NewRPCTransaction(msgEthereumTx, common.Hash{}, 0, 0, big.NewInt(1), s.backend.EvmChainID)
+	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string
@@ -258,8 +253,7 @@ func (s *TestSuite) TestGetTransactionByBlockHashAndIndex() {
 			"pass - Block results error",
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockByHash(client, common.Hash{}, bz)
-				s.Require().NoError(err)
+				RegisterBlockByHash(client, common.Hash{}, bz)
 				RegisterBlockResultsError(client, 1)
 			},
 			common.Hash{},
@@ -305,13 +299,15 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 		},
 	}
 
-	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
+	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
+	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,
+		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.EvmChainID,
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string
@@ -325,8 +321,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			"pass - block txs index out of bound",
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
 			},
 			&cmtrpctypes.ResultBlock{Block: types.MakeBlock(1, []types.Tx{bz}, nil, nil)},
 			1,
@@ -338,8 +333,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			func() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFeeError(QueryClient)
 			},
 			&cmtrpctypes.ResultBlock{Block: defaultBlock},
@@ -358,8 +352,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 				block := &types.Block{Header: types.Header{Height: 1, ChainID: "test"}, Data: types.Data{Txs: []types.Tx{txBz}}}
 				err := s.backend.Indexer.IndexBlock(block, defaultExecTxResult)
 				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			&cmtrpctypes.ResultBlock{Block: defaultBlock},
@@ -372,8 +365,7 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 			func() {
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			&cmtrpctypes.ResultBlock{Block: defaultBlock},
@@ -403,13 +395,15 @@ func (s *TestSuite) TestGetTransactionByBlockAndIndex() {
 func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 	msgEthTx, bz := s.buildEthereumTx()
 	defaultBlock := types.MakeBlock(1, []types.Tx{bz}, nil, nil)
-	txFromMsg, _ := rpctypes.NewTransactionFromMsg(
+	blockTime := uint64(defaultBlock.Time.UTC().Unix()) //nolint:gosec // G115
+	txFromMsg := rpctypes.NewTransactionFromMsg(
 		msgEthTx,
 		common.BytesToHash(defaultBlock.Hash().Bytes()),
 		1,
+		blockTime,
 		0,
 		big.NewInt(1),
-		s.backend.EvmChainID,
+		s.backend.ChainConfig(),
 	)
 	testCases := []struct {
 		name         string
@@ -435,10 +429,8 @@ func (s *TestSuite) TestGetTransactionByBlockNumberAndIndex() {
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				_, err := RegisterBlock(client, 1, bz)
-				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, 1, bz)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			0,
@@ -619,8 +611,7 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 			name: "fail - block result error",
 			registerMock: func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlock(client, 1, txBz)
-				s.Require().NoError(err)
+				RegisterBlock(client, 1, txBz)
 				client.On("BlockResults", mock.Anything, mock.AnythingOfType("*int64")).
 					Return(nil, errors.New("some error"))
 			},
@@ -647,14 +638,20 @@ func (s *TestSuite) TestGetTransactionReceipt() {
 		{
 			"happy path",
 			func() {
-				var header metadata.MD
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				RegisterParams(QueryClient, &header, 1)
-				_, err := RegisterBlock(client, 1, txBz)
+				RegisterBlock(client, 1, txBz)
+				blockRes, err := RegisterBlockResultsWithEventLog(client, 1)
 				s.Require().NoError(err)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				txHash := msgEthereumTx.AsTransaction().Hash()
+				blockRes.TxsResults[0].Events = []abci.Event{
+					{Type: evmtypes.EventTypeEthereumTx, Attributes: []abci.EventAttribute{
+						{Key: evmtypes.AttributeKeyEthereumTxHash, Value: txHash.Hex()},
+						{Key: evmtypes.AttributeKeyTxIndex, Value: "0"},
+						{Key: evmtypes.AttributeKeyTxGasUsed, Value: "21000"},
+					}},
+				}
+				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			msgEthereumTx,
 			&types.Block{Header: types.Header{Height: 1}, Data: types.Data{Txs: []types.Tx{txBz}}},
