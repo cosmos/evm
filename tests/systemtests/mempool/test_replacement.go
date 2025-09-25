@@ -124,6 +124,7 @@ func TestTxsReplacement(t *testing.T) {
 	}
 
 	s := suite.NewSystemTestSuite(t)
+	// s.SystemUnderTest.SetupChain("--config-changes=consensus.timeout_commit=10s")
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
