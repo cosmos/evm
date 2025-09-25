@@ -4,6 +4,13 @@ module.exports = {
     compilers: [
       {
         version: "0.8.20",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+          viaIR: true,
+        },
       },
       // This version is required to compile the werc9 contract.
       {

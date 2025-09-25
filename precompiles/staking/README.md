@@ -36,7 +36,7 @@ struct Validator {
     BondStatus status;          // Bonding status
     uint256 tokens;             // Total tokens
     uint256 delegatorShares;    // Total delegator shares
-    string description;         // JSON encoded description
+    Description description;    // Description struct
     int64 unbondingHeight;      // Height when unbonding started
     int64 unbondingTime;        // Time when unbonding completes
     uint256 commission;         // Current commission rate

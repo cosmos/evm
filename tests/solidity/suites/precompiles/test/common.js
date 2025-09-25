@@ -13,7 +13,7 @@ const WERC20_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 const DEFAULT_GAS_LIMIT = 1_000_000
 const LARGE_GAS_LIMIT = 10_000_000
 
-const RETRY_DELAY_FUNC  = (attempt) => 500 * Math.pow(2, attempt)
+const RETRY_DELAY_FUNC = (attempt) => 500 * Math.pow(2, attempt)
 
 
 function waitWithTimeout(txn, timeoutMs, retryDelayFn = (attempt) => 1000) {
@@ -43,7 +43,7 @@ function waitWithTimeout(txn, timeoutMs, retryDelayFn = (attempt) => 1000) {
 }
 
 // Helper to convert the raw tuple returned by staking.validator() into an object
-function parseValidator (raw) {
+function parseValidator(raw) {
     return {
         operatorAddress: raw[0],
         consensusPubkey: raw[1],
@@ -51,7 +51,13 @@ function parseValidator (raw) {
         status: raw[3],
         tokens: raw[4],
         delegatorShares: raw[5],
-        description: raw[6],
+        description: {
+            moniker: raw[6][0],
+            identity: raw[6][1],
+            website: raw[6][2],
+            securityContact: raw[6][3],
+            details: raw[6][4],
+        },
         unbondingHeight: raw[7],
         unbondingTime: raw[8],
         commission: raw[9],
@@ -60,7 +66,7 @@ function parseValidator (raw) {
 }
 
 // Utility to parse logs and return the first matching event by name
-function findEvent (logs, iface, eventName) {
+function findEvent(logs, iface, eventName) {
     for (const log of logs) {
         try {
             const parsed = iface.parseLog(log)
