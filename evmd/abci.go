@@ -54,26 +54,7 @@ func NewExtProposalHandler(mp mempool.Mempool, txVerifier baseapp.ProposalTxVeri
 func (h *ExtProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
 		defer telemetry.MeasureSince(time.Now(), PrepareProposalDuration)
-		var maxBlockGas uint64
-		if b := ctx.ConsensusParams().Block; b != nil {
-			maxBlockGas = uint64(b.MaxGas)
-		}
-
-		defer h.selector.Clear()
-
-		for _, txBz := range req.Txs {
-			tx, err := h.verifier.TxDecode(txBz)
-			if err != nil {
-				return nil, err
-			}
-
-			stop := h.selector.SelectTxForProposal(ctx, uint64(req.MaxTxBytes), maxBlockGas, tx, txBz)
-			if stop {
-				break
-			}
-		}
-
-		return &abci.ResponsePrepareProposal{Txs: h.selector.SelectedTxs(ctx)}, nil
+		return h.DefaultProposalHandler.PrepareProposalHandler()(ctx, req)
 	}
 }
 

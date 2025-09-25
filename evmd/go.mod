@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20250916155236-2dbb0df4f041
+	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647
 	cosmossdk.io/tools/confix v0.1.2
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0
@@ -17,7 +17,7 @@ require (
 	github.com/cometbft/cometbft v0.38.18
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20250916155236-2dbb0df4f041
-	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250919000353-35f0b72333b9
+	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358
