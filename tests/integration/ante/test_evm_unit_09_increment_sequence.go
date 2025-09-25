@@ -9,7 +9,6 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
@@ -38,8 +37,8 @@ func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
 			},
 		},
 		{
-			name:          "fail: invalid sequence",
-			expectedError: errors.ErrInvalidSequence,
+			name:          "fail: nonce is low",
+			expectedError: mempool.ErrNonceLow,
 			malleate: func(acct sdktypes.AccountI) uint64 {
 				err := acct.SetSequence(acct.GetSequence() + 1)
 				s.Require().NoError(err)

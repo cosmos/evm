@@ -171,15 +171,12 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 		tokenPair = tp
 	}
 
-	precompile, err := erc20.NewPrecompile(
+	return erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
 	)
-	Expect(err).ToNot(HaveOccurred(), "failed to set up %q erc20 precompile", tokenPair.Denom)
-
-	return precompile
 }
 
 // setupERC20PrecompileForTokenPair is a helper function to set up an instance of the ERC20 precompile for
@@ -188,21 +185,16 @@ func (is *IntegrationTestSuite) setupERC20Precompile(denom string, tokenPairs []
 func setupERC20PrecompileForTokenPair(
 	unitNetwork network.UnitTestNetwork, tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
-	precompile, err := erc20.NewPrecompile(
+	precompile := erc20.NewPrecompile(
 		tokenPair,
 		unitNetwork.App.GetBankKeeper(),
 		unitNetwork.App.GetErc20Keeper(),
 		unitNetwork.App.GetTransferKeeper(),
 	)
-	if err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
-	}
-
-	err = unitNetwork.App.GetErc20Keeper().EnableDynamicPrecompile(
+	if err := unitNetwork.App.GetErc20Keeper().EnableDynamicPrecompile(
 		unitNetwork.GetContext(),
 		precompile.Address(),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to add %q erc20 precompile to EVM extensions", tokenPair.Denom)
 	}
 
@@ -215,15 +207,12 @@ func setupERC20PrecompileForTokenPair(
 func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
 	tokenPair erc20types.TokenPair,
 ) (*erc20.Precompile, error) {
-	precompile, err := erc20.NewPrecompile(
+	precompile := erc20.NewPrecompile(
 		tokenPair,
 		is.network.App.GetBankKeeper(),
 		is.network.App.GetErc20Keeper(),
 		is.network.App.GetTransferKeeper(),
 	)
-	if err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to create %q erc20 precompile", tokenPair.Denom)
-	}
 
 	// Update the params via gov proposal
 	if err := is.network.App.GetErc20Keeper().EnableDynamicPrecompile(is.network.GetContext(), precompile.Address()); err != nil {

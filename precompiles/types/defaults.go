@@ -1,11 +1,9 @@
-package evmd
+package types
 
 import (
 	"fmt"
 	"maps"
 
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -20,11 +18,13 @@ import (
 	stakingprecompile "github.com/cosmos/evm/precompiles/staking"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
 
 	"cosmossdk.io/core/address"
+
 	"github.com/cosmos/cosmos-sdk/codec"
+	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
@@ -42,9 +42,9 @@ type Optionals struct {
 
 func defaultOptionals() Optionals {
 	return Optionals{
-		AddressCodec:       addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddrCodec: addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddrCodec: addresscodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:       addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }
 
@@ -70,17 +70,16 @@ func WithConsensusAddrCodec(codec address.Codec) Option {
 
 const bech32PrecompileBaseGas = 6_000
 
-// NewAvailableStaticPrecompiles returns the list of all available static precompiled contracts from Cosmos EVM.
+// DefaultStaticPrecompiles returns the list of all available static precompiled contracts from Cosmos EVM.
 //
 // NOTE: this should only be used during initialization of the Keeper.
-func NewAvailableStaticPrecompiles(
+func DefaultStaticPrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
 	distributionKeeper distributionkeeper.Keeper,
 	bankKeeper cmn.BankKeeper,
-	erc20Keeper erc20Keeper.Keeper,
-	transferKeeper transferkeeper.Keeper,
+	erc20Keeper *erc20Keeper.Keeper,
+	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
-	evmKeeper *evmkeeper.Keeper,
 	govKeeper govkeeper.Keeper,
 	slashingKeeper slashingkeeper.Keeper,
 	codec codec.Codec,
@@ -101,18 +100,15 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(
+	stakingPrecompile := stakingprecompile.NewPrecompile(
 		stakingKeeper,
 		stakingkeeper.NewMsgServerImpl(&stakingKeeper),
 		stakingkeeper.NewQuerier(&stakingKeeper),
 		bankKeeper,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
-	}
 
-	distributionPrecompile, err := distprecompile.NewPrecompile(
+	distributionPrecompile := distprecompile.NewPrecompile(
 		distributionKeeper,
 		distributionkeeper.NewMsgServerImpl(distributionKeeper),
 		distributionkeeper.NewQuerier(distributionKeeper),
@@ -120,46 +116,31 @@ func NewAvailableStaticPrecompiles(
 		bankKeeper,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate distribution precompile: %w", err))
-	}
 
-	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
+	ibcTransferPrecompile := ics20precompile.NewPrecompile(
 		bankKeeper,
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate ICS20 precompile: %w", err))
-	}
 
-	bankPrecompile, err := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
-	}
+	bankPrecompile := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
 
-	govPrecompile, err := govprecompile.NewPrecompile(
+	govPrecompile := govprecompile.NewPrecompile(
 		govkeeper.NewMsgServerImpl(&govKeeper),
 		govkeeper.NewQueryServer(&govKeeper),
 		bankKeeper,
 		codec,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
-	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(
+	slashingPrecompile := slashingprecompile.NewPrecompile(
 		slashingKeeper,
 		slashingkeeper.NewMsgServerImpl(slashingKeeper),
 		bankKeeper,
 		options.ValidatorAddrCodec,
 		options.ConsensusAddrCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
-	}
 
 	// Stateless precompiles
 	precompiles[bech32Precompile.Address()] = bech32Precompile

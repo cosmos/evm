@@ -160,6 +160,25 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
 			return txHash, nil
 		}
+		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
+			from, err := ethSigner.Sender(tx)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
+			}
+			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
+			}
+
+			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
+			if tx.Nonce() < nonce {
+				return common.Hash{}, err
+			}
+
+			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+			return txHash, nil
+		}
+
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/evm/config"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
-	evmdconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -268,8 +268,8 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = evmdconfig.EVMChainID
-	evmCfg := evmdconfig.EVMAppConfig{
+	evm.EVMChainID = config.EVMChainID
+	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -288,9 +288,10 @@ func initTestnetFiles(
 		sdkGRPCPort = 9090
 
 		// evmGRPC           = 9900 // TODO: maybe need this? idk.
-		evmJSONRPC        = 8545
-		evmJSONRPCWS      = 8546
-		evmJSONRPCMetrics = 6065
+		evmJSONRPC         = 8545
+		evmJSONRPCWS       = 8546
+		evmJSONRPCMetrics  = 6065
+		evmGethMetricsPort = 8100
 	)
 	p2pPortStart := 26656
 
@@ -317,6 +318,7 @@ func initTestnetFiles(
 			evmCfg.JSONRPC.Address = fmt.Sprintf("127.0.0.1:%d", evmJSONRPC+evmPortOffset)
 			evmCfg.JSONRPC.MetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCMetrics+evmPortOffset)
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("127.0.0.1:%d", evmJSONRPCWS+evmPortOffset)
+			evmCfg.EVM.GethMetricsAddress = fmt.Sprintf("127.0.0.1:%d", evmGethMetricsPort+evmPortOffset)
 		} else {
 			evmCfg.JSONRPC.WsAddress = fmt.Sprintf("0.0.0.0:%d", evmJSONRPCWS)
 			evmCfg.JSONRPC.Address = fmt.Sprintf("0.0.0.0:%d", evmJSONRPC)
@@ -441,7 +443,7 @@ func initTestnetFiles(
 			return err
 		}
 
-		srvconfig.SetConfigTemplate(evmdconfig.EVMAppTemplate)
+		srvconfig.SetConfigTemplate(config.EVMAppTemplate)
 
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), evmCfg)
 	}
@@ -683,8 +685,8 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		evmdconfig.EVMChainID,
-		evmdconfig.EvmAppOptions,
+		config.EVMChainID,
+		config.EvmAppOptions,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -694,8 +696,8 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			evmdconfig.EVMChainID,
-			evmdconfig.EvmAppOptions,
+			config.EVMChainID,
+			config.EvmAppOptions,
 		)
 	}
 
