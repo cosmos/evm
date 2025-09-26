@@ -18,6 +18,7 @@
 - [\#645](https://github.com/cosmos/evm/pull/645) Align precise bank keeper for correct decimal conversion in evmd.
 - [\#656](https://github.com/cosmos/evm/pull/656) Fix race condition in concurrent usage of mempool StateAt and NotifyNewBlock methods.
 * [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
+- [\#668](https://github.com/cosmos/evm/pull/668) Fix panic in legacy mempool when Reset() was called with a skipped header between old and new block.
 
 ### IMPROVEMENTS
 
