@@ -216,7 +216,7 @@ func SetGlobalConfigVariables(ctx sdk.Context, vmKeeper *keeper.Keeper, bankKeep
 
 	evmDenomMetadata, found := bankKeeper.GetDenomMetaData(ctx, params.EvmDenom)
 	if !found {
-		panic("denom metadata could not be found")
+		panic(fmt.Sprintf("denom metadata %s could not be found", params.EvmDenom))
 	}
 
 	for _, denomUnit := range evmDenomMetadata.DenomUnits {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cosmos/evm/config"
+	network2 "github.com/cosmos/evm/testutil/integration/evm/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"net"
 	"os"
 	"path/filepath"
@@ -511,11 +513,19 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
+	bankGenState.DenomMetadata = network2.GenerateBankGenesisMetadata(config.EVMChainID)
+
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {
 		bankGenState.Supply = bankGenState.Supply.Add(bal.Coins...)
 	}
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
+
+	var evmGenState evmtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[evmtypes.ModuleName], &evmGenState)
+
+	evmGenState.Params.EvmDenom = TEST_DENOM
+	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
