@@ -66,14 +66,13 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)
 
 	// starting the chain(s) at genesisHeader
-	legacyChain.On("CurrentBlock").Return(genesisHeader)
 	chain.On("CurrentBlock").Return(genesisHeader)
 
 	// we have to mock this, but this matches the behavior of the real impl if
 	// GetBlock is called
 	legacyChain.On("GetBlock", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		panic("GetBlock called means reorg detected when there was not one!")
-	})
+	}).Maybe()
 
 	// all accounts have max balance at genesis
 	genesisState.On("GetBalance", mock.Anything).Return(uint256.NewInt(math.MaxUint64))
@@ -92,6 +91,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 
 	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
 	require.NoError(t, err)
+	defer pool.Close()
 
 	// override broadcast fn to wait until we advance the chain a few blocks
 	broadcastGuard := make(chan struct{})
@@ -119,11 +119,17 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// now that we have advanced the headers, unblock the broadcast fn
 	broadcastGuard <- struct{}{}
 
-	// a runReorg call will now be scheduled with oldHead=genesis and newHead=height3
-	// this will call GetBlock on a cosmos chain, which is a panic.
+	// a runReorg call will now be scheduled with oldHead=genesis and
+	// newHead=height3
 
-	// sleep for 10s to allow for the above processing, we will panic while we wait
-	time.Sleep(10 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	pool.Close()
+	// push another tx to make sure that runReorg was processed with the above
+	// headers
+	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error { return nil }
+	tx2, _ := types.SignTx(types.NewTransaction(2, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
+	errs = pool.Add([]*types.Transaction{tx2}, false)
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
 }
