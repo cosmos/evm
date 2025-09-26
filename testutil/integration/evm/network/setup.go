@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/config"
 	"maps"
 	"slices"
 	"time"
@@ -10,6 +9,7 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm"
+	"github.com/cosmos/evm/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -500,17 +500,6 @@ func setDefaultVMGenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesi
 
 	genesisState[evmtypes.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedVMGen)
 	return genesisState
-}
-
-// newErc20GenesisState returns the default genesis state for the ERC20 module.
-// This is a duplicate of the function in utils to avoid an import cycle
-//
-// NOTE: for the example chain implementation we are also adding a default token pair,
-// which is the base denomination of the chain (i.e. the WEVMOS contract).
-func newVMGenesisState() *evmtypes.GenesisState {
-	vmGenState := evmtypes.DefaultGenesisState()
-
-	return vmGenState
 }
 
 // defaultAuthGenesisState sets the default genesis state

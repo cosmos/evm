@@ -95,7 +95,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
-	evmChainId uint64,
+	evmChainID uint64,
 	tracer string,
 ) *Keeper {
 	// ensure evm module account is set
@@ -112,7 +112,7 @@ func NewKeeper(
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
 	// set global chain config
-	ethCfg := types.DefaultChainConfig(evmChainId)
+	ethCfg := types.DefaultChainConfig(evmChainID)
 	if err := types.SetChainConfig(ethCfg); err != nil {
 		panic(err)
 	}

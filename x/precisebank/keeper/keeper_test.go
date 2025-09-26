@@ -1,15 +1,16 @@
 package keeper_test
 
 import (
-	vmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	evmosencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
 	"github.com/cosmos/evm/x/precisebank/types/mocks"
+	vmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
@@ -36,7 +37,7 @@ func newMockedTestData(t *testing.T) testData {
 	storeKey := storetypes.NewKVStoreKey(types.ModuleName)
 	// Not required by module, but needs to be non-nil for context
 	tKey := storetypes.NewTransientStoreKey("transient_test")
-	ctx := testutil.DefaultContext(storeKey, tKey)
+	ctx := testutil.DefaultContext(storeKey, tKey) //nolint: staticcheck // this variable is used
 
 	bk := mocks.NewBankKeeper(t)
 	ak := mocks.NewAccountKeeper(t)
@@ -44,7 +45,7 @@ func newMockedTestData(t *testing.T) testData {
 	chainID := testconstants.SixDecimalsChainID.EVMChainID
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
-	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
+	k := keeper.NewKeeper(cdc, storeKey, bk, ak) //nolint: staticcheck // this variable is used
 	evmConfigurator := vmtypes.NewEVMConfigurator().
 		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
 	evmConfigurator.ResetTestConfig()

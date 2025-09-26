@@ -58,7 +58,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      without extension option
 	//      london hardfork enableness
 	chainID := uint64(config.EighteenDecimalsChainID)
-	encodingConfig := encoding.MakeConfig(chainID)
+	encodingConfig := encoding.MakeConfig(chainID) //nolint:staticcheck // this is used
 
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()

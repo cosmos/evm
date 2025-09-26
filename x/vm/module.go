@@ -2,13 +2,13 @@ package vm
 
 import (
 	"context"
-	"cosmossdk.io/math"
 	"encoding/json"
 	"fmt"
+	"sync"
+
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
-	"sync"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -18,6 +18,7 @@ import (
 
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -252,7 +253,7 @@ func SetGlobalConfigVariables(ctx sdk.Context, vmKeeper *keeper.Keeper, bankKeep
 	}
 
 	configurator := types.NewEVMConfigurator()
-	//if withReset {
+	// if withReset {
 	//	// reset configuration to set the new one
 	//	configurator.ResetTestConfig()
 	//}

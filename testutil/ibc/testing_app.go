@@ -2,14 +2,20 @@ package ibctesting
 
 import (
 	"encoding/json"
-	"github.com/cosmos/evm/config"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	"testing"
 	"time"
 
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/evm/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/ibc-go/v10/modules/core/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	"github.com/cosmos/ibc-go/v10/testing/simapp"
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
@@ -26,12 +32,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	abci "github.com/cometbft/cometbft/abci/types"
-	cmttypes "github.com/cometbft/cometbft/types"
-
-	"github.com/cosmos/ibc-go/v10/modules/core/keeper"
-	"github.com/cosmos/ibc-go/v10/testing/simapp"
 )
 
 type TestingApp interface {

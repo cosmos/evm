@@ -48,7 +48,7 @@ func GenerateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
 			Base:        evmDenom,
 			DenomUnits: []*banktypes.DenomUnit{
 				{Denom: evmDenom, Exponent: 0},
-				{Denom: displayDenom, Exponent: uint32(evmDecimals)},
+				{Denom: displayDenom, Exponent: evmDecimals},
 			},
 			Name:    name,
 			Symbol:  symbol,
