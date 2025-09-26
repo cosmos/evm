@@ -1604,7 +1604,9 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 
 				configurator := types.NewEVMConfigurator()
 				configurator.ResetTestConfig()
-				err := configurator.
+				err := types.SetChainConfig(chainConfig)
+				s.Require().NoError(err)
+				err = configurator.
 					WithChainConfig(chainConfig).
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
@@ -1660,6 +1662,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 			s.Require().NoError(s.Network.NextBlock())
 			configurator := types.NewEVMConfigurator()
 			configurator.ResetTestConfig()
+			err = types.SetChainConfig(chainConfig)
+			s.Require().NoError(err)
 			err = configurator.
 				WithChainConfig(chainConfig).
 				WithEVMCoinInfo(coinInfo).

@@ -60,6 +60,24 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	chainID := uint64(config.EighteenDecimalsChainID)
 	encodingConfig := encoding.MakeConfig(chainID)
 
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	// set global chain config
+	ethCfg := evmtypes.DefaultChainConfig(chainID)
+	if err := evmtypes.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
+	err := configurator.
+		WithExtendedEips(evmtypes.DefaultCosmosEVMActivators).
+		WithChainConfig(ethCfg).
+		// NOTE: we're using the 18 decimals default for the example chain
+		WithEVMCoinInfo(config.ChainsCoinInfo[chainID]).
+		Configure()
+	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
+
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))
 

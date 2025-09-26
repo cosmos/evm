@@ -65,7 +65,7 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMDenom,
+		EvmDenom:                DefaultEVMExtendedDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,

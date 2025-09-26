@@ -38,8 +38,13 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	logger := log.NewNopLogger()
 
 	// Create mock keepers using generated mocks
-	mockVMKeeper := mocks.NewVmKeeper(t)
+	mockVMKeeper := mocks.NewVMKeeper(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
+
+	ethCfg := vmtypes.DefaultChainConfig(config.EighteenDecimalsChainID)
+	if err := vmtypes.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
 
 	// Set up mock expectations for methods that will be called
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1000000000)).Maybe()         // 1 gwei
@@ -52,7 +57,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper.On("ForEachStorage", mock.Anything, common.Address{}, mock.AnythingOfType("func(common.Hash, common.Hash) bool")).Maybe()
 	mockVMKeeper.On("KVStoreKeys").Return(make(map[string]*storetypes.KVStoreKey)).Maybe()
 
-	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(config.ChainsCoinInfo[config.EighteenDecimalsChainID]).Configure()
+	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(config.ChainsCoinInfo[config.EighteenDecimalsChainID]).WithChainConfig(ethCfg).Configure()
 	require.NoError(t, err)
 
 	// Mock context callback that returns a valid context

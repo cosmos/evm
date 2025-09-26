@@ -112,7 +112,7 @@ func NewKeeper(
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
 	// set global chain config
-	ethCfg := types.DefaultChainConfig(evmChainId) //TODO:VLAD make this configurable
+	ethCfg := types.DefaultChainConfig(evmChainId)
 	if err := types.SetChainConfig(ethCfg); err != nil {
 		panic(err)
 	}

@@ -1,9 +1,10 @@
 package keeper_test
 
 import (
+	vmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/stretchr/testify/require"
 	"testing"
 
-	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/keeper"
@@ -44,9 +45,11 @@ func newMockedTestData(t *testing.T) testData {
 	cfg := evmosencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
-	if err != nil {
-		return testData{}
-	}
+	evmConfigurator := vmtypes.NewEVMConfigurator().
+		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
+	evmConfigurator.ResetTestConfig()
+	err := evmConfigurator.Configure()
+	require.NoError(t, err)
 
 	return testData{
 		ctx:      ctx,

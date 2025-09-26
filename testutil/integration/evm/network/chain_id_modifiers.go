@@ -16,14 +16,14 @@ import (
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // bank module of the testing suite depending on the chainID.
 func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState, evmChainID uint64) banktypes.GenesisState {
-	bankGenesisState.DenomMetadata = generateBankGenesisMetadata(evmChainID)
+	bankGenesisState.DenomMetadata = GenerateBankGenesisMetadata(evmChainID)
 
 	return bankGenesisState
 }
 
-// generateBankGenesisMetadata generates the metadata entries
+// GenerateBankGenesisMetadata generates the metadata entries
 // for both extended and native EVM denominations depending on the chain.
-func generateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
+func GenerateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
 	denomConfig := config.ChainsCoinInfo[evmChainID]
 
 	// Basic denom settings
