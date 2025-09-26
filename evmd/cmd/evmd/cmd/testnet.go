@@ -513,7 +513,7 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
-	bankGenState.DenomMetadata = network2.GenerateBankGenesisMetadata(config.EVMChainID)
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, network2.GenerateBankGenesisMetadata(config.EVMChainID)...)
 
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {

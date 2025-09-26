@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"context"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -23,6 +24,29 @@ func (app EVMD) RegisterUpgradeHandlers() {
 		UpgradeName,
 		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			sdk.UnwrapSDKContext(ctx).Logger().Debug("this is a debug level message to test that verbose logging mode has properly been enabled during a chain upgrade")
+
+			app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
+				Description: "Example description",
+				DenomUnits: []*banktypes.DenomUnit{
+					{
+						Denom:    "atest",
+						Exponent: 0,
+						Aliases:  nil,
+					},
+					{
+						Denom:    "test",
+						Exponent: 18,
+						Aliases:  nil,
+					},
+				},
+				Base:    "atest",
+				Display: "test",
+				Name:    "Test Token",
+				Symbol:  "TEST",
+				URI:     "example_uri",
+				URIHash: "example_uri_hash",
+			})
+
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)
