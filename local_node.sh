@@ -340,9 +340,9 @@ fi
 # Start the node
 evmd start "$TRACE" \
 	--pruning nothing \
-	--log_level "info" \
+	--log_level $LOGLEVEL \
 	--minimum-gas-prices=0atest \
 	--evm.min-tip=0 \
-	--home "/Users/vlad/.evmd/" \
+	--home "$CHAINDIR" \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \
 	--chain-id "$CHAINID"
