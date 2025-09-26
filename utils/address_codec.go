@@ -24,7 +24,7 @@ func NewEvmCodec(prefix string) address.Codec {
 	return EvmCodec{prefix}
 }
 
-// StringToBytes encodes text to bytes
+// StringToBytes decodes text to bytes using either hex or bech32 encoding
 func (bc EvmCodec) StringToBytes(text string) ([]byte, error) {
 	if len(strings.TrimSpace(text)) == 0 {
 		return []byte{}, sdkerrors.ErrInvalidAddress.Wrap("empty address string is not allowed")
@@ -50,7 +50,7 @@ func (bc EvmCodec) StringToBytes(text string) ([]byte, error) {
 	}
 }
 
-// BytesToString decodes bytes to text
+// BytesToString encodes bytes to EIP55-compliant hex string representation of the address
 func (bc EvmCodec) BytesToString(bz []byte) (string, error) {
 	return common.BytesToAddress(bz).Hex(), nil
 }
