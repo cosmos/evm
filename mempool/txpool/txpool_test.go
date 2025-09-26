@@ -1,94 +1,131 @@
 package txpool_test
 
 import (
-	"sync"
+	"math"
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/cosmos/evm/mempool/txpool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	legacypool_mocks "github.com/cosmos/evm/mempool/txpool/legacypool/mocks"
+	statedb_mocks "github.com/cosmos/evm/x/vm/statedb/mocks"
+
 	"github.com/cosmos/evm/mempool/txpool/mocks"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTxPool(t *testing.T) {
+// TestTxPoolCosmosReorg is a regression test for when slow processing of the
+// legacypool run reorg function (as a subpool) would cause a panic if new
+// headers are produced during this slow processing.
+//
+// Here we are using the legacypool as a subpool of the txpool. We then produce
+// add a tx to the mempool, and then replace this tx with a higher priced tx
+// with the same nonce. This will cause an event to be processed during run
+// reorg and broadcasted to the comet mempool. We simulate this broadcast being
+// slow with a time.Sleep. While this slow broadcast happens, we simulate
+// advancing the chain 3 blocks by sending three headers on the newHeadCh. This
+// will then cause run reorg to be run with a newHead that is at oldHead + 3.
+// This was previously incorrectly seen as a reorg by the legacy pool, and
+// would call GetBlock on the mempools BlockChain implementation, which would
+// cause a panic. (note that we are using a mocked BlockChain impl here, but
+// are simply manually making any calls to GetBlock panic).
+func TestTxPoolCosmosReorg(t *testing.T) {
 	gasTip := uint64(100)
+	gasLimit := uint64(1_000_000)
+
+	// mock tx signer and priv key
+	signer := types.HomesteadSigner{}
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	// the blockchain interface that the legacypool and txpool want are
+	// slightly different, so sadly we have to use two different mocks for this
 	chain := mocks.NewBlockChain(t)
-	subpool := mocks.NewSubPool(t)
+	legacyChain := legacypool_mocks.NewBlockChain(t)
+	genesisState := statedb_mocks.NewStateDB(t)
 
-	genesisHeader := &types.Header{}
-	height1Header := &types.Header{ParentHash: genesisHeader.Hash()}
-	height2Header := &types.Header{ParentHash: height1Header.Hash()}
-	height3Header := &types.Header{ParentHash: height2Header.Hash()}
+	// simulated headers on chain
+	genesisHeader := &types.Header{GasLimit: gasLimit, Difficulty: big.NewInt(1), Number: big.NewInt(0)}
+	height1Header := &types.Header{ParentHash: genesisHeader.Hash(), GasLimit: gasLimit, Difficulty: big.NewInt(1), Number: big.NewInt(1)}
+	height2Header := &types.Header{ParentHash: height1Header.Hash(), GasLimit: gasLimit, Difficulty: big.NewInt(1), Number: big.NewInt(2)}
+	height3Header := &types.Header{ParentHash: height2Header.Hash(), GasLimit: gasLimit, Difficulty: big.NewInt(1), Number: big.NewInt(3)}
 
-	// called during txpool initialization
-	chain.On("CurrentBlock").Return(genesisHeader).Once()
-	chain.On("StateAt", mock.Anything).Return(nil, nil)
-	chain.On("Config").Return(&params.ChainConfig{ChainID: nil}).Once()
+	// called during legacypool initialization
+	cfg := &params.ChainConfig{ChainID: nil}
+	legacyChain.On("Config").Return(cfg)
+	chain.On("Config").Return(cfg)
+	legacyChain.On("StateAt", genesisHeader.Root).Return(genesisState, nil)
+	chain.On("StateAt", genesisHeader.Root).Return(nil, nil)
 
-	subpool.On("Init", gasTip, genesisHeader, txpool.NewReservationTracker().NewHandle(0)).Return(nil).Once()
-	subpool.On("Close").Return(nil).Once()
+	// starting the chain(s) at genesisHeader
+	legacyChain.On("CurrentBlock").Return(genesisHeader)
+	chain.On("CurrentBlock").Return(genesisHeader)
+
+	// we have to mock this, but this matches the behavior of the real impl if
+	// GetBlock is called
+	legacyChain.On("GetBlock", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		panic("GetBlock called means reorg detected when there was not one!")
+	})
+
+	// all accounts have max balance at genesis
+	genesisState.On("GetBalance", mock.Anything).Return(uint256.NewInt(math.MaxUint64))
+	genesisState.On("GetNonce", mock.Anything).Return(uint64(1))
+	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
+
+	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain)
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
 	// headers during the test
-	var wg sync.WaitGroup
-	wg.Add(1)
 	var newHeadCh *chan<- core.ChainHeadEvent
 	chain.On("SubscribeChainHeadEvent", mock.Anything).Run(func(args mock.Arguments) {
-		defer wg.Done()
 		c := args.Get(0).(chan<- core.ChainHeadEvent)
 		newHeadCh = &c
 	}).Return(event.NewSubscription(func(c <-chan struct{}) error { return nil }))
 
-	// SubPool.Reset will take 2 seconds before it returns. we need this to
-	// take time to advance newHead in the background while we wait for this
-	subpool.On("Reset", genesisHeader, height1Header).Run(func(args mock.Arguments) {
-		<-time.After(1 * time.Second)
-	}).Once()
-
-	// pool loop is started async in New(), dont actually need a reference to
-	// the pool
-	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{subpool})
+	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
 	require.NoError(t, err)
 
-	// wait for chain subscription to happen so we have a valid chan to push
-	// headers to
-	wg.Wait()
+	// override broadcast fn to wait until we advance the chain a few blocks
+	broadcastGuard := make(chan struct{})
+	legacyPool.BroadcastTxFn = func(txs []*types.Transaction) error {
+		<-broadcastGuard
+		return nil
+	}
 
-	// txpool loop is now waiting for a new header to come in, send it a header
-	// for the first height.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		*newHeadCh <- core.ChainHeadEvent{Header: height1Header}
-	}()
+	// add tx1 to the pool so that the blocking broadcast fn will be called,
+	// simulating a slow runReorg
+	tx1, _ := types.SignTx(types.NewTransaction(1, common.Address{}, big.NewInt(100), 100_000, big.NewInt(int64(gasTip)+1), nil), signer, key)
+	errs := pool.Add([]*types.Transaction{tx1}, false)
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
 
-	//  this will take 5 seconds to process in the subpool
-	wg.Wait()
+	// broadcast fn is now blocking, waiting for broadcastGuard
 
-	// send a few more headers to advance newHead
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		*newHeadCh <- core.ChainHeadEvent{Header: height2Header}
-		*newHeadCh <- core.ChainHeadEvent{Header: height3Header}
-	}()
+	// during this time, we will simulate advancing the chain multiple times by
+	// sending headers on the newHeadCh
+	*newHeadCh <- core.ChainHeadEvent{Header: height1Header}
+	*newHeadCh <- core.ChainHeadEvent{Header: height2Header}
+	*newHeadCh <- core.ChainHeadEvent{Header: height3Header}
 
-	// wait group just to make sure that we wait for subpool reset to run
-	// before we exit to demonstrate the bug
-	wg.Add(1)
-	subpool.On("Reset", height1Header, height3Header).Run(func(args mock.Arguments) {
-		defer wg.Done()
-		require.Equal(t, height1Header.Hash(), height3Header.ParentHash, "sub pool reset got mismatch old head hash and new head parent hash")
-	}).Once()
+	// now that we have advanced the headers, unblock the broadcast fn
+	broadcastGuard <- struct{}{}
 
-	// wait to make sure we have called subpool with the unexpected state
-	wg.Wait()
+	// a runReorg call will now be scheduled with oldHead=genesis and newHead=height3
+	// this will call GetBlock on a cosmos chain, which is a panic.
+
+	// sleep for 10s to allow for the above processing, we will panic while we wait
+	time.Sleep(10 * time.Second)
 
 	pool.Close()
 }
