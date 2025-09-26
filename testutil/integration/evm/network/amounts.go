@@ -21,15 +21,15 @@ func DefaultInitialAmounts() InitialAmounts {
 	baseCoinInfo := testconstants.ExampleChainCoinInfo[defaultChain]
 
 	return InitialAmounts{
-		Base: GetInitialAmount(baseCoinInfo.Decimals),
-		Evm:  GetInitialAmount(baseCoinInfo.Decimals),
+		Base: GetInitialAmount(evmtypes.Decimals(baseCoinInfo.Decimals)),
+		Evm:  GetInitialAmount(evmtypes.Decimals(baseCoinInfo.Decimals)),
 	}
 }
 
 func DefaultInitialBondedAmount() math.Int {
 	baseCoinInfo := testconstants.ExampleChainCoinInfo[defaultChain]
 
-	return GetInitialBondedAmount(baseCoinInfo.Decimals)
+	return GetInitialBondedAmount(evmtypes.Decimals(baseCoinInfo.Decimals))
 }
 
 func GetInitialAmount(decimals evmtypes.Decimals) math.Int {

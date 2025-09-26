@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -56,8 +55,6 @@ func (suite *MsgsTestSuite) SetupTest() {
 
 	configurator := types.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := evmconfig.EvmAppOptions(9001)
-	suite.Require().NoError(err)
 }
 
 func (suite *MsgsTestSuite) TestMsgEthereumTx_Constructor() {

@@ -193,7 +193,7 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
 				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt.ToBig())
 				exp := math.LegacyNewDecFromBigInt(tc.amt.ToBig())
-				if coinInfo.Decimals == evmtypes.SixDecimals {
+				if coinInfo.Decimals == evmtypes.SixDecimals.Uint32() {
 					exp = tc.exp6dec
 				}
 				require.Equal(t, exp, res)
@@ -231,7 +231,7 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
 				res := evmtypes.ConvertAmountTo18DecimalsBigInt(tc.amt)
 				exp := tc.amt
-				if coinInfo.Decimals == evmtypes.SixDecimals {
+				if coinInfo.Decimals == evmtypes.SixDecimals.Uint32() {
 					exp = tc.exp6dec
 				}
 				require.Equal(t, exp, res)

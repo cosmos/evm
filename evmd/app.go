@@ -212,7 +212,6 @@ func NewExampleApp(
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
 	evmChainID uint64, // TODO:VLAD - Remove this
-	evmAppOptions evmconfig.EVMOptionsFn, // TODO:VLAD - Remove this
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	encodingConfig := evmosencoding.MakeConfig(evmChainID) // TODO:VLAD - Remove chain id from this
@@ -234,12 +233,6 @@ func NewExampleApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
-
-	// initialize the Cosmos EVM application configuration
-	// TODO:VLAD - Remove this
-	if err := evmAppOptions(evmChainID); err != nil {
-		panic(err)
-	}
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -447,6 +440,7 @@ func NewExampleApp(
 
 	// Set up EVM keeper
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
+	evmChainId := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
 
 	// NOTE: it's required to set up the EVM keeper before the ERC-20 keeper, because it is used in its instantiation.
 	app.EVMKeeper = evmkeeper.NewKeeper(
@@ -459,6 +453,7 @@ func NewExampleApp(
 		app.FeeMarketKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
+		evmChainId,
 		tracer,
 	).WithStaticPrecompiles(
 		precompiletypes.DefaultStaticPrecompiles(
@@ -574,7 +569,7 @@ func NewExampleApp(
 		ibctm.NewAppModule(tmLightClientModule),
 		transferModule,
 		// Cosmos EVM modules
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.AccountKeeper.AddressCodec()),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.BankKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
@@ -600,6 +595,7 @@ func NewExampleApp(
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
 		authtypes.ModuleName,
+		evmtypes.ModuleName,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that

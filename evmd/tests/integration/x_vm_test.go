@@ -48,7 +48,7 @@ func BenchmarkGasEstimation(b *testing.B) {
 			Denom:         denom,
 			ExtendedDenom: extendedDenom,
 			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
+			Decimals:      decimals.Uint32(),
 		}).
 		Configure()
 	require.NoError(b, err)

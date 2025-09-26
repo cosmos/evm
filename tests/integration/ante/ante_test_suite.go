@@ -127,7 +127,7 @@ func (s *AnteTestSuite) SetupTest() {
 			Denom:         denom,
 			ExtendedDenom: extendedDenom,
 			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
+			Decimals:      decimals.Uint32(),
 		}).
 		Configure()
 	s.Require().NoError(err)

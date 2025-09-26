@@ -133,10 +133,10 @@ func WithChainID(chainID testconstants.ChainID) ConfigOption {
 
 		if cfg.chainCoins.IsBaseEqualToEVM() {
 			cfg.chainCoins.baseCoin.Denom = evmCoinInfo.Denom
-			cfg.chainCoins.baseCoin.Decimals = evmCoinInfo.Decimals
+			cfg.chainCoins.baseCoin.Decimals = evmtypes.Decimals(evmCoinInfo.Decimals)
 		}
 		cfg.chainCoins.evmCoin.Denom = evmCoinInfo.Denom
-		cfg.chainCoins.evmCoin.Decimals = evmCoinInfo.Decimals
+		cfg.chainCoins.evmCoin.Decimals = evmtypes.Decimals(evmCoinInfo.Decimals)
 	}
 }
 

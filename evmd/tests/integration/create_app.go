@@ -2,6 +2,8 @@ package integration
 
 import (
 	"encoding/json"
+	"github.com/cosmos/cosmos-sdk/client/flags"
+	srvflags "github.com/cosmos/evm/server/flags"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm"
@@ -31,7 +33,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 	db := dbm.NewMemDB()
 	logger := log.NewNopLogger()
 	loadLatest := true
-	appOptions := simutils.NewAppOptionsWithFlagHome(defaultNodeHome)
+	appOptions := NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, evmChainID)
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
@@ -42,7 +44,6 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 		loadLatest,
 		appOptions,
 		evmChainID,
-		config.EvmAppOptions,
 		baseAppOptions...,
 	)
 }
@@ -55,9 +56,8 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		dbm.NewMemDB(),
 		nil,
 		true,
-		simutils.EmptyAppOptions{},
+		NewAppOptionsWithFlagHomeAndChainID("", constants.ExampleEIP155ChainID),
 		constants.ExampleEIP155ChainID,
-		config.EvmAppOptions,
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
@@ -72,4 +72,11 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
 
 	return app, genesisState
+}
+
+func NewAppOptionsWithFlagHomeAndChainID(home string, evmChainID uint64) simutils.AppOptionsMap {
+	return simutils.AppOptionsMap{
+		flags.FlagHome:      home,
+		srvflags.EVMChainID: evmChainID,
+	}
 }

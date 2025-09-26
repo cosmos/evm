@@ -95,6 +95,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
+	evmChainID uint64,
 	tracer string,
 ) *Keeper {
 	// ensure evm module account is set
@@ -109,6 +110,12 @@ func NewKeeper(
 
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
+
+	// set global chain config
+	ethCfg := types.DefaultChainConfig(evmChainID)
+	if err := types.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
@@ -345,7 +352,8 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
+	coinInfo := k.GetEvmCoinInfo(ctx)
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)
