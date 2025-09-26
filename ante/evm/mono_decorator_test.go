@@ -73,8 +73,10 @@ func (k *ExtendedEVMKeeper) GetTxIndexTransient(_ sdk.Context) uint64    { retur
 // only methods called by EVMMonoDecorator
 type MockFeeMarketKeeper struct{}
 
-func (m MockFeeMarketKeeper) GetParams(_ sdk.Context) feemarkettypes.Params {
-	return feemarkettypes.DefaultParams()
+func (m MockFeeMarketKeeper) GetParams(ctx sdk.Context) feemarkettypes.Params {
+	param := feemarkettypes.DefaultParams()
+	param.BaseFee = m.GetBaseFee(ctx)
+	return param
 }
 
 func (m MockFeeMarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
@@ -198,8 +200,10 @@ func TestMonoDecorator(t *testing.T) {
 			privKey, _ := ethsecp256k1.GenerateKey()
 			keeper, cosmosAddr := setupFundedKeeper(t, privKey)
 			accountKeeper := MockAccountKeeper{FundedAddr: cosmosAddr}
-
-			monoDec := evm.NewEVMMonoDecorator(accountKeeper, MockFeeMarketKeeper{}, keeper, 0)
+			feeMarketKeeper := MockFeeMarketKeeper{}
+			params := keeper.GetParams(sdk.Context{})
+			feemarketParams := feeMarketKeeper.GetParams(sdk.Context{})
+			monoDec := evm.NewEVMMonoDecorator(accountKeeper, feeMarketKeeper, keeper, 0, &params, &feemarketParams)
 			ctx := sdk.NewContext(nil, tmproto.Header{}, false, log.NewNopLogger())
 			ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(1e19))
 
