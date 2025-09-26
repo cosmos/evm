@@ -1,7 +1,6 @@
 package ante
 
 import (
-	baseevmante "github.com/cosmos/evm/ante"
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	evmante "github.com/cosmos/evm/ante/evm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -13,7 +12,7 @@ import (
 )
 
 // newCosmosAnteHandler creates the default ante handler for Cosmos transactions
-func newCosmosAnteHandler(ctx sdk.Context, options baseevmante.HandlerOptions) sdk.AnteHandler {
+func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler {
 	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
 	var txFeeChecker ante.TxFeeChecker
 	if options.DynamicFeeChecker {

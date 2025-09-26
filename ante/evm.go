@@ -1,14 +1,13 @@
 package ante
 
 import (
-	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // newMonoEVMAnteHandler creates the sdk.AnteHandler implementation for the EVM transactions.
-func newMonoEVMAnteHandler(ctx sdk.Context, options ante.HandlerOptions) sdk.AnteHandler {
+func newMonoEVMAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler {
 	evmParams := options.EvmKeeper.GetParams(ctx)
 	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
 	decorators := []sdk.AnteDecorator{
@@ -20,7 +19,7 @@ func newMonoEVMAnteHandler(ctx sdk.Context, options ante.HandlerOptions) sdk.Ant
 			&evmParams,
 			&feemarketParams,
 		),
-		ante.NewTxListenerDecorator(options.PendingTxListener),
+		NewTxListenerDecorator(options.PendingTxListener),
 	}
 
 	return sdk.ChainAnteDecorators(decorators...)

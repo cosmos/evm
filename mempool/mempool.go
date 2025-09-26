@@ -108,7 +108,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		config.BlockGasLimit = fallbackBlockGasLimit
 	}
 
-	blockchain = newBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
+	blockchain = NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
 	legacyConfig := legacypool.DefaultConfig

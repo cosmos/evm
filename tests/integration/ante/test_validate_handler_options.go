@@ -1,4 +1,4 @@
-package ante_test
+package ante
 
 import (
 	"testing"
@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
-	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/types"
 )
@@ -164,8 +163,4 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 			require.Error(t, err, tc.name)
 		}
 	}
-}
-
-func TestValidateHandlerOptions(t *testing.T) {
-	RunValidateHandlerOptionsTest(t, integration.CreateEvmd)
 }
