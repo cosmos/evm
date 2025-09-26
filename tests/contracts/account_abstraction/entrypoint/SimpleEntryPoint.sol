@@ -23,7 +23,7 @@ contract SimpleEntryPoint {
         }
     }
 
-    function _getUserOpHash(UserOperation calldata op) internal returns (bytes32) {
+    function _getUserOpHash(UserOperation calldata op) internal view returns (bytes32) {
         UserOperation memory mOp = op;
 
         bytes32 initCodeHash = keccak256(mOp.initCode);
