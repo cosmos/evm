@@ -36,8 +36,14 @@ IGNORED_FILES: List[str] = [
     # Ignored because it uses a different OpenZeppelin contracts version to
     # compile
     "ERC20Minter_OpenZeppelinV5.sol",
-    # Ignore all .sol files in tests directory
-    r"tests/.*\.sol$",
+    # Ignore vendored contracts pulled in through package managers
+    r"node_modules/.*\.sol$",
+    r"lib/.*\.sol$",
+    # Ignore all other test contracts outside of tests/contracts
+    r"tests/(?!contracts/).*\.sol$",
+    # Ignore Foundry-style script and test contracts
+    r".*\.s\.sol$",
+    r".*\.t\.sol$",
 ]
 
 

@@ -20,6 +20,7 @@ type Handler interface {
 	// EVM methods
 	GetEvmAccount(address common.Address) (*evmtypes.QueryAccountResponse, error)
 	EstimateGas(args []byte, GasCap uint64) (*evmtypes.EstimateGasResponse, error)
+	EthCall(args []byte, gasCap uint64) (*evmtypes.MsgEthereumTxResponse, error)
 	GetEvmParams() (*evmtypes.QueryParamsResponse, error)
 	GetEvmBaseFee() (*evmtypes.QueryBaseFeeResponse, error)
 	GetBalanceFromEVM(address sdk.AccAddress) (*evmtypes.QueryBalanceResponse, error)

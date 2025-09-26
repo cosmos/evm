@@ -42,6 +42,27 @@ func (gqh *IntegrationHandler) EstimateGas(args []byte, gasCap uint64) (*evmtype
 	return res, err
 }
 
+// EthCall executes a read-only call against the EVM without modifying state.
+func (gqh *IntegrationHandler) EthCall(args []byte, gasCap uint64) (*evmtypes.MsgEthereumTxResponse, error) {
+	evmClient := gqh.network.GetEvmClient()
+	res, err := evmClient.EthCall(context.Background(), &evmtypes.EthCallRequest{
+		Args:   args,
+		GasCap: gasCap,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if res.Failed() {
+		if (res.VmError != vm.ErrExecutionReverted.Error()) || len(res.Ret) == 0 {
+			return nil, errors.New(res.VmError)
+		}
+		return nil, evmtypes.NewExecErrorWithReason(res.Ret)
+	}
+
+	return res, nil
+}
+
 // GetEvmParams returns the EVM module params.
 func (gqh *IntegrationHandler) GetEvmParams() (*evmtypes.QueryParamsResponse, error) {
 	evmClient := gqh.network.GetEvmClient()
