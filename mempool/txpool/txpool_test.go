@@ -27,17 +27,16 @@ import (
 // legacypool run reorg function (as a subpool) would cause a panic if new
 // headers are produced during this slow processing.
 //
-// Here we are using the legacypool as a subpool of the txpool. We then produce
-// add a tx to the mempool, and then replace this tx with a higher priced tx
-// with the same nonce. This will cause an event to be processed during run
-// reorg and broadcasted to the comet mempool. We simulate this broadcast being
-// slow with a time.Sleep. While this slow broadcast happens, we simulate
-// advancing the chain 3 blocks by sending three headers on the newHeadCh. This
-// will then cause run reorg to be run with a newHead that is at oldHead + 3.
-// This was previously incorrectly seen as a reorg by the legacy pool, and
-// would call GetBlock on the mempools BlockChain implementation, which would
-// cause a panic. (note that we are using a mocked BlockChain impl here, but
-// are simply manually making any calls to GetBlock panic).
+// Here we are using the legacypool as a subpool of the txpool. We then add tx
+// to the mempool, and simulate a long broadcast to the comet mempool via
+// overriding the BroadcastFn. We then advance the chain 3 blocks by sending
+// three headers on the newHeadCh. This will then cause runReorg to be run with
+// a newHead that is at oldHead + 3. Previously, this incorrectly was seen as a
+// reorg by the legacypool, and would call GetBlock on the mempools BlockChain,
+// which would cause a panic.
+
+// NOTE: we are using a mocked BlockChain impl here, but are simply manually
+// making any calls to GetBlock panic).
 func TestTxPoolCosmosReorg(t *testing.T) {
 	gasTip := uint64(100)
 	gasLimit := uint64(1_000_000)
