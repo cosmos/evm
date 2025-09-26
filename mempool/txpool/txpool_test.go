@@ -85,10 +85,9 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock
 	// headers during the test
-	var newHeadCh *chan<- core.ChainHeadEvent
+	var newHeadCh chan<- core.ChainHeadEvent
 	chain.On("SubscribeChainHeadEvent", mock.Anything).Run(func(args mock.Arguments) {
-		c := args.Get(0).(chan<- core.ChainHeadEvent)
-		newHeadCh = &c
+		newHeadCh = args.Get(0).(chan<- core.ChainHeadEvent)
 	}).Return(event.NewSubscription(func(c <-chan struct{}) error { return nil }))
 
 	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
@@ -113,9 +112,9 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 
 	// during this time, we will simulate advancing the chain multiple times by
 	// sending headers on the newHeadCh
-	*newHeadCh <- core.ChainHeadEvent{Header: height1Header}
-	*newHeadCh <- core.ChainHeadEvent{Header: height2Header}
-	*newHeadCh <- core.ChainHeadEvent{Header: height3Header}
+	newHeadCh <- core.ChainHeadEvent{Header: height1Header}
+	newHeadCh <- core.ChainHeadEvent{Header: height2Header}
+	newHeadCh <- core.ChainHeadEvent{Header: height3Header}
 
 	// now that we have advanced the headers, unblock the broadcast fn
 	broadcastGuard <- struct{}{}
