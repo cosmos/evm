@@ -46,7 +46,7 @@ func newMockedTestData(t *testing.T) testData {
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak)
 	evmConfigurator := vmtypes.NewEVMConfigurator().
-		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
+		WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
 	evmConfigurator.ResetTestConfig()
 	err := evmConfigurator.Configure()
 	require.NoError(t, err)
