@@ -23,7 +23,8 @@ func (app EVMD) RegisterUpgradeHandlers() {
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeName,
 		func(ctx context.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-			sdk.UnwrapSDKContext(ctx).Logger().Debug("this is a debug level message to test that verbose logging mode has properly been enabled during a chain upgrade")
+			sdkCtx := sdk.UnwrapSDKContext(ctx)
+			sdkCtx.Logger().Debug("this is a debug level message to test that verbose logging mode has properly been enabled during a chain upgrade")
 
 			app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
 				Description: "Example description",
@@ -46,6 +47,17 @@ func (app EVMD) RegisterUpgradeHandlers() {
 				URI:     "example_uri",
 				URIHash: "example_uri_hash",
 			})
+
+			// (Required for NON-18 denom chains *only)
+			// Update EVM params to add Extended denom options
+			// Ensure that this corresponds to the EVM denom
+			// (tyically the bond denom)
+			evmParams := app.EVMKeeper.GetParams(sdkCtx)
+			evmParams.ExtendedDenomOptions.ExtendedDenom = "atest"
+			err := app.EVMKeeper.SetParams(sdkCtx, evmParams)
+			if err != nil {
+				return nil, err
+			}
 
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},

@@ -3,15 +3,16 @@ package integration
 import (
 	"encoding/json"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	srvflags "github.com/cosmos/evm/server/flags"
 
 	dbm "github.com/cosmos/cosmos-db"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
+	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/log"
