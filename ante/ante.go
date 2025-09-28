@@ -22,16 +22,73 @@ type HandlerOptions struct {
 	Cdc                    codec.BinaryCodec
 	AccountKeeper          anteinterfaces.AccountKeeper
 	BankKeeper             anteinterfaces.BankKeeper
-	IBCKeeper              *ibckeeper.Keeper
 	FeeMarketKeeper        anteinterfaces.FeeMarketKeeper
 	EvmKeeper              anteinterfaces.EVMKeeper
-	FeegrantKeeper         ante.FeegrantKeeper
 	ExtensionOptionChecker ante.ExtensionOptionChecker
 	SignModeHandler        *txsigning.HandlerMap
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	MaxTxGasWanted         uint64
 	TxFeeChecker           ante.TxFeeChecker
 	PendingTxListener      PendingTxListener
+
+	// Optional
+	IBCKeeper      *ibckeeper.Keeper
+	FeegrantKeeper ante.FeegrantKeeper
+}
+
+type HandlerOption func(options *HandlerOptions)
+
+func WithIBCKeeper(ibcKeeper *ibckeeper.Keeper) HandlerOption {
+	return func(options *HandlerOptions) {
+		options.IBCKeeper = ibcKeeper
+	}
+}
+
+func WithFeegrantKeeper(feegrantKeeper ante.FeegrantKeeper) HandlerOption {
+	return func(options *HandlerOptions) {
+		options.FeegrantKeeper = feegrantKeeper
+	}
+}
+
+func CreateHandlerOptions(
+	cdc codec.BinaryCodec,
+	accountKeeper anteinterfaces.AccountKeeper,
+	bankKeeper anteinterfaces.BankKeeper,
+	feemarketKeeper anteinterfaces.FeeMarketKeeper,
+	evmKeeper anteinterfaces.EVMKeeper,
+	extensionOptionChecker ante.ExtensionOptionChecker,
+	signModeHandler *txsigning.HandlerMap,
+	signatureGasConsumer func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error,
+	maxTxGasWanted uint64,
+	txFeeChecker ante.TxFeeChecker,
+	pendingTxListener PendingTxListener,
+	opts ...HandlerOption,
+) (HandlerOptions, error) {
+	handlerOptions := HandlerOptions{
+		Cdc:                    cdc,
+		AccountKeeper:          accountKeeper,
+		BankKeeper:             bankKeeper,
+		FeeMarketKeeper:        feemarketKeeper,
+		EvmKeeper:              evmKeeper,
+		ExtensionOptionChecker: extensionOptionChecker,
+		SignModeHandler:        signModeHandler,
+		SigGasConsumer:         signatureGasConsumer,
+		MaxTxGasWanted:         maxTxGasWanted,
+		TxFeeChecker:           txFeeChecker,
+		PendingTxListener:      pendingTxListener,
+		IBCKeeper:              nil,
+		FeegrantKeeper:         nil,
+	}
+
+	for _, opt := range opts {
+		opt(&handlerOptions)
+	}
+
+	if err := handlerOptions.Validate(); err != nil {
+		return HandlerOptions{}, err
+	}
+
+	return handlerOptions, nil
 }
 
 // Validate checks if the keepers are defined
@@ -44,9 +101,6 @@ func (options HandlerOptions) Validate() error {
 	}
 	if options.BankKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "bank keeper is required for AnteHandler")
-	}
-	if options.IBCKeeper == nil {
-		return errorsmod.Wrap(errortypes.ErrLogic, "ibc keeper is required for AnteHandler")
 	}
 	if options.FeeMarketKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "fee market keeper is required for AnteHandler")
@@ -63,7 +117,6 @@ func (options HandlerOptions) Validate() error {
 	if options.TxFeeChecker == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
 	}
-
 	if options.PendingTxListener == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "pending tx listener is required for AnteHandler")
 	}
