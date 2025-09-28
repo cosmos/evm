@@ -6,13 +6,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
 	antepkg "github.com/cosmos/evm/ante"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/encoding"
 	"github.com/cosmos/evm/testutil/constants"
-
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	signingv1beta1 "cosmossdk.io/api/cosmos/tx/signing/v1beta1"
@@ -21,22 +28,12 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	txsigning "cosmossdk.io/x/tx/signing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/tracing"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkSigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	sdkante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	"github.com/cosmos/evm/x/vm/statedb"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 type handlerArgs struct {
@@ -93,6 +90,7 @@ func (*stubBankKeeper) IsSendEnabledCoins(context.Context, ...sdk.Coin) error { 
 func (*stubBankKeeper) SendCoins(context.Context, sdk.AccAddress, sdk.AccAddress, sdk.Coins) error {
 	return nil
 }
+
 func (*stubBankKeeper) SendCoinsFromAccountToModule(context.Context, sdk.AccAddress, string, sdk.Coins) error {
 	return nil
 }
@@ -116,6 +114,7 @@ func (*stubEVMKeeper) GetCode(sdk.Context, common.Hash) []byte { return nil }
 func (*stubEVMKeeper) GetCodeHash(sdk.Context, common.Address) common.Hash {
 	return common.Hash{}
 }
+
 func (*stubEVMKeeper) ForEachStorage(sdk.Context, common.Address, func(common.Hash, common.Hash) bool) {
 }
 func (*stubEVMKeeper) SetAccount(sdk.Context, common.Address, statedb.Account) error { return nil }
@@ -127,12 +126,15 @@ func (*stubEVMKeeper) DeleteAccount(sdk.Context, common.Address) error          
 func (*stubEVMKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
 	return map[string]*storetypes.KVStoreKey{}
 }
+
 func (*stubEVMKeeper) NewEVM(sdk.Context, core.Message, *statedb.EVMConfig, *tracing.Hooks, vm.StateDB) *vm.EVM {
 	return nil
 }
+
 func (*stubEVMKeeper) DeductTxCostsFromUserBalance(sdk.Context, sdk.Coins, common.Address) error {
 	return nil
 }
+
 func (*stubEVMKeeper) SpendableCoin(sdk.Context, common.Address) *uint256.Int {
 	return uint256.NewInt(0)
 }
@@ -181,6 +183,7 @@ func TestCreateHandlerOptions(t *testing.T) {
 		{
 			name: "success without options",
 			assert: func(t *testing.T, got antepkg.HandlerOptions, args handlerArgs) {
+				t.Helper()
 				require.Equal(t, args.cdc, got.Cdc)
 				require.Equal(t, args.accountKeeper, got.AccountKeeper)
 				require.Equal(t, args.bankKeeper, got.BankKeeper)
@@ -207,6 +210,7 @@ func TestCreateHandlerOptions(t *testing.T) {
 				}
 			},
 			assert: func(t *testing.T, got antepkg.HandlerOptions, args handlerArgs) {
+				t.Helper()
 				require.Equal(t, args.expectedIBCKeeper, got.IBCKeeper)
 				require.NotNil(t, got.IBCKeeper, "expected redundant relay decorator to be enabled when WithIBCKeeper is provided")
 				require.Equal(t, args.expectedFeegrant, got.FeegrantKeeper)

@@ -89,7 +89,6 @@ func CreateHandlerOptions(
 	}
 
 	return handlerOptions, nil
-
 }
 
 // Validate checks if the keepers are defined
