@@ -103,9 +103,6 @@ func (options HandlerOptions) Validate() error {
 	if options.BankKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "bank keeper is required for AnteHandler")
 	}
-	if options.IBCKeeper == nil {
-		return errorsmod.Wrap(errortypes.ErrLogic, "ibc keeper is required for AnteHandler")
-	}
 	if options.FeeMarketKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "fee market keeper is required for AnteHandler")
 	}
@@ -121,7 +118,6 @@ func (options HandlerOptions) Validate() error {
 	if options.TxFeeChecker == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
 	}
-
 	if options.PendingTxListener == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "pending tx listener is required for AnteHandler")
 	}
