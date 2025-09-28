@@ -33,12 +33,13 @@ func newCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
 		ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler),
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
-		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper),
 	}
 
 	if options.IBCKeeper != nil {
 		decorators = append(decorators, ibcante.NewRedundantRelayDecorator(options.IBCKeeper))
 	}
+
+	decorators = append(decorators, evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper))
 
 	return sdk.ChainAnteDecorators(
 		decorators...,
