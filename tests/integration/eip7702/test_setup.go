@@ -88,7 +88,7 @@ func (s *IntegrationTestSuite) setupSmartWalletForKey(key testkeyring.Key) {
 	signedAuthorization, err := s.signSetCodeAuthorization(key, authorization)
 	Expect(err).To(BeNil())
 
-	_, err = s.sendSetCodeTx(key, signedAuthorization)
+	err = s.sendSetCodeTx(key, signedAuthorization)
 	Expect(err).To(BeNil(), "error while calling set code tx")
 	Expect(s.network.NextBlock()).To(BeNil())
 	s.checkSetCode(key, s.smartWalletAddr, true)

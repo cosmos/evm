@@ -11,13 +11,13 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	abcitypes "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/precompiles/testutil"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	abcitypes "github.com/cometbft/cometbft/abci/types"
 )
 
 func (s *IntegrationTestSuite) createSetCodeAuthorization(chainID, nonce uint64, contractAddr common.Address) ethtypes.SetCodeAuthorization {
@@ -43,7 +43,7 @@ func (s *IntegrationTestSuite) signSetCodeAuthorization(key testkeyring.Key, aut
 	return authorization, nil
 }
 
-func (s *IntegrationTestSuite) sendSetCodeTx(key testkeyring.Key, signedAuthorization ethtypes.SetCodeAuthorization) (abcitypes.ExecTxResult, error) {
+func (s *IntegrationTestSuite) sendSetCodeTx(key testkeyring.Key, signedAuthorization ethtypes.SetCodeAuthorization) error {
 	// SetCode tx
 	txArgs := evmtypes.EvmTxArgs{
 		To:       &common.Address{},
@@ -52,12 +52,12 @@ func (s *IntegrationTestSuite) sendSetCodeTx(key testkeyring.Key, signedAuthoriz
 			signedAuthorization,
 		},
 	}
-	res, err := s.factory.ExecuteEthTx(key.Priv, txArgs)
+	_, err := s.factory.ExecuteEthTx(key.Priv, txArgs)
 	if err != nil {
-		return abcitypes.ExecTxResult{}, fmt.Errorf("failed to execute eth tx: %w", err)
+		return fmt.Errorf("failed to execute eth tx: %w", err)
 	}
 
-	return res, nil
+	return nil
 }
 
 func (s *IntegrationTestSuite) checkSetCode(key testkeyring.Key, setAddr common.Address, isPass bool) {

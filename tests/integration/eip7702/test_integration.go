@@ -52,7 +52,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 				Expect(err).To(BeNil())
 
-				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				err = s.sendSetCodeTx(user0, signedAuthorization)
 				Expect(err).To(BeNil(), "error while sending SetCode tx")
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -73,7 +73,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 				Expect(err).To(BeNil())
 
-				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				err = s.sendSetCodeTx(user0, signedAuthorization)
 				Expect(err).To(BeNil(), "error while sending SetCode tx")
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -92,7 +92,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 				Expect(err).To(BeNil())
 
-				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				err = s.sendSetCodeTx(user0, signedAuthorization)
 				Expect(err).To(BeNil(), "error while sending SetCode tx")
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -109,7 +109,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 				Expect(err).To(BeNil())
 
-				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				err = s.sendSetCodeTx(user0, signedAuthorization)
 				Expect(err).To(BeNil(), "error while sending SetCode tx")
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -134,7 +134,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 				Expect(err).To(BeNil())
 
-				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				err = s.sendSetCodeTx(user0, signedAuthorization)
 				Expect(err).To(BeNil(), "error while sending SetCode tx")
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -152,7 +152,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.sendSetCodeTx(user0, signedAuthorization)
+					err = s.sendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
@@ -169,7 +169,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.sendSetCodeTx(user0, signedAuthorization)
+					err = s.sendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
@@ -188,7 +188,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					signedAuthorization, err := s.signSetCodeAuthorization(user1, authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.sendSetCodeTx(user0, signedAuthorization)
+					err = s.sendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
@@ -205,7 +205,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.sendSetCodeTx(user0, signedAuthorization)
+					err = s.sendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
