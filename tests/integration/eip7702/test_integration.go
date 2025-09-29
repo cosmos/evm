@@ -296,11 +296,11 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
 					// Get Nonce
-					acc, err := s.grpcHandler.GetEvmAccount(user1.Addr)
+					acc1, err := s.grpcHandler.GetEvmAccount(user1.Addr)
 					Expect(err).To(BeNil(), "failed to get account")
 
 					// Make UserOperation
-					userOp := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
+					userOp := NewUserOperation(user1.Addr, acc1.GetNonce(), swCalldata)
 					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
@@ -333,13 +333,15 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					// Get Nonce
 					acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
 					Expect(err).To(BeNil(), "failed to get account")
+					nonce := acc.GetNonce()
 
 					// Make UserOperations
-					userOp1 := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
+					userOp1 := NewUserOperation(user0.Addr, nonce, swCalldata)
 					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user0.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-					userOp2 := NewUserOperation(user0.Addr, acc.GetNonce()+1, swCalldata)
+					nonce++
+					userOp2 := NewUserOperation(user0.Addr, nonce, swCalldata)
 					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
@@ -372,18 +374,20 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
 					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
-					// Get Nonce
-					acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
-					Expect(err).To(BeNil(), "failed to get account")
-
 					// Make UserOperations
 					// user1 -> user0
-					userOp1 := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
+					acc1, err := s.grpcHandler.GetEvmAccount(user1.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
+
+					userOp1 := NewUserOperation(user1.Addr, acc1.GetNonce(), swCalldata)
 					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user1.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					// user2 -> user0
-					userOp2 := NewUserOperation(user2.Addr, acc.GetNonce()+1, swCalldata)
+					acc2, err := s.grpcHandler.GetEvmAccount(user2.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
+
+					userOp2 := NewUserOperation(user2.Addr, acc2.GetNonce(), swCalldata)
 					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
@@ -408,7 +412,6 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				},
 			}),
 		)
-
 	})
 
 	// Run Ginkgo integration tests

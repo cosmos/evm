@@ -31,7 +31,7 @@ type UserOperation struct {
 func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *UserOperation {
 	return &UserOperation{
 		Sender:               sender,
-		Nonce:                big.NewInt(int64(nonce)),
+		Nonce:                big.NewInt(int64(nonce)), //#nosec G115
 		InitCode:             []byte{},
 		CallData:             calldata,
 		CallGasLimit:         big.NewInt(100000),
