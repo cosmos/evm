@@ -45,7 +45,7 @@ func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *Use
 }
 
 func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey) (*UserOperation, error) {
-	chainID := int64(evmtypes.GetChainConfig().GetChainId()) //#nosec G115
+	chainID := new(big.Int).SetUint64(evmtypes.GetChainConfig().GetChainId())
 
 	addressType, _ := abi.NewType("address", "", nil)
 	uint256Type, _ := abi.NewType("uint256", "", nil)
@@ -78,7 +78,7 @@ func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, pri
 		userOp.MaxPriorityFeePerGas,
 		crypto.Keccak256Hash(userOp.PaymasterAndData),
 		entryPointAddr,
-		big.NewInt(chainID),
+		chainID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack arguments of UserOperation")
