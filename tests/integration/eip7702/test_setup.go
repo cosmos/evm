@@ -13,7 +13,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -22,16 +21,7 @@ const (
 	InitialTestBalance = 1000000000000000000 // 1 atom
 )
 
-var (
-	// callArgs is the default arguments for calling the smart contract.
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
-	// txArgs are the EVM transaction arguments to use in the transactions
-	txArgs evmtypes.EvmTxArgs
-
-	logCheck testutil.LogCheckArgs
-)
+var logCheck testutil.LogCheckArgs
 
 type IntegrationTestSuite struct {
 	suite.Suite

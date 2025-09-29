@@ -2,6 +2,7 @@ package eip7702
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/holiman/uint256"
 
@@ -152,7 +153,7 @@ func (s *IntegrationTestSuite) signSetCodeAuthorization(key testkeyring.Key, aut
 
 func (s *IntegrationTestSuite) sendSetCodeTx(key testkeyring.Key, signedAuthorization ethtypes.SetCodeAuthorization) (abcitypes.ExecTxResult, error) {
 	// SetCode tx
-	txArgs = evmtypes.EvmTxArgs{
+	txArgs := evmtypes.EvmTxArgs{
 		To:       &common.Address{},
 		GasLimit: DefaultGasLimit,
 		AuthorizationList: []ethtypes.SetCodeAuthorization{
@@ -181,11 +182,11 @@ func (s *IntegrationTestSuite) checkSetCode(key testkeyring.Key, setAddr common.
 
 func (s *IntegrationTestSuite) initSmartWallet(key testkeyring.Key, entryPointAddr common.Address) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
 	// Initialize smart wallet
-	txArgs = evmtypes.EvmTxArgs{
+	txArgs := evmtypes.EvmTxArgs{
 		To:       &key.Addr,
 		GasLimit: DefaultGasLimit,
 	}
-	callArgs = testutiltypes.CallArgs{
+	callArgs := testutiltypes.CallArgs{
 		ContractABI: s.smartWalletContract.ABI,
 		MethodName:  "initialize",
 		Args:        []interface{}{key.Addr, entryPointAddr},
@@ -199,10 +200,10 @@ func (s *IntegrationTestSuite) initSmartWallet(key testkeyring.Key, entryPointAd
 
 func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPointAddr common.Address) {
 	// Get smart wallet owner
-	txArgs = evmtypes.EvmTxArgs{
+	txArgs := evmtypes.EvmTxArgs{
 		To: &key.Addr,
 	}
-	callArgs = testutiltypes.CallArgs{
+	callArgs := testutiltypes.CallArgs{
 		ContractABI: s.smartWalletContract.ABI,
 		MethodName:  "owner",
 	}
@@ -233,4 +234,22 @@ func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPoi
 	err = s.smartWalletContract.ABI.UnpackIntoInterface(&entryPoint, "entryPoint", ethRes.Ret)
 	Expect(err).To(BeNil(), "error while unpacking returned data")
 	Expect(entryPoint).To(Equal(entryPointAddr))
+}
+
+func (s *IntegrationTestSuite) checkERC20Balance(addr common.Address, expBalance *big.Int) {
+	txArgs := evmtypes.EvmTxArgs{
+		To: &s.erc20Addr,
+	}
+	callArgs := testutiltypes.CallArgs{
+		ContractABI: s.erc20Contract.ABI,
+		MethodName:  "balanceOf",
+		Args:        []interface{}{addr},
+	}
+	ethRes, err := s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
+	Expect(err).To(BeNil(), "error while calling erc20 balanceOf")
+
+	var balance *big.Int
+	err = s.erc20Contract.ABI.UnpackIntoInterface(&balance, "balanceOf", ethRes.Ret)
+	Expect(err).To(BeNil(), "error while unpacking return data of erc20 balanceOf")
+	Expect(balance).To(Equal(expBalance))
 }

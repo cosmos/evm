@@ -247,12 +247,12 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 				// Handle UserOperation
-				txArgs = evmtypes.EvmTxArgs{
+				txArgs := evmtypes.EvmTxArgs{
 					To:       &s.entryPointAddr,
 					Nonce:    acc.GetNonce(),
 					GasLimit: DefaultGasLimit,
 				}
-				callArgs = testutiltypes.CallArgs{
+				callArgs := testutiltypes.CallArgs{
 					ContractABI: s.entryPointContract.ABI,
 					MethodName:  "handleOps",
 					Args: []interface{}{
@@ -277,36 +277,11 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 						return calldata
 					},
 					postCheck: func() {
-						var balance0, balance1 *big.Int
 						transferAmount := big.NewInt(1000)
 						initialBalance := new(big.Int).Mul(big.NewInt(1e6), (big.NewInt(int64(1e18))))
 
-						// Check User0 Balance
-						txArgs = evmtypes.EvmTxArgs{
-							To: &s.erc20Addr,
-						}
-						callArgs = testutiltypes.CallArgs{
-							ContractABI: s.erc20Contract.ABI,
-							MethodName:  "balanceOf",
-							Args:        []interface{}{user0.Addr},
-						}
-						ethRes, err := s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
-						Expect(err).To(BeNil(), "error while calling erc20 balanceOf")
-
-						err = s.erc20Contract.ABI.UnpackIntoInterface(&balance0, "balanceOf", ethRes.Ret)
-						Expect(err).To(BeNil(), "error while unpacking return data of erc20 balanceOf")
-						Expect(balance0).To(Equal(new(big.Int).Sub(initialBalance, transferAmount)))
-						Expect(s.network.NextBlock()).To(BeNil())
-
-						// Check User1 Balance
-						callArgs.Args = []interface{}{user1.Addr}
-						ethRes, err = s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
-						Expect(err).To(BeNil(), "error while calling erc20 balanceOf")
-
-						err = s.erc20Contract.ABI.UnpackIntoInterface(&balance1, "balanceOf", ethRes.Ret)
-						Expect(err).To(BeNil(), "error while unpacking return data of erc20 balanceOf")
-						Expect(balance1.String()).To(Equal(transferAmount.String()))
-						Expect(s.network.NextBlock()).To(BeNil())
+						s.checkERC20Balance(user0.Addr, new(big.Int).Sub(initialBalance, transferAmount))
+						s.checkERC20Balance(user1.Addr, transferAmount)
 					},
 				}),
 			)
