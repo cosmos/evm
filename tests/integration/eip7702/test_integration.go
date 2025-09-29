@@ -4,20 +4,27 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
+	utiltx "github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	var (
-		s     *IntegrationTestSuite
+		s *IntegrationTestSuite
+
+		validChainID   uint64
+		invalidChainID uint64
+
 		user0 keyring.Key
 		user1 keyring.Key
 	)
@@ -26,18 +33,120 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 		s = NewIntegrationTestSuite(create, options...)
 		s.SetupTest()
 
+		validChainID = evmtypes.GetChainConfig().GetChainId()
+		invalidChainID = 1234
+
 		user0 = s.keyring.GetKey(0)
 		user1 = s.keyring.GetKey(1)
 	})
 
-	Describe("Send SetCode tx", func() {
-		When("Sender of SetCodeTx is same with signer of SetCodeAuthorization", func() {
+	Describe("test SetCode tx with diverse SetCodeAuthorization", func() {
+		Context("if ChainID is invalid", func() {
+			It("should fail", func() {
+				acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+				Expect(err).To(BeNil())
+
+				authorization := s.createSetCodeAuthorization(invalidChainID, acc0.GetNonce()+1, s.smartWalletAddr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+				Expect(err).To(BeNil())
+
+				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				Expect(err).To(BeNil(), "error while sending SetCode tx")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user0, s.smartWalletAddr, false)
+			})
+		})
+
+		// Even if we create SetCodeAuthorization with invalid contract address, SetCode tx succeeds.
+		// It just fails when sending tx with method call input.
+		Context("if input address is invalid address", func() {
+			It("should succeed", func() {
+				acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+				Expect(err).To(BeNil())
+
+				invalidAddr := common.BytesToAddress([]byte("invalid"))
+
+				authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce()+1, invalidAddr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+				Expect(err).To(BeNil())
+
+				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				Expect(err).To(BeNil(), "error while sending SetCode tx")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user0, invalidAddr, true)
+			})
+		})
+
+		Context("if input address is inexisting acount address", func() {
+			It("should succeed", func() {
+				acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+				Expect(err).To(BeNil())
+
+				inexistingAddr := utiltx.GenerateAddress()
+
+				authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce()+1, inexistingAddr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+				Expect(err).To(BeNil())
+
+				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				Expect(err).To(BeNil(), "error while sending SetCode tx")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user0, inexistingAddr, true)
+			})
+		})
+
+		Context("if input address is EoA address", func() {
+			It("should succeed", func() {
+				acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+				Expect(err).To(BeNil())
+
+				authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce()+1, user1.Addr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+				Expect(err).To(BeNil())
+
+				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				Expect(err).To(BeNil(), "error while sending SetCode tx")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user0, user1.Addr, true)
+			})
+		})
+
+		Context("if input address is SELFDESTRUCTED address", func() {
+			It("should succeed", func() {
+				stateDB := s.network.GetStateDB()
+				sdAddr := utiltx.GenerateAddress()
+				stateDB.CreateAccount(sdAddr)
+				stateDB.SetCode(sdAddr, []byte{0x60, 0x00})
+				stateDB.SelfDestruct(sdAddr)
+				Expect(stateDB.Commit()).To(BeNil())
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+				Expect(err).To(BeNil())
+
+				authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce()+1, sdAddr)
+				signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+				Expect(err).To(BeNil())
+
+				_, err = s.sendSetCodeTx(user0, signedAuthorization)
+				Expect(err).To(BeNil(), "error while sending SetCode tx")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				s.checkSetCode(user0, sdAddr, true)
+			})
+		})
+
+		When("sender of SetCodeTx is same with signer of SetCodeAuthorization", func() {
 			Context("if current nonce is set to SetCodeAuthorization", func() {
 				It("should fail", func() {
 					acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
 					Expect(err).To(BeNil())
 
-					authorization := s.createSetCodeAuthorization(acc0.GetNonce())
+					authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce(), s.smartWalletAddr)
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
@@ -45,7 +154,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "error while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					s.checkSetCode(user0, false)
+					s.checkSetCode(user0, s.smartWalletAddr, false)
 				})
 			})
 
@@ -54,7 +163,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
 					Expect(err).To(BeNil())
 
-					authorization := s.createSetCodeAuthorization(acc0.GetNonce() + 1)
+					authorization := s.createSetCodeAuthorization(validChainID, acc0.GetNonce()+1, s.smartWalletAddr)
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
@@ -62,18 +171,18 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					s.checkSetCode(user0, true)
+					s.checkSetCode(user0, s.smartWalletAddr, true)
 				})
 			})
 		})
 
-		When("Sender of SetCodeTx is different with singer of SetCodeAuthorization", func() {
+		When("sender of SetCodeTx is different with singer of SetCodeAuthorization", func() {
 			Context("if current nonce is set to SetCodeAuthorization", func() {
 				It("should succeed", func() {
 					acc1, err := s.grpcHandler.GetEvmAccount(user1.Addr)
 					Expect(err).To(BeNil())
 
-					authorization := s.createSetCodeAuthorization(acc1.GetNonce())
+					authorization := s.createSetCodeAuthorization(validChainID, acc1.GetNonce(), s.smartWalletAddr)
 					signedAuthorization, err := s.signSetCodeAuthorization(user1, authorization)
 					Expect(err).To(BeNil())
 
@@ -81,7 +190,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					s.checkSetCode(user1, true)
+					s.checkSetCode(user1, s.smartWalletAddr, true)
 				})
 			})
 
@@ -90,7 +199,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					acc1, err := s.grpcHandler.GetEvmAccount(user1.Addr)
 					Expect(err).To(BeNil())
 
-					authorization := s.createSetCodeAuthorization(acc1.GetNonce() + 1)
+					authorization := s.createSetCodeAuthorization(validChainID, acc1.GetNonce()+1, s.smartWalletAddr)
 					signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
 					Expect(err).To(BeNil())
 
@@ -98,18 +207,18 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "error is expected while sending SetCode tx")
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					s.checkSetCode(user1, false)
+					s.checkSetCode(user1, s.smartWalletAddr, false)
 				})
 			})
 		})
 	})
 
-	Describe("Send transaction using smart wallet set by eip7702 SetCode", func() {
+	Describe("test simple user operation using smart wallet set by eip7702 SetCode", func() {
 		BeforeEach(func() {
 			s.SetupSmartWallet()
 		})
 
-		Context("Calling erc20 contract methods", func() {
+		Context("calling erc20 contract methods", func() {
 			type TestCase struct {
 				makeCalldata func() []byte
 				postCheck    func()
