@@ -1,6 +1,8 @@
 package eip7702
 
 import (
+	"fmt"
+
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/suite"
 
@@ -20,6 +22,8 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -61,7 +65,6 @@ type IntegrationTestSuite struct {
 	entryPointContract  evmtypes.CompiledContract
 	entryPointAddr      common.Address
 	smartWalletContract evmtypes.CompiledContract
-	smartWalletImplAddr common.Address
 	smartWalletAddr     common.Address
 }
 
@@ -76,7 +79,29 @@ func (s *IntegrationTestSuite) SetupTest() {
 	s.setupTestSuite()
 	s.loadContracts()
 	s.deployContracts()
-	s.setupContracts()
+}
+
+func (s *IntegrationTestSuite) SetupSmartWallet() {
+	user0 := s.keyring.GetKey(0)
+	acc0, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+	Expect(err).To(BeNil())
+
+	// Make authorization (user0 -> smart wallet)
+	authorization := s.createSetCodeAuthorization(acc0.GetNonce() + 1)
+	signedAuthorization, err := s.signSetCodeAuthorization(user0, authorization)
+	Expect(err).To(BeNil())
+
+	// SetCode tx
+	_, err = s.sendSetCodeTx(user0, signedAuthorization)
+	Expect(err).To(BeNil(), "error while calling set code tx")
+	Expect(s.network.NextBlock()).To(BeNil())
+	s.checkSetCode(user0, true)
+
+	// Initialize EntryPoint
+	_, _, err = s.initSmartWallet(user0, s.entryPointAddr)
+	Expect(err).To(BeNil(), "error while initializing smart wallet")
+	Expect(s.network.NextBlock()).To(BeNil())
+	s.checkInitEntrypoint(user0, s.entryPointAddr)
 }
 
 func (s *IntegrationTestSuite) setupTestSuite() {
@@ -173,64 +198,83 @@ func (s *IntegrationTestSuite) deployContracts() {
 	)
 	Expect(err).To(BeNil(), "failed to deploy erc20 contract")
 	Expect(s.network.NextBlock()).To(BeNil())
-	s.smartWalletImplAddr = smartWalletAddr
 	s.smartWalletAddr = smartWalletAddr
 }
 
-func (s *IntegrationTestSuite) setupContracts() {
-	var err error
-	user0 := s.keyring.GetKey(0)
-
-	// Make authorization (user0 -> smart wallet)
-	ecdsaPrivKey, err := user0.Priv.(*ethsecp256k1.PrivKey).ToECDSA()
-	Expect(err).To(BeNil(), "failed to get ecdsa private key")
-
-	acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
-	Expect(err).To(BeNil())
-
-	authorization, err := ethtypes.SignSetCode(ecdsaPrivKey, ethtypes.SetCodeAuthorization{
+func (s *IntegrationTestSuite) createSetCodeAuthorization(nonce uint64) ethtypes.SetCodeAuthorization {
+	return ethtypes.SetCodeAuthorization{
 		ChainID: *uint256.NewInt(evmtypes.GetChainConfig().GetChainId()),
-		Address: s.smartWalletImplAddr,
-		Nonce:   acc.GetNonce() + 1,
-	})
-	Expect(err).To(BeNil(), "failed to sign set code authorization")
+		Address: s.smartWalletAddr,
+		Nonce:   nonce,
+	}
+}
 
+func (s *IntegrationTestSuite) signSetCodeAuthorization(key testkeyring.Key, authorization ethtypes.SetCodeAuthorization) (ethtypes.SetCodeAuthorization, error) {
+	// Make authorization (user0 -> smart wallet)
+	ecdsaPrivKey, err := key.Priv.(*ethsecp256k1.PrivKey).ToECDSA()
+	if err != nil {
+		return ethtypes.SetCodeAuthorization{}, fmt.Errorf("failed to get ecdsa private key: %w", err)
+	}
+
+	authorization, err = ethtypes.SignSetCode(ecdsaPrivKey, authorization)
+	if err != nil {
+		return ethtypes.SetCodeAuthorization{}, fmt.Errorf("failed to sign set code authorization: %w", err)
+	}
+
+	return authorization, nil
+}
+
+func (s *IntegrationTestSuite) sendSetCodeTx(key testkeyring.Key, signedAuthorization ethtypes.SetCodeAuthorization) (abcitypes.ExecTxResult, error) {
 	// SetCode tx
 	txArgs = evmtypes.EvmTxArgs{
 		To:       &common.Address{},
 		GasLimit: DefaultGasLimit,
 		AuthorizationList: []ethtypes.SetCodeAuthorization{
-			authorization,
+			signedAuthorization,
 		},
 	}
-	_, err = s.factory.ExecuteEthTx(user0.Priv, txArgs)
-	Expect(err).To(BeNil(), "error while calling set code tx")
-	Expect(s.network.NextBlock()).To(BeNil())
+	res, err := s.factory.ExecuteEthTx(key.Priv, txArgs)
+	if err != nil {
+		return abcitypes.ExecTxResult{}, fmt.Errorf("failed to execute eth tx: %w", err)
+	}
 
-	// Check set code
-	codeHash := s.network.App.GetEVMKeeper().GetCodeHash(s.network.GetContext(), user0.Addr)
+	return res, nil
+}
+
+func (s *IntegrationTestSuite) checkSetCode(key testkeyring.Key, isPass bool) {
+	codeHash := s.network.App.GetEVMKeeper().GetCodeHash(s.network.GetContext(), key.Addr)
 	code := s.network.App.GetEVMKeeper().GetCode(s.network.GetContext(), codeHash)
 	addr, ok := ethtypes.ParseDelegation(code)
-	Expect(ok).To(Equal(true))
-	Expect(addr).To(Equal(s.smartWalletImplAddr))
+	if isPass {
+		Expect(ok).To(Equal(true))
+		Expect(addr).To(Equal(s.smartWalletAddr))
+	} else {
+		Expect(ok).To(Equal(false))
+	}
+}
 
+func (s *IntegrationTestSuite) initSmartWallet(key testkeyring.Key, entryPointAddr common.Address) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
 	// Initialize smart wallet
 	txArgs = evmtypes.EvmTxArgs{
-		To:       &user0.Addr,
+		To:       &key.Addr,
 		GasLimit: DefaultGasLimit,
 	}
 	callArgs = testutiltypes.CallArgs{
 		ContractABI: s.smartWalletContract.ABI,
 		MethodName:  "initialize",
-		Args:        []interface{}{user0.Addr, s.entryPointAddr},
+		Args:        []interface{}{key.Addr, entryPointAddr},
 	}
-	_, _, err = s.factory.CallContractAndCheckLogs(user0.Priv, txArgs, callArgs, logCheck)
-	Expect(err).To(BeNil(), "error while initializing smart wallet")
-	Expect(s.network.NextBlock()).To(BeNil())
+	res, ethRes, err := s.factory.CallContractAndCheckLogs(key.Priv, txArgs, callArgs, logCheck)
+	if err != nil {
+		return abcitypes.ExecTxResult{}, nil, fmt.Errorf("error while initializing smart wallet: %w", err)
+	}
+	return res, ethRes, nil
+}
 
+func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPointAddr common.Address) {
 	// Get smart wallet owner
 	txArgs = evmtypes.EvmTxArgs{
-		To: &user0.Addr,
+		To: &key.Addr,
 	}
 	callArgs = testutiltypes.CallArgs{
 		ContractABI: s.smartWalletContract.ABI,
@@ -244,14 +288,11 @@ func (s *IntegrationTestSuite) setupContracts() {
 	var owner common.Address
 	err = s.smartWalletContract.ABI.UnpackIntoInterface(&owner, "owner", ethRes.Ret)
 	Expect(err).To(BeNil(), "error while unpacking returned data")
-	Expect(owner).To(Equal(user0.Addr))
+	Expect(owner).To(Equal(key.Addr))
 
 	// Get entry point
-	acc, err = s.grpcHandler.GetEvmAccount(user0.Addr)
-	Expect(err).To(BeNil())
-
 	txArgs = evmtypes.EvmTxArgs{
-		To: &user0.Addr,
+		To: &key.Addr,
 	}
 	callArgs = testutiltypes.CallArgs{
 		ContractABI: s.smartWalletContract.ABI,
@@ -265,5 +306,5 @@ func (s *IntegrationTestSuite) setupContracts() {
 	var entryPoint common.Address
 	err = s.smartWalletContract.ABI.UnpackIntoInterface(&entryPoint, "entryPoint", ethRes.Ret)
 	Expect(err).To(BeNil(), "error while unpacking returned data")
-	Expect(entryPoint).To(Equal(s.entryPointAddr))
+	Expect(entryPoint).To(Equal(entryPointAddr))
 }
