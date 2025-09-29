@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
@@ -216,202 +215,199 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 	})
 
 	Describe("test simple user operation using smart wallet set by eip7702 SetCode", func() {
+		var (
+			user0Balance *big.Int
+			user1Balance *big.Int
+			user2Balance *big.Int
+		)
+
 		BeforeEach(func() {
 			s.SetupSmartWallet()
+
+			user0Balance = s.getERC20Balance(user0.Addr)
+			user1Balance = s.getERC20Balance(user1.Addr)
+			user2Balance = s.getERC20Balance(user2.Addr)
 		})
 
-		Context("calling erc20 contract methods", func() {
-			var (
-				user0Balance *big.Int
-				user1Balance *big.Int
-				user2Balance *big.Int
-			)
+		type TestCase struct {
+			makeUserOps func() []UserOperation
+			getLogCheck func() testutil.LogCheckArgs
+			postCheck   func()
+		}
 
-			type TestCase struct {
-				makeUserOps func() []UserOperation
-				getLogCheck func() testutil.LogCheckArgs
-				postCheck   func()
-			}
+		DescribeTable("test single/batch UserOperations", func(tc TestCase) {
+			// get userOperations and expected events
+			userOps := tc.makeUserOps()
+			eventCheck := tc.getLogCheck()
 
-			BeforeEach(func() {
-				user0Balance = s.getERC20Balance(user0.Addr)
-				user1Balance = s.getERC20Balance(user1.Addr)
-				user2Balance = s.getERC20Balance(user2.Addr)
-			})
+			// send tx
+			_, _, err := s.handleUserOps(user0, userOps, eventCheck)
+			Expect(err).To(BeNil(), "error while calling handleOps")
+			Expect(s.network.NextBlock()).To(BeNil())
 
-			DescribeTable("", func(tc TestCase) {
-				// get userOperations and expected events
-				userOps := tc.makeUserOps()
-				eventCheck := tc.getLogCheck()
+			tc.postCheck()
+		},
+			Entry("single user operation signed by tx sender", TestCase{
+				makeUserOps: func() []UserOperation {
+					transferAmount := big.NewInt(1000)
+					calldata, err := s.erc20Contract.ABI.Pack(
+						"transfer", user1.Addr, transferAmount,
+					)
+					Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
 
-				// send tx
-				_, _, err := s.handleUserOps(user0, userOps, eventCheck)
-				Expect(err).To(BeNil(), "error while calling handleOps")
-				Expect(s.network.NextBlock()).To(BeNil())
+					value := big.NewInt(0)
+					swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
+					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
-				tc.postCheck()
-			},
-				Entry("single user operation signed by tx sender", TestCase{
-					makeUserOps: func() []UserOperation {
-						transferAmount := big.NewInt(1000)
-						calldata, err := s.erc20Contract.ABI.Pack(
-							"transfer", user1.Addr, transferAmount,
-						)
-						Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
+					// Get Nonce
+					acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
 
-						value := big.NewInt(0)
-						swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
-						Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
+					// Make UserOperation
+					userOp := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
+					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user0.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Get Nonce
-						acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
-						Expect(err).To(BeNil(), "failed to get account")
+					return []UserOperation{*userOp}
+				},
+				getLogCheck: func() testutil.LogCheckArgs {
+					return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
+				},
+				postCheck: func() {
+					transferAmount := big.NewInt(1000)
+					expUser0Balance := new(big.Int).Sub(new(big.Int).Set(user0Balance), transferAmount)
+					expUser1Balance := new(big.Int).Add(new(big.Int).Set(user1Balance), transferAmount)
 
-						// Make UserOperation
-						userOp := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
-						userOp, err = SignUserOperation(userOp, s.entryPointAddr, user0.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					s.checkERC20Balance(user0.Addr, expUser0Balance)
+					s.checkERC20Balance(user1.Addr, expUser1Balance)
+				},
+			}),
+			Entry("single user operation signed by other user", TestCase{
+				makeUserOps: func() []UserOperation {
+					transferAmount := big.NewInt(1000)
+					calldata, err := s.erc20Contract.ABI.Pack(
+						"transfer", user2.Addr, transferAmount,
+					)
+					Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
 
-						return []UserOperation{*userOp}
-					},
-					getLogCheck: func() testutil.LogCheckArgs {
-						return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
-					},
-					postCheck: func() {
-						transferAmount := big.NewInt(1000)
-						expUser0Balance := new(big.Int).Sub(new(big.Int).Set(user0Balance), transferAmount)
-						expUser1Balance := new(big.Int).Add(new(big.Int).Set(user1Balance), transferAmount)
+					value := big.NewInt(0)
+					swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
+					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
-						s.checkERC20Balance(user0.Addr, expUser0Balance)
-						s.checkERC20Balance(user1.Addr, expUser1Balance)
-					},
-				}),
-				Entry("single user operation signed by other user", TestCase{
-					makeUserOps: func() []UserOperation {
-						transferAmount := big.NewInt(1000)
-						calldata, err := s.erc20Contract.ABI.Pack(
-							"transfer", user2.Addr, transferAmount,
-						)
-						Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
+					// Get Nonce
+					acc, err := s.grpcHandler.GetEvmAccount(user1.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
 
-						value := big.NewInt(0)
-						swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
-						Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
+					// Make UserOperation
+					userOp := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
+					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Get Nonce
-						acc, err := s.grpcHandler.GetEvmAccount(user1.Addr)
-						Expect(err).To(BeNil(), "failed to get account")
+					return []UserOperation{*userOp}
+				},
+				getLogCheck: func() testutil.LogCheckArgs {
+					return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
+				},
+				postCheck: func() {
+					transferAmount := big.NewInt(1000)
+					expUser1Balance := new(big.Int).Sub(user1Balance, transferAmount)
+					expUser2Balance := new(big.Int).Add(user2Balance, transferAmount)
 
-						// Make UserOperation
-						userOp := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
-						userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					s.checkERC20Balance(user1.Addr, expUser1Balance)
+					s.checkERC20Balance(user2.Addr, expUser2Balance)
+				},
+			}),
+			Entry("batch of user operations signed by tx sender", TestCase{
+				makeUserOps: func() []UserOperation {
+					transferAmount := big.NewInt(1000)
+					calldata, err := s.erc20Contract.ABI.Pack(
+						"transfer", user1.Addr, transferAmount,
+					)
+					Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
 
-						return []UserOperation{*userOp}
-					},
-					getLogCheck: func() testutil.LogCheckArgs {
-						return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
-					},
-					postCheck: func() {
-						transferAmount := big.NewInt(1000)
-						expUser1Balance := new(big.Int).Sub(user1Balance, transferAmount)
-						expUser2Balance := new(big.Int).Add(user2Balance, transferAmount)
+					value := big.NewInt(0)
+					swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
+					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
-						s.checkERC20Balance(user1.Addr, expUser1Balance)
-						s.checkERC20Balance(user2.Addr, expUser2Balance)
-					},
-				}),
-				Entry("batch of user operations signed by tx sender", TestCase{
-					makeUserOps: func() []UserOperation {
-						transferAmount := big.NewInt(1000)
-						calldata, err := s.erc20Contract.ABI.Pack(
-							"transfer", user1.Addr, transferAmount,
-						)
-						Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
+					// Get Nonce
+					acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
 
-						value := big.NewInt(0)
-						swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
-						Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
+					// Make UserOperations
+					userOp1 := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
+					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user0.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Get Nonce
-						acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
-						Expect(err).To(BeNil(), "failed to get account")
+					userOp2 := NewUserOperation(user0.Addr, acc.GetNonce()+1, swCalldata)
+					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Make UserOperations
-						userOp1 := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
-						userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user0.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					return []UserOperation{*userOp1, *userOp2}
+				},
+				getLogCheck: func() testutil.LogCheckArgs {
+					return logCheck.WithExpEvents(
+						"UserOperationEvent", "Transfer",
+						"UserOperationEvent", "Transfer",
+					)
+				},
+				postCheck: func() {
+					transferAmountX2 := big.NewInt(2000)
+					expUser0Balance := new(big.Int).Sub(new(big.Int).Set(user0Balance), transferAmountX2)
+					expUser1Balance := new(big.Int).Add(new(big.Int).Set(user1Balance), transferAmountX2)
 
-						userOp2 := NewUserOperation(user0.Addr, acc.GetNonce()+1, swCalldata)
-						userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					s.checkERC20Balance(user0.Addr, expUser0Balance)
+					s.checkERC20Balance(user1.Addr, expUser1Balance)
+				},
+			}),
+			Entry("batch of user operations signed by other users", TestCase{
+				makeUserOps: func() []UserOperation {
+					transferAmount := big.NewInt(1000)
+					calldata, err := s.erc20Contract.ABI.Pack(
+						"transfer", user0.Addr, transferAmount,
+					)
+					Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
 
-						return []UserOperation{*userOp1, *userOp2}
-					},
-					getLogCheck: func() testutil.LogCheckArgs {
-						return logCheck.WithExpEvents(
-							"UserOperationEvent", "Transfer",
-							"UserOperationEvent", "Transfer",
-						)
-					},
-					postCheck: func() {
-						transferAmountX2 := big.NewInt(2000)
-						expUser0Balance := new(big.Int).Sub(new(big.Int).Set(user0Balance), transferAmountX2)
-						expUser1Balance := new(big.Int).Add(new(big.Int).Set(user1Balance), transferAmountX2)
+					value := big.NewInt(0)
+					swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
+					Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
 
-						s.checkERC20Balance(user0.Addr, expUser0Balance)
-						s.checkERC20Balance(user1.Addr, expUser1Balance)
-					},
-				}),
-				Entry("batch of user operations signed by other users", TestCase{
-					makeUserOps: func() []UserOperation {
-						transferAmount := big.NewInt(1000)
-						calldata, err := s.erc20Contract.ABI.Pack(
-							"transfer", user0.Addr, transferAmount,
-						)
-						Expect(err).To(BeNil(), "error while abi packing erc20 transfer calldata")
+					// Get Nonce
+					acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
+					Expect(err).To(BeNil(), "failed to get account")
 
-						value := big.NewInt(0)
-						swCalldata, err := s.smartWalletContract.ABI.Pack("execute", s.erc20Addr, value, calldata)
-						Expect(err).To(BeNil(), "error while abi packing smart wallet execute calldata")
+					// Make UserOperations
+					// user1 -> user0
+					userOp1 := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
+					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user1.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Get Nonce
-						acc, err := s.grpcHandler.GetEvmAccount(user0.Addr)
-						Expect(err).To(BeNil(), "failed to get account")
+					// user2 -> user0
+					userOp2 := NewUserOperation(user2.Addr, acc.GetNonce()+1, swCalldata)
+					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv)
+					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-						// Make UserOperations
-						// user1 -> user0
-						userOp1 := NewUserOperation(user1.Addr, acc.GetNonce(), swCalldata)
-						userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user1.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					return []UserOperation{*userOp1, *userOp2}
+				},
+				getLogCheck: func() testutil.LogCheckArgs {
+					return logCheck.WithExpEvents(
+						"UserOperationEvent", "Transfer",
+						"UserOperationEvent", "Transfer",
+					)
+				},
+				postCheck: func() {
+					transferAmount := big.NewInt(1000)
+					transferAmountX2 := big.NewInt(2000)
+					expUser0Balance := new(big.Int).Add(new(big.Int).Set(user0Balance), transferAmountX2)
+					expUser1Balance := new(big.Int).Sub(new(big.Int).Set(user1Balance), transferAmount)
+					expUser2Balance := new(big.Int).Sub(new(big.Int).Set(user2Balance), transferAmount)
 
-						// user2 -> user0
-						userOp2 := NewUserOperation(user2.Addr, acc.GetNonce()+1, swCalldata)
-						userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv)
-						Expect(err).To(BeNil(), "failed to sign UserOperation")
+					s.checkERC20Balance(user0.Addr, expUser0Balance)
+					s.checkERC20Balance(user1.Addr, expUser1Balance)
+					s.checkERC20Balance(user2.Addr, expUser2Balance)
+				},
+			}),
+		)
 
-						return []UserOperation{*userOp1, *userOp2}
-					},
-					getLogCheck: func() testutil.LogCheckArgs {
-						return logCheck.WithExpEvents(
-							"UserOperationEvent", "Transfer",
-							"UserOperationEvent", "Transfer",
-						)
-					},
-					postCheck: func() {
-						transferAmount := big.NewInt(1000)
-						transferAmountX2 := big.NewInt(2000)
-						expUser0Balance := new(big.Int).Add(new(big.Int).Set(user0Balance), transferAmountX2)
-						expUser1Balance := new(big.Int).Sub(new(big.Int).Set(user1Balance), transferAmount)
-						expUser2Balance := new(big.Int).Sub(new(big.Int).Set(user2Balance), transferAmount)
-
-						s.checkERC20Balance(user0.Addr, expUser0Balance)
-						s.checkERC20Balance(user1.Addr, expUser1Balance)
-						s.checkERC20Balance(user2.Addr, expUser2Balance)
-					},
-				}),
-			)
-		})
 	})
 
 	// Run Ginkgo integration tests

@@ -3,11 +3,11 @@ package eip7702
 import (
 	"math/big"
 
-	//nolint:revive // dot imports are fine for Ginkgo
-	. "github.com/onsi/gomega"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/ethereum/go-ethereum/common"
+	//nolint:revive // dot imports are fine for Ginkgo
+	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/tests/contracts"
