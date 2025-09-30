@@ -3,8 +3,13 @@ package vm
 import (
 	"math/big"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
+
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	"github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -42,10 +47,45 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 			},
 			nil,
 		},
+		{
+			"success - set code authorization tx",
+			func() *types.MsgEthereumTx {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := ethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+				signedAuth := s.SignSetCodeAuthorization(authority, auth)
+
+				args := types.EvmTxArgs{
+					To:                &target,
+					AuthorizationList: []ethtypes.SetCodeAuthorization{signedAuth},
+				}
+				tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), args)
+				s.Require().NoError(err)
+				return tx.GetMsgs()[0].(*types.MsgEthereumTx)
+			},
+			nil,
+		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Fund fee collector account
+			ctx := s.Network.GetContext()
+			coins := sdktypes.NewCoins(sdktypes.NewCoin(types.GetEVMCoinDenom(), sdkmath.NewInt(1e18)))
+			err := s.Network.App.GetBankKeeper().MintCoins(ctx, "mint", coins)
+			s.Require().NoError(err)
+			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", coins)
+			s.Require().NoError(err)
+
+			// get ethereum msg
 			msg := tc.getMsg()
 
 			// Function to be tested
