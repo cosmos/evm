@@ -32,10 +32,11 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 		name        string
 		getMsg      func() *types.MsgEthereumTx
 		expectedErr error
+		postCheck   func()
 	}{
 		{
-			"success - transfer funds tx",
-			func() *types.MsgEthereumTx {
+			name: "success - transfer funds tx",
+			getMsg: func() *types.MsgEthereumTx {
 				recipient := s.Keyring.GetAddr(1)
 				args := types.EvmTxArgs{
 					To:     &recipient,
@@ -45,11 +46,12 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				s.Require().NoError(err)
 				return tx.GetMsgs()[0].(*types.MsgEthereumTx)
 			},
-			nil,
+			expectedErr: nil,
+			postCheck:   nil,
 		},
 		{
-			"success - set code authorization tx",
-			func() *types.MsgEthereumTx {
+			name: "success - set code authorization tx",
+			getMsg: func() *types.MsgEthereumTx {
 				authority := s.Keyring.GetKey(0)
 				target := s.Keyring.GetAddr(1)
 
@@ -71,7 +73,49 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				s.Require().NoError(err)
 				return tx.GetMsgs()[0].(*types.MsgEthereumTx)
 			},
-			nil,
+			expectedErr: nil,
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				targetAddr := s.Keyring.GetAddr(1)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				delegationAddr, ok := ethtypes.ParseDelegation(code)
+				s.Require().True(ok)
+				s.Require().Equal(targetAddr, delegationAddr)
+			},
+		},
+		{
+			name: "fail - unsigned set code authorization",
+			getMsg: func() *types.MsgEthereumTx {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := ethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				args := types.EvmTxArgs{
+					To:                &target,
+					AuthorizationList: []ethtypes.SetCodeAuthorization{auth},
+				}
+				tx, err := s.Factory.GenerateSignedEthTx(s.Keyring.GetPrivKey(0), args)
+				s.Require().NoError(err)
+				return tx.GetMsgs()[0].(*types.MsgEthereumTx)
+			},
+			expectedErr: nil,
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				_, ok := ethtypes.ParseDelegation(code)
+				s.Require().False(ok)
+				s.Require().Len(code, 0)
+			},
 		},
 	}
 
@@ -85,7 +129,7 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 			err = s.Network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, "mint", "fee_collector", coins)
 			s.Require().NoError(err)
 
-			// get ethereum msg
+			// Get EthereumTx msg
 			msg := tc.getMsg()
 
 			// Function to be tested
@@ -104,6 +148,10 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				s.Require().NotEmpty(events)
 				s.Require().True(utils.ContainsEventType(events.ToABCIEvents(), types.EventTypeEthereumTx))
 				s.Require().True(utils.ContainsEventType(events.ToABCIEvents(), sdktypes.EventTypeMessage))
+			}
+
+			if tc.postCheck != nil {
+				tc.postCheck()
 			}
 
 			err = s.Network.NextBlock()

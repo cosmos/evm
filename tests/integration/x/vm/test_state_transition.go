@@ -904,6 +904,42 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			},
 		},
 		{
+			"fail - unsigned set code authorization is ignored",
+			func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := ethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []ethtypes.SetCodeAuthorization{auth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			false,
+			false,
+			params.TxGas + params.CallNewAccountGas,
+			func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				_, ok := ethtypes.ParseDelegation(code)
+				s.Require().False(ok)
+				s.Require().Len(code, 0)
+			},
+		},
+		{
 			"call contract tx with config param EnableCall = false",
 			func() core.Message {
 				sender := s.Keyring.GetKey(0)
