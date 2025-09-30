@@ -302,4 +302,4 @@ replace (
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
 
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20250926195553-ab96636f3db3
+replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20250930134631-f09ce5a46d14
