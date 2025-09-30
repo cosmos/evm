@@ -3488,6 +3488,159 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 	})
 
+	_ = Describe("Malicious caller contract", func() {
+		var (
+			// s is the precompile test suite to use for the tests
+			s *PrecompileTestSuite
+
+			// stakingCallerContract is the contract instance calling into the staking precompile
+			maliciousContract evmtypes.CompiledContract
+
+			// err is a standard error
+			err error
+
+			// arguments for CreateValidator method
+			defaultDescription = staking.Description{
+				Moniker:         "new node",
+				Identity:        "",
+				Website:         "",
+				SecurityContact: "",
+				Details:         "",
+			}
+			defaultCommission = staking.Commission{
+				Rate:          big.NewInt(100000000000000000),
+				MaxRate:       big.NewInt(100000000000000000),
+				MaxChangeRate: big.NewInt(100000000000000000),
+			}
+			defaultMinSelfDelegation = big.NewInt(1)
+			defaultPubkeyBase64Str   = GenerateBase64PubKey()
+			defaultValue             = big.NewInt(1)
+		)
+
+		BeforeEach(func() {
+			s = NewPrecompileTestSuite(create, options...)
+			s.SetupTest()
+
+			maliciousContract, err = testdata.LoadStakingCallerMaliciousContract()
+			Expect(err).To(BeNil())
+
+			valAddr, err = sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
+			Expect(err).To(BeNil())
+			valAddr2, err = sdk.ValAddressFromBech32(s.network.GetValidators()[1].GetOperator())
+			Expect(err).To(BeNil())
+
+			callArgs = testutiltypes.CallArgs{
+				ContractABI: s.precompile.ABI,
+			}
+
+			precompileAddr := s.precompile.Address()
+			txArgs = evmtypes.EvmTxArgs{
+				To: &precompileAddr,
+			}
+
+			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
+			passCheck = defaultLogCheck.WithExpPass(true)
+			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
+		})
+
+		Context("Calling CreateValidator via constructor", func() {
+			It("should fail", func() {
+				attacker := s.keyring.GetKey(0)
+
+				constructorArgs := []interface{}{
+					defaultDescription,
+					defaultCommission,
+					defaultMinSelfDelegation,
+					defaultPubkeyBase64Str,
+					defaultValue,
+					false,
+					common.Address{},
+				}
+
+				_, err = s.factory.DeployContract(
+					attacker.Priv,
+					evmtypes.EvmTxArgs{
+						Amount: big.NewInt(1e18),
+					},
+					testutiltypes.ContractDeploymentData{
+						Contract:        maliciousContract,
+						ConstructorArgs: constructorArgs,
+					},
+				)
+
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(ContainSubstring(staking.ErrCannotCallFromContract))
+			})
+		})
+
+		Context("Calling CreateValidator via constructor", func() {
+			It("should fail", func() {
+				attacker := s.keyring.GetKey(0)
+
+				// create a new validator
+				newAddr, newPriv := testutiltx.NewAccAddressAndKey()
+				hexAddr := common.BytesToAddress(newAddr.Bytes())
+
+				err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), newAddr, math.NewInt(2e18))
+				Expect(err).To(BeNil(), "error while sending coins")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				description := staking.Description{
+					Moniker:         "new node",
+					Identity:        "",
+					Website:         "",
+					SecurityContact: "",
+					Details:         "",
+				}
+				commission := staking.Commission{
+					Rate:          big.NewInt(100000000000000000),
+					MaxRate:       big.NewInt(100000000000000000),
+					MaxChangeRate: big.NewInt(100000000000000000),
+				}
+				minSelfDelegation := big.NewInt(1)
+				pubkeyBase64Str := "UuhHQmkUh2cPBA6Rg4ei0M2B04cVYGNn/F8SAUsYIb4="
+				value := big.NewInt(1e18)
+
+				createValidatorArgs := testutiltypes.CallArgs{
+					ContractABI: s.precompile.ABI,
+					MethodName:  staking.CreateValidatorMethod,
+					Args:        []interface{}{description, commission, minSelfDelegation, hexAddr, pubkeyBase64Str, value},
+				}
+
+				logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					newPriv,
+					txArgs, createValidatorArgs,
+					logCheckArgs,
+				)
+				Expect(err).To(BeNil(), "error while calling the contract and checking logs")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				// edit validator via contract constructor
+				constructorArgs := []interface{}{
+					defaultDescription,
+					defaultCommission,
+					defaultMinSelfDelegation,
+					defaultPubkeyBase64Str,
+					defaultValue,
+					true,
+					hexAddr,
+				}
+
+				_, err = s.factory.DeployContract(
+					attacker.Priv,
+					evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
+					testutiltypes.ContractDeploymentData{
+						Contract:        maliciousContract,
+						ConstructorArgs: constructorArgs,
+					},
+				)
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(ContainSubstring(staking.ErrCannotCallFromContract))
+			})
+		})
+	})
+
 	// Run Ginkgo integration tests
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Distribution Precompile Suite")
