@@ -43,6 +43,7 @@
 - [\#648](https://github.com/cosmos/evm/pull/648) Move all `ante` logic such as `NewAnteHandler` from the `evmd` package to `evm/ante` so it can be used as library functions.
 - [\#659](https://github.com/cosmos/evm/pull/659) Move configs out of EVMD and deduplicate configs
 - [\#664](https://github.com/cosmos/evm/pull/664) Add EIP-7702 integration test
+- [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 
 ### FEATURES
 
