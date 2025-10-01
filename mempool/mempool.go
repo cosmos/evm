@@ -485,7 +485,7 @@ func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig
 			return fmt.Errorf("failed to encode transaction: %w", err)
 		}
 
-		res, err := clientCtx.BroadcastTxSync(txBytes)
+		res, err := clientCtx.BroadcastTxUnchecked(txBytes)
 		if err != nil {
 			return fmt.Errorf("failed to broadcast transaction %s: %w", ethTx.Hash().Hex(), err)
 		}
