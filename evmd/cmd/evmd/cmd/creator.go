@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"io"
 	"path/filepath"
+
+	"github.com/cosmos/evm/config"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -86,6 +87,13 @@ func (a appCreator) newApp(
 		baseapp.SetIndexEvents(cast.ToStringSlice(appOpts.Get(server.FlagIndexEvents))),
 		baseapp.SetSnapshot(snapshotStore, snapshotOptions),
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
+		baseapp.SetupMemIAVL(
+			homeDir,
+			appOpts,
+			false,
+			false,
+			50000,
+		),
 	}
 
 	return evmd.NewExampleApp(
