@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.3.0
 	github.com/cometbft/cometbft/v2 v2.0.0-rc1
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001090142-62403d5ea7c8
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001182429-a314cb1d6cd7
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/stretchr/testify v1.11.1

@@ -19,7 +19,7 @@ require (
 	github.com/cometbft/cometbft v0.38.18
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001090142-62403d5ea7c8
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001182429-a314cb1d6cd7
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358
@@ -293,7 +293,7 @@ replace (
 	cosmossdk.io/store => cosmossdk.io/store v1.10.0-rc.2.0.20251001110835-8057143a5d44
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001110835-8057143a5d44
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001182429-a314cb1d6cd7
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1

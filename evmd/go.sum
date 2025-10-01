@@ -274,8 +274,8 @@ github.com/cosmos/cosmos-db v1.1.3 h1:7QNT77+vkefostcKkhrzDK9uoIEryzFrU9eoMeaQOP
 github.com/cosmos/cosmos-db v1.1.3/go.mod h1:kN+wGsnwUJZYn8Sy5Q2O0vCYA99MJllkKASbs6Unb9U=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5 h1:eNcayDLpip+zVLRLYafhzLvQlSmyab+RC5W7ZfmxJLA=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5/go.mod h1:hQGLpiIUloJBMdQMMWb/4wRApmI9hjHH05nefC0Ojec=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001110835-8057143a5d44 h1:/pECgzFquo8K+eBkQ5K+9FUXgSEEQk9T81HC9HUmNOE=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001110835-8057143a5d44/go.mod h1:1SlObLrv52w+XRl8xSpVYAEmJxsFiZFHFLySVxSWZJc=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001182429-a314cb1d6cd7 h1:JArGBjOcZ/UApUyxscOrPs4irvZCjHgEQldS7hqYe64=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001182429-a314cb1d6cd7/go.mod h1:1SlObLrv52w+XRl8xSpVYAEmJxsFiZFHFLySVxSWZJc=
 github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397 h1:rSrE/cLcJKtOoXnP8FvukGeW+5GULSwTC4BT9jfAhek=
 github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397/go.mod h1:y3EmWemiUyfoD1GHvpt+k/zOjZnJZ6uMcA/CTsZn5Uw=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=

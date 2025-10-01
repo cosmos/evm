@@ -92,7 +92,7 @@ func (a appCreator) newApp(
 			appOpts,
 			false,
 			false,
-			50000,
+			0, // set cache size to 0 because memiavl is not concurrency safe and we are using blockSTM here.
 		),
 	}
 
