@@ -34,8 +34,8 @@ install=true
 overwrite=""
 BUILD_FOR_DEBUG=false
 ADDITIONAL_USERS=0
-MNEMONIC_FILE=""      # output file (defaults later to $CHAINDIR/mnemonics.yaml)
-MNEMONICS_INPUT=""    # input yaml to prefill dev keys
+MNEMONIC_FILE=""   # output file (defaults later to $CHAINDIR/mnemonics.yaml)
+MNEMONICS_INPUT="" # input yaml to prefill dev keys
 
 usage() {
   cat <<EOF
@@ -55,46 +55,62 @@ EOF
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
-    -y)
-      echo "Flag -y passed -> Overwriting the previous chain data."
-      overwrite="y"; shift
-      ;;
-    -n)
-      echo "Flag -n passed -> Not overwriting the previous chain data."
-      overwrite="n"; shift
-      ;;
-    --no-install)
-      echo "Flag --no-install passed -> Skipping installation of the evmd binary."
-      install=false; shift
-      ;;
-    --remote-debugging)
-      echo "Flag --remote-debugging passed -> Building with remote debugging options."
-      BUILD_FOR_DEBUG=true; shift
-      ;;
-    --additional-users)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --additional-users requires a number."; usage; exit 1
-      fi
-      ADDITIONAL_USERS="$2"; shift 2
-      ;;
-    --mnemonic-file)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --mnemonic-file requires a path."; usage; exit 1
-      fi
-      MNEMONIC_FILE="$2"; shift 2
-      ;;
-    --mnemonics-input)
-      if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
-        echo "Error: --mnemonics-input requires a path."; usage; exit 1
-      fi
-      MNEMONICS_INPUT="$2"; shift 2
-      ;;
-    -h|--help)
-      usage; exit 0
-      ;;
-    *)
-      echo "Unknown flag passed: $key -> Aborting"; usage; exit 1
-      ;;
+  -y)
+    echo "Flag -y passed -> Overwriting the previous chain data."
+    overwrite="y"
+    shift
+    ;;
+  -n)
+    echo "Flag -n passed -> Not overwriting the previous chain data."
+    overwrite="n"
+    shift
+    ;;
+  --no-install)
+    echo "Flag --no-install passed -> Skipping installation of the evmd binary."
+    install=false
+    shift
+    ;;
+  --remote-debugging)
+    echo "Flag --remote-debugging passed -> Building with remote debugging options."
+    BUILD_FOR_DEBUG=true
+    shift
+    ;;
+  --additional-users)
+    if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+      echo "Error: --additional-users requires a number."
+      usage
+      exit 1
+    fi
+    ADDITIONAL_USERS="$2"
+    shift 2
+    ;;
+  --mnemonic-file)
+    if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+      echo "Error: --mnemonic-file requires a path."
+      usage
+      exit 1
+    fi
+    MNEMONIC_FILE="$2"
+    shift 2
+    ;;
+  --mnemonics-input)
+    if [[ -z "${2:-}" || "$2" =~ ^- ]]; then
+      echo "Error: --mnemonics-input requires a path."
+      usage
+      exit 1
+    fi
+    MNEMONICS_INPUT="$2"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown flag passed: $key -> Aborting"
+    usage
+    exit 1
+    ;;
   esac
 done
 
@@ -149,7 +165,8 @@ read_mnemonics_yaml() {
 
 # ---------- yaml writer ----------
 write_mnemonics_yaml() {
-  local file_path="$1"; shift
+  local file_path="$1"
+  shift
   local -a mns=("$@")
   mkdir -p "$(dirname "$file_path")"
   {
@@ -157,7 +174,7 @@ write_mnemonics_yaml() {
     for m in "${mns[@]}"; do
       printf '  - "%s"\n' "$m"
     done
-  } > "$file_path"
+  } >"$file_path"
   echo "Wrote mnemonics to $file_path"
 }
 
@@ -189,32 +206,34 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   # dev2 address 0x40a0cb1C63e026A81B55EE1308586E21eec1eFa9 | cosmos1gzsvk8rruqn2sx64acfsskrwy8hvrmafqkaze8
   # dev2's private key: 0x3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9 # gitleaks:allow
 
-	# dev3 address 0x498B5AeC5D439b733dC2F58AB489783A23FB26dA | cosmos1fx944mzagwdhx0wz7k9tfztc8g3lkfk6rrgv6l
-	# dev3's private key: 0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b # gitleaks:allow
+  # dev3 address 0x498B5AeC5D439b733dC2F58AB489783A23FB26dA | cosmos1fx944mzagwdhx0wz7k9tfztc8g3lkfk6rrgv6l
+  # dev3's private key: 0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b # gitleaks:allow
   default_mnemonics=(
-    "copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom" # dev0
+    "copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom"              # dev0
     "maximum display century economy unlock van census kite error heart snow filter midnight usage egg venture cash kick motor survey drastic edge muffin visual" # dev1
-    "will wear settle write dance topic tape sea glory hotel oppose rebel client problem era video gossip glide during yard balance cancel file rose" # dev2
-    "doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch" # dev3
+    "will wear settle write dance topic tape sea glory hotel oppose rebel client problem era video gossip glide during yard balance cancel file rose"             # dev2
+    "doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch"        # dev3
   )
 
   provided_mnemonics=()
   if [[ -n "$MNEMONICS_INPUT" ]]; then
     if [[ ! -f "$MNEMONICS_INPUT" ]]; then
-      echo "mnemonics input file not found: $MNEMONICS_INPUT"; exit 1
+      echo "mnemonics input file not found: $MNEMONICS_INPUT"
+      exit 1
     fi
 
     tmpfile="$(mktemp -t mnemonics.XXXXXX)"
-    read_mnemonics_yaml "$MNEMONICS_INPUT" > "$tmpfile"
+    read_mnemonics_yaml "$MNEMONICS_INPUT" >"$tmpfile"
 
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
-      provided_mnemonics+=( "$line" )
-    done < "$tmpfile"
+      provided_mnemonics+=("$line")
+    done <"$tmpfile"
     rm -f "$tmpfile"
 
     if [[ ${#provided_mnemonics[@]} -eq 0 ]]; then
-      echo "no mnemonics found in $MNEMONICS_INPUT (expected a list under 'mnemonics:')"; exit 1
+      echo "no mnemonics found in $MNEMONICS_INPUT (expected a list under 'mnemonics:')"
+      exit 1
     fi
   fi
 
@@ -247,7 +266,9 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   jq '.app_state.erc20.native_precompiles=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
   jq '.app_state.erc20.token_pairs=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"atest",enabled:true}]' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-  jq '.consensus.params.block.max_gas="10000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.consensus.params.block.max_gas="1000000000"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.consensus.params.block.max_bytes="104857600"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+  jq '.app_state.feemarket.params.no_base_fee=true' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
   # Change proposal periods
   sed -i.bak 's/"max_deposit_period": "172800s"/"max_deposit_period": "30s"/g' "$GENESIS"
@@ -283,7 +304,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   fi
 
   # Process all dev mnemonics (provided or default)
-  for ((i=0; i<${#dev_mnemonics[@]}; i++)); do
+  for ((i = 0; i < ${#dev_mnemonics[@]}; i++)); do
 
     keyname="dev${i}"
     mnemonic="${dev_mnemonics[i]}"
@@ -298,8 +319,8 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
   done
 
   if [[ "$ADDITIONAL_USERS" -gt 0 ]]; then
-    start_index=${#dev_mnemonics[@]}   # continue after last provided/default entry
-    for ((i=0; i<ADDITIONAL_USERS; i++)); do
+    start_index=${#dev_mnemonics[@]} # continue after last provided/default entry
+    for ((i = 0; i < ADDITIONAL_USERS; i++)); do
       idx=$((start_index + i))
       keyname="dev${idx}"
 
@@ -313,7 +334,8 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
       user_mnemonic="$(echo "$user_mnemonic" | tr -d '\r')"
 
       if [[ -z "$user_mnemonic" ]]; then
-        echo "failed to capture mnemonic for $keyname"; exit 1
+        echo "failed to capture mnemonic for $keyname"
+        exit 1
       fi
 
       final_mnemonics+=("$user_mnemonic")
@@ -339,10 +361,10 @@ fi
 
 # Start the node
 evmd start "$TRACE" \
-	--pruning nothing \
-	--log_level $LOGLEVEL \
-	--minimum-gas-prices=0atest \
-	--evm.min-tip=0 \
-	--home "$CHAINDIR" \
-	--json-rpc.api eth,txpool,personal,net,debug,web3 \
-	--chain-id "$CHAINID"
+  --pruning nothing \
+  --log_level $LOGLEVEL \
+  --minimum-gas-prices=0atest \
+  --evm.min-tip=0 \
+  --home "$CHAINDIR" \
+  --json-rpc.api eth,txpool,personal,net,debug,web3 \
+  --chain-id "$CHAINID"

@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.3.0
 	github.com/cometbft/cometbft/v2 v2.0.0-rc1
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001193956-c9fd91277f2d
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001222600-082e0bf5d26e
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/stretchr/testify v1.11.1
@@ -45,7 +45,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.5 // indirect
 	github.com/cockroachdb/redact v1.1.6 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb // indirect
-	github.com/cometbft/cometbft v0.38.19-0.20251001193048-81ad76e4557c // indirect
+	github.com/cometbft/cometbft v0.38.19-0.20251001222208-9697086f3007 // indirect
 	github.com/cometbft/cometbft-db v1.0.4 // indirect
 	github.com/cometbft/cometbft/api v1.1.0-rc1 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
