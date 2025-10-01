@@ -3,7 +3,7 @@ module github.com/cosmos/evm/evmd
 go 1.25.0
 
 replace (
-	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20251001111754-952a670d0776
+	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20251001130541-c3f723969a6e
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001120821-f3d593897a39
 )
 
