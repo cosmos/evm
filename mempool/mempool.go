@@ -27,7 +27,10 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.ExtMempool = &ExperimentalEVMMempool{}
+var (
+	_ sdkmempool.ExtMempool         = &ExperimentalEVMMempool{}
+	_ sdkmempool.AsyncInsertMempool = &ExperimentalEVMMempool{}
+)
 
 const (
 	// SubscriberName is the name of the event bus subscriber for the EVM mempool
@@ -241,6 +244,21 @@ func (m *ExperimentalEVMMempool) Insert(goCtx context.Context, tx sdk.Tx) error 
 		m.logger.Debug("Cosmos transaction inserted successfully")
 	}
 	return err
+}
+
+// InsertAsync implements asynchronous insertion of transactions into the mempool.
+// It returns immediately while the actual insertion happens in the background,
+// improving performance by not blocking CometBFT's mempool operations.
+func (m *ExperimentalEVMMempool) InsertAsync(goCtx context.Context, tx sdk.Tx) error {
+	// Launch async insertion and return immediately
+	go func() {
+		if err := m.Insert(goCtx, tx); err != nil {
+			m.logger.Error("async mempool insertion failed", "error", err)
+		}
+	}()
+
+	// Return immediately without waiting for insertion to complete
+	return nil
 }
 
 // InsertInvalidNonce handles transactions that failed with nonce gap errors.

@@ -3,8 +3,8 @@ module github.com/cosmos/evm/evmd
 go 1.25.0
 
 replace (
-	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20251001130541-c3f723969a6e
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001120821-f3d593897a39
+	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20251001191257-c0aba3017384
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001192626-b6ee5b5c5bbc
 )
 
 require (
@@ -21,7 +21,7 @@ require (
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/cometbft/cometbft v0.38.18
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001120821-f3d593897a39
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001192626-b6ee5b5c5bbc
 	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.0

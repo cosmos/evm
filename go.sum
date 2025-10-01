@@ -249,8 +249,8 @@ github.com/cockroachdb/redact v1.1.6/go.mod h1:BVNblN9mBWFyMyqK1k3AAiSxhvhfK2oOZ
 github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb h1:3bCgBvB8PbJVMX1ouCcSIxvsqKPYM7gs72o0zC76n9g=
 github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb/go.mod h1:7nc4anLGjupUW/PeY5qiNYsdNXj7zopG+eqsS7To5IQ=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd/go.mod h1:sE/e/2PUdi/liOCUjSTXgM1o87ZssimdTWN964YiIeI=
-github.com/cometbft/cometbft v0.0.0-20251001130541-c3f723969a6e h1:ATvyVEhdn1wZl6vcwNsclF28dghmy8b/cRc+xg2SouE=
-github.com/cometbft/cometbft v0.0.0-20251001130541-c3f723969a6e/go.mod h1:HP1bEXBhQreWRbYcZg69rlB3vtoWUR5EF4wuSh990vY=
+github.com/cometbft/cometbft v0.0.0-20251001191257-c0aba3017384 h1:50JX5VZhg+gV7oTL+C5zKr9/PQkQIgWVydeH6qANg6U=
+github.com/cometbft/cometbft v0.0.0-20251001191257-c0aba3017384/go.mod h1:HP1bEXBhQreWRbYcZg69rlB3vtoWUR5EF4wuSh990vY=
 github.com/cometbft/cometbft-db v0.14.1 h1:SxoamPghqICBAIcGpleHbmoPqy+crij/++eZz3DlerQ=
 github.com/cometbft/cometbft-db v0.14.1/go.mod h1:KHP1YghilyGV/xjD5DP3+2hyigWx0WTp9X+0Gnx0RxQ=
 github.com/consensys/gnark-crypto v0.18.0 h1:vIye/FqI50VeAr0B3dx+YjeIvmc3LWz4yEfbWBpTUf0=
@@ -269,8 +269,8 @@ github.com/cosmos/cosmos-db v1.1.3 h1:7QNT77+vkefostcKkhrzDK9uoIEryzFrU9eoMeaQOP
 github.com/cosmos/cosmos-db v1.1.3/go.mod h1:kN+wGsnwUJZYn8Sy5Q2O0vCYA99MJllkKASbs6Unb9U=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5 h1:eNcayDLpip+zVLRLYafhzLvQlSmyab+RC5W7ZfmxJLA=
 github.com/cosmos/cosmos-proto v1.0.0-beta.5/go.mod h1:hQGLpiIUloJBMdQMMWb/4wRApmI9hjHH05nefC0Ojec=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001120821-f3d593897a39 h1:Lpi+hiqLJuoLB9zhCovIdPulcXUplMV7Xjv0oOlQY6U=
-github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001120821-f3d593897a39/go.mod h1:opfBVIbZEzszY65QYkIqaqJ6h2a1kINNmKufJ7B2Goc=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001192626-b6ee5b5c5bbc h1:r01g8blV3AenOBgWhhAXhYQjhrzmn7MReWW4VllkhRc=
+github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251001192626-b6ee5b5c5bbc/go.mod h1:ozW0bBP42qVLDLuxG923aUpOroLZSLBf1Dy0Y7Kxk3A=
 github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397 h1:rSrE/cLcJKtOoXnP8FvukGeW+5GULSwTC4BT9jfAhek=
 github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397/go.mod h1:y3EmWemiUyfoD1GHvpt+k/zOjZnJZ6uMcA/CTsZn5Uw=
 github.com/cosmos/go-bip39 v1.0.0 h1:pcomnQdrdH22njcAatO0yWojsUnCO3y2tNoV1cb6hHY=
