@@ -44,7 +44,14 @@ go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
 --run TestExceptions --verbose --binary evmd --block-time 5s --chain-id local-4221
 ```
 
-## Run Entire test
+### Run EIP-7702 test
+
+```shell
+go test -p 1 -mod=readonly -tags='system_test' -v ./... \
+--run TestEIP7702 --verbose --binary evmd --block-time 5s --chain-id local-4221
+```
+
+## Run all tests
 
 ```shell
 make test

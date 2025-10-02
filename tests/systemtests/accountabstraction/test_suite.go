@@ -205,7 +205,7 @@ func (s *TestSuite) InvokeCounter(accID string, method string, args ...interface
 		return common.Hash{}, fmt.Errorf("failed to send counter tx: %w", err)
 	}
 
-	receipt, err := s.EthClient.WaitForCommit("nodeID", signedTx.Hash().Hex(), time.Second*10)
+	receipt, err := s.EthClient.WaitForCommit("node0", signedTx.Hash().Hex(), time.Second*10)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch counter tx receipt: %w", err)
 	}

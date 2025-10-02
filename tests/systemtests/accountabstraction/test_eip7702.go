@@ -50,7 +50,7 @@ func TestEIP7702(t *testing.T) {
 			_, err := s.SendSetCodeTx(user0, signedCleanup0, signedCleanup1)
 			Expect(err).To(BeNil(), "error while clearing SetCode delegation")
 
-			s.AwaitNBlocks(t, 1)
+			s.AwaitNBlocks(t, 2)
 			s.CheckSetCode(user0, common.Address{}, false)
 			s.CheckSetCode(user1, common.Address{}, false)
 		})
@@ -174,7 +174,7 @@ func TestEIP7702(t *testing.T) {
 		)
 
 		Describe("executes counter contract methods via delegated account", func() {
-			Context("if contract code is set to EoA", func() {
+			Context("when delegation is active", func() {
 				It("should succeed", func() {
 					counterAddr := s.GetCounterAddr()
 
@@ -199,6 +199,34 @@ func TestEIP7702(t *testing.T) {
 					value, err := s.QueryCounterNumber(user0)
 					Expect(err).To(BeNil(), "failed to query counter value")
 					Expect(value.Uint64()).To(Equal(uint64(1)))
+				})
+			})
+
+			Context("after delegation has been revoked", func() {
+				It("should fail", func() {
+					counterAddr := s.GetCounterAddr()
+					chainID := s.GetChainID()
+
+					authorization := createSetCodeAuthorization(chainID, s.GetNonce(user0)+1, counterAddr)
+					signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(user0), authorization)
+					Expect(err).To(BeNil())
+
+					_, err = s.SendSetCodeTx(user0, signedAuthorization)
+					Expect(err).To(BeNil(), "error while sending SetCode tx")
+					s.AwaitNBlocks(t, 1)
+					s.CheckSetCode(user0, counterAddr, true)
+
+					cleanup := createSetCodeAuthorization(chainID, s.GetNonce(user0)+1, common.Address{})
+					signedCleanup, err := signSetCodeAuthorization(s.GetPrivKey(user0), cleanup)
+					Expect(err).To(BeNil())
+
+					_, err = s.SendSetCodeTx(user0, signedCleanup)
+					Expect(err).To(BeNil(), "error while clearing SetCode delegation")
+					s.AwaitNBlocks(t, 1)
+					s.CheckSetCode(user0, common.Address{}, false)
+
+					_, err = s.InvokeCounter(user0, "increment")
+					Expect(err).NotTo(BeNil(), "counter invocation should fail once delegation is cleared")
 				})
 			})
 		})

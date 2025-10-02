@@ -137,7 +137,7 @@ func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (comm
 		return common.Address{}, fmt.Errorf("failed to send contract deployment tx: %w", err)
 	}
 
-	receipt, err := ethClient.WaitForCommit("nodeID", signedTx.Hash().Hex(), time.Second*10)
+	receipt, err := ethClient.WaitForCommit("node0", signedTx.Hash().Hex(), time.Second*10)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to fetch set code tx receipt: %w", err)
 	}
@@ -147,8 +147,4 @@ func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (comm
 	}
 
 	return receipt.ContractAddress, nil
-}
-
-type receiptProvider interface {
-	TransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error)
 }
