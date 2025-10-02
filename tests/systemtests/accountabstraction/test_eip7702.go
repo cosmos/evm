@@ -47,10 +47,10 @@ func TestEIP7702(t *testing.T) {
 			signedCleanup1, signErr := signSetCodeAuthorization(s.GetPrivKey(user1), cleanupAuth1)
 			Expect(signErr).To(BeNil())
 
-			_, err := s.SendSetCodeTx(user0, signedCleanup0, signedCleanup1)
+			txHash, err := s.SendSetCodeTx(user0, signedCleanup0, signedCleanup1)
 			Expect(err).To(BeNil(), "error while clearing SetCode delegation")
 
-			s.AwaitNBlocks(t, 2)
+			s.WaitForCommit(txHash)
 			s.CheckSetCode(user0, common.Address{}, false)
 			s.CheckSetCode(user1, common.Address{}, false)
 		})
@@ -69,10 +69,9 @@ func TestEIP7702(t *testing.T) {
 			signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(tc.authSigner), authorization)
 			Expect(err).To(BeNil())
 
-			_, err = s.SendSetCodeTx(tc.txSender, signedAuthorization)
+			txHash, err := s.SendSetCodeTx(tc.txSender, signedAuthorization)
 			Expect(err).To(BeNil(), "error while sending SetCode tx")
-			s.AwaitNBlocks(t, 1)
-
+			s.WaitForCommit(txHash)
 			s.CheckSetCode(tc.authSigner, tc.authAddress(), tc.expDelegation)
 		},
 			Entry("setCode with invalid chainID should fail", testCase{
@@ -183,18 +182,18 @@ func TestEIP7702(t *testing.T) {
 					signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(user0), authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.SendSetCodeTx(user0, signedAuthorization)
+					txHash, err := s.SendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error while sending SetCode tx")
-					s.AwaitNBlocks(t, 1)
+					s.WaitForCommit(txHash)
 					s.CheckSetCode(user0, counterAddr, true)
 
-					_, err = s.InvokeCounter(user0, "setNumber", big.NewInt(0))
+					txHash, err = s.InvokeCounter(user0, "setNumber", big.NewInt(0))
 					Expect(err).To(BeNil(), "failed to reset counter")
-					s.AwaitNBlocks(t, 1)
+					s.WaitForCommit(txHash)
 
-					_, err = s.InvokeCounter(user0, "increment")
+					txHash, err = s.InvokeCounter(user0, "increment")
 					Expect(err).To(BeNil(), "failed to increment counter")
-					s.AwaitNBlocks(t, 1)
+					s.WaitForCommit(txHash)
 
 					value, err := s.QueryCounterNumber(user0)
 					Expect(err).To(BeNil(), "failed to query counter value")
@@ -203,7 +202,7 @@ func TestEIP7702(t *testing.T) {
 			})
 
 			Context("after delegation has been revoked", func() {
-				It("should fail", func() {
+				It("should no longer execute counter methods", func() {
 					counterAddr := s.GetCounterAddr()
 					chainID := s.GetChainID()
 
@@ -211,22 +210,27 @@ func TestEIP7702(t *testing.T) {
 					signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(user0), authorization)
 					Expect(err).To(BeNil())
 
-					_, err = s.SendSetCodeTx(user0, signedAuthorization)
+					txHash, err := s.SendSetCodeTx(user0, signedAuthorization)
 					Expect(err).To(BeNil(), "error while sending SetCode tx")
-					s.AwaitNBlocks(t, 1)
+					s.WaitForCommit(txHash)
 					s.CheckSetCode(user0, counterAddr, true)
 
 					cleanup := createSetCodeAuthorization(chainID, s.GetNonce(user0)+1, common.Address{})
 					signedCleanup, err := signSetCodeAuthorization(s.GetPrivKey(user0), cleanup)
 					Expect(err).To(BeNil())
 
-					_, err = s.SendSetCodeTx(user0, signedCleanup)
+					txHash, err = s.SendSetCodeTx(user0, signedCleanup)
 					Expect(err).To(BeNil(), "error while clearing SetCode delegation")
-					s.AwaitNBlocks(t, 1)
+					s.WaitForCommit(txHash)
 					s.CheckSetCode(user0, common.Address{}, false)
 
-					_, err = s.InvokeCounter(user0, "increment")
-					Expect(err).NotTo(BeNil(), "counter invocation should fail once delegation is cleared")
+					txHash, err = s.InvokeCounter(user0, "increment")
+					Expect(err).To(BeNil(), "counter invocation tx should be accepted but do nothing")
+					s.WaitForCommit(txHash)
+
+					value, err := s.QueryCounterNumber(user0)
+					Expect(err).To(BeNil(), "failed to query counter value after revocation")
+					Expect(value.Uint64()).To(Equal(uint64(0)), "counter value should remain unchanged without delegation")
 				})
 			})
 		})

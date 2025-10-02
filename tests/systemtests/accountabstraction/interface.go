@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -13,7 +12,7 @@ import (
 type AccountAbstractionTestSuite interface {
 	// Lifecycle
 	SetupTest(t *testing.T)
-	AwaitNBlocks(t *testing.T, n int64, duration ...time.Duration)
+	WaitForCommit(txHash common.Hash)
 
 	// Query helpers
 	GetChainID() uint64

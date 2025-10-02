@@ -48,7 +48,7 @@ go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
 
 ```shell
 go test -p 1 -mod=readonly -tags='system_test' -v ./... \
---run TestEIP7702 --verbose --binary evmd --block-time 5s --chain-id local-4221
+--run TestEIP7702 --verbose --binary evmd --block-time 3s --chain-id local-4221
 ```
 
 ## Run all tests

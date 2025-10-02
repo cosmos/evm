@@ -52,6 +52,12 @@ func (s *TestSuite) SetupTest(t *testing.T) {
 	s.counterABI = counterABI
 }
 
+// WaitForCommit waits for a commit of given transaction
+func (s *TestSuite) WaitForCommit(txHash common.Hash) {
+	_, err := s.EthClient.WaitForCommit("node0", txHash.Hex(), time.Second*10)
+	Expect(err).To(BeNil())
+}
+
 // GetChainID returns chain id of test network
 func (s *TestSuite) GetChainID() uint64 {
 	return s.EthClient.ChainID.Uint64()
@@ -239,6 +245,9 @@ func (s *TestSuite) QueryCounterNumber(accID string) (*big.Int, error) {
 	output, err := ethCli.CallContract(ctx, callMsg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call counter contract: %w", err)
+	}
+	if len(output) == 0 {
+		return big.NewInt(0), nil
 	}
 
 	values, err := s.counterABI.Unpack("number", output)
