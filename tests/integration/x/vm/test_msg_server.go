@@ -50,7 +50,7 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 			postCheck:   nil,
 		},
 		{
-			name: "success - set code authorization tx",
+			name: "success - set code authorization tx (EIP-7702)",
 			getMsg: func() *types.MsgEthereumTx {
 				authority := s.Keyring.GetKey(0)
 				target := s.Keyring.GetAddr(1)

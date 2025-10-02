@@ -860,7 +860,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			nil,
 		},
 		{
-			"success - applies set code authorization",
+			"success - applies set code authorization (EIP-7702)",
 			func() core.Message {
 				authority := s.Keyring.GetKey(0)
 				target := s.Keyring.GetAddr(1)
@@ -904,7 +904,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			},
 		},
 		{
-			"fail - unsigned set code authorization is ignored",
+			"fail - unsigned set code authorization is ignored (EIP-7702)",
 			func() core.Message {
 				authority := s.Keyring.GetKey(0)
 				target := s.Keyring.GetAddr(1)
