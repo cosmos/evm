@@ -193,6 +193,10 @@ func (ec *EthClient) CodeAt(nodeID, accID string) ([]byte, error) {
 	defer cancel()
 
 	blockNumber, err := ec.Clients[nodeID].BlockNumber(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query block number: %w", err)
+	}
+
 	code, err := ec.Clients[nodeID].CodeAt(ctx, acc.Address, big.NewInt(int64(blockNumber)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query code for %s: %w", accID, err)
