@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethereum"
 	"github.com/holiman/uint256"
 	"github.com/tidwall/gjson"
 )
@@ -138,7 +137,7 @@ func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (comm
 		return common.Address{}, fmt.Errorf("failed to send contract deployment tx: %w", err)
 	}
 
-	receipt, err := waitForReceipt(ctx, ethCli, signedTx.Hash())
+	receipt, err := ethClient.WaitForCommit("nodeID", signedTx.Hash().Hex(), time.Second*10)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to fetch set code tx receipt: %w", err)
 	}
@@ -148,27 +147,6 @@ func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (comm
 	}
 
 	return receipt.ContractAddress, nil
-}
-
-func waitForReceipt(ctx context.Context, provider receiptProvider, hash common.Hash) (*ethtypes.Receipt, error) {
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("timed out waiting for receipt %s", hash.Hex())
-		case <-ticker.C:
-			receipt, err := provider.TransactionReceipt(ctx, hash)
-			if err != nil {
-				if errors.Is(err, ethereum.NotFound) {
-					continue
-				}
-				return nil, fmt.Errorf("failed to fetch receipt %s: %w", hash.Hex(), err)
-			}
-			return receipt, nil
-		}
-	}
 }
 
 type receiptProvider interface {

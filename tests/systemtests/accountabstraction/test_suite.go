@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -204,7 +205,7 @@ func (s *TestSuite) InvokeCounter(accID string, method string, args ...interface
 		return common.Hash{}, fmt.Errorf("failed to send counter tx: %w", err)
 	}
 
-	receipt, err := waitForReceipt(ctx, ethCli, signedTx.Hash())
+	receipt, err := s.EthClient.WaitForCommit("nodeID", signedTx.Hash().Hex(), time.Second*10)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch counter tx receipt: %w", err)
 	}
