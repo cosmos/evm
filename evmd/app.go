@@ -215,7 +215,7 @@ func NewExampleApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
-	evmChainID uint64, // TODO:VLAD - Remove this
+	evmChainID uint64,                    // TODO:VLAD - Remove this
 	evmAppOptions evmconfig.EVMOptionsFn, // TODO:VLAD - Remove this
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
@@ -228,6 +228,7 @@ func NewExampleApp(
 
 	bAppOpts := append(baseAppOptions, baseapp.SetOptimisticExecution())
 
+	bAppOpts = append(bAppOpts, baseapp.SetupMemIAVL(defaultNodeHome, appOpts, false, false, 0))
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
@@ -441,7 +442,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 

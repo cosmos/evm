@@ -86,13 +86,6 @@ func (a appCreator) newApp(
 		baseapp.SetTrace(cast.ToBool(appOpts.Get(server.FlagTrace))),
 		baseapp.SetIndexEvents(cast.ToStringSlice(appOpts.Get(server.FlagIndexEvents))),
 		baseapp.SetSnapshot(snapshotStore, snapshotOptions),
-		baseapp.SetupMemIAVL(
-			homeDir,
-			appOpts,
-			false,
-			false,
-			0, // set cache size to 0 because memiavl is not concurrency safe and we are using blockSTM here.
-		),
 	}
 
 	return evmd.NewExampleApp(

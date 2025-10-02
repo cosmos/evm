@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"io"
 	"os"
+
+	"github.com/cosmos/evm/config"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
