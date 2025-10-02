@@ -1,6 +1,7 @@
 package accountabstraction
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,7 @@ func TestEIP7702(t *testing.T) {
 		user1 = "acc1"
 	)
 
-	Describe("test SetCode tx with diverse SetCodeAuthorization", Ordered, func() {
+	Describe("test EIP-7702 scenorios", Ordered, func() {
 		var (
 			s AccountAbstractionTestSuite
 		)
@@ -80,7 +81,7 @@ func TestEIP7702(t *testing.T) {
 					return s.GetNonce(user0) + 1
 				},
 				authAddress: func() common.Address {
-					return s.GetSmartWalletAddr()
+					return s.GetCounterAddr()
 				},
 				authSigner:    user0,
 				txSender:      user0,
@@ -128,7 +129,7 @@ func TestEIP7702(t *testing.T) {
 					return s.GetNonce(user0)
 				},
 				authAddress: func() common.Address {
-					return s.GetSmartWalletAddr()
+					return s.GetCounterAddr()
 				},
 				authSigner:    user0,
 				txSender:      user0,
@@ -140,7 +141,7 @@ func TestEIP7702(t *testing.T) {
 					return s.GetNonce(user0) + 1
 				},
 				authAddress: func() common.Address {
-					return s.GetSmartWalletAddr()
+					return s.GetCounterAddr()
 				},
 				authSigner:    user0,
 				txSender:      user0,
@@ -152,7 +153,7 @@ func TestEIP7702(t *testing.T) {
 					return s.GetNonce(user1)
 				},
 				authAddress: func() common.Address {
-					return s.GetSmartWalletAddr()
+					return s.GetCounterAddr()
 				},
 				authSigner:    user1,
 				txSender:      user0,
@@ -164,13 +165,43 @@ func TestEIP7702(t *testing.T) {
 					return s.GetNonce(user1) + 1
 				},
 				authAddress: func() common.Address {
-					return s.GetSmartWalletAddr()
+					return s.GetCounterAddr()
 				},
 				authSigner:    user1,
 				txSender:      user0,
 				expDelegation: false,
 			}),
 		)
+
+		Describe("executes counter contract methods via delegated account", func() {
+			Context("if contract code is set to EoA", func() {
+				It("should succeed", func() {
+					counterAddr := s.GetCounterAddr()
+
+					chainID := s.GetChainID()
+					authorization := createSetCodeAuthorization(chainID, s.GetNonce(user0)+1, counterAddr)
+					signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(user0), authorization)
+					Expect(err).To(BeNil())
+
+					_, err = s.SendSetCodeTx(user0, signedAuthorization)
+					Expect(err).To(BeNil(), "error while sending SetCode tx")
+					s.AwaitNBlocks(t, 1)
+					s.CheckSetCode(user0, counterAddr, true)
+
+					_, err = s.InvokeCounter(user0, "setNumber", big.NewInt(0))
+					Expect(err).To(BeNil(), "failed to reset counter")
+					s.AwaitNBlocks(t, 1)
+
+					_, err = s.InvokeCounter(user0, "increment")
+					Expect(err).To(BeNil(), "failed to increment counter")
+					s.AwaitNBlocks(t, 1)
+
+					value, err := s.QueryCounterNumber(user0)
+					Expect(err).To(BeNil(), "failed to query counter value")
+					Expect(value.Uint64()).To(Equal(uint64(1)))
+				})
+			})
+		})
 	})
 
 	// Run Ginkgo integration tests

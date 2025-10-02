@@ -4,9 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
 	"path/filepath"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -21,7 +24,8 @@ import (
 type TestSuite struct {
 	*basesuite.SystemTestSuite
 
-	smartWalletAddress common.Address
+	counterAddress common.Address
+	counterABI     abi.ABI
 }
 
 func NewTestSuite(t *testing.T) *TestSuite {
@@ -34,13 +38,17 @@ func NewTestSuite(t *testing.T) *TestSuite {
 func (s *TestSuite) SetupTest(t *testing.T) {
 	s.SystemTestSuite.SetupTest(t)
 
-	smartWalletPath := filepath.Join("..", "..", "contracts", "account_abstraction", "smartwallet", "SimpleSmartWallet.json")
-	bytecode, err := loadSmartWalletCreationBytecode(smartWalletPath)
-	Expect(err).To(BeNil(), "failed to load smart wallet creation bytecode")
+	counterPath := filepath.Join("..", "Counter", "out", "Counter.sol", "Counter.json")
+	bytecode, err := loadContractCreationBytecode(counterPath)
+	Expect(err).To(BeNil(), "failed to load counter creation bytecode")
 
 	addr, err := deployContract(s.EthClient, bytecode)
-	require.NoError(t, err, "failed to deploy smart wallet contract")
-	s.smartWalletAddress = addr
+	require.NoError(t, err, "failed to deploy counter contract")
+	s.counterAddress = addr
+
+	counterABI, err := loadContractABI(counterPath)
+	Expect(err).To(BeNil(), "failed to load counter contract abi")
+	s.counterABI = counterABI
 }
 
 // GetChainID returns chain id of test network
@@ -55,6 +63,15 @@ func (s *TestSuite) GetNonce(accID string) uint64 {
 	return nonce
 }
 
+// GetSequence returns the Cosmos account sequence for the given account ID.
+func (s *TestSuite) GetSequence(accID string) uint64 {
+	cosmosAcc := s.CosmosClient.Accs[accID]
+	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
+	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAcc.AccAddress)
+	Expect(err).To(BeNil(), "unable to retrieve cosmos account for %s", accID)
+	return account.GetSequence()
+}
+
 // GetPrivKey returns ecdsa private key of account
 func (s *TestSuite) GetPrivKey(accID string) *ecdsa.PrivateKey {
 	return s.EthClient.Accs[accID].PrivKey
@@ -65,9 +82,9 @@ func (s *TestSuite) GetAddr(accID string) common.Address {
 	return s.EthClient.Accs[accID].Address
 }
 
-// GetSmartWalletAddr returns the address of smart wallet contract for test
-func (s *TestSuite) GetSmartWalletAddr() common.Address {
-	return s.smartWalletAddress
+// GetCounterAddr returns the deployed counter contract address.
+func (s *TestSuite) GetCounterAddr() common.Address {
+	return s.counterAddress
 }
 
 // SendSetCodeTx sends SetCodeTx
@@ -116,7 +133,11 @@ func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeA
 
 // CheckSetCode checks the account is EIP-7702 SetCode authorized.
 func (s *TestSuite) CheckSetCode(authorityAccID string, delegate common.Address, expectDelegation bool) {
-	code, err := s.EthClient.CodeAt("node0", authorityAccID)
+	account := s.EthClient.Accs[authorityAccID]
+	Expect(account).ToNot(BeNil(), "account %s not found", authorityAccID)
+
+	ctx := context.Background()
+	code, err := s.EthClient.Clients["node0"].CodeAt(ctx, account.Address, nil)
 	Expect(err).To(BeNil(), "unable to retrieve updated code for %s", authorityAccID)
 
 	if expectDelegation {
@@ -131,4 +152,106 @@ func (s *TestSuite) CheckSetCode(authorityAccID string, delegate common.Address,
 		_, ok := ethtypes.ParseDelegation(code)
 		Expect(ok).To(BeFalse(), "expected delegation prefix in code for %s", authorityAccID)
 	}
+}
+
+// InvokeCounter sends a transaction from the delegated account to execute a counter method.
+func (s *TestSuite) InvokeCounter(accID string, method string, args ...interface{}) (common.Hash, error) {
+	account := s.EthClient.Accs[accID]
+	if account == nil {
+		return common.Hash{}, fmt.Errorf("account %s not found", accID)
+	}
+
+	calldata, err := s.counterABI.Pack(method, args...)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to pack counter calldata: %w", err)
+	}
+
+	ctx := context.Background()
+	ethCli := s.EthClient.Clients["node0"]
+	chainID, err := ethCli.ChainID(ctx)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to fetch chain id: %w", err)
+	}
+
+	nonce, err := ethCli.PendingNonceAt(ctx, account.Address)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to fetch pending nonce: %w", err)
+	}
+
+	gasTipCap := big.NewInt(1_000_000)
+	gasFeeCap := big.NewInt(1_000_000_000)
+	gasLimit := uint64(500_000)
+
+	to := account.Address
+	txData := &ethtypes.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasTipCap,
+		GasFeeCap: gasFeeCap,
+		Gas:       gasLimit,
+		To:        &to,
+		Value:     big.NewInt(0),
+		Data:      calldata,
+	}
+
+	signer := ethtypes.LatestSignerForChainID(chainID)
+	signedTx, err := ethtypes.SignNewTx(account.PrivKey, signer, txData)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to sign counter tx: %w", err)
+	}
+
+	if err := ethCli.SendTransaction(ctx, signedTx); err != nil {
+		return common.Hash{}, fmt.Errorf("failed to send counter tx: %w", err)
+	}
+
+	receipt, err := waitForReceipt(ctx, ethCli, signedTx.Hash())
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to fetch counter tx receipt: %w", err)
+	}
+	if receipt.Status != 1 {
+		return common.Hash{}, fmt.Errorf("counter tx reverted: %s", signedTx.Hash())
+	}
+
+	return signedTx.Hash(), nil
+}
+
+// QueryCounterNumber queries the delegated counter contract via the account code.
+func (s *TestSuite) QueryCounterNumber(accID string) (*big.Int, error) {
+	account := s.EthClient.Accs[accID]
+	if account == nil {
+		return nil, fmt.Errorf("account %s not found", accID)
+	}
+
+	calldata, err := s.counterABI.Pack("number")
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack counter number calldata: %w", err)
+	}
+
+	ctx := context.Background()
+	ethCli := s.EthClient.Clients["node0"]
+	callMsg := ethereum.CallMsg{
+		From: account.Address,
+		To:   &account.Address,
+		Data: calldata,
+	}
+
+	output, err := ethCli.CallContract(ctx, callMsg, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call counter contract: %w", err)
+	}
+
+	values, err := s.counterABI.Unpack("number", output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack counter result: %w", err)
+	}
+	if len(values) == 0 {
+		return nil, fmt.Errorf("counter query returned no values")
+	}
+
+	value, ok := values[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("unexpected counter return type %T", values[0])
+	}
+
+	return new(big.Int).Set(value), nil
 }

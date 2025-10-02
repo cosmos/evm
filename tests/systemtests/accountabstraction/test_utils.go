@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -15,9 +14,11 @@ import (
 	"time"
 
 	"github.com/cosmos/evm/tests/systemtests/clients"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"github.com/tidwall/gjson"
 )
 
 func createSetCodeAuthorization(chainID, nonce uint64, contractAddr common.Address) ethtypes.SetCodeAuthorization {
@@ -37,7 +38,7 @@ func signSetCodeAuthorization(key *ecdsa.PrivateKey, authorization ethtypes.SetC
 	return authorization, nil
 }
 
-func loadSmartWalletCreationBytecode(filePath string) ([]byte, error) {
+func loadContractCreationBytecode(filePath string) ([]byte, error) {
 	_, caller, _, ok := runtime.Caller(0)
 	if !ok {
 		return nil, errors.New("failed to resolve caller for smart wallet artifact")
@@ -49,14 +50,15 @@ func loadSmartWalletCreationBytecode(filePath string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read smart wallet artifact: %w", err)
 	}
 
-	var payload struct {
-		Bytecode string `json:"bytecode"`
+	bytecodeHex := gjson.GetBytes(contents, "bytecode.object").String()
+	if bytecodeHex == "" {
+		bytecodeHex = gjson.GetBytes(contents, "bytecode").String()
 	}
-	if err := json.Unmarshal(contents, &payload); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal smart wallet artifact: %w", err)
+	if bytecodeHex == "" {
+		return nil, errors.New("smart wallet artifact has empty creation bytecode")
 	}
 
-	bytecodeHex := strings.TrimPrefix(payload.Bytecode, "0x")
+	bytecodeHex = strings.TrimPrefix(bytecodeHex, "0x")
 	if bytecodeHex == "" {
 		return nil, errors.New("smart wallet artifact has empty creation bytecode")
 	}
@@ -67,6 +69,31 @@ func loadSmartWalletCreationBytecode(filePath string) ([]byte, error) {
 	}
 
 	return bytecode, nil
+}
+
+func loadContractABI(filePath string) (abi.ABI, error) {
+	_, caller, _, ok := runtime.Caller(0)
+	if !ok {
+		return abi.ABI{}, errors.New("failed to resolve caller for contract artifact")
+	}
+
+	artifactPath := filepath.Join(filepath.Dir(caller), filePath)
+	contents, err := os.ReadFile(filepath.Clean(artifactPath))
+	if err != nil {
+		return abi.ABI{}, fmt.Errorf("failed to read contract artifact: %w", err)
+	}
+
+	abiField := gjson.GetBytes(contents, "abi")
+	if !abiField.Exists() {
+		return abi.ABI{}, errors.New("contract artifact missing abi field")
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(abiField.Raw))
+	if err != nil {
+		return abi.ABI{}, fmt.Errorf("failed to parse contract ABI: %w", err)
+	}
+
+	return parsedABI, nil
 }
 
 func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (common.Address, error) {
