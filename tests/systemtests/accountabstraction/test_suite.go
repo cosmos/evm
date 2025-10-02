@@ -30,6 +30,7 @@ func NewTestSuite(t *testing.T) *TestSuite {
 	}
 }
 
+// SetupTest setup test suite and deploy test contracts
 func (s *TestSuite) SetupTest(t *testing.T) {
 	s.SystemTestSuite.SetupTest(t)
 
@@ -42,28 +43,34 @@ func (s *TestSuite) SetupTest(t *testing.T) {
 	s.smartWalletAddress = addr
 }
 
+// GetChainID returns chain id of test network
 func (s *TestSuite) GetChainID() uint64 {
 	return s.EthClient.ChainID.Uint64()
 }
 
+// GetNonce returns current nonce of account
 func (s *TestSuite) GetNonce(accID string) uint64 {
 	nonce, err := s.NonceAt("node0", accID)
 	Expect(err).To(BeNil())
 	return nonce
 }
 
+// GetPrivKey returns ecdsa private key of account
 func (s *TestSuite) GetPrivKey(accID string) *ecdsa.PrivateKey {
 	return s.EthClient.Accs[accID].PrivKey
 }
 
+// GetAddr returns ethereum address of account
 func (s *TestSuite) GetAddr(accID string) common.Address {
 	return s.EthClient.Accs[accID].Address
 }
 
+// GetSmartWalletAddr returns the address of smart wallet contract for test
 func (s *TestSuite) GetSmartWalletAddr() common.Address {
 	return s.smartWalletAddress
 }
 
+// SendSetCodeTx sends SetCodeTx
 func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeAuthorization) (common.Hash, error) {
 	ctx := context.Background()
 	ethCli := s.EthClient.Clients["node0"]
@@ -107,6 +114,7 @@ func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeA
 	return signedTx.Hash(), nil
 }
 
+// CheckSetCode checks the account is EIP-7702 SetCode authorized.
 func (s *TestSuite) CheckSetCode(authorityAccID string, delegate common.Address, expectDelegation bool) {
 	code, err := s.EthClient.CodeAt("node0", authorityAccID)
 	Expect(err).To(BeNil(), "unable to retrieve updated code for %s", authorityAccID)
