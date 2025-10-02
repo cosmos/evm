@@ -353,11 +353,6 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	return baseFee
 }
 
-// GetMinGasMultiplier returns the MinGasMultiplier param from the fee market module
-func (k Keeper) GetMinGasMultiplier(ctx sdk.Context) math.LegacyDec {
-	return k.feeMarketWrapper.GetParams(ctx).MinGasMultiplier
-}
-
 // GetMinGasPrice returns the MinGasPrice param from the fee market module
 // adapted according to the evm denom decimals
 func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
