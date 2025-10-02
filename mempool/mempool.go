@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	cmttypes "github.com/cometbft/cometbft/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
-
-	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
@@ -44,6 +43,9 @@ type (
 	ExperimentalEVMMempool struct {
 		/** Keepers **/
 		vmKeeper VMKeeperI
+
+		cfg       *EVMMempoolConfig
+		clientCtx client.Context
 
 		/** Mempools **/
 		txPool       *txpool.TxPool
@@ -87,7 +89,6 @@ type EVMMempoolConfig struct {
 // of pools and verification functions, with sensible defaults created if not provided.
 func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
 	var (
-		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
 	)
 
@@ -110,28 +111,47 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 
 	blockchain = NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
-	// Create txPool from configuration
-	legacyConfig := legacypool.DefaultConfig
-	if config.LegacyPoolConfig != nil {
-		legacyConfig = *config.LegacyPoolConfig
+	evmMempool := &ExperimentalEVMMempool{
+		vmKeeper:      vmKeeper,
+		clientCtx:     clientCtx,
+		cfg:           config,
+		logger:        logger,
+		txConfig:      txConfig,
+		blockchain:    blockchain,
+		bondDenom:     bondDenom,
+		evmDenom:      evmDenom,
+		blockGasLimit: config.BlockGasLimit,
+		minTip:        config.MinTip,
+		anteHandler:   config.AnteHandler,
 	}
 
-	legacyPool := legacypool.New(legacyConfig, blockchain)
+	vmKeeper.SetEvmMempool(evmMempool)
+
+	return evmMempool
+}
+
+func (e *ExperimentalEVMMempool) SetupPools() {
+	// Create txPool from configuration
+	legacyConfig := &legacypool.DefaultConfig
+	if e.cfg.LegacyPoolConfig != nil {
+		legacyConfig = e.cfg.LegacyPoolConfig
+	}
+
+	legacyPool := legacypool.New(*legacyConfig, e.blockchain)
 
 	// Set up broadcast function using clientCtx
-	if config.BroadCastTxFn != nil {
-		legacyPool.BroadcastTxFn = config.BroadCastTxFn
+	if e.cfg.BroadCastTxFn != nil {
+		legacyPool.BroadcastTxFn = e.cfg.BroadCastTxFn
 	} else {
 		// Create default broadcast function using clientCtx.
 		// The EVM mempool will broadcast transactions when it promotes them
 		// from queued into pending, noting their readiness to be executed.
 		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
-			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			return broadcastEVMTransactions(clientCtx, txConfig, txs)
+			return broadcastEVMTransactions(e.clientCtx, e.txConfig, txs)
 		}
 	}
 
-	txPool, err := txpool.New(uint64(0), blockchain, []txpool.SubPool{legacyPool})
+	txPool, err := txpool.New(uint64(0), e.blockchain, []txpool.SubPool{legacyPool})
 	if err != nil {
 		panic(err)
 	}
@@ -144,7 +164,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 	}
 
 	// Create Cosmos Mempool from configuration
-	cosmosPoolConfig := config.CosmosPoolConfig
+	cosmosPoolConfig := e.cfg.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
 		// Default configuration
 		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
@@ -154,7 +174,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 				if !ok {
 					return math.ZeroInt()
 				}
-				found, coin := cosmosTxFee.GetFee().Find(bondDenom)
+				found, coin := cosmosTxFee.GetFee().Find(e.bondDenom)
 				if !found {
 					return math.ZeroInt()
 				}
@@ -171,26 +191,11 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		cosmosPoolConfig = &defaultConfig
 	}
 
-	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
+	cosmosPool := sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
-	evmMempool := &ExperimentalEVMMempool{
-		vmKeeper:      vmKeeper,
-		txPool:        txPool,
-		legacyTxPool:  txPool.Subpools[0].(*legacypool.LegacyPool),
-		cosmosPool:    cosmosPool,
-		logger:        logger,
-		txConfig:      txConfig,
-		blockchain:    blockchain,
-		bondDenom:     bondDenom,
-		evmDenom:      evmDenom,
-		blockGasLimit: config.BlockGasLimit,
-		minTip:        config.MinTip,
-		anteHandler:   config.AnteHandler,
-	}
-
-	vmKeeper.SetEvmMempool(evmMempool)
-
-	return evmMempool
+	e.txPool = txPool
+	e.legacyTxPool = e.txPool.Subpools[0].(*legacypool.LegacyPool)
+	e.cosmosPool = cosmosPool
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.
