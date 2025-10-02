@@ -77,7 +77,7 @@ func NewRawTxCmd() *cobra.Command {
 				return err
 			}
 
-			signingTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), txf, types.GetEVMCoinDenom())
+			signingTx, err := msg.BuildTxWithFactory(clientCtx.TxConfig.NewTxBuilder(), txf, types.GetEVMCoinDenom())
 			if err != nil {
 				return err
 			}

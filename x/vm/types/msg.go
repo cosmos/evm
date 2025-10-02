@@ -303,8 +303,9 @@ func (msg *MsgEthereumTx) Hash() common.Hash {
 	return msg.AsTransaction().Hash()
 }
 
-// BuildTx builds the canonical cosmos tx from ethereum msg
-func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, txf tx.Factory, evmDenom string) (signing.Tx, error) {
+// BuildTxWithFactory builds the canonical cosmos tx from an ethereum msg using
+// a provided tx.Factory to populate additional fields such as unordered values.
+func (msg *MsgEthereumTx) BuildTxWithFactory(b client.TxBuilder, txf tx.Factory, evmDenom string) (signing.Tx, error) {
 	builder, ok := b.(authtx.ExtensionOptionsTxBuilder)
 	if !ok {
 		return nil, errors.New("unsupported builder")
@@ -340,6 +341,13 @@ func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, txf tx.Factory, evmDenom s
 	builder.SetUnordered(txf.Unordered())
 
 	return builder.GetTx(), nil
+}
+
+// BuildTx builds the canonical cosmos tx from an ethereum msg.
+func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.Tx, error) {
+	// Note: Using an empty Factory will result all accessed values having their
+	// native default value, which is acceptable given how txs are constructed.
+	return msg.BuildTxWithFactory(b, tx.Factory{}, evmDenom)
 }
 
 // ValidateBasic does a sanity check of the provided data
