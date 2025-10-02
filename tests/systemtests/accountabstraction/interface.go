@@ -2,7 +2,6 @@ package accountabstraction
 
 import (
 	"crypto/ecdsa"
-	"math/big"
 	"testing"
 	"time"
 
@@ -11,21 +10,20 @@ import (
 )
 
 type AccountAbstractionTestSuite interface {
-	// Query
-	BaseFee() *big.Int
-	WaitForCommit(nodeID string, txHash string, txType string, timeout time.Duration) error
-	GetNonce(accID string) uint64
-
-	// Config
-	SetupTest(t *testing.T)
-
 	// Test Utils
+	SetupTest(t *testing.T)
 	AwaitNBlocks(t *testing.T, n int64, duration ...time.Duration)
 
-	// Contracts
-	GetSmartWalletAddress() common.Address
-
+	// Query
+	GetChainID() uint64
+	GetNonce(accID string) uint64
 	GetPrivKey(accID string) *ecdsa.PrivateKey
+	GetAddr(accID string) common.Address
+	GetSmartWalletAddr() common.Address
 
-	SendSetCodeTx(accID string, signedAuth ethtypes.SetCodeAuthorization) (common.Hash, error)
+	// Transaction
+	SendSetCodeTx(accID string, signedAuth ...ethtypes.SetCodeAuthorization) (common.Hash, error)
+
+	// Verification
+	CheckSetCode(authorityAccID string, delegate common.Address, expectDelegation bool)
 }
