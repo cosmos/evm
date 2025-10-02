@@ -6,14 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	evmante "github.com/cosmos/evm/ante/evm"
-
 	addresscodec "cosmossdk.io/core/address"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	evmante "github.com/cosmos/evm/ante/evm"
 )
 
 // --- minimal codec to satisfy addresscodec.Codec (not used by these tests) ---
@@ -54,8 +52,9 @@ func TestIncrementNonce_HappyPath(t *testing.T) {
 	var ctx sdk.Context
 	ak := &mockAccountKeeper{}
 	acc := baseAcc(7)
+	md := evmante.NewEVMMonoDecorator(ak, nil, nil, 0)
 
-	err := evmante.IncrementNonce(ctx, ak, acc, 7)
+	err := md.IncrementNonce(ctx, acc, nil, 7)
 	require.NoError(t, err)
 	require.Equal(t, uint64(8), acc.GetSequence())
 	require.Equal(t, acc, ak.last) // SetAccount called
@@ -65,8 +64,9 @@ func TestIncrementNonce_NonceMismatch(t *testing.T) {
 	var ctx sdk.Context
 	ak := &mockAccountKeeper{}
 	acc := baseAcc(10)
+	md := evmante.NewEVMMonoDecorator(ak, nil, nil, 0)
 
-	err := evmante.IncrementNonce(ctx, ak, acc, 9)
+	err := md.IncrementNonce(ctx, acc, nil, 9)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid nonce")
 	require.Equal(t, uint64(10), acc.GetSequence()) // unchanged
@@ -76,8 +76,9 @@ func TestIncrementNonce_OverflowGuard(t *testing.T) {
 	var ctx sdk.Context
 	ak := &mockAccountKeeper{}
 	acc := baseAcc(math.MaxUint64)
+	md := evmante.NewEVMMonoDecorator(ak, nil, nil, 0)
 
-	err := evmante.IncrementNonce(ctx, ak, acc, math.MaxUint64)
+	err := md.IncrementNonce(ctx, acc, nil, math.MaxUint64)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "overflow")
 	require.Equal(t, uint64(math.MaxUint64), acc.GetSequence()) // unchanged

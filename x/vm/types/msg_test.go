@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/encoding"
@@ -22,6 +23,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -123,7 +125,10 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 			baseDenom := types.GetEVMCoinDenom()
 			extendedDenom := types.GetEVMCoinExtendedDenom()
 
-			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
+			txf, err := tx.NewFactoryCLI(suite.clientCtx, &pflag.FlagSet{})
+			suite.Require().NoError(err)
+
+			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), txf, baseDenom)
 			if tc.expError {
 				suite.Require().Error(err)
 			} else {

@@ -2,29 +2,51 @@ package evm
 
 import (
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-
-	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"time"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // MonoDecorator is a single decorator that handles all the prechecks for
 // ethereum transactions.
 type MonoDecorator struct {
-	accountKeeper   anteinterfaces.AccountKeeper
-	feeMarketKeeper anteinterfaces.FeeMarketKeeper
-	evmKeeper       anteinterfaces.EVMKeeper
-	maxGasWanted    uint64
+	accountKeeper        anteinterfaces.AccountKeeper
+	feeMarketKeeper      anteinterfaces.FeeMarketKeeper
+	evmKeeper            anteinterfaces.EVMKeeper
+	maxGasWanted         uint64
+	maxTxTimeoutDuration time.Duration
+	unorderedTxGasCost   uint64
+}
+
+type MonoDecoratorOption func(*MonoDecorator)
+
+// WithMaxUnorderedTxTimeoutDuration sets the maximum TTL a transaction can define
+// for unordered transactions.
+func WithMaxUnorderedTxTimeoutDuration(duration time.Duration) MonoDecoratorOption {
+	return func(md *MonoDecorator) {
+		md.maxTxTimeoutDuration = duration
+	}
+}
+
+// WithUnorderedTxGasCost sets the gas cost for unordered transactions.
+// We must charge extra gas for unordered transactions
+// as they incur extra processing time for cleaning up the expired txs in x/auth PreBlocker.
+// Note: this value was chosen by 2x-ing the cost of fetching and removing an unordered nonce entry.
+func WithUnorderedTxGasCost(gasCost uint64) MonoDecoratorOption {
+	return func(md *MonoDecorator) {
+		md.unorderedTxGasCost = gasCost
+	}
 }
 
 // NewEVMMonoDecorator creates the 'mono' decorator, that is used to run the ante handle logic
@@ -38,13 +60,22 @@ func NewEVMMonoDecorator(
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper,
 	evmKeeper anteinterfaces.EVMKeeper,
 	maxGasWanted uint64,
+	opts ...MonoDecoratorOption,
 ) MonoDecorator {
-	return MonoDecorator{
-		accountKeeper:   accountKeeper,
-		feeMarketKeeper: feeMarketKeeper,
-		evmKeeper:       evmKeeper,
-		maxGasWanted:    maxGasWanted,
+	md := MonoDecorator{
+		accountKeeper:        accountKeeper,
+		feeMarketKeeper:      feeMarketKeeper,
+		evmKeeper:            evmKeeper,
+		maxGasWanted:         maxGasWanted,
+		maxTxTimeoutDuration: authante.DefaultMaxTimeoutDuration,
+		unorderedTxGasCost:   authante.DefaultUnorderedTxGasCost,
 	}
+
+	for _, opt := range opts {
+		opt(&md)
+	}
+
+	return md
 }
 
 // AnteHandle handles the entire decorator chain using a mono decorator.
@@ -226,7 +257,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		)
 	}
 
-	if err := IncrementNonce(ctx, md.accountKeeper, acc, ethTx.Nonce()); err != nil {
+	if err := md.IncrementNonce(ctx, acc, tx, ethTx.Nonce()); err != nil {
 		return ctx, err
 	}
 

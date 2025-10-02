@@ -19,6 +19,7 @@ import (
 	txsigning "cosmossdk.io/x/tx/signing"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -303,7 +304,7 @@ func (msg *MsgEthereumTx) Hash() common.Hash {
 }
 
 // BuildTx builds the canonical cosmos tx from ethereum msg
-func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.Tx, error) {
+func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, txf tx.Factory, evmDenom string) (signing.Tx, error) {
 	builder, ok := b.(authtx.ExtensionOptionsTxBuilder)
 	if !ok {
 		return nil, errors.New("unsupported builder")
@@ -323,7 +324,7 @@ func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.
 
 	builder.SetExtensionOptions(option)
 
-	// only keep the nessessary fields
+	// only keep the necessary fields
 	err = builder.SetMsgs(&MsgEthereumTx{
 		From: msg.From,
 		Raw:  msg.Raw,
@@ -331,10 +332,14 @@ func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.
 	if err != nil {
 		return nil, err
 	}
+
 	builder.SetFeeAmount(fees)
 	builder.SetGasLimit(msg.GetGas())
-	tx := builder.GetTx()
-	return tx, nil
+	builder.SetTimeoutHeight(txf.TimeoutHeight())
+	builder.SetTimeoutTimestamp(txf.TimeoutTimestamp())
+	builder.SetUnordered(txf.Unordered())
+
+	return builder.GetTx(), nil
 }
 
 // ValidateBasic does a sanity check of the provided data

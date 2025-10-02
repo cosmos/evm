@@ -7,15 +7,11 @@ import (
 	"os"
 	"strings"
 
+	"cosmossdk.io/core/address"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-
-	"github.com/cosmos/evm/utils"
-	"github.com/cosmos/evm/x/vm/types"
-
-	"cosmossdk.io/core/address"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -24,6 +20,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	types2 "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/vm/types"
 )
 
 // NewTxCmd returns a root CLI command handler for evm module transaction commands
@@ -74,15 +72,18 @@ func NewRawTxCmd() *cobra.Command {
 				return err
 			}
 
-			baseDenom := types.GetEVMCoinDenom()
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
 
-			tx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), baseDenom)
+			signingTx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), txf, types.GetEVMCoinDenom())
 			if err != nil {
 				return err
 			}
 
 			if clientCtx.GenerateOnly {
-				json, err := clientCtx.TxConfig.TxJSONEncoder()(tx)
+				json, err := clientCtx.TxConfig.TxJSONEncoder()(signingTx)
 				if err != nil {
 					return err
 				}
@@ -91,7 +92,7 @@ func NewRawTxCmd() *cobra.Command {
 			}
 
 			if !clientCtx.SkipConfirm {
-				out, err := clientCtx.TxConfig.TxJSONEncoder()(tx)
+				out, err := clientCtx.TxConfig.TxJSONEncoder()(signingTx)
 				if err != nil {
 					return err
 				}
@@ -107,7 +108,7 @@ func NewRawTxCmd() *cobra.Command {
 				}
 			}
 
-			txBytes, err := clientCtx.TxConfig.TxEncoder()(tx)
+			txBytes, err := clientCtx.TxConfig.TxEncoder()(signingTx)
 			if err != nil {
 				return err
 			}
