@@ -56,6 +56,13 @@ func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
 		},
 	}
 
+	md := evm.NewEVMMonoDecorator(
+		unitNetwork.App.GetAccountKeeper(),
+		unitNetwork.App.GetFeeMarketKeeper(),
+		unitNetwork.App.GetEVMKeeper(),
+		0,
+	)
+
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			account, err := grpcHandler.GetAccount(accAddr.String())
@@ -65,10 +72,10 @@ func (s *EvmUnitAnteTestSuite) TestIncrementSequence() {
 			nonce := tc.malleate(account)
 
 			// Function under test
-			err = evm.IncrementNonce(
+			err = md.IncrementNonce(
 				unitNetwork.GetContext(),
-				unitNetwork.App.GetAccountKeeper(),
 				account,
+				nil,
 				nonce,
 			)
 
