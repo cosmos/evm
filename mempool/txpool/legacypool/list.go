@@ -59,6 +59,7 @@ type SortedMap struct {
 	index   *nonceHeap                    // Heap of nonces of all the stored transactions (non-strict mode)
 	cache   types.Transactions            // Cache of the transactions already sorted
 	cacheMu sync.Mutex                    // Mutex covering the cache
+	len     int
 }
 
 // NewSortedMap creates a new nonce-sorted transaction map.
@@ -80,6 +81,7 @@ func (m *SortedMap) Put(tx *types.Transaction) {
 	nonce := tx.Nonce()
 	if m.items[nonce] == nil {
 		heap.Push(m.index, nonce)
+		m.len += 1
 	}
 	m.cacheMu.Lock()
 	m.items[nonce], m.cache = tx, nil
@@ -98,6 +100,7 @@ func (m *SortedMap) Forward(threshold uint64) types.Transactions {
 		removed = append(removed, m.items[nonce])
 		delete(m.items, nonce)
 	}
+	m.len -= len(removed)
 	// If we had a cached order, shift the front
 	m.cacheMu.Lock()
 	if m.cache != nil {
@@ -145,6 +148,7 @@ func (m *SortedMap) filter(filter func(*types.Transaction) bool) types.Transacti
 		}
 	}
 	if len(removed) > 0 {
+		m.len -= len(removed)
 		m.cacheMu.Lock()
 		m.cache = nil
 		m.cacheMu.Unlock()
@@ -170,6 +174,7 @@ func (m *SortedMap) Cap(threshold int) types.Transactions {
 	// The sorted m.index slice is still a valid heap, so there is no need to
 	// reheap after deleting tail items.
 
+	m.len -= len(drops)
 	// If we had a cache, shift the back
 	m.cacheMu.Lock()
 	if m.cache != nil {
@@ -195,6 +200,7 @@ func (m *SortedMap) Remove(nonce uint64) bool {
 		}
 	}
 	delete(m.items, nonce)
+	m.len -= 1
 	m.cacheMu.Lock()
 	m.cache = nil
 	m.cacheMu.Unlock()
@@ -221,6 +227,7 @@ func (m *SortedMap) Ready(start uint64) types.Transactions {
 		delete(m.items, next)
 		heap.Pop(m.index)
 	}
+	m.len -= len(ready)
 	m.cacheMu.Lock()
 	m.cache = nil
 	m.cacheMu.Unlock()
@@ -230,7 +237,7 @@ func (m *SortedMap) Ready(start uint64) types.Transactions {
 
 // Len returns the length of the transaction map.
 func (m *SortedMap) Len() int {
-	return len(m.items)
+	return m.len
 }
 
 func (m *SortedMap) flatten() types.Transactions {
