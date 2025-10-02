@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"fmt"
 	"math"
 
 	errorsmod "cosmossdk.io/errors"
@@ -22,9 +21,6 @@ func (md MonoDecorator) IncrementNonce(
 	utx, ok := tx.(sdk.TxWithUnordered)
 	isUnordered := ok && utx.GetUnordered()
 	unorderedEnabled := md.accountKeeper.UnorderedTransactionsEnabled()
-
-	fmt.Printf("\n\n[DEBUG] EVM IncrementNonce handler\n")
-	fmt.Printf("[DEBUG] nonce: %v, isUnordered: %v, unorderedEnabled: %v\n\n\n", txNonce, isUnordered, unorderedEnabled)
 
 	if isUnordered && !unorderedEnabled {
 		return errorsmod.Wrap(sdkerrors.ErrNotSupported, "unordered transactions are not enabled")
