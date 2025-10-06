@@ -480,9 +480,11 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		indexerService := NewEVMIndexerService(idxer, clientCtx.Client.(rpcclient.Client))
 		indexerService.SetLogger(servercmtlog.CometLoggerWrapper{Logger: idxLogger})
 
-		g.Go(func() error {
-			return indexerService.Start()
-		})
+		go func() {
+			if err := indexerService.Start(); err != nil {
+				logger.Error("failed to start evm indexer service", "error", err.Error())
+			}
+		}()
 	}
 
 	if config.API.Enable || config.JSONRPC.Enable {
