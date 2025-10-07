@@ -46,6 +46,7 @@
 - [\#659](https://github.com/cosmos/evm/pull/659) Move configs out of EVMD and deduplicate configs
 - [\#664](https://github.com/cosmos/evm/pull/664) Add EIP-7702 integration test
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
+- [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 
 ### FEATURES
 
