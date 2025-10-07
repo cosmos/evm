@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -395,8 +396,12 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
-func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
-	accessList, gasUsed, vmErr, err := b.createAccessList(args, blockNrOrHash)
+func (b *Backend) CreateAccessList(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	overrides *json.RawMessage,
+) (*rpctypes.AccessListResult, error) {
+	accessList, gasUsed, vmErr, err := b.createAccessList(args, blockNrOrHash, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +422,11 @@ func (b *Backend) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 // If the access list has converged, the access list is returned.
 // If the access list has not converged, an error is returned.
 // If the transaction itself fails, an vmErr is returned.
-func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (ethtypes.AccessList, uint64, error, error) {
+func (b *Backend) createAccessList(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	overrides *json.RawMessage,
+) (ethtypes.AccessList, uint64, error, error) {
 	args, err := b.SetTxDefaults(args)
 	if err != nil {
 		b.Logger.Error("failed to set tx defaults", "error", err)
@@ -446,7 +455,7 @@ func (b *Backend) createAccessList(args evmtypes.TransactionArgs, blockNrOrHash 
 	for {
 		accessList := prevTracer.AccessList()
 		traceArgs.AccessList = &accessList
-		res, err := b.DoCall(*traceArgs, blockNum)
+		res, err := b.DoCall(*traceArgs, blockNum, overrides)
 		if err != nil {
 			b.Logger.Error("failed to apply transaction", "error", err)
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", traceArgs.ToTransaction(ethtypes.LegacyTxType).Hash(), err)
