@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -629,10 +629,10 @@ func (s *KeeperTestSuite) TestApplyTransaction() {
 }
 
 type testHooks struct {
-	postProcessing func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error
+	postProcessing func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error
 }
 
-func (h *testHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+func (h *testHooks) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
 	return h.postProcessing(ctx, sender, msg, receipt)
 }
 
@@ -652,7 +652,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Network.App.GetEVMKeeper().SetHooks(
 					keeper.NewMultiEvmHooks(
 						&testHooks{
-							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
 								return nil
 							},
 						},
@@ -692,7 +692,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Network.App.GetEVMKeeper().SetHooks(
 					keeper.NewMultiEvmHooks(
 						&testHooks{
-							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
 								return errors.New("post processing failed :(")
 							},
 						},
@@ -732,7 +732,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Network.App.GetEVMKeeper().SetHooks(
 					keeper.NewMultiEvmHooks(
 						&testHooks{
-							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
 								return s.Network.App.GetMintKeeper().MintCoins(
 									ctx, sdk.NewCoins(sdk.NewCoin("arandomcoin", sdkmath.NewInt(100))),
 								)
@@ -852,6 +852,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
+		postCheck          func()
 	}{
 		{
 			name: "success - messsage applied ok with default params",
@@ -871,6 +872,89 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expErr:             false,
 			expVMErr:           false,
 			expectedGasUsed:    params.TxGas,
+			postCheck:          nil,
+		},
+		{
+			name: "success - applies set code authorization (EIP-7702)",
+			getMessage: func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := gethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				signedAuth := s.SignSetCodeAuthorization(authority, auth)
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []gethtypes.SetCodeAuthorization{signedAuth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed: params.TxGas + params.CallNewAccountGas -
+				keeper.GasToRefund(
+					params.CallNewAccountGas-params.TxAuthTupleGas,
+					params.TxGas+params.CallNewAccountGas,
+					params.RefundQuotientEIP3529,
+				),
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				targetAddr := s.Keyring.GetAddr(1)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				delegationAddr, ok := gethtypes.ParseDelegation(code)
+				s.Require().True(ok)
+				s.Require().Equal(targetAddr, delegationAddr)
+			},
+		},
+		{
+			name: "fail - unsigned set code authorization is ignored (EIP-7702)",
+			getMessage: func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := gethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []gethtypes.SetCodeAuthorization{auth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			getEVMParams:       types.DefaultParams,
+			getFeeMarketParams: feemarkettypes.DefaultParams,
+			overrides:          nil,
+			expErr:             false,
+			expVMErr:           false,
+			expectedGasUsed:    params.TxGas + params.CallNewAccountGas,
+			postCheck: func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				_, ok := gethtypes.ParseDelegation(code)
+				s.Require().False(ok)
+				s.Require().Len(code, 0)
+			},
 		},
 		{
 			name: "success - message applied with balance override",
@@ -957,6 +1041,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expErr:             false,
 			expVMErr:           true,
 			expectedGasUsed:    0,
+			postCheck:          nil,
 		},
 		{
 			name: "create contract tx with config param EnableCreate = false",
@@ -983,6 +1068,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expErr:             false,
 			expVMErr:           true,
 			expectedGasUsed:    0,
+			postCheck:          nil,
 		},
 		{
 			name: "fail - fix panic when minimumGasUsed is not uint64",
@@ -1008,6 +1094,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			expErr:          true,
 			expVMErr:        false,
 			expectedGasUsed: 0,
+			postCheck:       nil,
 		},
 	}
 
@@ -1055,6 +1142,10 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				s.Require().False(res.Failed())
 				s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+
+				if tc.postCheck != nil {
+					tc.postCheck()
+				}
 			}
 
 			err = s.Network.NextBlock()
