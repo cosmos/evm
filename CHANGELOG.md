@@ -14,10 +14,12 @@
 - [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
 - [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d
 - [\#591](https://github.com/cosmos/evm/pull/591) CheckTxHandler should handle "invalid nonce" tx
+- [\#642](https://github.com/cosmos/evm/pull/642) "tx not found in mempool" error on chain startup
 - [\#643](https://github.com/cosmos/evm/pull/643) Support for mnemonic source (file, stdin,etc) flag in key add command.
 - [\#645](https://github.com/cosmos/evm/pull/645) Align precise bank keeper for correct decimal conversion in evmd.
 - [\#656](https://github.com/cosmos/evm/pull/656) Fix race condition in concurrent usage of mempool StateAt and NotifyNewBlock methods.
-* [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
+- [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
+- [\#687](https://github.com/cosmos/evm/pull/687) Avoid blocking node shutdown when evm indexer is enabled, log startup failures instead of using errgroup.
 
 ### IMPROVEMENTS
 
@@ -38,13 +40,18 @@
 - [\#609](https://github.com/cosmos/evm/pull/609) Make `erc20Keeper` optional in the EVM keeper
 - [\#624](https://github.com/cosmos/evm/pull/624) Cleanup unnecessary `fix-revert-gas-refund-height`.
 - [\#635](https://github.com/cosmos/evm/pull/635) Move DefaultStaticPrecompiles to /evm and allow projects to set it by default alongside the keeper.
+- [\#630](https://github.com/cosmos/evm/pull/630) Reduce feemarket parameter loading to minimize memory allocations.
 - [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 - [\#648](https://github.com/cosmos/evm/pull/648) Move all `ante` logic such as `NewAnteHandler` from the `evmd` package to `evm/ante` so it can be used as library functions.
 - [\#659](https://github.com/cosmos/evm/pull/659) Move configs out of EVMD and deduplicate configs
+- [\#664](https://github.com/cosmos/evm/pull/664) Add EIP-7702 integration test
+- [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
+- [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 
 ### FEATURES
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+- [\#337](https://github.com/cosmos/evm/pull/337) Support state overrides in eth_call.
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
 - [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8100.
 

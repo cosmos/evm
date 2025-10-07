@@ -21,7 +21,6 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
-	cosmosevmante "github.com/cosmos/evm/ante/evm"
 	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -802,7 +801,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SignModeHandler:        txConfig.SignModeHandler(),
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
-		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		DynamicFeeChecker:      true,
 		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {

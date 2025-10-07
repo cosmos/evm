@@ -182,3 +182,25 @@ func extractTxHashesSorted(txMap map[string]map[string]*EthRPCTransaction) []str
 
 	return result
 }
+
+func (ec *EthClient) CodeAt(nodeID, accID string) ([]byte, error) {
+	acc := ec.Accs[accID]
+	if acc == nil {
+		return nil, fmt.Errorf("account %s not found", accID)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	blockNumber, err := ec.Clients[nodeID].BlockNumber(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query block number: %w", err)
+	}
+
+	code, err := ec.Clients[nodeID].CodeAt(ctx, acc.Address, big.NewInt(int64(blockNumber)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query code for %s: %w", accID, err)
+	}
+
+	return code, nil
+}
