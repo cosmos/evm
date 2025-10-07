@@ -50,6 +50,7 @@
 ### FEATURES
 
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
+- [\#337](https://github.com/cosmos/evm/pull/337) Support state overrides in eth_call.
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
 - [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8100.
 

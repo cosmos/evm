@@ -2,7 +2,7 @@ package eth
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -68,7 +68,7 @@ type EthereumAPI interface {
 	//
 	// Allows developers to read data from the blockchain which includes executing
 	// smart contracts. However, no data is published to the Ethereum network.
-	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, override *rpctypes.StateOverride) (hexutil.Bytes, error)
+	Call(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, overrides *json.RawMessage) (hexutil.Bytes, error)
 
 	// Chain Information
 	//
@@ -95,7 +95,7 @@ type EthereumAPI interface {
 	SignTypedData(address common.Address, typedData apitypes.TypedData) (hexutil.Bytes, error)
 	FillTransaction(args evmtypes.TransactionArgs) (*rpctypes.SignTransactionResult, error)
 	Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
-	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error)
+	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, overrides *json.RawMessage) (*rpctypes.AccessListResult, error)
 
 	// eth_signTransaction (on Ethereum.org)
 	// eth_getCompilers (on Ethereum.org)
@@ -262,22 +262,18 @@ func (e *PublicAPI) GetProof(address common.Address,
 ///////////////////////////////////////////////////////////////////////////////
 
 // Call performs a raw contract call.
-func (e *PublicAPI) Call(args evmtypes.TransactionArgs,
+func (e *PublicAPI) Call(
+	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
-	override *rpctypes.StateOverride,
+	overrides *json.RawMessage,
 ) (hexutil.Bytes, error) {
 	e.logger.Debug("eth_call", "args", args, "block number or hash", blockNrOrHash)
-
-	if override != nil {
-		e.logger.Debug("eth_call", "error", "overrides are unsupported in call queries")
-		return nil, fmt.Errorf("overrides are unsupported in call queries")
-	}
 
 	blockNum, err := e.backend.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
-	data, err := e.backend.DoCall(args, blockNum)
+	data, err := e.backend.DoCall(args, blockNum, overrides)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -437,8 +433,12 @@ func (e *PublicAPI) Resend(_ context.Context,
 
 // CreateAccessList returns the list of addresses and storage keys used by the transaction (except for the
 // sender account and precompiles), plus the estimated gas if the access list were added to the transaction.
-func (e *PublicAPI) CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccessListResult, error) {
-	res, err := e.backend.CreateAccessList(args, blockNrOrHash)
+func (e *PublicAPI) CreateAccessList(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	overrides *json.RawMessage,
+) (*rpctypes.AccessListResult, error) {
+	res, err := e.backend.CreateAccessList(args, blockNrOrHash, overrides)
 	if err != nil {
 		return nil, err
 	}
