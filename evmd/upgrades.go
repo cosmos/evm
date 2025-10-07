@@ -3,6 +3,7 @@ package evmd
 import (
 	"context"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -53,7 +54,7 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			// Ensure that this corresponds to the EVM denom
 			// (tyically the bond denom)
 			evmParams := app.EVMKeeper.GetParams(sdkCtx)
-			evmParams.ExtendedDenomOptions.ExtendedDenom = "atest"
+			evmParams.ExtendedDenomOptions = &types.ExtendedDenomOptions{ExtendedDenom: "atest"}
 			err := app.EVMKeeper.SetParams(sdkCtx, evmParams)
 			if err != nil {
 				return nil, err
