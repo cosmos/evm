@@ -11,6 +11,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -837,6 +838,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 		expErr             bool
 		expVMErr           bool
 		expectedGasUsed    uint64
+		postCheck          func()
 	}{
 		{
 			"success - messsage applied ok with default params",
@@ -855,6 +857,87 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			false,
 			false,
 			params.TxGas,
+			nil,
+		},
+		{
+			"success - applies set code authorization (EIP-7702)",
+			func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := ethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				signedAuth := s.SignSetCodeAuthorization(authority, auth)
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []ethtypes.SetCodeAuthorization{signedAuth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			false,
+			false,
+			params.TxGas + params.CallNewAccountGas -
+				keeper.GasToRefund(
+					params.CallNewAccountGas-params.TxAuthTupleGas,
+					params.TxGas+params.CallNewAccountGas,
+					params.RefundQuotientEIP3529,
+				),
+			func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				targetAddr := s.Keyring.GetAddr(1)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				delegationAddr, ok := ethtypes.ParseDelegation(code)
+				s.Require().True(ok)
+				s.Require().Equal(targetAddr, delegationAddr)
+			},
+		},
+		{
+			"fail - unsigned set code authorization is ignored (EIP-7702)",
+			func() core.Message {
+				authority := s.Keyring.GetKey(0)
+				target := s.Keyring.GetAddr(1)
+
+				accResp, err := s.Handler.GetEvmAccount(authority.Addr)
+				s.Require().NoError(err)
+
+				auth := ethtypes.SetCodeAuthorization{
+					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					Address: target,
+					Nonce:   accResp.GetNonce(),
+				}
+
+				msg, err := s.Factory.GenerateGethCoreMsg(authority.Priv, types.EvmTxArgs{
+					To:                &common.Address{},
+					AuthorizationList: []ethtypes.SetCodeAuthorization{auth},
+				})
+				s.Require().NoError(err)
+				return *msg
+			},
+			types.DefaultParams,
+			feemarkettypes.DefaultParams,
+			false,
+			false,
+			params.TxGas + params.CallNewAccountGas,
+			func() {
+				authorityAddr := s.Keyring.GetAddr(0)
+				codeHash := s.Network.App.GetEVMKeeper().GetCodeHash(s.Network.GetContext(), authorityAddr)
+				code := s.Network.App.GetEVMKeeper().GetCode(s.Network.GetContext(), codeHash)
+				_, ok := ethtypes.ParseDelegation(code)
+				s.Require().False(ok)
+				s.Require().Len(code, 0)
+			},
 		},
 		{
 			"call contract tx with config param EnableCall = false",
@@ -882,6 +965,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			false,
 			true,
 			0,
+			nil,
 		},
 		{
 			"create contract tx with config param EnableCreate = false",
@@ -907,6 +991,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			false,
 			true,
 			0,
+			nil,
 		},
 		{
 			"fail - fix panic when minimumGasUsed is not uint64",
@@ -931,6 +1016,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 			true,
 			false,
 			0,
+			nil,
 		},
 	}
 
@@ -970,14 +1056,13 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 				s.Require().False(res.Failed())
 				s.Require().Equal(tc.expectedGasUsed, res.GasUsed)
+
+				if tc.postCheck != nil {
+					tc.postCheck()
+				}
 			}
 
 			err = s.Network.NextBlock()
-			if tc.expVMErr {
-				s.Require().NotEmpty(res.VmError)
-				return
-			}
-
 			if tc.expVMErr {
 				s.Require().NotEmpty(res.VmError)
 				return
