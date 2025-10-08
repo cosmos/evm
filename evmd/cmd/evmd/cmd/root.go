@@ -2,12 +2,9 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/x/vm/types"
 	"io"
 	"os"
-
-	"github.com/cosmos/evm/config"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -20,6 +17,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdebug "github.com/cosmos/evm/client/debug"
+	"github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	cosmosevmserver "github.com/cosmos/evm/server"
