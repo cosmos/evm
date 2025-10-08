@@ -5,8 +5,8 @@ go 1.24.4
 require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.4.0
-	github.com/cometbft/cometbft/v2 v2.0.0-rc1
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1
+	github.com/cometbft/cometbft v0.38.18
+	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/holiman/uint256 v1.3.2
@@ -47,9 +47,9 @@ require (
 	github.com/cockroachdb/pebble v1.1.5 // indirect
 	github.com/cockroachdb/redact v1.1.6 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb // indirect
-	github.com/cometbft/cometbft v0.38.18 // indirect
 	github.com/cometbft/cometbft-db v1.0.4 // indirect
 	github.com/cometbft/cometbft/api v1.1.0-rc1 // indirect
+	github.com/cometbft/cometbft/v2 v2.0.0-rc1 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
@@ -98,7 +98,6 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
@@ -124,7 +123,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/linxGnu/grocksdb v1.10.1 // indirect
-	github.com/lmittmann/tint v1.0.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/minio/highwayhash v1.0.3 // indirect

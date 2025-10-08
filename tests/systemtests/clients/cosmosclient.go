@@ -12,8 +12,8 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 
-	rpchttp "github.com/cometbft/cometbft/v2/rpc/client/http"
-	coretypes "github.com/cometbft/cometbft/v2/rpc/core/types"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -168,7 +168,7 @@ func (c *CosmosClient) CheckTxsPending(
 
 			pendingTxHashes := make([]string, 0)
 			for _, tx := range result.Txs {
-				pendingTxHashes = append(pendingTxHashes, tx.Hash().String())
+				pendingTxHashes = append(pendingTxHashes, string(tx.Hash()))
 			}
 
 			if ok := slices.Contains(pendingTxHashes, txHash); ok {
