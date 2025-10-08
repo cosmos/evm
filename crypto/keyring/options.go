@@ -5,12 +5,14 @@ import (
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/wallets/ledger"
 
+	cosmoshd "github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cosmosLedger "github.com/cosmos/cosmos-sdk/crypto/ledger"
 	"github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
-// AppName defines the Ledger app used for signing. Cosmos EVM uses the Ethereum app
+// AppName defines the default Ledger app used for signing. Cosmos EVM defaults to the Ethereum app
+// but also supports the Cosmos app for standard Cosmos signing.
 const AppName = "Ethereum"
 
 var (
@@ -18,10 +20,10 @@ var (
 	//  - eth_secp256k1 (Ethereum)
 	SupportedAlgorithms = keyring.SigningAlgoList{hd.EthSecp256k1}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used by Cosmos EVM for the Ledger device:
-	//  - secp256k1 (in order to comply with Cosmos SDK)
-	// The Ledger derivation function is responsible for all signing and address generation.
-	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.EthSecp256k1}
-	// LedgerDerivation defines the Cosmos EVM Ledger Go derivation (Ethereum app with EIP-712 signing)
+	//  - eth_secp256k1 (for Ethereum app with EIP-712 signing)
+	//  - secp256k1 (for Cosmos app with standard Cosmos signing)
+	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.EthSecp256k1, cosmoshd.Secp256k1}
+	// LedgerDerivation defines the Cosmos EVM Ledger Go derivation (supports both Ethereum and Cosmos apps)
 	LedgerDerivation = ledger.EvmLedgerDerivation()
 	// CreatePubkey uses the ethsecp256k1 pubkey with Ethereum address generation and keccak hashing
 	CreatePubkey = func(key []byte) types.PubKey { return &ethsecp256k1.PubKey{Key: key} }

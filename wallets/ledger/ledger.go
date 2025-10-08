@@ -20,6 +20,7 @@ import (
 // Secp256k1DerivationFn defines the derivation function used on the Cosmos SDK Keyring.
 type Secp256k1DerivationFn func() (sdkledger.SECP256K1, error)
 
+// EvmLedgerDerivation creates a derivation function that supports both Ethereum and Cosmos Ledger apps.
 func EvmLedgerDerivation() Secp256k1DerivationFn {
 	cosmosEVMSECP256K1 := new(CosmosEVMSECP256K1)
 
@@ -30,8 +31,8 @@ func EvmLedgerDerivation() Secp256k1DerivationFn {
 
 var _ sdkledger.SECP256K1 = &CosmosEVMSECP256K1{}
 
-// CosmosEVMSECP256K1 defines a wrapper of the Ethereum App to
-// for compatibility with Cosmos SDK chains.
+// CosmosEVMSECP256K1 defines a wrapper for Ledger apps (Ethereum or Cosmos)
+// for compatibility with Cosmos SDK chains. It supports both apps automatically.
 type CosmosEVMSECP256K1 struct {
 	*usbwallet.Hub
 	PrimaryWallet accounts.Wallet
