@@ -1607,7 +1607,6 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				err := types.SetChainConfig(chainConfig)
 				s.Require().NoError(err)
 				err = configurator.
-					WithChainConfig(chainConfig).
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				s.Require().NoError(err)
@@ -1665,7 +1664,6 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 			err = types.SetChainConfig(chainConfig)
 			s.Require().NoError(err)
 			err = configurator.
-				WithChainConfig(chainConfig).
 				WithEVMCoinInfo(coinInfo).
 				Configure()
 			s.Require().NoError(err)

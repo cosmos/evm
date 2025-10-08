@@ -46,7 +46,6 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	}
 	err := configurator.
 		WithExtendedEips(evmtypes.DefaultCosmosEVMActivators).
-		WithChainConfig(ethCfg).
 		// NOTE: we're using the 18 decimals default for the example chain
 		WithEVMCoinInfo(config.ChainsCoinInfo[chainID]).
 		Configure()

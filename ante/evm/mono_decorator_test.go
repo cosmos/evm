@@ -209,7 +209,6 @@ func TestMonoDecorator(t *testing.T) {
 			}
 			err = configurator.
 				WithExtendedEips(evmsdktypes.DefaultCosmosEVMActivators).
-				WithChainConfig(chainConfig).
 				// NOTE: we're using the 18 decimals default for the example chain
 				WithEVMCoinInfo(coinInfo).
 				Configure()
