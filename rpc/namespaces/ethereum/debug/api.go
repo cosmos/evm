@@ -3,6 +3,7 @@ package debug
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -14,6 +15,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	stderrors "github.com/pkg/errors"
 
@@ -96,6 +98,32 @@ func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) (
 
 	if resBlock == nil || resBlock.Block == nil {
 		a.logger.Debug("block not found", "hash", hash.Hex())
+		return nil, errors.New("block not found")
+	}
+
+	return a.backend.TraceBlock(rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
+}
+
+// TraceBlock returns the structured logs created during the execution of
+// EVM and returns them as a JSON object. It accepts an RLP-encoded block.
+func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
+	a.logger.Debug("debug_traceBlock", "size", len(tblockRlp))
+	// Decode RLP-encoded block
+	var block types.Block
+	if err := rlp.DecodeBytes(tblockRlp, &block); err != nil {
+		a.logger.Debug("failed to decode block", "error", err.Error())
+		return nil, fmt.Errorf("could not decode block: %w", err)
+	}
+
+	// Get CometBFT block by hash to get the full block with txs
+	resBlock, err := a.backend.CometBlockByHash(common.BytesToHash(block.Hash().Bytes()))
+	if err != nil {
+		a.logger.Debug("get block failed", "hash", block.Hash().Hex(), "error", err.Error())
+		return nil, err
+	}
+
+	if resBlock == nil || resBlock.Block == nil {
+		a.logger.Debug("block not found", "hash", block.Hash().Hex())
 		return nil, errors.New("block not found")
 	}
 
