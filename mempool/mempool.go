@@ -297,6 +297,10 @@ func (m *ExperimentalEVMMempool) Remove(tx sdk.Tx) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	if m.blockchain.latestCtx.BlockHeight() == 0 {
+		return nil
+	}
+
 	m.logger.Debug("removing transaction from mempool")
 
 	msg, err := m.getEVMMessage(tx)

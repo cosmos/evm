@@ -14,11 +14,13 @@
 - [\#545](https://github.com/cosmos/evm/pull/545) Check if mempool is not nil before accepting nonce gap error tx.
 - [\#585](https://github.com/cosmos/evm/pull/585) Use zero constructor to avoid nil pointer panic when BaseFee is 0d
 - [\#591](https://github.com/cosmos/evm/pull/591) CheckTxHandler should handle "invalid nonce" tx
+- [\#642](https://github.com/cosmos/evm/pull/642) "tx not found in mempool" error on chain startup
 - [\#643](https://github.com/cosmos/evm/pull/643) Support for mnemonic source (file, stdin,etc) flag in key add command.
 - [\#645](https://github.com/cosmos/evm/pull/645) Align precise bank keeper for correct decimal conversion in evmd.
 - [\#656](https://github.com/cosmos/evm/pull/656) Fix race condition in concurrent usage of mempool StateAt and NotifyNewBlock methods.
 - [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
 - [\#687](https://github.com/cosmos/evm/pull/687) Avoid blocking node shutdown when evm indexer is enabled, log startup failures instead of using errgroup.
+- [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
 
 ### IMPROVEMENTS
 
@@ -53,6 +55,7 @@
 - [\#337](https://github.com/cosmos/evm/pull/337) Support state overrides in eth_call.
 - [\#502](https://github.com/cosmos/evm/pull/502) Add block time in derived logs.
 - [\#633](https://github.com/cosmos/evm/pull/633) go-ethereum metrics are now emitted on a separate server. default address: 127.0.0.1:8100.
+- [\#650](https://github.com/cosmos/evm/pull/650) Make staking precompile queries return the full validators' description structure.
 
 ### STATE BREAKING
 
