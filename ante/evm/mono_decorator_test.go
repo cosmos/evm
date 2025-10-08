@@ -196,6 +196,24 @@ func TestMonoDecorator(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			configurator := evmsdktypes.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+			chainConfig := evmsdktypes.DefaultChainConfig(evmsdktypes.DefaultEVMChainID)
+			err := evmsdktypes.SetChainConfig(chainConfig)
+			require.NoError(t, err)
+			coinInfo := evmsdktypes.EvmCoinInfo{
+				Denom:         evmsdktypes.DefaultEVMExtendedDenom,
+				ExtendedDenom: evmsdktypes.DefaultEVMExtendedDenom,
+				DisplayDenom:  evmsdktypes.DefaultEVMDisplayDenom,
+				Decimals:      18,
+			}
+			err = configurator.
+				WithExtendedEips(evmsdktypes.DefaultCosmosEVMActivators).
+				WithChainConfig(chainConfig).
+				// NOTE: we're using the 18 decimals default for the example chain
+				WithEVMCoinInfo(coinInfo).
+				Configure()
+			require.NoError(t, err)
 			privKey, _ := ethsecp256k1.GenerateKey()
 			keeper, cosmosAddr := setupFundedKeeper(t, privKey)
 			accountKeeper := MockAccountKeeper{FundedAddr: cosmosAddr}
