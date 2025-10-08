@@ -55,7 +55,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 	ledgerKey := "ledger_key"
 
 	s.SetupTest()
-	s.SetupEvmosApp()
+	s.SetupEVMApp()
 
 	Describe("Adding a key from ledger using the CLI", func() {
 		BeforeEach(func() {
