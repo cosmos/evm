@@ -229,3 +229,69 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 
 	return decodedResults, nil
 }
+
+// TraceCall executes a call with the given arguments and returns the structured logs
+// created during the execution of EVM. It returns them as a JSON object.
+// Note: This implementation requires the gRPC TraceCall method to be implemented on the server side.
+func (b *Backend) TraceCall(
+	args evmtypes.TransactionArgs,
+	blockNrOrHash rpctypes.BlockNumberOrHash,
+	config *rpctypes.TraceConfig,
+) (interface{}, error) {
+	// Marshal tx args
+	bz, err := json.Marshal(&args)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get block number from blockNrOrHash
+	blockNr, err := b.BlockNumberFromComet(blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the block to get necessary context
+	header, err := b.CometHeaderByNumber(blockNr)
+	if err != nil {
+		b.Logger.Debug("block not found", "number", blockNr)
+		return nil, err
+	}
+
+	traceCallRequest := evmtypes.QueryTraceCallRequest{
+		Args:            bz,
+		GasCap:          b.RPCGasCap(),
+		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
+		BlockNumber:     header.Header.Height,
+		BlockHash:       common.Bytes2Hex(header.Header.Hash()),
+		BlockTime:       header.Header.Time,
+		ChainId:         b.EvmChainID.Int64(),
+	}
+
+	if config != nil {
+		traceCallRequest.TraceConfig = b.convertConfig(config)
+	}
+
+	// get the context of provided block
+	contextHeight := header.Header.Height
+	if contextHeight < 1 {
+		// 0 is a special value in `ContextWithHeight`
+		contextHeight = 1
+	}
+
+	// Use the block height as context for the query
+	ctxWithHeight := rpctypes.ContextWithHeight(contextHeight)
+	traceResult, err := b.QueryClient.TraceCall(ctxWithHeight, &traceCallRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Response format is unknown due to custom tracer config param
+	// More information can be found here https://geth.ethereum.org/docs/dapp/tracing-filtered
+	var decodedResult interface{}
+	err = json.Unmarshal(traceResult.Data, &decodedResult)
+	if err != nil {
+		return nil, err
+	}
+
+	return decodedResult, nil
+}

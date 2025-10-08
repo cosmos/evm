@@ -654,6 +654,76 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	}, nil
 }
 
+// TraceCall configures a new tracer according to the provided configuration, and
+// executes the given call in the provided environment. The return value will
+// be tracer dependent.
+func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (*types.QueryTraceCallResponse, error) {
+	if req == nil || req.Args == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.TraceConfig != nil && req.TraceConfig.Limit < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "output limit cannot be negative, got %d", req.TraceConfig.Limit)
+	}
+
+	// get the context of block beginning
+	requestedHeight := req.BlockNumber
+	if requestedHeight < 1 {
+		// 0 is a special value in `ContextWithHeight`
+		requestedHeight = 1
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	// the caller sets the `ctx.BlockHeight()` to be `requestedHeight - 1`, so we can get the context of block beginning
+	if requestedHeight > ctx.BlockHeight()+1 {
+		return nil, status.Errorf(codes.FailedPrecondition, "requested height [%d] must be less than or equal to current height [%d]", requestedHeight, ctx.BlockHeight())
+	}
+
+	ctx = ctx.WithBlockHeight(requestedHeight)
+	ctx = ctx.WithBlockTime(req.BlockTime)
+	ctx = ctx.WithHeaderHash(common.Hex2Bytes(req.BlockHash))
+
+	cfg, err := k.EVMConfig(ctx, GetProposerAddress(ctx, req.ProposerAddress))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to load evm config: %s", err.Error())
+	}
+
+	// compute and use base fee of the height that is being traced
+	baseFee := k.feeMarketWrapper.CalculateBaseFee(ctx)
+	if baseFee != nil {
+		cfg.BaseFee = baseFee
+	}
+
+	// Get empty tx config
+	txConfig := statedb.NewEmptyTxConfig()
+
+	// Get transaction msg from args
+	var args types.TransactionArgs
+	err = json.Unmarshal(req.Args, &args)
+	if err != nil {
+		return nil, err
+	}
+	nonce := k.GetNonce(ctx, args.GetFrom())
+	args.Nonce = (*hexutil.Uint64)(&nonce)
+	msg := args.ToMessage(baseFee, true, true)
+
+	// trace call
+	result, _, err := k.traceTxWithMsg(ctx, cfg, txConfig, msg, req.GetTraceConfig(), false)
+	if err != nil {
+		// error will be returned with detail status from traceTx
+		return nil, err
+	}
+
+	resultData, err := json.Marshal(result)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryTraceCallResponse{
+		Data: resultData,
+	}, nil
+}
+
 // traceTx do trace on one transaction, it returns a tuple: (traceResult, nextLogIndex, error).
 func (k *Keeper) traceTx(
 	ctx sdk.Context,
@@ -664,6 +734,23 @@ func (k *Keeper) traceTx(
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
 ) (*any, uint, error) {
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
+	if err != nil {
+		return nil, 0, status.Error(codes.Internal, err.Error())
+	}
+
+	return k.traceTxWithMsg(ctx, cfg, txConfig, msg, traceConfig, commitMessage)
+}
+
+// traceTxWithMsg do trace on one Ethereum message, it returns a tuple: (traceResult, nextLogIndex, error).
+func (k *Keeper) traceTxWithMsg(
+	ctx sdk.Context,
+	cfg *statedb.EVMConfig,
+	txConfig statedb.TxConfig,
+	msg *core.Message,
+	traceConfig *types.TraceConfig,
+	commitMessage bool,
+) (*interface{}, uint, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer           *tracers.Tracer
@@ -672,10 +759,6 @@ func (k *Keeper) traceTx(
 		err              error
 		timeout          = defaultTraceTimeout
 	)
-	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
-	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
-	}
 
 	if traceConfig == nil {
 		traceConfig = &types.TraceConfig{}
