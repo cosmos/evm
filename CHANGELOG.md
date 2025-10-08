@@ -6,6 +6,7 @@
 
 ### BUG FIXES
 
+- (wallets) Update Ledger device product IDs to match go-ethereum implementation, adding support for WebUSB variants and Ledger Flex devices
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
 - [\#492](https://github.com/cosmos/evm/pull/492) Duplicate case switch to avoid empty execution block
 - [\#509](https://github.com/cosmos/evm/pull/509) Allow value with slashes when query token_pairs
