@@ -118,7 +118,8 @@ func (k Keeper) DerivedEVMCall(
 	abi abi.ABI,
 	from, contract common.Address,
 	value, gasLimit *big.Int,
-	commit, gasless bool,
+	commit, gasless, isModuleSender bool,
+	manualNonce *uint64,
 	method string,
 	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
@@ -130,7 +131,7 @@ func (k Keeper) DerivedEVMCall(
 		)
 	}
 
-	resp, err := k.DerivedEVMCallWithData(ctx, from, &contract, data, commit, gasless, value, gasLimit)
+	resp, err := k.DerivedEVMCallWithData(ctx, from, &contract, data, commit, gasless, isModuleSender, value, gasLimit, manualNonce)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
 	}
@@ -159,12 +160,22 @@ func (k Keeper) DerivedEVMCallWithData(
 	from common.Address,
 	contract *common.Address,
 	data []byte,
-	commit, gasless bool,
+	commit, gasless, isModuleSender bool,
 	value, gasLimit *big.Int,
+	manualNonce *uint64,
 ) (*types.MsgEthereumTxResponse, error) {
-	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
-	if err != nil {
-		return nil, err
+	var nonce uint64
+	if isModuleSender {
+		if manualNonce == nil {
+			return nil, errorsmod.Wrap(errortypes.ErrInvalidSequence, "manual nonce required for module sender")
+		}
+		nonce = *manualNonce
+	} else {
+		n, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		nonce = n
 	}
 
 	gasCap := config.DefaultGasCap
