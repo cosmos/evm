@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"io"
 	"os"
+
+	"github.com/cosmos/evm/config"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -16,6 +17,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
+	evmdebug "github.com/cosmos/evm/client/debug"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	cosmosevmserver "github.com/cosmos/evm/server"
@@ -30,7 +32,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	clientcfg "github.com/cosmos/cosmos-sdk/client/config"
-	"github.com/cosmos/cosmos-sdk/client/debug"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
@@ -180,7 +181,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 		genutilcli.InitCmd(evmApp.BasicModuleManager, defaultNodeHome),
 		genutilcli.Commands(evmApp.TxConfig(), evmApp.BasicModuleManager, defaultNodeHome),
 		cmtcli.NewCompletionCmd(rootCmd, true),
-		debug.Cmd(),
+		evmdebug.Cmd(),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(sdkAppCreator, defaultNodeHome),
 		snapshot.Cmd(sdkAppCreator),
@@ -304,6 +305,7 @@ func newApp(
 	baseappOptions := []func(*baseapp.BaseApp){
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))),
+		baseapp.SetQueryGasLimit(cast.ToUint64(appOpts.Get(sdkserver.FlagQueryGasLimit))),
 		baseapp.SetHaltHeight(cast.ToUint64(appOpts.Get(sdkserver.FlagHaltHeight))),
 		baseapp.SetHaltTime(cast.ToUint64(appOpts.Get(sdkserver.FlagHaltTime))),
 		baseapp.SetMinRetainBlocks(cast.ToUint64(appOpts.Get(sdkserver.FlagMinRetainBlocks))),
