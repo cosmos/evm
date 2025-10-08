@@ -324,7 +324,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				s.chainA.GetContext(),
 				ics20CallerAddr,
 			)
-			Expect(contractBalance.ToBig()).To(Equal(fundAmt.Mul(math.NewInt(1e12)).BigInt()), "Contract balance should be equal to the fund amount")
+			Expect(contractBalance.ToBig()).To(Equal(fundAmtConverted.BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
 			sendAmtConverted := sendAmt.Mul(math.NewInt(1e12))
@@ -407,6 +407,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			// send some tokens to the contract address
 			fundAmt := math.NewInt(100)
+			fundAmtConverted := fundAmt.Mul(math.NewInt(1e12))
 			err = evmAppA.GetBankKeeper().SendCoins(
 				s.chainA.GetContext(),
 				s.chainA.SenderAccount.GetAddress(),
@@ -419,7 +420,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 				common.BytesToAddress(ics20CallerAddr.Bytes()),
 			)
 			// check contract balance
-			Expect(contractBalance.ToBig()).To(Equal(fundAmt.Mul(math.NewInt(1e12)).BigInt()), "Contract balance should be equal to the fund amount")
+			Expect(contractBalance.ToBig()).To(Equal(fundAmtConverted.BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
 			callArgs := testutiltypes.CallArgs{
