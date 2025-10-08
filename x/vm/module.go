@@ -253,10 +253,6 @@ func SetGlobalConfigVariables(ctx sdk.Context, vmKeeper *keeper.Keeper, bankKeep
 	}
 
 	configurator := types.NewEVMConfigurator()
-	// if withReset {
-	//	// reset configuration to set the new one
-	//	configurator.ResetTestConfig()
-	//}
 	err := configurator.
 		WithExtendedEips(types.DefaultCosmosEVMActivators).
 		// NOTE: we're using the 18 decimals default for the example chain

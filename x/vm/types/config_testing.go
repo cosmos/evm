@@ -9,6 +9,7 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )
@@ -21,9 +22,9 @@ var testChainConfig *ChainConfig
 func (ec *EVMConfigurator) Configure() error {
 	// If Configure method has been already used in the object, return
 	// an error to avoid overriding configuration.
-	//if ec.sealed {
-	//	return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
-	//}
+	if ec.sealed {
+		return fmt.Errorf("error configuring EVMConfigurator: already sealed and cannot be modified")
+	}
 
 	if err := setTestingEVMCoinInfo(ec.evmCoinInfo); err != nil {
 		return err
