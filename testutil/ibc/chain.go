@@ -19,7 +19,6 @@ import (
 	cmtversion "github.com/cometbft/cometbft/version"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
@@ -138,7 +137,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 			Address: acc.GetAddress().String(),
 			Coins: sdk.NewCoins(
 				sdk.NewCoin(sdk.DefaultBondDenom, amount),
-				sdk.NewCoin(config.TestExtendedDenom, amount),
+				sdk.NewCoin(types.DefaultEVMExtendedDenom, amount),
 			),
 		}
 
@@ -157,22 +156,22 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 		Description: "",
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    config.TestExtendedDenom,
+				Denom:    types.DefaultEVMExtendedDenom,
 				Exponent: 0,
 				Aliases:  nil,
 			},
 			{
-				Denom:    config.TestDisplayDenom,
+				Denom:    types.DefaultEVMDisplayDenom,
 				Exponent: 6,
 				Aliases:  nil,
 			},
 		},
-		Base:    config.TestExtendedDenom,
-		Display: config.TestDisplayDenom,
-		Name:    config.TestEvmDenom,
-		Symbol:  config.TestEvmDenom,
-		URI:     config.TestEvmDenom,
-		URIHash: config.TestEvmDenom,
+		Base:    types.DefaultEVMExtendedDenom,
+		Display: types.DefaultEVMDisplayDenom,
+		Name:    types.DefaultEVMDenom,
+		Symbol:  types.DefaultEVMDenom,
+		URI:     types.DefaultEVMDenom,
+		URIHash: types.DefaultEVMDenom,
 	}}
 
 	app := SetupWithGenesisValSet(tb, valSet, genAccs, chainID, sdk.DefaultPowerReduction, metadata, genBals...)

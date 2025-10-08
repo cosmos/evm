@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/x/vm/types"
 	"io"
 	"os"
 
@@ -126,7 +127,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := config.InitAppConfig(config.TestExtendedDenom, config.EVMChainID) // TODO:VLAD - Remove this
+			customAppTemplate, customAppConfig := config.InitAppConfig(types.DefaultEVMExtendedDenom, config.EVMChainID) // TODO:VLAD - Remove this
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)

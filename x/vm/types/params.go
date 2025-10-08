@@ -21,6 +21,8 @@ var (
 	DefaultEVMDenom = "uatom"
 	// DefaultEVMExtendedDenom is the default value for the evm extended denom
 	DefaultEVMExtendedDenom = "aatom"
+	// DefaultEVMDisplayDenom is the default value for the display denom in the bank metadata
+	DefaultEVMDisplayDenom = "atom"
 	// DefaultEVMChainID is the default value for the evm chain ID
 	DefaultEVMChainID uint64 = 262144
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
