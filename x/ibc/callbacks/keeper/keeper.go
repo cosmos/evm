@@ -12,7 +12,7 @@ import (
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
 	evmante "github.com/cosmos/evm/x/vm/ante"
-	types2 "github.com/cosmos/evm/x/vm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	callbacktypes "github.com/cosmos/ibc-go/v10/modules/apps/callbacks/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -128,7 +128,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// with the gas retrieved from the EVM message result.
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
-		WithGasMeter(types2.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
 
 	// receiver := sdk.MustAccAddressFromBech32(data.Receiver)
 	receiver, err := sdk.AccAddressFromBech32(data.Receiver)
@@ -297,7 +297,7 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	// with the gas retrieved from the EVM message result.
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
-		WithGasMeter(types2.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
 
 	if len(cbData.Calldata) != 0 {
 		return errorsmod.Wrap(types.ErrInvalidCalldata, "acknowledgement callback data should not contain calldata")
@@ -398,7 +398,7 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	// with the gas retrieved from the EVM message result.
 	cachedCtx, writeFn := ctx.CacheContext()
 	cachedCtx = evmante.BuildEvmExecutionCtx(cachedCtx).
-		WithGasMeter(types2.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
+		WithGasMeter(evmtypes.NewInfiniteGasMeterWithLimit(cbData.CommitGasLimit))
 
 	if len(cbData.Calldata) != 0 {
 		return errorsmod.Wrap(types.ErrInvalidCalldata, "timeout callback data should not contain calldata")

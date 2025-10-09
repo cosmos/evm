@@ -20,7 +20,7 @@ import (
 
 	"github.com/cosmos/evm/mempool/txpool"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	types2 "github.com/cosmos/evm/server/types"
+	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -132,7 +132,7 @@ func (b *Backend) GetTransactionByHashPending(txHash common.Hash) (*rpctypes.RPC
 }
 
 // GetGasUsed returns gasUsed from transaction
-func (b *Backend) GetGasUsed(res *types2.TxResult, price *big.Int, gas uint64) uint64 {
+func (b *Backend) GetGasUsed(res *servertypes.TxResult, price *big.Int, gas uint64) uint64 {
 	return res.GasUsed
 }
 
@@ -145,7 +145,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	maxRetries := 10
 	baseDelay := 50 * time.Millisecond
 
-	var res *types2.TxResult
+	var res *servertypes.TxResult
 	var err error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -294,7 +294,7 @@ func (b *Backend) GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNum
 // GetTxByEthHash uses `/tx_query` to find transaction by ethereum tx hash
 // TODO: Don't need to convert once hashing is fixed on CometBFT
 // https://github.com/cometbft/cometbft/issues/6539
-func (b *Backend) GetTxByEthHash(hash common.Hash) (*types2.TxResult, error) {
+func (b *Backend) GetTxByEthHash(hash common.Hash) (*servertypes.TxResult, error) {
 	if b.Indexer != nil {
 		return b.Indexer.GetByTxHash(hash)
 	}
@@ -311,7 +311,7 @@ func (b *Backend) GetTxByEthHash(hash common.Hash) (*types2.TxResult, error) {
 }
 
 // GetTxByTxIndex uses `/tx_query` to find transaction by tx index of valid ethereum txs
-func (b *Backend) GetTxByTxIndex(height int64, index uint) (*types2.TxResult, error) {
+func (b *Backend) GetTxByTxIndex(height int64, index uint) (*servertypes.TxResult, error) {
 	int32Index := int32(index) //#nosec G115 -- checked for int overflow already
 	if b.Indexer != nil {
 		return b.Indexer.GetByBlockAndIndex(height, int32Index)
@@ -332,7 +332,7 @@ func (b *Backend) GetTxByTxIndex(height int64, index uint) (*types2.TxResult, er
 }
 
 // QueryCometTxIndexer query tx in CometBFT tx indexer
-func (b *Backend) QueryCometTxIndexer(query string, txGetter func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx) (*types2.TxResult, error) {
+func (b *Backend) QueryCometTxIndexer(query string, txGetter func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx) (*servertypes.TxResult, error) {
 	resTxs, err := b.ClientCtx.Client.TxSearch(b.Ctx, query, false, nil, nil, "")
 	if err != nil {
 		return nil, err

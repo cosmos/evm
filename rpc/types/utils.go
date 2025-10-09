@@ -17,7 +17,7 @@ import (
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	types2 "github.com/cosmos/evm/x/feemarket/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -356,7 +356,7 @@ func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 }
 
 // CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p types2.Params) (*big.Int, error) {
+func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p feemarkettypes.Params) (*big.Int, error) {
 	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 	if !config.IsLondon(parent.Number) {
 		return new(big.Int).SetUint64(ethparams.InitialBaseFee), nil
@@ -368,7 +368,7 @@ func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p types
 
 	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
 	minGasPrice := p.MinGasPrice.Mul(sdkmath.LegacyNewDecFromInt(factor))
-	return types2.CalcGasBaseFee(
+	return feemarkettypes.CalcGasBaseFee(
 		parent.GasUsed, parentGasTarget, uint64(p.BaseFeeChangeDenominator),
 		sdkmath.LegacyNewDecFromBigInt(parent.BaseFee), sdkmath.LegacyOneDec(), minGasPrice,
 	).TruncateInt().BigInt(), nil

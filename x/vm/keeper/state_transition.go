@@ -14,7 +14,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	types2 "github.com/cosmos/evm/ante/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -47,7 +47,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		Transfer:    core.Transfer,
 		GetHash:     k.GetHashFn(ctx),
 		Coinbase:    cfg.CoinBase,
-		GasLimit:    types2.BlockGasLimit(ctx),
+		GasLimit:    antetypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
 		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
 		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
