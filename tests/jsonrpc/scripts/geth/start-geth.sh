@@ -9,10 +9,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
 # Configuration
 CONTAINER_NAME="geth-jsonrpc-test"
-GETH_IMAGE="ethereum/client-go:v1.15.10"
+GETH_IMAGE="ethereum/client-go:v1.16.3"
 DATA_DIR="$PROJECT_ROOT/tests/jsonrpc/.geth-data"
 CHAIN_ID=4221
-NETWORK_ID=4221
 
 # Colors for output
 RED='\033[0;31m'
@@ -60,7 +59,6 @@ docker run -d \
     -v "$DATA_DIR:/data" \
     "$GETH_IMAGE" \
     --datadir /data \
-    --networkid $NETWORK_ID \
     --dev \
     --dev.period 1 \
     --http \
@@ -73,7 +71,6 @@ docker run -d \
     --ws.port 8546 \
     --ws.api eth,net,web3,personal,txpool,debug,admin,miner \
     --ws.origins "*" \
-    --allow-insecure-unlock \
     --verbosity 3
 
 # Wait for geth to start
@@ -91,7 +88,6 @@ echo -e "${YELLOW}Endpoints:${NC}"
 echo -e "  JSON-RPC: http://localhost:8547"
 echo -e "  WebSocket: ws://localhost:8548"
 echo -e "  Chain ID: $CHAIN_ID"
-echo -e "  Network ID: $NETWORK_ID"
 echo
 echo -e "${YELLOW}To view logs: docker logs -f $CONTAINER_NAME${NC}"
 echo -e "${YELLOW}To stop: $SCRIPT_DIR/stop-geth.sh${NC}"
