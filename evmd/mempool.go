@@ -30,11 +30,17 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 
 	blockGasLimit := evmconfig.GetBlockGasLimit(v, logger)
 	minTip := evmconfig.GetMinTip(v, logger)
-	mempoolConfig := &evmmempool.EVMMempoolConfig{
-		AnteHandler:   app.GetAnteHandler(),
-		BlockGasLimit: blockGasLimit,
-		MinTip:        minTip,
+
+	// Get mempool configuration from app.toml
+	mempoolConfig, err := evmconfig.GetMempoolConfig(v, logger)
+	if err != nil {
+		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
+
+	// Set required fields that aren't configurable via app.toml
+	mempoolConfig.AnteHandler = app.GetAnteHandler()
+	mempoolConfig.BlockGasLimit = blockGasLimit
+	mempoolConfig.MinTip = minTip
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,

@@ -151,6 +151,65 @@ type EVMConfig struct {
 	MinTip uint64 `mapstructure:"min-tip"`
 	// GethMetricsAddress is the address the geth metrics server will bind to. Default 127.0.0.1:8100
 	GethMetricsAddress string `mapstructure:"geth-metrics-address"`
+	// Mempool defines the EVM mempool configuration
+	Mempool MempoolConfig `mapstructure:"mempool"`
+}
+
+// MempoolConfig defines the configuration for the EVM mempool transaction pool.
+type MempoolConfig struct {
+	// PriceLimit is the minimum gas price to enforce for acceptance into the pool
+	PriceLimit uint64 `mapstructure:"price-limit"`
+	// PriceBump is the minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceBump uint64 `mapstructure:"price-bump"`
+	// AccountSlots is the number of executable transaction slots guaranteed per account
+	AccountSlots uint64 `mapstructure:"account-slots"`
+	// GlobalSlots is the maximum number of executable transaction slots for all accounts
+	GlobalSlots uint64 `mapstructure:"global-slots"`
+	// AccountQueue is the maximum number of non-executable transaction slots permitted per account
+	AccountQueue uint64 `mapstructure:"account-queue"`
+	// GlobalQueue is the maximum number of non-executable transaction slots for all accounts
+	GlobalQueue uint64 `mapstructure:"global-queue"`
+	// Lifetime is the maximum amount of time non-executable transaction are queued
+	Lifetime time.Duration `mapstructure:"lifetime"`
+}
+
+// DefaultMempoolConfig returns the default mempool configuration
+func DefaultMempoolConfig() MempoolConfig {
+	return MempoolConfig{
+		PriceLimit:   1,             // Minimum gas price of 1 wei
+		PriceBump:    10,            // 10% price bump to replace transaction
+		AccountSlots: 16,            // 16 executable transaction slots per account
+		GlobalSlots:  5120,          // 4096 + 1024 = 5120 global executable slots
+		AccountQueue: 64,            // 64 non-executable transaction slots per account
+		GlobalQueue:  1024,          // 1024 global non-executable slots
+		Lifetime:     3 * time.Hour, // 3 hour lifetime for queued transactions
+	}
+}
+
+// Validate returns an error if the mempool configuration is invalid.
+func (c MempoolConfig) Validate() error {
+	if c.PriceLimit < 1 {
+		return fmt.Errorf("price limit must be at least 1, got %d", c.PriceLimit)
+	}
+	if c.PriceBump < 1 {
+		return fmt.Errorf("price bump must be at least 1, got %d", c.PriceBump)
+	}
+	if c.AccountSlots < 1 {
+		return fmt.Errorf("account slots must be at least 1, got %d", c.AccountSlots)
+	}
+	if c.GlobalSlots < 1 {
+		return fmt.Errorf("global slots must be at least 1, got %d", c.GlobalSlots)
+	}
+	if c.AccountQueue < 1 {
+		return fmt.Errorf("account queue must be at least 1, got %d", c.AccountQueue)
+	}
+	if c.GlobalQueue < 1 {
+		return fmt.Errorf("global queue must be at least 1, got %d", c.GlobalQueue)
+	}
+	if c.Lifetime < 1 {
+		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	}
+	return nil
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -220,6 +279,7 @@ func DefaultEVMConfig() *EVMConfig {
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
 		GethMetricsAddress:      DefaultGethMetricsAddress,
+		Mempool:                 DefaultMempoolConfig(),
 	}
 }
 
@@ -231,6 +291,11 @@ func (c EVMConfig) Validate() error {
 
 	if _, err := netip.ParseAddrPort(c.GethMetricsAddress); err != nil {
 		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddress, err)
+	}
+
+	// Validate mempool configuration
+	if err := c.Mempool.Validate(); err != nil {
+		return fmt.Errorf("invalid mempool config: %w", err)
 	}
 
 	return nil
