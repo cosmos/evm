@@ -115,19 +115,23 @@ func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) 
 		return nil, fmt.Errorf("could not decode block: %w", err)
 	}
 
-	// Get CometBFT block by hash to get the full block with txs
-	resBlock, err := a.backend.CometBlockByHash(common.BytesToHash(block.Hash().Bytes()))
+	// Get block number from the decoded block
+	blockNumber := rpctypes.BlockNumber(block.NumberU64())
+	a.logger.Debug("decoded block", "number", blockNumber, "hash", block.Hash().Hex())
+
+	// Get CometBFT block by number (not hash, as Ethereum block hash may differ from CometBFT hash)
+	resBlock, err := a.backend.CometBlockByNumber(blockNumber)
 	if err != nil {
-		a.logger.Debug("get block failed", "hash", block.Hash().Hex(), "error", err.Error())
+		a.logger.Debug("get block failed", "number", blockNumber, "error", err.Error())
 		return nil, err
 	}
 
 	if resBlock == nil || resBlock.Block == nil {
-		a.logger.Debug("block not found", "hash", block.Hash().Hex())
+		a.logger.Debug("block not found", "number", blockNumber)
 		return nil, errors.New("block not found")
 	}
 
-	return a.backend.TraceBlock(rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
+	return a.backend.TraceBlock(blockNumber, config, resBlock)
 }
 
 // TraceCall lets you trace a given eth_call. It collects the structured logs
@@ -136,6 +140,29 @@ func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) 
 func (a *API) TraceCall(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
 	a.logger.Debug("debug_traceCall", "args", args, "block number or hash", blockNrOrHash)
 	return a.backend.TraceCall(args, blockNrOrHash, config)
+}
+
+// GetRawBlock retrieves the RLP-encoded block by block number or hash.
+func (a *API) GetRawBlock(blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
+	a.logger.Debug("debug_getRawBlock", "block number or hash", blockNrOrHash)
+
+	// Get block number from blockNrOrHash
+	blockNum, err := a.backend.BlockNumberFromComet(blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get Ethereum block by number
+	block, err := a.backend.EthBlockByNumber(blockNum)
+	if err != nil {
+		return nil, err
+	}
+	if block == nil {
+		return nil, fmt.Errorf("block not found")
+	}
+
+	// Encode block to RLP
+	return rlp.EncodeToBytes(block)
 }
 
 // BlockProfile turns on goroutine profiling for nsec seconds and writes profile data to
