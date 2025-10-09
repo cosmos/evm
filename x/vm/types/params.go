@@ -18,9 +18,13 @@ import (
 
 var (
 	// DefaultEVMDenom is the default value for the evm denom
-	DefaultEVMDenom = "atest"
+	DefaultEVMDenom = "uatom"
+	// DefaultEVMExtendedDenom is the default value for the evm extended denom
+	DefaultEVMExtendedDenom = "aatom"
+	// DefaultEVMDisplayDenom is the default value for the display denom in the bank metadata
+	DefaultEVMDisplayDenom = "atom"
 	// DefaultEVMChainID is the default value for the evm chain ID
-	DefaultEVMChainID = "cosmos_262144-1"
+	DefaultEVMChainID uint64 = 262144
 	// DefaultEVMDecimals is the default value for the evm denom decimal precision
 	DefaultEVMDecimals uint64 = 18
 	// DefaultStaticPrecompiles defines the default active precompiles.
@@ -63,12 +67,13 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMDenom,
+		EvmDenom:                DefaultEVMExtendedDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
 		HistoryServeWindow:      DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
 	}
 }
 

@@ -64,7 +64,7 @@ func (s *PrecompileTestSuite) TestDelegation() {
 			func([]byte) {},
 			100000,
 			true,
-			"decoding bech32 failed: invalid bech32 string",
+			"invalid: unknown address",
 		},
 		{
 			"success - empty delegation",

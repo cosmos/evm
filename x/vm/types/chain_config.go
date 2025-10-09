@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"math/big"
 
 	gethparams "github.com/ethereum/go-ethereum/params"
@@ -9,9 +8,6 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 )
-
-// testChainID represents the ChainID used for the purpose of testing.
-const testChainID uint64 = 262144 // TODO:VLAD - Consolidate into a single object across the entire repo
 
 // chainConfig is the chain configuration used in the EVM to defined which
 // opcodes are active based on Ethereum upgrades.
@@ -60,7 +56,7 @@ func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {
 
 func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 	if evmChainID == 0 {
-		evmChainID = testChainID
+		evmChainID = DefaultEVMChainID
 	}
 
 	homesteadBlock := sdkmath.ZeroInt()
@@ -109,25 +105,6 @@ func DefaultChainConfig(evmChainID uint64) *ChainConfig {
 		VerkleTime:          nil,
 	}
 	return cfg
-}
-
-// setChainConfig allows to set the `chainConfig` variable modifying the
-// default values. The method is private because it should only be called once
-// in the EVMConfigurator.
-func setChainConfig(cc *ChainConfig) error {
-	if chainConfig != nil {
-		return errors.New("chainConfig already set. Cannot set again the chainConfig")
-	}
-	config := DefaultChainConfig(0)
-	if cc != nil {
-		config = cc
-	}
-	if err := config.Validate(); err != nil {
-		return err
-	}
-	chainConfig = config
-
-	return nil
 }
 
 func getBlockValue(block *sdkmath.Int) *big.Int {

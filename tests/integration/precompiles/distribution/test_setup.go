@@ -3,6 +3,7 @@ package distribution
 import (
 	"github.com/stretchr/testify/suite"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/distribution"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -14,7 +15,6 @@ import (
 	"cosmossdk.io/math"
 	sdkmath "cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -136,6 +136,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 		distrkeeper.NewQuerier(s.network.App.GetDistrKeeper()),
 		*s.network.App.GetStakingKeeper(),
 		s.network.App.GetBankKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }

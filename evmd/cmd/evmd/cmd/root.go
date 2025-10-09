@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/x/vm/types"
 	"io"
 	"os"
 
@@ -16,6 +16,8 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	cosmosevmcmd "github.com/cosmos/evm/client"
+	evmdebug "github.com/cosmos/evm/client/debug"
+	"github.com/cosmos/evm/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
 	cosmosevmserver "github.com/cosmos/evm/server"
@@ -30,7 +32,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	clientcfg "github.com/cosmos/cosmos-sdk/client/config"
-	"github.com/cosmos/cosmos-sdk/client/debug"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
@@ -54,17 +55,12 @@ func NewRootCmd() *cobra.Command {
 	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
 	// and the CLI options for the modules
 	// add keyring to autocli opts
-	noOpEvmAppOptions := func(_ uint64) error {
-		return nil
-	}
 	tempApp := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
-		noOpEvmAppOptions,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -130,7 +126,7 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := config.InitAppConfig(config.BaseDenom, config.EVMChainID) // TODO:VLAD - Remove this
+			customAppTemplate, customAppConfig := config.InitAppConfig(types.DefaultEVMExtendedDenom, config.EVMChainID) // TODO:VLAD - Remove this
 			customTMConfig := initCometConfig()
 
 			return sdkserver.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
@@ -145,12 +141,6 @@ func NewRootCmd() *cobra.Command {
 
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
-	}
-
-	if initClientCtx.ChainID != "" { // TODO:VLAD - Remove this
-		if err := config.EvmAppOptions(config.EVMChainID); err != nil {
-			panic(err)
-		}
 	}
 
 	return rootCmd
@@ -180,7 +170,7 @@ func initRootCmd(rootCmd *cobra.Command, evmApp *evmd.EVMD) {
 		genutilcli.InitCmd(evmApp.BasicModuleManager, defaultNodeHome),
 		genutilcli.Commands(evmApp.TxConfig(), evmApp.BasicModuleManager, defaultNodeHome),
 		cmtcli.NewCompletionCmd(rootCmd, true),
-		debug.Cmd(),
+		evmdebug.Cmd(),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(sdkAppCreator, defaultNodeHome),
 		snapshot.Cmd(sdkAppCreator),
@@ -320,8 +310,6 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		config.EVMChainID,    // TODO:VLAD - Remove this
-		config.EvmAppOptions, // TODO:VLAD - Remove this
 		baseappOptions...,
 	)
 }
@@ -362,13 +350,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config.EVMChainID, config.EvmAppOptions, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
