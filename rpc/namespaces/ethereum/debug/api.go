@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -116,7 +117,11 @@ func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) 
 	}
 
 	// Get block number from the decoded block
-	blockNumber := rpctypes.BlockNumber(block.NumberU64())
+	blockNum := block.NumberU64()
+	if blockNum > math.MaxInt64 {
+		return nil, fmt.Errorf("block number overflow: %d exceeds max int64", blockNum)
+	}
+	blockNumber := rpctypes.BlockNumber(blockNum) //#nosec G115 -- overflow checked above
 	a.logger.Debug("decoded block", "number", blockNumber, "hash", block.Hash().Hex())
 
 	// Get CometBFT block by number (not hash, as Ethereum block hash may differ from CometBFT hash)

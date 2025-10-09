@@ -256,7 +256,8 @@ func (s *TestSuite) TestTraceCall() {
 					height      = int64(1)
 				)
 				blockHash := common.Hash{} // Use zero hash to match RegisterHeaderByHash
-				RegisterHeaderByHash(client, blockHash, blockHash.Bytes())
+				_, err := RegisterHeaderByHash(client, blockHash, blockHash.Bytes())
+				s.Require().NoError(err)
 				RegisterHeader(client, &height, nil)
 				RegisterTraceCall(QueryClient, msgEthTx)
 			},
