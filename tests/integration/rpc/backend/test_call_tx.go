@@ -20,6 +20,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -72,9 +73,10 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFeeDisabled(QueryClient)
 			},
 			evmtypes.TransactionArgs{
@@ -95,9 +97,10 @@ func (s *TestSuite) TestResend() {
 				feeMarketClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				RegisterParams(QueryClient, &header, height)
 				RegisterFeeMarketParams(feeMarketClient, 1)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			evmtypes.TransactionArgs{
@@ -115,9 +118,10 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFeeDisabled(QueryClient)
 			},
 			evmtypes.TransactionArgs{
@@ -152,7 +156,7 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeaderError(client, &height)
+				RegisterBlockError(client, height)
 			},
 			evmtypes.TransactionArgs{
 				Nonce: &txNonce,
@@ -169,9 +173,10 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			evmtypes.TransactionArgs{
@@ -193,9 +198,10 @@ func (s *TestSuite) TestResend() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFee(QueryClient, baseFee)
 			},
 			evmtypes.TransactionArgs{
@@ -214,12 +220,14 @@ func (s *TestSuite) TestResend() {
 				var header metadata.MD
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterBlock(client, height, nil)
 				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
 				RegisterBaseFee(QueryClient, baseFee)
 				RegisterEstimateGas(QueryClient, callArgs)
 				RegisterParams(QueryClient, &header, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterUnconfirmedTxsError(client, nil)
 			},
 			evmtypes.TransactionArgs{
@@ -242,13 +250,14 @@ func (s *TestSuite) TestResend() {
 				var header metadata.MD
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				RegisterBlock(client, height, nil)
 				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
 				RegisterBaseFee(QueryClient, baseFee)
 				RegisterEstimateGas(QueryClient, callArgs)
 				RegisterParams(QueryClient, &header, height)
-
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterUnconfirmedTxsEmpty(client, nil)
 			},
 			evmtypes.TransactionArgs{
@@ -575,9 +584,10 @@ func (s *TestSuite) TestGasPrice() {
 				RegisterFeeMarketParams(feeMarketClient, 1)
 				RegisterParams(QueryClient, &header, height)
 				RegisterGlobalMinGasPrice(QueryClient, 1)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			defaultGasPrice,
@@ -592,9 +602,10 @@ func (s *TestSuite) TestGasPrice() {
 				feeMarketClient := s.backend.QueryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
 				RegisterFeeMarketParamsError(feeMarketClient, 1)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
+				RegisterConsensusParams(client, height)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
 				RegisterBaseFee(QueryClient, math.NewInt(1))
 			},
 			defaultGasPrice,

@@ -26,12 +26,12 @@ func (_m *Backend) EXPECT() *Backend_Expecter {
 	return &Backend_Expecter{mock: &_m.Mock}
 }
 
-// BlockBloom provides a mock function with given fields: blockRes
-func (_m *Backend) BlockBloom(blockRes *coretypes.ResultBlockResults) (types.Bloom, error) {
+// BlockBloomFromCometBlock provides a mock function with given fields: blockRes
+func (_m *Backend) BlockBloomFromCometBlock(blockRes *coretypes.ResultBlockResults) (types.Bloom, error) {
 	ret := _m.Called(blockRes)
 
 	if len(ret) == 0 {
-		panic("no return value specified for BlockBloom")
+		panic("no return value specified for BlockBloomFromCometBlock")
 	}
 
 	var r0 types.Bloom
@@ -56,30 +56,30 @@ func (_m *Backend) BlockBloom(blockRes *coretypes.ResultBlockResults) (types.Blo
 	return r0, r1
 }
 
-// Backend_BlockBloom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockBloom'
-type Backend_BlockBloom_Call struct {
+// Backend_BlockBloomFromCometBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockBloomFromCometBlock'
+type Backend_BlockBloomFromCometBlock_Call struct {
 	*mock.Call
 }
 
-// BlockBloom is a helper method to define mock.On call
+// BlockBloomFromCometBlock is a helper method to define mock.On call
 //   - blockRes *coretypes.ResultBlockResults
-func (_e *Backend_Expecter) BlockBloom(blockRes interface{}) *Backend_BlockBloom_Call {
-	return &Backend_BlockBloom_Call{Call: _e.mock.On("BlockBloom", blockRes)}
+func (_e *Backend_Expecter) BlockBloomFromCometBlock(blockRes interface{}) *Backend_BlockBloomFromCometBlock_Call {
+	return &Backend_BlockBloomFromCometBlock_Call{Call: _e.mock.On("BlockBloomFromCometBlock", blockRes)}
 }
 
-func (_c *Backend_BlockBloom_Call) Run(run func(blockRes *coretypes.ResultBlockResults)) *Backend_BlockBloom_Call {
+func (_c *Backend_BlockBloomFromCometBlock_Call) Run(run func(blockRes *coretypes.ResultBlockResults)) *Backend_BlockBloomFromCometBlock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(*coretypes.ResultBlockResults))
 	})
 	return _c
 }
 
-func (_c *Backend_BlockBloom_Call) Return(_a0 types.Bloom, _a1 error) *Backend_BlockBloom_Call {
+func (_c *Backend_BlockBloomFromCometBlock_Call) Return(_a0 types.Bloom, _a1 error) *Backend_BlockBloomFromCometBlock_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Backend_BlockBloom_Call) RunAndReturn(run func(*coretypes.ResultBlockResults) (types.Bloom, error)) *Backend_BlockBloom_Call {
+func (_c *Backend_BlockBloomFromCometBlock_Call) RunAndReturn(run func(*coretypes.ResultBlockResults) (types.Bloom, error)) *Backend_BlockBloomFromCometBlock_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -135,6 +135,122 @@ func (_c *Backend_BloomStatus_Call) Return(_a0 uint64, _a1 uint64) *Backend_Bloo
 }
 
 func (_c *Backend_BloomStatus_Call) RunAndReturn(run func() (uint64, uint64)) *Backend_BloomStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CometBlockByHash provides a mock function with given fields: hash
+func (_m *Backend) CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
+	ret := _m.Called(hash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CometBlockByHash")
+	}
+
+	var r0 *coretypes.ResultBlock
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash) (*coretypes.ResultBlock, error)); ok {
+		return rf(hash)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash) *coretypes.ResultBlock); ok {
+		r0 = rf(hash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*coretypes.ResultBlock)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
+		r1 = rf(hash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Backend_CometBlockByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockByHash'
+type Backend_CometBlockByHash_Call struct {
+	*mock.Call
+}
+
+// CometBlockByHash is a helper method to define mock.On call
+//   - hash common.Hash
+func (_e *Backend_Expecter) CometBlockByHash(hash interface{}) *Backend_CometBlockByHash_Call {
+	return &Backend_CometBlockByHash_Call{Call: _e.mock.On("CometBlockByHash", hash)}
+}
+
+func (_c *Backend_CometBlockByHash_Call) Run(run func(hash common.Hash)) *Backend_CometBlockByHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *Backend_CometBlockByHash_Call) Return(_a0 *coretypes.ResultBlock, _a1 error) *Backend_CometBlockByHash_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Backend_CometBlockByHash_Call) RunAndReturn(run func(common.Hash) (*coretypes.ResultBlock, error)) *Backend_CometBlockByHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CometBlockResultByNumber provides a mock function with given fields: height
+func (_m *Backend) CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error) {
+	ret := _m.Called(height)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CometBlockResultByNumber")
+	}
+
+	var r0 *coretypes.ResultBlockResults
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*int64) (*coretypes.ResultBlockResults, error)); ok {
+		return rf(height)
+	}
+	if rf, ok := ret.Get(0).(func(*int64) *coretypes.ResultBlockResults); ok {
+		r0 = rf(height)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*coretypes.ResultBlockResults)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*int64) error); ok {
+		r1 = rf(height)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Backend_CometBlockResultByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockResultByNumber'
+type Backend_CometBlockResultByNumber_Call struct {
+	*mock.Call
+}
+
+// CometBlockResultByNumber is a helper method to define mock.On call
+//   - height *int64
+func (_e *Backend_Expecter) CometBlockResultByNumber(height interface{}) *Backend_CometBlockResultByNumber_Call {
+	return &Backend_CometBlockResultByNumber_Call{Call: _e.mock.On("CometBlockResultByNumber", height)}
+}
+
+func (_c *Backend_CometBlockResultByNumber_Call) Run(run func(height *int64)) *Backend_CometBlockResultByNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*int64))
+	})
+	return _c
+}
+
+func (_c *Backend_CometBlockResultByNumber_Call) Return(_a0 *coretypes.ResultBlockResults, _a1 error) *Backend_CometBlockResultByNumber_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Backend_CometBlockResultByNumber_Call) RunAndReturn(run func(*int64) (*coretypes.ResultBlockResults, error)) *Backend_CometBlockResultByNumber_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -565,129 +681,12 @@ func (_c *Backend_RPCLogsCap_Call) RunAndReturn(run func() int32) *Backend_RPCLo
 	return _c
 }
 
-// CometBlockByHash provides a mock function with given fields: hash
-func (_m *Backend) CometBlockByHash(hash common.Hash) (*coretypes.ResultBlock, error) {
-	ret := _m.Called(hash)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CometBlockByHash")
-	}
-
-	var r0 *coretypes.ResultBlock
-	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash) (*coretypes.ResultBlock, error)); ok {
-		return rf(hash)
-	}
-	if rf, ok := ret.Get(0).(func(common.Hash) *coretypes.ResultBlock); ok {
-		r0 = rf(hash)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*coretypes.ResultBlock)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(hash)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Backend_CometBlockByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockByHash'
-type Backend_CometBlockByHash_Call struct {
-	*mock.Call
-}
-
-// CometBlockByHash is a helper method to define mock.On call
-//   - hash common.Hash
-func (_e *Backend_Expecter) CometBlockByHash(hash interface{}) *Backend_CometBlockByHash_Call {
-	return &Backend_CometBlockByHash_Call{Call: _e.mock.On("CometBlockByHash", hash)}
-}
-
-func (_c *Backend_CometBlockByHash_Call) Run(run func(hash common.Hash)) *Backend_CometBlockByHash_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(common.Hash))
-	})
-	return _c
-}
-
-func (_c *Backend_CometBlockByHash_Call) Return(_a0 *coretypes.ResultBlock, _a1 error) *Backend_CometBlockByHash_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Backend_CometBlockByHash_Call) RunAndReturn(run func(common.Hash) (*coretypes.ResultBlock, error)) *Backend_CometBlockByHash_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CometBlockResultByNumber provides a mock function with given fields: height
-func (_m *Backend) CometBlockResultByNumber(height *int64) (*coretypes.ResultBlockResults, error) {
-	ret := _m.Called(height)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CometBlockResultByNumber")
-	}
-
-	var r0 *coretypes.ResultBlockResults
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*int64) (*coretypes.ResultBlockResults, error)); ok {
-		return rf(height)
-	}
-	if rf, ok := ret.Get(0).(func(*int64) *coretypes.ResultBlockResults); ok {
-		r0 = rf(height)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*coretypes.ResultBlockResults)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*int64) error); ok {
-		r1 = rf(height)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Backend_CometBlockResultByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CometBlockResultByNumber'
-type Backend_CometBlockResultByNumber_Call struct {
-	*mock.Call
-}
-
-// CometBlockResultByNumber is a helper method to define mock.On call
-//   - height *int64
-func (_e *Backend_Expecter) CometBlockResultByNumber(height interface{}) *Backend_CometBlockResultByNumber_Call {
-	return &Backend_CometBlockResultByNumber_Call{Call: _e.mock.On("CometBlockResultByNumber", height)}
-}
-
-func (_c *Backend_CometBlockResultByNumber_Call) Run(run func(height *int64)) *Backend_CometBlockResultByNumber_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*int64))
-	})
-	return _c
-}
-
-func (_c *Backend_CometBlockResultByNumber_Call) Return(_a0 *coretypes.ResultBlockResults, _a1 error) *Backend_CometBlockResultByNumber_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Backend_CometBlockResultByNumber_Call) RunAndReturn(run func(*int64) (*coretypes.ResultBlockResults, error)) *Backend_CometBlockResultByNumber_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // NewBackend creates a new instance of Backend. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewBackend(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *Backend {
+}) *Backend {
 	mock := &Backend{}
 	mock.Mock.Test(t)
 
