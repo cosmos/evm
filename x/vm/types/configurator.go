@@ -18,7 +18,6 @@ type EVMConfigurator struct {
 	sealed                   bool
 	extendedEIPs             map[int]func(*vm.JumpTable)
 	extendedDefaultExtraEIPs []int64
-	chainConfig              *ChainConfig
 	evmCoinInfo              EvmCoinInfo
 }
 
@@ -38,13 +37,6 @@ func (ec *EVMConfigurator) WithExtendedEips(extendedEIPs map[int]func(*vm.JumpTa
 // by adding provided EIP numbers.
 func (ec *EVMConfigurator) WithExtendedDefaultExtraEIPs(eips ...int64) *EVMConfigurator {
 	ec.extendedDefaultExtraEIPs = eips
-	return ec
-}
-
-// WithChainConfig allows to define a custom `chainConfig` to be used in the
-// EVM.
-func (ec *EVMConfigurator) WithChainConfig(cc *ChainConfig) *EVMConfigurator {
-	ec.chainConfig = cc
 	return ec
 }
 

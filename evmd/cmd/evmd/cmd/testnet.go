@@ -4,16 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/evm/config"
+
 	"net"
 	"os"
 	"path/filepath"
 	"time"
 
-	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
-	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -46,6 +42,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	"github.com/cosmos/evm/config"
+	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/evmd"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var (
@@ -511,11 +515,19 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, evmnetwork.GenerateBankGenesisMetadata(config.EVMChainID)...)
+
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {
 		bankGenState.Supply = bankGenState.Supply.Add(bal.Coins...)
 	}
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
+
+	var evmGenState evmtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[evmtypes.ModuleName], &evmGenState)
+
+	evmGenState.Params.EvmDenom = TEST_DENOM
+	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
@@ -685,8 +697,6 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
-		config.EvmAppOptions,
 	)
 
 	appCtr := func(val network.ValidatorI) servertypes.Application {
@@ -696,8 +706,6 @@ func NewTestNetworkFixture() network.TestFixture {
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			config.EVMChainID,
-			config.EvmAppOptions,
 		)
 	}
 

@@ -79,25 +79,25 @@ var (
 			Denom:         ExampleAttoDenom,
 			ExtendedDenom: ExampleAttoDenom,
 			DisplayDenom:  ExampleDisplayDenom,
-			Decimals:      evmtypes.EighteenDecimals,
+			Decimals:      evmtypes.EighteenDecimals.Uint32(),
 		},
 		SixDecimalsChainID: {
 			Denom:         "utest",
 			ExtendedDenom: "atest",
 			DisplayDenom:  "test",
-			Decimals:      evmtypes.SixDecimals,
+			Decimals:      evmtypes.SixDecimals.Uint32(),
 		},
 		TwelveDecimalsChainID: {
 			Denom:         "ptest2",
 			ExtendedDenom: "atest2",
 			DisplayDenom:  "test2",
-			Decimals:      evmtypes.TwelveDecimals,
+			Decimals:      evmtypes.TwelveDecimals.Uint32(),
 		},
 		TwoDecimalsChainID: {
 			Denom:         "ctest3",
 			ExtendedDenom: "atest3",
 			DisplayDenom:  "test3",
-			Decimals:      evmtypes.TwoDecimals,
+			Decimals:      evmtypes.TwoDecimals.Uint32(),
 		},
 	}
 

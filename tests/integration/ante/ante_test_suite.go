@@ -122,12 +122,11 @@ func (s *AnteTestSuite) SetupTest() {
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
 	err := configurator.
-		WithChainConfig(chainConfig).
 		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
 			Denom:         denom,
 			ExtendedDenom: extendedDenom,
 			DisplayDenom:  displayDenom,
-			Decimals:      decimals,
+			Decimals:      decimals.Uint32(),
 		}).
 		Configure()
 	s.Require().NoError(err)
