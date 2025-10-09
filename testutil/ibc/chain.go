@@ -156,7 +156,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 		Description: "",
 		DenomUnits: []*banktypes.DenomUnit{
 			{
-				Denom:    types.DefaultEVMExtendedDenom,
+				Denom:    types.DefaultEVMDenom,
 				Exponent: 0,
 				Aliases:  nil,
 			},
@@ -166,7 +166,7 @@ func NewTestChainWithValSet(tb testing.TB, isEVM bool, coord *Coordinator, chain
 				Aliases:  nil,
 			},
 		},
-		Base:    types.DefaultEVMExtendedDenom,
+		Base:    types.DefaultEVMDenom,
 		Display: types.DefaultEVMDisplayDenom,
 		Name:    types.DefaultEVMDenom,
 		Symbol:  types.DefaultEVMDenom,
