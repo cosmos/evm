@@ -57,15 +57,15 @@ go build .
 
 ### evmd Endpoints
 
-- **JSON-RPC**: <LOCAL_HOST>:8545
-- **WebSocket**: <LOCAL_HOST>:8546  
-- **Cosmos REST**: <LOCAL_HOST>:1317
-- **Tendermint RPC**:<LOCAL_HOST>:26657
+- **JSON-RPC**: http://localhost:8545
+- **WebSocket**: http://localhost:8546  
+- **Cosmos REST**: http://localhost:1317
+- **Tendermint RPC**:http://localhost:26657
 - **gRPC**: localhost:9090
 
 ### geth Endpoints
 
-- **JSON-RPC**: <LOCAL_HOST>:8547
+- **JSON-RPC**: http://localhost:8547
 - **WebSocket**: ws://localhost:8548
 
 ## Scripts Structure
@@ -123,4 +123,4 @@ The scripts use the following defaults:
 
 - Verify the container is running: `docker ps | grep evmd-jsonrpc-test`
 - Check if ports are bound: `docker port evmd-jsonrpc-test`
-- Test with curl: `curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' <LOCAL_HOST>:8545`
+- Test with curl: `curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8545`
