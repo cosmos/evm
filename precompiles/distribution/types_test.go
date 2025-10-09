@@ -8,16 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	evmosencoding "github.com/cosmos/evm/encoding"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 )
 
 const validatorAddr = "cosmosvaloper1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5a3kaax"
 
 func TestNewMsgSetWithdrawAddress(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	withdrawerBech32 := "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
@@ -100,7 +100,7 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 }
 
 func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
@@ -162,7 +162,7 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 }
 
 func TestNewMsgFundCommunityPool(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	depositorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validCoins := []cmn.Coin{{Denom: "stake", Amount: big.NewInt(1000)}}
@@ -229,7 +229,7 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 }
 
 func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	depositorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validCoins := []cmn.Coin{{Denom: "stake", Amount: big.NewInt(1000)}}
@@ -299,7 +299,7 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 }
 
 func TestNewDelegationRewardsRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
@@ -360,7 +360,7 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 }
 
 func TestNewDelegationTotalRewardsRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
@@ -418,7 +418,7 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 }
 
 func TestNewDelegatorValidatorsRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
@@ -476,7 +476,7 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 }
 
 func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
-	addrCodec := authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	addrCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix())
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
