@@ -12,20 +12,20 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// EvmCodec defines an address codec for EVM compatible cosmos modules
-type EvmCodec struct {
-	Bech32Prefix string
+// evmCodec defines an address codec for EVM compatible cosmos modules
+type evmCodec struct {
+	bech32Prefix string
 }
 
-var _ address.Codec = (*EvmCodec)(nil)
+var _ address.Codec = (*evmCodec)(nil)
 
 // NewEvmCodec returns a new EvmCodec with the given bech32 prefix
 func NewEvmCodec(prefix string) address.Codec {
-	return EvmCodec{prefix}
+	return evmCodec{prefix}
 }
 
 // StringToBytes decodes text to bytes using either hex or bech32 encoding
-func (bc EvmCodec) StringToBytes(text string) ([]byte, error) {
+func (bc evmCodec) StringToBytes(text string) ([]byte, error) {
 	if len(strings.TrimSpace(text)) == 0 {
 		return []byte{}, sdkerrors.ErrInvalidAddress.Wrap("empty address string is not allowed")
 	}
@@ -38,8 +38,8 @@ func (bc EvmCodec) StringToBytes(text string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if hrp != bc.Bech32Prefix {
-			return nil, sdkerrors.ErrLogic.Wrapf("hrp does not match bech32 prefix: expected '%s' got '%s'", bc.Bech32Prefix, hrp)
+		if hrp != bc.bech32Prefix {
+			return nil, sdkerrors.ErrLogic.Wrapf("hrp does not match bech32 prefix: expected '%s' got '%s'", bc.bech32Prefix, hrp)
 		}
 		if err := sdk.VerifyAddressFormat(bz); err != nil {
 			return nil, err
@@ -50,7 +50,12 @@ func (bc EvmCodec) StringToBytes(text string) ([]byte, error) {
 	}
 }
 
-// BytesToString encodes bytes to EIP55-compliant hex string representation of the address
-func (bc EvmCodec) BytesToString(bz []byte) (string, error) {
-	return common.BytesToAddress(bz).Hex(), nil
+// BytesToString decodes bytes to text
+func (bc evmCodec) BytesToString(bz []byte) (string, error) {
+	text, err := bech32.ConvertAndEncode(bc.bech32Prefix, bz)
+	if err != nil {
+		return "", err
+	}
+
+	return text, nil
 }
