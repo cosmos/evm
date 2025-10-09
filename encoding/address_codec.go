@@ -1,4 +1,4 @@
-package utils
+package encoding
 
 import (
 	"strings"
@@ -10,6 +10,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	"github.com/cosmos/evm/utils"
 )
 
 var _ address.Codec = (*evmCodec)(nil)
@@ -33,7 +35,7 @@ func (bc evmCodec) StringToBytes(text string) ([]byte, error) {
 	switch {
 	case common.IsHexAddress(text):
 		return common.HexToAddress(text).Bytes(), nil
-	case IsBech32Address(text):
+	case utils.IsBech32Address(text):
 		hrp, bz, err := bech32.DecodeAndConvert(text)
 		if err != nil {
 			return nil, err

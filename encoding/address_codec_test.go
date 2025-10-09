@@ -1,4 +1,4 @@
-package utils_test
+package encoding_test
 
 import (
 	"testing"
@@ -6,10 +6,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/encoding"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+)
+
+const (
+	hex    = "0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E"
+	bech32 = "cosmos10jmp6sgh4cc6zt3e8gw05wavvejgr5pwsjskvv"
 )
 
 func TestStringToBytes(t *testing.T) {
@@ -91,7 +96,7 @@ func TestStringToBytes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cdc := utils.NewEvmCodec(tc.cdcPrefix)
+			cdc := encoding.NewEvmCodec(tc.cdcPrefix)
 			bz, err := cdc.StringToBytes(tc.input)
 			if tc.expErr == nil {
 				require.NoError(t, err)
@@ -112,7 +117,7 @@ func TestBytesToString(t *testing.T) {
 	zeroAddr := common.Address{}.Hex()         // "0x000..."
 
 	// Helper codec (used only where we want to derive bytes from the bech32 string)
-	cdc := utils.NewEvmCodec("cosmos")
+	cdc := encoding.NewEvmCodec("cosmos")
 
 	type tc struct {
 		name   string
@@ -173,7 +178,7 @@ func TestBytesToString(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := utils.NewEvmCodec("cosmos")
+			codec := encoding.NewEvmCodec("cosmos")
 
 			got, err := codec.BytesToString(tc.input())
 			require.NoError(t, err)
