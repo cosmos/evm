@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +27,16 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 	s.Require().NoError(err)
 	address := common.HexToAddress(privkey.PubKey().Address().String())
 
+	params := types.Params{
+		EvmDenom:                "aatom",
+		ExtraEIPs:               types.DefaultExtraEIPs,
+		EVMChannels:             types.DefaultEVMChannels,
+		AccessControl:           types.DefaultAccessControl,
+		ActiveStaticPrecompiles: types.DefaultStaticPrecompiles,
+		HistoryServeWindow:      types.DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    nil,
+	}
+
 	var (
 		vmdb *statedb.StateDB
 		ctx  sdk.Context
@@ -42,7 +53,10 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			name:     "pass - default",
 			malleate: func(_ *network.UnitTestNetwork) {},
-			genState: types.DefaultGenesisState(),
+			genState: &types.GenesisState{
+				Params:   params,
+				Accounts: []types.GenesisAccount{},
+			},
 			expPanic: false,
 		},
 		{
@@ -51,7 +65,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				vmdb.AddBalance(address, uint256.NewInt(1), tracing.BalanceChangeUnspecified)
 			},
 			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
+				Params: params,
 				Accounts: []types.GenesisAccount{
 					{
 						Address: address.String(),
@@ -67,7 +81,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			name:     "account not found",
 			malleate: func(_ *network.UnitTestNetwork) {},
 			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
+				Params: params,
 				Accounts: []types.GenesisAccount{
 					{
 						Address: address.String(),
@@ -83,7 +97,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				network.App.GetAccountKeeper().SetAccount(ctx, acc)
 			},
 			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
+				Params: params,
 				Accounts: []types.GenesisAccount{
 					{
 						Address: address.String(),
@@ -100,7 +114,7 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 				network.App.GetAccountKeeper().SetAccount(ctx, acc)
 			},
 			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
+				Params: params,
 				Accounts: []types.GenesisAccount{
 					{
 						Address: address.String(),
@@ -125,13 +139,18 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			err := vmdb.Commit()
 			s.Require().NoError(err)
 
+			configurator := types.NewEVMConfigurator()
+			configurator.ResetTestConfig()
+
 			if tc.expPanic {
 				s.Require().Panics(func() {
 					_ = vm.InitGenesis(
 						s.network.GetContext(),
 						s.network.App.GetEVMKeeper(),
 						s.network.App.GetAccountKeeper(),
+						s.network.App.GetBankKeeper(),
 						*tc.genState,
+						&sync.Once{},
 					)
 				})
 			} else {
@@ -140,7 +159,9 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 						ctx,
 						s.network.App.GetEVMKeeper(),
 						s.network.App.GetAccountKeeper(),
+						s.network.App.GetBankKeeper(),
 						*tc.genState,
+						&sync.Once{},
 					)
 				})
 				// verify state for each account

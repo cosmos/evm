@@ -58,9 +58,9 @@ go build .
 ### evmd Endpoints
 
 - **JSON-RPC**: http://localhost:8545
-- **WebSocket**: ws://localhost:8546  
+- **WebSocket**: http://localhost:8546  
 - **Cosmos REST**: http://localhost:1317
-- **Tendermint RPC**: http://localhost:26657
+- **Tendermint RPC**:http://localhost:26657
 - **gRPC**: localhost:9090
 
 ### geth Endpoints
@@ -77,7 +77,7 @@ go build .
 
 ### `scripts/geth/`
 
-- `start-geth.sh` - Start geth node using ethereum/client-go:v1.15.10
+- `start-geth.sh` - Start geth node using ethereum/client-go:v1.16.3
 - `stop-geth.sh` - Stop the geth testing node
 
 ### `scripts/`

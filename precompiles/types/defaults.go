@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -23,7 +24,6 @@ import (
 	"cosmossdk.io/core/address"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
@@ -42,9 +42,9 @@ type Optionals struct {
 
 func defaultOptionals() Optionals {
 	return Optionals{
-		AddressCodec:       addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:       evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }
 
@@ -100,18 +100,15 @@ func DefaultStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(
+	stakingPrecompile := stakingprecompile.NewPrecompile(
 		stakingKeeper,
 		stakingkeeper.NewMsgServerImpl(&stakingKeeper),
 		stakingkeeper.NewQuerier(&stakingKeeper),
 		bankKeeper,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
-	}
 
-	distributionPrecompile, err := distprecompile.NewPrecompile(
+	distributionPrecompile := distprecompile.NewPrecompile(
 		distributionKeeper,
 		distributionkeeper.NewMsgServerImpl(distributionKeeper),
 		distributionkeeper.NewQuerier(distributionKeeper),
@@ -119,46 +116,31 @@ func DefaultStaticPrecompiles(
 		bankKeeper,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate distribution precompile: %w", err))
-	}
 
-	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
+	ibcTransferPrecompile := ics20precompile.NewPrecompile(
 		bankKeeper,
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate ICS20 precompile: %w", err))
-	}
 
-	bankPrecompile, err := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
-	}
+	bankPrecompile := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
 
-	govPrecompile, err := govprecompile.NewPrecompile(
+	govPrecompile := govprecompile.NewPrecompile(
 		govkeeper.NewMsgServerImpl(&govKeeper),
 		govkeeper.NewQueryServer(&govKeeper),
 		bankKeeper,
 		codec,
 		options.AddressCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
-	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(
+	slashingPrecompile := slashingprecompile.NewPrecompile(
 		slashingKeeper,
 		slashingkeeper.NewMsgServerImpl(slashingKeeper),
 		bankKeeper,
 		options.ValidatorAddrCodec,
 		options.ConsensusAddrCodec,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
-	}
 
 	// Stateless precompiles
 	precompiles[bech32Precompile.Address()] = bech32Precompile

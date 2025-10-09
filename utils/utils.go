@@ -19,6 +19,7 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
@@ -119,6 +120,12 @@ func IsSupportedKey(pubkey cryptotypes.PubKey) bool {
 	default:
 		return false
 	}
+}
+
+// IsBech32Address checks if the address is a valid bech32 address.
+func IsBech32Address(address string) bool {
+	_, _, err := bech32.DecodeAndConvert(address)
+	return err == nil
 }
 
 // GetAccAddressFromBech32 returns the sdk.Account address of given address,

@@ -135,7 +135,7 @@ func (s *SystemTestSuite) CheckTxsQueuedSync(expQueuedTxs []*TxInfo) error {
 	for i := range s.Nodes() {
 		pending, queued, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
 		if err != nil {
-			return fmt.Errorf("failed to call txpool_content api")
+			return fmt.Errorf("failed to call txpool_content api: %w", err)
 		}
 		queuedHashes[i] = queued
 		pendingHashes[i] = pending
