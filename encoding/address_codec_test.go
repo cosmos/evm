@@ -3,11 +3,12 @@ package encoding_test
 import (
 	"testing"
 
-	"cosmossdk.io/core/address"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/encoding"
+
+	"cosmossdk.io/core/address"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
