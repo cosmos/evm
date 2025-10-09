@@ -338,6 +338,138 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
+func DebugTraceCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugTraceCall); result != nil {
+		return result, nil
+	}
+
+	// Get a recent block to use as context
+	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceCall,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get block number: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Use the test account for the call
+	fromAddr := rCtx.Evmd.Acc.Address
+	toAddr := rCtx.Evmd.Acc.Address // simple transfer to self
+
+	// Prepare a simple eth_call transaction args with all required fields
+	txArgs := map[string]interface{}{
+		"from":     fromAddr.Hex(),
+		"to":       toAddr.Hex(),
+		"gas":      "0x5208",     // 21000 gas
+		"gasPrice": "0x3b9aca00", // 1 gwei
+		"value":    "0x0",
+		"data":     "0x",
+	}
+
+	// Block number or hash for context
+	blockNumberOrHash := map[string]interface{}{
+		"blockNumber": fmt.Sprintf("0x%x", blockNumber),
+	}
+
+	// Trace config with callTracer
+	traceConfig := map[string]interface{}{
+		"tracer": "callTracer",
+	}
+
+	// Call debug_traceCall
+	var traceResult map[string]interface{}
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResult, string(MethodNameDebugTraceCall), txArgs, blockNumberOrHash, traceConfig)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceCall,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Validate trace result
+	if traceResult == nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceCall,
+			Status:   types.Error,
+			ErrMsg:   "trace result is null",
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Check for expected fields in callTracer format
+	requiredFields := []string{"from", "gas", "gasUsed", "to", "type"}
+	for _, field := range requiredFields {
+		if _, exists := traceResult[field]; !exists {
+			return &types.RpcResult{
+				Method:   MethodNameDebugTraceCall,
+				Status:   types.Error,
+				ErrMsg:   fmt.Sprintf("missing field '%s' in trace result", field),
+				Category: NamespaceDebug,
+			}, nil
+		}
+	}
+
+	// Verify that trace result matches our transaction args
+	validationErrors := []string{}
+
+	// Check from address
+	if fromResult, ok := traceResult["from"].(string); ok {
+		if !strings.EqualFold(fromResult, fromAddr.Hex()) {
+			validationErrors = append(validationErrors, fmt.Sprintf("from address mismatch: expected %s, got %s", fromAddr.Hex(), fromResult))
+		}
+	}
+
+	// Check to address
+	if toResult, ok := traceResult["to"].(string); ok {
+		if !strings.EqualFold(toResult, toAddr.Hex()) {
+			validationErrors = append(validationErrors, fmt.Sprintf("to address mismatch: expected %s, got %s", toAddr.Hex(), toResult))
+		}
+	}
+
+	// Check type (should be CALL for a simple transfer)
+	if typeResult, ok := traceResult["type"].(string); ok {
+		if typeResult != "CALL" {
+			validationErrors = append(validationErrors, fmt.Sprintf("unexpected call type: expected CALL, got %s", typeResult))
+		}
+	}
+
+	// Check gas fields exist and are hex strings
+	if gasStr, ok := traceResult["gas"].(string); ok {
+		if !strings.HasPrefix(gasStr, "0x") {
+			validationErrors = append(validationErrors, "gas field should be hex string with 0x prefix")
+		}
+	}
+
+	if gasUsedStr, ok := traceResult["gasUsed"].(string); ok {
+		if !strings.HasPrefix(gasUsedStr, "0x") {
+			validationErrors = append(validationErrors, "gasUsed field should be hex string with 0x prefix")
+		}
+	}
+
+	// Return error if validation failed
+	if len(validationErrors) > 0 {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceCall,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Trace validation failed: %s", strings.Join(validationErrors, ", ")),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameDebugTraceCall,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Call traced and validated successfully (type: %v, from: %v, to: %v, gas: %v)", traceResult["type"], traceResult["from"], traceResult["to"], traceResult["gasUsed"]),
+		Category: NamespaceDebug,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
 func DebugGetRawBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugGetRawBlock); result != nil {
 		return result, nil
@@ -483,7 +615,7 @@ func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Category: NamespaceDebug,
 		}, nil
 	}
-	fmt.Println("CHOI - 4")
+
 	// Call debug_traceBlock with RLP-encoded block
 	traceConfig := map[string]interface{}{
 		"tracer": "callTracer",
@@ -499,7 +631,7 @@ func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Category: NamespaceDebug,
 		}, nil
 	}
-	fmt.Println("CHOI - 5")
+
 	// Validate trace results
 	if traceResults == nil {
 		return &types.RpcResult{
@@ -509,7 +641,7 @@ func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Category: NamespaceDebug,
 		}, nil
 	}
-	fmt.Println("CHOI - 6")
+
 	result := &types.RpcResult{
 		Method:   MethodNameDebugTraceBlock,
 		Status:   types.Ok,

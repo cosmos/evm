@@ -178,9 +178,7 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameDebugTraceBlock, Handler: ns.DebugTraceBlock},
 				{Name: ns.MethodNameDebugTraceBlockByHash, Handler: ns.DebugTraceBlockByHash},
 				{Name: ns.MethodNameDebugTraceBlockByNumber, Handler: ns.DebugTraceBlockByNumber},
-				{Name: ns.MethodNameDebugTraceCall, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceCall, "debug")
-				}},
+				{Name: ns.MethodNameDebugTraceCall, Handler: ns.DebugTraceCall},
 				{Name: ns.MethodNameDebugIntermediateRoots, Handler: ns.DebugIntermediateRoots},
 				// Database subcategory
 				{Name: ns.MethodNameDebugDbGet, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
