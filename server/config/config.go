@@ -186,7 +186,7 @@ func DefaultMempoolConfig() MempoolConfig {
 	}
 }
 
-// Validate returns an error if the mempool configuration is invalid.
+// Validate returns an error if the mempool configuration is invalid
 func (c MempoolConfig) Validate() error {
 	if c.PriceLimit < 1 {
 		return fmt.Errorf("price limit must be at least 1, got %d", c.PriceLimit)
@@ -293,7 +293,6 @@ func (c EVMConfig) Validate() error {
 		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddress, err)
 	}
 
-	// Validate mempool configuration
 	if err := c.Mempool.Validate(); err != nil {
 		return fmt.Errorf("invalid mempool config: %w", err)
 	}
