@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/log"
@@ -42,83 +43,83 @@ func TestGetBlockGasLimit(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		setupFn  func() servertypes.AppOptions
+		setupFn  func() *viper.Viper
 		expected uint64
 	}{
 		{
 			name: "empty home directory returns max uint64",
-			setupFn: func() servertypes.AppOptions {
-				opts := newMockAppOptions()
-				return opts
+			setupFn: func() *viper.Viper {
+				v := viper.New()
+				return v
 			},
 			expected: math.MaxUint64,
 		},
 		{
 			name: "genesis file not found returns 0",
-			setupFn: func() servertypes.AppOptions {
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, "/non/existent/directory")
-				return opts
+			setupFn: func() *viper.Viper {
+				v := viper.New()
+				v.Set(flags.FlagHome, "/non/existent/directory")
+				return v
 			},
 			expected: 0,
 		},
 		{
 			name: "valid genesis with max_gas = -1 returns max uint64",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createGenesisWithMaxGas(t, -1)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: math.MaxUint64,
 		},
 		{
 			name: "valid genesis with max_gas < -1 returns 0",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createGenesisWithMaxGas(t, -5)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: 0,
 		},
 		{
 			name: "valid genesis with max_gas = 0 returns 0",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createGenesisWithMaxGas(t, 0)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: 0,
 		},
 		{
 			name: "valid genesis with max_gas = 1000000 returns 1000000",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createGenesisWithMaxGas(t, 1000000)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: 1000000,
 		},
 		{
 			name: "genesis without consensus params returns 0",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createGenesisWithoutConsensusParams(t)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: 0,
 		},
 		{
 			name: "invalid genesis JSON returns 0",
-			setupFn: func() servertypes.AppOptions {
+			setupFn: func() *viper.Viper {
 				homeDir := createInvalidGenesis(t)
-				opts := newMockAppOptions()
-				opts.Set(flags.FlagHome, homeDir)
-				return opts
+				v := viper.New()
+				v.Set(flags.FlagHome, homeDir)
+				return v
 			},
 			expected: 0,
 		},
@@ -126,10 +127,10 @@ func TestGetBlockGasLimit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(_ *testing.T) {
-			appOpts := tc.setupFn()
+			viperConfig := tc.setupFn()
 			logger := log.NewNopLogger()
 
-			result := GetBlockGasLimit(appOpts, logger)
+			result := GetBlockGasLimit(viperConfig, logger)
 			require.Equal(t, tc.expected, result, "GetBlockGasLimit returned unexpected value")
 		})
 	}
