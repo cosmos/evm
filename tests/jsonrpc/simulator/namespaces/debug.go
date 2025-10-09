@@ -338,6 +338,57 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	return result, nil
 }
 
+func DebugGetRawBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugGetRawBlock); result != nil {
+		return result, nil
+	}
+
+	// Get a block number from a processed transaction
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Call debug_getRawBlock
+	blockNumberOrHash := map[string]interface{}{
+		"blockNumber": receipt.BlockNumber,
+	}
+	var blockRLP string
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &blockRLP, string(MethodNameDebugGetRawBlock), blockNumberOrHash)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Validate that we got RLP data (should start with 0x)
+	if !strings.HasPrefix(blockRLP, "0x") || len(blockRLP) < 10 {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   "invalid RLP data format",
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameDebugGetRawBlock,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Raw block retrieved successfully (%d bytes)", len(blockRLP)),
+		Category: NamespaceDebug,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
 func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlockByHash); result != nil {
 		return result, nil
@@ -383,6 +434,86 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Method:   MethodNameDebugTraceBlockByHash,
 		Status:   types.Ok,
 		Value:    fmt.Sprintf("Block traced successfully (hash: %s)", receipt.BlockHash.Hex()[:10]+"..."),
+		Category: NamespaceDebug,
+	}
+	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlock); result != nil {
+		return result, nil
+	}
+
+	// Get a block to trace - use the receipt's block from a processed transaction
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Get the full block by hash using eth_getBlockByHash
+	var block map[string]interface{}
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &block, "eth_getBlockByHash", receipt.BlockHash, true)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get block: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Get RLP-encoded block using debug_getRawBlock
+	// Need to pass BlockNumberOrHash format
+	blockNumberOrHash := map[string]interface{}{
+		"blockNumber": receipt.BlockNumber,
+	}
+	var blockRLP string
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &blockRLP, "debug_getRawBlock", blockNumberOrHash)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get raw block RLP: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+	fmt.Println("CHOI - 4")
+	// Call debug_traceBlock with RLP-encoded block
+	traceConfig := map[string]interface{}{
+		"tracer": "callTracer",
+	}
+
+	var traceResults []interface{}
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlock), blockRLP, traceConfig)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+	fmt.Println("CHOI - 5")
+	// Validate trace results
+	if traceResults == nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   "trace result is null",
+			Category: NamespaceDebug,
+		}, nil
+	}
+	fmt.Println("CHOI - 6")
+	result := &types.RpcResult{
+		Method:   MethodNameDebugTraceBlock,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Block traced successfully with %d transactions", len(traceResults)),
 		Category: NamespaceDebug,
 	}
 	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
@@ -999,7 +1130,7 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	// Call debug_startGoTrace with test parameters
 	filename := "/tmp/go_trace_start.out"
-	
+
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStartGoTrace), filename)
 	if err != nil {
@@ -1024,7 +1155,7 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
-	
+
 	rpcResult := &types.RpcResult{
 		Method:   MethodNameDebugStartGoTrace,
 		Status:   types.Ok,
@@ -1065,7 +1196,7 @@ func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
-	
+
 	rpcResult := &types.RpcResult{
 		Method:   MethodNameDebugStopGoTrace,
 		Status:   types.Ok,
