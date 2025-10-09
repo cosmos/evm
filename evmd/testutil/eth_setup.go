@@ -1,12 +1,12 @@
 package testutil
 
 import (
-	"github.com/cosmos/evm/testutil"
 	"time"
 
 	cmtypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/evm"
+	"github.com/cosmos/evm/testutil"
 
 	"cosmossdk.io/math"
 
