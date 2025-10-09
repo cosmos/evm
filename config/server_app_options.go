@@ -7,7 +7,6 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
-	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -105,19 +104,15 @@ func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
 	return nil
 }
 
-// GetMempoolConfig reads the mempool configuration from appOpts
-func GetMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
+// GetLegacyPoolConfig reads the legacy pool configuration from appOpts and overrides
+// default values with values from app.toml if they exist and are non-zero.
+func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *legacypool.Config {
 	if appOpts == nil {
 		logger.Error("app options is nil, using default mempool config")
-		return &evmmempool.EVMMempoolConfig{
-			LegacyPoolConfig: &legacypool.DefaultConfig,
-		}, nil
+		return &legacypool.DefaultConfig
 	}
 
-	// Start with default configuration
 	legacyConfig := legacypool.DefaultConfig
-
-	// Override with values from app.toml if they exist and are non-zero
 	if priceLimit := cast.ToUint64(appOpts.Get("evm.mempool.price-limit")); priceLimit != 0 {
 		legacyConfig.PriceLimit = priceLimit
 	}
@@ -140,11 +135,14 @@ func GetMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmme
 		legacyConfig.Lifetime = lifetime
 	}
 
-	// Journal and Rejournal are not configurable via app.toml - use defaults
+	return &legacyConfig
+}
 
-	mempoolConfig := &evmmempool.EVMMempoolConfig{
-		LegacyPoolConfig: &legacyConfig,
+func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
+	if appOpts == nil {
+		logger.Error("app options is nil, using default cosmos pool max tx of 0 (uncapped)")
+		return 0
 	}
 
-	return mempoolConfig, nil
+	return cast.ToInt(appOpts.Get("mempool.max-tx"))
 }

@@ -21,19 +21,11 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
-	minTip := evmconfig.GetMinTip(appOpts, logger)
-
-	// Get mempool configuration from app.toml
-	mempoolConfig, err := evmconfig.GetMempoolConfig(appOpts, logger)
+	mempoolConfig, err := app.createMempoolConfig(appOpts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
-
-	// Set required fields that aren't configurable via app.toml
-	mempoolConfig.AnteHandler = app.GetAnteHandler()
-	mempoolConfig.BlockGasLimit = blockGasLimit
-	mempoolConfig.MinTip = minTip
+	cosmosPoolMaxTx := evmconfig.GetCosmosPoolMaxTx(appOpts, logger)
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
@@ -43,6 +35,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		app.txConfig,
 		app.clientCtx,
 		mempoolConfig,
+		cosmosPoolMaxTx,
 	)
 	app.EVMMempool = evmMempool
 	app.SetMempool(evmMempool)
@@ -58,4 +51,15 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
 
 	return nil
+}
+
+// createMempoolConfig creates a new EVMMempoolConfig with the default configuration
+// and overrides it with values from appOpts if they exist and are non-zero.
+func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
+	return &evmmempool.EVMMempoolConfig{
+		AnteHandler:      app.GetAnteHandler(),
+		LegacyPoolConfig: evmconfig.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:    evmconfig.GetBlockGasLimit(appOpts, logger),
+		MinTip:           evmconfig.GetMinTip(appOpts, logger),
+	}, nil
 }
