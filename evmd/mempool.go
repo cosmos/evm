@@ -3,8 +3,6 @@ package evmd
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
-
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -23,16 +21,11 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	v, ok := appOpts.(*viper.Viper)
-	if !ok {
-		return fmt.Errorf("appOpts is not a viper instance")
-	}
-
-	blockGasLimit := evmconfig.GetBlockGasLimit(v, logger)
-	minTip := evmconfig.GetMinTip(v, logger)
+	blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
+	minTip := evmconfig.GetMinTip(appOpts, logger)
 
 	// Get mempool configuration from app.toml
-	mempoolConfig, err := evmconfig.GetMempoolConfig(v, logger)
+	mempoolConfig, err := evmconfig.GetMempoolConfig(appOpts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}

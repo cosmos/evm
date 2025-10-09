@@ -3,11 +3,9 @@ package config
 import (
 	"math"
 	"path/filepath"
-	"time"
 
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
-	"github.com/spf13/viper"
 
 	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
@@ -24,13 +22,13 @@ import (
 
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
 // to extract the consensus block gas limit before InitChain is called.
-func GetBlockGasLimit(v *viper.Viper, logger log.Logger) uint64 {
-	if v == nil {
-		logger.Error("viper instance is nil, using zero block gas limit")
+func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
+	if appOpts == nil {
+		logger.Error("app options is nil, using zero block gas limit")
 		return math.MaxUint64
 	}
 
-	homeDir := v.GetString(flags.FlagHome)
+	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	if homeDir == "" {
 		logger.Error("home directory not found in app options, using zero block gas limit")
 		return math.MaxUint64
@@ -90,13 +88,13 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 
 // GetMinTip reads the min tip from the viper flags, set from app.toml
 // This field is also known as the minimum priority fee
-func GetMinTip(v *viper.Viper, logger log.Logger) *uint256.Int {
-	if v == nil {
-		logger.Error("viper instance is nil, using zero min tip")
+func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
+	if appOpts == nil {
+		logger.Error("app options is nil, using zero min tip")
 		return nil
 	}
 
-	minTipUint64 := v.GetUint64(srvflags.EVMMinTip)
+	minTipUint64 := cast.ToUint64(appOpts.Get(srvflags.EVMMinTip))
 	minTip := uint256.NewInt(minTipUint64)
 
 	if minTip.Cmp(uint256.NewInt(0)) >= 0 { // zero or positive
@@ -107,59 +105,45 @@ func GetMinTip(v *viper.Viper, logger log.Logger) *uint256.Int {
 	return nil
 }
 
-// GetMempoolConfig reads the mempool configuration from viper
-func GetMempoolConfig(v *viper.Viper, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
-	if v == nil {
-		logger.Error("viper instance is nil, using default mempool config")
-		return &evmmempool.EVMMempoolConfig{}, nil
+// GetMempoolConfig reads the mempool configuration from appOpts
+func GetMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
+	if appOpts == nil {
+		logger.Error("app options is nil, using default mempool config")
+		return &evmmempool.EVMMempoolConfig{
+			LegacyPoolConfig: &legacypool.DefaultConfig,
+		}, nil
 	}
 
-	// Create LegacyPool config from viper settings
-	legacyConfig := &legacypool.Config{
-		PriceLimit:   v.GetUint64("evm.mempool.price-limit"),
-		PriceBump:    v.GetUint64("evm.mempool.price-bump"),
-		AccountSlots: v.GetUint64("evm.mempool.account-slots"),
-		GlobalSlots:  v.GetUint64("evm.mempool.global-slots"),
-		AccountQueue: v.GetUint64("evm.mempool.account-queue"),
-		GlobalQueue:  v.GetUint64("evm.mempool.global-queue"),
-		Lifetime:     v.GetDuration("evm.mempool.lifetime"),
-		Journal:      "transactions.rlp", // Fixed journal filename
-		Rejournal:    time.Hour,          // Fixed rejournal interval
+	// Start with default configuration
+	legacyConfig := legacypool.DefaultConfig
+
+	// Override with values from app.toml if they exist and are non-zero
+	if priceLimit := cast.ToUint64(appOpts.Get("evm.mempool.price-limit")); priceLimit != 0 {
+		legacyConfig.PriceLimit = priceLimit
+	}
+	if priceBump := cast.ToUint64(appOpts.Get("evm.mempool.price-bump")); priceBump != 0 {
+		legacyConfig.PriceBump = priceBump
+	}
+	if accountSlots := cast.ToUint64(appOpts.Get("evm.mempool.account-slots")); accountSlots != 0 {
+		legacyConfig.AccountSlots = accountSlots
+	}
+	if globalSlots := cast.ToUint64(appOpts.Get("evm.mempool.global-slots")); globalSlots != 0 {
+		legacyConfig.GlobalSlots = globalSlots
+	}
+	if accountQueue := cast.ToUint64(appOpts.Get("evm.mempool.account-queue")); accountQueue != 0 {
+		legacyConfig.AccountQueue = accountQueue
+	}
+	if globalQueue := cast.ToUint64(appOpts.Get("evm.mempool.global-queue")); globalQueue != 0 {
+		legacyConfig.GlobalQueue = globalQueue
+	}
+	if lifetime := cast.ToDuration(appOpts.Get("evm.mempool.lifetime")); lifetime != 0 {
+		legacyConfig.Lifetime = lifetime
 	}
 
-	// Validate and sanitize the config values (similar to sanitize() method)
-	sanitizedConfig := *legacyConfig
-	if sanitizedConfig.PriceLimit < 1 {
-		logger.Warn("Invalid txpool price limit, using default", "provided", sanitizedConfig.PriceLimit, "default", legacypool.DefaultConfig.PriceLimit)
-		sanitizedConfig.PriceLimit = legacypool.DefaultConfig.PriceLimit
-	}
-	if sanitizedConfig.PriceBump < 1 {
-		logger.Warn("Invalid txpool price bump, using default", "provided", sanitizedConfig.PriceBump, "default", legacypool.DefaultConfig.PriceBump)
-		sanitizedConfig.PriceBump = legacypool.DefaultConfig.PriceBump
-	}
-	if sanitizedConfig.AccountSlots < 1 {
-		logger.Warn("Invalid txpool account slots, using default", "provided", sanitizedConfig.AccountSlots, "default", legacypool.DefaultConfig.AccountSlots)
-		sanitizedConfig.AccountSlots = legacypool.DefaultConfig.AccountSlots
-	}
-	if sanitizedConfig.GlobalSlots < 1 {
-		logger.Warn("Invalid txpool global slots, using default", "provided", sanitizedConfig.GlobalSlots, "default", legacypool.DefaultConfig.GlobalSlots)
-		sanitizedConfig.GlobalSlots = legacypool.DefaultConfig.GlobalSlots
-	}
-	if sanitizedConfig.AccountQueue < 1 {
-		logger.Warn("Invalid txpool account queue, using default", "provided", sanitizedConfig.AccountQueue, "default", legacypool.DefaultConfig.AccountQueue)
-		sanitizedConfig.AccountQueue = legacypool.DefaultConfig.AccountQueue
-	}
-	if sanitizedConfig.GlobalQueue < 1 {
-		logger.Warn("Invalid txpool global queue, using default", "provided", sanitizedConfig.GlobalQueue, "default", legacypool.DefaultConfig.GlobalQueue)
-		sanitizedConfig.GlobalQueue = legacypool.DefaultConfig.GlobalQueue
-	}
-	if sanitizedConfig.Lifetime < 1 {
-		logger.Warn("Invalid txpool lifetime, using default", "provided", sanitizedConfig.Lifetime, "default", legacypool.DefaultConfig.Lifetime)
-		sanitizedConfig.Lifetime = legacypool.DefaultConfig.Lifetime
-	}
+	// Journal and Rejournal are not configurable via app.toml - use defaults
 
 	mempoolConfig := &evmmempool.EVMMempoolConfig{
-		LegacyPoolConfig: &sanitizedConfig,
+		LegacyPoolConfig: &legacyConfig,
 	}
 
 	return mempoolConfig, nil
