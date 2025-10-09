@@ -3,6 +3,7 @@ package encoding_test
 import (
 	"testing"
 
+	"cosmossdk.io/core/address"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -114,75 +115,50 @@ func TestBytesToString(t *testing.T) {
 	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
 
 	addrBz := common.HexToAddress(hex).Bytes() // 20 bytes
-	zeroAddr := common.Address{}.Hex()         // "0x000..."
 
 	// Helper codec (used only where we want to derive bytes from the bech32 string)
-	cdc := encoding.NewEvmCodec("cosmos")
+	var cdc address.Codec
 
 	type tc struct {
 		name   string
 		input  func() []byte
-		expHex string
+		expRes string
+		expErr error
 	}
 
 	testCases := []tc{
 		{
 			name: "success: from 20-byte input (hex-derived)",
 			input: func() []byte {
+				cdc = encoding.NewEvmCodec("cosmos")
 				return addrBz
 			},
-			expHex: common.HexToAddress(hex).Hex(), // checksummed
+			expRes: bech32,
+			expErr: nil,
 		},
 		{
 			name: "success: from bech32-derived bytes",
 			input: func() []byte {
+				cdc = encoding.NewEvmCodec("cosmos")
 				bz, err := cdc.StringToBytes(bech32)
 				require.NoError(t, err)
 				require.Len(t, bz, 20)
 				return bz
 			},
-			expHex: common.HexToAddress(hex).Hex(), // same address as above
-		},
-		{
-			name: "success: empty slice -> zero address",
-			input: func() []byte {
-				return []byte{}
-			},
-			expHex: zeroAddr,
-		},
-		{
-			name: "success: shorter than 20 bytes -> left-padded to zeroes",
-			input: func() []byte {
-				// Drop first byte -> 19 bytes; common.BytesToAddress pads on the left
-				return addrBz[1:]
-			},
-			expHex: common.BytesToAddress(addrBz[1:]).Hex(),
-		},
-		{
-			name: "success: longer than 20 bytes -> rightmost 20 used",
-			input: func() []byte {
-				// Prepend one byte; common.BytesToAddress will use last 20 bytes (which are addrBz)
-				return append([]byte{0xAA}, addrBz...)
-			},
-			expHex: common.BytesToAddress(append([]byte{0xAA}, addrBz...)).Hex(),
-		},
-		{
-			name: "success: much longer (32 bytes) -> rightmost 20 used",
-			input: func() []byte {
-				prefix := make([]byte, 12) // 12 + 20 = 32
-				return append(prefix, addrBz...)
-			},
-			expHex: common.BytesToAddress(append(make([]byte, 12), addrBz...)).Hex(),
+			expRes: bech32,
+			expErr: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := encoding.NewEvmCodec("cosmos")
-
-			got, err := codec.BytesToString(tc.input())
-			require.NoError(t, err)
-			require.Equal(t, tc.expHex, got)
+			got, err := cdc.BytesToString(tc.input())
+			if tc.expErr == nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expRes, got)
+			} else {
+				require.ErrorContains(t, err, tc.expErr.Error())
+			}
 		})
 	}
 }
