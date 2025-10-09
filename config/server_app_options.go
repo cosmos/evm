@@ -6,6 +6,7 @@ import (
 
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
+	"github.com/spf13/viper"
 
 	srvflags "github.com/cosmos/evm/server/flags"
 
@@ -20,8 +21,13 @@ import (
 
 // GetBlockGasLimit reads the genesis json file using AppGenesisFromFile
 // to extract the consensus block gas limit before InitChain is called.
-func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 {
-	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+func GetBlockGasLimit(v *viper.Viper, logger log.Logger) uint64 {
+	if v == nil {
+		logger.Error("viper instance is nil, using zero block gas limit")
+		return math.MaxUint64
+	}
+
+	homeDir := v.GetString(flags.FlagHome)
 	if homeDir == "" {
 		logger.Error("home directory not found in app options, using zero block gas limit")
 		return math.MaxUint64
@@ -79,10 +85,15 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 	return minGasPrices
 }
 
-// GetMinTip reads the min tip from the app options, set from app.toml
+// GetMinTip reads the min tip from the viper flags, set from app.toml
 // This field is also known as the minimum priority fee
-func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
-	minTipUint64 := cast.ToUint64(appOpts.Get(srvflags.EVMMinTip))
+func GetMinTip(v *viper.Viper, logger log.Logger) *uint256.Int {
+	if v == nil {
+		logger.Error("viper instance is nil, using zero min tip")
+		return nil
+	}
+
+	minTipUint64 := v.GetUint64(srvflags.EVMMinTip)
 	minTip := uint256.NewInt(minTipUint64)
 
 	if minTip.Cmp(uint256.NewInt(0)) >= 0 { // zero or positive
