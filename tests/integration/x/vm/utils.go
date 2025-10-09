@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	servercfg "github.com/cosmos/evm/server/config"
+	testKeyring "github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -203,4 +205,19 @@ func (s *KeeperTestSuite) DeployTestMessageCall(t require.TestingT) common.Addre
 	require.NoError(t, err)
 	require.Empty(t, rsp.VmError)
 	return crypto.CreateAddress(addr, nonce)
+}
+
+func (s *KeeperTestSuite) SignSetCodeAuthorization(authority testKeyring.Key, auth ethtypes.SetCodeAuthorization) ethtypes.SetCodeAuthorization {
+	s.T().Helper()
+
+	privKey, ok := authority.Priv.(*ethsecp256k1.PrivKey)
+	s.Require().True(ok)
+
+	ecdsaPriv, err := privKey.ToECDSA()
+	s.Require().NoError(err)
+
+	signedAuth, err := ethtypes.SignSetCode(ecdsaPriv, auth)
+	s.Require().NoError(err)
+
+	return signedAuth
 }
