@@ -3,13 +3,13 @@ package slashing
 import (
 	"github.com/stretchr/testify/suite"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
 
-	"github.com/cosmos/cosmos-sdk/codec/address"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 )
@@ -58,7 +58,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		s.network.App.GetSlashingKeeper(),
 		slashingkeeper.NewMsgServerImpl(s.network.App.GetSlashingKeeper()),
 		s.network.App.GetBankKeeper(),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	)
 }

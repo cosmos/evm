@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -23,7 +24,6 @@ import (
 	"cosmossdk.io/core/address"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
@@ -42,9 +42,9 @@ type Optionals struct {
 
 func defaultOptionals() Optionals {
 	return Optionals{
-		AddressCodec:       addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddrCodec: addresscodec.NewBech32Codec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:       evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }
 

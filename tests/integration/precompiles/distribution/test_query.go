@@ -51,7 +51,7 @@ var baseTestCases = []distrTestCases{
 		func([]byte) {},
 		100000,
 		true,
-		"invalid bech32 string",
+		"invalid: unknown address",
 	},
 }
 
@@ -524,7 +524,7 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 			func([]byte) {},
 			100000,
 			true,
-			"invalid bech32 string",
+			"invalid: unknown address",
 		},
 		{
 			"fail - nonexistent validator address",
