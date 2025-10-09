@@ -5,13 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/cosmos/evm/utils"
+
 	"cosmossdk.io/core/address"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-
-	"github.com/cosmos/evm/utils"
 )
 
 var _ address.Codec = (*evmCodec)(nil)
