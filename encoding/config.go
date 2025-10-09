@@ -1,10 +1,10 @@
 package encoding
 
 import (
+	"github.com/cosmos/evm/ethereum/eip712"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	enccodec "github.com/cosmos/evm/encoding/codec"
-	"github.com/cosmos/evm/ethereum/eip712"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -52,11 +52,11 @@ func MakeConfig(evmChainID uint64) Config {
 	codec := amino.NewProtoCodec(interfaceRegistry)
 	enccodec.RegisterLegacyAminoCodec(cdc)
 	enccodec.RegisterInterfaces(interfaceRegistry)
+	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
 	// This is needed for the EIP712 txs because currently is using
 	// the deprecated method legacytx.StdSignBytes
 	legacytx.RegressionTestingAminoCodec = cdc
-	eip712.SetEncodingConfig(cdc, interfaceRegistry, evmChainID)
 
 	return Config{
 		InterfaceRegistry: interfaceRegistry,

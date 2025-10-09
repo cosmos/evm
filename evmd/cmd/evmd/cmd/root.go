@@ -61,7 +61,6 @@ func NewRootCmd() *cobra.Command {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{
@@ -311,7 +310,6 @@ func newApp(
 	return evmd.NewExampleApp(
 		logger, db, traceStore, true,
 		appOpts,
-		config.EVMChainID, // TODO:VLAD - Remove this
 		baseappOptions...,
 	)
 }
@@ -352,13 +350,13 @@ func appExport(
 	}
 
 	if height != -1 {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, config.EVMChainID, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, false, appOpts, baseapp.SetChainID(chainID))
 
 		if err := exampleApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, config.EVMChainID, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
+		exampleApp = evmd.NewExampleApp(logger, db, traceStore, true, appOpts, baseapp.SetChainID(chainID)) // TODO:VLAD - Remove // TODO:VLAD - Remove appoptions and evmchainid
 	}
 
 	return exampleApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)

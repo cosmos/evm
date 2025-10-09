@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/config"
 	"io"
 	"path/filepath"
 
@@ -94,7 +93,6 @@ func (a appCreator) newApp(
 		traceStore,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
 		baseappOptions...,
 	)
 }
@@ -136,7 +134,6 @@ func (a appCreator) appExport(
 		traceStore,
 		loadLatest,
 		appOpts,
-		config.EVMChainID,
 	)
 
 	if height != -1 {

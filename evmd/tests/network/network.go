@@ -23,7 +23,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	cmtrand "github.com/cometbft/cometbft/libs/rand"
 	"github.com/cometbft/cometbft/node"
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
@@ -103,13 +102,12 @@ type Config struct {
 // testing requirements.
 func DefaultConfig() Config {
 	chainID := "evmos-1"
-	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1) //nolint:gosec // G115 // won't exceed uint64
 	dir, err := os.MkdirTemp("", "simapp")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -117,7 +115,7 @@ func DefaultConfig() Config {
 		LegacyAmino:       tempApp.LegacyAmino(),
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
 		AccountRetriever:  authtypes.AccountRetriever{},
-		AppConstructor:    NewAppConstructor(chainID, evmChainID),
+		AppConstructor:    NewAppConstructor(chainID),
 		GenesisState:      tempApp.DefaultGenesis(),
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
@@ -137,12 +135,11 @@ func DefaultConfig() Config {
 }
 
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
-func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
+func NewAppConstructor(chainID string) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		return evmd.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			evmChainID,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
