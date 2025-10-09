@@ -1,7 +1,7 @@
 package distribution
 
 import (
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/testutil/keyring"
 
@@ -88,7 +88,7 @@ func (s *PrecompileTestSuite) getStakingPrecompile() *staking.Precompile {
 		stakingkeeper.NewMsgServerImpl(s.network.App.GetStakingKeeper()),
 		stakingkeeper.NewQuerier(s.network.App.GetStakingKeeper()),
 		s.network.App.GetBankKeeper(),
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }
 

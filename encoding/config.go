@@ -3,6 +3,7 @@ package encoding
 import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	enccodec "github.com/cosmos/evm/encoding/codec"
 	"github.com/cosmos/evm/ethereum/eip712"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -32,8 +33,8 @@ type Config struct {
 func MakeConfig(evmChainID uint64) Config {
 	cdc := amino.NewLegacyAmino()
 	signingOptions := signing.Options{
-		AddressCodec:          NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddressCodec: NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		AddressCodec:          evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
 		CustomGetSigners: map[protoreflect.FullName]signing.GetSignersFunc{
 			evmtypes.MsgEthereumTxCustomGetSigner.MsgType:     evmtypes.MsgEthereumTxCustomGetSigner.Fn,
 			erc20types.MsgConvertERC20CustomGetSigner.MsgType: erc20types.MsgConvertERC20CustomGetSigner.Fn,

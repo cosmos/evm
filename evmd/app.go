@@ -23,6 +23,7 @@ import (
 	evmante "github.com/cosmos/evm/ante"
 	evmconfig "github.com/cosmos/evm/config"
 	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmmempool "github.com/cosmos/evm/mempool"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
@@ -291,7 +292,7 @@ func NewExampleApp(
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
 		authtypes.ProtoBaseAccount, evmconfig.GetMaccPerms(),
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
 	)
@@ -326,8 +327,8 @@ func NewExampleApp(
 		app.AccountKeeper,
 		app.BankKeeper,
 		authAddr,
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	)
 
 	app.MintKeeper = mintkeeper.NewKeeper(
@@ -1133,8 +1134,8 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 	return autocli.AppOptions{
 		Modules:               modules,
 		ModuleOptions:         runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules),
-		AddressCodec:          evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddressCodec: evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddressCodec: evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:          evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }

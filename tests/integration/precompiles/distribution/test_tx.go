@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/precompiles/testutil"
@@ -677,7 +677,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 				s.Require().True(success, "expected true, got false")
 
 				val := s.network.GetValidators()[0]
-				valCodec := evmosencoding.NewEvmCodec("cosmosvaloper")
+				valCodec := evmaddress.NewEvmCodec("cosmosvaloper")
 				valBz, err := valCodec.StringToBytes(val.GetOperator())
 				s.Require().NoError(err)
 

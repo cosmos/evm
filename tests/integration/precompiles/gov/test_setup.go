@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/gov"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -143,6 +143,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 		govkeeper.NewQueryServer(&govKeeper),
 		s.network.App.GetBankKeeper(),
 		s.network.App.AppCodec(),
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }

@@ -1,4 +1,4 @@
-package encoding_test
+package address_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 
 	"cosmossdk.io/core/address"
 
@@ -98,7 +98,7 @@ func TestStringToBytes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cdc := encoding.NewEvmCodec(tc.cdcPrefix)
+			cdc := evmaddress.NewEvmCodec(tc.cdcPrefix)
 			bz, err := cdc.StringToBytes(tc.input)
 			if tc.expErr == nil {
 				require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestBytesToString(t *testing.T) {
 		{
 			name: "success: from 20-byte input (hex-derived)",
 			input: func() []byte {
-				cdc = encoding.NewEvmCodec("cosmos")
+				cdc = evmaddress.NewEvmCodec("cosmos")
 				return addrBz
 			},
 			expRes: bech32,
@@ -140,7 +140,7 @@ func TestBytesToString(t *testing.T) {
 		{
 			name: "success: from bech32-derived bytes",
 			input: func() []byte {
-				cdc = encoding.NewEvmCodec("cosmos")
+				cdc = evmaddress.NewEvmCodec("cosmos")
 				bz, err := cdc.StringToBytes(bech32)
 				require.NoError(t, err)
 				require.Len(t, bz, 20)

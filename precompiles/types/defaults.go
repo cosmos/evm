@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -42,9 +42,9 @@ type Optionals struct {
 
 func defaultOptionals() Optionals {
 	return Optionals{
-		AddressCodec:       evmosencoding.NewEvmCodec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddrCodec: evmosencoding.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddrCodec: evmosencoding.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:       evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddrCodec: evmaddress.NewEvmCodec(sdktypes.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }
 

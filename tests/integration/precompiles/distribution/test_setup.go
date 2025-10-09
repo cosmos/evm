@@ -3,7 +3,7 @@ package distribution
 import (
 	"github.com/stretchr/testify/suite"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/distribution"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -136,6 +136,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 		distrkeeper.NewQuerier(s.network.App.GetDistrKeeper()),
 		*s.network.App.GetStakingKeeper(),
 		s.network.App.GetBankKeeper(),
-		evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 }

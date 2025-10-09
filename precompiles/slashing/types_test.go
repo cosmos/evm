@@ -7,14 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func TestParseSigningInfoArgs(t *testing.T) {
-	consCodec := evmosencoding.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix())
+	consCodec := evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix())
 	validAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	expectedConsAddr, err := consCodec.BytesToString(validAddr.Bytes())
 	require.NoError(t, err)
