@@ -86,7 +86,7 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 	return minGasPrices
 }
 
-// GetMinTip reads the min tip from the viper flags, set from app.toml
+// GetMinTip reads the min tip from the app options, set from app.toml
 // This field is also known as the minimum priority fee
 func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
 	if appOpts == nil {
