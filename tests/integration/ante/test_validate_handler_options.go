@@ -1,13 +1,13 @@
 package ante
 
 import (
-	antetypes "github.com/cosmos/evm/ante/types"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
+	antetypes "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 )
 

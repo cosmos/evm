@@ -217,6 +217,9 @@ func (b *Backend) GetBlockReceipts(
 		}
 
 		result[i], err = rpctypes.RPCMarshalReceipt(receipts[i], tx, from)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal receipt")
+		}
 	}
 	return result, nil
 }

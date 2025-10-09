@@ -10,9 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -357,10 +356,10 @@ func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 }
 
 // CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *params.ChainConfig, parent *ethtypes.Header, p types2.Params) (*big.Int, error) {
+func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p types2.Params) (*big.Int, error) {
 	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 	if !config.IsLondon(parent.Number) {
-		return new(big.Int).SetUint64(params.InitialBaseFee), nil
+		return new(big.Int).SetUint64(ethparams.InitialBaseFee), nil
 	}
 	if p.ElasticityMultiplier == 0 {
 		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")

@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"maps"
 	"slices"
 	"time"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/testutil"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -414,13 +414,13 @@ type GovCustomGenesisState struct {
 }
 
 // setDefaultGovGenesisState sets the default gov genesis state
-func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState testutil.GenesisState, overwriteParams GovCustomGenesisState, evmChainID uint64) testutil.GenesisState {
+func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState testutil.GenesisState, overwriteParams GovCustomGenesisState) testutil.GenesisState {
 	govGen := govtypesv1.DefaultGenesisState()
 
 	denomConfig := DefaultChainCoins()
 
 	updatedParams := govGen.Params
-	minDepositAmt := sdkmath.NewInt(1e18).Quo(evmtypes.Decimals(denomConfig.BaseDecimals()).ConversionFactor())
+	minDepositAmt := sdkmath.NewInt(1e18).Quo(denomConfig.BaseDecimals().ConversionFactor())
 	updatedParams.MinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	updatedParams.ExpeditedMinDeposit = sdktypes.NewCoins(sdktypes.NewCoin(overwriteParams.denom, minDepositAmt))
 	govGen.Params = updatedParams
@@ -509,7 +509,7 @@ func newDefaultGenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, params d
 	genesisState = setDefaultAuthGenesisState(cosmosEVMApp, genesisState, params.genAccounts)
 	genesisState = setDefaultStakingGenesisState(cosmosEVMApp, genesisState, params.staking)
 	genesisState = setDefaultBankGenesisState(cosmosEVMApp, genesisState, params.bank, evmChainID)
-	genesisState = setDefaultGovGenesisState(cosmosEVMApp, genesisState, params.gov, evmChainID)
+	genesisState = setDefaultGovGenesisState(cosmosEVMApp, genesisState, params.gov)
 	genesisState = setDefaultFeeMarketGenesisState(cosmosEVMApp, genesisState, params.feemarket)
 	genesisState = setDefaultSlashingGenesisState(cosmosEVMApp, genesisState, params.slashing)
 	genesisState = setDefaultMintGenesisState(cosmosEVMApp, genesisState, params.mint)
