@@ -12,12 +12,12 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
+var _ address.Codec = (*evmCodec)(nil)
+
 // evmCodec defines an address codec for EVM compatible cosmos modules
 type evmCodec struct {
 	bech32Prefix string
 }
-
-var _ address.Codec = (*evmCodec)(nil)
 
 // NewEvmCodec returns a new EvmCodec with the given bech32 prefix
 func NewEvmCodec(prefix string) address.Codec {
