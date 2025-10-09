@@ -3,11 +3,14 @@ package config
 import (
 	"math"
 	"path/filepath"
+	"time"
 
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
+	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	srvflags "github.com/cosmos/evm/server/flags"
 
 	"cosmossdk.io/log"
@@ -102,4 +105,62 @@ func GetMinTip(v *viper.Viper, logger log.Logger) *uint256.Int {
 
 	logger.Error("invalid min tip value in app.toml or flag, falling back to nil", "min_tip", minTipUint64)
 	return nil
+}
+
+// GetMempoolConfig reads the mempool configuration from viper
+func GetMempoolConfig(v *viper.Viper, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
+	if v == nil {
+		logger.Error("viper instance is nil, using default mempool config")
+		return &evmmempool.EVMMempoolConfig{}, nil
+	}
+
+	// Create LegacyPool config from viper settings
+	legacyConfig := &legacypool.Config{
+		PriceLimit:   v.GetUint64("evm.mempool.price-limit"),
+		PriceBump:    v.GetUint64("evm.mempool.price-bump"),
+		AccountSlots: v.GetUint64("evm.mempool.account-slots"),
+		GlobalSlots:  v.GetUint64("evm.mempool.global-slots"),
+		AccountQueue: v.GetUint64("evm.mempool.account-queue"),
+		GlobalQueue:  v.GetUint64("evm.mempool.global-queue"),
+		Lifetime:     v.GetDuration("evm.mempool.lifetime"),
+		Journal:      "transactions.rlp", // Fixed journal filename
+		Rejournal:    time.Hour,          // Fixed rejournal interval
+	}
+
+	// Validate and sanitize the config values (similar to sanitize() method)
+	sanitizedConfig := *legacyConfig
+	if sanitizedConfig.PriceLimit < 1 {
+		logger.Warn("Invalid txpool price limit, using default", "provided", sanitizedConfig.PriceLimit, "default", legacypool.DefaultConfig.PriceLimit)
+		sanitizedConfig.PriceLimit = legacypool.DefaultConfig.PriceLimit
+	}
+	if sanitizedConfig.PriceBump < 1 {
+		logger.Warn("Invalid txpool price bump, using default", "provided", sanitizedConfig.PriceBump, "default", legacypool.DefaultConfig.PriceBump)
+		sanitizedConfig.PriceBump = legacypool.DefaultConfig.PriceBump
+	}
+	if sanitizedConfig.AccountSlots < 1 {
+		logger.Warn("Invalid txpool account slots, using default", "provided", sanitizedConfig.AccountSlots, "default", legacypool.DefaultConfig.AccountSlots)
+		sanitizedConfig.AccountSlots = legacypool.DefaultConfig.AccountSlots
+	}
+	if sanitizedConfig.GlobalSlots < 1 {
+		logger.Warn("Invalid txpool global slots, using default", "provided", sanitizedConfig.GlobalSlots, "default", legacypool.DefaultConfig.GlobalSlots)
+		sanitizedConfig.GlobalSlots = legacypool.DefaultConfig.GlobalSlots
+	}
+	if sanitizedConfig.AccountQueue < 1 {
+		logger.Warn("Invalid txpool account queue, using default", "provided", sanitizedConfig.AccountQueue, "default", legacypool.DefaultConfig.AccountQueue)
+		sanitizedConfig.AccountQueue = legacypool.DefaultConfig.AccountQueue
+	}
+	if sanitizedConfig.GlobalQueue < 1 {
+		logger.Warn("Invalid txpool global queue, using default", "provided", sanitizedConfig.GlobalQueue, "default", legacypool.DefaultConfig.GlobalQueue)
+		sanitizedConfig.GlobalQueue = legacypool.DefaultConfig.GlobalQueue
+	}
+	if sanitizedConfig.Lifetime < 1 {
+		logger.Warn("Invalid txpool lifetime, using default", "provided", sanitizedConfig.Lifetime, "default", legacypool.DefaultConfig.Lifetime)
+		sanitizedConfig.Lifetime = legacypool.DefaultConfig.Lifetime
+	}
+
+	mempoolConfig := &evmmempool.EVMMempoolConfig{
+		LegacyPoolConfig: &sanitizedConfig,
+	}
+
+	return mempoolConfig, nil
 }
