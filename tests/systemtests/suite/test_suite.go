@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/systemtests"
 )
 
 // SystemTestSuite implements the TestSuite interface and

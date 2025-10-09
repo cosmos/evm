@@ -56,3 +56,13 @@ go test -p 1 -mod=readonly -tags='system_test' -v ./... \
 ```shell
 make test
 ```
+
+## Updating Node's Configuration
+
+New in systemtests v1.4.0, you can now update the `config.toml` of the nodes. To do so, the system under test should be set up like so:
+
+```go
+s := systemtest.Sut
+s.ResetChain(t)
+s.SetupChain("--config-changes=consensus.timeout_commit=10s")
+```
