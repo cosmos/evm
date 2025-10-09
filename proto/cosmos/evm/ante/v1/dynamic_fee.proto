@@ -1,6 +1,6 @@
 
 syntax = "proto3";
-package cosmos.evm.types.v1;
+package cosmos.evm.ante.v1;
 
 import "amino/amino.proto";
 import "gogoproto/gogo.proto";
