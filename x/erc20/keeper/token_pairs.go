@@ -19,7 +19,9 @@ func (k Keeper) CreateNewTokenPair(ctx sdk.Context, denom string) (types.TokenPa
 	if err != nil {
 		return types.TokenPair{}, err
 	}
-	if account := k.evmKeeper.GetAccount(ctx, pair.GetERC20Contract()); account != nil && account.IsContract() {
+	isContract := k.evmKeeper.IsContract(ctx, pair.GetERC20Contract())
+	account := k.evmKeeper.GetAccount(ctx, pair.GetERC20Contract())
+	if account != nil && isContract {
 		return types.TokenPair{}, errorsmod.Wrapf(types.ErrTokenPairAlreadyExists, "token already exists for token %s", pair.Erc20Address)
 	}
 	err = k.SetToken(ctx, pair)

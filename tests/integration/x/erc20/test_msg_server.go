@@ -145,6 +145,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -173,6 +174,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Twice()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced balance error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -201,6 +203,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Once()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -231,6 +234,7 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -359,7 +363,8 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.Require().NotNil(acc)
 				}
 
-				if tc.selfdestructed || !acc.IsContract() {
+				isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+				if tc.selfdestructed || !isContract {
 					id := s.network.App.GetErc20Keeper().GetTokenPairID(ctx, contractAddr.String())
 					_, found := s.network.App.GetErc20Keeper().GetTokenPair(ctx, id)
 					s.Require().False(found)
@@ -444,6 +449,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced ApplyMessage error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -472,6 +478,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVM", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Times(3)
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("forced balance error"))
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -500,6 +507,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil).Twice()
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -530,6 +538,7 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 				mockEVMKeeper.On("CallEVMWithData", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
 					mock.Anything, mock.Anything).Return(&evmtypes.MsgEthereumTxResponse{Ret: balance}, nil)
 				mockEVMKeeper.On("GetAccountWithoutBalance", mock.Anything, mock.Anything).Return(existingAcc, nil)
+				mockEVMKeeper.On("IsContract", mock.Anything, mock.Anything).Return(true)
 			},
 			contractMinterBurner,
 			false,
@@ -644,7 +653,8 @@ func (s *KeeperTestSuite) TestConvertNativeERC20ToEVMERC20() {
 					s.Require().NotNil(acc)
 				}
 
-				if tc.selfdestructed || !acc.IsContract() {
+				isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+				if tc.selfdestructed || !isContract {
 					id := s.network.App.GetErc20Keeper().GetTokenPairID(s.network.GetContext(), contractAddr.String())
 					_, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), id)
 					s.Require().False(found)
