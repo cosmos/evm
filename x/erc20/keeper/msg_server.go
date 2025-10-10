@@ -42,8 +42,7 @@ func (k Keeper) ConvertERC20(
 	if pair.IsNativeERC20() {
 		// Remove token pair if contract is suicided
 		acc := k.evmKeeper.GetAccountWithoutBalance(ctx, pair.GetERC20Contract())
-		isContract := k.evmKeeper.IsContract(ctx, pair.GetERC20Contract())
-		if acc == nil || !isContract {
+		if acc == nil || !acc.HasCodeHash() {
 			k.DeleteTokenPair(ctx, pair)
 			k.Logger(ctx).Debug(
 				"deleting selfdestructed token pair from state",
@@ -210,8 +209,7 @@ func (k Keeper) ConvertCoin(
 	case pair.IsNativeERC20():
 		// Remove token pair if contract is suicided
 		acc := k.evmKeeper.GetAccountWithoutBalance(ctx, pair.GetERC20Contract())
-		isContract := k.evmKeeper.IsContract(ctx, pair.GetERC20Contract())
-		if acc == nil || !isContract {
+		if acc == nil || !acc.HasCodeHash() {
 			k.DeleteTokenPair(ctx, pair)
 			k.Logger(ctx).Debug(
 				"deleting selfdestructed token pair from state",
