@@ -71,7 +71,7 @@ func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
 
 	// Send a bank send transaction using EIP-712
 	nonce := uint64(0)
-	gasPrice := big.NewInt(1000000)
+	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(5000000)
 
 	txHash, err := sut.SendBankSendWithEIP712(
@@ -133,7 +133,7 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 	require.NoError(t, err, "Failed to get initial balance")
 	t.Logf("Initial receiver balance: %s", initialBalance.String())
 
-	gasPrice := big.NewInt(1000000)
+	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(1000000)
 	numTxs := 3
 
