@@ -53,6 +53,7 @@
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 - [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
 - [\#701](https://github.com/cosmos/evm/pull/701) Add address codec support to ERC20 IBC callbacks to handle hex addresses in addition to bech32 addresses.
+- [\#702](https://github.com/cosmos/evm/pull/702) Fix mempool e2e test
 - [\#704](https://github.com/cosmos/evm/pull/704) Fix EIP-7702 test cases
 
 ### FEATURES

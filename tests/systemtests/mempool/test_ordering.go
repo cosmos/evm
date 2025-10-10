@@ -13,7 +13,6 @@ func TestTxsOrdering(t *testing.T) {
 	testCases := []struct {
 		name    string
 		actions []func(s TestSuite)
-		bypass  bool
 	}{
 		{
 			name: "ordering of pending txs %s",
@@ -66,10 +65,6 @@ func TestTxsOrdering(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				if tc.bypass {
-					return
-				}
-
 				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
