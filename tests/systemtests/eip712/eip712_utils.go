@@ -75,8 +75,6 @@ func signMsgsWithEIP712(
 		return nil, fmt.Errorf("failed to set messages: %v", err)
 	}
 
-	txBuilder.SetMemo("")
-
 	signerData := xauthsigning.SignerData{
 		Address:       senderAddr.String(),
 		ChainID:       cosmosClient.ChainID,
