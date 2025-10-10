@@ -11,11 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethparams "github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -351,6 +353,25 @@ func TxStateDBCommitError(res *abci.ExecTxResult) bool {
 // or if it failed with an ExceedBlockGasLimit error or TxStateDBCommitError error
 func TxSucessOrExpectedFailure(res *abci.ExecTxResult) bool {
 	return res.Code == 0 || TxExceedBlockGasLimit(res) || TxStateDBCommitError(res)
+}
+
+// CalcBaseFee calculates the basefee of the header.
+func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p feemarkettypes.Params) (*big.Int, error) {
+	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
+	if !config.IsLondon(parent.Number) {
+		return new(big.Int).SetUint64(ethparams.InitialBaseFee), nil
+	}
+	if p.ElasticityMultiplier == 0 {
+		return nil, errors.New("ElasticityMultiplier cannot be 0 as it's checked in the params validation")
+	}
+	parentGasTarget := parent.GasLimit / uint64(p.ElasticityMultiplier)
+
+	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+	minGasPrice := p.MinGasPrice.Mul(sdkmath.LegacyNewDecFromInt(factor))
+	return feemarkettypes.CalcGasBaseFee(
+		parent.GasUsed, parentGasTarget, uint64(p.BaseFeeChangeDenominator),
+		sdkmath.LegacyNewDecFromBigInt(parent.BaseFee), sdkmath.LegacyOneDec(), minGasPrice,
+	).TruncateInt().BigInt(), nil
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .

@@ -14,8 +14,8 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
+	antetypes "github.com/cosmos/evm/ante/types"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -47,7 +47,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		Transfer:    core.Transfer,
 		GetHash:     k.GetHashFn(ctx),
 		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
+		GasLimit:    antetypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
 		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
 		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
@@ -116,7 +116,7 @@ func (k *Keeper) NewEVM(
 //  3. The requested height is from a height greater than the latest one
 func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	return func(height uint64) common.Hash {
-		h, err := cosmosevmtypes.SafeInt64(height)
+		h, err := utils.SafeInt64(height)
 		if err != nil {
 			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
 			return common.Hash{}

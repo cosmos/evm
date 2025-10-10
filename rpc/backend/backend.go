@@ -19,9 +19,9 @@ import (
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	evmmempool "github.com/cosmos/evm/mempool"
-	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	servertypes "github.com/cosmos/evm/server/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -64,31 +64,31 @@ type EVMBackend interface {
 
 	// Blocks Info
 	BlockNumber() (hexutil.Uint64, error)
-	GetHeaderByNumber(blockNum rpctypes.BlockNumber) (map[string]interface{}, error)
+	GetHeaderByNumber(blockNum types.BlockNumber) (map[string]interface{}, error)
 	GetHeaderByHash(hash common.Hash) (map[string]interface{}, error)
-	GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error)
+	GetBlockByNumber(blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error)
 	GetBlockByHash(hash common.Hash, fullTx bool) (map[string]interface{}, error)
 	GetBlockTransactionCountByHash(hash common.Hash) *hexutil.Uint
-	GetBlockTransactionCountByNumber(blockNum rpctypes.BlockNumber) *hexutil.Uint
-	CometBlockByNumber(blockNum rpctypes.BlockNumber) (*tmrpctypes.ResultBlock, error)
+	GetBlockTransactionCountByNumber(blockNum types.BlockNumber) *hexutil.Uint
+	CometBlockByNumber(blockNum types.BlockNumber) (*tmrpctypes.ResultBlock, error)
 	CometBlockByHash(blockHash common.Hash) (*tmrpctypes.ResultBlock, error)
-	BlockNumberFromComet(blockNrOrHash rpctypes.BlockNumberOrHash) (rpctypes.BlockNumber, error)
+	BlockNumberFromComet(blockNrOrHash types.BlockNumberOrHash) (types.BlockNumber, error)
 	BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, error)
 	EthMsgsFromCometBlock(block *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) []*evmtypes.MsgEthereumTx
 	BlockBloomFromCometBlock(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.Bloom, error)
-	HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Header, error)
+	HeaderByNumber(blockNum types.BlockNumber) (*ethtypes.Header, error)
 	HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error)
 	RPCBlockFromCometBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults, fullTx bool) (map[string]interface{}, error)
-	EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Block, error)
+	EthBlockByNumber(blockNum types.BlockNumber) (*ethtypes.Block, error)
 	EthBlockFromCometBlock(resBlock *tmrpctypes.ResultBlock, blockRes *tmrpctypes.ResultBlockResults) (*ethtypes.Block, error)
-	GetBlockReceipts(blockNrOrHash rpctypes.BlockNumberOrHash) ([]map[string]interface{}, error)
+	GetBlockReceipts(blockNrOrHash types.BlockNumberOrHash) ([]map[string]interface{}, error)
 
 	// Account Info
-	GetCode(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error)
-	GetBalance(address common.Address, blockNrOrHash rpctypes.BlockNumberOrHash) (*hexutil.Big, error)
-	GetStorageAt(address common.Address, key string, blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error)
-	GetProof(address common.Address, storageKeys []string, blockNrOrHash rpctypes.BlockNumberOrHash) (*rpctypes.AccountResult, error)
-	GetTransactionCount(address common.Address, blockNum rpctypes.BlockNumber) (*hexutil.Uint64, error)
+	GetCode(address common.Address, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
+	GetBalance(address common.Address, blockNrOrHash types.BlockNumberOrHash) (*hexutil.Big, error)
+	GetStorageAt(address common.Address, key string, blockNrOrHash types.BlockNumberOrHash) (hexutil.Bytes, error)
+	GetProof(address common.Address, storageKeys []string, blockNrOrHash types.BlockNumberOrHash) (*types.AccountResult, error)
+	GetTransactionCount(address common.Address, blockNum types.BlockNumber) (*hexutil.Uint64, error)
 
 	// Chain Info
 	ChainID() (*hexutil.Big, error)
@@ -98,26 +98,26 @@ type EVMBackend interface {
 	CurrentHeader() (*ethtypes.Header, error)
 	PendingTransactions() ([]*sdk.Tx, error)
 	GetCoinbase() (sdk.AccAddress, error)
-	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error)
+	FeeHistory(blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*types.FeeHistoryResult, error)
 	SuggestGasTipCap(baseFee *big.Int) (*big.Int, error)
 
 	// Tx Info
-	GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransaction, error)
-	GetTxByEthHash(txHash common.Hash) (*cosmosevmtypes.TxResult, error)
-	GetTxByTxIndex(height int64, txIndex uint) (*cosmosevmtypes.TxResult, error)
-	GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
+	GetTransactionByHash(txHash common.Hash) (*types.RPCTransaction, error)
+	GetTxByEthHash(txHash common.Hash) (*servertypes.TxResult, error)
+	GetTxByTxIndex(height int64, txIndex uint) (*servertypes.TxResult, error)
+	GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*types.RPCTransaction, error)
 	GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error)
 	GetTransactionLogs(hash common.Hash) ([]*ethtypes.Log, error)
-	GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
-	GetTransactionByBlockNumberAndIndex(blockNum rpctypes.BlockNumber, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
-	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, overrides *json.RawMessage) (*rpctypes.AccessListResult, error)
+	GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexutil.Uint) (*types.RPCTransaction, error)
+	GetTransactionByBlockNumberAndIndex(blockNum types.BlockNumber, idx hexutil.Uint) (*types.RPCTransaction, error)
+	CreateAccessList(args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, overrides *json.RawMessage) (*types.AccessListResult, error)
 
 	// Send Transaction
 	Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
 	SendRawTransaction(data hexutil.Bytes) (common.Hash, error)
 	SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error)
-	EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rpctypes.BlockNumber) (hexutil.Uint64, error)
-	DoCall(args evmtypes.TransactionArgs, blockNr rpctypes.BlockNumber, overrides *json.RawMessage) (*evmtypes.MsgEthereumTxResponse, error)
+	EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *types.BlockNumber) (hexutil.Uint64, error)
+	DoCall(args evmtypes.TransactionArgs, blockNr types.BlockNumber, overrides *json.RawMessage) (*evmtypes.MsgEthereumTxResponse, error)
 	GasPrice() (*hexutil.Big, error)
 
 	// Filter API
@@ -126,15 +126,15 @@ type EVMBackend interface {
 	BloomStatus() (uint64, uint64)
 
 	// TxPool API
-	Content() (map[string]map[string]map[string]*rpctypes.RPCTransaction, error)
-	ContentFrom(address common.Address) (map[string]map[string]*rpctypes.RPCTransaction, error)
+	Content() (map[string]map[string]map[string]*types.RPCTransaction, error)
+	ContentFrom(address common.Address) (map[string]map[string]*types.RPCTransaction, error)
 	Inspect() (map[string]map[string]map[string]string, error)
 	Status() (map[string]hexutil.Uint, error)
 
 	// Tracing
-	TraceTransaction(hash common.Hash, config *rpctypes.TraceConfig) (interface{}, error)
-	TraceBlock(height rpctypes.BlockNumber, config *rpctypes.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
-	TraceCall(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error)
+	TraceTransaction(hash common.Hash, config *types.TraceConfig) (interface{}, error)
+	TraceBlock(height types.BlockNumber, config *types.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
+	TraceCall(args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
 }
 
 var _ BackendI = (*Backend)(nil)
@@ -157,7 +157,7 @@ type ProcessBlocker func(
 	ethBlock *map[string]interface{},
 	rewardPercentiles []float64,
 	tendermintBlockResult *tmrpctypes.ResultBlockResults,
-	targetOneFeeHistory *rpctypes.OneFeeHistory,
+	targetOneFeeHistory *types.OneFeeHistory,
 ) error
 
 // Backend implements the BackendI interface
@@ -165,12 +165,12 @@ type Backend struct {
 	Ctx                 context.Context
 	ClientCtx           client.Context
 	RPCClient           tmrpcclient.SignClient
-	QueryClient         *rpctypes.QueryClient // gRPC query client
+	QueryClient         *types.QueryClient // gRPC query client
 	Logger              log.Logger
 	EvmChainID          *big.Int
 	Cfg                 config.Config
 	AllowUnprotectedTxs bool
-	Indexer             cosmosevmtypes.EVMTxIndexer
+	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
 }
@@ -185,7 +185,7 @@ func NewBackend(
 	logger log.Logger,
 	clientCtx client.Context,
 	allowUnprotectedTxs bool,
-	indexer cosmosevmtypes.EVMTxIndexer,
+	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
@@ -202,7 +202,7 @@ func NewBackend(
 		Ctx:                 context.Background(),
 		ClientCtx:           clientCtx,
 		RPCClient:           rpcClient,
-		QueryClient:         rpctypes.NewQueryClient(clientCtx),
+		QueryClient:         types.NewQueryClient(clientCtx),
 		Logger:              logger.With("module", "backend"),
 		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
 		Cfg:                 appConf,

@@ -1,6 +1,8 @@
-package types
+package eip712
 
 import (
+	antetypes "github.com/cosmos/evm/ante/types"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -23,6 +25,6 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations(
 		(*tx.TxExtensionOptionI)(nil),
 		&ExtensionOptionsWeb3Tx{},
-		&ExtensionOptionDynamicFeeTx{},
+		&antetypes.ExtensionOptionDynamicFeeTx{},
 	)
 }

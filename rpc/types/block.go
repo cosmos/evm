@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cast"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 )
@@ -184,7 +184,7 @@ func (bnh *BlockNumberOrHash) decodeFromString(input string) error {
 			return err
 		}
 
-		bnInt, err := types.SafeInt64(blockNumber)
+		bnInt, err := utils.SafeInt64(blockNumber)
 		if err != nil {
 			return err
 		}

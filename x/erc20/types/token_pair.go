@@ -5,7 +5,6 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -56,7 +55,7 @@ func (tp TokenPair) Validate() error {
 		return err
 	}
 
-	return cosmosevmtypes.ValidateAddress(tp.Erc20Address)
+	return utils.ValidateAddress(tp.Erc20Address)
 }
 
 // IsNativeCoin returns true if the owner of the ERC20 contract is the
