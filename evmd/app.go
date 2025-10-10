@@ -22,7 +22,7 @@ import (
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
 	evmconfig "github.com/cosmos/evm/config"
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmencoding "github.com/cosmos/evm/encoding"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmmempool "github.com/cosmos/evm/mempool"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
@@ -214,7 +214,7 @@ func NewExampleApp(
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
-	encodingConfig := evmosencoding.MakeConfig(evmChainID)
+	encodingConfig := evmencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
