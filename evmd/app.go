@@ -477,7 +477,6 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.StakingKeeper,
 		&app.TransferKeeper,
-		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
 
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation

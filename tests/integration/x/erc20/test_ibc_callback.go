@@ -9,7 +9,6 @@ import (
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	evmosencodingaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -294,17 +293,7 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 			s.network.App.GetIBCKeeper().ChannelKeeper.SetNextSequenceSend(ctx, transfertypes.PortID, cosmosEVMChannel, 1)
 
 			tranasferKeeper := s.network.App.GetTransferKeeper()
-			erc20Keeper := keeper.NewKeeper(
-				s.network.App.GetKey(types.StoreKey),
-				s.network.App.AppCodec(),
-				authtypes.NewModuleAddress(govtypes.ModuleName),
-				s.network.App.GetAccountKeeper(),
-				s.network.App.GetBankKeeper(),
-				s.network.App.GetEVMKeeper(),
-				s.network.App.GetStakingKeeper(),
-				&tranasferKeeper,
-				evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-			)
+			erc20Keeper := keeper.NewKeeper(s.network.App.GetKey(types.StoreKey), s.network.App.AppCodec(), authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(), s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(), &tranasferKeeper)
 			s.network.App.SetErc20Keeper(erc20Keeper)
 
 			// Fund receiver account with ATOM, ERC20 coins and IBC vouchers

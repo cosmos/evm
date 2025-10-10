@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/cosmos/evm/contracts"
-	evmosencodingaddress "github.com/cosmos/evm/encoding/address"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -116,14 +115,7 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 		s.SetupTest() // reset
 		mockEVMKeeper = &erc20mocks.EVMKeeper{}
 		transferKeeper := s.network.App.GetTransferKeeper()
-		erc20Keeper := keeper.NewKeeper(
-			s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
-			authtypes.NewModuleAddress(govtypes.ModuleName),
-			s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
-			mockEVMKeeper, s.network.App.GetStakingKeeper(),
-			&transferKeeper,
-			evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		)
+		erc20Keeper := keeper.NewKeeper(s.network.App.GetKey("erc20"), s.network.App.AppCodec(), authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(), mockEVMKeeper, s.network.App.GetStakingKeeper(), &transferKeeper)
 		s.network.App.SetErc20Keeper(erc20Keeper)
 
 		tc.malleate()
@@ -218,14 +210,7 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 		// TODO: what's the reason we are using mockEVMKeeper here? Instead of just passing the s.app.EVMKeeper?
 		mockEVMKeeper = &erc20mocks.EVMKeeper{}
 		transferKeeper := s.network.App.GetTransferKeeper()
-		erc20Keeper := keeper.NewKeeper(
-			s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
-			authtypes.NewModuleAddress(govtypes.ModuleName),
-			s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
-			mockEVMKeeper, s.network.App.GetStakingKeeper(),
-			&transferKeeper,
-			evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		)
+		erc20Keeper := keeper.NewKeeper(s.network.App.GetKey("erc20"), s.network.App.AppCodec(), authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(), mockEVMKeeper, s.network.App.GetStakingKeeper(), &transferKeeper)
 		s.network.App.SetErc20Keeper(erc20Keeper)
 
 		tc.malleate()
@@ -399,14 +384,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 
 			transferKeeper := s.network.App.GetTransferKeeper()
 			mockEVMKeeper = &erc20mocks.EVMKeeper{}
-			s.network.App.SetErc20Keeper(keeper.NewKeeper(
-				s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
-				authtypes.NewModuleAddress(govtypes.ModuleName),
-				s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
-				mockEVMKeeper, s.network.App.GetStakingKeeper(),
-				&transferKeeper,
-				evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-			))
+			s.network.App.SetErc20Keeper(keeper.NewKeeper(s.network.App.GetKey("erc20"), s.network.App.AppCodec(), authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(), mockEVMKeeper, s.network.App.GetStakingKeeper(), &transferKeeper))
 
 			tc.malleate()
 

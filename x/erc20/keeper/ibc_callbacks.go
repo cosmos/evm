@@ -56,13 +56,13 @@ func (k Keeper) OnRecvPacket(
 		WithTransientKVGasConfig(storetypes.GasConfig{})
 
 	// recipient (local chain address): accept hex or local bech32
-	recipientBz, err := k.addrCodec.StringToBytes(data.Receiver)
+	recipientBz, err := k.accountKeeper.AddressCodec().StringToBytes(data.Receiver)
 	if err != nil {
 		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid recipient"))
 	}
 	recipient := sdk.AccAddress(recipientBz)
 
-	senderBz, err := k.addrCodec.StringToBytes(data.Sender)
+	senderBz, err := k.accountKeeper.AddressCodec().StringToBytes(data.Sender)
 	if err != nil {
 		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid sender"))
 	}
@@ -197,7 +197,7 @@ func (k Keeper) OnTimeoutPacket(ctx sdk.Context, _ channeltypes.Packet, data tra
 // This function is only executed when IBC timeout or an Error ACK happens.
 func (k Keeper) ConvertCoinToERC20FromPacket(ctx sdk.Context, data transfertypes.FungibleTokenPacketData) error {
 	// Sender is local (source) chain address; accept local bech32 or 0x-hex
-	senderBz, err := k.addrCodec.StringToBytes(data.Sender)
+	senderBz, err := k.accountKeeper.AddressCodec().StringToBytes(data.Sender)
 	if err != nil {
 		return err
 	}
