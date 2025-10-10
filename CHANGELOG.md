@@ -21,6 +21,7 @@
 - [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
 - [\#687](https://github.com/cosmos/evm/pull/687) Avoid blocking node shutdown when evm indexer is enabled, log startup failures instead of using errgroup.
 - [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
+- [\#713](https://github.com/cosmos/evm/pull/713) Support cosmos state overrides in eth_call for dynamic precompiles.
 
 ### IMPROVEMENTS
 
