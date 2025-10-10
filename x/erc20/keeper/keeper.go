@@ -3,10 +3,10 @@ package keeper
 import (
 	"fmt"
 
-	"cosmossdk.io/core/address"
 	"github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
