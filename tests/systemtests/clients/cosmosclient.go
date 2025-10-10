@@ -20,16 +20,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	evmencoding "github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/ethereum/eip712"
 )
 
 // CosmosClient is a client for interacting with Cosmos SDK-based nodes.
@@ -183,20 +182,71 @@ func (c *CosmosClient) UnconfirmedTxs(nodeID string) (*coretypes.ResultUnconfirm
 	return c.RpcClients[nodeID].UnconfirmedTxs(context.Background(), nil)
 }
 
+// GetBalance retrieves the balance of a given address for a specific denomination.
+func (c *CosmosClient) GetBalance(nodeID string, address sdk.AccAddress, denom string) (*big.Int, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	queryClient := banktypes.NewQueryClient(c.ClientCtx)
+
+	res, err := queryClient.Balance(context.Background(), &banktypes.QueryBalanceRequest{
+		Address: address.String(),
+		Denom:   denom,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query balance: %v", err)
+	}
+
+	return res.Balance.Amount.BigInt(), nil
+}
+
+// BankSendWithEIP712 sends a bank send transaction using EIP-712 signing.
+func (c *CosmosClient) BankSendWithEIP712(nodeID, accID string, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	privKey := c.Accs[accID].PrivKey
+
+	// Query account number from chain
+	account, err := c.ClientCtx.AccountRetriever.GetAccount(c.ClientCtx, from)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %v", err)
+	}
+	accountNumber := account.GetAccountNumber()
+
+	msg := banktypes.NewMsgSend(from, to, sdk.NewCoins(sdk.NewCoin("atest", amount)))
+
+	txBytes, err := c.signMsgsWithEIP712(privKey, accountNumber, nonce, gasPrice, msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign tx msg with EIP-712: %v", err)
+	}
+
+	resp, err := c.ClientCtx.BroadcastTx(txBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to broadcast tx: %v", err)
+	}
+
+	return resp, nil
+}
+
 // newClientContext creates a new client context for the Cosmos SDK.
 func newClientContext(config *Config) (*client.Context, error) {
-	// Create codec and tx config
-	interfaceRegistry := types.NewInterfaceRegistry()
-	std.RegisterInterfaces(interfaceRegistry)
-	marshaler := codec.NewProtoCodec(interfaceRegistry)
-	txConfig := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
+	// Use the encoding config setup which properly initializes EIP-712
+	encodingConfig := evmencoding.MakeConfig(config.EVMChainID.Uint64())
+
+	// Register auth module types for account queries
+	authtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+
+	// Register bank module types for EIP-712 signing
+	// Note: The MakeConfig only registers base SDK and EVM types,
+	// but we need bank types for MsgSend transactions
+	banktypes.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
 	// Create client context
 	clientCtx := client.Context{
 		BroadcastMode:     flags.BroadcastSync,
-		TxConfig:          txConfig,
-		Codec:             marshaler,
-		InterfaceRegistry: interfaceRegistry,
+		TxConfig:          encodingConfig.TxConfig,
+		Codec:             encodingConfig.Codec,
+		InterfaceRegistry: encodingConfig.InterfaceRegistry,
 		ChainID:           config.ChainID,
 		AccountRetriever:  authtypes.AccountRetriever{},
 	}
@@ -252,6 +302,93 @@ func (c *CosmosClient) signMsgsV2(privKey cryptotypes.PrivKey, accountNumber, se
 	}
 
 	err = txBuilder.SetSignatures(sigV2)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set signatures: %v", err)
+	}
+
+	txBytes, err := c.ClientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode tx: %v", err)
+	}
+
+	return txBytes, nil
+}
+
+// signMsgsWithEIP712 signs the provided messages using EIP-712 and returns the signed transaction bytes.
+func (c *CosmosClient) signMsgsWithEIP712(privKey cryptotypes.PrivKey, accountNumber, sequence uint64, gasPrice *big.Int, msg sdk.Msg) ([]byte, error) {
+	senderAddr := sdk.AccAddress(privKey.PubKey().Address().Bytes())
+	signMode := signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON
+
+	txBuilder := c.ClientCtx.TxConfig.NewTxBuilder()
+
+	txBuilder.SetGasLimit(150_000)
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("atest", sdkmath.NewIntFromBigInt(gasPrice).MulRaw(150_001))))
+
+	err := txBuilder.SetMsgs(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set messages: %v", err)
+	}
+
+	txBuilder.SetMemo("")
+
+	signerData := xauthsigning.SignerData{
+		Address:       senderAddr.String(),
+		ChainID:       c.ChainID,
+		AccountNumber: accountNumber,
+		Sequence:      sequence,
+		PubKey:        privKey.PubKey(),
+	}
+
+	// Set empty signature first
+	sigsV2 := signing.SignatureV2{
+		PubKey: privKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signMode,
+			Signature: nil,
+		},
+		Sequence: sequence,
+	}
+
+	err = txBuilder.SetSignatures(sigsV2)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set empty signatures: %v", err)
+	}
+
+	// Get sign bytes
+	signBytes, err := xauthsigning.GetSignBytesAdapter(
+		context.Background(),
+		c.ClientCtx.TxConfig.SignModeHandler(),
+		signMode,
+		signerData,
+		txBuilder.GetTx(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sign bytes: %v", err)
+	}
+
+	// Get EIP-712 bytes for the message
+	eip712Bytes, err := eip712.GetEIP712BytesForMsg(signBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EIP-712 bytes: %v", err)
+	}
+
+	// Sign the EIP-712 hash
+	signature, err := privKey.Sign(eip712Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign EIP-712 bytes: %v", err)
+	}
+
+	// Set the signature
+	sigsV2 = signing.SignatureV2{
+		PubKey: privKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signMode,
+			Signature: signature,
+		},
+		Sequence: sequence,
+	}
+
+	err = txBuilder.SetSignatures(sigsV2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set signatures: %v", err)
 	}

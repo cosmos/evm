@@ -22,7 +22,7 @@ import (
 
 const (
 	ChainID    = "local-4221"
-	EVMChainID = "262144"
+	EVMChainID = "4221"
 
 	Acc0PrivKey = "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305"
 	Acc1PrivKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544"
