@@ -75,6 +75,11 @@ func GetBlockGasLimit(appOpts servertypes.AppOptions, logger log.Logger) uint64 
 // This is currently not used, but is kept in case this is useful for the mempool,
 // in addition to the min tip flag
 func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecCoins {
+	if appOpts == nil {
+		logger.Error("app options is nil, using empty DecCoins")
+		return sdk.DecCoins{}
+	}
+
 	minGasPricesStr := cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))
 	minGasPrices, err := sdk.ParseDecCoins(minGasPricesStr)
 	if err != nil {
@@ -113,25 +118,25 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	}
 
 	legacyConfig := legacypool.DefaultConfig
-	if priceLimit := cast.ToUint64(appOpts.Get("evm.mempool.price-limit")); priceLimit != 0 {
+	if priceLimit := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolPriceLimit)); priceLimit != 0 {
 		legacyConfig.PriceLimit = priceLimit
 	}
-	if priceBump := cast.ToUint64(appOpts.Get("evm.mempool.price-bump")); priceBump != 0 {
+	if priceBump := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolPriceBump)); priceBump != 0 {
 		legacyConfig.PriceBump = priceBump
 	}
-	if accountSlots := cast.ToUint64(appOpts.Get("evm.mempool.account-slots")); accountSlots != 0 {
+	if accountSlots := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolAccountSlots)); accountSlots != 0 {
 		legacyConfig.AccountSlots = accountSlots
 	}
-	if globalSlots := cast.ToUint64(appOpts.Get("evm.mempool.global-slots")); globalSlots != 0 {
+	if globalSlots := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolGlobalSlots)); globalSlots != 0 {
 		legacyConfig.GlobalSlots = globalSlots
 	}
-	if accountQueue := cast.ToUint64(appOpts.Get("evm.mempool.account-queue")); accountQueue != 0 {
+	if accountQueue := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolAccountQueue)); accountQueue != 0 {
 		legacyConfig.AccountQueue = accountQueue
 	}
-	if globalQueue := cast.ToUint64(appOpts.Get("evm.mempool.global-queue")); globalQueue != 0 {
+	if globalQueue := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolGlobalQueue)); globalQueue != 0 {
 		legacyConfig.GlobalQueue = globalQueue
 	}
-	if lifetime := cast.ToDuration(appOpts.Get("evm.mempool.lifetime")); lifetime != 0 {
+	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}
 
@@ -140,9 +145,9 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
-		logger.Error("app options is nil, using default cosmos pool max tx of 0 (uncapped)")
-		return 0
+		logger.Error("app options is nil, using default cosmos pool max tx of -1 (no-op)")
+		return -1
 	}
 
-	return cast.ToInt(appOpts.Get("mempool.max-tx"))
+	return cast.ToInt(appOpts.Get(sdkserver.FlagMempoolMaxTxs))
 }
