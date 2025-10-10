@@ -1,10 +1,10 @@
 
 syntax = "proto3";
-package cosmos.evm.types.v1;
+package cosmos.evm.server.v1;
 
 import "gogoproto/gogo.proto";
 
-option go_package = "github.com/cosmos/evm/types";
+option go_package = "github.com/cosmos/evm/server/types";
 
 // TxResult is the value stored in eth tx indexer
 message TxResult {

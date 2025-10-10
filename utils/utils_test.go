@@ -14,8 +14,8 @@ import (
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
+	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -433,7 +433,7 @@ func TestAccountEquivalence(t *testing.T) {
 
 	// account using ethsecp
 	// and coin type 60
-	evmKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, types.BIP44HDPath, algoEvm)
+	evmKey, err := kb.NewAccount(uid, mnemonic, keyring.DefaultBIP39Passphrase, hd.BIP44HDPath, algoEvm)
 	require.NoError(t, err)
 
 	// verify that none of these three keys are equal
@@ -770,7 +770,7 @@ func TestCalcBaseFee(t *testing.T) {
 
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					result, err := utils.CalcBaseFee(tc.config, tc.parent, tc.params)
+					result, err := types.CalcBaseFee(tc.config, tc.parent, tc.params)
 
 					if tc.expectedError != "" {
 						require.Error(t, err)

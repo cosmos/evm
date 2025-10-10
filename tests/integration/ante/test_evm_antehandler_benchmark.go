@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/ante"
+	antetypes "github.com/cosmos/evm/ante/types"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/errors"
@@ -145,7 +145,7 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
 		BankKeeper:             s.network.App.GetBankKeeper(),
-		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              s.network.App.GetEVMKeeper(),
 		FeegrantKeeper:         s.network.App.GetFeeGrantKeeper(),
 		IBCKeeper:              s.network.App.GetIBCKeeper(),

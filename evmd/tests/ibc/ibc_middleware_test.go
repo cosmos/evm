@@ -20,9 +20,9 @@ import (
 	"github.com/cosmos/evm/x/erc20"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
-	testutil2 "github.com/cosmos/evm/x/ibc/callbacks/testutil"
-	types2 "github.com/cosmos/evm/x/ibc/callbacks/types"
-	types3 "github.com/cosmos/evm/x/vm/types"
+	ibctestutil "github.com/cosmos/evm/x/ibc/callbacks/testutil"
+	callbacktypes "github.com/cosmos/evm/x/ibc/callbacks/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
@@ -74,7 +74,7 @@ func TestMiddlewareTestSuite(t *testing.T) {
 func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 	var packet channeltypes.Packet
 
-	var contractData types3.CompiledContract
+	var contractData evmtypes.CompiledContract
 	var contractAddr common.Address
 	var voucherDenom string
 	var path *evmibctesting.Path
@@ -314,10 +314,10 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 
 			// Generate the isolated address for the sender
 			sendAmt := ibctesting.DefaultCoinAmount
-			isolatedAddr := types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
+			isolatedAddr := callbacktypes.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String())
 
 			// Get callback tester contract and deploy it
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{
@@ -639,12 +639,12 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		chainBNativeErc20Denom.Path(),
 		recvAmt.String(),
 		chainBAccount.String(),
-		types2.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String()).String(),
+		callbacktypes.GenerateIsolatedAddress(path.EndpointA.ChannelID, suite.chainB.SenderAccount.GetAddress().String()).String(),
 		"",
 	)
 
 	// get callback tester contract and deploy it
-	contractData, err := testutil2.LoadCounterWithCallbacksContract()
+	contractData, err := ibctestutil.LoadCounterWithCallbacksContract()
 	suite.Require().NoError(err)
 
 	deploymentData := testutiltypes.ContractDeploymentData{
@@ -741,7 +741,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 
 	// the packet that failed conversion due to the minting restriction should instead remain as the bank token
 	// and will be in the isolated address used to invoke the callback
-	trappedBal := evmApp.BankKeeper.GetBalance(evmCtx, types2.GenerateIsolatedAddress(path.EndpointA.ChannelID,
+	trappedBal := evmApp.BankKeeper.GetBalance(evmCtx, callbacktypes.GenerateIsolatedAddress(path.EndpointA.ChannelID,
 		suite.chainB.SenderAccount.GetAddress().String()), nativeErc20.Denom)
 	suite.Require().Equal(recvAmt.String(), trappedBal.Amount.String())
 }
@@ -751,7 +751,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 	var (
 		packet       channeltypes.Packet
 		ack          []byte
-		contractData types3.CompiledContract
+		contractData evmtypes.CompiledContract
 		contractAddr common.Address
 	)
 
@@ -1008,7 +1008,7 @@ func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
 			// Deploy callback contract on source chain (evmChainA)
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{
@@ -1624,7 +1624,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacket() {
 func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 	var (
 		packet       channeltypes.Packet
-		contractData types3.CompiledContract
+		contractData evmtypes.CompiledContract
 		contractAddr common.Address
 	)
 
@@ -1835,7 +1835,7 @@ func (suite *MiddlewareTestSuite) TestOnTimeoutPacketWithCallback() {
 			receiver := suite.chainB.SenderAccount.GetAddress()
 
 			// Deploy callback contract on source chain (evmChainA)
-			contractData, err = testutil2.LoadCounterWithCallbacksContract()
+			contractData, err = ibctestutil.LoadCounterWithCallbacksContract()
 			suite.Require().NoError(err)
 
 			deploymentData := testutiltypes.ContractDeploymentData{
