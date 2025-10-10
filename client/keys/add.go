@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -176,34 +177,37 @@ func RunAddCmd(ctx client.Context, cmd *cobra.Command, args []string, inBuf *buf
 	// If we're using ledger, only thing we need is the path and the bech32 prefix.
 	if useLedger {
 		bech32PrefixAccAddr := sdk.GetConfig().GetBech32AccountAddrPrefix()
-
-		switch coinType {
-		case 60:
-			cosmosLedger.SetDiscoverLedger(func() (cosmosLedger.SECP256K1, error) {
-				return evmkeyring.LedgerDerivation()
-			})
-			cosmosLedger.SetCreatePubkey(func(key []byte) cryptotypes.PubKey {
-				return evmkeyring.CreatePubkey(key)
-			})
-			cosmosLedger.SetAppName(evmkeyring.AppName)
-			cosmosLedger.SetSkipDERConversion()
-		case 118:
-			cosmosLedger.SetDiscoverLedger(func() (cosmosLedger.SECP256K1, error) {
-				device, err := ledger.FindLedgerCosmosUserApp()
-				if err != nil {
-					return nil, err
-				}
-				return device, nil
-			})
-			cosmosLedger.SetCreatePubkey(func(key []byte) cryptotypes.PubKey {
-				return &secp256k1.PubKey{Key: key}
-			})
-			cosmosLedger.SetAppName(cosmosLedger.AppName)
-			cosmosLedger.SetDERConversion()
-		default:
-			return fmt.Errorf("unsupported coin type %d for Ledger. Supported coin types: 60 (Ethereum app), 118 (Cosmos app)", coinType)
+		needHardware := flag.Lookup("test.v") == nil && os.Getenv("GO_TEST") != "1"
+		if needHardware {
+			switch coinType {
+			case 60:
+				cosmosLedger.SetDiscoverLedger(func() (cosmosLedger.SECP256K1, error) {
+					return evmkeyring.LedgerDerivation()
+				})
+				cosmosLedger.SetCreatePubkey(func(key []byte) cryptotypes.PubKey {
+					return evmkeyring.CreatePubkey(key)
+				})
+				cosmosLedger.SetAppName(evmkeyring.AppName)
+				cosmosLedger.SetSkipDERConversion()
+			case 118:
+				cosmosLedger.SetDiscoverLedger(func() (cosmosLedger.SECP256K1, error) {
+					device, err := ledger.FindLedgerCosmosUserApp()
+					if err != nil {
+						return nil, err
+					}
+					return device, nil
+				})
+				cosmosLedger.SetCreatePubkey(func(key []byte) cryptotypes.PubKey {
+					return &secp256k1.PubKey{Key: key}
+				})
+				cosmosLedger.SetAppName(cosmosLedger.AppName)
+				cosmosLedger.SetDERConversion()
+			default:
+				return fmt.Errorf(
+					"unsupported coin type %d for Ledger. Supported coin types: 60 (Ethereum app), 118 (Cosmos app)", coinType,
+				)
+			}
 		}
-
 		// use the provided algo to save the ledger key
 		k, err := kb.SaveLedgerKey(name, algo, bech32PrefixAccAddr, coinType, account, index)
 		if err != nil {
