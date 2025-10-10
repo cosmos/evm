@@ -253,7 +253,8 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to mint")).AnyTimes()
@@ -278,7 +279,8 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -303,7 +305,8 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 					s.network.App.GetKey("erc20"), s.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					mockBankKeeper, s.network.App.GetEVMKeeper(), s.network.App.GetStakingKeeper(),
-					&transferKeeper)
+					&transferKeeper,
+				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
