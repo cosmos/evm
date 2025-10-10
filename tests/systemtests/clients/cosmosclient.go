@@ -192,7 +192,7 @@ func (c *CosmosClient) GetBalance(nodeID string, address sdk.AccAddress, denom s
 		Denom:   denom,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to query balance: %v", err)
+		return nil, fmt.Errorf("failed to query balance: %w", err)
 	}
 
 	return res.Balance.Amount.BigInt(), nil

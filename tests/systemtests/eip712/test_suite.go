@@ -82,7 +82,7 @@ func (s *SystemTestSuite) SendBankSendWithEIP712(
 		gasPrice,
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to send bank send with EIP-712: %v", err)
+		return "", fmt.Errorf("failed to send bank send with EIP-712: %w", err)
 	}
 
 	return resp.TxHash, nil
