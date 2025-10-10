@@ -90,7 +90,8 @@ func NewExperimentalEVMMempool(
 	txConfig client.TxConfig,
 	clientCtx client.Context,
 	config *EVMMempoolConfig,
-	cosmosPoolMaxTx int) *ExperimentalEVMMempool {
+	cosmosPoolMaxTx int,
+) *ExperimentalEVMMempool {
 	var (
 		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
