@@ -210,7 +210,6 @@ require (
 )
 
 replace (
-	github.com/cosmos/cosmos-sdk => ../../../cosmos-sdk
 	github.com/cosmos/evm => ../..
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 )
