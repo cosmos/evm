@@ -426,13 +426,13 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		// Determine bonded tokens for this validator
+		// determine validator bonded tokens
 		bondedTokens := cfg.BondedTokens
 		if len(cfg.BondedTokensPerValidator) > 0 {
 			if i < len(cfg.BondedTokensPerValidator) {
 				bondedTokens = cfg.BondedTokensPerValidator[i]
 			} else {
-				// Use last value if not enough entries
+				// use last value if not enough entries
 				bondedTokens = cfg.BondedTokensPerValidator[len(cfg.BondedTokensPerValidator)-1]
 			}
 		}
