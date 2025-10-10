@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/cosmos/evm/contracts"
+	evmosencodingaddress "github.com/cosmos/evm/encoding/address"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -120,7 +121,9 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 			authtypes.NewModuleAddress(govtypes.ModuleName),
 			s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
 			mockEVMKeeper, s.network.App.GetStakingKeeper(),
-			&transferKeeper)
+			&transferKeeper,
+			evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		)
 		s.network.App.SetErc20Keeper(erc20Keeper)
 
 		tc.malleate()
@@ -220,7 +223,9 @@ func (s *KeeperTestSuite) TestQueryERC20ForceFail() {
 			authtypes.NewModuleAddress(govtypes.ModuleName),
 			s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
 			mockEVMKeeper, s.network.App.GetStakingKeeper(),
-			&transferKeeper)
+			&transferKeeper,
+			evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		)
 		s.network.App.SetErc20Keeper(erc20Keeper)
 
 		tc.malleate()
@@ -400,6 +405,7 @@ func (s *KeeperTestSuite) TestQueryERC20Bytes32Fallback() {
 				s.network.App.GetAccountKeeper(), s.network.App.GetBankKeeper(),
 				mockEVMKeeper, s.network.App.GetStakingKeeper(),
 				&transferKeeper,
+				evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 			))
 
 			tc.malleate()

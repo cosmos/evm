@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/core/address"
 	"github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 
@@ -19,6 +20,7 @@ type Keeper struct {
 	cdc      codec.BinaryCodec
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
+	addrCodec address.Codec
 
 	accountKeeper  types.AccountKeeper
 	bankKeeper     types.BankKeeper
@@ -37,6 +39,7 @@ func NewKeeper(
 	evmKeeper types.EVMKeeper,
 	sk types.StakingKeeper,
 	transferKeeper *transferkeeper.Keeper,
+	addrCodec address.Codec,
 ) Keeper {
 	// ensure gov module account is set and is not nil
 	if err := sdk.VerifyAddressFormat(authority); err != nil {
@@ -52,6 +55,7 @@ func NewKeeper(
 		evmKeeper:      evmKeeper,
 		stakingKeeper:  sk,
 		transferKeeper: transferKeeper,
+		addrCodec:      addrCodec,
 	}
 }
 

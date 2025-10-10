@@ -9,6 +9,7 @@ import (
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	evmosencodingaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -302,6 +303,7 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 				s.network.App.GetEVMKeeper(),
 				s.network.App.GetStakingKeeper(),
 				&tranasferKeeper,
+				evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 			)
 			s.network.App.SetErc20Keeper(erc20Keeper)
 

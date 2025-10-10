@@ -746,6 +746,75 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 	suite.Require().Equal(recvAmt.String(), trappedBal.Amount.String())
 }
 
+// TestOnRecvPacketNativeErc20_HexRecipient verifies that a hex-formatted recipient
+// address is accepted by the ERC20 IBC middleware and receives ERC20 tokens on conversion.
+func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20_HexRecipient() {
+	suite.SetupTest()
+	// todo: remove return for when we support hex recipients in ibc
+	return
+	nativeErc20 := SetupNativeErc20(suite.T(), suite.evmChainA, suite.evmChainA.SenderAccounts[0])
+
+	evmCtx := suite.evmChainA.GetContext()
+	evmApp := suite.evmChainA.App.(*evmd.EVMD)
+
+	path := suite.path
+	chainBAccount := suite.chainB.SenderAccount.GetAddress()
+
+	// Build the IBC denom as received on evmChainA for a native ERC20 from evmChainA
+	chainBNativeErc20Denom := transfertypes.NewDenom(
+		nativeErc20.Denom,
+		transfertypes.NewHop(
+			suite.path.EndpointB.ChannelConfig.PortID,
+			suite.path.EndpointB.ChannelID,
+		),
+	)
+
+	// Use a hex recipient (EVM address) instead of bech32
+	hexRecipient := common.BytesToAddress(suite.evmChainA.SenderAccount.GetAddress().Bytes()).Hex()
+	recvAmt := math.NewInt(50)
+
+	// Craft an incoming ICS-20 packet from chainB to evmChainA
+	packetData := transfertypes.NewFungibleTokenPacketData(
+		chainBNativeErc20Denom.Path(),
+		recvAmt.String(),
+		chainBAccount.String(),
+		hexRecipient, // hex recipient
+		"",
+	)
+
+	packet := channeltypes.Packet{
+		Sequence:           1,
+		SourcePort:         path.EndpointB.ChannelConfig.PortID,
+		SourceChannel:      path.EndpointB.ChannelID,
+		DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+		DestinationChannel: path.EndpointA.ChannelID,
+		Data:               packetData.GetBytes(),
+		TimeoutHeight:      suite.evmChainA.GetTimeoutHeight(),
+		TimeoutTimestamp:   0,
+	}
+
+	transferStack, ok := suite.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+	suite.Require().True(ok)
+
+	sourceChan := path.EndpointB.GetChannel()
+	ack := transferStack.OnRecvPacket(
+		evmCtx,
+		sourceChan.Version,
+		packet,
+		suite.evmChainA.SenderAccount.GetAddress(),
+	)
+	suite.Require().True(ack.Success())
+
+	// Verify ERC20 was minted to the hex recipient
+	bal := evmApp.Erc20Keeper.BalanceOf(
+		evmCtx,
+		nativeErc20.ContractAbi,
+		nativeErc20.ContractAddr,
+		common.HexToAddress(hexRecipient),
+	)
+	suite.Require().Equal(recvAmt.String(), bal.String())
+}
+
 // TestOnAcknowledgementPacketWithCallback tests acknowledgement logic with comprehensive callback scenarios.
 func (suite *MiddlewareTestSuite) TestOnAcknowledgementPacketWithCallback() {
 	var (

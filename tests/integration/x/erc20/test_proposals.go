@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/cosmos/evm/contracts"
+	evmosencodingaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -164,6 +165,7 @@ func (s *KeeperTestSuite) TestRegisterERC20() {
 					authtypes.NewModuleAddress(govtypes.ModuleName), s.network.App.GetAccountKeeper(),
 					s.network.App.GetBankKeeper(), mockEVMKeeper, s.network.App.GetStakingKeeper(),
 					&transferKeeper,
+					evmosencodingaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
