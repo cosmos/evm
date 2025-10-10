@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"cosmossdk.io/core/address"
 	"fmt"
 
 	"github.com/cosmos/evm/x/erc20/types"
@@ -19,6 +20,7 @@ type Keeper struct {
 	cdc      codec.BinaryCodec
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
 	authority sdk.AccAddress
+	addrCodec address.Codec
 
 	accountKeeper  types.AccountKeeper
 	bankKeeper     types.BankKeeper
@@ -28,7 +30,8 @@ type Keeper struct {
 }
 
 // NewKeeper creates new instances of the erc20 Keeper
-func NewKeeper(storeKey storetypes.StoreKey,
+func NewKeeper(
+	storeKey storetypes.StoreKey,
 	cdc codec.BinaryCodec,
 	authority sdk.AccAddress,
 	ak types.AccountKeeper,
@@ -51,6 +54,7 @@ func NewKeeper(storeKey storetypes.StoreKey,
 		evmKeeper:      evmKeeper,
 		stakingKeeper:  sk,
 		transferKeeper: transferKeeper,
+		addrCodec:      ak.AddressCodec(),
 	}
 }
 
