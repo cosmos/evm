@@ -578,7 +578,7 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
 		expectedRecipientEVM common.Address
 	}{
 		{
-			name: "bech32 recipient with callback",
+			name: "recipient with callback",
 			setupRecipient: func(suite *MiddlewareTestSuite) (string, common.Address) {
 				recipient := callbacktypes.GenerateIsolatedAddress(
 					suite.path.EndpointA.ChannelID,
