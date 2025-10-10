@@ -71,6 +71,14 @@ const (
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMMinTip                  = "evm.min-tip"
 	EvmGethMetricsAddress      = "evm.geth-metrics-address"
+
+	EVMMempoolPriceLimit   = "evm.mempool.price-limit"
+	EVMMempoolPriceBump    = "evm.mempool.price-bump"
+	EVMMempoolAccountSlots = "evm.mempool.account-slots"
+	EVMMempoolGlobalSlots  = "evm.mempool.global-slots"
+	EVMMempoolAccountQueue = "evm.mempool.account-queue"
+	EVMMempoolGlobalQueue  = "evm.mempool.global-queue"
+	EVMMempoolLifetime     = "evm.mempool.lifetime"
 )
 
 // TLS flags
