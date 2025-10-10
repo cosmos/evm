@@ -58,6 +58,7 @@ type StakingKeeper interface {
 	GetHistoricalInfo(ctx context.Context, height int64) (stakingtypes.HistoricalInfo, error)
 	GetValidatorByConsAddr(ctx context.Context, consAddr sdk.ConsAddress) (stakingtypes.Validator, error)
 	ValidatorAddressCodec() address.Codec
+	BondDenom(ctx context.Context) (string, error)
 }
 
 // FeeMarketKeeper defines the expected interfaces needed for the feemarket

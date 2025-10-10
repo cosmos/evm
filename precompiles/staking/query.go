@@ -110,14 +110,14 @@ func (p Precompile) Validator(
 		// return empty validator info if the validator is not found
 		expError := fmt.Sprintf("validator %s not found", req.ValidatorAddr)
 		if strings.Contains(err.Error(), expError) {
-			return method.Outputs.Pack(DefaultValidatorOutput().Validator)
+			return method.Outputs.Pack(DefaultValidatorInfo())
 		}
 		return nil, err
 	}
 
-	out := new(ValidatorOutput).FromResponse(res)
+	validatorInfo := NewValidatorInfoFromResponse(res.Validator)
 
-	return method.Outputs.Pack(out.Validator)
+	return method.Outputs.Pack(validatorInfo)
 }
 
 // Validators returns the validators information with a provided status & pagination (optional).

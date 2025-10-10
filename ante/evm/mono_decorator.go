@@ -111,8 +111,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		Time:       uint64(ctx.BlockTime().Unix()), //nolint:gosec
 		Difficulty: big.NewInt(0),
 	}
+
+	chainConfig := evmtypes.GetEthChainConfig()
+
 	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
-		Config:  evmtypes.GetEthChainConfig(),
+		Config:  chainConfig,
 		Accept:  AcceptedTxType,
 		MaxSize: math.MaxUint64, // tx size is checked in cometbft
 		MinTip:  new(big.Int),

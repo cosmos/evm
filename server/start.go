@@ -33,7 +33,7 @@ import (
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	servertypes "github.com/cosmos/evm/server/types"
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
@@ -467,7 +467,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		ethmetricsexp.Setup(config.JSONRPC.MetricsAddress)
 	}
 
-	var idxer cosmosevmtypes.EVMTxIndexer
+	var idxer servertypes.EVMTxIndexer
 	if config.JSONRPC.EnableIndexer {
 		idxDB, err := OpenIndexerDB(home, server.GetAppDBBackend(svrCtx.Viper))
 		if err != nil {
@@ -481,7 +481,26 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		indexerService.SetLogger(servercmtlog.CometLoggerWrapper{Logger: idxLogger})
 
 		g.Go(func() error {
-			return indexerService.Start()
+			errCh := make(chan error, 1)
+			go func() {
+				if err := indexerService.Start(); err != nil {
+					errCh <- err
+				}
+			}()
+
+			select {
+			case <-ctx.Done():
+				logger.Info("stopping evm indexer service due to context cancellation")
+				if err := indexerService.Stop(); err != nil {
+					logger.Error("failed to stop evm indexer service", "error", err.Error())
+				}
+				return ctx.Err()
+			case err := <-errCh:
+				if err != nil {
+					logger.Error("evm indexer service failed", "error", err.Error())
+				}
+				return err
+			}
 		})
 	}
 

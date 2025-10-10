@@ -556,7 +556,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ChainID:    is.network.GetChainID(),
 						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
 					}]
-					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals")
+					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals") //nolint:gosec // G115
 				},
 				)
 			})
