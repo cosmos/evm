@@ -12,7 +12,3 @@ func LoadStakingCallerContract() (evmtypes.CompiledContract, error) {
 func LoadStakingCallerTwoContract() (evmtypes.CompiledContract, error) {
 	return contractutils.LoadContractFromJSONFile("StakingCallerTwo.json")
 }
-
-func LoadStakingCallerMaliciousContract() (evmtypes.CompiledContract, error) {
-	return contractutils.LoadContractFromJSONFile("StakingCallerMalicious.json")
-}
