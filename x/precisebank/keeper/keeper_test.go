@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmencoding "github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/keeper"
 	"github.com/cosmos/evm/x/precisebank/types"
@@ -43,7 +43,7 @@ func newMockedTestData(t *testing.T) testData {
 	ak := mocks.NewAccountKeeper(t)
 
 	chainID := testconstants.SixDecimalsChainID.EVMChainID
-	cfg := evmosencoding.MakeConfig(chainID)
+	cfg := evmencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak) //nolint: staticcheck // this variable is used
 	evmConfigurator := vmtypes.NewEVMConfigurator().
