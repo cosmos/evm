@@ -5,10 +5,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -72,13 +70,6 @@ func (p Precompile) CreateValidator(
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
-	codeHash := crypto.Keccak256(code)
-	currentState, originalState := stateDB.GetStateAndCommittedState(msgSender, common.BytesToHash(codeHash))
-	if originalState == ethtypes.EmptyCodeHash && currentState != ethtypes.EmptyCodeHash {
-		// call by contract constructor
-		return nil, errors.New(ErrCannotCallFromContract)
-	}
-
 	if msgSender != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
@@ -128,13 +119,6 @@ func (p Precompile) EditValidator(
 	_, delegated := ethtypes.ParseDelegation(code)
 	if len(code) > 0 && !delegated {
 		// call by contract method
-		return nil, errors.New(ErrCannotCallFromContract)
-	}
-
-	codeHash := crypto.Keccak256(code)
-	currentState, originalState := stateDB.GetStateAndCommittedState(msgSender, common.BytesToHash(codeHash))
-	if originalState == ethtypes.EmptyCodeHash && currentState != ethtypes.EmptyCodeHash {
-		// call by contract constructor
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
 
