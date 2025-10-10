@@ -71,7 +71,8 @@ func (s *SystemTestSuite) SendBankSendWithEIP712(
 ) (string, error) {
 	from := s.CosmosClient.Accs[accID].AccAddress
 
-	resp, err := s.CosmosClient.BankSendWithEIP712(
+	resp, err := BankSendWithEIP712(
+		s.CosmosClient,
 		nodeID,
 		accID,
 		from,
