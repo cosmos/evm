@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	evmconfig "github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/utils"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,16 +23,16 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	cmtrand "github.com/cometbft/cometbft/libs/rand"
 	"github.com/cometbft/cometbft/node"
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
+	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/server/config"
+	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -49,7 +49,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/testutil"
+	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -77,14 +77,14 @@ type Config struct {
 	InterfaceRegistry codectypes.InterfaceRegistry
 	TxConfig          client.TxConfig
 	AccountRetriever  client.AccountRetriever
-	AppConstructor    AppConstructor              // the ABCI application constructor
-	GenesisState      cosmosevmtypes.GenesisState // custom gensis state to provide
-	TimeoutCommit     time.Duration               // the consensus commitment timeout
-	AccountTokens     math.Int                    // the amount of unique validator tokens (e.g. 1000node0)
-	StakingTokens     math.Int                    // the amount of tokens each validator has available to stake
-	BondedTokens      math.Int                    // the amount of tokens each validator stakes
-	NumValidators     int                         // the total number of validators to create and bond
-	ChainID           string                      // the network chain-id
+	AppConstructor    AppConstructor           // the ABCI application constructor
+	GenesisState      evmtestutil.GenesisState // custom gensis state to provide
+	TimeoutCommit     time.Duration            // the consensus commitment timeout
+	AccountTokens     math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
+	StakingTokens     math.Int                 // the amount of tokens each validator has available to stake
+	BondedTokens      math.Int                 // the amount of tokens each validator stakes
+	NumValidators     int                      // the total number of validators to create and bond
+	ChainID           string                   // the network chain-id
 	EVMChainID        uint64
 	BondDenom         string // the staking bond denomination
 	MinGasPrices      string // the minimum gas prices each validator will accept
@@ -103,13 +103,12 @@ type Config struct {
 // testing requirements.
 func DefaultConfig() Config {
 	chainID := "evmos-1"
-	evmChainID := uint64(cmtrand.Int63n(9999999999999) + 1) //nolint:gosec // G115 // won't exceed uint64
 	dir, err := os.MkdirTemp("", "simapp")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
 	}
 	defer os.RemoveAll(dir)
-	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), evmChainID, evmconfig.EvmAppOptions, baseapp.SetChainID(chainID))
+	tempApp := evmd.NewExampleApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simutils.NewAppOptionsWithFlagHome(dir), baseapp.SetChainID(chainID))
 
 	cfg := Config{
 		Codec:             tempApp.AppCodec(),
@@ -117,16 +116,16 @@ func DefaultConfig() Config {
 		LegacyAmino:       tempApp.LegacyAmino(),
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
 		AccountRetriever:  authtypes.AccountRetriever{},
-		AppConstructor:    NewAppConstructor(chainID, evmChainID),
+		AppConstructor:    NewAppConstructor(chainID),
 		GenesisState:      tempApp.DefaultGenesis(),
 		TimeoutCommit:     3 * time.Second,
 		ChainID:           chainID,
 		NumValidators:     4,
 		BondDenom:         testconstants.ExampleAttoDenom,
 		MinGasPrices:      fmt.Sprintf("0.000006%s", testconstants.ExampleAttoDenom),
-		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, cosmosevmtypes.AttoPowerReduction),
-		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, cosmosevmtypes.AttoPowerReduction),
-		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, cosmosevmtypes.AttoPowerReduction),
+		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, utils.AttoPowerReduction),
+		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, utils.AttoPowerReduction),
+		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, utils.AttoPowerReduction),
 		PruningStrategy:   pruningtypes.PruningOptionNothing,
 		CleanupDir:        true,
 		SigningAlgo:       string(hd.EthSecp256k1Type),
@@ -137,13 +136,11 @@ func DefaultConfig() Config {
 }
 
 // NewAppConstructor returns a new Cosmos EVM AppConstructor
-func NewAppConstructor(chainID string, evmChainID uint64) AppConstructor {
+func NewAppConstructor(chainID string) AppConstructor {
 	return func(val Validator) servertypes.Application {
 		return evmd.NewExampleApp(
 			val.Ctx.Logger, dbm.NewMemDB(), nil, true,
 			simutils.NewAppOptionsWithFlagHome(val.Ctx.Config.RootDir),
-			evmChainID,
-			evmconfig.EvmAppOptions,
 			baseapp.SetPruning(pruningtypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
 			baseapp.SetChainID(chainID),
@@ -390,7 +387,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		addr, secret, err := testutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
+		addr, secret, err := sdktestutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
 		if err != nil {
 			return nil, err
 		}

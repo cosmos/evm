@@ -9,10 +9,10 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	"github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
 	testconstants "github.com/cosmos/evm/testutil/constants"
-	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -35,9 +35,24 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	//      without extension option
 	//      london hardfork enableness
 	chainID := uint64(config.EighteenDecimalsChainID)
-	encodingConfig := encoding.MakeConfig(chainID)
-	err := config.EvmAppOptions(chainID)
+	encodingConfig := encoding.MakeConfig(chainID) //nolint:staticcheck // this is used
+
+	configurator := evmtypes.NewEVMConfigurator()
+	configurator.ResetTestConfig()
+	// set global chain config
+	ethCfg := evmtypes.DefaultChainConfig(chainID)
+	if err := evmtypes.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
+	err := configurator.
+		WithExtendedEips(evmtypes.DefaultCosmosEVMActivators).
+		// NOTE: we're using the 18 decimals default for the example chain
+		WithEVMCoinInfo(config.ChainsCoinInfo[chainID]).
+		Configure()
 	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))

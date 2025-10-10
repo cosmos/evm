@@ -54,7 +54,7 @@ var ConversionFactor = map[Decimals]math.Int{
 }
 
 // Decimals represents the decimal representation of a Cosmos coin.
-type Decimals uint8
+type Decimals uint32
 
 // Validate checks if the Decimals instance represent a supported decimals value
 // or not.
@@ -77,13 +77,4 @@ func (d Decimals) ConversionFactor() math.Int {
 	return ConversionFactor[d]
 }
 
-// EvmCoinInfo struct holds the name and decimals of the EVM denom. The EVM denom
-// is the token used to pay fees in the EVM.
-//
-// TODO: move to own file? at least rename file because it's unclear to use "denom"
-type EvmCoinInfo struct {
-	Denom         string
-	ExtendedDenom string
-	DisplayDenom  string
-	Decimals      Decimals
-}
+func (d Decimals) Uint32() uint32 { return uint32(d) }

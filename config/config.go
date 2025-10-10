@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/crypto/hd"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -15,45 +15,45 @@ var ChainsCoinInfo = map[uint64]evmtypes.EvmCoinInfo{ // TODO:VLAD - Remove this
 		Denom:         ExampleChainDenom,
 		ExtendedDenom: ExampleChainDenom,
 		DisplayDenom:  ExampleDisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
 	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
 	SixDecimalsChainID: {
 		Denom:         "utest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
-		Decimals:      evmtypes.SixDecimals,
+		Decimals:      evmtypes.SixDecimals.Uint32(),
 	},
 	// EVMChainID provides a chain ID used for internal testing
 	EVMChainID: {
 		Denom:         "atest",
 		ExtendedDenom: "atest",
 		DisplayDenom:  "test",
-		Decimals:      evmtypes.EighteenDecimals,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
 	TwelveDecimalsChainID: {
 		Denom:         "ptest2",
 		ExtendedDenom: "atest2",
 		DisplayDenom:  "test2",
-		Decimals:      evmtypes.TwelveDecimals,
+		Decimals:      evmtypes.TwelveDecimals.Uint32(),
 	},
 	TwoDecimalsChainID: {
 		Denom:         "ctest3",
 		ExtendedDenom: "atest3",
 		DisplayDenom:  "test3",
-		Decimals:      evmtypes.TwoDecimals,
+		Decimals:      evmtypes.TwoDecimals.Uint32(),
 	},
 	TestChainID1: {
 		Denom:         ExampleChainDenom,
 		ExtendedDenom: ExampleChainDenom,
 		DisplayDenom:  ExampleChainDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
 	TestChainID2: {
 		Denom:         ExampleChainDenom,
 		ExtendedDenom: ExampleChainDenom,
 		DisplayDenom:  ExampleChainDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
 }
 
@@ -72,10 +72,6 @@ const (
 	Bech32PrefixConsAddr = Bech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus
 	// Bech32PrefixConsPub defines the Bech32 prefix of a consensus node public key.
 	Bech32PrefixConsPub = Bech32Prefix + sdk.PrefixValidator + sdk.PrefixConsensus + sdk.PrefixPublic
-	// DisplayDenom defines the denomination displayed to users in client applications.
-	DisplayDenom = "atom"
-	// BaseDenom defines to the default denomination used in the Cosmos EVM example chain.
-	BaseDenom = "aatom"
 	// BaseDenomUnit defines the precision of the base denomination.
 	BaseDenomUnit = 18
 	// EVMChainID defines the EIP-155 replay-protection chain id for the current ethereum chain config.
@@ -91,7 +87,7 @@ func SetBech32Prefixes(config *sdk.Config) {
 
 // SetBip44CoinType sets the global coin type to be used in hierarchical deterministic wallets.
 func SetBip44CoinType(config *sdk.Config) {
-	config.SetCoinType(types.Bip44CoinType)
-	config.SetPurpose(sdk.Purpose)                  // Shared
-	config.SetFullFundraiserPath(types.BIP44HDPath) //nolint: staticcheck
+	config.SetCoinType(hd.Bip44CoinType)
+	config.SetPurpose(sdk.Purpose)               // Shared
+	config.SetFullFundraiserPath(hd.BIP44HDPath) //nolint: staticcheck
 }

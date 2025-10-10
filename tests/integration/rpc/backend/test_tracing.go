@@ -117,8 +117,7 @@ func (s *TestSuite) TestTraceTransaction() {
 					client            = s.backend.ClientCtx.Client.(*mocks.Client)
 					height      int64 = 1
 				)
-				_, err := RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
-				s.Require().NoError(err)
+				RegisterBlockMultipleTxs(client, height, []types.Tx{txBz, txBz2})
 				RegisterTraceTransactionWithPredecessors(QueryClient, msgEthereumTx, []*evmtypes.MsgEthereumTx{msgEthereumTx})
 				RegisterConsensusParams(client, height)
 			},
@@ -162,8 +161,7 @@ func (s *TestSuite) TestTraceTransaction() {
 					client            = s.backend.ClientCtx.Client.(*mocks.Client)
 					height      int64 = 1
 				)
-				_, err := RegisterBlock(client, height, txBz)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, txBz)
 				RegisterTraceTransaction(QueryClient, msgEthereumTx)
 				RegisterConsensusParams(client, height)
 			},
@@ -242,8 +240,7 @@ func (s *TestSuite) TestTraceBlock() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
 				RegisterTraceBlock(QueryClient, []*evmtypes.MsgEthereumTx{msgEthTx})
 				RegisterConsensusParams(client, 1)
-				_, err := RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlockResults(client, 1)
 			},
 			[]*evmtypes.TxTraceResult{},
 			&resBlockFilled,
@@ -265,8 +262,7 @@ func (s *TestSuite) TestTraceBlock() {
 			"skip invalid tx result code - transaction failed",
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				_, err := RegisterBlockResultsWithTxs(client, 1, []*abci.ExecTxResult{{Code: 0}, {Code: 1}, {Code: 0}})
-				s.Require().NoError(err)
+				RegisterBlockResultsWithTxs(client, 1, []*abci.ExecTxResult{{Code: 0}, {Code: 1}, {Code: 0}})
 				RegisterConsensusParams(client, 1)
 				traceResult := &evmtypes.QueryTraceBlockResponse{
 					Data: []byte(`[{"result": "trace1"}, {"result": "trace2"}]`),
