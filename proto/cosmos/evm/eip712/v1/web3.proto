@@ -1,10 +1,10 @@
 
 syntax = "proto3";
-package cosmos.evm.types.v1;
+package cosmos.evm.eip712.v1;
 
 import "gogoproto/gogo.proto";
 
-option go_package = "github.com/cosmos/evm/types";
+option go_package = "github.com/cosmos/evm/ethereum/eip712";
 
 // ExtensionOptionsWeb3Tx is an extension option that specifies the typed chain
 // id, the fee payer as well as its signature data.
