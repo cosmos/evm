@@ -1,22 +1,11 @@
 package types
 
 import (
-	"fmt"
-	"maps"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
-	bankprecompile "github.com/cosmos/evm/precompiles/bank"
-	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
-	distprecompile "github.com/cosmos/evm/precompiles/distribution"
-	govprecompile "github.com/cosmos/evm/precompiles/gov"
-	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
-	"github.com/cosmos/evm/precompiles/p256"
-	slashingprecompile "github.com/cosmos/evm/precompiles/slashing"
-	stakingprecompile "github.com/cosmos/evm/precompiles/staking"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
@@ -85,74 +74,16 @@ func DefaultStaticPrecompiles(
 	codec codec.Codec,
 	opts ...Option,
 ) map[common.Address]vm.PrecompiledContract {
-	options := defaultOptionals()
-	for _, opt := range opts {
-		opt(&options)
-	}
-	// Clone the mapping from the latest EVM fork.
-	precompiles := maps.Clone(vm.PrecompiledContractsPrague)
+	precompiles := NewStaticPrecompiles().
+		WithPraguePrecompiles().
+		WithP256Precompile().
+		WithBech32Precompile().
+		WithStakingPrecompile(stakingKeeper, bankKeeper, opts...).
+		WithDistributionPrecompile(distributionKeeper, stakingKeeper, bankKeeper, opts...).
+		WithICS20Precompile(bankKeeper, stakingKeeper, transferKeeper, channelKeeper).
+		WithBankPrecompile(bankKeeper, erc20Keeper).
+		WithGovPrecompile(govKeeper, bankKeeper, codec, opts...).
+		WithSlashingPrecompile(slashingKeeper, bankKeeper, opts...)
 
-	// secp256r1 precompile as per EIP-7212
-	p256Precompile := &p256.Precompile{}
-
-	bech32Precompile, err := bech32.NewPrecompile(bech32PrecompileBaseGas)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
-	}
-
-	stakingPrecompile := stakingprecompile.NewPrecompile(
-		stakingKeeper,
-		stakingkeeper.NewMsgServerImpl(&stakingKeeper),
-		stakingkeeper.NewQuerier(&stakingKeeper),
-		bankKeeper,
-		options.AddressCodec,
-	)
-
-	distributionPrecompile := distprecompile.NewPrecompile(
-		distributionKeeper,
-		distributionkeeper.NewMsgServerImpl(distributionKeeper),
-		distributionkeeper.NewQuerier(distributionKeeper),
-		stakingKeeper,
-		bankKeeper,
-		options.AddressCodec,
-	)
-
-	ibcTransferPrecompile := ics20precompile.NewPrecompile(
-		bankKeeper,
-		stakingKeeper,
-		transferKeeper,
-		channelKeeper,
-	)
-
-	bankPrecompile := bankprecompile.NewPrecompile(bankKeeper, erc20Keeper)
-
-	govPrecompile := govprecompile.NewPrecompile(
-		govkeeper.NewMsgServerImpl(&govKeeper),
-		govkeeper.NewQueryServer(&govKeeper),
-		bankKeeper,
-		codec,
-		options.AddressCodec,
-	)
-
-	slashingPrecompile := slashingprecompile.NewPrecompile(
-		slashingKeeper,
-		slashingkeeper.NewMsgServerImpl(slashingKeeper),
-		bankKeeper,
-		options.ValidatorAddrCodec,
-		options.ConsensusAddrCodec,
-	)
-
-	// Stateless precompiles
-	precompiles[bech32Precompile.Address()] = bech32Precompile
-	precompiles[p256Precompile.Address()] = p256Precompile
-
-	// Stateful precompiles
-	precompiles[stakingPrecompile.Address()] = stakingPrecompile
-	precompiles[distributionPrecompile.Address()] = distributionPrecompile
-	precompiles[ibcTransferPrecompile.Address()] = ibcTransferPrecompile
-	precompiles[bankPrecompile.Address()] = bankPrecompile
-	precompiles[govPrecompile.Address()] = govPrecompile
-	precompiles[slashingPrecompile.Address()] = slashingPrecompile
-
-	return precompiles
+	return map[common.Address]vm.PrecompiledContract(precompiles)
 }

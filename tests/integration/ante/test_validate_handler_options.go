@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
+	antetypes "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
-	"github.com/cosmos/evm/types"
 )
 
 //nolint:thelper // RunValidateHandlerOptionsTest is not a helper function; it's an externally called benchmark entry point
@@ -121,7 +121,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),
@@ -140,7 +140,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),

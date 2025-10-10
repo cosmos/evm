@@ -41,6 +41,7 @@
 - [\#609](https://github.com/cosmos/evm/pull/609) Make `erc20Keeper` optional in the EVM keeper
 - [\#624](https://github.com/cosmos/evm/pull/624) Cleanup unnecessary `fix-revert-gas-refund-height`.
 - [\#635](https://github.com/cosmos/evm/pull/635) Move DefaultStaticPrecompiles to /evm and allow projects to set it by default alongside the keeper.
+- [\#639](https://github.com/cosmos/evm/pull/639) Remove `/types` and move types into respective folders.
 - [\#630](https://github.com/cosmos/evm/pull/630) Reduce feemarket parameter loading to minimize memory allocations.
 - [\#577](https://github.com/cosmos/evm/pull/577) Cleanup precompiles boilerplate code.
 - [\#648](https://github.com/cosmos/evm/pull/648) Move all `ante` logic such as `NewAnteHandler` from the `evmd` package to `evm/ante` so it can be used as library functions.
@@ -48,6 +49,7 @@
 - [\#664](https://github.com/cosmos/evm/pull/664) Add EIP-7702 integration test
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
+- [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
 
 ### FEATURES
 

@@ -12,7 +12,7 @@ import (
 
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
-	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
@@ -46,7 +46,7 @@ func (b *Backend) BlockNumber() (hexutil.Uint64, error) {
 // GetBlockByNumber returns the JSON-RPC compatible Ethereum block identified by
 // block number. Depending on fullTx it either returns the full transaction
 // objects or if false only the hashes of the transactions.
-func (b *Backend) GetBlockByNumber(blockNum rpctypes.BlockNumber, fullTx bool) (map[string]interface{}, error) {
+func (b *Backend) GetBlockByNumber(blockNum types.BlockNumber, fullTx bool) (map[string]interface{}, error) {
 	resBlock, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		return nil, nil
@@ -119,7 +119,7 @@ func (b *Backend) GetBlockTransactionCountByHash(hash common.Hash) *hexutil.Uint
 
 // GetBlockTransactionCountByNumber returns the number of Ethereum transactions
 // in the block identified by number.
-func (b *Backend) GetBlockTransactionCountByNumber(blockNum rpctypes.BlockNumber) *hexutil.Uint {
+func (b *Backend) GetBlockTransactionCountByNumber(blockNum types.BlockNumber) *hexutil.Uint {
 	block, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		b.Logger.Debug("block not found", "height", blockNum.Int64(), "error", err.Error())
@@ -148,7 +148,7 @@ func (b *Backend) getBlockTransactionCount(block *cmtrpctypes.ResultBlock) *hexu
 }
 
 // EthBlockByNumber returns the Ethereum Block identified by number.
-func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Block, error) {
+func (b *Backend) EthBlockByNumber(blockNum types.BlockNumber) (*ethtypes.Block, error) {
 	resBlock, err := b.CometBlockByNumber(blockNum)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Blo
 
 // GetBlockReceipts returns the receipts for a given block number or hash.
 func (b *Backend) GetBlockReceipts(
-	blockNrOrHash rpctypes.BlockNumberOrHash,
+	blockNrOrHash types.BlockNumberOrHash,
 ) ([]map[string]interface{}, error) {
 	blockNum, err := b.BlockNumberFromComet(blockNrOrHash)
 	if err != nil {
@@ -216,11 +216,10 @@ func (b *Backend) GetBlockReceipts(
 			return nil, fmt.Errorf("failed to get sender: %w", err)
 		}
 
-		result[i], err = rpctypes.RPCMarshalReceipt(receipts[i], tx, from)
+		result[i], err = types.RPCMarshalReceipt(receipts[i], tx, from)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal receipt")
 		}
 	}
-
 	return result, nil
 }
