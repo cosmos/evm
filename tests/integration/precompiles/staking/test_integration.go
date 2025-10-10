@@ -1565,6 +1565,36 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).NotTo(BeNil(), "expected validator NOT to be found")
 				Expect(err.Error()).To(ContainSubstring("not found"), "expected validator NOT to be found")
 			})
+
+			It("tx from validator operator with delegated code - should create a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractTwoAddr)
+
+				callArgs = testutiltypes.CallArgs{
+					ContractABI: stakingCallerTwoContract.ABI,
+					MethodName:  "testCreateValidatorWithTransfer",
+					Args: []interface{}{
+						defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
+					},
+				}
+
+				txArgs = evmtypes.EvmTxArgs{
+					To:       &valHexAddr,
+					GasLimit: 500_000,
+					Amount:   new(big.Int).Set(defaultValue),
+				}
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs, callArgs,
+					passCheck.WithExpEvents(staking.EventTypeCreateValidator),
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				_, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil(), "expected validator NOT to be found")
+			})
 		})
 
 		Context("to edit a validator", func() {
@@ -1682,6 +1712,33 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				validator := qRes.Validator
 				Expect(validator.Description.Moniker).To(Equal("original moniker"), "expected validator moniker is updated")
 				Expect(validator.Commission.Rate.BigInt().String()).To(Equal("100000000000000000"), "expected validator commission rate remain unchanged")
+			})
+
+			It("with tx from validator operator using delegated code - should NOT edit a validator", func() {
+				s.delegateAccountToContract(valPriv, valHexAddr, contractAddr)
+				callArgs.Args = []interface{}{
+					defaultDescription, valHexAddr,
+					defaultCommissionRate, defaultMinSelfDelegation,
+				}
+
+				txArgs.To = &valHexAddr
+
+				_, _, err = s.factory.CallContractAndCheckLogs(
+					valPriv,
+					txArgs,
+					callArgs,
+					execRevertedCheck,
+				)
+				Expect(err).To(BeNil(), "error while calling the smart contract")
+				Expect(s.network.NextBlock()).To(BeNil())
+
+				qc := s.network.GetStakingClient()
+				qRes, err := qc.Validator(s.network.GetContext(), &stakingtypes.QueryValidatorRequest{ValidatorAddr: sdk.ValAddress(valAddr).String()})
+				Expect(err).To(BeNil())
+				Expect(qRes).NotTo(BeNil())
+
+				validator := qRes.Validator
+				Expect(validator.Description.Moniker).NotTo(Equal(defaultDescription.Moniker), "expected validator moniker NOT to be updated")
 			})
 		})
 
