@@ -1502,6 +1502,258 @@ func (s *KeeperTestSuite) TestTraceBlock() {
 	}
 }
 
+func (s *KeeperTestSuite) TestTraceCall() {
+	s.EnableFeemarket = true
+	defer func() { s.EnableFeemarket = false }()
+	s.SetupTest()
+
+	// Load ERC20 contract
+	erc20Contract, err := testdata.LoadERC20Contract()
+	s.Require().NoError(err)
+
+	// Deploy ERC20 contract for testing
+	senderKey := s.Keyring.GetKey(0)
+	contractAddr, err := deployErc20Contract(senderKey, s.Factory)
+	s.Require().NoError(err)
+	s.Require().NoError(s.Network.NextBlock())
+
+	testCases := []struct {
+		msg            string
+		getCallArgs    func() []byte
+		getTraceConfig func() *types.TraceConfig
+		expPass        bool
+		traceResponse  string
+	}{
+		{
+			msg: "default trace with contract call",
+			getCallArgs: func() []byte {
+				// Prepare transfer call data
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "transfer",
+					Args:        []interface{}{common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101"), big.NewInt(1000)},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return nil // Use default tracer
+			},
+			expPass:       true,
+			traceResponse: "\"gas\":",
+		},
+		{
+			msg: "callTracer with contract call",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "callTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"type\":\"CALL\"",
+		},
+		{
+			msg: "prestateTracer with contract call",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "prestateTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"balance\":",
+		},
+		{
+			msg: "trace with filtered options",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					DisableStack:     true,
+					DisableStorage:   true,
+					EnableMemory:     false,
+					EnableReturnData: true,
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"returnValue\":",
+		},
+		{
+			msg: "javascript tracer",
+			getCallArgs: func() []byte {
+				callArgs := testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{senderKey.Addr},
+				}
+				input, err := factory.GenerateContractCallArgs(callArgs)
+				s.Require().NoError(err)
+				return input
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "{data: [], fault: function(log) {}, step: function(log) { if(log.op.toString() == \"CALL\") this.data.push(log.stack.peek(0)); }, result: function() { return this.data; }}",
+				}
+			},
+			expPass:       true,
+			traceResponse: "[",
+		},
+		{
+			msg: "trace simple value transfer",
+			getCallArgs: func() []byte {
+				return nil // Simple value transfer, no data
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "callTracer",
+				}
+			},
+			expPass:       true,
+			traceResponse: "\"type\":\"CALL\"",
+		},
+		{
+			msg: "invalid trace config - Negative Limit",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Limit: -1,
+				}
+			},
+			expPass: false,
+		},
+		{
+			msg: "invalid trace config - Invalid Tracer",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Tracer: "invalid_tracer",
+				}
+			},
+			expPass: false,
+		},
+		{
+			msg: "invalid trace config - Invalid Timeout",
+			getCallArgs: func() []byte {
+				return nil
+			},
+			getTraceConfig: func() *types.TraceConfig {
+				return &types.TraceConfig{
+					Timeout: "wrong_time",
+				}
+			},
+			expPass: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
+			// Get current block for tracing
+			currentBlock := s.Network.GetContext().BlockHeight()
+
+			// Build transaction args for the call
+			callData := tc.getCallArgs()
+			var to *common.Address
+			if callData != nil {
+				to = &contractAddr
+			} else {
+				// For simple transfers, use a different recipient
+				recipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
+				to = &recipient
+			}
+
+			// Marshal transaction args with default values
+			gasLimit := hexutil.Uint64(100000)
+			gasPrice := hexutil.Big(*big.NewInt(1000000000)) // 1 gwei
+			defaultValue := hexutil.Big(*big.NewInt(0))
+
+			txArgs := types.TransactionArgs{
+				From:     &senderKey.Addr,
+				To:       to,
+				Gas:      &gasLimit,
+				GasPrice: &gasPrice,
+				Value:    &defaultValue,
+				Input:    (*hexutil.Bytes)(&callData),
+			}
+
+			// If it's a value transfer test, add value
+			if tc.msg == "trace simple value transfer" {
+				value := hexutil.Big(*big.NewInt(1000))
+				txArgs.Value = &value
+			}
+
+			argsBytes, err := json.Marshal(txArgs)
+			s.Require().NoError(err)
+
+			// Build trace request
+			ctx := s.Network.GetContext()
+
+			traceReq := &types.QueryTraceCallRequest{
+				Args:            argsBytes,
+				TraceConfig:     tc.getTraceConfig(),
+				BlockNumber:     currentBlock,
+				BlockTime:       ctx.BlockTime(),
+				BlockHash:       common.BytesToHash(ctx.HeaderHash()).Hex(),
+				ProposerAddress: sdk.ConsAddress(ctx.BlockHeader().ProposerAddress),
+				ChainId:         s.Network.GetEIP155ChainID().Int64(),
+			}
+
+			// Execute trace call
+			res, err := s.Network.GetEvmClient().TraceCall(s.Network.GetContext(), traceReq)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().NotNil(res)
+
+				// Verify response contains expected trace data
+				if tc.traceResponse != "" {
+					s.Require().Contains(string(res.Data), tc.traceResponse)
+				}
+
+				// For non-custom tracers, verify the result structure
+				if tc.getTraceConfig() == nil || tc.getTraceConfig().Tracer == "" {
+					var result ethlogger.ExecutionResult
+					s.Require().NoError(json.Unmarshal(res.Data, &result))
+					s.Require().NotNil(result.Gas)
+				}
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
+
 func (s *KeeperTestSuite) TestNonceInQuery() {
 	s.EnableFeemarket = true
 	defer func() { s.EnableFeemarket = false }()
