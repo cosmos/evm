@@ -708,6 +708,10 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	}
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
+	// Fill in default values for missing transaction fields (gas, gasPrice, value, etc.)
+	if err := args.CallDefaults(req.GasCap, baseFee, types.GetEthChainConfig().ChainID); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	msg := args.ToMessage(baseFee, true, true)
 
 	// trace call
