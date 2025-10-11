@@ -498,7 +498,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	// get the context of block beginning
 	requestedHeight := req.BlockNumber
 	if requestedHeight < 1 {
-		// 0 is a special value in `ContextWithHeight`
+		// In Ethereum, the genesis block height is 0, but in CometBFT, the genesis block height is 1.
+		// So here we set the minimum requested height to 1.
 		requestedHeight = 1
 	}
 
@@ -598,7 +599,8 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	// get the context of block beginning
 	contextHeight := req.BlockNumber
 	if contextHeight < 1 {
-		// 0 is a special value in `ContextWithHeight`
+		// In Ethereum, the genesis block height is 0, but in CometBFT, the genesis block height is 1.
+		// So here we set the minimum requested height to 1.
 		contextHeight = 1
 	}
 
@@ -669,7 +671,8 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	// get the context of block beginning
 	requestedHeight := req.BlockNumber
 	if requestedHeight < 1 {
-		// 0 is a special value in `ContextWithHeight`
+		// In Ethereum, the genesis block height is 0, but in CometBFT, the genesis block height is 1.
+		// So here we set the minimum requested height to 1.
 		requestedHeight = 1
 	}
 

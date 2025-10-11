@@ -116,7 +116,8 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfi
 	// minus one to get the context of block beginning
 	contextHeight := transaction.Height - 1
 	if contextHeight < 1 {
-		// 0 is a special value in `ContextWithHeight`
+		// In Ethereum, the genesis block height is 0, but in CometBFT, the genesis block height is 1.
+		// So here we set the minimum requested height to 1.
 		contextHeight = 1
 	}
 	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
@@ -232,7 +233,6 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 
 // TraceCall executes a call with the given arguments and returns the structured logs
 // created during the execution of EVM. It returns them as a JSON object.
-// Note: This implementation requires the gRPC TraceCall method to be implemented on the server side.
 func (b *Backend) TraceCall(
 	args evmtypes.TransactionArgs,
 	blockNrOrHash rpctypes.BlockNumberOrHash,
@@ -274,7 +274,8 @@ func (b *Backend) TraceCall(
 	// get the context of provided block
 	contextHeight := header.Header.Height
 	if contextHeight < 1 {
-		// 0 is a special value in `ContextWithHeight`
+		// In Ethereum, the genesis block height is 0, but in CometBFT, the genesis block height is 1.
+		// So here we set the minimum requested height to 1.
 		contextHeight = 1
 	}
 
