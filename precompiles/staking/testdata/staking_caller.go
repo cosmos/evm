@@ -8,7 +8,3 @@ import (
 func LoadStakingCallerContract() (evmtypes.CompiledContract, error) {
 	return contractutils.LoadContractFromJSONFile("StakingCaller.json")
 }
-
-func LoadStakingCallerTwoContract() (evmtypes.CompiledContract, error) {
-	return contractutils.LoadContractFromJSONFile("StakingCallerTwo.json")
-}
