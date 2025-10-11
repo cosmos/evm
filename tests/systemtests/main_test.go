@@ -21,6 +21,7 @@ func TestTxsOrdering(t *testing.T) {
 
 func TestTxsReplacement(t *testing.T) {
 	mempool.TestTxsReplacement(t)
+	mempool.TestTxsReplacementWithCosmosTx(t)
 	mempool.TestMixedTxsReplacementEVMAndCosmos(t)
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
