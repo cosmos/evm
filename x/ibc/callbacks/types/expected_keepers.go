@@ -26,6 +26,7 @@ type EVMKeeper interface {
 	CallEVMWithData(ctx sdk.Context, from common.Address, contract *common.Address, data []byte, commit bool, gasCap *big.Int) (*evmtypes.MsgEthereumTxResponse, error)
 	GetAccountOrEmpty(ctx sdk.Context, addr common.Address) statedb.Account
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
+	IsContract(ctx sdk.Context, addr common.Address) bool
 }
 
 type ERC20Keeper interface {

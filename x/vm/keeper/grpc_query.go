@@ -205,7 +205,7 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.Que
 	acct := k.GetAccountWithoutBalance(ctx, address)
 
 	var code []byte
-	if acct != nil && acct.IsContract() {
+	if acct != nil && acct.HasCodeHash() {
 		code = k.GetCode(ctx, common.BytesToHash(acct.CodeHash))
 	}
 
@@ -422,7 +422,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	// unused access list items). Ever so slightly wasteful, but safer overall.
 	if len(msg.Data) == 0 && msg.To != nil {
 		acct := k.GetAccountWithoutBalance(ctx, *msg.To)
-		if acct == nil || !acct.IsContract() {
+		if acct == nil || !acct.HasCodeHash() {
 			failed, _, err := executable(ethparams.TxGas)
 			if err == nil && !failed {
 				return &types.EstimateGasResponse{Gas: ethparams.TxGas}, nil

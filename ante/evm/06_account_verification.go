@@ -29,7 +29,7 @@ func VerifyAccountBalance(
 	ethTx *ethtypes.Transaction,
 ) error {
 	// Only EOA are allowed to send transactions.
-	if account != nil && account.IsContract() {
+	if account != nil && account.HasCodeHash() {
 		// check eip-7702
 		code := evmKeeper.GetCode(ctx, common.BytesToHash(account.CodeHash))
 		_, delegated := ethtypes.ParseDelegation(code)

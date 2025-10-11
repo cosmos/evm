@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -59,10 +60,16 @@ func (p Precompile) CreateValidator(
 	)
 
 	msgSender := contract.Caller()
-	// we won't allow calls from smart contracts
-	if hasCode := stateDB.GetCode(msgSender) != nil; hasCode {
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
+
 	if msgSender != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}
@@ -105,10 +112,16 @@ func (p Precompile) EditValidator(
 	)
 
 	msgSender := contract.Caller()
-	// we won't allow calls from smart contracts
-	if hasCode := stateDB.GetCode(msgSender) != nil; hasCode {
+
+	// We won't allow calls from smart contracts
+	// unless they are EIP-7702 delegated accounts
+	code := stateDB.GetCode(msgSender)
+	_, delegated := ethtypes.ParseDelegation(code)
+	if len(code) > 0 && !delegated {
+		// call by contract method
 		return nil, errors.New(ErrCannotCallFromContract)
 	}
+
 	if msgSender != validatorHexAddr {
 		return nil, fmt.Errorf(cmn.ErrRequesterIsNotMsgSender, msgSender.String(), validatorHexAddr.String())
 	}

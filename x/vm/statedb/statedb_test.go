@@ -56,7 +56,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			acct := keeper.GetAccount(ctx, address)
 			suite.Require().Equal(statedb.NewEmptyAccount(), acct)
 			suite.Require().Empty(acct.Balance)
-			suite.Require().False(acct.IsContract())
+			suite.Require().False(acct.HasCodeHash())
 
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
