@@ -71,9 +71,6 @@ type RPCContext struct {
 	MaxPriorityFeePerGas *big.Int
 	GasPrice             *big.Int
 
-	// test results
-	AlreadyTestedRPCs []*RpcResult
-
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
@@ -125,16 +122,6 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	}
 
 	return ctx, nil
-}
-
-func (rCtx *RPCContext) AlreadyTested(rpc RpcName) *RpcResult {
-	for _, testedRPC := range rCtx.AlreadyTestedRPCs {
-		if rpc == testedRPC.Method {
-			return testedRPC
-		}
-	}
-	return nil
-
 }
 
 // CompareRPCCall performs a dual API call and compares response structures
