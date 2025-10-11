@@ -87,7 +87,7 @@ func TestEIP7702(t *testing.T) {
 				expDelegation: false,
 			}),
 			Entry("setCode with empty address should reset delegation", testCase{
-				authChainID: func() uint64 { return s.GetChainID() + 1 },
+				authChainID: func() uint64 { return s.GetChainID() },
 				authNonce: func() uint64 {
 					return s.GetNonce(user0) + 1
 				},
@@ -99,7 +99,7 @@ func TestEIP7702(t *testing.T) {
 				expDelegation: false,
 			}),
 			Entry("setCode with invalid address should fail", testCase{
-				authChainID: func() uint64 { return s.GetChainID() + 1 },
+				authChainID: func() uint64 { return s.GetChainID() },
 				authNonce: func() uint64 {
 					return s.GetNonce(user0) + 1
 				},
@@ -108,10 +108,10 @@ func TestEIP7702(t *testing.T) {
 				},
 				authSigner:    user0,
 				txSender:      user0,
-				expDelegation: false,
+				expDelegation: true,
 			}),
 			Entry("setCode with EoA address should fail", testCase{
-				authChainID: func() uint64 { return s.GetChainID() + 1 },
+				authChainID: func() uint64 { return s.GetChainID() },
 				authNonce: func() uint64 {
 					return s.GetNonce(user0) + 1
 				},
@@ -120,7 +120,7 @@ func TestEIP7702(t *testing.T) {
 				},
 				authSigner:    user0,
 				txSender:      user0,
-				expDelegation: false,
+				expDelegation: true,
 			}),
 			Entry("same signer/sender with matching nonce should fail", testCase{
 				authChainID: func() uint64 { return s.GetChainID() },

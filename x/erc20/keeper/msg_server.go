@@ -395,7 +395,7 @@ func (k *Keeper) ToggleConversion(goCtx context.Context, req *types.MsgToggleCon
 // validateAuthority is a helper function to validate that the provided authority
 // is the keeper's authority address
 func (k *Keeper) validateAuthority(authority string) error {
-	if _, err := k.accountKeeper.AddressCodec().StringToBytes(authority); err != nil {
+	if _, err := k.addrCodec.StringToBytes(authority); err != nil {
 		return errortypes.ErrInvalidAddress.Wrapf("invalid authority address: %s", err)
 	}
 

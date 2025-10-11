@@ -22,6 +22,7 @@
 - [\#687](https://github.com/cosmos/evm/pull/687) Avoid blocking node shutdown when evm indexer is enabled, log startup failures instead of using errgroup.
 - [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
 - [\#713](https://github.com/cosmos/evm/pull/713) Support cosmos state overrides in eth_call for dynamic precompiles.
+- [\#668](https://github.com/cosmos/evm/pull/668) Fix panic in legacy mempool when Reset() was called with a skipped header between old and new block.
 
 ### IMPROVEMENTS
 
@@ -51,6 +52,9 @@
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 - [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
+- [\#701](https://github.com/cosmos/evm/pull/701) Add address codec support to ERC20 IBC callbacks to handle hex addresses in addition to bech32 addresses.
+- [\#702](https://github.com/cosmos/evm/pull/702) Fix mempool e2e test
+- [\#704](https://github.com/cosmos/evm/pull/704) Fix EIP-7702 test cases
 
 ### FEATURES
 
