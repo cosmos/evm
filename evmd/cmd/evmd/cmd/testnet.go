@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
-
 	"net"
 	"os"
 	"path/filepath"
@@ -120,7 +117,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
 	cmd.Flags().String(server.FlagMinGasPrices, fmt.Sprintf("0.000006%s", sdk.DefaultBondDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(cosmosevmhd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
-	cmd.Flags().String(flagValidatorPowers, "", "Comma-separated list of validator powers (e.g. '100,200,150'). If not specified, all validators have equal power of 100. Last value is repeated for remaining validators.")
+	cmd.Flags().IntSlice(flagValidatorPowers, []int{}, "Comma-separated list of validator powers (e.g. '100,200,150'). If not specified, all validators have equal power of 100. Last value is repeated for remaining validators.")
 
 	// support old flags name for backwards compatibility
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -200,8 +197,8 @@ Example:
 			}
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 
-			validatorPowersStr, _ := cmd.Flags().GetString(flagValidatorPowers)
-			args.validatorPowers, err = parseValidatorPowers(validatorPowersStr, args.numValidators)
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
 			if err != nil {
 				return err
 			}
@@ -247,9 +244,9 @@ Example:
 			args.grpcAddress, _ = cmd.Flags().GetString(flagGRPCAddress)
 			args.printMnemonic, _ = cmd.Flags().GetBool(flagPrintMnemonic)
 
-			validatorPowersStr, _ := cmd.Flags().GetString(flagValidatorPowers)
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
 			var err error
-			args.validatorPowers, err = parseValidatorPowers(validatorPowersStr, args.numValidators)
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
 			if err != nil {
 				return err
 			}
@@ -269,51 +266,34 @@ Example:
 
 const nodeDirPerm = 0o755
 
-// parseValidatorPowers parses a comma-separated list of validator powers from a string.
-// If the string is empty, returns a slice of default powers (100) for each validator.
+// parseValidatorPowers processes validator powers from an int slice.
+// If the slice is empty, returns a slice of default powers (100) for each validator.
 // If fewer powers are specified than numValidators, fills remaining with the last specified power.
-func parseValidatorPowers(powersStr string, numValidators int) ([]int64, error) {
-	powers := make([]int64, numValidators)
-	if powersStr == "" {
+func parseValidatorPowers(powers []int, numValidators int) ([]int64, error) {
+	result := make([]int64, numValidators)
+	if len(powers) == 0 {
 		for i := 0; i < numValidators; i++ {
-			powers[i] = 100
+			result[i] = 100
 		}
-		return powers, nil
+		return result, nil
 	}
 
-	powerStrs := strings.Split(powersStr, ",")
-	parsedPowers := make([]int64, 0, len(powerStrs))
-
-	for _, powerStr := range powerStrs {
-		powerStr = strings.TrimSpace(powerStr)
-		if powerStr == "" {
-			continue
-		}
-
-		power, err := strconv.ParseInt(powerStr, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid validator power '%s': %w", powerStr, err)
-		}
+	for _, power := range powers {
 		if power <= 0 {
 			return nil, fmt.Errorf("validator power must be positive, got %d", power)
 		}
-		parsedPowers = append(parsedPowers, power)
-	}
-
-	if len(parsedPowers) == 0 {
-		return nil, fmt.Errorf("no valid validator powers specified")
 	}
 
 	for i := 0; i < numValidators; i++ {
-		if i < len(parsedPowers) {
-			powers[i] = parsedPowers[i]
+		if i < len(powers) {
+			result[i] = int64(powers[i])
 		} else {
 			// use the last specified power for remaining validators
-			powers[i] = parsedPowers[len(parsedPowers)-1]
+			result[i] = int64(powers[len(powers)-1])
 		}
 	}
 
-	return powers, nil
+	return result, nil
 }
 
 // initTestnetFiles initializes testnet files for a testnet to be run in a separate process
