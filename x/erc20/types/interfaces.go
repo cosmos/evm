@@ -50,6 +50,7 @@ type EVMKeeper interface {
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
+	IsContract(ctx sdk.Context, address common.Address) bool
 }
 
 type Erc20Keeper interface {

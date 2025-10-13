@@ -27,7 +27,7 @@ func NewEmptyAccount() *Account {
 }
 
 // IsContract returns if the account contains contract code.
-func (acct Account) IsContract() bool {
+func (acct Account) HasCodeHash() bool {
 	return !types.IsEmptyCodeHash(acct.CodeHash)
 }
 

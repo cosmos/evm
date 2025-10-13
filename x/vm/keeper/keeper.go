@@ -420,7 +420,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 	}
 
 	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
-	if acct != nil && acct.IsContract() {
+	if acct != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress) {
 		// set current block hash in the contract storage, compatible with EIP-2935
 		ringIndex := uint64(ctx.BlockHeight()) % window //nolint:gosec // G115 // won't exceed uint64
 		var key common.Hash

@@ -2,6 +2,7 @@ package accountabstraction
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/tests/systemtests/clients"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -44,7 +45,7 @@ func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *Use
 }
 
 func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey) (*UserOperation, error) {
-	chainID := uint64(4221)
+	chainID := clients.EVMChainID
 
 	addressType, _ := abi.NewType("address", "", nil)
 	uint256Type, _ := abi.NewType("uint256", "", nil)

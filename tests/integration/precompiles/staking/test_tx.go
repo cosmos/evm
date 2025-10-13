@@ -246,6 +246,25 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			"does not match the requester address",
 		},
 		{
+			"fail - cannot be called from account with code (if it is not EIP-7702 delegated account)",
+			func() []interface{} {
+				stDB.SetCode(validatorAddress, []byte{0x60, 0x00})
+				return []interface{}{
+					description,
+					commission,
+					minSelfDelegation,
+					validatorAddress,
+					pubkey,
+					value,
+				}
+			},
+			200000,
+			nil,
+			func([]byte) {},
+			true,
+			staking.ErrCannotCallFromContract,
+		},
+		{
 			"success",
 			func() []interface{} {
 				return []interface{}{
@@ -522,7 +541,7 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			"minimum self delegation must be a positive integer",
 		},
 		{
-			"fail - calling precompile from a different address than validator (smart contract call)",
+			"fail - cannot be called from account with code (if it is not EIP-7702 delegated account)",
 			func() []interface{} {
 				return []interface{}{
 					description,
@@ -539,6 +558,23 @@ func (s *PrecompileTestSuite) TestEditValidator() {
 			func([]byte) {},
 			true,
 			"does not match the requester address",
+		},
+		{
+			"fail - cannot be called from smart contract",
+			func() []interface{} {
+				stDB.SetCode(validatorAddress, []byte{0x60, 0x00})
+				return []interface{}{
+					description,
+					validatorAddress,
+					commissionRate,
+					minSelfDelegation,
+				}
+			},
+			200000,
+			nil,
+			func([]byte) {},
+			true,
+			staking.ErrCannotCallFromContract,
 		},
 		{
 			"success",
