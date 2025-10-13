@@ -133,6 +133,7 @@ func (ec *EthClient) CheckTxsPending(
 		case <-ticker.C:
 			pendingTxs, _, err := ec.TxPoolContent(nodeID)
 			if err != nil {
+				fmt.Printf("DEBUG: failed to get txpool content: %v", err)
 				continue // Retry on error
 			}
 
