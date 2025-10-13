@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 WAIT_TIME ?= 30s
-BLOCK_TIME ?= 10s
+BLOCK_TIME ?= 8s
 
 test:
 	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestTxsOrdering --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --binary evmd --chain-id local-4221
