@@ -105,6 +105,9 @@ func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, a
 		return nil, fmt.Errorf("failed to broadcast tx: %v", err)
 	}
 
+	// This debug string is useful for transactions that don't yield an error until after they're broadcasted to the chain
+	fmt.Printf("DEBUG: CosmosClient BankSend: %s\n", resp.String())
+
 	return resp, nil
 }
 
