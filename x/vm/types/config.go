@@ -10,7 +10,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/cosmos/evm/x/vm/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )
 

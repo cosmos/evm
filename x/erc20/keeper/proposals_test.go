@@ -3,10 +3,9 @@ package keeper_test
 import (
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/cosmos/evm/contracts"
 	testfactory "github.com/cosmos/evm/testutil/integration/os/factory"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
@@ -14,8 +13,11 @@ import (
 	"github.com/cosmos/evm/x/erc20/types"
 	erc20mocks "github.com/cosmos/evm/x/erc20/types/mocks"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/mock"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 const (
@@ -130,7 +132,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 					suite.network.App.GetKey("erc20"), suite.network.App.AppCodec(),
 					authtypes.NewModuleAddress(govtypes.ModuleName), suite.network.App.AccountKeeper,
 					suite.network.App.BankKeeper, mockEVMKeeper, suite.network.App.StakingKeeper,
-					suite.network.App.AuthzKeeper, &suite.network.App.TransferKeeper,
+					&suite.network.App.TransferKeeper,
 				)
 
 				mockEVMKeeper.On("EstimateGasInternal", mock.Anything, mock.Anything, mock.Anything).Return(&evmtypes.EstimateGasResponse{Gas: uint64(200)}, nil)
@@ -164,7 +166,7 @@ func (suite *KeeperTestSuite) TestRegisterERC20() {
 			tc.malleate()
 
 			_, err = suite.network.App.Erc20Keeper.RegisterERC20(ctx, &types.MsgRegisterERC20{
-				Authority:      authtypes.NewModuleAddress("gov").String(),
+				Signer:         suite.keyring.GetAccAddr(0).String(),
 				Erc20Addresses: []string{contractAddr.Hex()},
 			})
 			metadata, found := suite.network.App.BankKeeper.GetDenomMetaData(ctx, coinName)

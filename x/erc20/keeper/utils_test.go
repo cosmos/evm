@@ -3,14 +3,16 @@ package keeper_test
 import (
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/x/erc20/keeper/testdata"
 	"github.com/cosmos/evm/x/erc20/types"
 	evm "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // MintFeeCollector mints some coins to the fee collector address.

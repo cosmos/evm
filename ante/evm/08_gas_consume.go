@@ -3,13 +3,16 @@ package evm
 import (
 	"math/big"
 
-	errorsmod "cosmossdk.io/errors"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/ethereum/go-ethereum/common"
+
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	errorsmod "cosmossdk.io/errors"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // UpdateCumulativeGasWanted updates the cumulative gas wanted

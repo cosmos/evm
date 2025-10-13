@@ -2,6 +2,7 @@ package factory
 
 import (
 	sdkmath "cosmossdk.io/math"
+
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 )
 

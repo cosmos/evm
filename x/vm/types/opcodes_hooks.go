@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // OpCodeHooks extends the geth OpCodeHooks interface to add custom hooks for EVM operations.

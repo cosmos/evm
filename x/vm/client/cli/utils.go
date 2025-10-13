@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func accountToHex(addr string) (string, error) {

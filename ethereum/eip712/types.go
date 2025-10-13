@@ -6,12 +6,14 @@ import (
 	"sort"
 	"strings"
 
-	errorsmod "cosmossdk.io/errors"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/tidwall/gjson"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	errorsmod "cosmossdk.io/errors"
+
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 const (

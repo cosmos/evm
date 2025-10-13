@@ -23,7 +23,7 @@ the vulnerability can be reproduced on either one of those.
 
 | Reporting methods                                             | Bounty eligible |
 |---------------------------------------------------------------|-----------------|
-| [HackerOne program][h1]                                       |       yes       |
+| [HackerOne program][h1]                                       |       no        |
 | [security@interchain.io](mailto:security@interchain.io)       |       no        |
 
 Issues identified in this repository may be eligible for a [bug bounty][h1]. For your report to be bounty

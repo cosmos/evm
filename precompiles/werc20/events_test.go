@@ -4,10 +4,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/suite"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/werc20"
@@ -67,7 +66,7 @@ func (s *PrecompileUnitTestSuite) SetupTest(chainID string) {
 	precompile, err := werc20.NewPrecompile(
 		tokenPair,
 		s.network.App.BankKeeper,
-		s.network.App.AuthzKeeper,
+		s.network.App.Erc20Keeper,
 		s.network.App.TransferKeeper,
 	)
 	s.Require().NoError(err, "failed to instantiate the werc20 precompile")

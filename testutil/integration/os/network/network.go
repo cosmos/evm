@@ -6,27 +6,31 @@ import (
 	"math/big"
 	"time"
 
-	sdkmath "cosmossdk.io/math"
+	gethparams "github.com/ethereum/go-ethereum/params"
+
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
+
+	app "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
+	commonnetwork "github.com/cosmos/evm/testutil/integration/common/network"
+	"github.com/cosmos/evm/types"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	app "github.com/cosmos/evm/example_chain"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
-	commonnetwork "github.com/cosmos/evm/testutil/integration/common/network"
-	"github.com/cosmos/evm/types"
-	erc20types "github.com/cosmos/evm/x/erc20/types"
-	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	gethparams "github.com/ethereum/go-ethereum/params"
 )
 
 // Network is the interface that wraps the methods to interact with integration test network.
@@ -54,7 +58,7 @@ type IntegrationNetwork struct {
 	cfg        Config
 	ctx        sdktypes.Context
 	validators []stakingtypes.Validator
-	app        *app.ExampleChain
+	app        *app.EVMD
 
 	// This is only needed for IBC chain testing setup
 	valSet     *cmttypes.ValidatorSet

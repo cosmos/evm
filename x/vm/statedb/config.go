@@ -3,9 +3,10 @@ package statedb
 import (
 	"math/big"
 
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/cosmos/evm/x/vm/types"
 )
 
 // TxConfig encapulates the readonly information of current tx for `StateDB`.

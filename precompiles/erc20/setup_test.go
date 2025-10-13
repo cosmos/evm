@@ -3,12 +3,13 @@ package erc20_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/suite"
+
 	erc20precompile "github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
-	"github.com/stretchr/testify/suite"
 )
 
 var s *PrecompileTestSuite
@@ -28,6 +29,9 @@ type PrecompileTestSuite struct {
 	keyring     testkeyring.Keyring
 
 	precompile *erc20precompile.Precompile
+
+	// precompile2 is a second instance of the ERC20 precompile whose denom is bondDenom.
+	precompile2 *erc20precompile.Precompile
 }
 
 func TestPrecompileTestSuite(t *testing.T) {
@@ -60,4 +64,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	// NOTE: This has to be done AFTER assigning the suite fields.
 	s.tokenDenom = "xmpl"
 	s.precompile = s.setupERC20Precompile(s.tokenDenom)
+
+	// Instantiate the precompile2 with the bond denom.
+	s.precompile2 = s.setupERC20Precompile(s.bondDenom)
 }

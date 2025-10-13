@@ -1,13 +1,15 @@
 package grpc
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	"github.com/ethereum/go-ethereum/common"
+
 	commongrpc "github.com/cosmos/evm/testutil/integration/common/grpc"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
 // Handler is an interface that defines the methods that are used to query

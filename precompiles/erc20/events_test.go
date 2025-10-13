@@ -3,12 +3,12 @@ package erc20_test
 import (
 	"math/big"
 
-	"github.com/cosmos/evm/precompiles/authorization"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20precompile "github.com/cosmos/evm/precompiles/erc20"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 //nolint:dupl // this is not a duplicate of the approval events test
@@ -88,13 +88,13 @@ func (s *PrecompileTestSuite) TestEmitApprovalEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check event signature matches the one emitted
-			event := s.precompile.ABI.Events[authorization.EventTypeApproval]
+			event := s.precompile.ABI.Events[erc20precompile.EventTypeApproval]
 			s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 
 			// Check the fully unpacked event matches the one emitted
 			var approvalEvent erc20precompile.EventApproval
-			err = cmn.UnpackLog(s.precompile.ABI, &approvalEvent, authorization.EventTypeApproval, *log)
+			err = cmn.UnpackLog(s.precompile.ABI, &approvalEvent, erc20precompile.EventTypeApproval, *log)
 			s.Require().NoError(err, "unable to unpack log into approval event")
 
 			s.Require().Equal(tc.owner, approvalEvent.Owner, "expected different owner address")

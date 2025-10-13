@@ -3,9 +3,8 @@ package evm_test
 import (
 	"math/big"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/ante/testutils"
 	"github.com/cosmos/evm/testutil"
@@ -13,7 +12,11 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func (suite *AnteTestSuite) TestGasWantedDecorator() {

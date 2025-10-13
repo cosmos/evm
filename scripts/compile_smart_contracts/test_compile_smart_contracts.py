@@ -45,39 +45,41 @@ def test_find_solidity_files(setup_example_contracts_files):
     found_solidity_contracts = find_solidity_contracts(tmp_path)
     assert len(found_solidity_contracts) == 5
 
-    assert found_solidity_contracts[0].filename == "Contract2"
-    assert found_solidity_contracts[0].path == tmp_path / "Contract2.sol"
-    assert found_solidity_contracts[0].relative_path == Path(".")
-    assert found_solidity_contracts[0].compiled_json_path is None
+    contract_map = {c.filename: c for c in found_solidity_contracts}
 
-    assert found_solidity_contracts[1].filename == "Contract1"
-    assert found_solidity_contracts[1].path == tmp_path / "Contract1.sol"
-    assert found_solidity_contracts[1].relative_path == Path(".")
-    assert found_solidity_contracts[1].compiled_json_path == Path(
+    assert "Contract1" in contract_map
+    assert contract_map["Contract1"].path == tmp_path / "Contract1.sol"
+    assert contract_map["Contract1"].relative_path == Path(".")
+    assert contract_map["Contract1"].compiled_json_path == Path(
         tmp_path / "Contract1.json"
     )
 
-    assert found_solidity_contracts[2].filename == "Contract4"
-    assert found_solidity_contracts[2].path == Path(
+    assert "Contract2" in contract_map
+    assert contract_map["Contract2"].path == tmp_path / "Contract2.sol"
+    assert contract_map["Contract2"].relative_path == Path(".")
+    assert contract_map["Contract2"].compiled_json_path is None
+
+    assert "Contract3" in contract_map
+    assert contract_map["Contract3"].relative_path == Path(HARDHAT_PROJECT_DIR)
+    assert contract_map["Contract3"].compiled_json_path == Path(
+        tmp_path / HARDHAT_PROJECT_DIR / "Contract3.json"
+    )
+
+    assert "Contract4" in contract_map
+    assert contract_map["Contract4"].path == Path(
         tmp_path / "precompiles" / "Contract4.sol"
     )
-    assert found_solidity_contracts[2].relative_path == Path("precompiles")
-    assert found_solidity_contracts[2].compiled_json_path == Path(
+    assert contract_map["Contract4"].relative_path == Path("precompiles")
+    assert contract_map["Contract4"].compiled_json_path == Path(
         tmp_path / "precompiles" / "Contract4.json"
     )
 
-    assert found_solidity_contracts[3].filename == "StakingI"
-    assert found_solidity_contracts[3].path == Path(
+    assert "StakingI" in contract_map
+    assert contract_map["StakingI"].path == Path(
         tmp_path / "precompiles" / "staking" / "StakingI.sol"
     )
-    assert found_solidity_contracts[3].compiled_json_path == Path(
+    assert contract_map["StakingI"].compiled_json_path == Path(
         tmp_path / "precompiles" / "staking" / "abi.json"
-    )
-
-    assert found_solidity_contracts[4].filename == "Contract3"
-    assert found_solidity_contracts[4].relative_path == Path(HARDHAT_PROJECT_DIR)
-    assert found_solidity_contracts[4].compiled_json_path == Path(
-        tmp_path / HARDHAT_PROJECT_DIR / "Contract3.json"
     )
 
 

@@ -1,11 +1,13 @@
 package cli
 
 import (
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/spf13/cobra"
+
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/x/vm/types"
-	"github.com/spf13/cobra"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 )
 
 // GetQueryCmd returns the parent command for all x/bank CLi query commands.

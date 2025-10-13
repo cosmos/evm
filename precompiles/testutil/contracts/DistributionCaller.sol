@@ -150,6 +150,21 @@ contract DistributionCaller {
         );
     }
 
+    function testTryClaimRewards(
+        address delegatorAddress,
+        uint32 maxRetrieve
+    ) external returns (bool) {
+        bool success;
+
+        try distribution.DISTRIBUTION_CONTRACT.claimRewards(delegatorAddress, maxRetrieve) returns (bool result) {
+            success = result;
+        } catch {
+            success = false;
+        }
+
+        return success;
+    }
+
     /// @dev testFundCommunityPool defines a method to allow an account to directly
     /// fund the community pool.
     /// @param depositor The address of the depositor
@@ -231,13 +246,6 @@ contract DistributionCaller {
         string memory _validatorAddr,
         uint256 _amount
     ) public {
-        // Create approval
-        bool success = staking.STAKING_CONTRACT.approve(
-            address(this),
-            _amount,
-            delegateMethod
-        );
-        require(success, "Failed to approve staking methods");
         staking.STAKING_CONTRACT.delegate(
             address(this),
             _validatorAddr,

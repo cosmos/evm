@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/server/config"
-	"github.com/cosmos/evm/testutil/network"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/cosmos/evm/server/config"
+	"github.com/cosmos/evm/testutil/network"
 	cosmosevmnetwork "github.com/cosmos/evm/testutil/network"
 )
 

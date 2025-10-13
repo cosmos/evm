@@ -6,24 +6,27 @@ import (
 	"math"
 	"math/big"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
+	ethparams "github.com/ethereum/go-ethereum/params"
+
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ethlogger "github.com/cosmos/evm/x/vm/core/logger"
-	"github.com/cosmos/evm/x/vm/core/vm"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	ethparams "github.com/ethereum/go-ethereum/params"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // Not valid Ethereum address
@@ -1495,7 +1498,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 				configurator.ResetTestConfig()
 				err := configurator.
 					WithChainConfig(chainConfig).
-					WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(types.EighteenDecimals)).
+					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				suite.Require().NoError(err)
 			},
@@ -1520,8 +1523,11 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 	}
 
 	// Save initial configure to restore it between tests
-	denom := types.GetEVMCoinDenom()
-	decimals := types.GetEVMCoinDecimals()
+	coinInfo := types.EvmCoinInfo{
+		Denom:         types.GetEVMCoinDenom(),
+		ExtendedDenom: types.GetEVMCoinExtendedDenom(),
+		Decimals:      types.GetEVMCoinDecimals(),
+	}
 	chainConfig := types.DefaultChainConfig(suite.network.GetChainID())
 
 	for _, tc := range testCases {
@@ -1547,7 +1553,7 @@ func (suite *KeeperTestSuite) TestQueryBaseFee() {
 			configurator.ResetTestConfig()
 			err = configurator.
 				WithChainConfig(chainConfig).
-				WithEVMCoinInfo(denom, uint8(decimals)).
+				WithEVMCoinInfo(coinInfo).
 				Configure()
 			suite.Require().NoError(err)
 		})

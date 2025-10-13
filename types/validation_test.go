@@ -3,10 +3,11 @@ package types_test
 import (
 	"testing"
 
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/types"
 )
 
 func TestIsEmptyHash(t *testing.T) {

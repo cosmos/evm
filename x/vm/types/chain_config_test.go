@@ -3,11 +3,12 @@ package types_test
 import (
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
 )
 
 var defaultEIP150Hash = common.Hash{}.String()

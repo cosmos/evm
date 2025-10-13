@@ -3,16 +3,18 @@ package evm
 import (
 	"math"
 
+	"github.com/ethereum/go-ethereum/params"
+
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
+	cosmosevmtypes "github.com/cosmos/evm/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
-	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 // NewDynamicFeeChecker returns a `TxFeeChecker` that applies a dynamic fee to

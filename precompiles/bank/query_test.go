@@ -3,13 +3,15 @@ package bank_test
 import (
 	"math/big"
 
-	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	cosmosevmutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/ethereum/go-ethereum/common"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (s *PrecompileTestSuite) TestBalances() {

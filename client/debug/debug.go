@@ -7,13 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/evm/ethereum/eip712"
-	cosmosevmtypes "github.com/cosmos/evm/types"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/cosmos/evm/ethereum/eip712"
+	cosmosevmtypes "github.com/cosmos/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	cosmosclientdebug "github.com/cosmos/cosmos-sdk/client/debug"

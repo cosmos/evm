@@ -3,14 +3,16 @@ package keeper_test
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
@@ -19,8 +21,10 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	integrationutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	"cosmossdk.io/math"
+
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 )
 
 type IntegrationTestSuite struct {

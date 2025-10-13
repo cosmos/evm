@@ -27,10 +27,8 @@ jobs:
             *.toml
       - name: "Dependency Review"
         uses: actions/dependency-review-action@v4
-        if: env.GIT_DIFF
       - name: "Get govulncheck"
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
-        if: env.GIT_DIFF
       - name: Run govulncheck
         run: govulncheck -show verbose ./...
         shell: bash

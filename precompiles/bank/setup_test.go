@@ -3,10 +3,8 @@ package bank_test
 import (
 	"testing"
 
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
@@ -14,8 +12,11 @@ import (
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	integrationutils "github.com/cosmos/evm/testutil/integration/os/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/suite"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
 var s *PrecompileTestSuite

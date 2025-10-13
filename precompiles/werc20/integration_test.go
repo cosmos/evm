@@ -4,10 +4,13 @@ import (
 	"math/big"
 	"testing"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 
-	auth "github.com/cosmos/evm/precompiles/authorization"
+	//nolint:revive // dot imports are fine for Ginkgo
+	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
+	. "github.com/onsi/gomega"
+
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/werc20"
@@ -22,12 +25,9 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	"github.com/ethereum/go-ethereum/common"
+	"cosmossdk.io/math"
 
-	//nolint:revive // dot imports are fine for Ginkgo
-	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive // dot imports are fine for Ginkgo
-	. "github.com/onsi/gomega"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 		configurator := evmtypes.NewEVMConfigurator()
 		configurator.ResetTestConfig()
 		Expect(configurator.
-			WithEVMCoinInfo(testconstants.ExampleAttoDenom, uint8(evmtypes.EighteenDecimals)).
+			WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 			Configure()).To(BeNil(), "expected no error setting the evm configurator")
 
 		integrationNetwork := network.NewUnitTestNetwork(
@@ -162,7 +162,7 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 		precompile, err := werc20.NewPrecompile(
 			tokenPair,
 			is.network.App.BankKeeper,
-			is.network.App.AuthzKeeper,
+			is.network.App.Erc20Keeper,
 			is.network.App.TransferKeeper,
 		)
 		Expect(err).ToNot(HaveOccurred(), "failed to instantiate the werc20 precompile")
@@ -509,23 +509,22 @@ var _ = When("a user interact with the WEVMOS precompiled contract", func() {
 				Expect(senderBalanceAfter).To(Equal(senderBalance.Sub(transferCoins...)))
 				Expect(receiverBalanceAfter).To(Equal(receiverBalance.Add(transferCoins...)))
 			})
-			It("it should transfer tokens to a receiver using `transferFrom`", func() {
+			It("it should fail to transfer tokens to a receiver using `transferFrom`", func() {
 				ctx := is.network.GetContext()
 
 				senderBalance := is.network.App.BankKeeper.GetAllBalances(ctx, txSender.AccAddr)
 				receiverBalance := is.network.App.BankKeeper.GetAllBalances(ctx, user.AccAddr)
 
 				txArgs, transferArgs := callsData.getTxAndCallArgs(directCall, erc20.TransferFromMethod, txSender.Addr, user.Addr, transferAmount)
-				transferCoins := sdk.Coins{sdk.NewInt64Coin(is.wrappedCoinDenom, transferAmount.Int64())}
 
-				transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer, auth.EventTypeApproval)
-				_, _, err := is.factory.CallContractAndCheckLogs(txSender.Priv, txArgs, transferArgs, transferCheck)
+				insufficientAllowanceCheck := failCheck.WithErrContains(erc20.ErrInsufficientAllowance.Error())
+				_, _, err := is.factory.CallContractAndCheckLogs(txSender.Priv, txArgs, transferArgs, insufficientAllowanceCheck)
 				Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
 				senderBalanceAfter := is.network.App.BankKeeper.GetAllBalances(ctx, txSender.AccAddr)
 				receiverBalanceAfter := is.network.App.BankKeeper.GetAllBalances(ctx, user.AccAddr)
-				Expect(senderBalanceAfter).To(Equal(senderBalance.Sub(transferCoins...)))
-				Expect(receiverBalanceAfter).To(Equal(receiverBalance.Add(transferCoins...)))
+				Expect(senderBalanceAfter).To(Equal(senderBalance))
+				Expect(receiverBalanceAfter).To(Equal(receiverBalance))
 			})
 		})
 		When("querying information", func() {

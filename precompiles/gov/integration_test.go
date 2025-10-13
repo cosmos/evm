@@ -4,22 +4,25 @@ import (
 	"math/big"
 	"testing"
 
-	"cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/types/query"
-	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	"github.com/cosmos/evm/precompiles/gov"
-	"github.com/cosmos/evm/precompiles/gov/testdata"
-	"github.com/cosmos/evm/precompiles/testutil"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	testutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
+
+	"github.com/cosmos/evm/precompiles/gov"
+	"github.com/cosmos/evm/precompiles/gov/testdata"
+	"github.com/cosmos/evm/precompiles/testutil"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
+	testutiltx "github.com/cosmos/evm/testutil/tx"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/types/query"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
 // General variables used for integration tests

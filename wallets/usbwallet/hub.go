@@ -2,17 +2,17 @@ package usbwallet
 
 import (
 	"errors"
+	// runtime is listed as a potential source for non-determinism, but we use it only for checking the OS
+	// #nosec
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	// runtime is listed as a potential source for non-determinism, but we use it only for checking the OS
-	// #nosec
-	"runtime"
-
-	"github.com/cosmos/evm/wallets/accounts"
 	gethaccounts "github.com/ethereum/go-ethereum/accounts"
 	usb "github.com/zondax/hid"
+
+	"github.com/cosmos/evm/wallets/accounts"
 )
 
 const (

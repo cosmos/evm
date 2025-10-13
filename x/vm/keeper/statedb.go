@@ -4,12 +4,15 @@ import (
 	"errors"
 	"math/big"
 
-	"cosmossdk.io/store/prefix"
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
+
+	"cosmossdk.io/store/prefix"
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var _ statedb.Keeper = &Keeper{}

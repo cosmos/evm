@@ -7,6 +7,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	"github.com/cometbft/cometbft/version"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

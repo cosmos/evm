@@ -8,20 +8,23 @@ import (
 	"strings"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/encoding"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	testconstants "github.com/cosmos/evm/testutil/constants"
-	utiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/encoding"
+	exampleapp "github.com/cosmos/evm/evmd"
+	testconstants "github.com/cosmos/evm/testutil/constants"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const invalidAddress = "0x0000"
@@ -111,19 +114,20 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 			true,
 		},
 	}
-	for _, cfg := range []types.EvmCoinInfo{
-		{Denom: testconstants.ExampleMicroDenom, Decimals: types.SixDecimals},
-		{Denom: testconstants.ExampleAttoDenom, Decimals: types.EighteenDecimals},
+	for _, coinInfo := range []types.EvmCoinInfo{
+		testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+		testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 	} {
 		for _, tc := range testCases {
 			configurator := types.NewEVMConfigurator()
 			configurator.ResetTestConfig()
-			suite.Require().NoError(configurator.WithEVMCoinInfo(cfg.Denom, uint8(cfg.Decimals)).Configure())
+			suite.Require().NoError(configurator.WithEVMCoinInfo(coinInfo).Configure())
 			if strings.Contains(tc.name, "nil data") {
 				tc.msg.Data = nil
 			}
 
 			baseDenom := types.GetEVMCoinDenom()
+			extendedDenom := types.GetEVMCoinExtendedDenom()
 
 			tx, err := tc.msg.BuildTx(suite.clientCtx.TxConfig.NewTxBuilder(), baseDenom)
 			if tc.expError {
@@ -136,11 +140,7 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_BuildTx() {
 				suite.Require().Equal(uint64(100000), tx.GetGas())
 
 				expFeeAmt := sdkmath.NewIntFromBigInt(evmTx.GasPrice).MulRaw(int64(evmTx.GasLimit)) //#nosec
-				expFee := sdk.NewCoins(sdk.NewCoin(baseDenom, expFeeAmt))
-				if cfg.Decimals == types.SixDecimals {
-					scaledAmt := expFeeAmt.QuoRaw(1e12)
-					expFee = sdk.NewCoins(sdk.NewCoin(baseDenom, scaledAmt))
-				}
+				expFee := sdk.NewCoins(sdk.NewCoin(extendedDenom, expFeeAmt))
 				suite.Require().Equal(expFee, tx.GetFee())
 			}
 		}

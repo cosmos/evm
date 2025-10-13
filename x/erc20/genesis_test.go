@@ -4,35 +4,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/evm/testutil/constants"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	"github.com/cometbft/cometbft/version"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
+
+	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20"
 	"github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	"github.com/stretchr/testify/suite"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type GenesisTestSuite struct {
 	suite.Suite
 	ctx     sdk.Context
-	app     *exampleapp.ExampleChain
+	app     *exampleapp.EVMD
 	genesis types.GenesisState
 }
 
-const osmoERC20ContractAddr = "0x5dCA2483280D9727c80b5518faC4556617fb19ZZ"
+const osmoERC20ContractAddr = "0x5D87876250185593977a6F94aF98877a5E7eD60E"
 
-var osmoDenomTrace = transfertypes.DenomTrace{
-	BaseDenom: "uosmo",
-	Path:      "transfer/channel-0",
-}
+var osmoDenom = transfertypes.NewDenom("uosmo", transfertypes.NewHop(transfertypes.PortID, "channel-0"))
 
 func TestGenesisTestSuite(t *testing.T) {
 	suite.Run(t, new(GenesisTestSuite))
@@ -92,9 +93,54 @@ func (suite *GenesisTestSuite) TestERC20InitGenesis() {
 				[]types.TokenPair{
 					{
 						Erc20Address:  osmoERC20ContractAddr,
-						Denom:         osmoDenomTrace.IBCDenom(),
+						Denom:         osmoDenom.IBCDenom(),
 						Enabled:       true,
 						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{},
+			),
+		},
+		{
+			name: "custom genesis with allowances and enabled token pair",
+			genesisState: types.NewGenesisState(
+				types.DefaultParams(),
+				[]types.TokenPair{
+					{
+						Erc20Address:  osmoERC20ContractAddr,
+						Denom:         osmoDenom.IBCDenom(),
+						Enabled:       true,
+						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{
+					{
+						Erc20Address: osmoERC20ContractAddr,
+						Owner:        utiltx.GenerateAddress().String(),
+						Spender:      utiltx.GenerateAddress().String(),
+						Value:        math.NewInt(100),
+					},
+				},
+			),
+		},
+		{
+			name: "custom genesis with allowances and disabled token pair",
+			genesisState: types.NewGenesisState(
+				types.DefaultParams(),
+				[]types.TokenPair{
+					{
+						Erc20Address:  osmoERC20ContractAddr,
+						Denom:         osmoDenom.IBCDenom(),
+						Enabled:       false,
+						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{
+					{
+						Erc20Address: osmoERC20ContractAddr,
+						Owner:        utiltx.GenerateAddress().String(),
+						Spender:      utiltx.GenerateAddress().String(),
+						Value:        math.NewInt(100),
 					},
 				},
 			),
@@ -118,6 +164,13 @@ func (suite *GenesisTestSuite) TestERC20InitGenesis() {
 		} else {
 			suite.Require().Len(tc.genesisState.TokenPairs, 0, tc.name)
 		}
+
+		allowances := nw.App.Erc20Keeper.GetAllowances(nw.GetContext())
+		if len(allowances) > 0 {
+			suite.Require().Equal(tc.genesisState.Allowances, allowances, tc.name)
+		} else {
+			suite.Require().Len(tc.genesisState.Allowances, 0, tc.name)
+		}
 	}
 }
 
@@ -135,15 +188,44 @@ func (suite *GenesisTestSuite) TestErc20ExportGenesis() {
 			genesisState: *types.DefaultGenesisState(),
 		},
 		{
-			name: "custom genesis",
+			name: "custom genesis with empty allowance",
 			genesisState: types.NewGenesisState(
 				types.DefaultParams(),
 				[]types.TokenPair{
 					{
 						Erc20Address:  osmoERC20ContractAddr,
-						Denom:         osmoDenomTrace.IBCDenom(),
+						Denom:         osmoDenom.IBCDenom(),
 						Enabled:       true,
 						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{},
+			),
+		},
+		{
+			name: "custom genesis with allowances",
+			genesisState: types.NewGenesisState(
+				types.DefaultParams(),
+				[]types.TokenPair{
+					{
+						Erc20Address:  osmoERC20ContractAddr,
+						Denom:         osmoDenom.IBCDenom(),
+						Enabled:       true,
+						ContractOwner: types.OWNER_MODULE,
+					},
+				},
+				[]types.Allowance{
+					{
+						Erc20Address: osmoERC20ContractAddr,
+						Owner:        utiltx.GenerateAddress().String(),
+						Spender:      utiltx.GenerateAddress().String(),
+						Value:        math.NewInt(100),
+					},
+					{
+						Erc20Address: osmoERC20ContractAddr,
+						Owner:        utiltx.GenerateAddress().String(),
+						Spender:      utiltx.GenerateAddress().String(),
+						Value:        math.NewInt(200),
 					},
 				},
 			),

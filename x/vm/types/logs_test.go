@@ -3,12 +3,11 @@ package types_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/types"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestTransactionLogsValidate(t *testing.T) {

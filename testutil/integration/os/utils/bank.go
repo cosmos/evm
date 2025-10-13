@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	cmnfactory "github.com/cosmos/evm/testutil/integration/common/factory"
 	cmnnet "github.com/cosmos/evm/testutil/integration/common/network"
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // FundAccountWithBaseDenom funds the given account with the given amount of the network's

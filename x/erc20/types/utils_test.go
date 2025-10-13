@@ -4,10 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/x/erc20/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSanitizeERC20Name(t *testing.T) {
@@ -28,9 +30,13 @@ func TestSanitizeERC20Name(t *testing.T) {
 		{"name contains '/'", "Ot/2letters", "Ot/2letters", true},
 		{"name contains '/'", "ibc/valid", "valid", true},
 		{"name contains '/'", "erc20/valid", "valid", true},
+		{"name contains ':'", "erc20:valid", "valid", true},
 		{"name contains '/'", "ibc/erc20/valid", "valid", true},
 		{"name contains '/'", "ibc/erc20/ibc/valid", "valid", true},
 		{"name contains '/'", "ibc/erc20/ibc/20invalid", "20invalid", false},
+		{"name contains '/, :'", "ibc/erc20:valid", "valid", true},
+		{"name contains '/, :'", "ibc/erc20:ibc/valid", "valid", true},
+		{"name contains '/, :'", "ibc/erc20:ibc/20invalid", "20invalid", false},
 		{"name contains '/'", "123/leadingslash", "leadingslash", true},
 		{"name contains '-'", "Dash-Coin", "Dash-Coin", true},
 		{"really long word", strings.Repeat("a", 150), strings.Repeat("a", 128), true},

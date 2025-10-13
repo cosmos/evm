@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsSupportedKeys(t *testing.T) {
@@ -144,7 +146,7 @@ func TestEvmosCoinDenom(t *testing.T) {
 		},
 		{
 			"valid denom - ethereum address (ERC-20 contract)",
-			"erc20/0x52908400098527886e0f7030069857D2E4169EE7",
+			"erc20:0x52908400098527886e0f7030069857D2E4169EE7",
 			false,
 		},
 		{

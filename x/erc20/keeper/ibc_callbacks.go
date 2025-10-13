@@ -3,18 +3,21 @@ package keeper
 import (
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/hashicorp/go-metrics"
+
+	"github.com/cosmos/evm/ibc"
+	"github.com/cosmos/evm/x/erc20/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v10/modules/core/exported"
+
 	errorsmod "cosmossdk.io/errors"
 	storetypes "cosmossdk.io/store/types"
+
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/evm/ibc"
-	"github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/hashicorp/go-metrics"
 )
 
 // OnRecvPacket performs the ICS20 middleware receive callback for automatically
@@ -78,11 +81,11 @@ func (k Keeper) OnRecvPacket(
 	}
 
 	// parse the transferred denom
-	coin := ibc.GetReceivedCoin(
-		packet.SourcePort, packet.SourceChannel,
-		packet.DestinationPort, packet.DestinationChannel,
-		data.Denom, data.Amount,
-	)
+	token := transfertypes.Token{
+		Denom:  transfertypes.ExtractDenomFromPath(data.Denom),
+		Amount: data.Amount,
+	}
+	coin := ibc.GetReceivedCoin(packet, token)
 
 	// If the coin denom starts with `factory/` then it is a token factory coin, and we should not convert it
 	// NOTE: Check https://docs.osmosis.zone/osmosis-core/modules/tokenfactory/ for more information

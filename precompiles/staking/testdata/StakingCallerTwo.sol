@@ -11,46 +11,36 @@ contract StakingCallerTwo {
     /// changed in the same function.
     uint256 public counter;
 
-    /// @dev This function calls the staking precompile's approve method.
-    /// @param _addr The address to approve.
-    /// @param _methods The methods to approve.
-    function testApprove(
-        address _addr,
-        string[] calldata _methods,
-        uint256 _amount
-    ) public {
-        bool success = staking.STAKING_CONTRACT.approve(
-            _addr,
-            _amount,
-            _methods
-        );
-        require(success, "Failed to approve staking methods");
-    }
+    /// The delegation mapping is used to associate the EOA address that 
+    /// actually made the delegate request with its corresponding delegation information. 
+    mapping(address => mapping(string => uint256)) public delegation;
 
     /// @dev This function showcased, that there was a bug in the EVM implementation, that occurred when
     /// Cosmos state is modified in the same transaction as state information inside
     /// the EVM.
-    /// @param _delegator Address of the delegator
     /// @param _validatorAddr Address of the validator to delegate to
-    /// @param _amount Amount to delegate
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testDelegateWithCounterAndTransfer(
-        address payable _delegator,
         string memory _validatorAddr,
-        uint256 _amount,
         bool _before,
         bool _after
-    ) public {
+    ) public payable {
         if (_before) {
             counter++;
-            (bool sent, ) = _delegator.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
-        staking.STAKING_CONTRACT.delegate(_delegator, _validatorAddr, _amount);
+        bool success = staking.STAKING_CONTRACT.delegate(
+            address(this), 
+            _validatorAddr, 
+            msg.value
+        );
+        require(success, "Failed to delegate");
+        delegation[msg.sender][_validatorAddr] += msg.value;
         if (_after) {
             counter++;
-            (bool sent, ) = _delegator.call{value: 15}("");
+            (bool sent, ) = msg.sender.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
     }
@@ -61,23 +51,23 @@ contract StakingCallerTwo {
     /// @param _dest Address to send some funds from the contract
     /// @param _delegator Address of the delegator
     /// @param _validatorAddr Address of the validator to delegate to
-    /// @param _amount Amount to delegate
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testDelegateWithTransfer(
         address payable _dest,
         address payable _delegator,
         string memory _validatorAddr,
-        uint256 _amount,
         bool _before,
         bool _after
-    ) public {
+    ) public payable{
         if (_before) {
             counter++;
             (bool sent, ) = _dest.call{value: 15}("");
             require(sent, "Failed to send Ether to delegator");
         }
-        staking.STAKING_CONTRACT.delegate(_delegator, _validatorAddr, _amount);
+        bool success = staking.STAKING_CONTRACT.delegate(address(this), _validatorAddr, msg.value);
+        require(success, "Failed to delegate");
+        delegation[_delegator][_validatorAddr] += msg.value;
         if (_after) {
             counter++;
             (bool sent, ) = _dest.call{value: 15}("");
@@ -92,7 +82,6 @@ contract StakingCallerTwo {
     /// @param _minSelfDel The validator's self declared minimum self delegation
     /// @param _validator The validator's operator address
     /// @param _pubkey The consensus public key of the validator
-    /// @param _value The amount of the coin to be self delegated to the validator
     /// @param _before Boolean to specify if funds should be transferred to delegator before the precompile call
     /// @param _after Boolean to specify if funds should be transferred to delegator after the precompile call
     function testCreateValidatorWithTransfer(
@@ -101,10 +90,9 @@ contract StakingCallerTwo {
         uint256 _minSelfDel,
         address _validator,
         string memory _pubkey,
-        uint256 _value,
         bool _before,
         bool _after
-    ) public {
+    ) public payable {
         if (_before) {
             counter++;
             (bool sent, ) = _validator.call{value: 15}("");
@@ -116,7 +104,7 @@ contract StakingCallerTwo {
             _minSelfDel,
             _validator,
             _pubkey,
-            _value
+            msg.value
         );
         require(success, "Failed to create the validator");
         if (_after) {

@@ -1,10 +1,13 @@
 package keeper
 
 import (
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // BeginBlock emits a base fee event which will be adjusted to the evm decimals

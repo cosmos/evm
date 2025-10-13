@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/types"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/evidence"
 	"github.com/cosmos/evm/precompiles/testutil"
+
+	"github.com/cosmos/cosmos-sdk/types"
 )
 
 func (s *PrecompileTestSuite) TestSubmitEvidence() {

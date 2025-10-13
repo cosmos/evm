@@ -4,18 +4,21 @@ import (
 	"math"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/stretchr/testify/suite"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 type KeeperTestSuite struct {
@@ -99,14 +102,19 @@ func (suite *KeeperTestSuite) SetupTest() {
 	}
 	// get the denom and decimals set on chain initialization
 	// because we'll need to set them again when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()       //nolint:staticcheck
-	decimals := evmtypes.GetEVMCoinDecimals() //nolint:staticcheck
+	denom := evmtypes.GetEVMCoinDenom()                 //nolint:staticcheck
+	extendedDenom := evmtypes.GetEVMCoinExtendedDenom() //nolint:staticcheck
+	decimals := evmtypes.GetEVMCoinDecimals()           //nolint:staticcheck
 
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
 	err := configurator.
 		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(denom, uint8(decimals)).
+		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
+			Denom:         denom,
+			ExtendedDenom: extendedDenom,
+			Decimals:      decimals,
+		}).
 		Configure()
 	suite.Require().NoError(err)
 }

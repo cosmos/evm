@@ -3,8 +3,9 @@ package types
 import (
 	"testing"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/stretchr/testify/require"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 )
 
 type caseAny struct {

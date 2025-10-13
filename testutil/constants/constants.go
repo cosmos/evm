@@ -3,7 +3,10 @@ package constants
 import (
 	"fmt"
 
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
 )
 
 const (
@@ -29,6 +32,10 @@ const (
 	WEVMOSContractMainnet = "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
 	// WEVMOSContractTestnet is the WEVMOS contract address for testnet
 	WEVMOSContractTestnet = "0xcc491f589b45d4a3c679016195b3fb87d7848210"
+	// ExampleEvmAddress1 is the example EVM address
+	ExampleEvmAddressAlice = "0x1e0DE5DB1a39F99cBc67B00fA3415181b3509e42"
+	// ExampleEvmAddress2 is the example EVM address
+	ExampleEvmAddressBob = "0x0AFc8e15F0A74E98d0AEC6C67389D2231384D4B2"
 )
 
 var (
@@ -41,6 +48,12 @@ var (
 	// SixDecimalsChainID provides a chain ID which is being set up with 6 decimals
 	SixDecimalsChainID = "ossix_9002-2"
 
+	// TwelveDecimalsChainID provides a chain ID which is being set up with 12 decimals
+	TwelveDecimalsChainID = "ostwelve_9003-3"
+
+	// TwoDecimalsChainID provides a chain ID which is being set up with 2 decimals
+	TwoDecimalsChainID = "ostwo_9004-4"
+
 	// ExampleChainCoinInfo provides the coin info for the example chain
 	//
 	// It is a map of the chain id and its corresponding EvmCoinInfo
@@ -48,14 +61,50 @@ var (
 	// chain id
 	ExampleChainCoinInfo = map[string]evmtypes.EvmCoinInfo{
 		ExampleChainID: {
-			Denom:        ExampleAttoDenom,
-			DisplayDenom: ExampleDisplayDenom,
-			Decimals:     evmtypes.EighteenDecimals,
+			Denom:         ExampleAttoDenom,
+			ExtendedDenom: ExampleAttoDenom,
+			DisplayDenom:  ExampleDisplayDenom,
+			Decimals:      evmtypes.EighteenDecimals,
 		},
 		SixDecimalsChainID: {
-			Denom:        ExampleMicroDenom,
-			DisplayDenom: ExampleDisplayDenom,
-			Decimals:     evmtypes.SixDecimals,
+			Denom:         "utest",
+			ExtendedDenom: "atest",
+			DisplayDenom:  "test",
+			Decimals:      evmtypes.SixDecimals,
+		},
+		TwelveDecimalsChainID: {
+			Denom:         "ptest2",
+			ExtendedDenom: "atest2",
+			DisplayDenom:  "test2",
+			Decimals:      evmtypes.TwelveDecimals,
+		},
+		TwoDecimalsChainID: {
+			Denom:         "ctest3",
+			ExtendedDenom: "atest3",
+			DisplayDenom:  "test3",
+			Decimals:      evmtypes.TwoDecimals,
+		},
+	}
+
+	// ExampleTokenPairs creates a slice of token pairs, that contains a pair for the native denom of the example chain
+	// implementation.
+	ExampleTokenPairs = []erc20types.TokenPair{
+		{
+			Erc20Address:  WEVMOSContractMainnet,
+			Denom:         ExampleAttoDenom,
+			Enabled:       true,
+			ContractOwner: erc20types.OWNER_MODULE,
+		},
+	}
+
+	// ExampleAllowances creates a slice of allowances, that contains an allowance for the native denom of the example chain
+	// implementation.
+	ExampleAllowances = []erc20types.Allowance{
+		{
+			Erc20Address: WEVMOSContractMainnet,
+			Owner:        ExampleEvmAddressAlice,
+			Spender:      ExampleEvmAddressBob,
+			Value:        math.NewInt(100),
 		},
 	}
 )
