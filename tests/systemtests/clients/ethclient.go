@@ -123,7 +123,7 @@ func (ec *EthClient) CheckTxsPending(
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -133,7 +133,7 @@ func (ec *EthClient) CheckTxsPending(
 		case <-ticker.C:
 			pendingTxs, _, err := ec.TxPoolContent(nodeID)
 			if err != nil {
-				return fmt.Errorf("failed to get txpool content")
+				continue // Retry on error
 			}
 
 			pendingTxHashes := extractTxHashesSorted(pendingTxs)

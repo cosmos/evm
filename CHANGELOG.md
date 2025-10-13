@@ -52,9 +52,12 @@
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 - [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
+- [\#691](https://github.com/cosmos/evm/pull/691) Add debug_traceCall api
 - [\#701](https://github.com/cosmos/evm/pull/701) Add address codec support to ERC20 IBC callbacks to handle hex addresses in addition to bech32 addresses.
 - [\#702](https://github.com/cosmos/evm/pull/702) Fix mempool e2e test
 - [\#704](https://github.com/cosmos/evm/pull/704) Fix EIP-7702 test cases
+- [\#706](https://github.com/cosmos/evm/pull/706) Fix EoA-CA Identification logic
+
 
 ### FEATURES
 

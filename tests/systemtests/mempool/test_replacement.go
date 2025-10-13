@@ -143,8 +143,6 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 			name: "single pending tx submitted to same nodes %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					s.AwaitNBlocks(t, 2)
-
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -162,8 +160,6 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 			name: "multiple pending txs submitted to same nodes %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					s.AwaitNBlocks(t, 2)
-
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -242,8 +238,6 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T) {
 			name: "single pending tx (low prio evm tx first) %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					s.AwaitNBlocks(t, 2)
-
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFee(), s.BaseFee())
 					require.NoError(t, err, "failed to send tx")
 

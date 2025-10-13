@@ -155,12 +155,11 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	}
 
 	contractAddr := common.HexToAddress(contractAddress)
-	contractAccount := k.evmKeeper.GetAccountOrEmpty(ctx, contractAddr)
 
 	// Check if the contract address contains code.
 	// This check is required because if there is no code, the call will still pass on the EVM side,
 	// but it will ignore the calldata and funds may get stuck.
-	if !contractAccount.IsContract() {
+	if !k.evmKeeper.IsContract(ctx, contractAddr) {
 		return errorsmod.Wrapf(types.ErrContractHasNoCode, "provided contract address is not a contract: %s", contractAddr)
 	}
 
@@ -309,12 +308,11 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 	}
 
 	contractAddr := common.HexToAddress(contractAddress)
-	contractAccount := k.evmKeeper.GetAccountOrEmpty(ctx, contractAddr)
 
 	// Check if the contract address contains code.
 	// This check is required because if there is no code, the call will still pass on the EVM side,
 	// but it will ignore the calldata and funds may get stuck.
-	if !contractAccount.IsContract() {
+	if !k.evmKeeper.IsContract(ctx, contractAddr) {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
@@ -410,12 +408,11 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 	}
 	sender := common.BytesToAddress(senderAccount.Bytes())
 	contractAddr := common.HexToAddress(contractAddress)
-	contractAccount := k.evmKeeper.GetAccountOrEmpty(ctx, contractAddr)
 
 	// Check if the contract address contains code.
 	// This check is required because if there is no code, the call will still pass on the EVM side,
 	// but it will ignore the calldata and funds may get stuck.
-	if !contractAccount.IsContract() {
+	if !k.evmKeeper.IsContract(ctx, contractAddr) {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 

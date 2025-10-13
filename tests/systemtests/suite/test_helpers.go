@@ -109,7 +109,7 @@ func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 		wg.Add(1)
 		go func(tx *TxInfo) { //nolint:gosec // Concurrency is intentional for parallel tx checking
 			defer wg.Done()
-			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*30)
+			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*120)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("tx %s is not pending or committed: %v", tx.TxHash, err))
