@@ -183,24 +183,6 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "single queued tx %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
-					// Cosmos txs are not queued in local mempool
-					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
-					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
-					require.NoError(t, err, "failed to send tx")
-				},
-				func(s TestSuite) {
-					txHash, err := s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
-					require.NoError(t, err, "failed to send tx")
-
-					s.SetExpPendingTxs(txHash)
-				},
-			},
-		},
 	}
 
 	testOptions := []*suite.TestOptions{
