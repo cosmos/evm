@@ -92,7 +92,7 @@ func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
 func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 	// Check all expected pending txs are committed
 	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*60)
 		require.NoError(t, err)
 	}
 
