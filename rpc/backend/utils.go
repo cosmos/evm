@@ -213,19 +213,15 @@ func (b *Backend) ProcessBlock(
 		targetOneFeeHistory.NextBlobBaseFee = eip4844.CalcBlobFee(cfg, nextHeader)
 
 		maxBlobGas := eip4844.MaxBlobGasPerBlock(cfg, header.Time)
-		if maxBlobGas > 0 {
-			targetOneFeeHistory.BlobGasUsedRatio = float64(blobGasUsed) / float64(maxBlobGas)
-		}
+		targetOneFeeHistory.BlobGasUsedRatio = safeRatio(blobGasUsed, maxBlobGas)
 	}
-	gasusedfloat, _ := new(big.Float).SetInt(gasUsedInt).Float64()
-
 	if gasLimitUint64 <= 0 {
 		return fmt.Errorf("gasLimit of block height %d should be bigger than 0 , current gaslimit %d", blockHeight, gasLimitUint64)
 	}
 
-	gasUsedRatio := gasusedfloat / float64(gasLimitUint64)
-	blockGasUsed := gasusedfloat
-	targetOneFeeHistory.GasUsedRatio = gasUsedRatio
+	gasUsedUint64 := gasUsedInt.Uint64()
+	targetOneFeeHistory.GasUsedRatio = safeRatio(gasUsedUint64, uint64(gasLimitUint64))
+	blockGasUsed := float64(gasUsedUint64)
 
 	rewardCount := len(rewardPercentiles)
 	targetOneFeeHistory.Reward = make([]*big.Int, rewardCount)
@@ -288,6 +284,18 @@ func (b *Backend) ProcessBlock(
 	}
 
 	return nil
+}
+
+func safeRatio(num, denom uint64) float64 {
+	if denom == 0 || num == 0 {
+		return 0
+	}
+	rat := new(big.Rat).SetFrac(
+		new(big.Int).SetUint64(num),
+		new(big.Int).SetUint64(denom),
+	)
+	value, _ := rat.Float64()
+	return value
 }
 
 // ShouldIgnoreGasUsed returns true if the gasUsed in result should be ignored
