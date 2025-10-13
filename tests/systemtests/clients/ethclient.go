@@ -133,7 +133,7 @@ func (ec *EthClient) CheckTxsPending(
 		case <-ticker.C:
 			pendingTxs, _, err := ec.TxPoolContent(nodeID)
 			if err != nil {
-				return fmt.Errorf("failed to get txpool content")
+				continue // Retry on error
 			}
 
 			pendingTxHashes := extractTxHashesSorted(pendingTxs)

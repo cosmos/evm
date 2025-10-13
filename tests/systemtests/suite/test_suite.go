@@ -52,14 +52,14 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 
 	s.ResetChain(t)
 	s.StartChain(t, nodeStartArgs...)
-	s.AwaitNBlocks(t, 5)
+	s.AwaitNBlocks(t, 2)
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
 func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {
 	// Reset expected pending/queued transactions
-	s.SetExpPendingTxs()
-	s.SetExpQueuedTxs()
+	s.expPendingTxs = []*TxInfo{}
+	s.expQueuedTxs = []*TxInfo{}
 
 	// Get current base fee
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
