@@ -146,7 +146,7 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
 		logger.Error("app options is nil, using default cosmos pool max tx of -1 (no-op)")
-		return -1
+		return 0
 	}
 
 	return cast.ToInt(appOpts.Get(sdkserver.FlagMempoolMaxTxs))
