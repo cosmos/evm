@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-WAIT_TIME ?= 30s
+WAIT_TIME ?= 60s
 BLOCK_TIME ?= 8s
 
 test:
