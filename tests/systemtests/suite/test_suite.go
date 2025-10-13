@@ -52,7 +52,7 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 
 	s.ResetChain(t)
 	s.StartChain(t, nodeStartArgs...)
-	s.AwaitNBlocks(t, 2)
+	s.AwaitNBlocks(t, 10)
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
