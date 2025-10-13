@@ -1,12 +1,12 @@
 #!/usr/bin/make -f
 
 WAIT_TIME ?= 30s
-BLOCK_TIME ?= 5s
+BLOCK_TIME ?= 10s
 
 test:
-	go test -mod=readonly -failfast -timeout=5m -p=1 -parallel 1 -tags='system_test' -run TestTxsOrdering ./... --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --verbose --binary evmd --chain-id local-4221
-	go test -mod=readonly -failfast -timeout=15m -p=1 -parallel 1 -tags='system_test' -run TestTxsReplacement ./... --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --verbose --binary evmd --chain-id local-4221
-	go test -mod=readonly -failfast -timeout=5m -p=1 -parallel 1 -tags='system_test' -run TestExceptions ./... --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --verbose --binary evmd --chain-id local-4221
-	go test -mod=readonly -failfast -timeout=5m -p=1 -tags='system_test' -run TestEIP7702 ./... --wait-time=$(WAIT_TIME) --verbose --binary evmd --chain-id local-4221
-	go test -mod=readonly -failfast -timeout=5m -p=1 -tags='system_test' -run TestEIP712 ./... --wait-time=$(WAIT_TIME) --verbose --binary evmd --chain-id local-4221
-	go test -mod=readonly -failfast -timeout=5m -p=1 -tags='system_test' -run 'TestUpgrade|TestEth' ./... --wait-time=$(WAIT_TIME) --verbose --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestTxsOrdering --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestTxsReplacement --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestExceptions --wait-time=$(WAIT_TIME) --block-time=$(BLOCK_TIME) --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestEIP7702 --wait-time=$(WAIT_TIME) --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run TestEIP712 --wait-time=$(WAIT_TIME) --binary evmd --chain-id local-4221
+	go test -failfast -timeout=30m -p=1 -mod=readonly -tags='system_test' -v ./... -run 'TestUpgrade|TestEth' --wait-time=$(WAIT_TIME) --binary evmd --chain-id local-4221
