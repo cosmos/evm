@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -143,7 +144,6 @@ func (b *Backend) ProcessBlock(
 		targetOneFeeHistory.BaseFee = blockBaseFee
 	}
 	cfg := b.ChainConfig()
-	// set gas used ratio
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
 		return fmt.Errorf("invalid gas limit type: %T", (*ethBlock)["gasLimit"])
@@ -153,18 +153,29 @@ func (b *Backend) ProcessBlock(
 	if !ok {
 		return fmt.Errorf("invalid gas used type: %T", (*ethBlock)["gasUsed"])
 	}
+	gasUsedInt := gasUsedBig.ToInt()
+
+	timestampHex, ok := (*ethBlock)["timestamp"].(hexutil.Uint64)
+	if !ok {
+		return fmt.Errorf("invalid timestamp type: %T", (*ethBlock)["timestamp"])
+	}
+
+	header := ethtypes.Header{
+		Number:   new(big.Int).SetInt64(blockHeight),
+		GasLimit: uint64(gasLimitUint64),
+		GasUsed:  gasUsedInt.Uint64(),
+		Time:     uint64(timestampHex),
+	}
+	if baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big); ok && baseFee != nil {
+		header.BaseFee = baseFee.ToInt()
+	} else {
+		header.BaseFee = big.NewInt(0)
+	}
+	targetOneFeeHistory.BlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.NextBlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		var header ethtypes.Header
-		header.Number = new(big.Int).SetInt64(blockHeight)
-		baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big)
-		if !ok || baseFee == nil {
-			header.BaseFee = big.NewInt(0)
-		} else {
-			header.BaseFee = baseFee.ToInt()
-		}
-		header.GasLimit = uint64(gasLimitUint64)
-		header.GasUsed = gasUsedBig.ToInt().Uint64()
 		ctx := types.ContextWithHeight(blockHeight)
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
@@ -178,7 +189,35 @@ func (b *Backend) ProcessBlock(
 	} else {
 		targetOneFeeHistory.NextBaseFee = new(big.Int)
 	}
-	gasusedfloat, _ := new(big.Float).SetInt(gasUsedBig.ToInt()).Float64()
+	if cfg.IsCancun(header.Number, header.Time) {
+		blobGasUsed := uint64(0)
+		if val, ok := (*ethBlock)["blobGasUsed"].(hexutil.Uint64); ok {
+			blobGasUsed = uint64(val)
+		}
+		excessBlobGas := uint64(0)
+		if val, ok := (*ethBlock)["excessBlobGas"].(hexutil.Uint64); ok {
+			excessBlobGas = uint64(val)
+		}
+		header.BlobGasUsed = new(uint64)
+		*header.BlobGasUsed = blobGasUsed
+		header.ExcessBlobGas = new(uint64)
+		*header.ExcessBlobGas = excessBlobGas
+
+		targetOneFeeHistory.BlobBaseFee = eip4844.CalcBlobFee(cfg, &header)
+		nextExcess := eip4844.CalcExcessBlobGas(cfg, &header, header.Time)
+		nextHeader := &ethtypes.Header{
+			Number:        header.Number,
+			Time:          header.Time,
+			ExcessBlobGas: &nextExcess,
+		}
+		targetOneFeeHistory.NextBlobBaseFee = eip4844.CalcBlobFee(cfg, nextHeader)
+
+		maxBlobGas := eip4844.MaxBlobGasPerBlock(cfg, header.Time)
+		if maxBlobGas > 0 {
+			targetOneFeeHistory.BlobGasUsedRatio = float64(blobGasUsed) / float64(maxBlobGas)
+		}
+	}
+	gasusedfloat, _ := new(big.Float).SetInt(gasUsedInt).Float64()
 
 	if gasLimitUint64 <= 0 {
 		return fmt.Errorf("gasLimit of block height %d should be bigger than 0 , current gaslimit %d", blockHeight, gasLimitUint64)
