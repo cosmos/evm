@@ -14,6 +14,6 @@ func TestSlashingPrecompileTestSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func TestStakingPrecompileIntegrationTestSuite(t *testing.T) {
+func TestSlashingPrecompileIntegrationTestSuite(t *testing.T) {
 	slashing.TestPrecompileIntegrationTestSuite(t, integration.CreateEvmd)
 }
