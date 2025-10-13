@@ -233,7 +233,8 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 					CodeHash: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 				})
 				s.Require().NoError(err)
-				s.Require().True(s.network.App.GetEVMKeeper().IsContract(ctx, collidedAddr))
+				acct := s.network.App.GetEVMKeeper().GetAccount(ctx, collidedAddr)
+				s.Require().True(acct.HasCodeHash())
 			},
 			ackSuccess:    false,
 			receiver:      secpAddr,

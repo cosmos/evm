@@ -3,7 +3,9 @@ package debug
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -14,6 +16,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	stderrors "github.com/pkg/errors"
 
@@ -100,6 +103,71 @@ func (a *API) TraceBlockByHash(hash common.Hash, config *rpctypes.TraceConfig) (
 	}
 
 	return a.backend.TraceBlock(rpctypes.BlockNumber(resBlock.Block.Height), config, resBlock)
+}
+
+// TraceBlock returns the structured logs created during the execution of
+// EVM and returns them as a JSON object. It accepts an RLP-encoded block.
+func (a *API) TraceBlock(tblockRlp hexutil.Bytes, config *rpctypes.TraceConfig) ([]*evmtypes.TxTraceResult, error) {
+	a.logger.Debug("debug_traceBlock", "size", len(tblockRlp))
+	// Decode RLP-encoded block
+	var block types.Block
+	if err := rlp.DecodeBytes(tblockRlp, &block); err != nil {
+		a.logger.Debug("failed to decode block", "error", err.Error())
+		return nil, fmt.Errorf("could not decode block: %w", err)
+	}
+
+	// Get block number from the decoded block
+	blockNum := block.NumberU64()
+	if blockNum > math.MaxInt64 {
+		return nil, fmt.Errorf("block number overflow: %d exceeds max int64", blockNum)
+	}
+	blockNumber := rpctypes.BlockNumber(blockNum) //#nosec G115 -- overflow checked above
+	a.logger.Debug("decoded block", "number", blockNumber, "hash", block.Hash().Hex())
+
+	// Get CometBFT block by number (not hash, as Ethereum block hash may differ from CometBFT hash)
+	resBlock, err := a.backend.CometBlockByNumber(blockNumber)
+	if err != nil {
+		a.logger.Debug("get block failed", "number", blockNumber, "error", err.Error())
+		return nil, err
+	}
+
+	if resBlock == nil || resBlock.Block == nil {
+		a.logger.Debug("block not found", "number", blockNumber)
+		return nil, errors.New("block not found")
+	}
+
+	return a.backend.TraceBlock(blockNumber, config, resBlock)
+}
+
+// TraceCall lets you trace a given eth_call. It collects the structured logs
+// created during the execution of EVM if the given transaction was added on
+// top of the provided block and returns them as a JSON object.
+func (a *API) TraceCall(args evmtypes.TransactionArgs, blockNrOrHash rpctypes.BlockNumberOrHash, config *rpctypes.TraceConfig) (interface{}, error) {
+	a.logger.Debug("debug_traceCall", "args", args, "block number or hash", blockNrOrHash)
+	return a.backend.TraceCall(args, blockNrOrHash, config)
+}
+
+// GetRawBlock retrieves the RLP-encoded block by block number or hash.
+func (a *API) GetRawBlock(blockNrOrHash rpctypes.BlockNumberOrHash) (hexutil.Bytes, error) {
+	a.logger.Debug("debug_getRawBlock", "block number or hash", blockNrOrHash)
+
+	// Get block number from blockNrOrHash
+	blockNum, err := a.backend.BlockNumberFromComet(blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get Ethereum block by number
+	block, err := a.backend.EthBlockByNumber(blockNum)
+	if err != nil {
+		return nil, err
+	}
+	if block == nil {
+		return nil, fmt.Errorf("block not found")
+	}
+
+	// Encode block to RLP
+	return rlp.EncodeToBytes(block)
 }
 
 // BlockProfile turns on goroutine profiling for nsec seconds and writes profile data to

@@ -145,6 +145,9 @@ func MakeHeader(
 		header.BlobGasUsed = new(uint64)
 		header.ParentBeaconRoot = new(common.Hash)
 	}
+	if evmtypes.GetEthChainConfig().IsPrague(header.Number, header.Time) {
+		header.RequestsHash = &ethtypes.EmptyRequestsHash
+	}
 	return header
 }
 

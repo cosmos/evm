@@ -5,9 +5,11 @@ const (
 	TxTypeCosmos = "CosmosTx"
 
 	NodeArgsChainID                    = "--chain-id=local-4221"
+	NodeArgsEVMChainID                 = "--evm.evm-chain-id=4221"
 	NodeArgsApiEnable                  = "--api.enable=true"
 	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
+	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
 )
 
 // TestOptions defines the options for a test case.
@@ -38,12 +40,23 @@ func DefaultNodeArgs() []string {
 	return []string{
 		NodeArgsJsonrpcApi,
 		NodeArgsChainID,
+		NodeArgsEVMChainID,
 		NodeArgsApiEnable,
 		NodeArgsJsonrpcAllowUnprotectedTxs,
+		NodeArgsMinimumGasPrice,
 	}
 }
 
 // MinimumGasPriceZeroArgs returns the node arguments with minimum gas price set to zero.
 func MinimumGasPriceZeroArgs() []string {
-	return append(DefaultNodeArgs(), "--minimum-gas-prices=0stake")
+	defaultArgs := DefaultNodeArgs()
+	// Remove the default minimum gas price argument
+	var args []string
+	for _, arg := range defaultArgs {
+		if arg != NodeArgsMinimumGasPrice {
+			args = append(args, arg)
+		}
+	}
+	// Add the zero minimum gas price argument
+	return append(DefaultNodeArgs(), "--minimum-gas-prices=0atest")
 }
