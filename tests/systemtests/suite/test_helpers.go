@@ -18,6 +18,10 @@ func (s *SystemTestSuite) BaseFeeX2() *big.Int {
 	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
 }
 
+func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
+	return new(big.Int).Mul(baseFee, big.NewInt(10))
+}
+
 // GetExpPendingTxs returns the expected pending transactions
 func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {
 	return s.expPendingTxs
