@@ -1,6 +1,7 @@
 package suite
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"slices"
@@ -244,18 +245,33 @@ func (s *SystemTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
 		go func(i int, nID string) { //nolint:gosec // intentional concurrency for parallel checks
 			defer wg.Done()
 
-			pending, queued, err := s.TxPoolContent(nID, TxTypeEVM, defaultTxPoolContentTimeout)
-			if err != nil {
-				mu.Lock()
-				errors = append(errors, fmt.Errorf("failed to call txpool_content api on %s: %w", nID, err))
-				mu.Unlock()
-				return
-			}
+			ctx, cancel := context.WithTimeout(context.Background(), defaultTxPoolContentTimeout)
+			defer cancel()
 
-			contents[i] = nodeContent{
-				nodeID:        nID,
-				pendingHashes: pending,
-				queuedHashes:  queued,
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+
+			var lastErr error
+			for {
+				pending, queued, err := s.TxPoolContent(nID, TxTypeEVM, defaultTxPoolContentTimeout)
+				if err == nil {
+					contents[i] = nodeContent{
+						nodeID:        nID,
+						pendingHashes: pending,
+						queuedHashes:  queued,
+					}
+					return
+				}
+				lastErr = err
+
+				select {
+				case <-ctx.Done():
+					mu.Lock()
+					errors = append(errors, fmt.Errorf("failed to call txpool_content api on %s: %w", nID, lastErr))
+					mu.Unlock()
+					return
+				case <-ticker.C:
+				}
 			}
 		}(idx, nodeID)
 	}
