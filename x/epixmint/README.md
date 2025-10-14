@@ -121,6 +121,56 @@ epixd query epixmint max-supply
 epixd query epixmint params
 ```
 
+### Supply by Denomination
+```bash
+# Query supply in aepix (base denomination with 18 decimals)
+epixd query epixmint supply-of aepix
+
+# Query supply in epix (display denomination, returns integer EPIX units)
+# Note: Fractional EPIX amounts are truncated (e.g., 1.7 EPIX returns 1)
+epixd query epixmint supply-of epix
+```
+
+## REST API Endpoints
+
+The EpixMint module exposes the following REST API endpoints:
+
+- `GET /epix/mint/v1beta1/params` - Query module parameters
+- `GET /epix/mint/v1beta1/inflation` - Query current inflation rate
+- `GET /epix/mint/v1beta1/annual_provisions` - Query annual provisions
+- `GET /epix/mint/v1beta1/current_supply` - Query current supply (mint denomination)
+- `GET /epix/mint/v1beta1/max_supply` - Query maximum supply
+- `GET /epix/mint/v1beta1/supply/{denom}` - Query supply of specific denomination
+
+### Examples
+
+```bash
+# Query supply in aepix (base denomination)
+curl http://localhost:1317/epix/mint/v1beta1/supply/aepix
+
+# Query supply in epix (display denomination, returns integer EPIX units)
+curl http://localhost:1317/epix/mint/v1beta1/supply/epix
+```
+
+## Simple Supply API
+
+For trackers that require simple parameter-based queries, EpixChain provides a simplified API endpoint:
+
+```bash
+# Get total coins (circulating supply) - returns plain text number
+curl http://localhost:1317/api.dws?q=totalcoins
+
+# Get circulating supply (same as totalcoins)
+curl http://localhost:1317/api.dws?q=circulatingsupply
+
+# Get maximum supply
+curl http://localhost:1317/api.dws?q=maxsupply
+```
+
+All responses are returned as plain text numbers in EPIX units (not aEPIX).
+
+**Note**: When querying for `epix`, the response returns the supply as an integer number of EPIX tokens. Fractional amounts are truncated following Cosmos SDK conventions.
+
 ## CLI Commands
 
 ### Update Parameters (Governance)

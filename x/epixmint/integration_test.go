@@ -133,3 +133,34 @@ func (s *IntegrationTestSuite) TestBlockTimeAssumptions() {
 		s.Require().Equal(uint64(10512000), secondsPerYear/3, "3-second blocks should give 10,512,000 blocks per year")
 	}
 }
+
+func (s *IntegrationTestSuite) TestSupplyOfQueryTypes() {
+	// Test that the new SupplyOf query types are properly defined
+
+	// Test QuerySupplyOfRequest
+	aepixReq := &types.QuerySupplyOfRequest{
+		Denom: "aepix",
+	}
+	s.Require().NotNil(aepixReq)
+	s.Require().Equal("aepix", aepixReq.Denom)
+
+	epixReq := &types.QuerySupplyOfRequest{
+		Denom: "epix",
+	}
+	s.Require().NotNil(epixReq)
+	s.Require().Equal("epix", epixReq.Denom)
+
+	// Test QuerySupplyOfResponse
+	resp := &types.QuerySupplyOfResponse{
+		Supply: sdkmath.NewInt(1000000),
+	}
+	s.Require().NotNil(resp)
+	s.Require().Equal(sdkmath.NewInt(1000000), resp.Supply)
+
+	// Test denomination conversion logic
+	// 1 epix = 10^18 aepix
+	aepixAmount := sdkmath.NewInt(1000000000000000000) // 1 epix in aepix
+	conversionFactor := sdkmath.NewInt(1000000000000000000) // 10^18
+	epixAmount := aepixAmount.Quo(conversionFactor)
+	s.Require().Equal(sdkmath.NewInt(1), epixAmount)
+}

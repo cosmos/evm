@@ -91,9 +91,17 @@ func GetMaccPerms() map[string][]string {
 type EVMAppConfig struct {
 	serverconfig.Config
 
-	EVM     cosmosevmserverconfig.EVMConfig
-	JSONRPC cosmosevmserverconfig.JSONRPCConfig
-	TLS     cosmosevmserverconfig.TLSConfig
+	EVM        cosmosevmserverconfig.EVMConfig
+	JSONRPC    cosmosevmserverconfig.JSONRPCConfig
+	TLS        cosmosevmserverconfig.TLSConfig
+	TopHolders TopHoldersConfig
+}
+
+// TopHoldersConfig defines the configuration for the TopHolders module
+type TopHoldersConfig struct {
+	// Enable defines if the TopHolders module should be enabled.
+	// Default: false (disabled by default for backward compatibility)
+	Enable bool `mapstructure:"enable"`
 }
 
 // InitAppConfig helps to override default appConfig template and configs.
@@ -124,9 +132,25 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
+		TopHolders: TopHoldersConfig{
+			Enable: false, // Disabled by default for backward compatibility
+		},
 	}
 
 	return EVMAppTemplate, customAppConfig
 }
 
-const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
+const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate + TopHoldersConfigTemplate
+
+const TopHoldersConfigTemplate = `
+###############################################################################
+###                         TopHolders Configuration                       ###
+###############################################################################
+
+[topholders]
+
+# Enable defines if the TopHolders module should be enabled.
+# When enabled, provides REST API endpoints for querying top token holders.
+# Default: false (disabled by default for backward compatibility)
+enable = {{ .TopHolders.Enable }}
+`
