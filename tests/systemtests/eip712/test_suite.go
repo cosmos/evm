@@ -144,6 +144,7 @@ func DefaultNodeArgs() []string {
 	apiEnable := "--api.enable=true"
 	jsonrpcApi := "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	jsonrpcAllowUnprotectedTxs := "--json-rpc.allow-unprotected-txs=true"
+	maxTxs := "--mempool.max-txs=0"
 
-	return []string{jsonrpcApi, chainID, evmChainID, apiEnable, jsonrpcAllowUnprotectedTxs}
+	return []string{jsonrpcApi, chainID, evmChainID, apiEnable, jsonrpcAllowUnprotectedTxs, maxTxs}
 }
