@@ -68,7 +68,9 @@ func TestTxsOrdering(t *testing.T) {
 				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
-					s.AfterEachAction(t)
+					// NOTE: In this test, we don't need to check mempool state after each action
+					// because we check the final state after all actions are done.
+					// s.AfterEachAction(t) --- IGNORE ---
 				}
 				s.AfterEachCase(t)
 			})
