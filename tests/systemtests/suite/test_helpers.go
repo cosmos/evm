@@ -30,8 +30,10 @@ func (s *SystemTestSuite) SetBaseFee(fee *big.Int) {
 	s.baseFee = new(big.Int).Set(fee)
 }
 
+const defaultGasPriceMultiplier = 10
+
 func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
-	return new(big.Int).Mul(baseFee, big.NewInt(10))
+	return new(big.Int).Mul(baseFee, big.NewInt(defaultGasPriceMultiplier))
 }
 
 // Account returns the shared test account matching the identifier.
