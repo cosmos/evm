@@ -33,60 +33,55 @@ func getSharedSuite(t *testing.T) *suites.SystemTestSuite {
 	return sharedSuite
 }
 
-func acquireSuite(t *testing.T) *suites.SystemTestSuite {
+func TestDefaultNodeArgs(t *testing.T) {
 	s := getSharedSuite(t)
-	s.LockChain()
-	t.Cleanup(func() {
-		s.UnlockChain()
+
+	t.Run("Mempool/TxsOrdering", func(t *testing.T) {
+		mempool.RunTxsOrdering(t, mempool.NewSuite(s))
 	})
-	return s
-}
 
-// Mempool Tests
-func TestTxsOrdering(t *testing.T) {
-	ms := mempool.NewSuite(acquireSuite(t))
-	mempool.RunTxsOrdering(t, ms)
-}
+	t.Run("Mempool/TxsReplacement", func(t *testing.T) {
+		mempool.RunTxsReplacement(t, mempool.NewSuite(s))
+	})
 
-func TestTxsReplacement(t *testing.T) {
-	ms := mempool.NewSuite(acquireSuite(t))
-	mempool.RunTxsReplacement(t, ms)
-	mempool.RunTxsReplacementWithCosmosTx(t, ms)
-	mempool.RunMixedTxsReplacementLegacyAndDynamicFee(t, ms)
-}
+	t.Run("Mempool/TxsReplacementWithCosmosTx", func(t *testing.T) {
+		mempool.RunTxsReplacementWithCosmosTx(t, mempool.NewSuite(s))
+	})
 
-func TestExceptions(t *testing.T) {
-	ms := mempool.NewSuite(acquireSuite(t))
-	mempool.RunTxRebroadcasting(t, ms)
+	t.Run("Mempool/MixedTxsReplacement", func(t *testing.T) {
+		mempool.RunMixedTxsReplacementLegacyAndDynamicFee(t, mempool.NewSuite(s))
+	})
+
+	t.Run("Mempool/TxRebroadcasting", func(t *testing.T) {
+		mempool.RunTxRebroadcasting(t, mempool.NewSuite(s))
+	})
+
+	t.Run("EIP712/BankSend", func(t *testing.T) {
+		eip712.RunEIP712BankSend(t, eip712.NewSystemTestSuite(s))
+	})
+
+	t.Run("EIP712/BankSendWithBalanceCheck", func(t *testing.T) {
+		eip712.RunEIP712BankSendWithBalanceCheck(t, eip712.NewSystemTestSuite(s))
+	})
+
+	t.Run("EIP712/MultipleBankSends", func(t *testing.T) {
+		eip712.RunEIP712MultipleBankSends(t, eip712.NewSystemTestSuite(s))
+	})
+
+	t.Run("AccountAbstraction/EIP7702", func(t *testing.T) {
+		accountabstraction.RunEIP7702(t, s)
+	})
 }
 
 func TestMinimumGasPricesZero(t *testing.T) {
-	ms := mempool.NewSuite(acquireSuite(t))
-	mempool.RunMinimumGasPricesZero(t, ms)
-}
-
-// Account Abstraction Tests
-func TestEIP7702(t *testing.T) {
-	accountabstraction.RunEIP7702(t, acquireSuite(t))
-}
-
-// EIP-712 Tests
-func TestEIP712BankSend(t *testing.T) {
-	sut := eip712.NewSystemTestSuite(acquireSuite(t))
-	eip712.RunEIP712BankSend(t, sut)
-}
-
-func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
-	sut := eip712.NewSystemTestSuite(acquireSuite(t))
-	eip712.RunEIP712BankSendWithBalanceCheck(t, sut)
-}
-
-func TestEIP712MultipleBankSends(t *testing.T) {
-	sut := eip712.NewSystemTestSuite(acquireSuite(t))
-	eip712.RunEIP712MultipleBankSends(t, sut)
+	s := getSharedSuite(t)
+	mempool.RunMinimumGasPricesZero(t, mempool.NewSuite(s))
 }
 
 func TestUpgrade(t *testing.T) {
-	s := acquireSuite(t)
+	s := getSharedSuite(t)
+	s.LockChain()
+	defer s.UnlockChain()
+
 	chainupgrade.RunChainUpgrade(t, s)
 }
