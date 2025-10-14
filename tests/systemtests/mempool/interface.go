@@ -25,7 +25,7 @@ type TestSuite interface {
 	BaseFee() *big.Int
 	BaseFeeX2() *big.Int
 	WaitForCommit(nodeID string, txHash string, txType string, timeout time.Duration) error
-	TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error)
+	TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error)
 
 	// Config
 	GetOptions() *suite.TestOptions

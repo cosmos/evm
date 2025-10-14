@@ -233,7 +233,7 @@ func (s *SystemTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
 		go func(i int, nID string) { //nolint:gosec // intentional concurrency for parallel checks
 			defer wg.Done()
 
-			pending, queued, err := s.TxPoolContent(nID, TxTypeEVM)
+			pending, queued, err := s.TxPoolContent(nID, TxTypeEVM, defaultTxPoolContentTimeout)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("failed to call txpool_content api on %s: %w", nID, err))

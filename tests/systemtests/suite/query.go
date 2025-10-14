@@ -1,6 +1,7 @@
 package suite
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"math/big"
@@ -118,21 +119,30 @@ func (s *SystemTestSuite) CheckTxPending(
 	}
 }
 
+const defaultTxPoolContentTimeout = 120 * time.Second
+
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
+func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
+	if timeout <= 0 {
+		timeout = defaultTxPoolContentTimeout
+	}
+
 	switch txType {
 	case TxTypeEVM:
-		return s.ethTxPoolContent(nodeID)
+		return s.ethTxPoolContent(nodeID, timeout)
 	case TxTypeCosmos:
-		return s.cosmosTxPoolContent(nodeID)
+		return s.cosmosTxPoolContent(nodeID, timeout)
 	default:
 		return nil, nil, fmt.Errorf("invalid tx type")
 	}
 }
 
 // ethTxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
-	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(nodeID)
+func (s *SystemTestSuite) ethTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(ctx, nodeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get txpool content from eth client: %v", err)
 	}
@@ -141,8 +151,11 @@ func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queu
 }
 
 // cosmosTxPoolContent returns the pending tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
-	result, err := s.CosmosClient.UnconfirmedTxs(nodeID)
+func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	result, err := s.CosmosClient.UnconfirmedTxs(ctx, nodeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
 	}

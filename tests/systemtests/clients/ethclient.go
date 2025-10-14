@@ -129,7 +129,7 @@ func (ec *EthClient) CheckTxsPending(
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for transaction %s", txHash)
 		case <-ticker.C:
-			pendingTxs, _, err := ec.TxPoolContent(nodeID)
+			pendingTxs, _, err := ec.TxPoolContent(ctx, nodeID)
 			if err != nil {
 				fmt.Printf("DEBUG: failed to get txpool content: %v", err)
 				continue // Retry on error
@@ -145,11 +145,11 @@ func (ec *EthClient) CheckTxsPending(
 }
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*EthRPCTransaction, map[string]map[string]*EthRPCTransaction, error) {
+func (ec *EthClient) TxPoolContent(ctx context.Context, nodeID string) (map[string]map[string]*EthRPCTransaction, map[string]map[string]*EthRPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
 	var result TxPoolResult
-	err := ethCli.Client().Call(&result, "txpool_content")
+	err := ethCli.Client().CallContext(ctx, &result, "txpool_content")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call txpool_content eth api: %v", err)
 	}

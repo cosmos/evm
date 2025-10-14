@@ -160,7 +160,7 @@ func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 
 	// Check all evm pending txs are cleared in mempool
 	for i := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
+		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeEVM, defaultTxPoolContentTimeout)
 		require.NoError(t, err)
 
 		require.Len(t, pending, 0, "pending txs are not cleared in mempool")
@@ -168,7 +168,7 @@ func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 
 	// Check all cosmos pending txs are cleared in mempool
 	for i := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeCosmos)
+		pending, _, err := s.TxPoolContent(s.Node(i), TxTypeCosmos, defaultTxPoolContentTimeout)
 		require.NoError(t, err)
 
 		require.Len(t, pending, 0, "pending txs are not cleared in mempool")

@@ -170,7 +170,7 @@ func (c *CosmosClient) CheckTxsPending(
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for transaction %s", txHash)
 		case <-ticker.C:
-			result, err := c.UnconfirmedTxs(nodeID)
+			result, err := c.UnconfirmedTxs(ctx, nodeID)
 			if err != nil {
 				return fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
 			}
@@ -188,8 +188,8 @@ func (c *CosmosClient) CheckTxsPending(
 }
 
 // UnconfirmedTxs retrieves the list of unconfirmed transactions from the node's mempool.
-func (c *CosmosClient) UnconfirmedTxs(nodeID string) (*coretypes.ResultUnconfirmedTxs, error) {
-	return c.RpcClients[nodeID].UnconfirmedTxs(context.Background(), nil)
+func (c *CosmosClient) UnconfirmedTxs(ctx context.Context, nodeID string) (*coretypes.ResultUnconfirmedTxs, error) {
+	return c.RpcClients[nodeID].UnconfirmedTxs(ctx, nil)
 }
 
 // GetBalance retrieves the balance of a given address for a specific denomination.
