@@ -74,20 +74,20 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 			authChainID   func() uint64
 			authNonce     func() uint64
 			authAddress   func() common.Address
-			authSigner    string
-			txSender      string
+			authSigner    func() string
+			txSender      func() string
 			expDelegation bool
 		}
 
 		DescribeTable("SetCode authorization scenarios", func(tc testCase) {
 			authorization := createSetCodeAuthorization(tc.authChainID(), tc.authNonce(), tc.authAddress())
-			signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(tc.authSigner), authorization)
+			signedAuthorization, err := signSetCodeAuthorization(s.GetPrivKey(tc.authSigner()), authorization)
 			Expect(err).To(BeNil())
 
-			txHash, err := s.SendSetCodeTx(tc.txSender, signedAuthorization)
+			txHash, err := s.SendSetCodeTx(tc.txSender(), signedAuthorization)
 			Expect(err).To(BeNil(), "error while sending SetCode tx")
 			s.WaitForCommit(txHash)
-			s.CheckSetCode(tc.authSigner, tc.authAddress(), tc.expDelegation)
+			s.CheckSetCode(tc.authSigner(), tc.authAddress(), tc.expDelegation)
 		},
 			Entry("setCode with invalid chainID should fail", testCase{
 				authChainID: func() uint64 { return s.GetChainID() + 1 },
@@ -97,8 +97,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetCounterAddr()
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: false,
 			}),
 			Entry("setCode with empty address should reset delegation", testCase{
@@ -109,8 +109,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return common.HexToAddress("0x0")
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: false,
 			}),
 			Entry("setCode with invalid address should fail", testCase{
@@ -121,8 +121,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return common.BytesToAddress([]byte("invalid"))
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: true,
 			}),
 			Entry("setCode with EoA address should fail", testCase{
@@ -133,8 +133,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetAddr(user1)
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: true,
 			}),
 			Entry("same signer/sender with matching nonce should fail", testCase{
@@ -145,8 +145,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetCounterAddr()
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: false,
 			}),
 			Entry("same signer/sender with future nonce sholud succeed", testCase{
@@ -157,8 +157,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetCounterAddr()
 				},
-				authSigner:    user0,
-				txSender:      user0,
+				authSigner:    func() string { return user0 },
+				txSender:      func() string { return user0 },
 				expDelegation: true,
 			}),
 			Entry("different signer/sender with current nonce should succeed", testCase{
@@ -169,8 +169,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetCounterAddr()
 				},
-				authSigner:    user1,
-				txSender:      user0,
+				authSigner:    func() string { return user1 },
+				txSender:      func() string { return user0 },
 				expDelegation: true,
 			}),
 			Entry("different signer/sender with future nonce should fail", testCase{
@@ -181,8 +181,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 				authAddress: func() common.Address {
 					return s.GetCounterAddr()
 				},
-				authSigner:    user1,
-				txSender:      user0,
+				authSigner:    func() string { return user1 },
+				txSender:      func() string { return user0 },
 				expDelegation: false,
 			}),
 		)

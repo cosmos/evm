@@ -26,9 +26,6 @@ const (
 func RunChainUpgrade(t *testing.T, base *suites.SystemTestSuite) {
 	t.Helper()
 
-	base.LockChain()
-	defer base.UnlockChain()
-
 	sut := base.SystemUnderTest
 
 	// Scenario:
