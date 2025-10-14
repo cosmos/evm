@@ -37,10 +37,19 @@ func (s *SystemTestSuite) SendBankSendWithEIP712(
 	accID string,
 	to sdk.AccAddress,
 	amount *big.Int,
-	nonce uint64,
+	nonceIdx uint64,
 	gasPrice *big.Int,
 ) (string, error) {
 	cosmosAccount := s.CosmosAccount(accID)
+
+	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients[nodeID])
+	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAccount.AccAddress)
+	if err != nil {
+		return "", fmt.Errorf("failed to query account for nonce: %w", err)
+	}
+
+	cosmosAccount.AccountNumber = account.GetAccountNumber()
+	actualNonce := account.GetSequence() + nonceIdx
 
 	resp, err := BankSendWithEIP712(
 		s.CosmosClient,
@@ -49,7 +58,7 @@ func (s *SystemTestSuite) SendBankSendWithEIP712(
 		cosmosAccount.AccAddress,
 		to,
 		sdkmath.NewIntFromBigInt(amount),
-		nonce,
+		actualNonce,
 		gasPrice,
 	)
 	if err != nil {
