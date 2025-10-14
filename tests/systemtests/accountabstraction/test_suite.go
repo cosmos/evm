@@ -25,8 +25,9 @@ import (
 type TestSuite struct {
 	*basesuite.SystemTestSuite
 
-	counterAddress common.Address
-	counterABI     abi.ABI
+	counterAddress   common.Address
+	counterABI       abi.ABI
+	primaryAccountID string
 }
 
 func NewTestSuite(t *testing.T) *TestSuite {
@@ -35,15 +36,27 @@ func NewTestSuite(t *testing.T) *TestSuite {
 	}
 }
 
+// SetPrimaryAccount configures the account that will be used for contract deployment/setup.
+func (s *TestSuite) SetPrimaryAccount(acc *basesuite.TestAccount) {
+	if acc == nil {
+		return
+	}
+	s.primaryAccountID = acc.ID
+}
+
 // SetupTest setup test suite and deploy test contracts
 func (s *TestSuite) SetupTest(t *testing.T) {
 	s.SystemTestSuite.SetupTest(t)
+
+	if s.primaryAccountID == "" {
+		s.primaryAccountID = s.AccID(0)
+	}
 
 	counterPath := filepath.Join("..", "Counter", "out", "Counter.sol", "Counter.json")
 	bytecode, err := loadContractCreationBytecode(counterPath)
 	Expect(err).To(BeNil(), "failed to load counter creation bytecode")
 
-	addr, err := deployContract(s.EthClient, s.EthAccount("acc0"), bytecode)
+	addr, err := deployContract(s.EthClient, s.EthAccount(s.primaryAccountID), bytecode)
 	require.NoError(t, err, "failed to deploy counter contract")
 	s.counterAddress = addr
 

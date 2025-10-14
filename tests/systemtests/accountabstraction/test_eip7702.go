@@ -10,24 +10,39 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
+
+	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
 func TestEIP7702(t *testing.T) {
-	const (
-		user0 = "acc0"
-		user1 = "acc1"
-	)
-
 	Describe("test EIP-7702 scenorios", Ordered, func() {
 		var (
-			s AccountAbstractionTestSuite
+			s        *TestSuite
+			user0Acc *basesuite.TestAccount
+			user1Acc *basesuite.TestAccount
+			user0    string
+			user1    string
 		)
 
 		// We intentionally use BeforeAll instead of BeforeAll because,
 		// The test takes too much time if we restart network for each test case.
 		BeforeAll(func() {
 			s = NewTestSuite(t)
+			user0Acc = s.SystemTestSuite.AcquireAcc()
+			user1Acc = s.SystemTestSuite.AcquireAcc()
+			user0 = user0Acc.ID
+			user1 = user1Acc.ID
+			s.SetPrimaryAccount(user0Acc)
 			s.SetupTest(t)
+		})
+
+		AfterAll(func() {
+			if user0Acc != nil {
+				s.SystemTestSuite.ReleaseAcc(user0Acc)
+			}
+			if user1Acc != nil {
+				s.SystemTestSuite.ReleaseAcc(user1Acc)
+			}
 		})
 
 		AfterEach(func() {
