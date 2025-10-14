@@ -10,6 +10,7 @@ const (
 	NodeArgsJsonrpcApi                 = "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	NodeArgsJsonrpcAllowUnprotectedTxs = "--json-rpc.allow-unprotected-txs=true"
 	NodeArgsMinimumGasPrice            = "--minimum-gas-prices=0.000001atest"
+	NodeArgsMaxTxs                     = "--mempool.max-txs=0"
 )
 
 // TestOptions defines the options for a test case.
@@ -44,6 +45,7 @@ func DefaultNodeArgs() []string {
 		NodeArgsApiEnable,
 		NodeArgsJsonrpcAllowUnprotectedTxs,
 		NodeArgsMinimumGasPrice,
+		NodeArgsMaxTxs,
 	}
 }
 
