@@ -12,7 +12,8 @@ import (
 
 // NonceAt returns the account nonce for the given account at the latest block
 func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
-	ctx, cli, addr := s.EthClient.Setup(nodeID, accID)
+	account := s.EthAccount(accID)
+	ctx, cli, addr := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
 	if err != nil {
 		return uint64(0), fmt.Errorf("failed to get block number from %s: %v", nodeID, err)
@@ -25,7 +26,8 @@ func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 
 // GetLatestBaseFee returns the base fee of the latest block
 func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
-	ctx, cli, _ := s.EthClient.Setup(nodeID, "acc0")
+	account := s.EthAccount("acc0")
+	ctx, cli, _ := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := cli.BlockNumber(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number from %s: %v", nodeID, err)

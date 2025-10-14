@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/cosmos/evm/tests/systemtests/clients"
 )
 
 // BaseFee returns the most recently retrieved and stored baseFee.
@@ -20,6 +22,24 @@ func (s *SystemTestSuite) BaseFeeX2() *big.Int {
 
 func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
 	return new(big.Int).Mul(baseFee, big.NewInt(10))
+}
+
+// EthAccount returns the Ethereum account associated with the given identifier.
+func (s *SystemTestSuite) Account(id string) *TestAccount {
+	acc, ok := s.accounts[id]
+	if !ok {
+		panic(fmt.Sprintf("account %s not found", id))
+	}
+	return acc
+}
+
+func (s *SystemTestSuite) EthAccount(id string) *clients.EthAccount {
+	return s.Account(id).Eth
+}
+
+// CosmosAccount returns the Cosmos account associated with the given identifier.
+func (s *SystemTestSuite) CosmosAccount(id string) *clients.CosmosAccount {
+	return s.Account(id).Cosmos
 }
 
 // GetExpPendingTxs returns the expected pending transactions

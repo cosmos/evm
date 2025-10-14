@@ -96,12 +96,11 @@ func loadContractABI(filePath string) (abi.ABI, error) {
 	return parsedABI, nil
 }
 
-func deployContract(ethClient *clients.EthClient, creationBytecode []byte) (common.Address, error) {
+func deployContract(ethClient *clients.EthClient, deployer *clients.EthAccount, creationBytecode []byte) (common.Address, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	ethCli := ethClient.Clients["node0"]
-	deployer := ethClient.Accs["acc0"]
 
 	chainID, err := ethCli.ChainID(ctx)
 	if err != nil {

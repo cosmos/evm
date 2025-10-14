@@ -2,6 +2,7 @@ package suite
 
 import (
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,6 +23,10 @@ type SystemTestSuite struct {
 	EthClient    *clients.EthClient
 	CosmosClient *clients.CosmosClient
 
+	// Accounts shared across clients
+	accounts map[string]*TestAccount
+	signerMu sync.Mutex
+
 	// Most recently retrieved base fee
 	baseFee *big.Int
 
@@ -31,17 +36,36 @@ type SystemTestSuite struct {
 }
 
 func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
-	ethClient, err := clients.NewEthClient()
+	ethClient, ethAccounts, err := clients.NewEthClient()
 	require.NoError(t, err)
 
-	cosmosClient, err := clients.NewCosmosClient()
+	cosmosClient, cosmosAccounts, err := clients.NewCosmosClient()
 	require.NoError(t, err)
+
+	accounts := make(map[string]*TestAccount, len(ethAccounts))
+	for id, ethAcc := range ethAccounts {
+		cosmosAcc, ok := cosmosAccounts[id]
+		require.Truef(t, ok, "cosmos account %s not found", id)
+		accounts[id] = &TestAccount{
+			ID:     id,
+			Eth:    ethAcc,
+			Cosmos: cosmosAcc,
+		}
+	}
 
 	return &SystemTestSuite{
 		SystemUnderTest: systemtests.Sut,
 		EthClient:       ethClient,
 		CosmosClient:    cosmosClient,
+		accounts:        accounts,
 	}
+}
+
+// TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
+type TestAccount struct {
+	ID     string
+	Eth    *clients.EthAccount
+	Cosmos *clients.CosmosAccount
 }
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks

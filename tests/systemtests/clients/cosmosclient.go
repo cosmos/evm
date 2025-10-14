@@ -35,26 +35,27 @@ type CosmosClient struct {
 	ChainID    string
 	ClientCtx  client.Context
 	RpcClients map[string]*rpchttp.HTTP
-	Accs       map[string]*CosmosAccount
 }
 
-// NewCosmosClient creates a new CosmosClient instance.
-func NewCosmosClient() (*CosmosClient, error) {
+const defaultGenesisAccountCount = 4
+
+// NewCosmosClient creates a new CosmosClient instance and returns it together with the loaded accounts.
+func NewCosmosClient() (*CosmosClient, map[string]*CosmosAccount, error) {
 	config, err := NewConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config")
+		return nil, nil, fmt.Errorf("failed to load config")
 	}
 
 	clientCtx, err := newClientContext(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client context: %v", err)
+		return nil, nil, fmt.Errorf("failed to create client context: %v", err)
 	}
 
 	rpcClients := make(map[string]*rpchttp.HTTP, 0)
 	for i, nodeUrl := range config.NodeRPCUrls {
 		rpcClient, err := client.NewClientFromNode(nodeUrl)
 		if err != nil {
-			return nil, fmt.Errorf("failed to connect rpc server: %v", err)
+			return nil, nil, fmt.Errorf("failed to connect rpc server: %v", err)
 		}
 
 		rpcClients[fmt.Sprintf("node%v", i)] = rpcClient
@@ -68,11 +69,19 @@ func NewCosmosClient() (*CosmosClient, error) {
 		addr := sdk.AccAddress(privKey.PubKey().Address().Bytes())
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		// Only the default genesis accounts have deterministic account numbers.
+		// Additional test accounts are created on demand by the suite; they start
+		// with an account number of zero and will query the chain for their actual
+		// value once they exist on-chain.
+		accountNumber := uint64(0)
+		if i < defaultGenesisAccountCount {
+			accountNumber = uint64(i + 1)
 		}
 		acc := &CosmosAccount{
 			AccAddress:    addr,
-			AccountNumber: uint64(i + 1),
+			AccountNumber: accountNumber,
 			PrivKey:       privKey,
 		}
 		accs[fmt.Sprintf("acc%v", i)] = acc
@@ -82,16 +91,15 @@ func NewCosmosClient() (*CosmosClient, error) {
 		ChainID:    config.ChainID,
 		ClientCtx:  *clientCtx,
 		RpcClients: rpcClients,
-		Accs:       accs,
-	}, nil
+	}, accs, nil
 }
 
 // BankSend sends a bank send transaction from one account to another.
-func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
+func (c *CosmosClient) BankSend(nodeID string, account *CosmosAccount, from, to sdk.AccAddress, amount sdkmath.Int, nonce uint64, gasPrice *big.Int) (*sdk.TxResponse, error) {
 	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
 
-	privKey := c.Accs[accID].PrivKey
-	accountNumber := c.Accs[accID].AccountNumber
+	privKey := account.PrivKey
+	accountNumber := account.AccountNumber
 
 	msg := banktypes.NewMsgSend(from, to, sdk.NewCoins(sdk.NewCoin("atest", amount)))
 

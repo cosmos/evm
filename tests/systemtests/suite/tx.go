@@ -54,12 +54,13 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
-	to := s.EthClient.Accs["acc3"].Address
+	to := s.EthAccount("acc3").Address
 	value := big.NewInt(1000)
 	gasLimit := uint64(50_000)
 
 	tx := ethtypes.NewTransaction(gappedNonce, to, value, gasLimit, gasPrice, nil)
-	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	account := s.EthAccount(accID)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, account, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send eth legacy tx: %v", err)
 	}
@@ -81,18 +82,20 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
+	toAddr := s.EthAccount("acc3").Address
+	account := s.EthAccount(accID)
 
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID:   s.EthClient.ChainID,
 		Nonce:     gappedNonce,
-		To:        &(s.EthClient.Accs["acc3"].Address),
+		To:        &toAddr,
 		Value:     big.NewInt(1000),
 		Gas:       uint64(50_000),
 		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
 	})
 
-	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, account, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send eth dynamic fee tx: %v", err)
 	}
@@ -109,8 +112,9 @@ func (s *SystemTestSuite) SendCosmosTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
-	from := s.CosmosClient.Accs[accID].AccAddress
-	to := s.CosmosClient.Accs["acc3"].AccAddress
+	cosmosAccount := s.CosmosAccount(accID)
+	from := cosmosAccount.AccAddress
+	to := s.CosmosAccount("acc3").AccAddress
 	amount := sdkmath.NewInt(1000)
 
 	nonce, err := s.NonceAt(nodeID, accID)
@@ -119,7 +123,7 @@ func (s *SystemTestSuite) SendCosmosTx(
 	}
 	gappedNonce := nonce + nonceIdx
 
-	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, gappedNonce, gasPrice)
+	resp, err := s.CosmosClient.BankSend(nodeID, cosmosAccount, from, to, amount, gappedNonce, gasPrice)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send cosmos bank send tx: %v", err)
 	}
