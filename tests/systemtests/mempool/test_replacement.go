@@ -220,17 +220,17 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "dynamic fee tx should not replace legacy tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					tx1, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
-					_, err = s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					_, err = s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
 					s.SetExpQueuedTxs(tx1)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)
@@ -242,10 +242,10 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "dynamic fee tx should replace legacy tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					_, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
-					tx2, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1,
+					tx2, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1,
 						s.GetTxGasPrice(s.BaseFeeX2()),
 						s.GetTxGasPrice(s.BaseFeeX2()),
 					)
@@ -254,7 +254,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)
@@ -266,11 +266,11 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "legacy should never replace dynamic fee tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.Acc(0), 1, s.GetTxGasPrice(s.BaseFeeX2()),
+					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFeeX2()),
 						new(big.Int).Sub(s.GetTxGasPrice(s.BaseFee()), big.NewInt(1)))
 					require.NoError(t, err)
 
-					_, err = s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					_, err = s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
 					require.Error(t, err, "failed to send eth legacy tx")
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
@@ -278,7 +278,7 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					s.SetExpQueuedTxs(tx1)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.Acc(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)

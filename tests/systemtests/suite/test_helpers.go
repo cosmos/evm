@@ -24,15 +24,16 @@ func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
 	return new(big.Int).Mul(baseFee, big.NewInt(10))
 }
 
-// EthAccount returns the Ethereum account associated with the given identifier.
+// Account returns the shared test account matching the identifier.
 func (s *SystemTestSuite) Account(id string) *TestAccount {
-	acc, ok := s.accounts[id]
+	acc, ok := s.accountsByID[id]
 	if !ok {
 		panic(fmt.Sprintf("account %s not found", id))
 	}
 	return acc
 }
 
+// EthAccount returns the Ethereum account associated with the given identifier.
 func (s *SystemTestSuite) EthAccount(id string) *clients.EthAccount {
 	return s.Account(id).Eth
 }
@@ -40,6 +41,39 @@ func (s *SystemTestSuite) EthAccount(id string) *clients.EthAccount {
 // CosmosAccount returns the Cosmos account associated with the given identifier.
 func (s *SystemTestSuite) CosmosAccount(id string) *clients.CosmosAccount {
 	return s.Account(id).Cosmos
+}
+
+// AcquireAcc blocks until an idle account is available and returns it.
+func (s *SystemTestSuite) AcquireAcc() *TestAccount {
+	s.accountsMu.Lock()
+	defer s.accountsMu.Unlock()
+
+	for {
+		for _, acc := range s.accounts {
+			if !acc.inUse {
+				acc.inUse = true
+				return acc
+			}
+		}
+		s.accountCond.Wait()
+	}
+}
+
+// ReleaseAcc releases a previously acquired account back into the idle pool.
+func (s *SystemTestSuite) ReleaseAcc(acc *TestAccount) {
+	if acc == nil {
+		return
+	}
+
+	s.accountsMu.Lock()
+	defer s.accountsMu.Unlock()
+
+	if !acc.inUse {
+		panic(fmt.Sprintf("account %s released without acquisition", acc.ID))
+	}
+
+	acc.inUse = false
+	s.accountCond.Signal()
 }
 
 // GetExpPendingTxs returns the expected pending transactions
@@ -101,9 +135,17 @@ func (s *SystemTestSuite) Node(idx int) string {
 	return fmt.Sprintf("node%d", idx)
 }
 
-// Acc returns the account ID for the given index
-func (s *SystemTestSuite) Acc(idx int) string {
-	return fmt.Sprintf("acc%d", idx)
+// Acc returns the test account for the given index
+func (s *SystemTestSuite) Acc(idx int) *TestAccount {
+	if idx < 0 || idx >= len(s.accounts) {
+		panic(fmt.Sprintf("account index out of range: %d", idx))
+	}
+	return s.accounts[idx]
+}
+
+// AccID returns the identifier of the test account for the given index.
+func (s *SystemTestSuite) AccID(idx int) string {
+	return s.Acc(idx).ID
 }
 
 // GetOptions returns the current test options

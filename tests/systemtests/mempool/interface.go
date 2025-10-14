@@ -31,7 +31,10 @@ type TestSuite interface {
 	GetOptions() *suite.TestOptions
 	Nodes() []string
 	Node(idx int) string
-	Acc(idx int) string
+	Acc(idx int) *suite.TestAccount
+	AccID(idx int) string
+	AcquireAcc() *suite.TestAccount
+	ReleaseAcc(acc *suite.TestAccount)
 
 	// Expectation of mempool state
 	GetExpPendingTxs() []*suite.TxInfo

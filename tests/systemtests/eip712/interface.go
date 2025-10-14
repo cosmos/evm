@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/evm/tests/systemtests/suite"
 )
 
 type TestSuite interface {
@@ -21,7 +22,8 @@ type TestSuite interface {
 
 	// Config
 	Node(idx int) string
-	Acc(idx int) string
+	Acc(idx int) *suite.TestAccount
+	AccID(idx int) string
 
 	// Test Utils
 	AwaitNBlocks(t *testing.T, n int64)
