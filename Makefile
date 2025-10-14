@@ -381,6 +381,7 @@ test-rpc-compat-stop:
 test-system: build-v04 build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
+	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
 build-v04:

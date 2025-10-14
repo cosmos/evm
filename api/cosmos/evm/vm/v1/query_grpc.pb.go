@@ -30,6 +30,7 @@ const (
 	Query_EstimateGas_FullMethodName       = "/cosmos.evm.vm.v1.Query/EstimateGas"
 	Query_TraceTx_FullMethodName           = "/cosmos.evm.vm.v1.Query/TraceTx"
 	Query_TraceBlock_FullMethodName        = "/cosmos.evm.vm.v1.Query/TraceBlock"
+	Query_TraceCall_FullMethodName         = "/cosmos.evm.vm.v1.Query/TraceCall"
 	Query_BaseFee_FullMethodName           = "/cosmos.evm.vm.v1.Query/BaseFee"
 	Query_Config_FullMethodName            = "/cosmos.evm.vm.v1.Query/Config"
 	Query_GlobalMinGasPrice_FullMethodName = "/cosmos.evm.vm.v1.Query/GlobalMinGasPrice"
@@ -64,6 +65,8 @@ type QueryClient interface {
 	// TraceBlock implements the `debug_traceBlockByNumber` and
 	// `debug_traceBlockByHash` rpc api
 	TraceBlock(ctx context.Context, in *QueryTraceBlockRequest, opts ...grpc.CallOption) (*QueryTraceBlockResponse, error)
+	// TraceCall implements the `debug_traceCall` rpc api
+	TraceCall(ctx context.Context, in *QueryTraceCallRequest, opts ...grpc.CallOption) (*QueryTraceCallResponse, error)
 	// BaseFee queries the base fee of the parent block of the current block,
 	// it's similar to feemarket module's method, but also checks london hardfork
 	// status.
@@ -184,6 +187,15 @@ func (c *queryClient) TraceBlock(ctx context.Context, in *QueryTraceBlockRequest
 	return out, nil
 }
 
+func (c *queryClient) TraceCall(ctx context.Context, in *QueryTraceCallRequest, opts ...grpc.CallOption) (*QueryTraceCallResponse, error) {
+	out := new(QueryTraceCallResponse)
+	err := c.cc.Invoke(ctx, Query_TraceCall_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) BaseFee(ctx context.Context, in *QueryBaseFeeRequest, opts ...grpc.CallOption) (*QueryBaseFeeResponse, error) {
 	out := new(QueryBaseFeeResponse)
 	err := c.cc.Invoke(ctx, Query_BaseFee_FullMethodName, in, out, opts...)
@@ -240,6 +252,8 @@ type QueryServer interface {
 	// TraceBlock implements the `debug_traceBlockByNumber` and
 	// `debug_traceBlockByHash` rpc api
 	TraceBlock(context.Context, *QueryTraceBlockRequest) (*QueryTraceBlockResponse, error)
+	// TraceCall implements the `debug_traceCall` rpc api
+	TraceCall(context.Context, *QueryTraceCallRequest) (*QueryTraceCallResponse, error)
 	// BaseFee queries the base fee of the parent block of the current block,
 	// it's similar to feemarket module's method, but also checks london hardfork
 	// status.
@@ -290,6 +304,9 @@ func (UnimplementedQueryServer) TraceTx(context.Context, *QueryTraceTxRequest) (
 }
 func (UnimplementedQueryServer) TraceBlock(context.Context, *QueryTraceBlockRequest) (*QueryTraceBlockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TraceBlock not implemented")
+}
+func (UnimplementedQueryServer) TraceCall(context.Context, *QueryTraceCallRequest) (*QueryTraceCallResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TraceCall not implemented")
 }
 func (UnimplementedQueryServer) BaseFee(context.Context, *QueryBaseFeeRequest) (*QueryBaseFeeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseFee not implemented")
@@ -511,6 +528,24 @@ func _Query_TraceBlock_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_TraceCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTraceCallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TraceCall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TraceCall_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TraceCall(ctx, req.(*QueryTraceCallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_BaseFee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryBaseFeeRequest)
 	if err := dec(in); err != nil {
@@ -615,6 +650,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TraceBlock",
 			Handler:    _Query_TraceBlock_Handler,
+		},
+		{
+			MethodName: "TraceCall",
+			Handler:    _Query_TraceCall_Handler,
 		},
 		{
 			MethodName: "BaseFee",

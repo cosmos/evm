@@ -155,10 +155,12 @@ type OverrideAccount struct {
 }
 
 type FeeHistoryResult struct {
-	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
-	Reward       [][]*hexutil.Big `json:"reward,omitempty"`
-	BaseFee      []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
-	GasUsedRatio []float64        `json:"gasUsedRatio"`
+	OldestBlock      *hexutil.Big     `json:"oldestBlock"`
+	Reward           [][]*hexutil.Big `json:"reward,omitempty"`
+	BaseFee          []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
+	GasUsedRatio     []float64        `json:"gasUsedRatio"`
+	BlobBaseFee      []*hexutil.Big   `json:"baseFeePerBlobGas,omitempty"`
+	BlobGasUsedRatio []float64        `json:"blobGasUsedRatio,omitempty"`
 }
 
 // SignTransactionResult represents a RLP encoded signed transaction.
@@ -168,16 +170,18 @@ type SignTransactionResult struct {
 }
 
 type OneFeeHistory struct {
-	BaseFee, NextBaseFee *big.Int   // base fee for each block
-	Reward               []*big.Int // each element of the array will have the tip provided to miners for the percentile given
-	GasUsedRatio         float64    // the ratio of gas used to the gas limit for each block
+	BaseFee, NextBaseFee         *big.Int   // base fee for each block
+	Reward                       []*big.Int // each element of the array will have the tip provided to miners for the percentile given
+	GasUsedRatio                 float64    // the ratio of gas used to the gas limit for each block
+	BlobBaseFee, NextBlobBaseFee *big.Int   // blob base fee for each block
+	BlobGasUsedRatio             float64    // the ratio of blob gas used to the blob gas limit for each block
 }
 
 // AccessListResult represents the access list and gas used for a transaction
 type AccessListResult struct {
 	AccessList *ethtypes.AccessList `json:"accessList"`
 	GasUsed    *hexutil.Uint64      `json:"gasUsed"`
-	Error      string               `json:"error"`
+	Error      string               `json:"error,omitempty"`
 }
 
 // Embedded TraceConfig type to store raw JSON data of config in custom field

@@ -175,14 +175,10 @@ func GetTestCases() []types.TestCase {
 			Methods: []types.TestMethod{
 				// Tracing subcategory
 				{Name: ns.MethodNameDebugTraceTransaction, Handler: ns.DebugTraceTransaction},
-				{Name: ns.MethodNameDebugTraceBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceBlock, "debug")
-				}},
+				{Name: ns.MethodNameDebugTraceBlock, Handler: ns.DebugTraceBlock},
 				{Name: ns.MethodNameDebugTraceBlockByHash, Handler: ns.DebugTraceBlockByHash},
 				{Name: ns.MethodNameDebugTraceBlockByNumber, Handler: ns.DebugTraceBlockByNumber},
-				{Name: ns.MethodNameDebugTraceCall, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.CallEthClient(rCtx, ns.MethodNameDebugTraceCall, "debug")
-				}},
+				{Name: ns.MethodNameDebugTraceCall, Handler: ns.DebugTraceCall},
 				{Name: ns.MethodNameDebugIntermediateRoots, Handler: ns.DebugIntermediateRoots},
 				// Database subcategory
 				{Name: ns.MethodNameDebugDbGet, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
@@ -249,9 +245,7 @@ func GetTestCases() []types.TestCase {
 				{Name: ns.MethodNameDebugAccountRange, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.CallEthClient(rCtx, ns.MethodNameDebugAccountRange, "debug")
 				}},
-				{Name: ns.MethodNameDebugGetRawBlock, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
-					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawBlock, "debug")
-				}},
+				{Name: ns.MethodNameDebugGetRawBlock, Handler: ns.DebugGetRawBlock},
 				{Name: ns.MethodNameDebugGetRawHeader, Handler: func(rCtx *types.RPCContext) (*types.RpcResult, error) {
 					return utils.CallEthClient(rCtx, ns.MethodNameDebugGetRawHeader, "debug")
 				}},
