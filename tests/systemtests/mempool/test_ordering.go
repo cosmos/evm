@@ -18,6 +18,9 @@ func TestTxsOrdering(t *testing.T) {
 			name: "ordering of pending txs %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
 					expPendingTxs := make([]*suite.TxInfo, 5)
 					for i := 0; i < 5; i++ {
 						// nonce order of submitted txs: 3,4,0,1,2
@@ -31,7 +34,7 @@ func TestTxsOrdering(t *testing.T) {
 							nodeId = s.Node(i % 4)
 						}
 
-						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.GetTxGasPrice(s.BaseFee()), big.NewInt(1))
+						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GetTxGasPrice(s.BaseFee()), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4

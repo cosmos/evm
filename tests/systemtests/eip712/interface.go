@@ -24,6 +24,8 @@ type TestSuite interface {
 	Node(idx int) string
 	Acc(idx int) *suite.TestAccount
 	AccID(idx int) string
+	AcquireAcc() *suite.TestAccount
+	ReleaseAcc(acc *suite.TestAccount)
 
 	// Test Utils
 	AwaitNBlocks(t *testing.T, n int64)

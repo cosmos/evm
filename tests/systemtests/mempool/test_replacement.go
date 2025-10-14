@@ -18,9 +18,12 @@ func TestTxsReplacement(t *testing.T) {
 			name: "single pending tx submitted to same nodes %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					_, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx2)
@@ -31,19 +34,22 @@ func TestTxsReplacement(t *testing.T) {
 			name: "multiple pending txs submitted to same nodes %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					_, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					_, err = s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					_, err = s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx4, err := s.SendTx(t, s.Node(1), "acc0", 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx4, err := s.SendTx(t, s.Node(1), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					_, err = s.SendTx(t, s.Node(0), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					_, err = s.SendTx(t, s.Node(0), signer.ID, 2, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx6, err := s.SendTx(t, s.Node(1), "acc0", 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx6, err := s.SendTx(t, s.Node(1), signer.ID, 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx2, tx4, tx6)
@@ -54,15 +60,21 @@ func TestTxsReplacement(t *testing.T) {
 			name: "single queued tx %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					_, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					txHash, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)
@@ -74,25 +86,31 @@ func TestTxsReplacement(t *testing.T) {
 			name: "multiple queued txs %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					_, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx2, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					_, err = s.SendTx(t, s.Node(1), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 2, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx4, err := s.SendTx(t, s.Node(1), "acc0", 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx4, err := s.SendTx(t, s.Node(1), signer.ID, 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					_, err = s.SendTx(t, s.Node(2), "acc0", 3, s.GetTxGasPrice(s.BaseFee()), nil)
+					_, err = s.SendTx(t, s.Node(2), signer.ID, 3, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					tx6, err := s.SendTx(t, s.Node(2), "acc0", 3, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					tx6, err := s.SendTx(t, s.Node(2), signer.ID, 3, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
 				func(s TestSuite) {
-					tx, err := s.SendTx(t, s.Node(3), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					tx, err := s.SendTx(t, s.Node(3), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx)
@@ -147,7 +165,10 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
 					// : high prio cosmos tx should replace low prio evm tx.
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
@@ -164,17 +185,20 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
 					// : high prio cosmos tx should replace low prio evm tx.
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx3, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
 
-					tx5, err := s.SendTx(t, s.Node(0), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx5, err := s.SendTx(t, s.Node(0), signer.ID, 2, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
@@ -220,17 +244,23 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "dynamic fee tx should not replace legacy tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					tx1, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
-					_, err = s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					_, err = s.SendEthDynamicFeeTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
 					s.SetExpQueuedTxs(tx1)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)
@@ -242,10 +272,13 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "dynamic fee tx should replace legacy tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					_, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					_, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
-					tx2, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1,
+					tx2, err := s.SendEthDynamicFeeTx(t, s.Node(0), signer.ID, 1,
 						s.GetTxGasPrice(s.BaseFeeX2()),
 						s.GetTxGasPrice(s.BaseFeeX2()),
 					)
@@ -254,7 +287,10 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					s.SetExpQueuedTxs(tx2)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)
@@ -266,11 +302,14 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 			name: "legacy should never replace dynamic fee tx",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFeeX2()),
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()),
 						new(big.Int).Sub(s.GetTxGasPrice(s.BaseFee()), big.NewInt(1)))
 					require.NoError(t, err)
 
-					_, err = s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 1, s.GetTxGasPrice(s.BaseFee()))
+					_, err = s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()))
 					require.Error(t, err, "failed to send eth legacy tx")
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
@@ -278,7 +317,10 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					s.SetExpQueuedTxs(tx1)
 				},
 				func(s TestSuite) {
-					txHash, err := s.SendEthLegacyTx(t, s.Node(0), s.AccID(0), 0, s.GetTxGasPrice(s.BaseFee()))
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
+					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(txHash)

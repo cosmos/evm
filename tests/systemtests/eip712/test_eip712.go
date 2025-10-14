@@ -15,10 +15,12 @@ func TestEIP712BankSend(t *testing.T) {
 	sut.SetupTest(t)
 
 	// Get initial nonce for acc0
+	acc0 := sut.AcquireAcc()
+	defer sut.ReleaseAcc(acc0)
+
 	gasPrice := big.NewInt(1000000000000)
 
 	// Send a bank send transaction from acc0 to acc1 using EIP-712 signing
-	acc0 := sut.Acc(0)
 	from := acc0.Cosmos.AccAddress
 	cosmosAcc := acc0.Cosmos
 	ctx := sut.CosmosClient.ClientCtx.WithClient(sut.CosmosClient.RpcClients["node0"])
@@ -55,10 +57,13 @@ func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
 	sut := NewSystemTestSuite(t)
 	sut.SetupTest(t)
 
+	signer := sut.AcquireAcc()
+	defer sut.ReleaseAcc(signer)
+
 	denom := "atest"
 
 	// Get accounts
-	fromAddr := sut.Acc(0).Cosmos.AccAddress
+	fromAddr := signer.Cosmos.AccAddress
 	toAddr := sut.Acc(1).Cosmos.AccAddress
 
 	// Get initial balances
@@ -78,7 +83,7 @@ func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
 	txHash, err := sut.SendBankSendWithEIP712(
 		t,
 		sut.Node(0),
-		sut.AccID(0),
+		signer.ID,
 		toAddr,
 		amount,
 		nonce,
@@ -126,6 +131,9 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 	sut := NewSystemTestSuite(t)
 	sut.SetupTest(t)
 
+	signer := sut.AcquireAcc()
+	defer sut.ReleaseAcc(signer)
+
 	denom := "atest"
 	toAddr := sut.Acc(1).Cosmos.AccAddress
 
@@ -145,7 +153,7 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 		txHash, err := sut.SendBankSendWithEIP712(
 			t,
 			sut.Node(0),
-			sut.AccID(0),
+			signer.ID,
 			toAddr,
 			amount,
 			uint64(i),

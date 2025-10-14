@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"slices"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/cosmos/evm/tests/systemtests/clients"
@@ -74,6 +75,15 @@ func (s *SystemTestSuite) ReleaseAcc(acc *TestAccount) {
 
 	acc.inUse = false
 	s.accountCond.Signal()
+}
+
+// AcquireAccForTest acquires an idle account and registers automatic release via t.Cleanup.
+func (s *SystemTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
+	acc := s.AcquireAcc()
+	t.Cleanup(func() {
+		s.ReleaseAcc(acc)
+	})
+	return acc
 }
 
 // GetExpPendingTxs returns the expected pending transactions
