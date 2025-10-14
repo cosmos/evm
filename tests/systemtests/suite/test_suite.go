@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -35,6 +36,10 @@ type SystemTestSuite struct {
 	accountsByID map[string]*TestAccount
 	accountsMu   sync.Mutex
 	accountCond  *sync.Cond
+
+	// Chain management
+	chainMu         sync.Mutex
+	currentNodeArgs []string
 
 	// Most recently retrieved base fee
 	baseFee *big.Int
@@ -107,14 +112,42 @@ type TestAccount struct {
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
 func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+	t.Helper()
+
 	if len(nodeStartArgs) == 0 {
 		nodeStartArgs = DefaultNodeArgs()
 	}
 
-	s.ResetChain(t)
+	s.chainMu.Lock()
+	defer s.chainMu.Unlock()
+
+	if !s.ChainStarted {
+		s.currentNodeArgs = nil
+	}
+
+	if s.ChainStarted && slices.Equal(nodeStartArgs, s.currentNodeArgs) {
+		// Chain already running with desired configuration; nothing to do.
+		return
+	}
+
+	if s.ChainStarted {
+		s.ResetChain(t)
+	}
+
 	s.StartChain(t, nodeStartArgs...)
+	s.currentNodeArgs = append([]string(nil), nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
 	s.ensureAdditionalAccountsFunded(t)
+}
+
+// LockChain acquires exclusive control over the underlying chain lifecycle.
+func (s *SystemTestSuite) LockChain() {
+	s.chainMu.Lock()
+}
+
+// UnlockChain releases the chain lifecycle lock.
+func (s *SystemTestSuite) UnlockChain() {
+	s.chainMu.Unlock()
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case

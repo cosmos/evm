@@ -21,6 +21,15 @@ func (s *SystemTestSuite) BaseFeeX2() *big.Int {
 	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
 }
 
+// SetBaseFee overrides the cached base fee.
+func (s *SystemTestSuite) SetBaseFee(fee *big.Int) {
+	if fee == nil {
+		s.baseFee = nil
+		return
+	}
+	s.baseFee = new(big.Int).Set(fee)
+}
+
 func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
 	return new(big.Int).Mul(baseFee, big.NewInt(10))
 }

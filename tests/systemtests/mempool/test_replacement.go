@@ -9,15 +9,15 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func TestTxsReplacement(t *testing.T) {
+func RunTxsReplacement(t *testing.T, s TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(TestSuite, *RunContext)
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -26,14 +26,14 @@ func TestTxsReplacement(t *testing.T) {
 					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx2)
+					ctx.SetExpPendingTxs(tx2)
 				},
 			},
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -52,14 +52,14 @@ func TestTxsReplacement(t *testing.T) {
 					tx6, err := s.SendTx(t, s.Node(1), signer.ID, 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx2, tx4, tx6)
+					ctx.SetExpPendingTxs(tx2, tx4, tx6)
 				},
 			},
 		},
 		{
 			name: "single queued tx %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -68,24 +68,24 @@ func TestTxsReplacement(t *testing.T) {
 					tx2, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpQueuedTxs(tx2)
+					ctx.SetExpQueuedTxs(tx2)
 				},
-				func(s TestSuite) {
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
 					txHash, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(txHash)
-					s.PromoteExpTxs(1)
+					ctx.SetExpPendingTxs(txHash)
+					ctx.PromoteExpTxs(1)
 				},
 			},
 		},
 		{
 			name: "multiple queued txs %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -104,17 +104,17 @@ func TestTxsReplacement(t *testing.T) {
 					tx6, err := s.SendTx(t, s.Node(2), signer.ID, 3, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpQueuedTxs(tx2, tx4, tx6)
+					ctx.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
-				func(s TestSuite) {
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
 					tx, err := s.SendTx(t, s.Node(3), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx)
-					s.PromoteExpTxs(3)
+					ctx.SetExpPendingTxs(tx)
+					ctx.PromoteExpTxs(3)
 				},
 			},
 		},
@@ -133,7 +133,6 @@ func TestTxsReplacement(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -141,26 +140,27 @@ func TestTxsReplacement(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				ctx := NewRunContext()
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
-					action(s)
-					s.AfterEachAction(t)
+					action(s, ctx)
+					s.AfterEachAction(t, ctx)
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}
 }
 
-func TestTxsReplacementWithCosmosTx(t *testing.T) {
+func RunTxsReplacementWithCosmosTx(t *testing.T, s TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(TestSuite, *RunContext)
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -173,14 +173,14 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx1)
+					ctx.SetExpPendingTxs(tx1)
 				},
 			},
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -203,7 +203,7 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 					//_, err = s.SendTx(t, s.Node(1), "acc0", 2, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					//require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx1, tx3, tx5)
+					ctx.SetExpPendingTxs(tx1, tx3, tx5)
 				},
 			},
 		},
@@ -216,7 +216,6 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -224,26 +223,27 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				ctx := NewRunContext()
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
-					action(s)
-					s.AfterEachAction(t)
+					action(s, ctx)
+					s.AfterEachAction(t, ctx)
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}
 }
 
-func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
+func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(TestSuite, *RunContext)
 	}{
 		{
 			name: "dynamic fee tx should not replace legacy tx",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -254,24 +254,24 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
-					s.SetExpQueuedTxs(tx1)
+					ctx.SetExpQueuedTxs(tx1)
 				},
-				func(s TestSuite) {
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(txHash)
-					s.PromoteExpTxs(1)
+					ctx.SetExpPendingTxs(txHash)
+					ctx.PromoteExpTxs(1)
 				},
 			},
 		},
 		{
 			name: "dynamic fee tx should replace legacy tx",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -284,24 +284,24 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					)
 					require.NoError(t, err)
 
-					s.SetExpQueuedTxs(tx2)
+					ctx.SetExpQueuedTxs(tx2)
 				},
-				func(s TestSuite) {
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(txHash)
-					s.PromoteExpTxs(1)
+					ctx.SetExpPendingTxs(txHash)
+					ctx.PromoteExpTxs(1)
 				},
 			},
 		},
 		{
 			name: "legacy should never replace dynamic fee tx",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -314,33 +314,33 @@ func TestMixedTxsReplacementLegacyAndDynamicFee(t *testing.T) {
 					require.Contains(t, err.Error(), "replacement transaction underpriced")
 
 					// Legacy tx cannot replace dynamic fee tx.
-					s.SetExpQueuedTxs(tx1)
+					ctx.SetExpQueuedTxs(tx1)
 				},
-				func(s TestSuite) {
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()))
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(txHash)
-					s.PromoteExpTxs(1)
+					ctx.SetExpPendingTxs(txHash)
+					ctx.PromoteExpTxs(1)
 				},
 			},
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			s.BeforeEachCase(t)
+			ctx := NewRunContext()
+			s.BeforeEachCase(t, ctx)
 			for _, action := range tc.actions {
-				action(s)
-				s.AfterEachAction(t)
+				action(s, ctx)
+				s.AfterEachAction(t, ctx)
 			}
-			s.AfterEachCase(t)
+			s.AfterEachCase(t, ctx)
 		})
 	}
 }

@@ -14,7 +14,7 @@ import (
 	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
-func TestEIP7702(t *testing.T) {
+func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 	Describe("test EIP-7702 scenorios", Ordered, func() {
 		var (
 			s        *TestSuite
@@ -27,7 +27,7 @@ func TestEIP7702(t *testing.T) {
 		// We intentionally use BeforeAll instead of BeforeAll because,
 		// The test takes too much time if we restart network for each test case.
 		BeforeAll(func() {
-			s = NewTestSuite(t)
+			s = NewTestSuite(base)
 			user0Acc = s.SystemTestSuite.AcquireAcc()
 			user1Acc = s.SystemTestSuite.AcquireAcc()
 			user0 = user0Acc.ID

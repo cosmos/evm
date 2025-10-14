@@ -17,8 +17,8 @@ type SystemTestSuite struct {
 	*basesuite.SystemTestSuite
 }
 
-func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
-	return &SystemTestSuite{SystemTestSuite: basesuite.NewSystemTestSuite(t)}
+func NewSystemTestSuite(base *basesuite.SystemTestSuite) *SystemTestSuite {
+	return &SystemTestSuite{SystemTestSuite: base}
 }
 
 func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {

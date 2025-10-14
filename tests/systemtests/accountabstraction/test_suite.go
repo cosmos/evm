@@ -30,9 +30,9 @@ type TestSuite struct {
 	primaryAccountID string
 }
 
-func NewTestSuite(t *testing.T) *TestSuite {
+func NewTestSuite(base *basesuite.SystemTestSuite) *TestSuite {
 	return &TestSuite{
-		SystemTestSuite: basesuite.NewSystemTestSuite(t),
+		SystemTestSuite: base,
 	}
 }
 

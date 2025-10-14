@@ -1,19 +1,20 @@
 //go:build system_test
 
-package systemtests
+package chainupgrade
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
-
 	systest "cosmossdk.io/systemtests"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/address"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+
+	suites "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
 const (
@@ -21,27 +22,35 @@ const (
 	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in evmd/upgrades.go
 )
 
-func TestChainUpgrade(t *testing.T) {
+// RunChainUpgrade exercises an on-chain software upgrade using the injected shared suite.
+func RunChainUpgrade(t *testing.T, base *suites.SystemTestSuite) {
+	t.Helper()
+
+	base.LockChain()
+	defer base.UnlockChain()
+
+	sut := base.SystemUnderTest
+
 	// Scenario:
 	// start a legacy chain with some state
 	// when a chain upgrade proposal is executed
 	// then the chain upgrades successfully
-	systest.Sut.StopChain()
+	sut.StopChain()
 
-	currentBranchBinary := systest.Sut.ExecBinary()
-	currentInitializer := systest.Sut.TestnetInitializer()
+	currentBranchBinary := sut.ExecBinary()
+	currentInitializer := sut.TestnetInitializer()
 
 	legacyBinary := systest.WorkDir + "/binaries/v0.4/evmd"
-	systest.Sut.SetExecBinary(legacyBinary)
-	systest.Sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, systest.Sut))
-	systest.Sut.SetupChain()
+	sut.SetExecBinary(legacyBinary)
+	sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, sut))
+	sut.SetupChain()
 
 	votingPeriod := 5 * time.Second // enough time to vote
-	systest.Sut.ModifyGenesisJSON(t, systest.SetGovVotingPeriod(t, votingPeriod))
+	sut.ModifyGenesisJSON(t, systest.SetGovVotingPeriod(t, votingPeriod))
 
-	systest.Sut.StartChain(t, fmt.Sprintf("--halt-height=%d", upgradeHeight+1), "--chain-id=local-4221", "--minimum-gas-prices=0.00atest")
+	sut.StartChain(t, fmt.Sprintf("--halt-height=%d", upgradeHeight+1), "--chain-id=local-4221", "--minimum-gas-prices=0.00atest")
 
-	cli := systest.NewCLIWrapper(t, systest.Sut, systest.Verbose)
+	cli := systest.NewCLIWrapper(t, sut, systest.Verbose)
 	govAddr := sdk.AccAddress(address.Module("gov")).String()
 	// submit upgrade proposal
 	proposal := fmt.Sprintf(`
@@ -68,33 +77,33 @@ func TestChainUpgrade(t *testing.T) {
 	require.NotEmpty(t, proposals, raw)
 	proposalID := proposals[len(proposals)-1].String()
 
-	for i := range systest.Sut.NodesCount() {
+	for i := range sut.NodesCount() {
 		go func(i int) { // do parallel
-			systest.Sut.Logf("Voting: validator %d\n", i)
+			sut.Logf("Voting: validator %d\n", i)
 			rsp := cli.Run("tx", "gov", "vote", proposalID, "yes", "--fees=10000000000000000000atest", "--from", cli.GetKeyAddr(fmt.Sprintf("node%d", i)))
 			systest.RequireTxSuccess(t, rsp)
 		}(i)
 	}
 
-	systest.Sut.AwaitBlockHeight(t, upgradeHeight-1, 60*time.Second)
-	t.Logf("current_height: %d\n", systest.Sut.CurrentHeight())
+	sut.AwaitBlockHeight(t, upgradeHeight-1, 60*time.Second)
+	t.Logf("current_height: %d\n", sut.CurrentHeight())
 	raw = cli.CustomQuery("q", "gov", "proposal", proposalID)
 	proposalStatus := gjson.Get(raw, "proposal.status").String()
 	require.Equal(t, "PROPOSAL_STATUS_PASSED", proposalStatus, raw)
 
 	t.Log("waiting for upgrade info")
-	systest.Sut.AwaitUpgradeInfo(t)
-	systest.Sut.StopChain()
+	sut.AwaitUpgradeInfo(t)
+	sut.StopChain()
 
 	t.Log("Upgrade height was reached. Upgrading chain")
-	systest.Sut.SetExecBinary(currentBranchBinary)
-	systest.Sut.SetTestnetInitializer(currentInitializer)
-	systest.Sut.StartChain(t, "--chain-id=local-4221")
+	sut.SetExecBinary(currentBranchBinary)
+	sut.SetTestnetInitializer(currentInitializer)
+	sut.StartChain(t, "--chain-id=local-4221")
 
-	require.Equal(t, upgradeHeight+1, systest.Sut.CurrentHeight())
+	require.Equal(t, upgradeHeight+1, sut.CurrentHeight())
 
 	// smoke test to make sure the chain still functions.
-	cli = systest.NewCLIWrapper(t, systest.Sut, systest.Verbose)
+	cli = systest.NewCLIWrapper(t, sut, systest.Verbose)
 	to := cli.GetKeyAddr("node1")
 	from := cli.GetKeyAddr("node0")
 	got := cli.Run("tx", "bank", "send", from, to, "1atest", "--from=node0", "--fees=10000000000000000000atest", "--chain-id=local-4221")

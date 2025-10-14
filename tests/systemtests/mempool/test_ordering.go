@@ -9,15 +9,15 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func TestTxsOrdering(t *testing.T) {
+func RunTxsOrdering(t *testing.T, s TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(TestSuite, *RunContext)
 	}{
 		{
 			name: "ordering of pending txs %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(TestSuite, *RunContext){
+				func(s TestSuite, ctx *RunContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -41,7 +41,7 @@ func TestTxsOrdering(t *testing.T) {
 						expPendingTxs[nonceIdx] = txInfo
 					}
 
-					s.SetExpPendingTxs(expPendingTxs...)
+					ctx.SetExpPendingTxs(expPendingTxs...)
 				},
 			},
 		},
@@ -60,7 +60,6 @@ func TestTxsOrdering(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -68,14 +67,15 @@ func TestTxsOrdering(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				ctx := NewRunContext()
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
-					action(s)
+					action(s, ctx)
 					// NOTE: In this test, we don't need to check mempool state after each action
 					// because we check the final state after all actions are done.
-					// s.AfterEachAction(t) --- IGNORE ---
+					// s.AfterEachAction(t, ctx) --- IGNORE ---
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}

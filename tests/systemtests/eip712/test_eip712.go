@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEIP712BankSend tests that a bank send transaction can be signed and broadcast using EIP-712.
-func TestEIP712BankSend(t *testing.T) {
-	sut := NewSystemTestSuite(t)
+// RunEIP712BankSend tests that a bank send transaction can be signed and broadcast using EIP-712.
+func RunEIP712BankSend(t *testing.T, sut *SystemTestSuite) {
 	sut.SetupTest(t)
 
 	// Get initial nonce for acc0
@@ -51,10 +50,9 @@ func TestEIP712BankSend(t *testing.T) {
 	t.Logf("Amount: %s", amount.String())
 }
 
-// TestEIP712BankSendWithBalanceCheck tests that a bank send transaction using EIP-712
+// RunEIP712BankSendWithBalanceCheck tests that a bank send transaction using EIP-712
 // correctly updates the balances of the sender and receiver.
-func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
-	sut := NewSystemTestSuite(t)
+func RunEIP712BankSendWithBalanceCheck(t *testing.T, sut *SystemTestSuite) {
 	sut.SetupTest(t)
 
 	signer := sut.AcquireAcc()
@@ -125,10 +123,9 @@ func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
 	t.Logf("Receiver balance change: %s", new(big.Int).Sub(finalToBalance, initialToBalance).String())
 }
 
-// TestEIP712MultipleBankSends tests that multiple bank send transactions can be sent
+// RunEIP712MultipleBankSends tests that multiple bank send transactions can be sent
 // sequentially using EIP-712 signing with correct nonce management.
-func TestEIP712MultipleBankSends(t *testing.T) {
-	sut := NewSystemTestSuite(t)
+func RunEIP712MultipleBankSends(t *testing.T, sut *SystemTestSuite) {
 	sut.SetupTest(t)
 
 	signer := sut.AcquireAcc()
