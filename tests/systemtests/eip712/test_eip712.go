@@ -21,12 +21,9 @@ func RunEIP712BankSend(t *testing.T, sut *SystemTestSuite) {
 
 	// Send a bank send transaction from acc0 to acc1 using EIP-712 signing
 	from := acc0.Cosmos.AccAddress
-	cosmosAcc := acc0.Cosmos
-	ctx := sut.CosmosClient.ClientCtx.WithClient(sut.CosmosClient.RpcClients["node0"])
-	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAcc.AccAddress)
-	require.Nil(t, err)
 	to := sut.Acc(1).Cosmos.AccAddress
 	amount := big.NewInt(1000000)
+	curNonceIdx := uint64(0)
 
 	txHash, err := sut.SendBankSendWithEIP712(
 		t,
@@ -34,7 +31,7 @@ func RunEIP712BankSend(t *testing.T, sut *SystemTestSuite) {
 		acc0.ID,
 		to,
 		amount,
-		account.GetSequence(),
+		curNonceIdx,
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send bank send with EIP-712")
@@ -74,7 +71,7 @@ func RunEIP712BankSendWithBalanceCheck(t *testing.T, sut *SystemTestSuite) {
 	t.Logf("Initial receiver balance: %s", initialToBalance.String())
 
 	// Send a bank send transaction using EIP-712
-	nonce := uint64(0)
+	curNonceIdx := uint64(0)
 	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(5000000)
 
@@ -84,7 +81,7 @@ func RunEIP712BankSendWithBalanceCheck(t *testing.T, sut *SystemTestSuite) {
 		signer.ID,
 		toAddr,
 		amount,
-		nonce,
+		curNonceIdx,
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send bank send with EIP-712")
@@ -139,6 +136,7 @@ func RunEIP712MultipleBankSends(t *testing.T, sut *SystemTestSuite) {
 	require.NoError(t, err, "Failed to get initial balance")
 	t.Logf("Initial receiver balance: %s", initialBalance.String())
 
+	curNonceIdx := uint64(0)
 	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(1000000)
 	numTxs := 3
@@ -153,7 +151,7 @@ func RunEIP712MultipleBankSends(t *testing.T, sut *SystemTestSuite) {
 			signer.ID,
 			toAddr,
 			amount,
-			uint64(i),
+			curNonceIdx,
 			gasPrice,
 		)
 		require.NoError(t, err, "Failed to send transaction %d", i)

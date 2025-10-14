@@ -9,15 +9,15 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxsOrdering(t *testing.T, s TestSuite) {
+func RunTxsOrdering(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "ordering of pending txs %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -67,7 +67,7 @@ func RunTxsOrdering(t *testing.T, s TestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				ctx := NewRunContext()
+				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s, ctx)

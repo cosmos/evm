@@ -8,15 +8,15 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxRebroadcasting(t *testing.T, s TestSuite) {
+func RunTxRebroadcasting(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "ordering of pending txs %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -41,7 +41,7 @@ func RunTxRebroadcasting(t *testing.T, s TestSuite) {
 					ctx.SetExpPendingTxs(tx1, tx2, tx3)
 					ctx.SetExpQueuedTxs(tx5, tx6)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					// Wait for 3 blocks.
 					// It is because tx1, tx2, tx3 are sent to different nodes, tx3 needs maximum 3 blocks to be committed.
 					// e.g. node3 is 1st proposer -> tx3 will tale 1 block to be committed.
@@ -81,7 +81,7 @@ func RunTxRebroadcasting(t *testing.T, s TestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				ctx := NewRunContext()
+				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s, ctx)
@@ -93,15 +93,15 @@ func RunTxRebroadcasting(t *testing.T, s TestSuite) {
 	}
 }
 
-func RunMinimumGasPricesZero(t *testing.T, s TestSuite) {
+func RunMinimumGasPricesZero(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "sequencial pending txs %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -140,7 +140,7 @@ func RunMinimumGasPricesZero(t *testing.T, s TestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				ctx := NewRunContext()
+				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s, ctx)

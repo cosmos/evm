@@ -9,15 +9,15 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxsReplacement(t *testing.T, s TestSuite) {
+func RunTxsReplacement(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -32,8 +32,8 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -58,8 +58,8 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "single queued tx %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -70,7 +70,7 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 
 					ctx.SetExpQueuedTxs(tx2)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -84,8 +84,8 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "multiple queued txs %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -106,7 +106,7 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 
 					ctx.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -140,7 +140,7 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				ctx := NewRunContext()
+				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s, ctx)
@@ -152,15 +152,15 @@ func RunTxsReplacement(t *testing.T, s TestSuite) {
 	}
 }
 
-func RunTxsReplacementWithCosmosTx(t *testing.T, s TestSuite) {
+func RunTxsReplacementWithCosmosTx(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -179,8 +179,8 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
@@ -223,7 +223,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, s TestSuite) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				ctx := NewRunContext()
+				ctx := NewTestContext()
 				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
 					action(s, ctx)
@@ -235,15 +235,15 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, s TestSuite) {
 	}
 }
 
-func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
+func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s *TestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(TestSuite, *RunContext)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "dynamic fee tx should not replace legacy tx",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -256,7 +256,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 
 					ctx.SetExpQueuedTxs(tx1)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -270,8 +270,8 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "dynamic fee tx should replace legacy tx",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -286,7 +286,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 
 					ctx.SetExpQueuedTxs(tx2)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -300,8 +300,8 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 		},
 		{
 			name: "legacy should never replace dynamic fee tx",
-			actions: []func(TestSuite, *RunContext){
-				func(s TestSuite, ctx *RunContext) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -316,7 +316,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 					// Legacy tx cannot replace dynamic fee tx.
 					ctx.SetExpQueuedTxs(tx1)
 				},
-				func(s TestSuite, ctx *RunContext) {
+				func(s *TestSuite, ctx *TestContext) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
@@ -334,7 +334,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s TestSuite) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := NewRunContext()
+			ctx := NewTestContext()
 			s.BeforeEachCase(t, ctx)
 			for _, action := range tc.actions {
 				action(s, ctx)
