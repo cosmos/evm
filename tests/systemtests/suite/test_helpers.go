@@ -104,10 +104,11 @@ func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 		return nil
 	}
 
-	// Use mutex to ensure thread-safe error collection
-	var mu sync.Mutex
-	var errors []error
-	var wg sync.WaitGroup
+	var (
+		wg     sync.WaitGroup
+		mu     sync.Mutex
+		errors []error
+	)
 
 	for _, txInfo := range expPendingTxs {
 		wg.Add(1)
@@ -132,29 +133,66 @@ func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 	return nil
 }
 
-// CheckTxsQueuedSync verifies that the expected queued transactions are actually queued and not pending in the mempool.
-func (s *SystemTestSuite) CheckTxsQueuedSync(expQueuedTxs []*TxInfo) error {
-	pendingHashes := make([][]string, len(s.Nodes()))
-	queuedHashes := make([][]string, len(s.Nodes()))
-	for i := range s.Nodes() {
-		pending, queued, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
-		if err != nil {
-			return fmt.Errorf("failed to call txpool_content api: %w", err)
-		}
-		queuedHashes[i] = queued
-		pendingHashes[i] = pending
+// CheckTxsQueuedAsync verifies asynchronously that the expected queued transactions are actually queued
+// (and not pending) in the mempool. It mirrors CheckTxsPendingAsync in style to better surface API
+// failures when querying txpool content.
+func (s *SystemTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
+	if len(expQueuedTxs) == 0 {
+		return nil
 	}
 
-	for _, txInfo := range s.GetExpQueuedTxs() {
+	type nodeContent struct {
+		nodeID        string
+		pendingHashes []string
+		queuedHashes  []string
+	}
+
+	nodes := s.Nodes()
+	contents := make([]nodeContent, len(nodes))
+
+	var (
+		wg     sync.WaitGroup
+		mu     sync.Mutex
+		errors []error
+	)
+
+	for idx, nodeID := range nodes {
+		wg.Add(1)
+		go func(i int, nID string) { //nolint:gosec // intentional concurrency for parallel checks
+			defer wg.Done()
+
+			pending, queued, err := s.TxPoolContent(nID, TxTypeEVM)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Errorf("failed to call txpool_content api on %s: %w", nID, err))
+				mu.Unlock()
+				return
+			}
+
+			contents[i] = nodeContent{
+				nodeID:        nID,
+				pendingHashes: pending,
+				queuedHashes:  queued,
+			}
+		}(idx, nodeID)
+	}
+
+	wg.Wait()
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to check queued transactions: %w", errors[0])
+	}
+
+	for _, txInfo := range expQueuedTxs {
 		if txInfo.TxType != TxTypeEVM {
 			panic("queued txs should be only EVM txs")
 		}
 
-		for i := range s.Nodes() {
-			pendingTxHashes := pendingHashes[i]
-			queuedTxHashes := queuedHashes[i]
+		for _, content := range contents {
+			pendingTxHashes := content.pendingHashes
+			queuedTxHashes := content.queuedHashes
 
-			if s.Node(i) == txInfo.DstNodeID {
+			if content.nodeID == txInfo.DstNodeID {
 				if ok := slices.Contains(pendingTxHashes, txInfo.TxHash); ok {
 					return fmt.Errorf("tx %s is pending but actually it should be queued.", txInfo.TxHash)
 				}

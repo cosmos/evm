@@ -75,7 +75,7 @@ func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check queued txs only exist in local mempool (queued txs should be only EVM txs)
-	err = s.CheckTxsQueuedSync(s.GetExpQueuedTxs())
+	err = s.CheckTxsQueuedAsync(s.GetExpQueuedTxs())
 	require.NoError(t, err)
 
 	// Wait for block commit
