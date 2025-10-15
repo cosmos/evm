@@ -301,5 +301,3 @@ replace (
 	// use btree fork for bstm
 	github.com/tidwall/btree => github.com/cosmos/btree v0.0.0-20250924232609-2c6195d95951
 )
-
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20250930140718-d2bc8ddd764f
