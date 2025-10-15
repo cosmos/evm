@@ -1,7 +1,7 @@
 name: Push to Buf Schema Registry
 # This workflow runs when a new version tag is pushed to the repository.
 # It then pushes the Protobuf files corresponding to that tag on to the
-# Buf Schema Registry at https://buf.build/cosmos/evm
+# Buf Schema Registry at https://buf.build/mud/epixchain
 on:
   push:
     tags:

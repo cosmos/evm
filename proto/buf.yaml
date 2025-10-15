@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/cosmos/evm
+name: buf.build/mud/epixchain
 deps:
   - buf.build/cosmos/cosmos-sdk
   - buf.build/cosmos/cosmos-proto
