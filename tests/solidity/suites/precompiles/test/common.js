@@ -13,6 +13,8 @@ const WERC20_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 const DEFAULT_GAS_LIMIT = 1_000_000
 const LARGE_GAS_LIMIT = 10_000_000
 
+// Increased timeout and retry settings for better reliability
+const DEFAULT_TIMEOUT = 60000 // 60 seconds
 const RETRY_DELAY_FUNC = (attempt) => 500 * Math.pow(2, attempt)
 
 
@@ -91,6 +93,7 @@ module.exports = {
     WERC20_ADDRESS,
     DEFAULT_GAS_LIMIT,
     LARGE_GAS_LIMIT,
+    DEFAULT_TIMEOUT,
     RETRY_DELAY_FUNC,
     parseValidator,
     findEvent,

@@ -14,14 +14,16 @@ module.exports = {
     ],
   },
   networks: {
-    cosmos: {
+    epix: {
       url: "http://127.0.0.1:8545",
-      chainId: 262144,
+      chainId: 1916,
       accounts: [
         "0x88CBEAD91AEE890D27BF06E003ADE3D4E952427E88F88D31D61D3EF5E5D54305",
         "0x3B7955D25189C99A7468192FCBC6429205C158834053EBE3F78F4512AB432DB9",
         "0xe9b1d63e8acd7fe676acb43afb390d4b0202dab61abec9cf2a561e4becb147de",
       ],
+      gasPrice: 20000000000, // 20 gwei
+      gas: 10000000,
     },
   },
 };

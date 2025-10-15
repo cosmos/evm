@@ -52,27 +52,27 @@ function updateHardhatConfig(chainId, hardhatConfigPath) {
 
     let configContent = fs.readFileSync(hardhatConfigPath, 'utf8')
 
-    // Find the cosmos network block and update chainId within it
-    const cosmosBlockRegex = /cosmos:\s*{([^{}]*(?:{[^{}]*}[^{}]*)*)}/
-    const match = configContent.match(cosmosBlockRegex)
+    // Find the epix network block and update chainId within it
+    const epixBlockRegex = /epix:\s*{([^{}]*(?:{[^{}]*}[^{}]*)*)}/
+    const match = configContent.match(epixBlockRegex)
 
     if (match) {
-      const cosmosBlock = match[1]
+      const epixBlock = match[1]
       const chainIdRegex = /chainId:\s*\d+/
 
-      if (chainIdRegex.test(cosmosBlock)) {
-        const updatedCosmosBlock = cosmosBlock.replace(chainIdRegex, `chainId: ${chainId}`)
-        const updatedContent = configContent.replace(cosmosBlockRegex, `cosmos: {${updatedCosmosBlock}}`)
+      if (chainIdRegex.test(epixBlock)) {
+        const updatedEpixBlock = epixBlock.replace(chainIdRegex, `chainId: ${chainId}`)
+        const updatedContent = configContent.replace(epixBlockRegex, `epix: {${updatedEpixBlock}}`)
 
         fs.writeFileSync(hardhatConfigPath, updatedContent)
         logger.info(`Updated Hardhat config with chainId: ${chainId}`)
       } else {
-        logger.warn('chainId not found in cosmos network block')
-        logger.info('Cosmos block content:', cosmosBlock)
+        logger.warn('chainId not found in epix network block')
+        logger.info('Epix block content:', epixBlock)
       }
     } else {
-      logger.warn('Could not find cosmos network block in Hardhat config')
-      logger.info('Please check if your Hardhat config has a cosmos network configuration')
+      logger.warn('Could not find epix network block in Hardhat config')
+      logger.info('Please check if your Hardhat config has an epix network configuration')
 
       // Show available network blocks for debugging
       const networkMatches = configContent.match(/\w+:\s*{[^{}]*}/g)
@@ -133,21 +133,21 @@ function syncConfiguration() {
 function checkTestEnv () {
   const argv = yargs(hideBin(process.argv))
       .usage('Usage: $0 [options] <tests>')
-      .example('$0 --network cosmos', 'run all tests using cosmos evm network')
+      .example('$0 --network epix', 'run all tests using epix evm network')
       .example(
-          '$0 --network cosmos --allowTests=test1,test2',
-          'run only test1 and test2 using cosmos network'
+          '$0 --network epix --allowTests=test1,test2',
+          'run only test1 and test2 using epix network'
       )
       .help('h')
       .alias('h', 'help')
-      .describe('network', 'set which network to use: ganache|cosmos')
+      .describe('network', 'set which network to use: ganache|epix')
       .describe(
           'batch',
           'set the test batch in parallelized testing. Format: %d-%d'
       )
       .describe('allowTests', 'only run specified tests. Separated by comma.')
       .boolean('verbose-log')
-      .describe('verbose-log', 'print evmd output, default false').argv
+      .describe('verbose-log', 'print epixd output, default false').argv
 
   if (!fs.existsSync(path.join(__dirname, './node_modules'))) {
     panic(
@@ -160,8 +160,8 @@ function checkTestEnv () {
   if (!argv.network) {
     runConfig.network = 'ganache'
   } else {
-    if (argv.network !== 'cosmos' && argv.network !== 'ganache') {
-      panic('network is invalid. Must be ganache or cosmos')
+    if (argv.network !== 'epix' && argv.network !== 'ganache') {
+      panic('network is invalid. Must be ganache or epix')
     } else {
       runConfig.network = argv.network
     }
@@ -227,7 +227,7 @@ function loadTests (runConfig) {
               'utf-8'
           )
       )
-      const needScripts = ['test-ganache', 'test-cosmos']
+      const needScripts = ['test-ganache', 'test-epix']
       for (const s of needScripts) {
         if (Object.keys(testManifest.scripts).indexOf(s) === -1) {
           logger.warn(
@@ -265,7 +265,7 @@ function loadTests (runConfig) {
 }
 
 function performTestSuite ({ testName, network }) {
-  const cmd = network === 'ganache' ? 'test-ganache' : 'test-cosmos'
+  const cmd = network === 'ganache' ? 'test-ganache' : 'test-epix'
   return new Promise((resolve, reject) => {
     const testProc = spawn('yarn', [cmd], {
       cwd: path.join(__dirname, 'suites', testName)
@@ -302,26 +302,26 @@ async function performTests ({ allTests, runConfig }) {
 }
 
 function setupNetwork ({ runConfig, timeout }) {
-  if (runConfig.network !== 'cosmos') {
+  if (runConfig.network !== 'epix') {
     // no need to start ganache. Truffle will start it
     return
   }
 
-  // Spawn the cosmos evm process
+  // Spawn the epix evm process
 
   const spawnPromise = new Promise((resolve, reject) => {
     const serverStartedLog = 'Starting JSON-RPC server'
-    const serverStartedMsg = 'evmd started'
+    const serverStartedMsg = 'epixd started'
 
     const rootDir = path.resolve(__dirname, '..', '..');     // → ".../evm"
-    const scriptPath = path.join(rootDir, 'local_node.sh');  // → ".../evm/local_node.sh"
+    const scriptPath = path.join(rootDir, 'scripts', 'local_node.sh');  // → ".../evm/scripts/local_node.sh"
 
     const osdProc = spawn(scriptPath, ['-y'], {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],  // <-- stdout/stderr streams
     })
 
-    logger.info(`Starting evmd process... timeout: ${timeout}ms`)
+    logger.info(`Starting epixd process... timeout: ${timeout}ms`)
     if (runConfig.verboseLog) {
       osdProc.stdout.pipe(process.stdout)
       osdProc.stderr.pipe(process.stderr)
@@ -354,7 +354,7 @@ function setupNetwork ({ runConfig, timeout }) {
   })
 
   const timeoutPromise = new Promise((resolve, reject) => {
-    setTimeout(() => reject(new Error('Start evmd timeout!')), timeout)
+    setTimeout(() => reject(new Error('Start epixd timeout!')), timeout)
   })
   return Promise.race([spawnPromise, timeoutPromise])
 }

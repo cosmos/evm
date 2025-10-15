@@ -11,9 +11,9 @@ start_node() {
 	local print_log="${1:-false}"
 	pushd "$ROOT" >/dev/null
 	if [ "$print_log" = true ]; then
-		./local_node.sh -y &
+		./scripts/local_node.sh -y &
 	else
-		./local_node.sh -y >/tmp/evmd.log 2>&1 &
+		./scripts/local_node.sh -y >/tmp/evmd.log 2>&1 &
 	fi
 	NODE_PID=$!
 	popd >/dev/null

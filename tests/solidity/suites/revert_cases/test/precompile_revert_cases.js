@@ -33,8 +33,8 @@ describe('Precompile Revert Cases E2E Tests', function () {
         await precompileWrapper.waitForDeployment();
         
         // Use a known validator for valid cases and invalid one for error cases
-        validValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql';
-        invalidValidatorAddress = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
+        validValidatorAddress = 'epixvaloper1cml96vmptgw99syqrrz8az79xer2pcgpvdwweq';
+        invalidValidatorAddress = 'epixvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pinvalid';
         
         console.log('RevertTestContract deployed at:', await revertTestContract.getAddress());
         console.log('PrecompileWrapper deployed at:', await precompileWrapper.getAddress());

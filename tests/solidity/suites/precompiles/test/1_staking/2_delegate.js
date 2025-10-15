@@ -19,7 +19,7 @@ describe('Staking – delegate with event assertion', function () {
     })
 
     it('should stake native coin and emit Delegate event (using precision-adjusted shares)', async function () {
-        const valBech32 = 'cosmosvaloper10jmp6sgh4cc6zt3e8gw05wavvejgr5pw4xyrql'
+        const valBech32 = 'epixvaloper1cml96vmptgw99syqrrz8az79xer2pcgpvdwweq'
         const stakeAmountBn = hre.ethers.parseEther('0.001')   // BigNumber
         const stakeAmount = BigInt(stakeAmountBn.toString())
 
@@ -27,7 +27,7 @@ describe('Staking – delegate with event assertion', function () {
         const precision = 10n ** 18n
         const stakeShares = stakeAmount * precision
 
-        const hexValAddr = '0x7cB61D4117AE31a12E393a1Cfa3BaC666481D02E'
+        const hexValAddr = '0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101'
 
         // Query delegation before staking
         const beforeDelegation = await staking.delegation(signer.address, valBech32)
