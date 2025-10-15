@@ -24,7 +24,6 @@ var (
 	address       common.Address   = common.BigToAddress(big.NewInt(101))
 	address2      common.Address   = common.BigToAddress(big.NewInt(102))
 	address3      common.Address   = common.BigToAddress(big.NewInt(103))
-	blockHash     common.Hash      = common.BigToHash(big.NewInt(9999))
 	emptyTxConfig statedb.TxConfig = statedb.NewEmptyTxConfig()
 )
 
@@ -57,7 +56,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			acct := keeper.GetAccount(ctx, address)
 			suite.Require().Equal(statedb.NewEmptyAccount(), acct)
 			suite.Require().Empty(acct.Balance)
-			suite.Require().False(acct.IsContract())
+			suite.Require().False(acct.HasCodeHash())
 
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
@@ -600,17 +599,14 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(1, len(db.Logs()))
 	expecedLog := &ethtypes.Log{
-		Address:        address,
-		Topics:         []common.Hash{},
-		Data:           data,
-		BlockNumber:    1,
-		BlockHash:      blockHash,
-		BlockTimestamp: 1,
-		TxHash:         txHash,
-		TxIndex:        1,
-		Index:          1,
+		Address:     address,
+		Topics:      []common.Hash{},
+		Data:        data,
+		BlockNumber: 1,
+		TxIndex:     1,
+		Index:       1,
 	}
-	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[0])
+	suite.Require().Equal(expecedLog, db.Logs()[0])
 
 	db.AddLog(&ethtypes.Log{
 		Address:     address,
@@ -620,7 +616,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	})
 	suite.Require().Equal(2, len(db.Logs()))
 	expecedLog.Index++
-	suite.Require().Equal(expecedLog, db.GetLogs(1, blockHash, 1)[1])
+	suite.Require().Equal(expecedLog, db.Logs()[1])
 }
 
 func (suite *StateDBTestSuite) TestRefund() {
@@ -688,6 +684,45 @@ func (suite *StateDBTestSuite) TestIterateStorage() {
 	})
 	suite.Require().NoError(err)
 	suite.Require().Equal(1, len(storage))
+}
+
+func (suite *StateDBTestSuite) TestSetStorage() {
+	contract := common.BigToAddress(big.NewInt(101))
+
+	testCases := []struct {
+		name     string
+		prestate map[common.Hash]common.Hash
+		assert   func(*statedb.StateDB)
+	}{
+		{
+			"set storage",
+			map[common.Hash]common.Hash{
+				common.BigToHash(big.NewInt(0)): common.BigToHash(big.NewInt(0)),
+				common.BigToHash(big.NewInt(1)): common.BigToHash(big.NewInt(1)),
+				common.BigToHash(big.NewInt(2)): common.BigToHash(big.NewInt(2)),
+			},
+			func(db *statedb.StateDB) {
+				db.SetStorage(contract, map[common.Hash]common.Hash{
+					common.BigToHash(big.NewInt(1)): common.BigToHash(big.NewInt(3)),
+				})
+
+				suite.Require().Equal(common.Hash{}, db.GetState(contract, common.BigToHash(big.NewInt(0))))
+				suite.Require().Equal(common.BigToHash(big.NewInt(3)), db.GetState(contract, common.BigToHash(big.NewInt(1))))
+				suite.Require().Equal(common.Hash{}, db.GetState(contract, common.BigToHash(big.NewInt(2))))
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			keeper := mocks.NewEVMKeeper()
+			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
+			for k, v := range tc.prestate {
+				db.SetState(contract, k, v)
+			}
+			tc.assert(db)
+		})
+	}
 }
 
 func CollectContractStorage(db vm.StateDB) statedb.Storage {

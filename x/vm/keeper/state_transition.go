@@ -14,7 +14,8 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	antetypes "github.com/cosmos/evm/ante/types"
+	rpctypes "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -27,20 +28,18 @@ import (
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
-// NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters
-// (ChainConfig and module Params). It additionally sets the validator operator address as the
-// coinbase address to make it available for the COINBASE opcode, even though there is no
-// beneficiary of the coinbase transaction (since we're not mining).
-//
-// NOTE: the RANDOM opcode is currently not supported since it requires
-// RANDAO implementation. See https://github.com/evmos/ethermint/pull/1520#pullrequestreview-1200504697
-// for more information.
-func (k *Keeper) NewEVM(
+// NewEVMWithOverridePrecompiles creates a new EVM instance with opcode hooks and optionally overrides
+// the precompiles call hook. If overridePrecompiles is true, the EVM will use the keeper's static precompiles
+// for call hooks; otherwise, it will use the recipient-specific precompile hook.
+// This is useful for scenarios such as eth_call, state overrides, or testing where custom precompile logic is needed.
+// The function sets up the block context, transaction context, and VM configuration before returning the EVM instance.
+func (k *Keeper) NewEVMWithOverridePrecompiles(
 	ctx sdk.Context,
 	msg core.Message,
 	cfg *statedb.EVMConfig,
 	tracer *tracing.Hooks,
 	stateDB vm.StateDB,
+	overridePrecompiles bool,
 ) *vm.EVM {
 	ctx = k.SetConsensusParamsInCtx(ctx)
 	blockCtx := vm.BlockContext{
@@ -48,7 +47,7 @@ func (k *Keeper) NewEVM(
 		Transfer:    core.Transfer,
 		GetHash:     k.GetHashFn(ctx),
 		Coinbase:    cfg.CoinBase,
-		GasLimit:    cosmosevmtypes.BlockGasLimit(ctx),
+		GasLimit:    antetypes.BlockGasLimit(ctx),
 		BlockNumber: big.NewInt(ctx.BlockHeight()),
 		Time:        uint64(ctx.BlockHeader().Time.Unix()), //#nosec G115 -- int overflow is not a concern here
 		Difficulty:  big.NewInt(0),                         // unused. Only required in PoW context
@@ -73,9 +72,42 @@ func (k *Keeper) NewEVM(
 	)
 	evmHooks.AddCallHooks(
 		accessControl.GetCallHook(signer),
-		k.GetPrecompilesCallHook(ctx),
 	)
+	if overridePrecompiles {
+		evmHooks.AddCallHooks(
+			k.GetPrecompilesCallHook(ctx),
+		)
+	} else {
+		evmHooks.AddCallHooks(
+			k.GetPrecompileRecipientCallHook(ctx),
+		)
+	}
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
+}
+
+// NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters
+// (ChainConfig and module Params). It additionally sets the validator operator address as the
+// coinbase address to make it available for the COINBASE opcode, even though there is no
+// beneficiary of the coinbase transaction (since we're not mining).
+//
+// NOTE: the RANDOM opcode is currently not supported since it requires
+// RANDAO implementation. See https://github.com/evmos/ethermint/pull/1520#pullrequestreview-1200504697
+// for more information.
+func (k *Keeper) NewEVM(
+	ctx sdk.Context,
+	msg core.Message,
+	cfg *statedb.EVMConfig,
+	tracer *tracing.Hooks,
+	stateDB vm.StateDB,
+) *vm.EVM {
+	return k.NewEVMWithOverridePrecompiles(
+		ctx,
+		msg,
+		cfg,
+		tracer,
+		stateDB,
+		true,
+	)
 }
 
 // GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
@@ -84,7 +116,7 @@ func (k *Keeper) NewEVM(
 //  3. The requested height is from a height greater than the latest one
 func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	return func(height uint64) common.Hash {
-		h, err := cosmosevmtypes.SafeInt64(height)
+		h, err := utils.SafeInt64(height)
 		if err != nil {
 			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
 			return common.Hash{}
@@ -182,7 +214,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	tmpCtx, commitFn := ctx.CacheContext()
 
 	// pass true to commit the StateDB
-	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig, false)
+	res, err := k.ApplyMessageWithConfig(tmpCtx, *msg, nil, true, cfg, txConfig, false, nil)
 	if err != nil {
 		// when a transaction contains multiple msg, as long as one of the msg fails
 		// all gas will be deducted. so is not msg.Gas()
@@ -309,7 +341,7 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 	}
 
 	txConfig := statedb.NewEmptyTxConfig()
-	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal)
+	return k.ApplyMessageWithConfig(ctx, msg, tracer, commit, cfg, txConfig, internal, nil)
 }
 
 // ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
@@ -350,14 +382,33 @@ func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracing
 // # Commit parameter
 //
 // If commit is true, the `StateDB` will be committed, otherwise discarded.
-func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, tracer *tracing.Hooks, commit bool, cfg *statedb.EVMConfig, txConfig statedb.TxConfig, internal bool) (*types.MsgEthereumTxResponse, error) {
+func (k *Keeper) ApplyMessageWithConfig(
+	ctx sdk.Context,
+	msg core.Message,
+	tracer *tracing.Hooks,
+	commit bool,
+	cfg *statedb.EVMConfig,
+	txConfig statedb.TxConfig,
+	internal bool,
+	overrides *rpctypes.StateOverride,
+) (*types.MsgEthereumTxResponse, error) {
 	var (
 		ret   []byte // return bytes from evm execution
 		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
-	evm := k.NewEVM(ctx, msg, cfg, tracer, stateDB)
+	ethCfg := types.GetEthChainConfig()
+	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
+	// Gas limit suffices for the floor data cost (EIP-7623)
+	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
+	if overrides != nil {
+		precompiles := vm.ActivePrecompiledContracts(rules)
+		if err := overrides.Apply(stateDB, precompiles); err != nil {
+			return nil, errorsmod.Wrap(err, "failed to apply state override")
+		}
+		evm.WithPrecompiles(precompiles)
+	}
 
 	leftoverGas := msg.GasLimit
 
@@ -376,8 +427,6 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		}()
 	}
 
-	ethCfg := types.GetEthChainConfig()
-
 	sender := vm.AccountRef(msg.From)
 	contractCreation := msg.To == nil
 	isLondon := ethCfg.IsLondon(evm.Context.BlockNumber)
@@ -393,8 +442,6 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 		// eth_estimateGas will check for this exact error
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
-	// Gas limit suffices for the floor data cost (EIP-7623)
-	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
 	if rules.IsPrague {
 		floorDataGas, err := core.FloorDataGas(msg.Data)
 		if err != nil {
@@ -484,7 +531,11 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 	// is considerably higher than GasUsed to stay more aligned with CometBFT gas mechanics
 	// for more info https://github.com/evmos/ethermint/issues/1085
 	gasLimit := math.LegacyNewDecFromInt(math.NewIntFromUint64(msg.GasLimit)) //#nosec G115 -- int overflow is not a concern here -- msg gas is not exceeding int64 max value
-	minGasMultiplier := k.GetMinGasMultiplier(ctx)
+	minGasMultiplier := cfg.FeeMarketParams.MinGasMultiplier
+	if minGasMultiplier.IsNil() {
+		// in case we are executing eth_call on a legacy block, returns a zero value.
+		minGasMultiplier = math.LegacyZeroDec()
+	}
 	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
 
 	if !minimumGasUsed.TruncateInt().IsUint64() {
@@ -506,15 +557,15 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context, msg core.Message, trace
 	if vmError == vm.ErrExecutionReverted.Error() {
 		ret = evm.Interpreter().ReturnData()
 	}
-
-	logs := stateDB.GetLogs(uint64(ctx.BlockHeight()), common.BytesToHash(ctx.HeaderHash()), evm.Context.Time) //#nosec G115 -- int overflow is not a concern here
 	return &types.MsgEthereumTxResponse{
-		GasUsed:    gasUsed.TruncateInt().Uint64(),
-		MaxUsedGas: maxUsedGas,
-		VmError:    vmError,
-		Ret:        ret,
-		Logs:       types.NewLogsFromEth(logs),
-		Hash:       txConfig.TxHash.Hex(),
+		GasUsed:        gasUsed.TruncateInt().Uint64(),
+		MaxUsedGas:     maxUsedGas,
+		VmError:        vmError,
+		Ret:            ret,
+		Logs:           types.NewLogsFromEth(stateDB.Logs()),
+		Hash:           txConfig.TxHash.Hex(),
+		BlockHash:      ctx.HeaderHash(),
+		BlockTimestamp: evm.Context.Time,
 	}, nil
 }
 

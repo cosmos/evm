@@ -60,8 +60,7 @@ const (
 	// JSONRPCEnableMetrics enables EVM RPC metrics server.
 	// Set to `metrics` which is hardcoded flag from go-ethereum.
 	// https://github.com/ethereum/go-ethereum/blob/master/metrics/metrics.go#L35-L55
-	JSONRPCEnableMetrics            = "metrics"
-	JSONRPCFixRevertGasRefundHeight = "json-rpc.fix-revert-gas-refund-height"
+	JSONRPCEnableMetrics = "metrics"
 )
 
 // EVM flags
@@ -71,6 +70,15 @@ const (
 	EVMEnablePreimageRecording = "evm.cache-preimage"
 	EVMChainID                 = "evm.evm-chain-id"
 	EVMMinTip                  = "evm.min-tip"
+	EvmGethMetricsAddress      = "evm.geth-metrics-address"
+
+	EVMMempoolPriceLimit   = "evm.mempool.price-limit"
+	EVMMempoolPriceBump    = "evm.mempool.price-bump"
+	EVMMempoolAccountSlots = "evm.mempool.account-slots"
+	EVMMempoolGlobalSlots  = "evm.mempool.global-slots"
+	EVMMempoolAccountQueue = "evm.mempool.account-queue"
+	EVMMempoolGlobalQueue  = "evm.mempool.global-queue"
+	EVMMempoolLifetime     = "evm.mempool.lifetime"
 )
 
 // TLS flags

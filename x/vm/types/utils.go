@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -82,6 +84,12 @@ func logsFromTxResponse(dst []*ethtypes.Log, rsp *MsgEthereumTxResponse, blockNu
 		l := log.ToEthereum()
 		l.TxHash = txHash
 		l.BlockNumber = blockNumber
+		if len(rsp.BlockHash) > 0 {
+			l.BlockHash = common.BytesToHash(rsp.BlockHash)
+		}
+		if rsp.BlockTimestamp > 0 {
+			l.BlockTimestamp = rsp.BlockTimestamp
+		}
 		dst = append(dst, l)
 	}
 	return dst
@@ -213,4 +221,19 @@ func SortedKVStoreKeys(keys map[string]*storetypes.KVStoreKey) []*storetypes.KVS
 		sorted = append(sorted, keys[name])
 	}
 	return sorted
+}
+
+func GetBaseFee(height int64, ethCfg *params.ChainConfig, feemarketParams *feemarkettypes.Params) *big.Int {
+	if !IsLondon(ethCfg, height) {
+		return nil
+	}
+	if feemarketParams.NoBaseFee {
+		return new(big.Int)
+	}
+	baseFee := feemarketParams.BaseFee
+	// should not be nil if london hardfork enabled
+	if baseFee.IsZero() {
+		return new(big.Int)
+	}
+	return ConvertAmountTo18DecimalsLegacy(baseFee).TruncateInt().BigInt()
 }

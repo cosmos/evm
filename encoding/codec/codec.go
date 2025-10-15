@@ -5,7 +5,7 @@ import (
 
 	cryptocodec "github.com/cosmos/evm/crypto/codec"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	"github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/ethereum/eip712"
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -31,7 +31,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 func RegisterInterfaces(interfaceRegistry codectypes.InterfaceRegistry) {
 	std.RegisterInterfaces(interfaceRegistry)
 	cryptocodec.RegisterInterfaces(interfaceRegistry)
-	types.RegisterInterfaces(interfaceRegistry)
+	eip712.RegisterInterfaces(interfaceRegistry)
 
 	// ETHERMINT COMPATIBILITY: Register Ethermint type URLs (only once)
 	emTypesMutex.Lock()

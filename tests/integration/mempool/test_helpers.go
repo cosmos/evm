@@ -4,10 +4,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/keyring"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -67,6 +69,29 @@ func (s *IntegrationTestSuite) createEVMValueTransferTx(key keyring.Key, nonce i
 	return tx
 }
 
+// createEVMTransaction creates an EVM transaction using the provided key
+func (s *IntegrationTestSuite) createEVMValueTransferDynamicFeeTx(key keyring.Key, nonce int, gasFeeCap, gasTipCap *big.Int) sdk.Tx {
+	to := s.keyring.GetKey(1).Addr
+
+	if nonce < 0 {
+		s.Require().NoError(fmt.Errorf("nonce must be non-negative"))
+	}
+
+	ethTxArgs := evmtypes.EvmTxArgs{
+		Nonce:     uint64(nonce),
+		To:        &to,
+		Amount:    big.NewInt(1000),
+		GasLimit:  TxGas,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Input:     nil,
+	}
+	tx, err := s.factory.GenerateSignedEthTx(key.Priv, ethTxArgs)
+	s.Require().NoError(err)
+
+	return tx
+}
+
 // createEVMContractDeployTx creates an EVM transaction for contract deployment
 func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPrice *big.Int, data []byte) sdk.Tx {
 	ethTxArgs := evmtypes.EvmTxArgs{
@@ -86,7 +111,13 @@ func (s *IntegrationTestSuite) createEVMContractDeployTx(key keyring.Key, gasPri
 // checkTxs call abci CheckTx for multipile transactions
 func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 	for _, tx := range txs {
-		if err := s.checkTx(tx); err != nil {
+		if res, err := s.checkTx(tx); err != nil {
+			if err != nil {
+				return fmt.Errorf("failed to execute CheckTx for tx: %s", s.getTxHash(tx))
+			}
+			if res.Code != abci.CodeTypeOK {
+				return fmt.Errorf("tx (%s) failed to pass CheckTx with log: %s", s.getTxHash(tx), res.Log)
+			}
 			return err
 		}
 	}
@@ -94,21 +125,34 @@ func (s *IntegrationTestSuite) checkTxs(txs []sdk.Tx) error {
 }
 
 // checkTxs call abci CheckTx for a transaction
-func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) error {
+func (s *IntegrationTestSuite) checkTx(tx sdk.Tx) (*abci.ResponseCheckTx, error) {
 	txBytes, err := s.network.App.GetTxConfig().TxEncoder()(tx)
 	if err != nil {
-		return fmt.Errorf("failed to encode cosmos tx: %w", err)
+		return nil, fmt.Errorf("failed to encode cosmos tx: %w", err)
 	}
 
-	_, err = s.network.App.CheckTx(&abci.RequestCheckTx{
+	res, err := s.network.App.CheckTx(&abci.RequestCheckTx{
 		Tx:   txBytes,
 		Type: abci.CheckTxType_New,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to encode cosmos tx: %w", err)
+		return nil, fmt.Errorf("failed to execute CheckTx: %w", err)
 	}
 
-	return nil
+	return res, nil
+}
+
+func (s *IntegrationTestSuite) getTxBytes(txs []sdk.Tx) ([][]byte, error) {
+	txEncoder := s.network.App.GetTxConfig().TxEncoder()
+	txBytes := make([][]byte, 0)
+	for _, tx := range txs {
+		bz, err := txEncoder(tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode tx: %w", err)
+		}
+		txBytes = append(txBytes, bz)
+	}
+	return txBytes, nil
 }
 
 // getTxHashes returns transaction hashes for multiple transactions
@@ -149,4 +193,29 @@ func (s *IntegrationTestSuite) calculateCosmosEffectiveTip(feeAmount int64, gasL
 	}
 
 	return new(big.Int).Sub(gasPrice, baseFee)
+}
+
+// notifyNewBlockToMempool triggers the natural block notification mechanism used in production.
+// This sends a ChainHeadEvent that causes the mempool to update its state and remove committed transactions.
+// The event subscription mechanism naturally calls Reset() which triggers the transaction cleanup process.
+func (s *IntegrationTestSuite) notifyNewBlockToMempool() {
+	// Get the EVM mempool from the app
+	evmMempool := s.network.App.GetMempool()
+
+	// Access the underlying blockchain interface from the EVM mempool
+	if evmMempoolCast, ok := evmMempool.(*evmmempool.ExperimentalEVMMempool); ok {
+		blockchain := evmMempoolCast.GetBlockchain()
+
+		// Trigger a new block notification
+		// This sends a ChainHeadEvent that the mempool subscribes to.
+		// The TxPool's event loop receives this and calls Reset() for each subpool,
+		// which naturally removes committed transactions via demoteUnexecutables().
+		blockchain.NotifyNewBlock()
+
+		// The ChainHeadEvent is processed asynchronously, so we need to wait a bit
+		// for the event to be processed and the reset to complete.
+		// In integration tests, this might need a small delay to ensure the event
+		// is processed before we check the mempool state.
+		time.Sleep(100 * time.Millisecond)
+	}
 }

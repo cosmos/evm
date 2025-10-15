@@ -72,6 +72,5 @@ func (s *PrecompileTestSuite) SetupTest() {
 	tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), bondDenom)
 	tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
 	s.Require().True(found)
-	s.precompile2, err = erc20.NewPrecompile(tokenPair, s.network.App.GetBankKeeper(), s.network.App.GetErc20Keeper(), s.network.App.GetTransferKeeper())
-	s.Require().NoError(err)
+	s.precompile2 = erc20.NewPrecompile(tokenPair, s.network.App.GetBankKeeper(), s.network.App.GetErc20Keeper(), s.network.App.GetTransferKeeper())
 }

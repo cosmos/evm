@@ -55,7 +55,7 @@ struct Validator {
     BondStatus status;
     uint256 tokens;
     uint256 delegatorShares; // TODO: decimal
-    string description;
+    Description description;
     int64 unbondingHeight;
     int64 unbondingTime;
     uint256 commission;

@@ -160,13 +160,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				evmtypes.GetEVMCoinDenom(),
 				erc20types.OWNER_MODULE,
 			)
-			precompile, err := werc20.NewPrecompile(
+
+			precompile := werc20.NewPrecompile(
 				tokenPair,
 				is.network.App.GetBankKeeper(),
 				is.network.App.GetErc20Keeper(),
 				is.network.App.GetTransferKeeper(),
 			)
-			Expect(err).ToNot(HaveOccurred(), "failed to instantiate the werc20 precompile")
 			is.precompile = precompile
 
 			// Setup of the contract calling into the precompile to tests revert
@@ -556,7 +556,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						ChainID:    is.network.GetChainID(),
 						EVMChainID: is.network.GetEIP155ChainID().Uint64(),
 					}]
-					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals")
+					Expect(decimals).To(Equal(uint8(coinInfo.Decimals)), "expected different decimals") //nolint:gosec // G115
 				},
 				)
 			})

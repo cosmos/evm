@@ -11,7 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// ConvertAmountToLegacy18Decimals convert the given amount into a 18 decimals
+// ConvertAmountTo18DecimalsLegacy convert the given amount into a 18 decimals
 // representation.
 func ConvertAmountTo18DecimalsLegacy(amt sdkmath.LegacyDec) sdkmath.LegacyDec {
 	evmCoinDecimal := GetEVMCoinDecimals()

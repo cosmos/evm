@@ -29,7 +29,15 @@ const (
 )
 
 func StartChain(t *testing.T, sut *systemtests.SystemUnderTest) {
-	sut.StartChain(t, "--json-rpc.api=eth,txpool,personal,net,debug,web3", "--chain-id", "local-4221", "--api.enable=true")
+	chainID := "--chain-id=local-4221"
+	evmChainID := "--evm.evm-chain-id=4221"
+	apiEnable := "--api.enable=true"
+	jsonrpcApi := "--json-rpc.api=eth,txpool,personal,net,debug,web3"
+	jsonrpcAllowUnprotectedTxs := "--json-rpc.allow-unprotected-txs=true"
+
+	args := []string{jsonrpcApi, chainID, evmChainID, apiEnable, jsonrpcAllowUnprotectedTxs}
+
+	sut.StartChain(t, args...)
 }
 
 // cosmos and eth tx with same nonce.
@@ -70,23 +78,6 @@ func TestPriorityReplacement(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	var lowPrioRes []byte
-	go func() {
-		defer wg.Done()
-		var prioErr error
-		lowPrioRes, prioErr = exec.Command(
-			"cast", "send",
-			contractAddr,
-			"increment()",
-			"--rpc-url", "http://127.0.0.1:8545",
-			"--private-key", pk,
-			"--gas-price", "100000000000",
-			"--nonce", "2",
-		).CombinedOutput()
-		require.Error(t, prioErr)
-	}()
-
 	var highPrioRes []byte
 	wg.Add(1)
 	go func() {
@@ -105,6 +96,23 @@ func TestPriorityReplacement(t *testing.T) {
 		require.NoError(t, prioErr)
 	}()
 
+	wg.Add(1)
+	var lowPrioRes []byte
+	go func() {
+		defer wg.Done()
+		var prioErr error
+		lowPrioRes, prioErr = exec.Command(
+			"cast", "send",
+			contractAddr,
+			"increment()",
+			"--rpc-url", "http://127.0.0.1:8545",
+			"--private-key", pk,
+			"--gas-price", "99900000000000",
+			"--nonce", "2",
+		).CombinedOutput()
+		require.Error(t, prioErr)
+	}()
+
 	// wait a bit to make sure the tx is submitted and waiting in the txpool.
 	time.Sleep(2 * time.Second)
 
@@ -121,9 +129,13 @@ func TestPriorityReplacement(t *testing.T) {
 	wg.Wait()
 
 	lowPrioReceipt, err := parseReceipt(string(lowPrioRes))
+	fmt.Println("DEBUG - lowPrioRes: ", string(lowPrioRes))
+	fmt.Println("DEBUG - lowPrioReceipt: ", lowPrioReceipt)
 	require.NoError(t, err)
 
 	highPrioReceipt, err := parseReceipt(string(highPrioRes))
+	fmt.Println("DEBUG - highPrioRes: ", string(highPrioRes))
+	fmt.Println("DEBUG - highPrioReceipt: ", highPrioReceipt)
 	require.NoError(t, err)
 
 	// 1 = success, 0 = failure.

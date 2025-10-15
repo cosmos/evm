@@ -36,6 +36,11 @@ message Params {
   // precompiled contracts that are active
   repeated string active_static_precompiles = 9;
   uint64 history_serve_window = 10;
+  ExtendedDenomOptions extended_denom_options = 11;
+}
+
+message ExtendedDenomOptions {
+  string extended_denom = 1;
 }
 
 // AccessControl defines the permission policy of the EVM
@@ -347,4 +352,11 @@ message Preinstall {
   string address = 2;
   // code in hex format for the preinstall contract
   string code = 3;
+}
+
+message EvmCoinInfo {
+  string denom = 1;
+  string extended_denom = 2;
+  string display_denom = 3;
+  uint32 decimals = 4;
 }

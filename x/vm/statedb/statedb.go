@@ -218,21 +218,9 @@ func (s *StateDB) cache() error {
 func (s *StateDB) AddLog(log *ethtypes.Log) {
 	s.journal.append(addLogChange{})
 
-	log.TxHash = s.txConfig.TxHash
 	log.TxIndex = s.txConfig.TxIndex
 	log.Index = s.txConfig.LogIndex + uint(len(s.logs))
 	s.logs = append(s.logs, log)
-}
-
-// GetLogs returns the logs matching the specified transaction hash, and annotates
-// them with the given blockNumber and blockHash.
-func (s *StateDB) GetLogs(blockNumber uint64, blockHash common.Hash, blockTime uint64) []*ethtypes.Log {
-	for _, l := range s.logs {
-		l.BlockNumber = blockNumber
-		l.BlockHash = blockHash
-		l.BlockTimestamp = blockTime
-	}
-	return s.logs
 }
 
 // Logs returns the logs of current transaction.
@@ -502,6 +490,22 @@ func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.H
 		return stateObject.SetState(key, value)
 	}
 	return common.Hash{}
+}
+
+// SetBalance sets the balance of account associated with addr to amount.
+func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
+	stateObject := s.getOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetBalance(amount)
+	}
+}
+
+// SetStorage replaces the entire storage for the specified account with given
+// storage. This function should only be used for debugging and the mutations
+// must be discarded afterwards.
+func (s *StateDB) SetStorage(addr common.Address, storage Storage) {
+	stateObject := s.getOrNewStateObject(addr)
+	stateObject.SetStorage(storage)
 }
 
 // SelfDestruct marks the given account as self-destructed.

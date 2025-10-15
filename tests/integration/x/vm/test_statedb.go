@@ -636,7 +636,7 @@ func (s *KeeperTestSuite) CreateTestTx(msg *types.MsgEthereumTx, priv cryptotype
 	s.Require().NoError(err)
 
 	clientCtx := client.Context{}.WithTxConfig(s.Network.App.GetTxConfig())
-	ethSigner := ethtypes.LatestSignerForChainID(types.GetEthChainConfig().ChainID)
+	ethSigner := ethtypes.LatestSignerForChainID(s.Network.GetEIP155ChainID())
 
 	txBuilder := clientCtx.TxConfig.NewTxBuilder()
 	builder, ok := txBuilder.(authtx.ExtensionOptionsTxBuilder)
@@ -729,7 +729,6 @@ func (s *KeeperTestSuite) TestAddLog() {
 			},
 			&ethtypes.Log{
 				Address: addr,
-				TxHash:  txHash,
 				Topics:  make([]common.Hash, 0),
 			},
 			func(vm.StateDB) {},
@@ -743,7 +742,6 @@ func (s *KeeperTestSuite) TestAddLog() {
 			},
 			&ethtypes.Log{
 				Address: addr,
-				TxHash:  txHash3,
 				Topics:  make([]common.Hash, 0),
 			},
 			func(vm.StateDB) {},

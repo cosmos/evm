@@ -73,6 +73,10 @@ message MsgEthereumTxResponse {
   uint64 gas_used = 5;
   // max_used_gas specifies the gas consumed by the transaction, not including refunds
   uint64 max_used_gas = 6;
+  // include the block hash for json-rpc to use
+  bytes block_hash = 7;
+  // include the block timestamp for json-rpc to use
+  uint64 block_timestamp = 8;
 }
 
 // MsgUpdateParams defines a Msg for updating the x/vm module parameters.

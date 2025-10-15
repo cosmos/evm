@@ -25,6 +25,33 @@ evm-chain-id = {{ .EVM.EVMChainID }}
 # MinTip defines the minimum priority fee for the mempool.
 min-tip = {{ .EVM.MinTip }}
 
+# GethMetricsAddress defines the addr to bind the geth metrics server to. Default 127.0.0.1:8100.
+geth-metrics-address = "{{ .EVM.GethMetricsAddress }}"
+
+# Mempool configuration for EVM transactions
+[evm.mempool]
+
+# PriceLimit is the minimum gas price to enforce for acceptance into the pool (in wei)
+price-limit = {{ .EVM.Mempool.PriceLimit }}
+
+# PriceBump is the minimum price bump percentage to replace an already existing transaction (nonce)
+price-bump = {{ .EVM.Mempool.PriceBump }}
+
+# AccountSlots is the number of executable transaction slots guaranteed per account
+account-slots = {{ .EVM.Mempool.AccountSlots }}
+
+# GlobalSlots is the maximum number of executable transaction slots for all accounts
+global-slots = {{ .EVM.Mempool.GlobalSlots }}
+
+# AccountQueue is the maximum number of non-executable transaction slots permitted per account
+account-queue = {{ .EVM.Mempool.AccountQueue }}
+
+# GlobalQueue is the maximum number of non-executable transaction slots for all accounts
+global-queue = {{ .EVM.Mempool.GlobalQueue }}
+
+# Lifetime is the maximum amount of time non-executable transaction are queued
+lifetime = "{{ .EVM.Mempool.Lifetime }}"
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
@@ -92,9 +119,6 @@ enable-indexer = {{ .JSONRPC.EnableIndexer }}
 # MetricsAddress defines the EVM Metrics server address to bind to. Pass --metrics in CLI to enable
 # Prometheus metrics path: /debug/metrics/prometheus
 metrics-address = "{{ .JSONRPC.MetricsAddress }}"
-
-# Upgrade height for fix of revert gas refund logic when transaction reverted.
-fix-revert-gas-refund-height = {{ .JSONRPC.FixRevertGasRefundHeight }}
 
 # Maximum number of requests in a batch.
 batch-request-limit = {{ .JSONRPC.BatchRequestLimit }}

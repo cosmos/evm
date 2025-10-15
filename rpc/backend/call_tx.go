@@ -160,6 +160,25 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
 			return txHash, nil
 		}
+		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
+			from, err := ethSigner.Sender(tx)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
+			}
+			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
+			}
+
+			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
+			if tx.Nonce() < nonce {
+				return common.Hash{}, err
+			}
+
+			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+			return txHash, nil
+		}
+
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -296,7 +315,10 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 }
 
 // EstimateGas returns an estimate of gas usage for the given smart contract call.
-func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rpctypes.BlockNumber) (hexutil.Uint64, error) {
+func (b *Backend) EstimateGas(
+	args evmtypes.TransactionArgs,
+	blockNrOptional *rpctypes.BlockNumber,
+) (hexutil.Uint64, error) {
 	blockNr := rpctypes.EthPendingBlockNumber
 	if blockNrOptional != nil {
 		blockNr = *blockNrOptional
@@ -336,7 +358,9 @@ func (b *Backend) EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *rp
 // DoCall performs a simulated call operation through the evmtypes. It returns the
 // estimated gas used on the operation or an error if fails.
 func (b *Backend) DoCall(
-	args evmtypes.TransactionArgs, blockNr rpctypes.BlockNumber,
+	args evmtypes.TransactionArgs,
+	blockNr rpctypes.BlockNumber,
+	overrides *json.RawMessage,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	bz, err := json.Marshal(&args)
 	if err != nil {
@@ -348,11 +372,17 @@ func (b *Backend) DoCall(
 		return nil, errors.New("header not found")
 	}
 
+	var bzOverrides []byte
+	if overrides != nil {
+		bzOverrides = *overrides
+	}
+
 	req := evmtypes.EthCallRequest{
 		Args:            bz,
 		GasCap:          b.RPCGasCap(),
 		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
 		ChainId:         b.EvmChainID.Int64(),
+		Overrides:       bzOverrides,
 	}
 
 	// From ContextWithHeight: if the provided height is 0,
