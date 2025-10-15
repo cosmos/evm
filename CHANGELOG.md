@@ -25,6 +25,7 @@
 
 ### IMPROVEMENTS
 
+- [\#708](https://github.com/cosmos/evm/pull/708) Add configurable testnet validator powers
 - [\#698](https://github.com/cosmos/evm/pull/698) Expose mempool configuration flags and move mempool configuration in app.go to helper
 - [\#538](https://github.com/cosmos/evm/pull/538) Optimize `eth_estimateGas` gRPC path: short-circuit plain transfers, add optimistic gas bound based on `MaxUsedGas`.
 - [\#513](https://github.com/cosmos/evm/pull/513) Replace `TestEncodingConfig` with production `EncodingConfig` in encoding package to remove test dependencies from production code.
@@ -52,11 +53,11 @@
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 - [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
-- [\#691](https://github.com/cosmos/evm/pull/691) Add debug_traceCall api
 - [\#701](https://github.com/cosmos/evm/pull/701) Add address codec support to ERC20 IBC callbacks to handle hex addresses in addition to bech32 addresses.
-- [\#702](https://github.com/cosmos/evm/pull/702) Fix mempool e2e test
 - [\#704](https://github.com/cosmos/evm/pull/704) Fix EIP-7702 test cases
-- [\#706](https://github.com/cosmos/evm/pull/706) Fix EoA-CA Identification logic
+- [\#709](https://github.com/cosmos/evm/pull/709) Fix mempool e2e test
+- [\#710](https://github.com/cosmos/evm/pull/710) Fix EoA-CA Identification logic
+- [\#711](https://github.com/cosmos/evm/pull/711) Add debug_traceCall api
 
 
 ### FEATURES
