@@ -74,9 +74,12 @@ func NewRawTxCmd() *cobra.Command {
 				return err
 			}
 
-			baseDenom := types.GetEVMCoinDenom()
-
-			tx, err := msg.BuildTx(clientCtx.TxConfig.NewTxBuilder(), baseDenom)
+			queryClient := types.NewQueryClient(clientCtx)
+			params, err := queryClient.Params(cmd.Context(), &types.QueryParamsRequest{})
+			if err != nil {
+				return err
+			}
+			tx, err := msg.BuildTxWithEvmParams(clientCtx.TxConfig.NewTxBuilder(), params.Params.EvmDenom, &params.Params)
 			if err != nil {
 				return err
 			}
