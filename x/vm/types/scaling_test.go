@@ -239,3 +239,79 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertCoinsDenomToExtendedDenomWithEvmParams(t *testing.T) {
+	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+	sixDecimalsParams := evmtypes.Params{
+		EvmDenom: sixDecimalsCoinInfo.Denom,
+		ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{
+			ExtendedDenom: sixDecimalsCoinInfo.ExtendedDenom,
+		},
+	}
+	nonBaseCoin := sdk.Coin{Denom: "btc", Amount: math.NewInt(100)}
+	eighteenDecimalsBaseCoin := sdk.Coin{Denom: eighteenDecimalsCoinInfo.Denom, Amount: math.NewInt(1000000000000000000)}
+	sixDecimalsBaseCoin := sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(1000000)}
+
+	tcs := []struct {
+		name     string
+		coins    sdk.Coins
+		params   evmtypes.Params
+		expected sdk.Coins
+	}{
+		{
+			name:     "empty coins",
+			coins:    sdk.Coins{},
+			params:   sixDecimalsParams,
+			expected: sdk.Coins{},
+		},
+		{
+			name:  "single coin - 18 decimals (no conversion)",
+			coins: sdk.NewCoins(eighteenDecimalsBaseCoin),
+			params: evmtypes.Params{
+				EvmDenom: eighteenDecimalsCoinInfo.Denom,
+				ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{
+					ExtendedDenom: eighteenDecimalsCoinInfo.ExtendedDenom,
+				},
+			},
+			expected: sdk.NewCoins(sdk.Coin{Denom: eighteenDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1000000000000000000)}),
+		},
+		{
+			name:     "single coin - 6 decimals conversion",
+			coins:    sdk.NewCoins(sixDecimalsBaseCoin),
+			params:   sixDecimalsParams,
+			expected: sdk.NewCoins(sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1000000)}),
+		},
+		{
+			name:     "single coin - different denom (no conversion)",
+			coins:    sdk.NewCoins(nonBaseCoin),
+			params:   sixDecimalsParams,
+			expected: sdk.NewCoins(nonBaseCoin),
+		},
+		{
+			name: "multiple coins - mixed denominations",
+			coins: sdk.NewCoins(
+				sixDecimalsBaseCoin,
+				nonBaseCoin,
+			).Sort(),
+			params: sixDecimalsParams,
+			expected: sdk.NewCoins(
+				nonBaseCoin,
+				sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1000000)},
+			).Sort(),
+		},
+		{
+			name:     "zero amount coin",
+			coins:    sdk.NewCoins(sdk.Coin{Denom: sixDecimalsCoinInfo.Denom, Amount: math.NewInt(0)}),
+			params:   sixDecimalsParams,
+			expected: sdk.NewCoins(sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(0)}),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			result := evmtypes.ConvertCoinsDenomToExtendedDenomWithEvmParams(tc.coins, tc.params)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
