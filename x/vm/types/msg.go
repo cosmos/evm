@@ -304,10 +304,15 @@ func (msg *MsgEthereumTx) Hash() common.Hash {
 
 // BuildTx builds the canonical cosmos tx from ethereum msg
 func (msg *MsgEthereumTx) BuildTx(b client.TxBuilder, evmDenom string) (signing.Tx, error) {
-	return msg.BuildTxWithEvmParams(b, evmDenom, nil)
+	return msg.BuildTxWithEvmParams(b, &Params{
+		EvmDenom: evmDenom,
+		ExtendedDenomOptions: &ExtendedDenomOptions{
+			ExtendedDenom: GetEVMCoinExtendedDenom(),
+		},
+	})
 }
 
-func (msg *MsgEthereumTx) BuildTxWithEvmParams(b client.TxBuilder, evmDenom string, params *Params) (signing.Tx, error) {
+func (msg *MsgEthereumTx) BuildTxWithEvmParams(b client.TxBuilder, params *Params) (signing.Tx, error) {
 	builder, ok := b.(authtx.ExtensionOptionsTxBuilder)
 	if !ok {
 		return nil, errors.New("unsupported builder")
@@ -321,13 +326,8 @@ func (msg *MsgEthereumTx) BuildTxWithEvmParams(b client.TxBuilder, evmDenom stri
 	fees := make(sdk.Coins, 0, 1)
 	feeAmt := sdkmath.NewIntFromBigInt(msg.GetFee())
 	if feeAmt.Sign() > 0 {
-		if params == nil {
-			fees = append(fees, sdk.NewCoin(evmDenom, feeAmt))
-			fees = ConvertCoinsDenomToExtendedDenom(fees)
-		} else {
-			fees = append(fees, sdk.NewCoin(params.EvmDenom, feeAmt))
-			fees = ConvertCoinsDenomToExtendedDenomWithEvmParams(fees, params)
-		}
+		fees = append(fees, sdk.NewCoin(params.EvmDenom, feeAmt))
+		fees = ConvertCoinsDenomToExtendedDenomWithEvmParams(fees, params)
 	}
 
 	builder.SetExtensionOptions(option)

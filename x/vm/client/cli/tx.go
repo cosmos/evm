@@ -79,7 +79,7 @@ func NewRawTxCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			tx, err := msg.BuildTxWithEvmParams(clientCtx.TxConfig.NewTxBuilder(), params.Params.EvmDenom, &params.Params)
+			tx, err := msg.BuildTxWithEvmParams(clientCtx.TxConfig.NewTxBuilder(), &params.Params)
 			if err != nil {
 				return err
 			}
