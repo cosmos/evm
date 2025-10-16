@@ -138,9 +138,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 
 func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	params := am.keeper.GetParams(ctx)
+	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
 	am.initializer.Do(func() {
-		SetGlobalConfigVariables(ctx, am.keeper, am.bankKeeper, params)
+		SetGlobalConfigVariables(coinInfo)
 	})
 	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
@@ -212,43 +212,9 @@ func setBaseDenom(ci types.EvmCoinInfo) (err error) {
 	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
 }
 
-func SetGlobalConfigVariables(ctx sdk.Context, vmKeeper *keeper.Keeper, bankKeeper types.BankKeeper, params types.Params) {
-	var decimals types.Decimals
-
-	evmDenomMetadata, found := bankKeeper.GetDenomMetaData(ctx, params.EvmDenom)
-	if !found {
-		panic(fmt.Sprintf("denom metadata %s could not be found", params.EvmDenom))
-	}
-
-	for _, denomUnit := range evmDenomMetadata.DenomUnits {
-		if denomUnit.Denom == evmDenomMetadata.Display {
-			decimals = types.Decimals(denomUnit.Exponent)
-		}
-	}
-
-	var extendedDenom string
-	if decimals == 18 {
-		extendedDenom = params.EvmDenom
-	} else {
-		if params.ExtendedDenomOptions == nil {
-			panic(fmt.Errorf("extended denom options cannot be nil for non-18-decimal chains"))
-		}
-		extendedDenom = params.ExtendedDenomOptions.ExtendedDenom
-	}
-
-	coinInfo := types.EvmCoinInfo{
-		Denom:         params.EvmDenom,
-		ExtendedDenom: extendedDenom,
-		DisplayDenom:  evmDenomMetadata.Display,
-		Decimals:      decimals.Uint32(),
-	}
-
+func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
-		panic(err)
-	}
-
-	if err := vmKeeper.SetEvmCoinInfo(ctx, coinInfo); err != nil {
 		panic(err)
 	}
 
