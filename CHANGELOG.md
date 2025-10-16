@@ -23,6 +23,7 @@
 - [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
 - [\#668](https://github.com/cosmos/evm/pull/668) Fix panic in legacy mempool when Reset() was called with a skipped header between old and new block.
 - [\#723](https://github.com/cosmos/evm/pull/723) Fix TransactionIndex in receipt generation to use actual EthTxIndex instead of loop index.
+- [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
 
 ### IMPROVEMENTS
 
