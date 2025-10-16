@@ -243,7 +243,7 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 func TestConvertCoinsDenomToExtendedDenomWithEvmParams(t *testing.T) {
 	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
 	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
-	sixDecimalsParams := &evmtypes.Params{
+	sixDecimalsParams := evmtypes.Params{
 		EvmDenom: sixDecimalsCoinInfo.Denom,
 		ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{
 			ExtendedDenom: sixDecimalsCoinInfo.ExtendedDenom,
@@ -256,7 +256,7 @@ func TestConvertCoinsDenomToExtendedDenomWithEvmParams(t *testing.T) {
 	tcs := []struct {
 		name     string
 		coins    sdk.Coins
-		params   *evmtypes.Params
+		params   evmtypes.Params
 		expected sdk.Coins
 	}{
 		{
@@ -266,15 +266,9 @@ func TestConvertCoinsDenomToExtendedDenomWithEvmParams(t *testing.T) {
 			expected: sdk.Coins{},
 		},
 		{
-			name:     "nil params - falls back to global config",
-			coins:    sdk.NewCoins(sixDecimalsBaseCoin),
-			params:   nil,
-			expected: sdk.NewCoins(sdk.Coin{Denom: sixDecimalsCoinInfo.ExtendedDenom, Amount: math.NewInt(1000000)}),
-		},
-		{
 			name:  "single coin - 18 decimals (no conversion)",
 			coins: sdk.NewCoins(eighteenDecimalsBaseCoin),
-			params: &evmtypes.Params{
+			params: evmtypes.Params{
 				EvmDenom: eighteenDecimalsCoinInfo.Denom,
 				ExtendedDenomOptions: &evmtypes.ExtendedDenomOptions{
 					ExtendedDenom: eighteenDecimalsCoinInfo.ExtendedDenom,
@@ -316,11 +310,6 @@ func TestConvertCoinsDenomToExtendedDenomWithEvmParams(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.params == nil {
-				configurator := evmtypes.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(sixDecimalsCoinInfo).Configure())
-			}
 			result := evmtypes.ConvertCoinsDenomToExtendedDenomWithEvmParams(tc.coins, tc.params)
 			require.Equal(t, tc.expected, result)
 		})
