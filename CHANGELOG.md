@@ -23,6 +23,7 @@
 - [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
 - [\#668](https://github.com/cosmos/evm/pull/668) Fix panic in legacy mempool when Reset() was called with a skipped header between old and new block.
 - [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
+- [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
 
 ### IMPROVEMENTS
 
