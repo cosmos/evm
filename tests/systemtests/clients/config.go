@@ -1,7 +1,6 @@
 package clients
 
 import (
-	"fmt"
 	"math/big"
 )
 
@@ -22,7 +21,7 @@ import (
 
 const (
 	ChainID    = "local-4221"
-	EVMChainID = "262144"
+	EVMChainID = 4221
 
 	Acc0PrivKey = "88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305"
 	Acc1PrivKey = "741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544"
@@ -50,11 +49,6 @@ type Config struct {
 
 // NewConfig creates a new Config instance.
 func NewConfig() (*Config, error) {
-	// evm chainID
-	evmChainID, ok := new(big.Int).SetString(EVMChainID, 10)
-	if !ok {
-		return nil, fmt.Errorf("error whilte setting chain id")
-	}
 
 	// private keys of test accounts
 	privKeys := []string{Acc0PrivKey, Acc1PrivKey, Acc2PrivKey, Acc3PrivKey}
@@ -67,7 +61,7 @@ func NewConfig() (*Config, error) {
 
 	return &Config{
 		ChainID:     ChainID,
-		EVMChainID:  evmChainID,
+		EVMChainID:  big.NewInt(EVMChainID),
 		PrivKeys:    privKeys,
 		JsonRPCUrls: jsonRPCUrls,
 		NodeRPCUrls: nodeRPCUrls,

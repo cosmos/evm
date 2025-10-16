@@ -37,7 +37,7 @@ import (
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
-	"github.com/cosmos/cosmos-sdk/testutil/network"
+	sdknetwork "github.com/cosmos/cosmos-sdk/testutil/network"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -47,6 +47,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	customnetwork "github.com/cosmos/evm/evmd/tests/network"
+	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var (
@@ -64,6 +68,7 @@ var (
 	flagSingleHost         = "single-host"
 	flagCommitTimeout      = "commit-timeout"
 	configChanges          = "config-changes"
+	flagValidatorPowers    = "validator-powers"
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
 
@@ -91,20 +96,22 @@ type initArgs struct {
 	singleMachine     bool
 	useDocker         bool
 	configChanges     []string
+	validatorPowers   []int64
 }
 
 type startArgs struct {
-	algo          string
-	apiAddress    string
-	chainID       string
-	enableLogging bool
-	grpcAddress   string
-	minGasPrices  string
-	numValidators int
-	outputDir     string
-	printMnemonic bool
-	rpcAddress    string
-	timeoutCommit time.Duration
+	algo            string
+	apiAddress      string
+	chainID         string
+	enableLogging   bool
+	grpcAddress     string
+	minGasPrices    string
+	numValidators   int
+	outputDir       string
+	printMnemonic   bool
+	rpcAddress      string
+	timeoutCommit   time.Duration
+	validatorPowers []int64
 }
 
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
@@ -113,6 +120,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
 	cmd.Flags().String(server.FlagMinGasPrices, fmt.Sprintf("0.000006%s", sdk.DefaultBondDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(cosmosevmhd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
+	cmd.Flags().IntSlice(flagValidatorPowers, []int{}, "Comma-separated list of validator powers (e.g. '100,200,150'). If not specified, all validators have equal power of 100. Last value is repeated for remaining validators.")
 
 	// support old flags name for backwards compatibility
 	cmd.Flags().SetNormalizeFunc(func(f *pflag.FlagSet, name string) pflag.NormalizedName {
@@ -193,6 +201,12 @@ Example:
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 			args.configChanges, _ = cmd.Flags().GetStringSlice(configChanges)
 
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
+			if err != nil {
+				return err
+			}
+
 			return initTestnetFiles(clientCtx, cmd, config, mbm, genBalIterator, args)
 		},
 	}
@@ -235,6 +249,13 @@ Example:
 			args.grpcAddress, _ = cmd.Flags().GetString(flagGRPCAddress)
 			args.printMnemonic, _ = cmd.Flags().GetBool(flagPrintMnemonic)
 
+			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
+			var err error
+			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
+			if err != nil {
+				return err
+			}
+
 			return startTestnet(cmd, args)
 		},
 	}
@@ -249,6 +270,36 @@ Example:
 }
 
 const nodeDirPerm = 0o755
+
+// parseValidatorPowers processes validator powers from an int slice.
+// If the slice is empty, returns a slice of default powers (100) for each validator.
+// If fewer powers are specified than numValidators, fills remaining with the last specified power.
+func parseValidatorPowers(powers []int, numValidators int) ([]int64, error) {
+	result := make([]int64, numValidators)
+	if len(powers) == 0 {
+		for i := 0; i < numValidators; i++ {
+			result[i] = 100
+		}
+		return result, nil
+	}
+
+	for _, power := range powers {
+		if power <= 0 {
+			return nil, fmt.Errorf("validator power must be positive, got %d", power)
+		}
+	}
+
+	for i := 0; i < numValidators; i++ {
+		if i < len(powers) {
+			result[i] = int64(powers[i])
+		} else {
+			// use the last specified power for remaining validators
+			result[i] = int64(powers[len(powers)-1])
+		}
+	}
+
+	return result, nil
+}
 
 // initTestnetFiles initializes testnet files for a testnet to be run in a separate process
 func initTestnetFiles(
@@ -413,7 +464,7 @@ func initTestnetFiles(
 			genBalances = append(genBalances, bals...)
 			genAccounts = append(genAccounts, accs...)
 		}
-		valTokens := sdk.TokensFromConsensusPower(100, sdk.DefaultPowerReduction)
+		valTokens := sdk.TokensFromConsensusPower(args.validatorPowers[i], sdk.DefaultPowerReduction)
 		createValMsg, err := stakingtypes.NewMsgCreateValidator(
 			sdk.ValAddress(addr).String(),
 			valPubKeys[i],
@@ -521,11 +572,19 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, evmnetwork.GenerateBankGenesisMetadata(config.EVMChainID)...)
+
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {
 		bankGenState.Supply = bankGenState.Supply.Add(bal.Coins...)
 	}
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
+
+	var evmGenState evmtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[evmtypes.ModuleName], &evmGenState)
+
+	evmGenState.Params.EvmDenom = TEST_DENOM
+	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
@@ -640,7 +699,7 @@ func writeFile(name string, dir string, contents []byte) error {
 
 // startTestnet starts an in-process testnet
 func startTestnet(cmd *cobra.Command, args startArgs) error {
-	networkConfig := network.DefaultConfig(NewTestNetworkFixture)
+	networkConfig := customnetwork.DefaultConfig()
 
 	// Default networkConfig.ChainID is random, and we should only override it if chainID provided
 	// is non-empty
@@ -650,12 +709,20 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 	networkConfig.SigningAlgo = args.algo
 	networkConfig.MinGasPrices = args.minGasPrices
 	networkConfig.NumValidators = args.numValidators
-	networkConfig.EnableLogging = args.enableLogging
+	networkConfig.EnableCMTLogging = args.enableLogging
 	networkConfig.RPCAddress = args.rpcAddress
 	networkConfig.APIAddress = args.apiAddress
 	networkConfig.GRPCAddress = args.grpcAddress
 	networkConfig.PrintMnemonic = args.printMnemonic
-	networkLogger := network.NewCLILogger(cmd)
+
+	// Convert validator powers to bonded tokens
+	bondedTokensPerValidator := make([]math.Int, len(args.validatorPowers))
+	for i, power := range args.validatorPowers {
+		bondedTokensPerValidator[i] = sdk.TokensFromConsensusPower(power, sdk.DefaultPowerReduction)
+	}
+	networkConfig.BondedTokensPerValidator = bondedTokensPerValidator
+
+	networkLogger := customnetwork.NewCLILogger(cmd)
 
 	baseDir := fmt.Sprintf("%s/%s", args.outputDir, networkConfig.ChainID)
 	if _, err := os.Stat(baseDir); !os.IsNotExist(err) {
@@ -664,7 +731,7 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 			networkConfig.ChainID, baseDir)
 	}
 
-	testnet, err := network.New(networkLogger, baseDir, networkConfig)
+	testnet, err := customnetwork.New(networkLogger, baseDir, networkConfig)
 	if err != nil {
 		return err
 	}
@@ -682,7 +749,7 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 }
 
 // NewTestNetworkFixture returns a new evmd AppConstructor for network simulation tests
-func NewTestNetworkFixture() network.TestFixture {
+func NewTestNetworkFixture() sdknetwork.TestFixture {
 	dir, err := os.MkdirTemp("", "evm")
 	if err != nil {
 		panic(fmt.Sprintf("failed creating temporary directory: %v", err))
@@ -695,23 +762,19 @@ func NewTestNetworkFixture() network.TestFixture {
 		nil,
 		true,
 		simtestutil.EmptyAppOptions{},
-		config.EVMChainID,
-		config.EvmAppOptions,
 	)
 
-	appCtr := func(val network.ValidatorI) servertypes.Application {
+	appCtr := func(val sdknetwork.ValidatorI) servertypes.Application {
 		return evmd.NewExampleApp(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
 			nil,
 			true,
 			simtestutil.EmptyAppOptions{},
-			config.EVMChainID,
-			config.EvmAppOptions,
 		)
 	}
 
-	return network.TestFixture{
+	return sdknetwork.TestFixture{
 		AppConstructor: appCtr,
 		GenesisState:   app.DefaultGenesis(),
 		EncodingConfig: moduletestutil.TestEncodingConfig{

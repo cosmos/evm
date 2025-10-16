@@ -13,7 +13,6 @@ func TestTxsOrdering(t *testing.T) {
 	testCases := []struct {
 		name    string
 		actions []func(s TestSuite)
-		bypass  bool
 	}{
 		{
 			name: "ordering of pending txs %s",
@@ -32,7 +31,7 @@ func TestTxsOrdering(t *testing.T) {
 							nodeId = s.Node(i % 4)
 						}
 
-						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.BaseFee(), big.NewInt(1))
+						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.GetTxGasPrice(s.BaseFee()), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4
@@ -66,10 +65,6 @@ func TestTxsOrdering(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				if tc.bypass {
-					return
-				}
-
 				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)

@@ -20,16 +20,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	evmencoding "github.com/cosmos/evm/encoding"
 )
 
 // CosmosClient is a client for interacting with Cosmos SDK-based nodes.
@@ -107,6 +105,9 @@ func (c *CosmosClient) BankSend(nodeID, accID string, from, to sdk.AccAddress, a
 		return nil, fmt.Errorf("failed to broadcast tx: %v", err)
 	}
 
+	// This debug string is useful for transactions that don't yield an error until after they're broadcasted to the chain
+	fmt.Printf("DEBUG: CosmosClient BankSend: %s\n", resp.String())
+
 	return resp, nil
 }
 
@@ -183,20 +184,43 @@ func (c *CosmosClient) UnconfirmedTxs(nodeID string) (*coretypes.ResultUnconfirm
 	return c.RpcClients[nodeID].UnconfirmedTxs(context.Background(), nil)
 }
 
+// GetBalance retrieves the balance of a given address for a specific denomination.
+func (c *CosmosClient) GetBalance(nodeID string, address sdk.AccAddress, denom string) (*big.Int, error) {
+	c.ClientCtx = c.ClientCtx.WithClient(c.RpcClients[nodeID])
+
+	queryClient := banktypes.NewQueryClient(c.ClientCtx)
+
+	res, err := queryClient.Balance(context.Background(), &banktypes.QueryBalanceRequest{
+		Address: address.String(),
+		Denom:   denom,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query balance: %w", err)
+	}
+
+	return res.Balance.Amount.BigInt(), nil
+}
+
 // newClientContext creates a new client context for the Cosmos SDK.
 func newClientContext(config *Config) (*client.Context, error) {
-	// Create codec and tx config
-	interfaceRegistry := types.NewInterfaceRegistry()
-	std.RegisterInterfaces(interfaceRegistry)
-	marshaler := codec.NewProtoCodec(interfaceRegistry)
-	txConfig := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
+	// Use the encoding config setup which properly initializes EIP-712
+	encodingConfig := evmencoding.MakeConfig(config.EVMChainID.Uint64())
+
+	// Register auth module types for account queries
+	authtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+
+	// Register bank module types for EIP-712 signing
+	// Note: The MakeConfig only registers base SDK and EVM types,
+	// but we need bank types for MsgSend transactions
+	banktypes.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	banktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 
 	// Create client context
 	clientCtx := client.Context{
 		BroadcastMode:     flags.BroadcastSync,
-		TxConfig:          txConfig,
-		Codec:             marshaler,
-		InterfaceRegistry: interfaceRegistry,
+		TxConfig:          encodingConfig.TxConfig,
+		Codec:             encodingConfig.Codec,
+		InterfaceRegistry: encodingConfig.InterfaceRegistry,
 		ChainID:           config.ChainID,
 		AccountRetriever:  authtypes.AccountRetriever{},
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -54,8 +53,6 @@ type (
 		logger        log.Logger
 		txConfig      client.TxConfig
 		blockchain    *Blockchain
-		bondDenom     string
-		evmDenom      string
 		blockGasLimit uint64 // Block gas limit from consensus parameters
 		minTip        *uint256.Int
 
@@ -85,14 +82,20 @@ type EVMMempoolConfig struct {
 // It initializes both EVM and Cosmos transaction pools, sets up blockchain interfaces,
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
-func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
+func NewExperimentalEVMMempool(
+	getCtxCallback func(height int64, prove bool) (sdk.Context, error),
+	logger log.Logger,
+	vmKeeper VMKeeperI,
+	feeMarketKeeper FeeMarketKeeperI,
+	txConfig client.TxConfig,
+	clientCtx client.Context,
+	config *EVMMempoolConfig,
+	cosmosPoolMaxTx int,
+) *ExperimentalEVMMempool {
 	var (
 		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
 	)
-
-	bondDenom := evmtypes.GetEVMCoinDenom()
-	evmDenom := types.ExtendedCoinDenom()
 
 	// add the mempool name to the logger
 	logger = logger.With(log.ModuleKey, "ExperimentalEVMMempool")
@@ -143,6 +146,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		panic("tx pool should contain only legacypool")
 	}
 
+	// TODO: move this logic to evmd.createMempoolConfig and set the max tx there
 	// Create Cosmos Mempool from configuration
 	cosmosPoolConfig := config.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
@@ -150,11 +154,12 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		defaultConfig := sdkmempool.PriorityNonceMempoolConfig[math.Int]{}
 		defaultConfig.TxPriority = sdkmempool.TxPriority[math.Int]{
 			GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
+				ctx := sdk.UnwrapSDKContext(goCtx)
 				cosmosTxFee, ok := tx.(sdk.FeeTx)
 				if !ok {
 					return math.ZeroInt()
 				}
-				found, coin := cosmosTxFee.GetFee().Find(bondDenom)
+				found, coin := cosmosTxFee.GetFee().Find(vmKeeper.GetEvmCoinInfo(ctx).Denom)
 				if !found {
 					return math.ZeroInt()
 				}
@@ -171,6 +176,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		cosmosPoolConfig = &defaultConfig
 	}
 
+	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{
@@ -181,8 +187,6 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		logger:        logger,
 		txConfig:      txConfig,
 		blockchain:    blockchain,
-		bondDenom:     bondDenom,
-		evmDenom:      evmDenom,
 		blockGasLimit: config.BlockGasLimit,
 		minTip:        config.MinTip,
 		anteHandler:   config.AnteHandler,
@@ -281,10 +285,11 @@ func (m *ExperimentalEVMMempool) InsertInvalidNonce(txBytes []byte) error {
 func (m *ExperimentalEVMMempool) Select(goCtx context.Context, i [][]byte) sdkmempool.Iterator {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
 
 	return combinedIterator
 }
@@ -378,10 +383,11 @@ func (m *ExperimentalEVMMempool) shouldRemoveFromEVMPool(tx sdk.Tx) bool {
 func (m *ExperimentalEVMMempool) SelectBy(goCtx context.Context, i [][]byte, f func(sdk.Tx) bool) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	evmIterator, cosmosIterator := m.getIterators(goCtx, i)
 
-	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.bondDenom, m.blockchain.Config().ChainID, m.blockchain)
+	combinedIterator := NewEVMMempoolIterator(evmIterator, cosmosIterator, m.logger, m.txConfig, m.vmKeeper.GetEvmCoinInfo(ctx).Denom, m.blockchain.Config().ChainID, m.blockchain)
 
 	for combinedIterator != nil && f(combinedIterator.Tx()) {
 		combinedIterator = combinedIterator.Next()

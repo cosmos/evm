@@ -13,7 +13,6 @@ import (
 
 	"github.com/cosmos/evm/rpc/backend"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -125,9 +124,29 @@ func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	return api
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///                           Blocks						                            ///
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+///                                    Headers						                 ///
+////////////////////////////////////////////////////////////////////////////////////////
+
+// GetHeaderByNumber returns the requested canonical block header.
+//   - When blockNr is -1 the chain pending header is returned.
+//   - When blockNr is -2 the chain latest header is returned.
+//   - When blockNr is -3 the chain finalized header is returned.
+//   - When blockNr is -4 the chain safe header is returned.
+func (e *PublicAPI) GetHeaderByNumber(ethBlockNum rpctypes.BlockNumber) (map[string]interface{}, error) {
+	e.logger.Debug("eth_getHeaderByNumber", "number", ethBlockNum)
+	return e.backend.GetHeaderByNumber(ethBlockNum)
+}
+
+// GetHeaderByHash returns the requested header by hash.
+func (e *PublicAPI) GetHeaderByHash(hash common.Hash) (map[string]interface{}, error) {
+	e.logger.Debug("eth_getHeaderByHash", "hash", hash.Hex())
+	return e.backend.GetHeaderByHash(hash)
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+///                                    Blocks						                 ///
+////////////////////////////////////////////////////////////////////////////////////////
 
 // BlockNumber returns the current block number.
 func (e *PublicAPI) BlockNumber() (hexutil.Uint64, error) {
@@ -293,7 +312,7 @@ func (e *PublicAPI) Call(
 // ProtocolVersion returns the supported Ethereum protocol version.
 func (e *PublicAPI) ProtocolVersion() hexutil.Uint {
 	e.logger.Debug("eth_protocolVersion")
-	return hexutil.Uint(types.ProtocolVersion)
+	return hexutil.Uint(rpctypes.ProtocolVersion)
 }
 
 // GasPrice returns the current gas price based on Cosmos EVM's gas price oracle.

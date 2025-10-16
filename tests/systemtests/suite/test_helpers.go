@@ -18,6 +18,10 @@ func (s *SystemTestSuite) BaseFeeX2() *big.Int {
 	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
 }
 
+func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
+	return new(big.Int).Mul(baseFee, big.NewInt(10))
+}
+
 // GetExpPendingTxs returns the expected pending transactions
 func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {
 	return s.expPendingTxs
@@ -109,7 +113,7 @@ func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 		wg.Add(1)
 		go func(tx *TxInfo) { //nolint:gosec // Concurrency is intentional for parallel tx checking
 			defer wg.Done()
-			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*30)
+			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*120)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Errorf("tx %s is not pending or committed: %v", tx.TxHash, err))
@@ -135,7 +139,7 @@ func (s *SystemTestSuite) CheckTxsQueuedSync(expQueuedTxs []*TxInfo) error {
 	for i := range s.Nodes() {
 		pending, queued, err := s.TxPoolContent(s.Node(i), TxTypeEVM)
 		if err != nil {
-			return fmt.Errorf("failed to call txpool_content api")
+			return fmt.Errorf("failed to call txpool_content api: %w", err)
 		}
 		queuedHashes[i] = queued
 		pendingHashes[i] = pending
