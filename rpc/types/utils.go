@@ -15,6 +15,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpcclient "github.com/cometbft/cometbft/rpc/client"
+	cmtrpccore "github.com/cometbft/cometbft/rpc/core/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -382,10 +383,10 @@ func CalcBaseFee(config *ethparams.ChainConfig, parent *ethtypes.Header, p feema
 // This method refers to internal package method of go-ethereum v1.16.3 - RPCMarshalHeader
 // (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L888-L927)
 // but it uses the cometbft Header to get the block hash.
-func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[string]interface{} {
+func RPCMarshalHeader(head *ethtypes.Header, blockHash []byte) map[string]interface{} {
 	result := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
-		"hash":             hexutil.Bytes(cmtHeader.Hash()), // use cometbft header hash
+		"hash":             hexutil.Bytes(blockHash), // use cometbft header hash
 		"parentHash":       head.ParentHash,
 		"nonce":            head.Nonce,
 		"mixHash":          head.MixDigest,
@@ -428,8 +429,9 @@ func RPCMarshalHeader(head *ethtypes.Header, cmtHeader cmttypes.Header) map[stri
 //
 // This method refers to go-ethereum v1.16.3 internal package method - RPCMarshalBlock
 // (https://github.com/ethereum/go-ethereum/blob/d818a9af7bd5919808df78f31580f59382c53150/internal/ethapi/api.go#L929-L962)
-func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header(), cmtBlock.Header)
+func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmtrpccore.ResultBlock, msgs []*evmtypes.MsgEthereumTx, inclTx bool, fullTx bool, config *ethparams.ChainConfig) (map[string]interface{}, error) {
+	blockHash := cmtBlock.BlockID.Hash.Bytes()
+	fields := RPCMarshalHeader(block.Header(), blockHash)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -439,7 +441,7 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*ev
 		if fullTx {
 			formatTx = func(idx int, _ *ethtypes.Transaction) interface{} {
 				txIdx := uint64(idx) //nolint:gosec // G115
-				return newRPCTransactionFromBlockIndex(block, txIdx, config)
+				return newRPCTransactionFromBlockIndex(block, common.BytesToHash(blockHash), txIdx, config)
 			}
 		}
 		txs := block.Transactions()
@@ -462,12 +464,12 @@ func RPCMarshalBlock(block *ethtypes.Block, cmtBlock *cmttypes.Block, msgs []*ev
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockIndex(b *ethtypes.Block, index uint64, config *ethparams.ChainConfig) *RPCTransaction {
+func newRPCTransactionFromBlockIndex(b *ethtypes.Block, blockHash common.Hash, index uint64, config *ethparams.ChainConfig) *RPCTransaction {
 	txs := b.Transactions()
 	if index >= uint64(len(txs)) {
 		return nil
 	}
-	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), b.Time(), index, b.BaseFee(), config)
+	return NewRPCTransaction(txs[index], blockHash, b.NumberU64(), b.Time(), index, b.BaseFee(), config)
 }
 
 // RPCMarshalReceipt marshals a transaction receipt into a JSON object.
