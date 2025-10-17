@@ -19,8 +19,6 @@ func TestMain(m *testing.M) {
 
 func TestDefaultNodeArgs(t *testing.T) {
 	s := suite.GetSharedSuite(t)
-	s.LockChain()
-	defer s.UnlockChain()
 
 	/**
 	 * Mempool tests
@@ -74,16 +72,10 @@ func TestDefaultNodeArgs(t *testing.T) {
 
 func TestMinimumGasPricesZero(t *testing.T) {
 	s := suite.GetSharedSuite(t)
-	s.LockChain()
-	defer s.UnlockChain()
-
 	mempool.RunMinimumGasPricesZero(t, s)
 }
 
 func TestUpgrade(t *testing.T) {
 	s := suite.GetSharedSuite(t)
-	s.LockChain()
-	defer s.UnlockChain()
-
 	chainupgrade.RunChainUpgrade(t, s)
 }

@@ -129,6 +129,9 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 		nodeStartArgs = DefaultNodeArgs()
 	}
 
+	s.LockChain()
+	defer s.UnlockChain()
+
 	if !s.ChainStarted {
 		s.currentNodeArgs = nil
 	}
