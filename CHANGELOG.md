@@ -64,6 +64,7 @@
 - [\#709](https://github.com/cosmos/evm/pull/709) Fix mempool e2e test
 - [\#710](https://github.com/cosmos/evm/pull/710) Fix EoA-CA Identification logic
 - [\#711](https://github.com/cosmos/evm/pull/711) Add debug_traceCall api
+- [\#]() Disable evm mempool if max-txs set to -1.
 
 
 ### FEATURES
