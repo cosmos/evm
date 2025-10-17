@@ -189,3 +189,39 @@ type TraceConfig struct {
 	evmtypes.TraceConfig
 	TracerConfig json.RawMessage `json:"tracerConfig"`
 }
+
+// CombinedOverrides contains both EVM state overrides and Cosmos state overrides
+type CombinedOverrides struct {
+	// Standard EVM state overrides (existing behavior)
+	StateOverride *StateOverride `json:"stateOverride,omitempty"`
+	// Cosmos state overrides for native modules (new feature)
+	CosmosStateOverrides []evmtypes.StoreStateDiff `json:"cosmosStateOverrides,omitempty"`
+}
+
+// ParseOverrides attempts to parse overrides as StateOverride or CombinedOverrides
+func ParseOverrides(overrides *json.RawMessage) (*StateOverride, []evmtypes.StoreStateDiff, error) {
+	if overrides == nil {
+		return nil, nil, nil
+	}
+	var combined CombinedOverrides
+	if err := json.Unmarshal(*overrides, &combined); err == nil {
+		var checkCombined map[string]interface{}
+		if json.Unmarshal(*overrides, &checkCombined) == nil {
+			if _, hasCosmos := checkCombined["cosmosStateOverrides"]; hasCosmos {
+				var stateOverride *StateOverride
+				if combined.StateOverride != nil {
+					stateOverride = combined.StateOverride
+				}
+				return stateOverride, combined.CosmosStateOverrides, nil
+			}
+		}
+	}
+	var res StateOverride
+	if err := json.Unmarshal(*overrides, &res); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse overrides: %w", err)
+	}
+	if len(res) == 0 {
+		return nil, nil, nil
+	}
+	return &res, nil, nil
+}

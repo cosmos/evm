@@ -239,6 +239,11 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
+	for _, stateOverride := range req.StateOverrides {
+		if err := stateOverride.Apply(ctx, k.storeKeys); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state override: %s", err.Error()))
+		}
+	}
 
 	var args types.TransactionArgs
 	err := json.Unmarshal(req.Args, &args)

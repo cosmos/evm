@@ -251,6 +251,19 @@ message QueryParamsResponse {
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
+// StateEntry defines a single state change operation
+message StateEntry {
+  bytes key = 1;
+  bytes value = 2;
+  bool delete = 3;
+}
+
+// StoreStateDiff defines a set of state changes for a single store
+message StoreStateDiff {
+  string name = 1;
+  repeated StateEntry entries = 2 [ (gogoproto.nullable) = false ];
+}
+
 // EthCallRequest defines EthCall request
 message EthCallRequest {
   // args uses the same json format as the json rpc api.
@@ -265,6 +278,8 @@ message EthCallRequest {
   int64 chain_id = 4;
   // state overrides encoded as json
   bytes overrides = 5;
+  // state_overrides represents the state overrides before executing the call
+  repeated StoreStateDiff state_overrides = 6 [ (gogoproto.nullable) = false ];
 }
 
 // EstimateGasResponse defines EstimateGas response

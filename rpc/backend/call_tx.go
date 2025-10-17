@@ -372,9 +372,17 @@ func (b *Backend) DoCall(
 		return nil, errors.New("header not found")
 	}
 
+	evmOverrides, cosmosOverrides, err := rpctypes.ParseOverrides(overrides)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse overrides: %w", err)
+	}
+
 	var bzOverrides []byte
-	if overrides != nil {
-		bzOverrides = *overrides
+	if evmOverrides != nil {
+		bzOverrides, err = json.Marshal(evmOverrides)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal EVM overrides: %w", err)
+		}
 	}
 
 	req := evmtypes.EthCallRequest{
@@ -383,6 +391,7 @@ func (b *Backend) DoCall(
 		ProposerAddress: sdk.ConsAddress(header.Header.ProposerAddress),
 		ChainId:         b.EvmChainID.Int64(),
 		Overrides:       bzOverrides,
+		StateOverrides:  cosmosOverrides,
 	}
 
 	// From ContextWithHeight: if the provided height is 0,

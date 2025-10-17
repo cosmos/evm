@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,10 +19,12 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
+	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func (s *TestSuite) TestResend() {
@@ -414,6 +417,20 @@ func (s *TestSuite) TestSendRawTransaction() {
 	}
 }
 
+func (s *TestSuite) registerMock(bz []byte, expectedRequest *evmtypes.EthCallRequest, shouldError bool) func() {
+	return func() {
+		client := s.backend.ClientCtx.Client.(*mocks.Client)
+		QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+		height := int64(1)
+		RegisterHeader(client, &height, bz)
+		if shouldError {
+			RegisterEthCallError(QueryClient, expectedRequest)
+		} else {
+			RegisterEthCall(QueryClient, expectedRequest)
+		}
+	}
+}
+
 func (s *TestSuite) TestDoCall() {
 	_, bz := s.buildEthereumTx()
 	gasPrice := (*hexutil.Big)(big.NewInt(1))
@@ -432,10 +449,12 @@ func (s *TestSuite) TestDoCall() {
 		AccessList:           nil,
 		ChainID:              evmChainID,
 	}
+
+	var err error
 	argsBz, err := json.Marshal(callArgs)
 	s.Require().NoError(err)
 
-	overrides := json.RawMessage(`{
+	evmOverrides := json.RawMessage(`{
         "` + toAddr.Hex() + `": {
             "balance": "0x1000000000000000000",
             "nonce": "0x1",
@@ -445,8 +464,43 @@ func (s *TestSuite) TestDoCall() {
             }
         }
     }`)
+	evmOverridesParsed, _, err := rpctypes.ParseOverrides(&evmOverrides)
+	s.Require().NoError(err)
+	var bzOverrides []byte
+	if evmOverridesParsed != nil {
+		bzOverrides, err = json.Marshal(evmOverridesParsed)
+		s.Require().NoError(err)
+	}
+
+	// Cosmos state overrides with bank balance key
+	addr := common.HexToAddress("0x378c50D9264C63F3F92B806d4ee56E9D86FfB3Ec")
+	acc := sdk.AccAddress(addr.Bytes())
+	denom := fmt.Sprintf("factory/%s/eth_call", acc.String())
+	keyCodec := collections.PairKeyCodec(sdk.AccAddressKey, collections.StringKey)
+	key, err := collections.EncodeKeyWithPrefix(banktypes.BalancesPrefix, keyCodec, collections.Join(acc, denom))
+	s.Require().NoError(err)
+	s.Require().NotEmpty(key)
+	value := []byte("99")
+	keyB64 := base64.StdEncoding.EncodeToString(key)
+	valueB64 := base64.StdEncoding.EncodeToString(value)
+	cosmosOverrides := json.RawMessage(`{
+		"cosmosStateOverrides": [
+			{
+				"name": "bank",
+				"entries": [
+					{
+						"key": "` + keyB64 + `",
+						"value": "` + valueB64 + `",
+						"delete": false
+					}
+				]
+			}
+		]
+	}`)
+
 	invalidOverrides := json.RawMessage(`{"invalid": json}`)
 	emptyOverrides := json.RawMessage(`{}`)
+	baseRequest := &evmtypes.EthCallRequest{Args: argsBz, ChainId: s.backend.EvmChainID.Int64()}
 	testCases := []struct {
 		name         string
 		registerMock func()
@@ -458,13 +512,7 @@ func (s *TestSuite) TestDoCall() {
 	}{
 		{
 			"fail - Invalid request",
-			func() {
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				height := int64(1)
-				RegisterHeader(client, &height, bz)
-				RegisterEthCallError(QueryClient, &evmtypes.EthCallRequest{Args: argsBz, ChainId: s.backend.EvmChainID.Int64()})
-			},
+			s.registerMock(bz, baseRequest, true),
 			rpctypes.BlockNumber(1),
 			callArgs,
 			nil,
@@ -473,13 +521,7 @@ func (s *TestSuite) TestDoCall() {
 		},
 		{
 			"pass - Returned transaction response",
-			func() {
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				height := int64(1)
-				RegisterHeader(client, &height, bz)
-				RegisterEthCall(QueryClient, &evmtypes.EthCallRequest{Args: argsBz, ChainId: s.backend.EvmChainID.Int64()})
-			},
+			s.registerMock(bz, baseRequest, false),
 			rpctypes.BlockNumber(1),
 			callArgs,
 			nil,
@@ -487,22 +529,21 @@ func (s *TestSuite) TestDoCall() {
 			true,
 		},
 		{
-			"pass - With state overrides",
+			"pass - With EVM state overrides",
 			func() {
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				height := int64(1)
-				RegisterHeader(client, &height, bz)
-				expected := &evmtypes.EthCallRequest{
-					Args:      argsBz,
-					ChainId:   s.backend.EvmChainID.Int64(),
-					Overrides: overrides,
+				_, expectedCosmosOverrides, err := rpctypes.ParseOverrides(&evmOverrides)
+				s.Require().NoError(err)
+				expectedRequest := &evmtypes.EthCallRequest{
+					Args:           argsBz,
+					ChainId:        s.backend.EvmChainID.Int64(),
+					Overrides:      bzOverrides,
+					StateOverrides: expectedCosmosOverrides,
 				}
-				RegisterEthCall(QueryClient, expected)
+				s.registerMock(bz, expectedRequest, false)()
 			},
 			rpctypes.BlockNumber(1),
 			callArgs,
-			&overrides,
+			&evmOverrides,
 			&evmtypes.MsgEthereumTxResponse{},
 			true,
 		},
@@ -510,15 +551,8 @@ func (s *TestSuite) TestDoCall() {
 			"fail - Invalid state overrides JSON",
 			func() {
 				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 				height := int64(1)
 				RegisterHeader(client, &height, bz)
-				expected := &evmtypes.EthCallRequest{
-					Args:      argsBz,
-					ChainId:   s.backend.EvmChainID.Int64(),
-					Overrides: invalidOverrides,
-				}
-				RegisterEthCallError(QueryClient, expected)
 			},
 			rpctypes.BlockNumber(1),
 			callArgs,
@@ -529,20 +563,38 @@ func (s *TestSuite) TestDoCall() {
 		{
 			"pass - Empty state overrides",
 			func() {
-				client := s.backend.ClientCtx.Client.(*mocks.Client)
-				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
-				height := int64(1)
-				RegisterHeader(client, &height, bz)
-				expected := &evmtypes.EthCallRequest{
-					Args:      argsBz,
-					ChainId:   s.backend.EvmChainID.Int64(),
-					Overrides: emptyOverrides,
+				_, expectedCosmosOverrides, err := rpctypes.ParseOverrides(&emptyOverrides)
+				s.Require().NoError(err)
+				expectedRequest := &evmtypes.EthCallRequest{
+					Args:           argsBz,
+					ChainId:        s.backend.EvmChainID.Int64(),
+					Overrides:      nil,
+					StateOverrides: expectedCosmosOverrides,
 				}
-				RegisterEthCall(QueryClient, expected)
+				s.registerMock(bz, expectedRequest, false)()
 			},
 			rpctypes.BlockNumber(1),
 			callArgs,
 			&emptyOverrides,
+			&evmtypes.MsgEthereumTxResponse{},
+			true,
+		},
+		{
+			"pass - With cosmos state overrides JSON",
+			func() {
+				_, expectedCosmosOverrides, err := rpctypes.ParseOverrides(&cosmosOverrides)
+				s.Require().NoError(err)
+				expectedRequest := &evmtypes.EthCallRequest{
+					Args:           argsBz,
+					ChainId:        s.backend.EvmChainID.Int64(),
+					Overrides:      nil,
+					StateOverrides: expectedCosmosOverrides,
+				}
+				s.registerMock(bz, expectedRequest, false)()
+			},
+			rpctypes.BlockNumber(1),
+			callArgs,
+			&cosmosOverrides,
 			&evmtypes.MsgEthereumTxResponse{},
 			true,
 		},
