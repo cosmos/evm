@@ -43,6 +43,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 						expPendingTxs[nonceIdx] = txInfo
 					}
 
+					s.AwaitNBlocks(t, 4)
 					ctx.SetExpPendingTxs(expPendingTxs...)
 				},
 			},

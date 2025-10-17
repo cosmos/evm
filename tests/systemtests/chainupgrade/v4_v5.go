@@ -25,6 +25,7 @@ const (
 func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	t.Helper()
 
+	base.SetupTest(t)
 	sut := base.SystemUnderTest
 
 	// Scenario:

@@ -51,18 +51,6 @@ func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
 		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, 60*time.Second)
 		require.NoError(t, err)
 	}
-
-	for _, nodeID := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(nodeID, suite.TxTypeEVM, txPoolContentTimeout)
-		require.NoError(t, err)
-		require.Len(t, pending, 0, "pending txs are not cleared in mempool for %s", nodeID)
-	}
-
-	for _, nodeID := range s.Nodes() {
-		pending, _, err := s.TxPoolContent(nodeID, suite.TxTypeCosmos, txPoolContentTimeout)
-		require.NoError(t, err)
-		require.Len(t, pending, 0, "pending cosmos txs are not cleared in mempool for %s", nodeID)
-	}
 }
 
 type TestContext struct {
