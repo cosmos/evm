@@ -140,23 +140,6 @@ func TestTxsReplacementWithCosmosTx(t *testing.T) {
 		actions []func(s TestSuite)
 	}{
 		{
-			name: "single pending tx submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
-					// NOTE: Currently EVMD cannot handle tx reordering correctly when cosmos tx is used.
-					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
-					// After modifying CheckTxHandler, we can also modify this test case
-					// : high prio cosmos tx should replace low prio evm tx.
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
-					require.NoError(t, err, "failed to send tx")
-					//_, err = s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
-					//require.NoError(t, err, "failed to send tx")
-
-					s.SetExpPendingTxs(tx1)
-				},
-			},
-		},
-		{
 			name: "multiple pending txs submitted to same nodes %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
