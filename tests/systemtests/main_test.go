@@ -8,6 +8,7 @@ import (
 
 	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	suites "github.com/cosmos/evm/tests/systemtests/suite"
@@ -34,6 +35,8 @@ func getSharedSuite(t *testing.T) *suites.SystemTestSuite {
 
 func TestDefaultNodeArgs(t *testing.T) {
 	s := getSharedSuite(t)
+	s.LockChain()
+	defer s.UnlockChain()
 
 	t.Run("Mempool/TxsOrdering", func(t *testing.T) {
 		mempool.RunTxsOrdering(t, mempool.NewSuite(s))
@@ -74,13 +77,16 @@ func TestDefaultNodeArgs(t *testing.T) {
 
 func TestMinimumGasPricesZero(t *testing.T) {
 	s := getSharedSuite(t)
+	s.LockChain()
+	defer s.UnlockChain()
+
 	mempool.RunMinimumGasPricesZero(t, mempool.NewSuite(s))
 }
 
-// func TestUpgrade(t *testing.T) {
-// 	s := getSharedSuite(t)
-// 	s.LockChain()
-// 	defer s.UnlockChain()
+func TestUpgrade(t *testing.T) {
+	s := getSharedSuite(t)
+	s.LockChain()
+	defer s.UnlockChain()
 
-// 	chainupgrade.RunChainUpgrade(t, s)
-// }
+	chainupgrade.RunChainUpgrade(t, s)
+}
