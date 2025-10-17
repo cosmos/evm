@@ -173,7 +173,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, base *suite.BaseTestSuite) {
 
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendTx(t, s.Node(1), "acc0", 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
+					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GetTxGasPrice(s.BaseFeeX2()), big.NewInt(1))
 					require.NoError(t, err, "failed to send tx")
 
 					ctx.SetExpPendingTxs(tx1)
