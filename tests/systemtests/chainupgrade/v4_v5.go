@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	upgradeHeight int64 = 22
+	upgradeHeight int64 = 12
 	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in evmd/upgrades.go
 )
 
@@ -95,7 +95,7 @@ func RunChainUpgrade(t *testing.T, base *suites.SystemTestSuite) {
 	t.Log("Upgrade height was reached. Upgrading chain")
 	sut.SetExecBinary(currentBranchBinary)
 	sut.SetTestnetInitializer(currentInitializer)
-	sut.StartChain(t, "--chain-id=local-4221")
+	sut.StartChain(t, "--chain-id=local-4221", "--mempool.max-txs=0")
 
 	require.Equal(t, upgradeHeight+1, sut.CurrentHeight())
 
