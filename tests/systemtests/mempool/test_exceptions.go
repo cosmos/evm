@@ -22,21 +22,21 @@ func RunTxRebroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
-					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(2), signer.ID, 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx3, err := s.SendTx(t, s.Node(2), signer.ID, 2, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// Skip tx4 with nonce 3
 
-					tx5, err := s.SendTx(t, s.Node(3), signer.ID, 4, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx5, err := s.SendTx(t, s.Node(3), signer.ID, 4, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx6, err := s.SendTx(t, s.Node(0), signer.ID, 5, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx6, err := s.SendTx(t, s.Node(0), signer.ID, 5, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// At AfterEachAction hook, we will check expected queued txs are not broadcasted.
@@ -57,7 +57,7 @@ func RunTxRebroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
-					tx4, err := s.SendTx(t, s.Node(2), signer.ID, nonce3Idx, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx4, err := s.SendTx(t, s.Node(2), signer.ID, nonce3Idx, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// At AfterEachAction hook, we will check expected pending txs are broadcasted.
@@ -108,13 +108,13 @@ func RunMinimumGasPricesZero(t *testing.T, base *suite.BaseTestSuite) {
 					signer := s.AcquireAcc()
 					defer s.ReleaseAcc(signer)
 
-					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(2), signer.ID, 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx3, err := s.SendTx(t, s.Node(2), signer.ID, 2, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					ctx.SetExpPendingTxs(tx1, tx2, tx3)

@@ -17,9 +17,17 @@ func (s *BaseTestSuite) BaseFee() *big.Int {
 	return s.baseFee
 }
 
-// BaseFeeX2 returns the double of the most recently retrieved and stored baseFee.
-func (s *BaseTestSuite) BaseFeeX2() *big.Int {
-	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
+// BaseFeeMultiplier returns the cached base fee scaled by the provided multiplier.
+func (s *BaseTestSuite) BaseFeeMultiplier(multiplier int64) *big.Int {
+	if multiplier <= 0 {
+		panic("base fee multiplier must be positive")
+	}
+
+	if s.baseFee == nil {
+		panic("base fee is not initialized")
+	}
+
+	return new(big.Int).Mul(s.baseFee, big.NewInt(multiplier))
 }
 
 // SetBaseFee overrides the cached base fee.
@@ -31,10 +39,24 @@ func (s *BaseTestSuite) SetBaseFee(fee *big.Int) {
 	s.baseFee = new(big.Int).Set(fee)
 }
 
-const defaultGasPriceMultiplier = 10
+const DefaultGasPriceMultiplier int64 = 10
 
-func (s *BaseTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
-	return new(big.Int).Mul(baseFee, big.NewInt(defaultGasPriceMultiplier))
+// GasPrice returns the gas price computed from the cached base fee using the default multiplier.
+func (s *BaseTestSuite) GasPrice() *big.Int {
+	return s.GasPriceMultiplier(DefaultGasPriceMultiplier)
+}
+
+// GasPriceMultiplier returns the gas price computed from the cached base fee scaled by the provided multiplier.
+func (s *BaseTestSuite) GasPriceMultiplier(multiplier int64) *big.Int {
+	if multiplier <= 0 {
+		panic("gas price multiplier must be positive")
+	}
+
+	if s.baseFee == nil {
+		panic("base fee is not initialized")
+	}
+
+	return new(big.Int).Mul(s.baseFee, big.NewInt(multiplier))
 }
 
 // Account returns the shared test account matching the identifier.

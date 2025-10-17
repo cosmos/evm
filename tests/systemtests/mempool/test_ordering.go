@@ -36,7 +36,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 							nodeId = s.Node(i % 4)
 						}
 
-						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GetTxGasPrice(s.BaseFee()), big.NewInt(1))
+						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GasPriceMultiplier(10), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4

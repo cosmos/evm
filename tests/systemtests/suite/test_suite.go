@@ -181,8 +181,8 @@ func (s *BaseTestSuite) ensureAdditionalAccountsFunded(t *testing.T) {
 
 	baseFee, err := s.GetLatestBaseFee(fundingNodeID)
 	require.NoError(t, err)
-	gasPrice := s.GetTxGasPrice(baseFee)
-	s.baseFee = baseFee
+	s.SetBaseFee(baseFee)
+	gasPrice := s.GasPrice()
 
 	for idx := defaultFundedAccounts; idx < len(s.accounts); idx++ {
 		target := s.accounts[idx]
