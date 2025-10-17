@@ -165,7 +165,7 @@ func (s *RPCStream) start(
 			// TODO: After indexer improvement, we should get eth header event from indexer
 			// Currently, many fields are missing or incorrect (e.g. bloom, receiptsRoot, ...)
 			header := types.EthHeaderFromComet(data.Block.Header, ethtypes.Bloom{}, baseFee)
-			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.Block.Header.Hash())})
+			s.headerStream.Add(RPCHeader{EthHeader: header, Hash: common.BytesToHash(data.BlockID.Hash)})
 
 		case ev, ok := <-chLogs:
 			if !ok {
