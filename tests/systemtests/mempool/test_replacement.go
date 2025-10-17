@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -9,7 +11,7 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxsReplacement(t *testing.T, s *TestSuite) {
+func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -133,6 +135,7 @@ func RunTxsReplacement(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -152,7 +155,7 @@ func RunTxsReplacement(t *testing.T, s *TestSuite) {
 	}
 }
 
-func RunTxsReplacementWithCosmosTx(t *testing.T, s *TestSuite) {
+func RunTxsReplacementWithCosmosTx(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -216,6 +219,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -235,7 +239,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, s *TestSuite) {
 	}
 }
 
-func TestMixedTxsReplacementEVMAndCosmos(t *testing.T, s *TestSuite) {
+func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -391,6 +395,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -410,7 +415,7 @@ func TestMixedTxsReplacementEVMAndCosmos(t *testing.T, s *TestSuite) {
 	}
 }
 
-func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s *TestSuite) {
+func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -505,6 +510,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, tc := range testCases {

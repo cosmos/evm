@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -8,7 +10,7 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxRebroadcasting(t *testing.T, s *TestSuite) {
+func RunTxRebroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -74,6 +76,7 @@ func RunTxRebroadcasting(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -93,7 +96,7 @@ func RunTxRebroadcasting(t *testing.T, s *TestSuite) {
 	}
 }
 
-func RunMinimumGasPricesZero(t *testing.T, s *TestSuite) {
+func RunMinimumGasPricesZero(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -133,6 +136,7 @@ func RunMinimumGasPricesZero(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t, suite.MinimumGasPriceZeroArgs()...)
 
 	for _, to := range testOptions {

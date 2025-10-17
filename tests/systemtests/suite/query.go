@@ -12,7 +12,7 @@ import (
 )
 
 // NonceAt returns the account nonce for the given account at the latest block
-func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
+func (s *BaseTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 	account := s.EthAccount(accID)
 	ctx, cli, addr := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
@@ -26,7 +26,7 @@ func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 }
 
 // GetLatestBaseFee returns the base fee of the latest block
-func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
+func (s *BaseTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 	account := s.EthAccount("acc0")
 	ctx, cli, _ := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := cli.BlockNumber(ctx)
@@ -50,7 +50,7 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 }
 
 // BaseFee returns the base fee of the latest block
-func (s *SystemTestSuite) WaitForCommit(
+func (s *BaseTestSuite) WaitForCommit(
 	nodeID string,
 	txHash string,
 	txType string,
@@ -67,7 +67,7 @@ func (s *SystemTestSuite) WaitForCommit(
 }
 
 // waitForEthCommmit waits for the given eth tx to be committed within the timeout duration
-func (s *SystemTestSuite) waitForEthCommmit(
+func (s *BaseTestSuite) waitForEthCommmit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -85,7 +85,7 @@ func (s *SystemTestSuite) waitForEthCommmit(
 }
 
 // waitForCosmosCommmit waits for the given cosmos tx to be committed within the timeout duration
-func (s *SystemTestSuite) waitForCosmosCommmit(
+func (s *BaseTestSuite) waitForCosmosCommmit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -103,7 +103,7 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 }
 
 // CheckTxsPending checks if the given tx is either pending or committed within the timeout duration
-func (s *SystemTestSuite) CheckTxPending(
+func (s *BaseTestSuite) CheckTxPending(
 	nodeID string,
 	txHash string,
 	txType string,
@@ -122,7 +122,7 @@ func (s *SystemTestSuite) CheckTxPending(
 const defaultTxPoolContentTimeout = 120 * time.Second
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
+func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
 	if timeout <= 0 {
 		timeout = defaultTxPoolContentTimeout
 	}
@@ -138,7 +138,7 @@ func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string, timeout ti
 }
 
 // ethTxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) ethTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+func (s *BaseTestSuite) ethTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -151,7 +151,7 @@ func (s *SystemTestSuite) ethTxPoolContent(nodeID string, timeout time.Duration)
 }
 
 // cosmosTxPoolContent returns the pending tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+func (s *BaseTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -169,7 +169,7 @@ func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Durati
 }
 
 // extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
-func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.EthRPCTransaction) []string {
+func (s *BaseTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.EthRPCTransaction) []string {
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration

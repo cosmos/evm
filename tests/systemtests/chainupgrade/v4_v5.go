@@ -11,10 +11,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/address"
+	"github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	suites "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
 const (
@@ -23,7 +22,7 @@ const (
 )
 
 // RunChainUpgrade exercises an on-chain software upgrade using the injected shared suite.
-func RunChainUpgrade(t *testing.T, base *suites.SystemTestSuite) {
+func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	t.Helper()
 
 	sut := base.SystemUnderTest

@@ -13,17 +13,17 @@ import (
 )
 
 // BaseFee returns the most recently retrieved and stored baseFee.
-func (s *SystemTestSuite) BaseFee() *big.Int {
+func (s *BaseTestSuite) BaseFee() *big.Int {
 	return s.baseFee
 }
 
 // BaseFeeX2 returns the double of the most recently retrieved and stored baseFee.
-func (s *SystemTestSuite) BaseFeeX2() *big.Int {
+func (s *BaseTestSuite) BaseFeeX2() *big.Int {
 	return new(big.Int).Mul(s.baseFee, big.NewInt(2))
 }
 
 // SetBaseFee overrides the cached base fee.
-func (s *SystemTestSuite) SetBaseFee(fee *big.Int) {
+func (s *BaseTestSuite) SetBaseFee(fee *big.Int) {
 	if fee == nil {
 		s.baseFee = nil
 		return
@@ -33,12 +33,12 @@ func (s *SystemTestSuite) SetBaseFee(fee *big.Int) {
 
 const defaultGasPriceMultiplier = 10
 
-func (s *SystemTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
+func (s *BaseTestSuite) GetTxGasPrice(baseFee *big.Int) *big.Int {
 	return new(big.Int).Mul(baseFee, big.NewInt(defaultGasPriceMultiplier))
 }
 
 // Account returns the shared test account matching the identifier.
-func (s *SystemTestSuite) Account(id string) *TestAccount {
+func (s *BaseTestSuite) Account(id string) *TestAccount {
 	acc, ok := s.accountsByID[id]
 	if !ok {
 		panic(fmt.Sprintf("account %s not found", id))
@@ -47,17 +47,17 @@ func (s *SystemTestSuite) Account(id string) *TestAccount {
 }
 
 // EthAccount returns the Ethereum account associated with the given identifier.
-func (s *SystemTestSuite) EthAccount(id string) *clients.EthAccount {
+func (s *BaseTestSuite) EthAccount(id string) *clients.EthAccount {
 	return s.Account(id).Eth
 }
 
 // CosmosAccount returns the Cosmos account associated with the given identifier.
-func (s *SystemTestSuite) CosmosAccount(id string) *clients.CosmosAccount {
+func (s *BaseTestSuite) CosmosAccount(id string) *clients.CosmosAccount {
 	return s.Account(id).Cosmos
 }
 
 // AcquireAcc blocks until an idle account is available and returns it.
-func (s *SystemTestSuite) AcquireAcc() *TestAccount {
+func (s *BaseTestSuite) AcquireAcc() *TestAccount {
 	s.accountsMu.Lock()
 	defer s.accountsMu.Unlock()
 
@@ -73,7 +73,7 @@ func (s *SystemTestSuite) AcquireAcc() *TestAccount {
 }
 
 // ReleaseAcc releases a previously acquired account back into the idle pool.
-func (s *SystemTestSuite) ReleaseAcc(acc *TestAccount) {
+func (s *BaseTestSuite) ReleaseAcc(acc *TestAccount) {
 	if acc == nil {
 		return
 	}
@@ -90,7 +90,7 @@ func (s *SystemTestSuite) ReleaseAcc(acc *TestAccount) {
 }
 
 // AcquireAccForTest acquires an idle account and registers automatic release via t.Cleanup.
-func (s *SystemTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
+func (s *BaseTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
 	acc := s.AcquireAcc()
 	t.Cleanup(func() {
 		s.ReleaseAcc(acc)
@@ -99,7 +99,7 @@ func (s *SystemTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
 }
 
 // Nodes returns the node IDs in the system under test
-func (s *SystemTestSuite) Nodes() []string {
+func (s *BaseTestSuite) Nodes() []string {
 	nodes := make([]string, 4)
 	for i := 0; i < 4; i++ {
 		nodes[i] = fmt.Sprintf("node%d", i)
@@ -108,12 +108,12 @@ func (s *SystemTestSuite) Nodes() []string {
 }
 
 // Node returns the node ID for the given index
-func (s *SystemTestSuite) Node(idx int) string {
+func (s *BaseTestSuite) Node(idx int) string {
 	return fmt.Sprintf("node%d", idx)
 }
 
 // Acc returns the test account for the given index
-func (s *SystemTestSuite) Acc(idx int) *TestAccount {
+func (s *BaseTestSuite) Acc(idx int) *TestAccount {
 	if idx < 0 || idx >= len(s.accounts) {
 		panic(fmt.Sprintf("account index out of range: %d", idx))
 	}
@@ -121,24 +121,24 @@ func (s *SystemTestSuite) Acc(idx int) *TestAccount {
 }
 
 // AccID returns the identifier of the test account for the given index.
-func (s *SystemTestSuite) AccID(idx int) string {
+func (s *BaseTestSuite) AccID(idx int) string {
 	return s.Acc(idx).ID
 }
 
 // GetOptions returns the current test options
-func (s *SystemTestSuite) GetOptions() *TestOptions {
+func (s *BaseTestSuite) GetOptions() *TestOptions {
 	return s.options
 }
 
 // SetOptions sets the current test options
-func (s *SystemTestSuite) SetOptions(options *TestOptions) {
+func (s *BaseTestSuite) SetOptions(options *TestOptions) {
 	s.options = options
 }
 
 // CheckTxsPendingAsync verifies that the expected pending transactions are still pending in the mempool.
 // The check runs asynchronously because, if done synchronously, the pending transactions
 // might be committed before the verification takes place.
-func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
+func (s *BaseTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 	if len(expPendingTxs) == 0 {
 		return nil
 	}
@@ -175,7 +175,7 @@ func (s *SystemTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 // CheckTxsQueuedAsync verifies asynchronously that the expected queued transactions are actually queued
 // (and not pending) in the mempool. It mirrors CheckTxsPendingAsync in style to better surface API
 // failures when querying txpool content.
-func (s *SystemTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
+func (s *BaseTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
 	if len(expQueuedTxs) == 0 {
 		return nil
 	}

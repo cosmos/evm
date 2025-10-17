@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -11,17 +13,17 @@ import (
 
 const txPoolContentTimeout = 120 * time.Second
 
-// Suite wraps the shared SystemTestSuite with mempool-specific helpers.
+// Suite wraps the shared BaseTestSuite with mempool-specific helpers.
 type TestSuite struct {
-	*suite.SystemTestSuite
+	*suite.BaseTestSuite
 }
 
-func NewSuite(base *suite.SystemTestSuite) *TestSuite {
-	return &TestSuite{SystemTestSuite: base}
+func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
+	return &TestSuite{BaseTestSuite: base}
 }
 
 func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
-	s.SystemTestSuite.SetupTest(t, nodeStartArgs...)
+	s.BaseTestSuite.SetupTest(t, nodeStartArgs...)
 }
 
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
@@ -61,4 +63,40 @@ func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
 		require.NoError(t, err)
 		require.Len(t, pending, 0, "pending cosmos txs are not cleared in mempool for %s", nodeID)
 	}
+}
+
+type TestContext struct {
+	ExpPending []*suite.TxInfo
+	ExpQueued  []*suite.TxInfo
+}
+
+func NewTestContext() *TestContext {
+	return &TestContext{}
+}
+
+func (c *TestContext) Reset() {
+	c.ExpPending = nil
+	c.ExpQueued = nil
+}
+
+func (c *TestContext) SetExpPendingTxs(txs ...*suite.TxInfo) {
+	c.ExpPending = append(c.ExpPending[:0], txs...)
+}
+
+func (c *TestContext) SetExpQueuedTxs(txs ...*suite.TxInfo) {
+	c.ExpQueued = append(c.ExpQueued[:0], txs...)
+}
+
+func (c *TestContext) PromoteExpTxs(count int) {
+	if count <= 0 || len(c.ExpQueued) == 0 {
+		return
+	}
+
+	if count > len(c.ExpQueued) {
+		count = len(c.ExpQueued)
+	}
+
+	promoted := c.ExpQueued[:count]
+	c.ExpPending = append(c.ExpPending, promoted...)
+	c.ExpQueued = c.ExpQueued[count:]
 }

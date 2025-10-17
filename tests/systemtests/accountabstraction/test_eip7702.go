@@ -1,3 +1,5 @@
+//go:build system_test
+
 package accountabstraction
 
 import (
@@ -11,15 +13,15 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
+	suite "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
-func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
+func RunEIP7702(t *testing.T, base *suite.BaseTestSuite) {
 	Describe("test EIP-7702 scenorios", Ordered, func() {
 		var (
 			s        *TestSuite
-			user0Acc *basesuite.TestAccount
-			user1Acc *basesuite.TestAccount
+			user0Acc *suite.TestAccount
+			user1Acc *suite.TestAccount
 			user0    string
 			user1    string
 		)
@@ -28,8 +30,8 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 		// The test takes too much time if we restart network for each test case.
 		BeforeAll(func() {
 			s = NewTestSuite(base)
-			user0Acc = s.SystemTestSuite.AcquireAcc()
-			user1Acc = s.SystemTestSuite.AcquireAcc()
+			user0Acc = s.BaseTestSuite.AcquireAcc()
+			user1Acc = s.BaseTestSuite.AcquireAcc()
 			user0 = user0Acc.ID
 			user1 = user1Acc.ID
 			s.SetPrimaryAccount(user0Acc)
@@ -38,10 +40,10 @@ func RunEIP7702(t *testing.T, base *basesuite.SystemTestSuite) {
 
 		AfterAll(func() {
 			if user0Acc != nil {
-				s.SystemTestSuite.ReleaseAcc(user0Acc)
+				s.BaseTestSuite.ReleaseAcc(user0Acc)
 			}
 			if user1Acc != nil {
-				s.SystemTestSuite.ReleaseAcc(user1Acc)
+				s.BaseTestSuite.ReleaseAcc(user1Acc)
 			}
 		})
 

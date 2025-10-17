@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -9,7 +11,7 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func RunTxsOrdering(t *testing.T, s *TestSuite) {
+func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
 		actions []func(*TestSuite, *TestContext)
@@ -60,6 +62,7 @@ func RunTxsOrdering(t *testing.T, s *TestSuite) {
 		},
 	}
 
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {

@@ -10,7 +10,7 @@ import (
 )
 
 // GetOptions retrieves the current test options.
-func (s *SystemTestSuite) SendTx(
+func (s *BaseTestSuite) SendTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -26,7 +26,7 @@ func (s *SystemTestSuite) SendTx(
 }
 
 // SendEthTx sends an Ethereum transaction (either Legacy or Dynamic Fee based on options).
-func (s *SystemTestSuite) SendEthTx(
+func (s *BaseTestSuite) SendEthTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -42,7 +42,7 @@ func (s *SystemTestSuite) SendEthTx(
 }
 
 // SendEthLegacyTx sends an Ethereum legacy transaction.
-func (s *SystemTestSuite) SendEthLegacyTx(
+func (s *BaseTestSuite) SendEthLegacyTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -69,7 +69,7 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 }
 
 // SendEthDynamicFeeTx sends an Ethereum dynamic fee transaction.
-func (s *SystemTestSuite) SendEthDynamicFeeTx(
+func (s *BaseTestSuite) SendEthDynamicFeeTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -104,7 +104,7 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 }
 
 // SendCosmosTx sends a Cosmos transaction.
-func (s *SystemTestSuite) SendCosmosTx(
+func (s *BaseTestSuite) SendCosmosTx(
 	t *testing.T,
 	nodeID string,
 	accID string,

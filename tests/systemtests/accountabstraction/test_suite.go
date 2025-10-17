@@ -1,3 +1,5 @@
+//go:build system_test
+
 package accountabstraction
 
 import (
@@ -18,26 +20,26 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
+	suite "github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 )
 
 type TestSuite struct {
-	*basesuite.SystemTestSuite
+	*suite.BaseTestSuite
 
 	counterAddress   common.Address
 	counterABI       abi.ABI
 	primaryAccountID string
 }
 
-func NewTestSuite(base *basesuite.SystemTestSuite) *TestSuite {
+func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 	return &TestSuite{
-		SystemTestSuite: base,
+		BaseTestSuite: base,
 	}
 }
 
 // SetPrimaryAccount configures the account that will be used for contract deployment/setup.
-func (s *TestSuite) SetPrimaryAccount(acc *basesuite.TestAccount) {
+func (s *TestSuite) SetPrimaryAccount(acc *suite.TestAccount) {
 	if acc == nil {
 		return
 	}
@@ -46,7 +48,7 @@ func (s *TestSuite) SetPrimaryAccount(acc *basesuite.TestAccount) {
 
 // SetupTest setup test suite and deploy test contracts
 func (s *TestSuite) SetupTest(t *testing.T) {
-	s.SystemTestSuite.SetupTest(t)
+	s.BaseTestSuite.SetupTest(t)
 
 	if s.primaryAccountID == "" {
 		s.primaryAccountID = s.AccID(0)

@@ -19,11 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// SystemTestSuite implements the TestSuite interface and
+// BaseTestSuite implements the TestSuite interface and
 // provides methods for managing test lifecycle,
 // sending transactions, querying state,
 // and managing expected mempool state.
-type SystemTestSuite struct {
+type BaseTestSuite struct {
 	*systemtests.SystemUnderTest
 	options *TestOptions
 
@@ -45,7 +45,7 @@ type SystemTestSuite struct {
 	baseFee *big.Int
 }
 
-func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
+func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
 	ethClient, ethAccounts, err := clients.NewEthClient()
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 		accountsByID[id] = acc
 	}
 
-	suite := &SystemTestSuite{
+	suite := &BaseTestSuite{
 		SystemUnderTest: systemtests.Sut,
 		EthClient:       ethClient,
 		CosmosClient:    cosmosClient,
@@ -87,6 +87,21 @@ func NewSystemTestSuite(t *testing.T) *SystemTestSuite {
 	suite.accountCond = sync.NewCond(&suite.accountsMu)
 
 	return suite
+}
+
+var (
+	sharedSuiteOnce sync.Once
+	sharedSuite     *BaseTestSuite
+)
+
+func GetSharedSuite(t *testing.T) *BaseTestSuite {
+	t.Helper()
+
+	sharedSuiteOnce.Do(func() {
+		sharedSuite = NewBaseTestSuite(t)
+	})
+
+	return sharedSuite
 }
 
 // TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
@@ -107,15 +122,12 @@ type TestAccount struct {
 }
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
-func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
+func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	t.Helper()
 
 	if len(nodeStartArgs) == 0 {
 		nodeStartArgs = DefaultNodeArgs()
 	}
-
-	s.chainMu.Lock()
-	defer s.chainMu.Unlock()
 
 	if !s.ChainStarted {
 		s.currentNodeArgs = nil
@@ -137,16 +149,16 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 }
 
 // LockChain acquires exclusive control over the underlying chain lifecycle.
-func (s *SystemTestSuite) LockChain() {
+func (s *BaseTestSuite) LockChain() {
 	s.chainMu.Lock()
 }
 
 // UnlockChain releases the chain lifecycle lock.
-func (s *SystemTestSuite) UnlockChain() {
+func (s *BaseTestSuite) UnlockChain() {
 	s.chainMu.Unlock()
 }
 
-func (s *SystemTestSuite) ensureAdditionalAccountsFunded(t *testing.T) {
+func (s *BaseTestSuite) ensureAdditionalAccountsFunded(t *testing.T) {
 	const (
 		defaultFundedAccounts = 4
 		fundingNodeID         = "node0"
@@ -195,7 +207,7 @@ func (s *SystemTestSuite) ensureAdditionalAccountsFunded(t *testing.T) {
 	s.refreshAccountMetadata(t)
 }
 
-func (s *SystemTestSuite) mustGetCosmosAccount(t *testing.T, account *TestAccount) client.Account {
+func (s *BaseTestSuite) mustGetCosmosAccount(t *testing.T, account *TestAccount) client.Account {
 	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
 	s.CosmosClient.ClientCtx = ctx
 
@@ -206,7 +218,7 @@ func (s *SystemTestSuite) mustGetCosmosAccount(t *testing.T, account *TestAccoun
 	return acc
 }
 
-func (s *SystemTestSuite) refreshAccountMetadata(t *testing.T) {
+func (s *BaseTestSuite) refreshAccountMetadata(t *testing.T) {
 	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
 	s.CosmosClient.ClientCtx = ctx
 

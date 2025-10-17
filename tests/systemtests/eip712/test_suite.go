@@ -13,25 +13,15 @@ import (
 	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
 )
 
-type SystemTestSuite struct {
-	*basesuite.SystemTestSuite
+type TestSuite struct {
+	*basesuite.BaseTestSuite
 }
 
-func NewSystemTestSuite(base *basesuite.SystemTestSuite) *SystemTestSuite {
-	return &SystemTestSuite{SystemTestSuite: base}
+func NewTestSuite(base *basesuite.BaseTestSuite) *TestSuite {
+	return &TestSuite{BaseTestSuite: base}
 }
 
-func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
-	s.SystemTestSuite.SetupTest(t, nodeStartArgs...)
-}
-
-func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {}
-
-func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
-	s.AwaitNBlocks(t, 1)
-}
-
-func (s *SystemTestSuite) SendBankSendWithEIP712(
+func (s *TestSuite) SendBankSendWithEIP712(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -68,7 +58,7 @@ func (s *SystemTestSuite) SendBankSendWithEIP712(
 	return resp.TxHash, nil
 }
 
-func (s *SystemTestSuite) GetBalance(
+func (s *TestSuite) GetBalance(
 	t *testing.T,
 	nodeID string,
 	address sdk.AccAddress,
@@ -82,10 +72,10 @@ func (s *SystemTestSuite) GetBalance(
 	return balance, nil
 }
 
-func (s *SystemTestSuite) WaitForCommit(nodeID string, txHash string, timeout ...int) error {
+func (s *TestSuite) WaitForCommit(nodeID string, txHash string, timeout ...int) error {
 	duration := 15 * time.Second
 	if len(timeout) > 0 && timeout[0] > 0 {
 		duration = time.Duration(timeout[0]) * time.Second
 	}
-	return s.SystemTestSuite.WaitForCommit(nodeID, txHash, basesuite.TxTypeCosmos, duration)
+	return s.BaseTestSuite.WaitForCommit(nodeID, txHash, basesuite.TxTypeCosmos, duration)
 }
