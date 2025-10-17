@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -9,15 +11,18 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func TestTxsOrdering(t *testing.T) {
+func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "ordering of pending txs %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
+					signer := s.AcquireAcc()
+					defer s.ReleaseAcc(signer)
+
 					expPendingTxs := make([]*suite.TxInfo, 5)
 					for i := 0; i < 5; i++ {
 						// nonce order of submitted txs: 3,4,0,1,2
@@ -31,14 +36,15 @@ func TestTxsOrdering(t *testing.T) {
 							nodeId = s.Node(i % 4)
 						}
 
-						txInfo, err := s.SendTx(t, nodeId, "acc0", nonceIdx, s.GetTxGasPrice(s.BaseFee()), big.NewInt(1))
+						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GasPriceMultiplier(10), big.NewInt(1))
 						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4
 						expPendingTxs[nonceIdx] = txInfo
 					}
 
-					s.SetExpPendingTxs(expPendingTxs...)
+					s.AwaitNBlocks(t, 4)
+					ctx.SetExpPendingTxs(expPendingTxs...)
 				},
 			},
 		},
@@ -57,7 +63,7 @@ func TestTxsOrdering(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -65,12 +71,15 @@ func TestTxsOrdering(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				ctx := NewTestContext()
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
-					action(s)
-					s.AfterEachAction(t)
+					action(s, ctx)
+					// NOTE: In this test, we don't need to check mempool state after each action
+					// because we check the final state after all actions are done.
+					// s.AfterEachAction(t, ctx) --- IGNORE ---
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}

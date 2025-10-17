@@ -3,48 +3,79 @@
 package systemtests
 
 import (
-	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
-	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"testing"
 
 	"cosmossdk.io/systemtests"
+	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
+	"github.com/cosmos/evm/tests/systemtests/mempool"
+	"github.com/cosmos/evm/tests/systemtests/suite"
 )
 
 func TestMain(m *testing.M) {
 	systemtests.RunTests(m)
 }
 
-// Mempool Tests
-func TestTxsOrdering(t *testing.T) {
-	mempool.TestTxsOrdering(t)
+func TestDefaultNodeArgs(t *testing.T) {
+	s := suite.GetSharedSuite(t)
+
+	/**
+	 * Mempool tests
+	 */
+	t.Run("Mempool/TxsOrdering", func(t *testing.T) {
+		mempool.RunTxsOrdering(t, s)
+	})
+
+	t.Run("Mempool/TxsReplacement", func(t *testing.T) {
+		mempool.RunTxsReplacement(t, s)
+	})
+
+	t.Run("Mempool/TxsReplacementWithCosmosTx", func(t *testing.T) {
+		mempool.RunTxsReplacementWithCosmosTx(t, s)
+	})
+
+	t.Run("Mempool/MixedTxsReplacementEVMAndCosmos", func(t *testing.T) {
+		mempool.RunMixedTxsReplacementEVMAndCosmos(t, s)
+	})
+
+	t.Run("Mempool/MixedTxsReplacementLegacyAndDynamicFee", func(t *testing.T) {
+		mempool.RunMixedTxsReplacementLegacyAndDynamicFee(t, s)
+	})
+
+	t.Run("Mempool/TxRebroadcasting", func(t *testing.T) {
+		mempool.RunTxRebroadcasting(t, s)
+	})
+
+	/**
+	 * EIP-712 tests
+	 */
+	t.Run("EIP712/BankSend", func(t *testing.T) {
+		eip712.RunEIP712BankSend(t, s)
+	})
+
+	t.Run("EIP712/BankSendWithBalanceCheck", func(t *testing.T) {
+		eip712.RunEIP712BankSendWithBalanceCheck(t, s)
+	})
+
+	t.Run("EIP712/MultipleBankSends", func(t *testing.T) {
+		eip712.RunEIP712MultipleBankSends(t, s)
+	})
+
+	/**
+	 * Account Abstraction tests
+	 */
+	t.Run("AccountAbstraction/EIP7702", func(t *testing.T) {
+		accountabstraction.RunEIP7702(t, s)
+	})
 }
 
-func TestTxsReplacement(t *testing.T) {
-	mempool.TestTxsReplacement(t)
-	mempool.TestTxsReplacementWithCosmosTx(t)
-	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
+func TestMinimumGasPricesZero(t *testing.T) {
+	s := suite.GetSharedSuite(t)
+	mempool.RunMinimumGasPricesZero(t, s)
 }
 
-func TestExceptions(t *testing.T) {
-	mempool.TestTxRebroadcasting(t)
-	mempool.TestMinimumGasPricesZero(t)
-}
-
-// Account Abstraction Tests
-func TestEIP7702(t *testing.T) {
-	accountabstraction.TestEIP7702(t)
-}
-
-// EIP-712 Tests
-func TestEIP712BankSend(t *testing.T) {
-	eip712.TestEIP712BankSend(t)
-}
-
-func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
-	eip712.TestEIP712BankSendWithBalanceCheck(t)
-}
-
-func TestEIP712MultipleBankSends(t *testing.T) {
-	eip712.TestEIP712MultipleBankSends(t)
+func TestChainUpgrade(t *testing.T) {
+	s := suite.GetSharedSuite(t)
+	chainupgrade.RunChainUpgrade(t, s)
 }
