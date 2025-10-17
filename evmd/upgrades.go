@@ -3,7 +3,6 @@ package evmd
 import (
 	"context"
 
-	vmModule "github.com/cosmos/evm/x/vm"
 	"github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
@@ -57,13 +56,6 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
 				return nil, err
 			}
-
-			// Configure the in-process EVM globals exactly once per binary start. The guard
-			// inside SetGlobalConfigVariables allows this call to safely no-op when the
-			// upgrade handler is triggered repeatedly (e.g. in system tests that start from
-			// a fresh genesis state).
-			coinInfo := app.GetEVMKeeper().GetEvmCoinInfo(sdkCtx)
-			vmModule.SetGlobalConfigVariables(coinInfo)
 
 			// (Required for NON-18 denom chains *only)
 			// Update EVM params to add Extended denom options

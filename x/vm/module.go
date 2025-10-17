@@ -213,10 +213,6 @@ func setBaseDenom(ci types.EvmCoinInfo) (err error) {
 }
 
 func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
-	if types.IsEVMCoinInfoConfigured() {
-		return
-	}
-
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
 		panic(err)
