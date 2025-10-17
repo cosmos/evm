@@ -24,16 +24,20 @@ func (s *TestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	s.SystemTestSuite.SetupTest(t, nodeStartArgs...)
 }
 
+// BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
 func (s *TestSuite) BeforeEachCase(t *testing.T, ctx *TestContext) {
 	ctx.Reset()
-	s.SystemTestSuite.BeforeEachCase(t)
+
+	// Get current base fee
+	currentBaseFee, err := s.GetLatestBaseFee("node0")
+	require.NoError(t, err)
+
+	s.SetBaseFee(currentBaseFee)
 }
 
 func (s *TestSuite) AfterEachAction(t *testing.T, ctx *TestContext) {
 	require.NoError(t, s.CheckTxsPendingAsync(ctx.ExpPending))
 	require.NoError(t, s.CheckTxsQueuedAsync(ctx.ExpQueued))
-
-	s.AwaitNBlocks(t, 1)
 
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
 	require.NoError(t, err)
@@ -57,6 +61,4 @@ func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
 		require.NoError(t, err)
 		require.Len(t, pending, 0, "pending cosmos txs are not cleared in mempool for %s", nodeID)
 	}
-
-	s.AwaitNBlocks(t, 1)
 }

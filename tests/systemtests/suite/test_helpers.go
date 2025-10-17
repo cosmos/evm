@@ -98,51 +98,6 @@ func (s *SystemTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
 	return acc
 }
 
-// GetExpPendingTxs returns the expected pending transactions
-func (s *SystemTestSuite) GetExpPendingTxs() []*TxInfo {
-	return s.expPendingTxs
-}
-
-// SetExpPendingTxs sets the expected pending transactions
-func (s *SystemTestSuite) SetExpPendingTxs(txs ...*TxInfo) {
-	s.expPendingTxs = txs
-}
-
-// GetExpQueuedTxs returns the expected queued transactions
-func (s *SystemTestSuite) GetExpQueuedTxs() []*TxInfo {
-	return s.expQueuedTxs
-}
-
-// SetExpQueuedTxs sets the expected queued transactions, filtering out any Cosmos transactions
-func (s *SystemTestSuite) SetExpQueuedTxs(txs ...*TxInfo) {
-	queuedTxs := make([]*TxInfo, 0)
-	for _, txInfo := range txs {
-		if txInfo.TxType == TxTypeCosmos {
-			continue
-		}
-		queuedTxs = append(queuedTxs, txInfo)
-	}
-	s.expQueuedTxs = queuedTxs
-}
-
-// PromoteExpTxs promotes the given number of expected queued transactions to expected pending transactions
-func (s *SystemTestSuite) PromoteExpTxs(count int) {
-	if count <= 0 || len(s.expQueuedTxs) == 0 {
-		return
-	}
-
-	// Ensure we don't try to promote more than available
-	actualCount := count
-	if actualCount > len(s.expQueuedTxs) {
-		actualCount = len(s.expQueuedTxs)
-	}
-
-	// Pop from expQueuedTxs and push to expPendingTxs
-	txs := s.expQueuedTxs[:actualCount]
-	s.expPendingTxs = append(s.expPendingTxs, txs...)
-	s.expQueuedTxs = s.expQueuedTxs[actualCount:]
-}
-
 // Nodes returns the node IDs in the system under test
 func (s *SystemTestSuite) Nodes() []string {
 	nodes := make([]string, 4)
