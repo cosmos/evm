@@ -75,7 +75,7 @@ func TestMinimumGasPricesZero(t *testing.T) {
 	mempool.RunMinimumGasPricesZero(t, s)
 }
 
-func TestUpgrade(t *testing.T) {
+func TestChainUpgrade(t *testing.T) {
 	s := suite.GetSharedSuite(t)
 	chainupgrade.RunChainUpgrade(t, s)
 }
