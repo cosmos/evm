@@ -76,6 +76,11 @@ func GetEVMCoinDisplayDenom() string {
 	return testingEvmCoinInfo.DisplayDenom
 }
 
+// IsEVMCoinInfoConfigured returns true if the EVM coin information has already been set.
+func IsEVMCoinInfoConfigured() bool {
+	return testingEvmCoinInfo != nil
+}
+
 // setTestingEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
 func setTestingEVMCoinInfo(eci EvmCoinInfo) error {
 	if testingEvmCoinInfo != nil {
