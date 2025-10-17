@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.4.0
-	github.com/cometbft/cometbft v0.38.18
+	github.com/cometbft/cometbft v0.38.19
 	github.com/cosmos/cosmos-sdk v0.53.4
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/ethereum/go-ethereum v1.15.11
