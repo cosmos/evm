@@ -5,16 +5,11 @@ package systemtests
 import (
 	"testing"
 
-	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/chainupgrade"
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
-	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
-	"github.com/cosmos/evm/tests/systemtests/mempool"
-
-	"github.com/cosmos/evm/tests/systemtests/eip712"
 
 	"cosmossdk.io/systemtests"
 )
@@ -53,6 +48,10 @@ func TestDefaultNodeArgs(t *testing.T) {
 		mempool.RunTxRebroadcasting(t, s)
 	})
 
+	t.Run("Mempool/TxRebroadcasting", func(t *testing.T) {
+		mempool.RunCosmosTxsCompatibility(t, s)
+	})
+
 	/**
 	 * EIP-712 tests
 	 */
@@ -74,18 +73,7 @@ func TestDefaultNodeArgs(t *testing.T) {
 	t.Run("AccountAbstraction/EIP7702", func(t *testing.T) {
 		accountabstraction.RunEIP7702(t, s)
 	})
-func TestCosmosTxCompat(t *testing.T) {
-	mempool.TestCosmosTxsCompatibility(t)
-}
 
-// Mempool Tests
-func TestTxsOrdering(t *testing.T) {
-	mempool.TestTxsOrdering(t)
-}
-
-func TestMinimumGasPricesZero(t *testing.T) {
-	s := suite.GetSharedSuite(t)
-	mempool.RunMinimumGasPricesZero(t, s)
 }
 
 func TestChainUpgrade(t *testing.T) {
