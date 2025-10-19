@@ -11,6 +11,12 @@ import (
 	"github.com/cosmos/evm/tests/systemtests/eip712"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"github.com/cosmos/evm/tests/systemtests/suite"
+	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/mempool"
+
+	"github.com/cosmos/evm/tests/systemtests/eip712"
+
+	"cosmossdk.io/systemtests"
 )
 
 func TestMain(m *testing.M) {
@@ -68,6 +74,13 @@ func TestDefaultNodeArgs(t *testing.T) {
 	t.Run("AccountAbstraction/EIP7702", func(t *testing.T) {
 		accountabstraction.RunEIP7702(t, s)
 	})
+func TestCosmosTxCompat(t *testing.T) {
+	mempool.TestCosmosTxsCompatibility(t)
+}
+
+// Mempool Tests
+func TestTxsOrdering(t *testing.T) {
+	mempool.TestTxsOrdering(t)
 }
 
 func TestMinimumGasPricesZero(t *testing.T) {

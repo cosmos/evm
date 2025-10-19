@@ -162,7 +162,7 @@ func (s *BaseTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Duration
 
 	pendingtxHashes := make([]string, 0)
 	for _, tx := range result.Txs {
-		pendingtxHashes = append(pendingtxHashes, tx.Hash().String())
+		pendingtxHashes = append(pendingtxHashes, string(tx.Hash()))
 	}
 
 	return pendingtxHashes, nil, nil

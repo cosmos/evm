@@ -9,14 +9,18 @@ import (
 	"testing"
 	"time"
 
-	sdkmath "cosmossdk.io/math"
-	"cosmossdk.io/systemtests"
-	"github.com/cosmos/cosmos-sdk/client"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/tests/systemtests/clients"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
+
+	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/systemtests"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // BaseTestSuite implements the TestSuite interface and
