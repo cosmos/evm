@@ -291,10 +291,9 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 			name: "single pending tx (high prio cosmos tx first) %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					baseFeeX20 := new(big.Int).Mul(s.BaseFeeMultiplier(20), big.NewInt(10))
-					tx1, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, baseFeeX20, nil)
+					tx1, err := s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(20), nil)
 					require.NoError(t, err, "failed to send tx")
-					_, err = s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), nil)
+					_, err = s.SendEthTx(t, s.Node(1), "acc0", 0, s.BaseFeeMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					ctx.SetExpPendingTxs(tx1)
