@@ -391,15 +391,15 @@ func (b *Backend) DoCall(
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	var isDynamic bool
+	var isPrecompile bool
 	if args.To != nil {
 		precompileReq := &evmtypes.QueryPrecompileRequest{Address: args.To.Hex()}
 		if res, err := b.QueryClient.Precompile(ctx, precompileReq); err == nil {
-			isDynamic = res.IsPrecompile && !res.IsStatic
+			isPrecompile = res.IsPrecompile
 		}
 	}
 
-	evmOverrides, cosmosOverrides, err := rpctypes.ParseOverrides(overrides, isDynamic)
+	evmOverrides, cosmosOverrides, err := rpctypes.ParseOverrides(overrides, isPrecompile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse overrides: %w", err)
 	}

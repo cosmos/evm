@@ -192,13 +192,13 @@ type TraceConfig struct {
 }
 
 // ParseOverrides attempts to parse overrides as StateOverride
-// If isDynamicPrecompile is true, it will handle aligned cosmos override format for the target dynamic precompile
-func ParseOverrides(overrides *json.RawMessage, isDynamicPrecompile bool) (*StateOverride, []evmtypes.StoreStateDiff, error) {
+// If isPrecompile is true, it will handle aligned cosmos override format for the target precompile
+func ParseOverrides(overrides *json.RawMessage, isPrecompile bool) (*StateOverride, []evmtypes.StoreStateDiff, error) {
 	if overrides == nil {
 		return nil, nil, nil
 	}
 
-	if isDynamicPrecompile {
+	if isPrecompile {
 		var rawOverrides map[string]interface{}
 		if err := json.Unmarshal(*overrides, &rawOverrides); err == nil {
 			for _, encodedData := range rawOverrides {

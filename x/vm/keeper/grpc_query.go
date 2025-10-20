@@ -892,16 +892,8 @@ func (k Keeper) Precompile(c context.Context, req *types.QueryPrecompileRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	isStatic := false
-	if found {
-		params := k.GetParams(ctx)
-		_, staticFound, _ := k.GetStaticPrecompileInstance(&params, address)
-		isStatic = staticFound
-	}
-
 	return &types.QueryPrecompileResponse{
 		IsPrecompile: found,
-		IsStatic:     isStatic,
 	}, nil
 }
 

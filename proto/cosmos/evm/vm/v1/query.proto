@@ -126,8 +126,6 @@ message QueryPrecompileRequest {
 message QueryPrecompileResponse {
   // is_precompile indicates if the address is a precompile contract
   bool is_precompile = 1;
-  // is_static indicates if it's a static precompile (true) or dynamic precompile (false)
-  bool is_static = 2;
 }
 
 // QueryAccountRequest is the request type for the Query/Account RPC method.
