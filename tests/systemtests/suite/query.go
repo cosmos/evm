@@ -109,20 +109,26 @@ func (s *BaseTestSuite) CheckTxPending(
 	txType string,
 	timeout time.Duration,
 ) error {
-	// Note: Cosmos transactions vanish from the mempool right after they get included in a block.
-	// CosmosClient.CheckTxsPending therefore treats “pending or already committed” as success,
-	// whereas the EVM client keeps transactions in the EVM pool until nonce progression occurs.
 	switch txType {
 	case TxTypeEVM:
 		return s.EthClient.CheckTxsPending(nodeID, txHash, timeout)
 	case TxTypeCosmos:
-		return s.CosmosClient.CheckTxsPending(nodeID, txHash, timeout)
+		// Note: Cosmos transactions vanish from the mempool right after they get included in a block.
+		// CosmosClient.CheckTxsPending therefore treats “pending or already committed” as success,
+		// whereas the EVM client keeps transactions in the EVM pool until nonce progression occurs.
+		err := s.CosmosClient.CheckTxsPending(nodeID, txHash, timeout)
+		if err != nil {
+			_, err = s.CosmosClient.WaitForCommit(nodeID, txHash, timeout)
+			return err
+		}
+		return nil
+
 	default:
 		return fmt.Errorf("invalid tx type")
 	}
 }
 
-const defaultTxPoolContentTimeout = 120 * time.Second
+const defaultTxPoolContentTimeout = 30 * time.Second
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {

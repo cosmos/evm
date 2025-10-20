@@ -26,8 +26,9 @@ cp ./build/evmd ./tests/systemtests/binaries/v0.4
 Each scenario now has its own `Test…` wrapper in `main_test.go`, so you can target a specific flow directly. For example, to exercise the mempool ordering suite:
 
 ```shell
-go test -mod=readonly -tags=system_test ./tests/systemtests -run TestMempoolTxsOrdering \
-  --verbose --binary evmd --block-time 5s --chain-id local-4221
+cd tests/systemtests
+go test -failfast -mod=readonly -tags=system_test ./... -run TestMempoolTxsOrdering \
+  --verbose --binary evmd --block-time 3s --chain-id local-4221
 ```
 
 Mempool scenarios:
