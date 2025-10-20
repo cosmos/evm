@@ -211,12 +211,15 @@ func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 		return nil, fmt.Errorf("failed to get latest context for StateAt: %w", err)
 	}
 
-	// Create a new context with an infinite gas meter to avoid race conditions
-	// when the StateDB is accessed from background goroutines (e.g., txpool reorg loop)
-	ctx = ctx.WithGasMeter(sdktypes.NewInfiniteGasMeter())
+	// Create a cache context to isolate the StateDB from concurrent commits.
+	// This prevents race conditions when the background txpool reorg goroutine
+	// reads state while the main thread is committing new blocks.
+	cacheCtx, _ := ctx.CacheContext()
+	// Use an infinite gas meter to avoid tracking gas for read-only state queries
+	cacheCtx = cacheCtx.WithGasMeter(sdktypes.NewInfiniteGasMeter())
 
-	appHash := ctx.BlockHeader().AppHash
-	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig())
+	appHash := cacheCtx.BlockHeader().AppHash
+	stateDB := statedb.New(cacheCtx, b.vmKeeper, statedb.NewEmptyTxConfig())
 
 	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
 	return stateDB, nil

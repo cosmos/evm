@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -40,6 +41,23 @@ func NewMempoolIntegrationTestSuite(create network.CreateEvmApp, options ...netw
 // SetupTest initializes the test environment with default settings.
 func (s *IntegrationTestSuite) SetupTest() {
 	s.SetupTestWithChainID(testconstants.ExampleChainID)
+}
+
+// TearDownTest cleans up resources after each test.
+func (s *IntegrationTestSuite) TearDownTest() {
+	if s.network != nil && s.network.App != nil {
+		// Close the mempool to stop background goroutines before the next test
+		// This prevents race conditions when global test state is reset in SetupTest
+		if mp := s.network.App.GetMempool(); mp != nil {
+			if evmmp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
+				if err := evmmp.Close(); err != nil {
+					s.T().Logf("Warning: failed to close mempool: %v", err)
+				}
+			}
+		}
+		// Give a brief moment for goroutines to finish
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // SetupTestWithChainID initializes the test environment with a specific chain ID.
