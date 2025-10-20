@@ -1,12 +1,14 @@
 package types_test
 
 import (
+	"encoding/json"
 	"maps"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/stretchr/testify/require"
 
 	rpc "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/x/vm/statedb"
@@ -106,6 +108,102 @@ func TestApply(t *testing.T) {
 				if _, ok := cpy[k]; !ok {
 					t.Errorf("%s: precompile not found: %s", name, k.String())
 				}
+			}
+		})
+	}
+}
+
+func TestParseOverrides(t *testing.T) {
+	tests := []struct {
+		name                    string
+		input                   string
+		expectedEVMOverrides    bool
+		expectedCosmosOverrides int
+		expectError             bool
+		isDynamicPrecompile     bool
+	}{
+		{
+			name: "Standard EVM overrides (backward compatibility)",
+			input: `{
+				"0x1234567890abcdef1234567890abcdef12345678": {
+					"stateDiff": {
+						"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000064"
+					}
+				}
+			}`,
+			expectedEVMOverrides:    true,
+			expectedCosmosOverrides: 0,
+			isDynamicPrecompile:     false,
+		},
+		{
+			name: "Dynamic precompile with aligned cosmos overrides in state field",
+			input: `{
+				"0x1234567890abcdef1234567890abcdef12345678": {
+					"state": "W3sibmFtZSI6ImJhbmsiLCJlbnRyaWVzIjpbeyJrZXkiOiJZbUZ1YXlCclpYaz0iLCJ2YWx1ZSI6IllXRnVhM0IyWVd4MVpRPT0iLCJkZWxldGUiOmZhbHNlfV19XQ=="
+				}
+			}`,
+			expectedEVMOverrides:    false,
+			expectedCosmosOverrides: 1,
+			isDynamicPrecompile:     true,
+		},
+		{
+			name: "Dynamic precompile with aligned cosmos overrides in stateDiff field",
+			input: `{
+				"0x1234567890abcdef1234567890abcdef12345678": {
+					"stateDiff": "W3sibmFtZSI6ImJhbmsiLCJlbnRyaWVzIjpbeyJrZXkiOiJZbUZ1YXlCclpYaz0iLCJ2YWx1ZSI6IllXRnVhM0IyWVd4MVpRPT0iLCJkZWxldGUiOmZhbHNlfV19XQ=="
+				}
+			}`,
+			expectedEVMOverrides:    false,
+			expectedCosmosOverrides: 1,
+			isDynamicPrecompile:     true,
+		},
+		{
+			name:                    "Empty overrides",
+			input:                   `{}`,
+			expectedEVMOverrides:    false,
+			expectedCosmosOverrides: 0,
+			isDynamicPrecompile:     false,
+		},
+		{
+			name:                "Invalid JSON",
+			input:               `{invalid json}`,
+			expectError:         true,
+			isDynamicPrecompile: false,
+		},
+		{
+			name:                    "Nil input",
+			input:                   "",
+			expectedEVMOverrides:    false,
+			expectedCosmosOverrides: 0,
+			expectError:             false,
+			isDynamicPrecompile:     false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var rawMessage *json.RawMessage
+			if tc.input != "" {
+				msg := json.RawMessage(tc.input)
+				rawMessage = &msg
+			}
+			evmOverrides, cosmosOverrides, err := rpc.ParseOverrides(rawMessage, tc.isDynamicPrecompile)
+			if tc.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tc.expectedEVMOverrides {
+				require.NotNil(t, evmOverrides)
+				require.Len(t, *evmOverrides, 1)
+			} else {
+				require.Nil(t, evmOverrides)
+			}
+			if tc.expectedCosmosOverrides > 0 {
+				require.NotNil(t, cosmosOverrides)
+				require.Len(t, cosmosOverrides, tc.expectedCosmosOverrides)
+			} else {
+				require.Nil(t, cosmosOverrides)
 			}
 		})
 	}
