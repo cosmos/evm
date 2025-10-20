@@ -176,7 +176,7 @@ func (s *BaseTestSuite) CheckTxsQueuedAsync(expQueuedTxs []*TxInfo) error {
 
 	for idx, nodeID := range nodes {
 		wg.Add(1)
-		go func(i int, nID string) { //nolint:gosec // intentional concurrency for parallel checks
+		go func(i int, nID string) { //nolint:gosec // Concurrency is intentional for parallel tx checking
 			defer wg.Done()
 
 			ctx, cancel := context.WithTimeout(context.Background(), defaultTxPoolContentTimeout)
