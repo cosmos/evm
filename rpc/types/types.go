@@ -207,11 +207,6 @@ func ParseOverrides(overrides *json.RawMessage, isDynamicPrecompile bool) (*Stat
 						return nil, cosmosOverrides, nil
 					}
 				}
-				if encodedStr, ok := encodedData.(string); ok {
-					if cosmosOverrides := decodeCosmosOverrides(encodedStr); cosmosOverrides != nil {
-						return nil, cosmosOverrides, nil
-					}
-				}
 			}
 		}
 	}
