@@ -33,6 +33,7 @@ const (
 	Query_TraceCall_FullMethodName         = "/cosmos.evm.vm.v1.Query/TraceCall"
 	Query_BaseFee_FullMethodName           = "/cosmos.evm.vm.v1.Query/BaseFee"
 	Query_Config_FullMethodName            = "/cosmos.evm.vm.v1.Query/Config"
+	Query_Precompile_FullMethodName        = "/cosmos.evm.vm.v1.Query/Precompile"
 	Query_GlobalMinGasPrice_FullMethodName = "/cosmos.evm.vm.v1.Query/GlobalMinGasPrice"
 )
 
@@ -73,6 +74,8 @@ type QueryClient interface {
 	BaseFee(ctx context.Context, in *QueryBaseFeeRequest, opts ...grpc.CallOption) (*QueryBaseFeeResponse, error)
 	// Config queries the EVM configuration
 	Config(ctx context.Context, in *QueryConfigRequest, opts ...grpc.CallOption) (*QueryConfigResponse, error)
+	// Precompile queries if an address is a precompile (static or dynamic)
+	Precompile(ctx context.Context, in *QueryPrecompileRequest, opts ...grpc.CallOption) (*QueryPrecompileResponse, error)
 	// GlobalMinGasPrice queries the MinGasPrice
 	// it's similar to feemarket module's method,
 	// but makes the conversion to 18 decimals
@@ -214,6 +217,15 @@ func (c *queryClient) Config(ctx context.Context, in *QueryConfigRequest, opts .
 	return out, nil
 }
 
+func (c *queryClient) Precompile(ctx context.Context, in *QueryPrecompileRequest, opts ...grpc.CallOption) (*QueryPrecompileResponse, error) {
+	out := new(QueryPrecompileResponse)
+	err := c.cc.Invoke(ctx, Query_Precompile_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) GlobalMinGasPrice(ctx context.Context, in *QueryGlobalMinGasPriceRequest, opts ...grpc.CallOption) (*QueryGlobalMinGasPriceResponse, error) {
 	out := new(QueryGlobalMinGasPriceResponse)
 	err := c.cc.Invoke(ctx, Query_GlobalMinGasPrice_FullMethodName, in, out, opts...)
@@ -260,6 +272,8 @@ type QueryServer interface {
 	BaseFee(context.Context, *QueryBaseFeeRequest) (*QueryBaseFeeResponse, error)
 	// Config queries the EVM configuration
 	Config(context.Context, *QueryConfigRequest) (*QueryConfigResponse, error)
+	// Precompile queries if an address is a precompile (static or dynamic)
+	Precompile(context.Context, *QueryPrecompileRequest) (*QueryPrecompileResponse, error)
 	// GlobalMinGasPrice queries the MinGasPrice
 	// it's similar to feemarket module's method,
 	// but makes the conversion to 18 decimals
@@ -313,6 +327,9 @@ func (UnimplementedQueryServer) BaseFee(context.Context, *QueryBaseFeeRequest) (
 }
 func (UnimplementedQueryServer) Config(context.Context, *QueryConfigRequest) (*QueryConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Config not implemented")
+}
+func (UnimplementedQueryServer) Precompile(context.Context, *QueryPrecompileRequest) (*QueryPrecompileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Precompile not implemented")
 }
 func (UnimplementedQueryServer) GlobalMinGasPrice(context.Context, *QueryGlobalMinGasPriceRequest) (*QueryGlobalMinGasPriceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GlobalMinGasPrice not implemented")
@@ -582,6 +599,24 @@ func _Query_Config_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_Precompile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPrecompileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Precompile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_Precompile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Precompile(ctx, req.(*QueryPrecompileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_GlobalMinGasPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryGlobalMinGasPriceRequest)
 	if err := dec(in); err != nil {
@@ -662,6 +697,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Config",
 			Handler:    _Query_Config_Handler,
+		},
+		{
+			MethodName: "Precompile",
+			Handler:    _Query_Precompile_Handler,
 		},
 		{
 			MethodName: "GlobalMinGasPrice",

@@ -92,6 +92,11 @@ service Query {
     option (google.api.http).get = "/cosmos/evm/vm/v1/config";
   }
 
+  // Precompile queries if an address is a precompile (static or dynamic)
+  rpc Precompile(QueryPrecompileRequest) returns (QueryPrecompileResponse) {
+    option (google.api.http).get = "/cosmos/evm/vm/v1/precompile/{address}";
+  }
+
   // GlobalMinGasPrice queries the MinGasPrice
   // it's similar to feemarket module's method,
   // but makes the conversion to 18 decimals
@@ -109,6 +114,20 @@ message QueryConfigRequest {}
 message QueryConfigResponse {
   // config is the evm configuration
   ChainConfig config = 1;
+}
+
+// QueryPrecompileRequest defines the request type for querying if an address is a precompile
+message QueryPrecompileRequest {
+  // address is the ethereum hex address to check
+  string address = 1;
+}
+
+// QueryPrecompileResponse returns information about whether the address is a precompile
+message QueryPrecompileResponse {
+  // is_precompile indicates if the address is a precompile contract
+  bool is_precompile = 1;
+  // is_static indicates if it's a static precompile (true) or dynamic precompile (false)
+  bool is_static = 2;
 }
 
 // QueryAccountRequest is the request type for the Query/Account RPC method.
@@ -251,6 +270,19 @@ message QueryParamsResponse {
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
+// StateEntry defines a single state change operation
+message StateEntry {
+  bytes key = 1;
+  bytes value = 2;
+  bool delete = 3;
+}
+
+// StoreStateDiff defines a set of state changes for a single store
+message StoreStateDiff {
+  string name = 1;
+  repeated StateEntry entries = 2 [ (gogoproto.nullable) = false ];
+}
+
 // EthCallRequest defines EthCall request
 message EthCallRequest {
   // args uses the same json format as the json rpc api.
@@ -265,6 +297,8 @@ message EthCallRequest {
   int64 chain_id = 4;
   // state overrides encoded as json
   bytes overrides = 5;
+  // state_overrides represents the state overrides before executing the call
+  repeated StoreStateDiff state_overrides = 6 [ (gogoproto.nullable) = false ];
 }
 
 // EstimateGasResponse defines EstimateGas response
