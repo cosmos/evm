@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -188,4 +189,66 @@ type AccessListResult struct {
 type TraceConfig struct {
 	evmtypes.TraceConfig
 	TracerConfig json.RawMessage `json:"tracerConfig"`
+}
+
+// ParseOverrides attempts to parse overrides as StateOverride
+// If isDynamicPrecompile is true, it will handle aligned cosmos override format for the target dynamic precompile
+func ParseOverrides(overrides *json.RawMessage, isDynamicPrecompile bool) (*StateOverride, []evmtypes.StoreStateDiff, error) {
+	if overrides == nil {
+		return nil, nil, nil
+	}
+
+	if isDynamicPrecompile {
+		var rawOverrides map[string]interface{}
+		if err := json.Unmarshal(*overrides, &rawOverrides); err == nil {
+			for _, encodedData := range rawOverrides {
+				if overrideAccount, ok := encodedData.(map[string]interface{}); ok {
+					if cosmosOverrides := extractFromOverrideAccount(overrideAccount); cosmosOverrides != nil {
+						return nil, cosmosOverrides, nil
+					}
+				}
+				if encodedStr, ok := encodedData.(string); ok {
+					if cosmosOverrides := decodeCosmosOverrides(encodedStr); cosmosOverrides != nil {
+						return nil, cosmosOverrides, nil
+					}
+				}
+			}
+		}
+	}
+
+	var res StateOverride
+	if err := json.Unmarshal(*overrides, &res); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse overrides: %w", err)
+	}
+	if len(res) == 0 {
+		return nil, nil, nil
+	}
+	return &res, nil, nil
+}
+
+// extractFromOverrideAccount extracts cosmos overrides from state/stateDiff fields
+func extractFromOverrideAccount(overrideAccount map[string]interface{}) []evmtypes.StoreStateDiff {
+	for stateType, stateValue := range overrideAccount {
+		if (stateType == "state" || stateType == "stateDiff") && stateValue != nil {
+			if encodedStr, ok := stateValue.(string); ok {
+				if cosmosOverrides := decodeCosmosOverrides(encodedStr); cosmosOverrides != nil {
+					return cosmosOverrides
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// decodeCosmosOverrides decodes base64 string and unmarshals cosmos overrides
+func decodeCosmosOverrides(encodedStr string) []evmtypes.StoreStateDiff {
+	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
+	if err != nil {
+		return nil
+	}
+	var cosmosOverrides []evmtypes.StoreStateDiff
+	if err := json.Unmarshal(decodedBytes, &cosmosOverrides); err != nil {
+		return nil
+	}
+	return cosmosOverrides
 }

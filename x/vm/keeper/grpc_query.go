@@ -239,6 +239,11 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
+	for _, stateOverride := range req.StateOverrides {
+		if err := stateOverride.Apply(ctx, k.storeKeys); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state override: %s", err.Error()))
+		}
+	}
 
 	var args types.TransactionArgs
 	err := json.Unmarshal(req.Args, &args)
@@ -867,6 +872,37 @@ func (k Keeper) GlobalMinGasPrice(c context.Context, _ *types.QueryGlobalMinGasP
 	ctx := sdk.UnwrapSDKContext(c)
 	minGasPrice := k.GetMinGasPrice(ctx).TruncateInt()
 	return &types.QueryGlobalMinGasPriceResponse{MinGasPrice: minGasPrice}, nil
+}
+
+// Precompile implements the Query/Precompile gRPC method
+func (k Keeper) Precompile(c context.Context, req *types.QueryPrecompileRequest) (*types.QueryPrecompileResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if !common.IsHexAddress(req.Address) {
+		return nil, status.Error(codes.InvalidArgument, "invalid address")
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	address := common.HexToAddress(req.Address)
+
+	_, found, err := k.GetPrecompileInstance(ctx, address)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	isStatic := false
+	if found {
+		params := k.GetParams(ctx)
+		_, staticFound, _ := k.GetStaticPrecompileInstance(&params, address)
+		isStatic = staticFound
+	}
+
+	return &types.QueryPrecompileResponse{
+		IsPrecompile: found,
+		IsStatic:     isStatic,
+	}, nil
 }
 
 // Config implements the Query/Config gRPC method
