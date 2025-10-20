@@ -124,7 +124,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 	}
 
 	s := NewTestSuite(base)
-	s.SetupTest(t, suite.BlockTimeArgs("6s")...)
+	s.SetupTest(t)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)

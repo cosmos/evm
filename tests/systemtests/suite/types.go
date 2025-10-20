@@ -1,10 +1,5 @@
 package suite
 
-import (
-	"fmt"
-	"strings"
-)
-
 const (
 	TxTypeEVM    = "EVMTx"
 	TxTypeCosmos = "CosmosTx"
@@ -66,19 +61,4 @@ func MinimumGasPriceZeroArgs() []string {
 	}
 	// Add the zero minimum gas price argument
 	return append(DefaultNodeArgs(), "--minimum-gas-prices=0atest")
-}
-
-// BlockTimeArgs returns node arguments with the block time flag applied.
-func BlockTimeArgs(duration string) []string {
-	args := DefaultNodeArgs()
-	flag := fmt.Sprintf("--block-time=%s", duration)
-
-	for i, arg := range args {
-		if strings.HasPrefix(arg, "--block-time=") {
-			args[i] = flag
-			return args
-		}
-	}
-
-	return append(args, flag)
 }
