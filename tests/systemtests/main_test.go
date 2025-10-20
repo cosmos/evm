@@ -3,7 +3,6 @@
 package systemtests
 
 import (
-	"os"
 	"testing"
 
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
@@ -35,9 +34,6 @@ func TestMempoolTxsReplacementWithCosmosTx(t *testing.T) {
 }
 
 func TestMempoolMixedTxsReplacementEVMAndCosmos(t *testing.T) {
-	if os.Getenv("BLOCKTIME") == "9s" {
-		t.Skip("skipping TestMempoolMixedTxsReplacementEVMAndCosmos")
-	}
 	suite.RunWithSharedSuite(t, mempool.RunMixedTxsReplacementEVMAndCosmos)
 }
 
