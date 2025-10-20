@@ -3,16 +3,22 @@
 package systemtests
 
 import (
-	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
-	"github.com/cosmos/evm/tests/systemtests/mempool"
 	"testing"
 
-	"cosmossdk.io/systemtests"
+	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
+	"github.com/cosmos/evm/tests/systemtests/mempool"
+
 	"github.com/cosmos/evm/tests/systemtests/eip712"
+
+	"cosmossdk.io/systemtests"
 )
 
 func TestMain(m *testing.M) {
 	systemtests.RunTests(m)
+}
+
+func TestCosmosTxCompat(t *testing.T) {
+	mempool.TestCosmosTxsCompatibility(t)
 }
 
 // Mempool Tests

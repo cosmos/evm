@@ -9,6 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cosmos/evm/config"
+
+	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
+	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/evmd"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -42,12 +48,7 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/cosmos/evm/config"
-	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
 	customnetwork "github.com/cosmos/evm/evmd/tests/network"
-	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	evmnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
@@ -66,6 +67,7 @@ var (
 	flagPrintMnemonic      = "print-mnemonic"
 	flagSingleHost         = "single-host"
 	flagCommitTimeout      = "commit-timeout"
+	configChanges          = "config-changes"
 	flagValidatorPowers    = "validator-powers"
 	unsafeStartValidatorFn UnsafeStartValidatorCmdCreator
 )
@@ -93,6 +95,7 @@ type initArgs struct {
 	startingIPAddress string
 	singleMachine     bool
 	useDocker         bool
+	configChanges     []string
 	validatorPowers   []int64
 }
 
@@ -196,6 +199,7 @@ Example:
 				return err
 			}
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
+			args.configChanges, _ = cmd.Flags().GetStringSlice(configChanges)
 
 			validatorPowers, _ := cmd.Flags().GetIntSlice(flagValidatorPowers)
 			args.validatorPowers, err = parseValidatorPowers(validatorPowers, args.numValidators)
@@ -215,6 +219,7 @@ Example:
 	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...)")
 	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 	cmd.Flags().Bool(flagsUseDocker, false, "test network via docker")
+	cmd.Flags().StringSlice(configChanges, []string{}, "Config changes to apply to the node: i.e. consensus.timeout_commit=50s")
 
 	return cmd
 }
@@ -399,6 +404,11 @@ func initTestnetFiles(
 				_ = os.RemoveAll(args.outputDir)
 				return err
 			}
+		}
+
+		if err := parseAndApplyConfigChanges(nodeConfig, args.configChanges); err != nil {
+			_ = os.RemoveAll(args.outputDir)
+			return fmt.Errorf("failed to apply config changes for node %d: %w", i, err)
 		}
 
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)

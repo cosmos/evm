@@ -21,11 +21,16 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
+	cosmosPoolMaxTx := evmconfig.GetCosmosPoolMaxTx(appOpts, logger)
+	if cosmosPoolMaxTx < 0 {
+		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
+		return nil
+	}
+
 	mempoolConfig, err := app.createMempoolConfig(appOpts, logger)
 	if err != nil {
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
-	cosmosPoolMaxTx := evmconfig.GetCosmosPoolMaxTx(appOpts, logger)
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
