@@ -7,7 +7,6 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -16,10 +15,8 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/systemtests"
 
-	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -152,7 +149,6 @@ func (s *BaseTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	s.StartChain(t, nodeStartArgs...)
 	s.currentNodeArgs = append([]string(nil), nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
-	s.ensureAdditionalAccountsFunded(t)
 }
 
 // LockChain acquires exclusive control over the underlying chain lifecycle.
@@ -163,80 +159,6 @@ func (s *BaseTestSuite) LockChain() {
 // UnlockChain releases the chain lifecycle lock.
 func (s *BaseTestSuite) UnlockChain() {
 	s.chainMu.Unlock()
-}
-
-func (s *BaseTestSuite) ensureAdditionalAccountsFunded(t *testing.T) {
-	const (
-		defaultFundedAccounts = 4
-		fundingNodeID         = "node0"
-	)
-
-	if len(s.accounts) <= defaultFundedAccounts {
-		return
-	}
-
-	funder := s.Account("acc0")
-	require.NotNil(t, funder, "funding account acc0 missing")
-
-	accountInfo := s.mustGetCosmosAccount(t, funder)
-	funder.AccNumber = accountInfo.GetAccountNumber()
-	funder.Cosmos.AccountNumber = funder.AccNumber
-	nextSequence := accountInfo.GetSequence()
-
-	baseFee, err := s.GetLatestBaseFee(fundingNodeID)
-	require.NoError(t, err)
-	s.SetBaseFee(baseFee)
-	gasPrice := s.GasPrice()
-
-	for idx := defaultFundedAccounts; idx < len(s.accounts); idx++ {
-		target := s.accounts[idx]
-		if target.ID == funder.ID {
-			continue
-		}
-
-		resp, err := s.CosmosClient.BankSend(
-			fundingNodeID,
-			funder.Cosmos,
-			funder.AccAddress,
-			target.AccAddress,
-			sdkmath.NewInt(1_000_000_000_000),
-			nextSequence,
-			gasPrice,
-		)
-		require.NoError(t, err, "failed to fund %s", target.ID)
-
-		err = s.WaitForCommit(fundingNodeID, resp.TxHash, TxTypeCosmos, 30*time.Second)
-		require.NoError(t, err, "failed waiting funding tx for %s", target.ID)
-
-		nextSequence++
-	}
-
-	s.refreshAccountMetadata(t)
-}
-
-func (s *BaseTestSuite) mustGetCosmosAccount(t *testing.T, account *TestAccount) client.Account {
-	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
-	s.CosmosClient.ClientCtx = ctx
-
-	acc, err := s.CosmosClient.ClientCtx.AccountRetriever.GetAccount(ctx, account.AccAddress)
-	require.NoError(t, err, "failed to fetch cosmos account info for %s", account.ID)
-	require.NotNil(t, acc, "cosmos account info missing for %s", account.ID)
-
-	return acc
-}
-
-func (s *BaseTestSuite) refreshAccountMetadata(t *testing.T) {
-	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
-	s.CosmosClient.ClientCtx = ctx
-
-	for _, account := range s.accounts {
-		accInfo, err := s.CosmosClient.ClientCtx.AccountRetriever.GetAccount(ctx, account.AccAddress)
-		require.NoError(t, err, "failed to refresh account %s metadata", account.ID)
-		require.NotNil(t, accInfo, "account info missing for %s", account.ID)
-
-		account.AccNumber = accInfo.GetAccountNumber()
-		account.Cosmos.AccountNumber = account.AccNumber
-	}
 }
 
 // Lock acquires the mutex guarding this account for exclusive usage.
