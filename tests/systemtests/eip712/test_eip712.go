@@ -16,8 +16,7 @@ func RunEIP712BankSend(t *testing.T, base *suite.BaseTestSuite) {
 	s.SetupTest(t)
 
 	// Get initial nonce for acc0
-	acc0 := s.AcquireAcc()
-	defer s.ReleaseAcc(acc0)
+	acc0 := s.Acc(0)
 
 	gasPrice := big.NewInt(1000000000000)
 
@@ -55,8 +54,7 @@ func RunEIP712BankSendWithBalanceCheck(t *testing.T, base *suite.BaseTestSuite) 
 	s := NewTestSuite(base)
 	s.SetupTest(t)
 
-	signer := s.AcquireAcc()
-	defer s.ReleaseAcc(signer)
+	signer := s.Acc(0)
 
 	denom := "atest"
 
@@ -129,8 +127,7 @@ func RunEIP712MultipleBankSends(t *testing.T, base *suite.BaseTestSuite) {
 	s := NewTestSuite(base)
 	s.SetupTest(t)
 
-	signer := s.AcquireAcc()
-	defer s.ReleaseAcc(signer)
+	signer := s.Acc(0)
 
 	denom := "atest"
 	toAddr := s.Acc(1).Cosmos.AccAddress

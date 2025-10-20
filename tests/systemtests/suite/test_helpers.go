@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"slices"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/cosmos/evm/tests/systemtests/clients"
@@ -76,48 +75,6 @@ func (s *BaseTestSuite) EthAccount(id string) *clients.EthAccount {
 // CosmosAccount returns the Cosmos account associated with the given identifier.
 func (s *BaseTestSuite) CosmosAccount(id string) *clients.CosmosAccount {
 	return s.Account(id).Cosmos
-}
-
-// AcquireAcc blocks until an idle account is available and returns it.
-func (s *BaseTestSuite) AcquireAcc() *TestAccount {
-	s.accountsMu.Lock()
-	defer s.accountsMu.Unlock()
-
-	for {
-		for _, acc := range s.accounts {
-			if !acc.inUse {
-				acc.inUse = true
-				return acc
-			}
-		}
-		s.accountCond.Wait()
-	}
-}
-
-// ReleaseAcc releases a previously acquired account back into the idle pool.
-func (s *BaseTestSuite) ReleaseAcc(acc *TestAccount) {
-	if acc == nil {
-		return
-	}
-
-	s.accountsMu.Lock()
-	defer s.accountsMu.Unlock()
-
-	if !acc.inUse {
-		panic(fmt.Sprintf("account %s released without acquisition", acc.ID))
-	}
-
-	acc.inUse = false
-	s.accountCond.Signal()
-}
-
-// AcquireAccForTest acquires an idle account and registers automatic release via t.Cleanup.
-func (s *BaseTestSuite) AcquireAccForTest(t *testing.T) *TestAccount {
-	acc := s.AcquireAcc()
-	t.Cleanup(func() {
-		s.ReleaseAcc(acc)
-	})
-	return acc
 }
 
 // Nodes returns the node IDs in the system under test

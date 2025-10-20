@@ -19,8 +19,7 @@ func RunTxRebroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 			name: "ordering of pending txs %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
+					signer := s.Acc(0)
 
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
@@ -54,8 +53,7 @@ func RunTxRebroadcasting(t *testing.T, base *suite.BaseTestSuite) {
 					// so, we should set nonce idx to 0.
 					nonce3Idx := uint64(0)
 
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
+					signer := s.Acc(0)
 
 					tx4, err := s.SendTx(t, s.Node(2), signer.ID, nonce3Idx, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
@@ -105,8 +103,7 @@ func RunMinimumGasPricesZero(t *testing.T, base *suite.BaseTestSuite) {
 			name: "sequencial pending txs %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
+					signer := s.Acc(0)
 
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")

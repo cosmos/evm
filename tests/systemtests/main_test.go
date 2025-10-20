@@ -45,6 +45,10 @@ func TestMempoolTxRebroadcasting(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunTxRebroadcasting)
 }
 
+func TestMinimumGasPricesZero(t *testing.T) {
+	suite.RunWithSharedSuite(t, mempool.RunMinimumGasPricesZero)
+}
+
 func TestMempoolCosmosTxsCompatibility(t *testing.T) {
 	suite.RunWithSharedSuite(t, mempool.RunCosmosTxsCompatibility)
 }

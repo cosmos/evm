@@ -30,21 +30,12 @@ func RunEIP7702(t *testing.T, base *suite.BaseTestSuite) {
 		// The test takes too much time if we restart network for each test case.
 		BeforeAll(func() {
 			s = NewTestSuite(base)
-			user0Acc = s.BaseTestSuite.AcquireAcc()
-			user1Acc = s.BaseTestSuite.AcquireAcc()
+			user0Acc = s.BaseTestSuite.Acc(0)
+			user1Acc = s.BaseTestSuite.Acc(1)
 			user0 = user0Acc.ID
 			user1 = user1Acc.ID
 			s.SetPrimaryAccount(user0Acc)
 			s.SetupTest(t)
-		})
-
-		AfterAll(func() {
-			if user0Acc != nil {
-				s.BaseTestSuite.ReleaseAcc(user0Acc)
-			}
-			if user1Acc != nil {
-				s.BaseTestSuite.ReleaseAcc(user1Acc)
-			}
 		})
 
 		AfterEach(func() {

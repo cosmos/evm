@@ -35,8 +35,6 @@ type BaseTestSuite struct {
 	// Accounts shared across clients
 	accounts     []*TestAccount
 	accountsByID map[string]*TestAccount
-	accountsMu   sync.Mutex
-	accountCond  *sync.Cond
 
 	// Chain management
 	chainMu         sync.Mutex
@@ -64,15 +62,14 @@ func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
 		cosmosAcc, ok := cosmosAccounts[id]
 		require.Truef(t, ok, "cosmos account %s not found", id)
 		acc := &TestAccount{
-			ID:            id,
-			Address:       ethAcc.Address,
-			AccAddress:    cosmosAcc.AccAddress,
-			AccNumber:     cosmosAcc.AccountNumber,
-			ECDSAPrivKey:  ethAcc.PrivKey,
-			PrivKey:       cosmosAcc.PrivKey,
-			Eth:           ethAcc,
-			Cosmos:        cosmosAcc,
-			perAccountMux: &sync.Mutex{},
+			ID:           id,
+			Address:      ethAcc.Address,
+			AccAddress:   cosmosAcc.AccAddress,
+			AccNumber:    cosmosAcc.AccountNumber,
+			ECDSAPrivKey: ethAcc.PrivKey,
+			PrivKey:      cosmosAcc.PrivKey,
+			Eth:          ethAcc,
+			Cosmos:       cosmosAcc,
 		}
 		accounts[i] = acc
 		accountsByID[id] = acc
@@ -85,8 +82,6 @@ func NewBaseTestSuite(t *testing.T) *BaseTestSuite {
 		accounts:        accounts,
 		accountsByID:    accountsByID,
 	}
-	suite.accountCond = sync.NewCond(&suite.accountsMu)
-
 	return suite
 }
 
@@ -123,9 +118,6 @@ type TestAccount struct {
 
 	Eth    *clients.EthAccount
 	Cosmos *clients.CosmosAccount
-
-	inUse         bool
-	perAccountMux *sync.Mutex
 }
 
 // SetupTest initializes the test suite by resetting and starting the chain, then awaiting 2 blocks
@@ -165,20 +157,4 @@ func (s *BaseTestSuite) LockChain() {
 // UnlockChain releases the chain lifecycle lock.
 func (s *BaseTestSuite) UnlockChain() {
 	s.chainMu.Unlock()
-}
-
-// Lock acquires the mutex guarding this account for exclusive usage.
-func (a *TestAccount) Lock() {
-	if a.perAccountMux == nil {
-		a.perAccountMux = &sync.Mutex{}
-	}
-	a.perAccountMux.Lock()
-}
-
-// Unlock releases the mutex guarding this account.
-func (a *TestAccount) Unlock() {
-	if a.perAccountMux == nil {
-		return
-	}
-	a.perAccountMux.Unlock()
 }

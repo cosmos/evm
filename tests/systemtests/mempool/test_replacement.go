@@ -20,9 +20,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 			name: "single pending tx submitted to same nodes %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					_, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -36,9 +34,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 			name: "multiple pending txs submitted to same nodes %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					_, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -62,9 +58,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 			name: "single queued tx %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					_, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -73,9 +67,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 					ctx.SetExpQueuedTxs(tx2)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					txHash, err := s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -88,9 +80,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 			name: "multiple queued txs %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					_, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					tx2, err := s.SendTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -109,9 +99,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 					ctx.SetExpQueuedTxs(tx2, tx4, tx6)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					tx, err := s.SendTx(t, s.Node(3), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
@@ -170,9 +158,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, base *suite.BaseTestSuite) {
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
 					// : high prio cosmos tx should replace low prio evm tx.
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -190,9 +176,7 @@ func RunTxsReplacementWithCosmosTx(t *testing.T, base *suite.BaseTestSuite) {
 					// It is because of CheckTxHandler cannot handle errors from SigVerificationDecorator properly.
 					// After modifying CheckTxHandler, we can also modify this test case
 					// : high prio cosmos tx should replace low prio evm tx.
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					tx1, err := s.SendTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 					_, err = s.SendTx(t, s.Node(1), signer.ID, 0, s.GasPriceMultiplier(20), big.NewInt(1))
@@ -425,9 +409,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 			name: "dynamic fee tx should not replace legacy tx",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					tx1, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
@@ -438,9 +420,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 					ctx.SetExpQueuedTxs(tx1)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10))
 					require.NoError(t, err, "failed to send tx")
 
@@ -453,9 +433,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 			name: "dynamic fee tx should replace legacy tx",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					_, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10))
 					require.NoError(t, err, "failed to send eth legacy tx")
 
@@ -468,9 +446,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 					ctx.SetExpQueuedTxs(tx2)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10))
 					require.NoError(t, err, "failed to send tx")
 
@@ -483,9 +459,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 			name: "legacy should never replace dynamic fee tx",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					tx1, err := s.SendEthDynamicFeeTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(20),
 						new(big.Int).Sub(s.GasPriceMultiplier(10), big.NewInt(1)))
 					require.NoError(t, err)
@@ -498,9 +472,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 					ctx.SetExpQueuedTxs(tx1)
 				},
 				func(s *TestSuite, ctx *TestContext) {
-					signer := s.AcquireAcc()
-					defer s.ReleaseAcc(signer)
-
+					signer := s.Acc(0)
 					txHash, err := s.SendEthLegacyTx(t, s.Node(0), signer.ID, 0, s.GasPriceMultiplier(10))
 					require.NoError(t, err, "failed to send tx")
 
