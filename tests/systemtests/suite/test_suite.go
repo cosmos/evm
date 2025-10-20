@@ -105,6 +105,12 @@ func GetSharedSuite(t *testing.T) *BaseTestSuite {
 	return sharedSuite
 }
 
+// RunWithSharedSuite retrieves the shared suite instance and executes the provided test function.
+func RunWithSharedSuite(t *testing.T, fn func(*testing.T, *BaseTestSuite)) {
+	t.Helper()
+	fn(t, GetSharedSuite(t))
+}
+
 // TestAccount aggregates account metadata usable across both Ethereum and Cosmos flows.
 type TestAccount struct {
 	ID         string
