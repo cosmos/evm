@@ -178,7 +178,7 @@ func (s *BaseTestSuite) CheckTxsPendingAsync(expPendingTxs []*TxInfo) error {
 			err := s.CheckTxPending(tx.DstNodeID, tx.TxHash, tx.TxType, time.Second*120)
 			if err != nil {
 				mu.Lock()
-				errors = append(errors, fmt.Errorf("tx %s is not pending or committed: %v", tx.TxHash, err))
+				errors = append(errors, fmt.Errorf("tx %s is not pending: %v", tx.TxHash, err))
 				mu.Unlock()
 			}
 		}(txInfo)

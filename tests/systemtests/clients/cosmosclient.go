@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -159,8 +160,18 @@ func (c *CosmosClient) CheckTxsPending(
 	txHash string,
 	timeout time.Duration,
 ) error {
+	// Cosmos transactions are inserted into the standard SDK mempool. DeliverTx removes them as soon
+	// as the block is committed, which means they often disappear from the mempool almost instantly.
+	// To avoid treating those early commits as failures we treat "pending OR already committed" as success.
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
+	hashBytes, decodeErr := hex.DecodeString(txHash)
+	if decodeErr != nil {
+		return fmt.Errorf("invalid tx hash format %q: %w", txHash, decodeErr)
+	}
+
+	clientCtx := c.ClientCtx.WithClient(c.RpcClients[nodeID])
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -171,17 +182,25 @@ func (c *CosmosClient) CheckTxsPending(
 			return fmt.Errorf("timeout waiting for transaction %s", txHash)
 		case <-ticker.C:
 			result, err := c.UnconfirmedTxs(ctx, nodeID)
-			if err != nil {
-				return fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
+			if err == nil {
+				pendingTxHashes := make([]string, 0, len(result.Txs))
+				for _, tx := range result.Txs {
+					pendingTxHashes = append(pendingTxHashes, string(tx.Hash()))
+				}
+
+				if slices.Contains(pendingTxHashes, txHash) {
+					return nil
+				}
 			}
 
-			pendingTxHashes := make([]string, 0)
-			for _, tx := range result.Txs {
-				pendingTxHashes = append(pendingTxHashes, string(tx.Hash()))
-			}
-
-			if ok := slices.Contains(pendingTxHashes, txHash); ok {
+			// If the tx is missing from the mempool it might have already been committed.
+			// We do a non-blocking Tx lookup to confirm whether the tx made it into a block.
+			if _, err := clientCtx.Client.Tx(ctx, hashBytes, false); err == nil {
 				return nil
+			}
+
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return fmt.Errorf("timeout waiting for transaction %s", txHash)
 			}
 		}
 	}

@@ -102,13 +102,16 @@ func (s *BaseTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-// CheckTxsPending checks if the given tx is either pending or committed within the timeout duration
+// CheckTxsPending checks if the given tx is pending within the timeout duration
 func (s *BaseTestSuite) CheckTxPending(
 	nodeID string,
 	txHash string,
 	txType string,
 	timeout time.Duration,
 ) error {
+	// Note: Cosmos transactions vanish from the mempool right after they get included in a block.
+	// CosmosClient.CheckTxsPending therefore treats “pending or already committed” as success,
+	// whereas the EVM client keeps transactions in the EVM pool until nonce progression occurs.
 	switch txType {
 	case TxTypeEVM:
 		return s.EthClient.CheckTxsPending(nodeID, txHash, timeout)
