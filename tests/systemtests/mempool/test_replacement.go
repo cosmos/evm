@@ -124,7 +124,7 @@ func RunTxsReplacement(t *testing.T, base *suite.BaseTestSuite) {
 	}
 
 	s := NewTestSuite(base)
-	s.SetupTest(t)
+	s.SetupTest(t, suite.BlockTimeArgs("6s")...)
 
 	for _, to := range testOptions {
 		s.SetOptions(to)
@@ -237,8 +237,7 @@ func RunMixedTxsReplacementEVMAndCosmos(t *testing.T, base *suite.BaseTestSuite)
 					tx1, err := s.SendEthTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(10), s.BaseFeeMultiplier(10))
 					require.NoError(t, err, "failed to send tx")
 
-					baseFeeX20 := new(big.Int).Mul(s.BaseFeeMultiplier(20), big.NewInt(1000000000000000000))
-					_, err = s.SendCosmosTx(t, s.Node(1), "acc0", 0, baseFeeX20, nil)
+					_, err = s.SendCosmosTx(t, s.Node(0), "acc0", 0, s.BaseFeeMultiplier(20), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					ctx.SetExpPendingTxs(tx1)
