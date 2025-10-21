@@ -931,7 +931,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 			// Update feemarket params per test
 			evmParams := feemarkettypes.DefaultParams()
 			if !tc.EnableFeemarket {
-				evmParams := s.Network.App.GetFeeMarketKeeper().GetParams(
+				evmParams = s.Network.App.GetFeeMarketKeeper().GetParams(
 					s.Network.GetContext(),
 				)
 				evmParams.NoBaseFee = true
@@ -1104,7 +1104,7 @@ func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
 			// Update feemarket params per test
 			evmParams := feemarkettypes.DefaultParams()
 			if !tc.EnableFeemarket {
-				evmParams := s.Network.App.GetFeeMarketKeeper().GetParams(
+				evmParams = s.Network.App.GetFeeMarketKeeper().GetParams(
 					s.Network.GetContext(),
 				)
 				evmParams.NoBaseFee = true
