@@ -224,10 +224,16 @@ func ParseOverrides(overrides *json.RawMessage, isPrecompile bool) (*StateOverri
 // extractFromOverrideAccount extracts cosmos overrides from state/stateDiff fields
 func extractFromOverrideAccount(overrideAccount map[string]interface{}) []evmtypes.StoreStateDiff {
 	for stateType, stateValue := range overrideAccount {
-		if (stateType == "state" || stateType == "stateDiff") && stateValue != nil {
-			if encodedStr, ok := stateValue.(string); ok {
-				if cosmosOverrides := decodeCosmosOverrides(encodedStr); cosmosOverrides != nil {
-					return cosmosOverrides
+		if stateValue != nil {
+			if stateType == "" {
+				return make([]evmtypes.StoreStateDiff, 0)
+			}
+
+			if stateType == "state" || stateType == "stateDiff" {
+				if encodedStr, ok := stateValue.(string); ok {
+					if cosmosOverrides := decodeCosmosOverrides(encodedStr); cosmosOverrides != nil {
+						return cosmosOverrides
+					}
 				}
 			}
 		}
