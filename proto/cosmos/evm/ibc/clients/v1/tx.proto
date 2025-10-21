@@ -21,7 +21,8 @@ service Msg {
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
-// MsgRegisterClientPrecompile defines the Msg/RegisterClientPrecompile request type.
+// MsgRegisterClientPrecompile defines the Msg/RegisterClientPrecompile request
+// type.
 message MsgRegisterClientPrecompile {
   option (cosmos.msg.v1.signer) = "sender";
   option (amino.name) = "cosmos/evm/x/ibc/clients/MsgRegisterClientPrecompile";
@@ -34,7 +35,8 @@ message MsgRegisterClientPrecompile {
   string address = 3;
 }
 
-// MsgRegisterClientPrecompileResponse defines the Msg/RegisterClientPrecompile response type.
+// MsgRegisterClientPrecompileResponse defines the Msg/RegisterClientPrecompile
+// response type.
 message MsgRegisterClientPrecompileResponse {}
 
 // MsgUpdateParams is the Msg/UpdateParams request type.

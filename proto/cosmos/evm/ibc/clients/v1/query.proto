@@ -13,17 +13,21 @@ import "cosmos_proto/cosmos.proto";
 
 // Msg defines the module Msg service.
 service Query {
-  // ClientPrecompile returns the registered client precompile for a given client.
-  rpc ClientPrecompile(QueryClientPrecompileRequest) returns (QueryClientPrecompileResponse) {
+  // ClientPrecompile returns the registered client precompile for a given
+  // client.
+  rpc ClientPrecompile(QueryClientPrecompileRequest)
+      returns (QueryClientPrecompileResponse) {
     option (cosmos.query.v1.module_query_safe) = true;
     option (google.api.http).get =
         "/cosmos/evm/ibc/clients/v1/client_precompile/{client}";
   }
 
   // ClientPrecompiles returns all the ClientPrecompile values.
-  rpc ClientPrecompiles(QueryClientPrecompilesRequest) returns (QueryClientPrecompilesResponse) {
+  rpc ClientPrecompiles(QueryClientPrecompilesRequest)
+      returns (QueryClientPrecompilesResponse) {
     option (cosmos.query.v1.module_query_safe) = true;
-    option (google.api.http).get = "/cosmos/evm/ibc/clients/v1/client_precompiles";
+    option (google.api.http).get =
+        "/cosmos/evm/ibc/clients/v1/client_precompiles";
   }
 
   // Params returns the module parameters.
@@ -32,27 +36,34 @@ service Query {
   }
 }
 
-// QueryClientPrecompileRequest is the request type for the Query/ClientPrecompile RPC
+// QueryClientPrecompileRequest is the request type for the
+// Query/ClientPrecompile RPC
 message QueryClientPrecompileRequest {
-  // client can be either the ibc client identifier or the hex contract address of the precompile
+  // client can be either the ibc client identifier or the hex contract address
+  // of the precompile
   string client = 1;
 }
 
-// QueryClientPrecompileResponse is the response type for the Query/ClientPrecompile RPC
+// QueryClientPrecompileResponse is the response type for the
+// Query/ClientPrecompile RPC
 message QueryClientPrecompileResponse {
-  // precompile returns the info about a registered client precompile for the ibc clients module
+  // precompile returns the info about a registered client precompile for the
+  // ibc clients module
   ClientPrecompile precompile = 1;
 }
 
-// QueryClientPrecompilesRequest is the request type for the Query/ClientPrecompiles RPC
+// QueryClientPrecompilesRequest is the request type for the
+// Query/ClientPrecompiles RPC
 message QueryClientPrecompilesRequest {
   // pagination defines an optional pagination for the request.
   cosmos.base.query.v1beta1.PageRequest pagination = 1;
 }
 
-// QueryClientPrecompilesResponse is the response type for the Query/ClientPrecompiles RPC
+// QueryClientPrecompilesResponse is the response type for the
+// Query/ClientPrecompiles RPC
 message QueryClientPrecompilesResponse {
-  // precompiles is a slice of registered client precompiles for the ibc clients module
+  // precompiles is a slice of registered client precompiles for the ibc clients
+  // module
   repeated ClientPrecompile precompiles = 1;
 
   // pagination defines the pagination in the response.

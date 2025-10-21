@@ -10,8 +10,8 @@ option go_package = "github.com/cosmos/evm/x/ibc/clients/types";
 // Params defines the clients module params
 message Params {}
 
-// ClientPrecompile defines an instance that records a pairing (mapping) consisting of a native
-// light client and a contract address.
+// ClientPrecompile defines an instance that records a pairing (mapping)
+// consisting of a native light client and a contract address.
 message ClientPrecompile {
   // client_id defines the ibc client id to be mapped to
   string client_id = 1;
