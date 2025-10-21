@@ -56,7 +56,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 			acct := keeper.GetAccount(ctx, address)
 			suite.Require().Equal(statedb.NewEmptyAccount(), acct)
 			suite.Require().Empty(acct.Balance)
-			suite.Require().False(acct.IsContract())
+			suite.Require().False(acct.HasCodeHash())
 
 			db = statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			suite.Require().Equal(true, db.Exist(address))
@@ -191,7 +191,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(ctx, db)
@@ -265,7 +265,7 @@ func (suite *StateDBTestSuite) TestBalance() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -320,7 +320,7 @@ func (suite *StateDBTestSuite) TestState() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -430,7 +430,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 
 			{
@@ -469,7 +469,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 	value1 := common.BigToHash(big.NewInt(1))
 	value2 := common.BigToHash(big.NewInt(2))
 
-	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
 
 	rev1 := db.Snapshot()
 	db.SetState(address, key, value1)
@@ -652,7 +652,7 @@ func (suite *StateDBTestSuite) TestRefund() {
 }
 
 func (suite *StateDBTestSuite) TestIterateStorage() {
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(2))
@@ -684,6 +684,45 @@ func (suite *StateDBTestSuite) TestIterateStorage() {
 	})
 	suite.Require().NoError(err)
 	suite.Require().Equal(1, len(storage))
+}
+
+func (suite *StateDBTestSuite) TestSetStorage() {
+	contract := common.BigToAddress(big.NewInt(101))
+
+	testCases := []struct {
+		name     string
+		prestate map[common.Hash]common.Hash
+		assert   func(*statedb.StateDB)
+	}{
+		{
+			"set storage",
+			map[common.Hash]common.Hash{
+				common.BigToHash(big.NewInt(0)): common.BigToHash(big.NewInt(0)),
+				common.BigToHash(big.NewInt(1)): common.BigToHash(big.NewInt(1)),
+				common.BigToHash(big.NewInt(2)): common.BigToHash(big.NewInt(2)),
+			},
+			func(db *statedb.StateDB) {
+				db.SetStorage(contract, map[common.Hash]common.Hash{
+					common.BigToHash(big.NewInt(1)): common.BigToHash(big.NewInt(3)),
+				})
+
+				suite.Require().Equal(common.Hash{}, db.GetState(contract, common.BigToHash(big.NewInt(0))))
+				suite.Require().Equal(common.BigToHash(big.NewInt(3)), db.GetState(contract, common.BigToHash(big.NewInt(1))))
+				suite.Require().Equal(common.Hash{}, db.GetState(contract, common.BigToHash(big.NewInt(2))))
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			keeper := mocks.NewEVMKeeper()
+			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
+			for k, v := range tc.prestate {
+				db.SetState(contract, k, v)
+			}
+			tc.assert(db)
+		})
+	}
 }
 
 func CollectContractStorage(db vm.StateDB) statedb.Storage {

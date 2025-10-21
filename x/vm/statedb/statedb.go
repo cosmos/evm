@@ -34,6 +34,7 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
+	events       sdk.Events
 }
 
 var _ vm.StateDB = &StateDB{}
@@ -492,6 +493,22 @@ func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.H
 	return common.Hash{}
 }
 
+// SetBalance sets the balance of account associated with addr to amount.
+func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
+	stateObject := s.getOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetBalance(amount)
+	}
+}
+
+// SetStorage replaces the entire storage for the specified account with given
+// storage. This function should only be used for debugging and the mutations
+// must be discarded afterwards.
+func (s *StateDB) SetStorage(addr common.Address, storage Storage) {
+	stateObject := s.getOrNewStateObject(addr)
+	stateObject.SetStorage(storage)
+}
+
 // SelfDestruct marks the given account as self-destructed.
 // This clears the account balance.
 //
@@ -647,7 +664,7 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionID
 	s.nextRevisionID++
-	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length(), s.ctx.EventManager().Events()})
 	return id
 }
 
@@ -661,6 +678,11 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
 	}
 	snapshot := s.validRevisions[idx].journalIndex
+
+	// revert back to snapshotted events
+	eventManager := sdk.NewEventManager()
+	eventManager.EmitEvents(s.validRevisions[idx].events)
+	s.ctx = s.ctx.WithEventManager(eventManager)
 
 	// Replay the journal to undo changes and remove invalidated snapshots
 	s.journal.Revert(s, snapshot)

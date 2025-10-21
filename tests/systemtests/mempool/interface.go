@@ -42,4 +42,5 @@ type TestSuite interface {
 
 	// Test Utils
 	AwaitNBlocks(t *testing.T, n int64, duration ...time.Duration)
+	GetTxGasPrice(baseFee *big.Int) *big.Int
 }

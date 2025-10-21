@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/cosmos/evm/issues"
   },
-  "homepage": "https://github.com/cosmos/evm#readme"
+  "homepage": "https://github.com/cosmos/evm#readme",
+  "dependencies": {
+    "@account-abstraction/contracts": "^0.6.0"
+  }
 }

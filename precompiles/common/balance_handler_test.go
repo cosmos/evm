@@ -169,7 +169,8 @@ func TestAfterBalanceChange(t *testing.T) {
 		// only the precisebank module account is treated as a blockedAddress.
 		return addr.Equals(precisebankModuleAccAddr)
 	})
-	bh := cmn.NewBalanceHandler(bankKeeper)
+	bhf := cmn.NewBalanceHandlerFactory(bankKeeper)
+	bh := bhf.NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	coins := sdk.NewCoins(sdk.NewInt64Coin(evmtypes.GetEVMCoinDenom(), 3))
@@ -205,7 +206,8 @@ func TestAfterBalanceChangeErrors(t *testing.T) {
 		// only the precisebank module account is treated as a blockedAddress.
 		return addr.Equals(precisebankModuleAccAddr)
 	})
-	bh := cmn.NewBalanceHandler(bankKeeper)
+	bhf := cmn.NewBalanceHandlerFactory(bankKeeper)
+	bh := bhf.NewBalanceHandler()
 	bh.BeforeBalanceChange(ctx)
 
 	// invalid address in event

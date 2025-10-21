@@ -95,6 +95,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
+	evmChainID uint64,
 	tracer string,
 ) *Keeper {
 	// ensure evm module account is set
@@ -109,6 +110,12 @@ func NewKeeper(
 
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
+
+	// set global chain config
+	ethCfg := types.DefaultChainConfig(evmChainID)
+	if err := types.SetChainConfig(ethCfg); err != nil {
+		panic(err)
+	}
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
@@ -345,17 +352,13 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
+	coinInfo := k.GetEvmCoinInfo(ctx)
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)
 	}
 	return baseFee
-}
-
-// GetMinGasMultiplier returns the MinGasMultiplier param from the fee market module
-func (k Keeper) GetMinGasMultiplier(ctx sdk.Context) math.LegacyDec {
-	return k.feeMarketWrapper.GetParams(ctx).MinGasMultiplier
 }
 
 // GetMinGasPrice returns the MinGasPrice param from the fee market module
@@ -417,7 +420,7 @@ func (k Keeper) SetHeaderHash(ctx sdk.Context) {
 	}
 
 	acct := k.GetAccount(ctx, ethparams.HistoryStorageAddress)
-	if acct != nil && acct.IsContract() {
+	if acct != nil && k.IsContract(ctx, ethparams.HistoryStorageAddress) {
 		// set current block hash in the contract storage, compatible with EIP-2935
 		ringIndex := uint64(ctx.BlockHeight()) % window //nolint:gosec // G115 // won't exceed uint64
 		var key common.Hash

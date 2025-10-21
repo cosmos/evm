@@ -30,11 +30,12 @@ const (
 
 func StartChain(t *testing.T, sut *systemtests.SystemUnderTest) {
 	chainID := "--chain-id=local-4221"
+	evmChainID := "--evm.evm-chain-id=4221"
 	apiEnable := "--api.enable=true"
 	jsonrpcApi := "--json-rpc.api=eth,txpool,personal,net,debug,web3"
 	jsonrpcAllowUnprotectedTxs := "--json-rpc.allow-unprotected-txs=true"
 
-	args := []string{jsonrpcApi, chainID, apiEnable, jsonrpcAllowUnprotectedTxs}
+	args := []string{jsonrpcApi, chainID, evmChainID, apiEnable, jsonrpcAllowUnprotectedTxs}
 
 	sut.StartChain(t, args...)
 }

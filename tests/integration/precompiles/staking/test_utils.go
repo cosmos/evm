@@ -7,15 +7,20 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/precompiles/staking"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -152,4 +157,45 @@ func GenerateBase64PubKey() string {
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey().(*ed25519.PubKey)
 	return base64.StdEncoding.EncodeToString(pubKey.Bytes())
+}
+
+// delegateAccountToContract delegates the given account to the given contract address using
+// the EIP-7702 SetCodeTx.
+func (s *PrecompileTestSuite) delegateAccountToContract(privKey cryptotypes.PrivKey, accountAddr, contractAddr common.Address) {
+	ethPriv, ok := privKey.(*ethsecp256k1.PrivKey)
+	Expect(ok).To(BeTrue(), "expected ethsecp256k1 private key")
+	ecdsaPriv, err := ethPriv.ToECDSA()
+	Expect(err).To(BeNil(), "error converting to ECDSA private key")
+
+	chainID := evmtypes.GetChainConfig().GetChainId()
+	accResp, err := s.grpcHandler.GetEvmAccount(accountAddr)
+	Expect(err).To(BeNil(), "error while getting the EVM account")
+
+	nonce := accResp.GetNonce()
+
+	authorization := gethtypes.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(chainID),
+		Address: contractAddr,
+		Nonce:   nonce + 1,
+	}
+
+	signedAuth, err := gethtypes.SignSetCode(ecdsaPriv, authorization)
+	Expect(err).To(BeNil(), "error while signing the SetCodeAuthorization")
+
+	txArgs := evmtypes.EvmTxArgs{
+		To:       &common.Address{},
+		GasLimit: 500_000,
+		AuthorizationList: []gethtypes.SetCodeAuthorization{
+			signedAuth,
+		},
+	}
+
+	_, err = s.factory.ExecuteEthTx(privKey, txArgs)
+	Expect(err).To(BeNil(), "error while executing the SetCode transaction")
+	Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
+
+	codeHash := s.network.App.GetEVMKeeper().GetCodeHash(s.network.GetContext(), accountAddr)
+	code := s.network.App.GetEVMKeeper().GetCode(s.network.GetContext(), codeHash)
+	_, delegated := gethtypes.ParseDelegation(code)
+	Expect(delegated).To(BeTrue(), "expected account to be delegated to the contract address")
 }

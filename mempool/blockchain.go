@@ -3,6 +3,7 @@ package mempool
 import (
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -24,8 +25,8 @@ import (
 )
 
 var (
-	_ txpool.BlockChain     = Blockchain{}
-	_ legacypool.BlockChain = Blockchain{}
+	_ txpool.BlockChain     = &Blockchain{}
+	_ legacypool.BlockChain = &Blockchain{}
 )
 
 // Blockchain implements the BlockChain interface required by Ethereum transaction pools.
@@ -42,12 +43,13 @@ type Blockchain struct {
 	blockGasLimit      uint64
 	previousHeaderHash common.Hash
 	latestCtx          sdk.Context
+	mu                 sync.RWMutex
 }
 
-// newBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
+// NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
 // The getCtxCallback function provides access to Cosmos SDK contexts at different heights, vmKeeper manages EVM state,
 // and feeMarketKeeper handles fee market operations like base fee calculations.
-func newBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, blockGasLimit uint64) *Blockchain {
+func NewBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, blockGasLimit uint64) *Blockchain {
 	// Add the blockchain name to the logger
 	logger = logger.With(log.ModuleKey, "Blockchain")
 
@@ -70,7 +72,7 @@ func newBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logg
 
 // Config returns the Ethereum chain configuration. It should only be called after the chain is initialized.
 // This provides the necessary parameters for EVM execution and transaction validation.
-func (b Blockchain) Config() *params.ChainConfig {
+func (b *Blockchain) Config() *params.ChainConfig {
 	return evmtypes.GetEthChainConfig()
 }
 
@@ -78,7 +80,7 @@ func (b Blockchain) Config() *params.ChainConfig {
 // It constructs an Ethereum-compatible header from the current Cosmos SDK context,
 // including block height, timestamp, gas limits, and base fee (if London fork is active).
 // Returns a zero header as placeholder if the context is not yet available.
-func (b Blockchain) CurrentBlock() *types.Header {
+func (b *Blockchain) CurrentBlock() *types.Header {
 	ctx, err := b.GetLatestContext()
 	if err != nil {
 		return b.zeroHeader
@@ -86,7 +88,8 @@ func (b Blockchain) CurrentBlock() *types.Header {
 
 	blockHeight := ctx.BlockHeight()
 	// prevent the reorg from triggering after a restart since previousHeaderHash is stored as an in-memory variable
-	if blockHeight > 1 && b.previousHeaderHash == (common.Hash{}) {
+	previousHeaderHash := b.getPreviousHeaderHash()
+	if blockHeight > 1 && previousHeaderHash == (common.Hash{}) {
 		return b.zeroHeader
 	}
 
@@ -99,7 +102,7 @@ func (b Blockchain) CurrentBlock() *types.Header {
 		Time:       uint64(blockTime), // #nosec G115 -- overflow not a concern with unix time
 		GasLimit:   b.blockGasLimit,
 		GasUsed:    gasUsed,
-		ParentHash: b.previousHeaderHash,
+		ParentHash: previousHeaderHash,
 		Root:       appHash,       // we actually don't care that this isn't the getCtxCallback header, as long as we properly track roots and parent roots to prevent the reorg from triggering
 		Difficulty: big.NewInt(0), // 0 difficulty on PoS
 	}
@@ -139,7 +142,7 @@ func (b Blockchain) CurrentBlock() *types.Header {
 // Cosmos chains have instant finality, so  this method should only be called for the genesis block (block 0)
 // or block 1, as reorgs never occur. Any other call indicates a bug in the mempool logic.
 // Panics if called for blocks beyond block 1, as this would indicate an attempted reorg.
-func (b Blockchain) GetBlock(_ common.Hash, _ uint64) *types.Block {
+func (b *Blockchain) GetBlock(_ common.Hash, _ uint64) *types.Block {
 	currBlock := b.CurrentBlock()
 	blockNumber := currBlock.Number.Int64()
 
@@ -161,7 +164,7 @@ func (b Blockchain) GetBlock(_ common.Hash, _ uint64) *types.Block {
 
 // SubscribeChainHeadEvent allows subscribers to receive notifications when new blocks are finalized.
 // Returns a subscription that will receive ChainHeadEvent notifications via the provided channel.
-func (b Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (b *Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	b.logger.Debug("new chain head event subscription created")
 	return b.chainHeadFeed.Subscribe(ch)
 }
@@ -170,19 +173,19 @@ func (b Blockchain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event
 func (b *Blockchain) NotifyNewBlock() {
 	latestCtx, err := b.newLatestContext()
 	if err != nil {
-		b.latestCtx = sdk.Context{}
+		b.setLatestContext(sdk.Context{})
 		b.logger.Debug("failed to get latest context, notifying chain head", "error", err)
 	}
-	b.latestCtx = latestCtx
+	b.setLatestContext(latestCtx)
 	header := b.CurrentBlock()
 	headerHash := header.Hash()
 
 	b.logger.Debug("notifying new block",
 		"block_number", header.Number.String(),
 		"block_hash", headerHash.Hex(),
-		"previous_hash", b.previousHeaderHash.Hex())
+		"previous_hash", b.getPreviousHeaderHash().Hex())
 
-	b.previousHeaderHash = headerHash
+	b.setPreviousHeaderHash(headerHash)
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Header: header})
 
 	b.logger.Debug("chain head event sent to feed")
@@ -192,7 +195,7 @@ func (b *Blockchain) NotifyNewBlock() {
 // In practice, this always returns the most recent state since the mempool
 // only needs current state for validation. Historical state access is not supported
 // as it's never required by the txpool.
-func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
+func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	b.logger.Debug("StateAt called", "requested_hash", hash.Hex())
 
 	// This is returned at block 0, before the context is available.
@@ -215,10 +218,30 @@ func (b Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 	return stateDB, nil
 }
 
+func (b *Blockchain) getPreviousHeaderHash() common.Hash {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.previousHeaderHash
+}
+
+func (b *Blockchain) setPreviousHeaderHash(h common.Hash) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.previousHeaderHash = h
+}
+
+func (b *Blockchain) setLatestContext(ctx sdk.Context) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.latestCtx = ctx
+}
+
 // GetLatestContext returns the latest context as updated by the block,
 // or attempts to retrieve it again if unavailable.
-func (b Blockchain) GetLatestContext() (sdk.Context, error) {
+func (b *Blockchain) GetLatestContext() (sdk.Context, error) {
 	b.logger.Debug("getting latest context")
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 
 	if b.latestCtx.Context() != nil {
 		return b.latestCtx, nil
@@ -229,7 +252,7 @@ func (b Blockchain) GetLatestContext() (sdk.Context, error) {
 
 // newLatestContext retrieves the most recent query context from the application.
 // This provides access to the current blockchain state for transaction validation and execution.
-func (b Blockchain) newLatestContext() (sdk.Context, error) {
+func (b *Blockchain) newLatestContext() (sdk.Context, error) {
 	b.logger.Debug("getting latest context")
 
 	ctx, err := b.getCtxCallback(0, false)

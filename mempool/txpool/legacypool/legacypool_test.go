@@ -109,11 +109,33 @@ func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ec
 	return tx
 }
 
-func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, bytes uint64) *types.Transaction {
-	data := make([]byte, bytes)
-	crand.Read(data)
+// pricedDataTransaction generates a signed transaction with fixed-size data,
+// and ensures that the resulting signature components (r and s) are exactly 32 bytes each,
+// producing transactions with deterministic size.
+//
+// This avoids variability in transaction size caused by leading zeros being omitted in
+// RLP encoding of r/s. Since r and s are derived from ECDSA, they occasionally have leading
+// zeros and thus can be shorter than 32 bytes.
+//
+// For example:
+//
+//	r: 0 leading zeros, bytesSize: 32, bytes: [221 ... 101]
+//	s: 1 leading zeros, bytesSize: 31, bytes: [0 75 ... 47]
+func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, dataBytes uint64) *types.Transaction {
+	var tx *types.Transaction
 
-	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner{}, key)
+	// 10 attempts is statistically sufficient since leading zeros in ECDSA signatures are rare and randomly distributed.
+	var retryTimes = 10
+	for i := 0; i < retryTimes; i++ {
+		data := make([]byte, dataBytes)
+		crand.Read(data)
+
+		tx, _ = types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner{}, key)
+		_, r, s := tx.RawSignatureValues()
+		if len(r.Bytes()) == 32 && len(s.Bytes()) == 32 {
+			break
+		}
+	}
 	return tx
 }
 
@@ -543,7 +565,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.RemoveTx(tx.Hash(), true, true)
+	pool.removeTx(tx.Hash(), true, true)
 
 	// reset the pool's internal state
 	resetState()
@@ -1240,7 +1262,7 @@ func TestAllowedTxSize(t *testing.T) {
 	const largeDataLength = txMaxSize - 200 // enough to have a 5 bytes RLP encoding of the data length number
 	txWithLargeData := pricedDataTransaction(0, pool.currentHead.Load().GasLimit, big.NewInt(1), key, largeDataLength)
 	maxTxLengthWithoutData := txWithLargeData.Size() - largeDataLength // 103 bytes
-	maxTxDataLength := txMaxSize - maxTxLengthWithoutData              // 131072 - 103 = 130953 bytes
+	maxTxDataLength := txMaxSize - maxTxLengthWithoutData              // 131072 - 103 = 130969 bytes
 
 	// Try adding a transaction with maximal allowed size
 	tx := pricedDataTransaction(0, pool.currentHead.Load().GasLimit, big.NewInt(1), key, maxTxDataLength)
@@ -2589,6 +2611,61 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	if err := pool.addRemoteSync(pricedTransaction(3, 100000, big.NewInt(1000), keyA)); err != nil {
 		t.Fatalf("failed to added single transaction: %v", err)
 	}
+}
+
+// TestRemoveTxTruncatePoolRace is a regression test for a race condition
+// between removing txs and runReorg loop. Run this with the -race flag to
+// ensure that there is no race condition between the two functions.
+func TestRemoveTxTruncatePoolRace(t *testing.T) {
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+	blockchain := newTestBlockChain(params.MergedTestChainConfig, 1000000, statedb, new(event.Feed))
+
+	pool := New(testTxPoolConfig, blockchain)
+	err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
+	if err != nil {
+		t.Fatalf("failed to init pool: %v", err)
+	}
+
+	// fill the pool with txs
+	fillPool(t, pool)
+
+	// make a copy of all hashes in the pool so that we do not have to iterate
+	// over pending and queue while we call RemoveTx, potentially triggering
+	// the race condition ourselves
+	var hashes []common.Hash
+	for _, txs := range pool.pending {
+		for _, tx := range txs.Flatten() {
+			hashes = append(hashes, tx.Hash())
+		}
+	}
+	for _, txs := range pool.queue {
+		for _, tx := range txs.Flatten() {
+			hashes = append(hashes, tx.Hash())
+		}
+	}
+
+	var wg sync.WaitGroup
+
+	// manually trigger the reorg loop to run (5 times just to ensure that we
+	// will trigger the race condition)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 5 {
+			pool.runReorg(make(chan struct{}), nil, nil, nil)
+		}
+	}()
+
+	// call RemoveTx on every tx in the pool
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, hash := range hashes {
+			_ = pool.RemoveTx(hash, false, true)
+		}
+	}()
+
+	wg.Wait()
 }
 
 // Benchmarks the speed of validating the contents of the pending queue of the

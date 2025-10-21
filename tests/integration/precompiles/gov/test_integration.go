@@ -1052,7 +1052,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			cAcc := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddr)
 			Expect(cAcc).ToNot(BeNil(), "failed to get contract account")
-			Expect(cAcc.IsContract()).To(BeTrue(), "expected contract account")
+			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
+			Expect(isContract).To(BeTrue(), "expected contract account")
 
 			contractAddrDupe, err = s.factory.DeployContract(
 				txSenderKey,
@@ -1067,7 +1068,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			cAccDupe := s.network.App.GetEVMKeeper().GetAccount(s.network.GetContext(), contractAddrDupe)
 			Expect(cAccDupe).ToNot(BeNil(), "failed to get dupe contract account")
-			Expect(cAccDupe.IsContract()).To(BeTrue(), "expected dupe contract account")
+			isContract = s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddrDupe)
+			Expect(isContract).To(BeTrue(), "expected dupe contract account")
 
 			callArgs = testutiltypes.CallArgs{
 				ContractABI: govCallerContract.ABI,
