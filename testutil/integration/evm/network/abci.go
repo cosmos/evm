@@ -7,9 +7,9 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	storetypes "cosmossdk.io/store/types"
-
 	evmmempool "github.com/cosmos/evm/mempool"
+
+	storetypes "cosmossdk.io/store/types"
 )
 
 // NextBlock is a private helper function that runs the EndBlocker logic, commits the changes,
