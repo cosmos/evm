@@ -4,6 +4,18 @@
 
 ### DEPENDENCIES
 
+### IMPROVEMENTS
+
+### FEATURES
+
+### BUG FIXES
+
+- [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
+
+## v0.5.0
+
+### DEPENDENCIES
+
 ### BUG FIXES
 
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
