@@ -71,23 +71,3 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 		return nil
 	}
 }
-
-// GetPrecompileRecipientCallHook returns a closure that can be used to instantiate the EVM with a specific
-// recipient from precompiles.
-func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
-		// Check if the recipient is a precompile contract and if so, load the precompile instance
-		_, found, err := k.GetPrecompileInstance(ctx, recipient)
-		if err != nil {
-			return err
-		}
-
-		// If the precompile instance is created, we have to update the EVM with
-		// only the recipient precompile and add it's address to the access list.
-		if found {
-			evm.StateDB.AddAddressToAccessList(recipient)
-		}
-
-		return nil
-	}
-}

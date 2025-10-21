@@ -73,15 +73,9 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	evmHooks.AddCallHooks(
 		accessControl.GetCallHook(signer),
 	)
-	if overridePrecompiles {
-		evmHooks.AddCallHooks(
-			k.GetPrecompilesCallHook(ctx),
-		)
-	} else {
-		evmHooks.AddCallHooks(
-			k.GetPrecompileRecipientCallHook(ctx),
-		)
-	}
+	evmHooks.AddCallHooks(
+		k.GetPrecompilesCallHook(ctx),
+	)
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)
 }
 
