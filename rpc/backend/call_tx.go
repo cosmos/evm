@@ -299,7 +299,8 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 		}
 
 		blockNr := rpctypes.NewBlockNumber(big.NewInt(0))
-		estimated, err := b.EstimateGas(callArgs, &blockNr, nil)
+		blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNr}
+		estimated, err := b.EstimateGas(callArgs, &blockNrOrHash, nil)
 		if err != nil {
 			return args, err
 		}
@@ -317,12 +318,16 @@ func (b *Backend) SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.Transac
 // EstimateGas returns an estimate of gas usage for the given smart contract call.
 func (b *Backend) EstimateGas(
 	args evmtypes.TransactionArgs,
-	blockNrOptional *rpctypes.BlockNumber,
+	blockNrOrHash *rpctypes.BlockNumberOrHash,
 	overrides *json.RawMessage,
 ) (hexutil.Uint64, error) {
 	blockNr := rpctypes.EthPendingBlockNumber
-	if blockNrOptional != nil {
-		blockNr = *blockNrOptional
+	if blockNrOrHash != nil {
+		var err error
+		blockNr, err = b.BlockNumberFromComet(*blockNrOrHash)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	bz, err := json.Marshal(&args)

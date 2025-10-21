@@ -762,7 +762,8 @@ func (s *TestSuite) TestEstimateGas() {
 			tc.registerMock()
 
 			blockNum := rpctypes.BlockNumber(1)
-			gas, err := s.backend.EstimateGas(tc.callArgs, &blockNum, tc.overrides)
+			blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNum}
+			gas, err := s.backend.EstimateGas(tc.callArgs, &blockNrOrHash, tc.overrides)
 
 			if tc.expPass {
 				s.Require().NoError(err)

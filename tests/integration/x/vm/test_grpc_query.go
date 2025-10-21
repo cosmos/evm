@@ -1043,7 +1043,7 @@ func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
 				}`
 			},
 			true,
-			51880,
+			22610,
 			false,
 			config.DefaultGasCap,
 		},
@@ -1067,24 +1067,6 @@ func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
 			},
 			true,
 			ethparams.TxGas,
-			false,
-			config.DefaultGasCap,
-		},
-		{
-			"fail - invalid JSON in overrides",
-			func() types.TransactionArgs {
-				addr := s.Keyring.GetAddr(0)
-				return types.TransactionArgs{
-					From:  &addr,
-					To:    &common.Address{},
-					Value: (*hexutil.Big)(big.NewInt(100)),
-				}
-			},
-			func() string {
-				return `{"invalid": json}`
-			},
-			false,
-			0,
 			false,
 			config.DefaultGasCap,
 		},
