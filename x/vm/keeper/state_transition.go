@@ -79,7 +79,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		)
 	} else {
 		evmHooks.AddCallHooks(
-			k.GetPrecompileRecipientCallHook(ctx),
+			k.GetPrecompilesCallHookWithOverrides(ctx),
 		)
 	}
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, ethCfg, vmConfig)

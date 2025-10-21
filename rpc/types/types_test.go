@@ -120,7 +120,7 @@ func TestParseOverrides(t *testing.T) {
 		expectedEVMOverrides    bool
 		expectedCosmosOverrides int
 		expectError             bool
-		isDynamicPrecompile     bool
+		isPrecompile            bool
 	}{
 		{
 			name: "Standard EVM overrides (backward compatibility)",
@@ -133,7 +133,7 @@ func TestParseOverrides(t *testing.T) {
 			}`,
 			expectedEVMOverrides:    true,
 			expectedCosmosOverrides: 0,
-			isDynamicPrecompile:     false,
+			isPrecompile:            false,
 		},
 		{
 			name: "Dynamic precompile with aligned cosmos overrides in state field",
@@ -144,7 +144,7 @@ func TestParseOverrides(t *testing.T) {
 			}`,
 			expectedEVMOverrides:    false,
 			expectedCosmosOverrides: 1,
-			isDynamicPrecompile:     true,
+			isPrecompile:            true,
 		},
 		{
 			name: "Dynamic precompile with aligned cosmos overrides in stateDiff field",
@@ -155,20 +155,20 @@ func TestParseOverrides(t *testing.T) {
 			}`,
 			expectedEVMOverrides:    false,
 			expectedCosmosOverrides: 1,
-			isDynamicPrecompile:     true,
+			isPrecompile:            true,
 		},
 		{
 			name:                    "Empty overrides",
 			input:                   `{}`,
 			expectedEVMOverrides:    false,
 			expectedCosmosOverrides: 0,
-			isDynamicPrecompile:     false,
+			isPrecompile:            false,
 		},
 		{
-			name:                "Invalid JSON",
-			input:               `{invalid json}`,
-			expectError:         true,
-			isDynamicPrecompile: false,
+			name:         "Invalid JSON",
+			input:        `{invalid json}`,
+			expectError:  true,
+			isPrecompile: false,
 		},
 		{
 			name:                    "Nil input",
@@ -176,7 +176,18 @@ func TestParseOverrides(t *testing.T) {
 			expectedEVMOverrides:    false,
 			expectedCosmosOverrides: 0,
 			expectError:             false,
-			isDynamicPrecompile:     false,
+			isPrecompile:            false,
+		},
+		{
+			name: "Dynamic precompile with empty stateType returns empty cosmos overrides",
+			input: `{
+				"0x1234567890abcdef1234567890abcdef12345678": {
+					"": "some_value"
+				}
+			}`,
+			expectedEVMOverrides:    false,
+			expectedCosmosOverrides: 0,
+			isPrecompile:            true,
 		},
 	}
 
@@ -187,7 +198,7 @@ func TestParseOverrides(t *testing.T) {
 				msg := json.RawMessage(tc.input)
 				rawMessage = &msg
 			}
-			evmOverrides, cosmosOverrides, err := rpc.ParseOverrides(rawMessage, tc.isDynamicPrecompile)
+			evmOverrides, cosmosOverrides, err := rpc.ParseOverrides(rawMessage, tc.isPrecompile)
 			if tc.expectError {
 				require.Error(t, err)
 				return
@@ -203,7 +214,7 @@ func TestParseOverrides(t *testing.T) {
 				require.NotNil(t, cosmosOverrides)
 				require.Len(t, cosmosOverrides, tc.expectedCosmosOverrides)
 			} else {
-				require.Nil(t, cosmosOverrides)
+				require.Len(t, cosmosOverrides, 0)
 			}
 		})
 	}

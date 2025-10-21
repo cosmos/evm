@@ -72,10 +72,11 @@ func (k *Keeper) GetPrecompilesCallHook(ctx sdktypes.Context) types.CallHook {
 	}
 }
 
-// GetPrecompileRecipientCallHook returns a closure that can be used to instantiate the EVM with a specific
-// recipient from precompiles.
-func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.CallHook {
-	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
+// GetPrecompilesCallHookWithOverrides returns a closure that can be used to instantiate the EVM with a specific
+// precompile instance, with support for state overrides including moved precompiles.
+func (k *Keeper) GetPrecompilesCallHookWithOverrides(ctx sdktypes.Context) types.CallHook {
+	baseHook := k.GetPrecompilesCallHook(ctx)
+	return func(evm *vm.EVM, caller common.Address, recipient common.Address) error {
 		// Check if the EVM already has precompiles set (including moved precompiles from overrides)
 		activePrecompiles := evm.ActivePrecompiles()
 		if len(activePrecompiles) > 0 {
@@ -87,20 +88,6 @@ func (k *Keeper) GetPrecompileRecipientCallHook(ctx sdktypes.Context) types.Call
 			}
 			return nil
 		}
-
-		// Check if the recipient is a precompile contract and if so, load the precompile instance
-		precompiles, found, err := k.GetPrecompileInstance(ctx, recipient)
-		if err != nil {
-			return err
-		}
-
-		// If the precompile instance is created, we have to update the EVM with
-		// only the recipient precompile and add it's address to the access list.
-		if found {
-			evm.WithPrecompiles(precompiles.Map)
-			evm.StateDB.AddAddressToAccessList(recipient)
-		}
-
-		return nil
+		return baseHook(evm, caller, recipient)
 	}
 }
