@@ -23,7 +23,7 @@ message ClientPrecompile {
 
 // GenesisState is the state that must be provided at genesis.
 message GenesisState {
-  // counter defines the counter object.
+  // client_precompiles is a slice of the registered client precompiles
   repeated ClientPrecompile client_precompiles = 1
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 
