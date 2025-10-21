@@ -1,0 +1,33 @@
+
+syntax = "proto3";
+package cosmos.evm.ibc.clients.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/cosmos/evm/x/ibc/clients/types";
+
+// Params defines the clients module params
+message Params {}
+
+// ClientPrecompile defines an instance that records a pairing (mapping) consisting of a native
+// light client and a contract address.
+message ClientPrecompile {
+  // client_id defines the ibc client id to be mapped to
+  string client_id = 1;
+  // address is the hex address of the light client contract
+  string address = 2;
+  // enabled defines the token mapping enable status
+  bool enabled = 3;
+}
+
+// GenesisState is the state that must be provided at genesis.
+message GenesisState {
+  // counter defines the counter object.
+  repeated ClientPrecompile client_precompiles = 1
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // params defines all the parameters of the module.
+  Params params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
