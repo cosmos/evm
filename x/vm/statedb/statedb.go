@@ -34,6 +34,7 @@ import (
 type revision struct {
 	id           int
 	journalIndex int
+	events       sdk.Events
 }
 
 var _ vm.StateDB = &StateDB{}
@@ -663,7 +664,7 @@ func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addre
 func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionID
 	s.nextRevisionID++
-	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length(), s.ctx.EventManager().Events()})
 	return id
 }
 
@@ -677,6 +678,11 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
 	}
 	snapshot := s.validRevisions[idx].journalIndex
+
+	// revert back to snapshotted events
+	eventManager := sdk.NewEventManager()
+	eventManager.EmitEvents(s.validRevisions[idx].events)
+	s.ctx = s.ctx.WithEventManager(eventManager)
 
 	// Replay the journal to undo changes and remove invalidated snapshots
 	s.journal.Revert(s, snapshot)
