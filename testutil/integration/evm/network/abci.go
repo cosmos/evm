@@ -86,9 +86,8 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	newCtx = newCtx.WithHeaderHash(header.AppHash)
 	n.ctx = newCtx
 
-	// commit changes
 	// Acquire commit lock to prevent mempool background readers from accessing
-	// IAVL concurrently during commit in tests.
+	// IAVL concurrently during commit in tests, then commit changes.
 	if mp := n.app.GetMempool(); mp != nil {
 		if evmMp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
 			if bc := evmMp.GetBlockchain(); bc != nil {
@@ -101,8 +100,6 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 
 	return res, err
 }
-
-// (helper removed)
 
 // buildFinalizeBlockReq is a helper function to build
 // properly the FinalizeBlock request
