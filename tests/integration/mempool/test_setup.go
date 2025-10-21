@@ -81,11 +81,23 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	err = nw.NextBlock()
 	s.Require().NoError(err)
 
-	// Wait for mempool async reset goroutines to complete
-	// NextBlock() triggers chain head events that start async goroutines to reset
-	// the mempool state. Without this wait, tests can start before the reset completes,
-	// causing race conditions with stale mempool state.
-	time.Sleep(100 * time.Millisecond)
+	// Synchronize mempool state with the blockchain after block progression
+	// Directly call Reset on subpools to ensure synchronous completion
+	// This prevents race conditions by waiting for the reset to complete
+	// before continuing with test setup
+	mpool := nw.App.GetMempool()
+	if evmMempoolCast, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+		blockchain := evmMempoolCast.GetBlockchain()
+		txPool := evmMempoolCast.GetTxPool()
+
+		oldHead := blockchain.CurrentBlock()
+		blockchain.NotifyNewBlock()
+		newHead := blockchain.CurrentBlock()
+
+		for _, subpool := range txPool.Subpools {
+			subpool.Reset(oldHead, newHead)
+		}
+	}
 
 	// Ensure mempool is in ready state by verifying block height
 	s.Require().Equal(int64(3), nw.GetContext().BlockHeight())
