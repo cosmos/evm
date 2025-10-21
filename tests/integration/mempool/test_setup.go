@@ -62,7 +62,9 @@ func (s *IntegrationTestSuite) TearDownTest() {
 				// A longer wait time reduces the chance of race conditions where:
 				// - Old test's goroutine is still reading global config
 				// - New test's SetupTest() is resetting global config
-				time.Sleep(1 * time.Second)
+				// Under race detector and high system load (full test suite), goroutines
+				// may take longer to fully exit. 2 seconds provides adequate buffer.
+				time.Sleep(2 * time.Second)
 			}
 		}
 	}

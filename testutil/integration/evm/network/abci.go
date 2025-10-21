@@ -8,6 +8,8 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	storetypes "cosmossdk.io/store/types"
+
+	evmmempool "github.com/cosmos/evm/mempool"
 )
 
 // NextBlock is a private helper function that runs the EndBlocker logic, commits the changes,
@@ -85,10 +87,22 @@ func (n *IntegrationNetwork) finalizeBlockAndCommit(duration time.Duration, txBy
 	n.ctx = newCtx
 
 	// commit changes
+	// Acquire commit lock to prevent mempool background readers from accessing
+	// IAVL concurrently during commit in tests.
+	if mp := n.app.GetMempool(); mp != nil {
+		if evmMp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
+			if bc := evmMp.GetBlockchain(); bc != nil {
+				bc.BeginCommit()
+				defer bc.EndCommit()
+			}
+		}
+	}
 	_, err = n.app.Commit()
 
 	return res, err
 }
+
+// (helper removed)
 
 // buildFinalizeBlockReq is a helper function to build
 // properly the FinalizeBlock request
