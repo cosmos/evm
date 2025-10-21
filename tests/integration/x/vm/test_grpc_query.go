@@ -967,6 +967,179 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 	}
 }
 
+func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
+	// Hardcode recipient address to avoid non determinism in tests
+	hardcodedRecipient := common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101")
+
+	erc20Contract, err := testdata.LoadERC20Contract()
+	s.Require().NoError(err)
+
+	testCases := []struct {
+		msg             string
+		getArgs         func() types.TransactionArgs
+		getOverrides    func() string
+		expPass         bool
+		expGas          uint64
+		EnableFeemarket bool
+		gasCap          uint64
+	}{
+		{
+			"success - native transfer with balance override",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				recipient := common.HexToAddress("0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17")
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &recipient,
+					Value: (*hexutil.Big)(big.NewInt(10000000000000000)), // 0.01 ether
+				}
+			},
+			func() string {
+				// Override recipient's balance to 0
+				return `{
+					"0x963EBDf2e1f8DB8707D05FC75bfeFFBa1B5BaC17": {
+						"balance": "0x0"
+					}
+				}`
+			},
+			true,
+			ethparams.TxGas,
+			false,
+			config.DefaultGasCap,
+		},
+		{
+			"success - erc20 transfer with code and storage override",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				contractAddr := common.HexToAddress("0x5555555555555555555555555555555555555555")
+
+				// Prepare transfer(address,uint256) call data
+				// 100 TOKEN with 18 decimals
+				amount := new(big.Int)
+				amount.SetString("100000000000000000000", 10)
+				transferData, err := erc20Contract.ABI.Pack(
+					"transfer",
+					hardcodedRecipient,
+					amount,
+				)
+				s.Require().NoError(err)
+
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &contractAddr,
+					Input: (*hexutil.Bytes)(&transferData),
+				}
+			},
+			func() string {
+				// Override contract code and sender's balance in ERC20 contract
+				// Storage slot for balances[sender] - simplified for testing
+				return `{
+					"0x5555555555555555555555555555555555555555": {
+						"code": "0x608060405234801561001057600080fd5b50600436106100415760003560e01c806370a0823114610046578063a9059cbb14610076575b600080fd5b610060600480360381019061005b9190610350565b6100a6565b60405161006d919061039e565b60405180910390f35b610090600480360381019061008b91906103ef565b6100ee565b60405161009d919061044a565b60405180910390f35b60008060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b60008160008060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020541015610140576000905061024e565b8160008060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825461018f9190610494565b925050819055508160008060008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008282546101e591906104c8565b925050819055508373ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef8460405161024991906104fc565b60405180910390a360019150505b92915050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061028482610259565b9050919050565b61029481610279565b811461029f57600080fd5b50565b6000813590506102b18161028b565b92915050565b6000602082840312156102cd576102cc610254565b5b60006102db848285016102a2565b91505092915050565b6000819050919050565b6102f7816102e4565b82525050565b600060208201905061031260008301846102ee565b92915050565b610321816102e4565b811461032c57600080fd5b50565b60008135905061033e81610318565b92915050565b6000806040838503121561035b5761035a610254565b5b6000610369858286016102a2565b925050602061037a8582860161032f565b9150509250929050565b60008115159050919050565b61039981610384565b82525050565b60006020820190506103b46000830184610390565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006103f4826102e4565b91506103ff836102e4565b9250828203905081811115610417576104166103ba565b5b92915050565b6000610428826102e4565b9150610433836102e4565b925082820190508082111561044b5761044a6103ba565b5b9291505056fea2646970667358221220",
+						"stateDiff": {
+							"0x045e1b75394a8c054a98c5c37c123585a6ffd0f663c1e0e3f81b5a08e1f1a4e7": "0x00000000000000000000000000000000000000000000003635c9adc5dea00000"
+						}
+					}
+				}`
+			},
+			true,
+			51880,
+			false,
+			config.DefaultGasCap,
+		},
+		{
+			"success - override account nonce",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &common.Address{},
+					Value: (*hexutil.Big)(big.NewInt(100)),
+				}
+			},
+			func() string {
+				addr := s.Keyring.GetAddr(0)
+				return fmt.Sprintf(`{
+					"%s": {
+						"nonce": "0x10"
+					}
+				}`, addr.Hex())
+			},
+			true,
+			ethparams.TxGas,
+			false,
+			config.DefaultGasCap,
+		},
+		{
+			"fail - invalid JSON in overrides",
+			func() types.TransactionArgs {
+				addr := s.Keyring.GetAddr(0)
+				return types.TransactionArgs{
+					From:  &addr,
+					To:    &common.Address{},
+					Value: (*hexutil.Big)(big.NewInt(100)),
+				}
+			},
+			func() string {
+				return `{"invalid": json}`
+			},
+			false,
+			0,
+			false,
+			config.DefaultGasCap,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
+			// Start from a clean state
+			s.Require().NoError(s.Network.NextBlock())
+
+			// Update feemarket params per test
+			evmParams := feemarkettypes.DefaultParams()
+			if !tc.EnableFeemarket {
+				evmParams := s.Network.App.GetFeeMarketKeeper().GetParams(
+					s.Network.GetContext(),
+				)
+				evmParams.NoBaseFee = true
+			}
+
+			err := s.Network.App.GetFeeMarketKeeper().SetParams(
+				s.Network.GetContext(),
+				evmParams,
+			)
+			s.Require().NoError(err)
+
+			// Get call args
+			args := tc.getArgs()
+			marshalArgs, err := json.Marshal(args)
+			s.Require().NoError(err)
+
+			// Get overrides
+			overrides := json.RawMessage(tc.getOverrides())
+
+			req := types.EthCallRequest{
+				Args:            marshalArgs,
+				GasCap:          tc.gasCap,
+				ProposerAddress: s.Network.GetContext().BlockHeader().ProposerAddress,
+				Overrides:       overrides,
+			}
+
+			// Function under test
+			rsp, err := s.Network.GetEvmClient().EstimateGas(
+				s.Network.GetContext(),
+				&req,
+			)
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().Equal(int64(tc.expGas), int64(rsp.Gas)) //#nosec G115
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
+
 func getDefaultTraceTxRequest(unitNetwork network.Network) *types.QueryTraceTxRequest {
 	ctx := unitNetwork.GetContext()
 	chainID := unitNetwork.GetEIP155ChainID().Int64()
