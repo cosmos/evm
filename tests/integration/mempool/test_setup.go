@@ -53,10 +53,18 @@ func (s *IntegrationTestSuite) TearDownTest() {
 				if err := evmmp.Close(); err != nil {
 					s.T().Logf("Warning: failed to close mempool: %v", err)
 				}
+
+				// Wait for goroutines to fully exit before next test starts
+				// The mempool spawns background goroutines that may still be accessing
+				// global config (like EVMCoinInfo) even after Close() returns.
+				// We need to ensure these goroutines have completely finished before
+				// the next test's SetupTest() resets the global config.
+				// A longer wait time reduces the chance of race conditions where:
+				// - Old test's goroutine is still reading global config
+				// - New test's SetupTest() is resetting global config
+				time.Sleep(1 * time.Second)
 			}
 		}
-		// Give a brief moment for goroutines to finish
-		time.Sleep(100 * time.Millisecond)
 	}
 }
 
