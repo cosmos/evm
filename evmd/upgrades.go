@@ -67,7 +67,10 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			if err != nil {
 				return nil, err
 			}
-
+			// Initialize EvmCoinInfo in the module store
+			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
+				return nil, err
+			}
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
 		},
 	)

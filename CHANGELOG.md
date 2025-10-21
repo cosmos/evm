@@ -28,6 +28,7 @@
 - [\#727](https://github.com/cosmos/evm/pull/727) Avoid nil pointer for `tx evm raw` due to uninitialized EVM coin info.
 - [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
 - [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
+- [\#736](https://github.com/cosmos/evm/pull/736) Add InitEvmCoinInfo upgrade to avoid panic when denom is not registered.
 
 ### IMPROVEMENTS
 
@@ -65,6 +66,7 @@
 - [\#710](https://github.com/cosmos/evm/pull/710) Fix EoA-CA Identification logic
 - [\#711](https://github.com/cosmos/evm/pull/711) Add debug_traceCall api
 - [\#720](https://github.com/cosmos/evm/pull/720) Refactor systemtests
+- [\#734](https://github.com/cosmos/evm/pull/734) Disable evm mempool if max-txs set to -1.
 
 ### FEATURES
 
