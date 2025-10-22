@@ -1,14 +1,14 @@
 package keeper
 
 import (
-	"fmt"
-
 	"github.com/cosmos/evm/x/ibc/clients/types"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/address"
 	storetypes "cosmossdk.io/core/store"
+
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type Keeper struct {
@@ -16,7 +16,7 @@ type Keeper struct {
 	addressCodec address.Codec
 
 	// authority is the address capable of executing a MsgUpdateParams and other authority-gated message.
-	authority string
+	authority sdk.AccAddress
 
 	clientKeeper types.ClientKeeper
 
@@ -30,9 +30,10 @@ type Keeper struct {
 }
 
 // NewKeeper creates a new Keeper instance
-func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority string, clientKeeper types.ClientKeeper) Keeper {
-	if _, err := addressCodec.StringToBytes(authority); err != nil {
-		panic(fmt.Errorf("invalid authority address: %w", err))
+func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority sdk.AccAddress, clientKeeper types.ClientKeeper) Keeper {
+	// ensure gov module account is set and is not nil
+	if err := sdk.VerifyAddressFormat(authority); err != nil {
+		panic(err)
 	}
 
 	sb := collections.NewSchemaBuilder(storeService)
@@ -54,9 +55,4 @@ func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService s
 	k.Schema = schema
 
 	return k
-}
-
-// GetAuthority returns the module's authority.
-func (k Keeper) GetAuthority() string {
-	return k.authority
 }

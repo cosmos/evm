@@ -8,5 +8,5 @@ import (
 
 // ClientKeeper expected account IBC client keeper
 type ClientKeeper interface {
-	Route(ctx sdk.Context, clientID string) (ibcexported.LightClientModule, error)
+	GetClientState(ctx sdk.Context, clientID string) (ibcexported.ClientState, bool)
 }

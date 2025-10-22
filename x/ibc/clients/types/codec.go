@@ -14,3 +14,5 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 	)
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }
+
+// TODO: Does amino registration still need to be supported?
