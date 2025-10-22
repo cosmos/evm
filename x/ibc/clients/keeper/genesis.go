@@ -10,7 +10,7 @@ import (
 
 // InitGenesis initializes the module state from a genesis state.
 func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) error {
-	if err := k.Params.Set(ctx, data.Params); err != nil {
+	if err := k.ParamsItem.Set(ctx, data.Params); err != nil {
 		return err
 	}
 
@@ -21,10 +21,10 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 
 		addressBz := common.HexToAddress(precompile.Address).Bytes()
 
-		if err := k.ClientPrecompiles.Set(ctx, precompile.ClientId, precompile); err != nil {
+		if err := k.ClientPrecompilesMap.Set(ctx, precompile.ClientId, precompile); err != nil {
 			return err
 		}
-		if err := k.Precompiles.Set(ctx, addressBz, precompile); err != nil {
+		if err := k.AddressPrecompilesMap.Set(ctx, addressBz, precompile); err != nil {
 			return err
 		}
 	}
@@ -34,13 +34,13 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 
 // ExportGenesis exports the module state to a genesis state.
 func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
-	params, err := k.Params.Get(ctx)
+	params, err := k.ParamsItem.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var precompiles []types.ClientPrecompile
-	if err := k.ClientPrecompiles.Walk(ctx, nil, func(address string, precompile types.ClientPrecompile) (bool, error) {
+	if err := k.ClientPrecompilesMap.Walk(ctx, nil, func(address string, precompile types.ClientPrecompile) (bool, error) {
 		precompiles = append(precompiles, precompile)
 
 		return false, nil

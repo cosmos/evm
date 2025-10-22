@@ -21,12 +21,12 @@ type Keeper struct {
 	clientKeeper types.ClientKeeper
 
 	// state management
-	Schema collections.Schema
-	Params collections.Item[types.Params]
+	Schema     collections.Schema
+	ParamsItem collections.Item[types.Params]
 	// Mapping from client ID to ClientPrecompile
-	ClientPrecompiles collections.Map[string, types.ClientPrecompile]
+	ClientPrecompilesMap collections.Map[string, types.ClientPrecompile]
 	// Mapping from precompile address to ClientPrecompile
-	Precompiles collections.Map[[]byte, types.ClientPrecompile]
+	AddressPrecompilesMap collections.Map[[]byte, types.ClientPrecompile]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -37,13 +37,13 @@ func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService s
 
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
-		cdc:               cdc,
-		addressCodec:      addressCodec,
-		authority:         authority,
-		clientKeeper:      clientKeeper,
-		Params:            collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		ClientPrecompiles: collections.NewMap(sb, types.ClientPrecompilesKey, "client_precompiles", collections.StringKey, codec.CollValue[types.ClientPrecompile](cdc)),
-		Precompiles:       collections.NewMap(sb, types.PrecompilesKey, "precompiles", collections.BytesKey, codec.CollValue[types.ClientPrecompile](cdc)),
+		cdc:                   cdc,
+		addressCodec:          addressCodec,
+		authority:             authority,
+		clientKeeper:          clientKeeper,
+		ParamsItem:            collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+		ClientPrecompilesMap:  collections.NewMap(sb, types.ClientPrecompilesKey, "client_precompiles", collections.StringKey, codec.CollValue[types.ClientPrecompile](cdc)),
+		AddressPrecompilesMap: collections.NewMap(sb, types.PrecompilesKey, "address_precompiles", collections.BytesKey, codec.CollValue[types.ClientPrecompile](cdc)),
 	}
 
 	schema, err := sb.Build()
