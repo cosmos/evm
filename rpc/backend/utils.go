@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,7 +19,6 @@ import (
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/cosmos/evm/rpc/types"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	"github.com/cosmos/evm/utils"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -144,7 +144,6 @@ func (b *Backend) ProcessBlock(
 		targetOneFeeHistory.BaseFee = blockBaseFee
 	}
 	cfg := b.ChainConfig()
-	// set gas used ratio
 	gasLimitUint64, ok := (*ethBlock)["gasLimit"].(hexutil.Uint64)
 	if !ok {
 		return fmt.Errorf("invalid gas limit type: %T", (*ethBlock)["gasLimit"])
@@ -154,24 +153,35 @@ func (b *Backend) ProcessBlock(
 	if !ok {
 		return fmt.Errorf("invalid gas used type: %T", (*ethBlock)["gasUsed"])
 	}
+	gasUsedInt := gasUsedBig.ToInt()
+
+	timestampHex, ok := (*ethBlock)["timestamp"].(hexutil.Uint64)
+	if !ok {
+		return fmt.Errorf("invalid timestamp type: %T", (*ethBlock)["timestamp"])
+	}
+
+	header := ethtypes.Header{
+		Number:   new(big.Int).SetInt64(blockHeight),
+		GasLimit: uint64(gasLimitUint64),
+		GasUsed:  gasUsedInt.Uint64(),
+		Time:     uint64(timestampHex),
+	}
+	if baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big); ok && baseFee != nil {
+		header.BaseFee = baseFee.ToInt()
+	} else {
+		header.BaseFee = big.NewInt(0)
+	}
+	targetOneFeeHistory.BlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.NextBlobBaseFee = big.NewInt(0)
+	targetOneFeeHistory.BlobGasUsedRatio = 0
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
-		var header ethtypes.Header
-		header.Number = new(big.Int).SetInt64(blockHeight)
-		baseFee, ok := (*ethBlock)["baseFeePerGas"].(*hexutil.Big)
-		if !ok || baseFee == nil {
-			header.BaseFee = big.NewInt(0)
-		} else {
-			header.BaseFee = baseFee.ToInt()
-		}
-		header.GasLimit = uint64(gasLimitUint64)
-		header.GasUsed = gasUsedBig.ToInt().Uint64()
 		ctx := types.ContextWithHeight(blockHeight)
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err
 		}
-		nextBaseFee, err := utils.CalcBaseFee(cfg, &header, params.Params)
+		nextBaseFee, err := types.CalcBaseFee(cfg, &header, params.Params)
 		if err != nil {
 			return err
 		}
@@ -179,15 +189,39 @@ func (b *Backend) ProcessBlock(
 	} else {
 		targetOneFeeHistory.NextBaseFee = new(big.Int)
 	}
-	gasusedfloat, _ := new(big.Float).SetInt(gasUsedBig.ToInt()).Float64()
+	if cfg.IsCancun(header.Number, header.Time) {
+		blobGasUsed := uint64(0)
+		if val, ok := (*ethBlock)["blobGasUsed"].(hexutil.Uint64); ok {
+			blobGasUsed = uint64(val)
+		}
+		excessBlobGas := uint64(0)
+		if val, ok := (*ethBlock)["excessBlobGas"].(hexutil.Uint64); ok {
+			excessBlobGas = uint64(val)
+		}
+		header.BlobGasUsed = new(uint64)
+		*header.BlobGasUsed = blobGasUsed
+		header.ExcessBlobGas = new(uint64)
+		*header.ExcessBlobGas = excessBlobGas
 
+		targetOneFeeHistory.BlobBaseFee = eip4844.CalcBlobFee(cfg, &header)
+		nextExcess := eip4844.CalcExcessBlobGas(cfg, &header, header.Time)
+		nextHeader := &ethtypes.Header{
+			Number:        header.Number,
+			Time:          header.Time,
+			ExcessBlobGas: &nextExcess,
+		}
+		targetOneFeeHistory.NextBlobBaseFee = eip4844.CalcBlobFee(cfg, nextHeader)
+
+		maxBlobGas := eip4844.MaxBlobGasPerBlock(cfg, header.Time)
+		targetOneFeeHistory.BlobGasUsedRatio = safeRatio(blobGasUsed, maxBlobGas)
+	}
 	if gasLimitUint64 <= 0 {
 		return fmt.Errorf("gasLimit of block height %d should be bigger than 0 , current gaslimit %d", blockHeight, gasLimitUint64)
 	}
 
-	gasUsedRatio := gasusedfloat / float64(gasLimitUint64)
-	blockGasUsed := gasusedfloat
-	targetOneFeeHistory.GasUsedRatio = gasUsedRatio
+	gasUsedUint64 := gasUsedInt.Uint64()
+	targetOneFeeHistory.GasUsedRatio = safeRatio(gasUsedUint64, uint64(gasLimitUint64))
+	blockGasUsed := float64(gasUsedUint64)
 
 	rewardCount := len(rewardPercentiles)
 	targetOneFeeHistory.Reward = make([]*big.Int, rewardCount)
@@ -252,6 +286,18 @@ func (b *Backend) ProcessBlock(
 	return nil
 }
 
+func safeRatio(num, denom uint64) float64 {
+	if denom == 0 || num == 0 {
+		return 0
+	}
+	rat := new(big.Rat).SetFrac(
+		new(big.Int).SetUint64(num),
+		new(big.Int).SetUint64(denom),
+	)
+	value, _ := rat.Float64()
+	return value
+}
+
 // ShouldIgnoreGasUsed returns true if the gasUsed in result should be ignored
 // workaround for issue: https://github.com/cosmos/cosmos-sdk/issues/10832
 func ShouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
@@ -260,7 +306,7 @@ func ShouldIgnoreGasUsed(res *abci.ExecTxResult) bool {
 
 // GetLogsFromBlockResults returns the list of event logs from the CometBFT block result response
 func GetLogsFromBlockResults(blockRes *cmtrpctypes.ResultBlockResults) ([][]*ethtypes.Log, error) {
-	height, err := cosmosevmtypes.SafeUint64(blockRes.Height)
+	height, err := utils.SafeUint64(blockRes.Height)
 	if err != nil {
 		return nil, err
 	}

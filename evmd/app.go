@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	goruntime "runtime"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -20,13 +19,14 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	evmante "github.com/cosmos/evm/ante"
-	cosmosevmante "github.com/cosmos/evm/ante/evm"
+	antetypes "github.com/cosmos/evm/ante/types"
 	evmconfig "github.com/cosmos/evm/config"
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmmempool "github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	srvflags "github.com/cosmos/evm/server/flags"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -98,7 +98,6 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/version"
 	"github.com/cosmos/cosmos-sdk/x/auth"
-	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/auth/posthandler"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
@@ -138,7 +137,7 @@ import (
 
 func init() {
 	// manually update the power reduction by replacing micro (u) -> atto (a) evmos
-	sdk.DefaultPowerReduction = cosmosevmtypes.AttoPowerReduction
+	sdk.DefaultPowerReduction = utils.AttoPowerReduction
 
 	defaultNodeHome = evmconfig.MustGetDefaultNodeHome()
 }
@@ -215,11 +214,10 @@ func NewExampleApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
-	evmChainID uint64, // TODO:VLAD - Remove this
-	evmAppOptions evmconfig.EVMOptionsFn, // TODO:VLAD - Remove this
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
-	encodingConfig := evmosencoding.MakeConfig(evmChainID) // TODO:VLAD - Remove chain id from this
+	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
+	encodingConfig := evmencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -240,12 +238,6 @@ func NewExampleApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
-
-	// initialize the Cosmos EVM application configuration
-	// TODO:VLAD - Remove this
-	if err := evmAppOptions(evmChainID); err != nil {
-		panic(err)
-	}
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -322,7 +314,7 @@ func NewExampleApp(
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
 		authtypes.ProtoBaseAccount, evmconfig.GetMaccPerms(),
-		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		sdk.GetConfig().GetBech32AccountAddrPrefix(),
 		authAddr,
 	)
@@ -358,8 +350,8 @@ func NewExampleApp(
 		app.AccountKeeper,
 		app.BankKeeper,
 		authAddr,
-		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	)
 
 	app.MintKeeper = mintkeeper.NewKeeper(
@@ -441,7 +433,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+		/ register the governance hooks
 		),
 	)
 
@@ -487,6 +479,7 @@ func NewExampleApp(
 		app.FeeMarketKeeper,
 		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
+		evmChainID,
 		tracer,
 	).WithStaticPrecompiles(
 		precompiletypes.DefaultStaticPrecompiles(
@@ -526,6 +519,7 @@ func NewExampleApp(
 		app.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
 		authAddr,
 	)
+	app.TransferKeeper.SetAddressCodec(evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
 
 	/*
 		Create Transfer Stack
@@ -603,7 +597,7 @@ func NewExampleApp(
 		ibctm.NewAppModule(tmLightClientModule),
 		transferModule,
 		// Cosmos EVM modules
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.AccountKeeper.AddressCodec()),
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.BankKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
@@ -629,6 +623,7 @@ func NewExampleApp(
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
 		authtypes.ModuleName,
+		evmtypes.ModuleName,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -752,35 +747,9 @@ func NewExampleApp(
 	app.setAnteHandler(app.txConfig, maxGasWanted)
 
 	// set the EVM priority nonce mempool
-	// If you wish to use the noop mempool, remove this codeblock
-	if evmtypes.GetChainConfig() != nil {
-		// Get the block gas limit from genesis file
-		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
-		// Get GetMinTip from app.toml or cli flag configuration
-		mipTip := evmconfig.GetMinTip(appOpts, logger)
-
-		defaultConfig := legacypool.DefaultConfig
-		defaultConfig.GlobalSlots *= 30
-		defaultConfig.GlobalQueue *= 30
-		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			LegacyPoolConfig: &defaultConfig,
-			AnteHandler:      app.GetAnteHandler(),
-			BlockGasLimit:    blockGasLimit,
-			MinTip:           mipTip,
-		}
-
-		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
-		app.EVMMempool = evmMempool
-
-		app.SetMempool(evmMempool)
-		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
-		app.SetCheckTxHandler(checkTxHandler)
-
-		verifier := NewProposalVerifier(app, txConfig.TxEncoder())
-		abciProposalHandler := NewExtProposalHandler(evmMempool, verifier)
-		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
-		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
-		app.SetProcessProposal(abciProposalHandler.ProcessProposalHandler())
+	// if you wish to use the noop mempool, remove this codeblock
+	if err := app.configureEVMMempool(appOpts, logger); err != nil {
+		panic(fmt.Sprintf("failed to configure EVM mempool: %s", err.Error()))
 	}
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
@@ -831,7 +800,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
-		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              app.EVMKeeper,
 		FeegrantKeeper:         app.FeeGrantKeeper,
 		IBCKeeper:              app.IBCKeeper,
@@ -839,7 +808,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SignModeHandler:        txConfig.SignModeHandler(),
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
-		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		DynamicFeeChecker:      true,
 		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {
@@ -894,7 +863,7 @@ func (app *EVMD) Configurator() module.Configurator {
 
 // InitChainer application update at chain initialization
 func (app *EVMD) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
-	var genesisState cosmosevmtypes.GenesisState
+	var genesisState GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
@@ -1165,8 +1134,8 @@ func (app *EVMD) AutoCliOpts() autocli.AppOptions {
 	return autocli.AppOptions{
 		Modules:               modules,
 		ModuleOptions:         runtimeservices.ExtractAutoCLIOptions(app.ModuleManager.Modules),
-		AddressCodec:          authcodec.NewBech32Codec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
-		ValidatorAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
-		ConsensusAddressCodec: authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+		AddressCodec:          evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
+		ValidatorAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		ConsensusAddressCodec: evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	}
 }

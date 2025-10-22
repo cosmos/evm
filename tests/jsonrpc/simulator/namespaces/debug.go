@@ -1,5 +1,4 @@
 package namespaces
-
 import (
 	"context"
 	"fmt"
@@ -80,9 +79,6 @@ const (
 
 // Debug API implementations
 func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugTraceTransaction); result != nil {
-		return result, nil
-	}
 
 	txHash := rCtx.Evmd.ProcessedTransactions[0]
 
@@ -176,14 +172,10 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Transaction traced and validated (tx: %s, type: %v, gas: %v)", txHash.Hex()[:10]+"...", traceResult["type"], traceResult["gasUsed"]),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugPrintBlock); result != nil {
-		return result, nil
-	}
 
 	// Get current block number
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
@@ -213,14 +205,10 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    "Block printed successfully",
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugSetBlockProfileRate); result != nil {
-		return result, nil
-	}
 
 	// Set a test profile rate (1 for enabled, 0 for disabled)
 	rate := 1
@@ -241,14 +229,10 @@ func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) 
 		Value:    fmt.Sprintf("Block profile rate set to %d", rate),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugSetMutexProfileFraction); result != nil {
-		return result, nil
-	}
 
 	// Set a test mutex profile fraction (1 for enabled, 0 for disabled)
 	fraction := 1
@@ -269,14 +253,10 @@ func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, err
 		Value:    fmt.Sprintf("Mutex profile fraction set to %d", fraction),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugSetGCPercent); result != nil {
-		return result, nil
-	}
 
 	// Set a test GC percentage (100 is default)
 	percent := 100
@@ -298,14 +278,10 @@ func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("GC percent set to %d (previous: %d)", percent, previousPercent),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugIntermediateRoots); result != nil {
-		return result, nil
-	}
 
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -334,14 +310,99 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Retrieved %d intermediate roots", len(roots)),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+func DebugTraceCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
+
+	// Prepare transaction args for the trace call
+	fromAddr := rCtx.Evmd.Acc.Address
+	toAddr := rCtx.Evmd.Acc.Address // simple transfer to self
+
+	txArgs := map[string]interface{}{
+		"from":  fromAddr.Hex(),
+		"to":    toAddr.Hex(),
+		"value": "0x0",
+		"data":  "0x",
+	}
+
+	traceConfig := map[string]interface{}{
+		"tracer": "callTracer",
+	}
+
+	// Perform dual API comparison if enabled
+	rCtx.PerformComparison(MethodNameDebugTraceCall, txArgs, "latest", traceConfig)
+
+	// Call debug_traceCall on evmd
+	var traceResult map[string]interface{}
+	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResult,
+		string(MethodNameDebugTraceCall), txArgs, "latest", traceConfig)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceCall,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameDebugTraceCall,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Call traced successfully (type: %v)", traceResult["type"]),
+		Category: NamespaceDebug,
+	}
+	return result, nil
+}
+
+func DebugGetRawBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
+
+	// Get a block number from a processed transaction
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Call debug_getRawBlock
+	blockNumberOrHash := map[string]interface{}{
+		"blockNumber": receipt.BlockNumber,
+	}
+	var blockRLP string
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &blockRLP, string(MethodNameDebugGetRawBlock), blockNumberOrHash)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Validate that we got RLP data (should start with 0x)
+	if !strings.HasPrefix(blockRLP, "0x") || len(blockRLP) < 10 {
+		return &types.RpcResult{
+			Method:   MethodNameDebugGetRawBlock,
+			Status:   types.Error,
+			ErrMsg:   "invalid RLP data format",
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameDebugGetRawBlock,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Raw block retrieved successfully (%d bytes)", len(blockRLP)),
+		Category: NamespaceDebug,
+	}
 	return result, nil
 }
 
 func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlockByHash); result != nil {
-		return result, nil
-	}
 
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -385,14 +446,86 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Block traced successfully (hash: %s)", receipt.BlockHash.Hex()[:10]+"..."),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
+	return result, nil
+}
+
+func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
+
+	// Get a block to trace - use the receipt's block from a processed transaction
+	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get transaction receipt: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Get the full block by hash using eth_getBlockByHash
+	var block map[string]interface{}
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &block, "eth_getBlockByHash", receipt.BlockHash, true)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get block: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Get RLP-encoded block using debug_getRawBlock
+	// Need to pass BlockNumberOrHash format
+	blockNumberOrHash := map[string]interface{}{
+		"blockNumber": receipt.BlockNumber,
+	}
+	var blockRLP string
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &blockRLP, "debug_getRawBlock", blockNumberOrHash)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   fmt.Sprintf("Failed to get raw block RLP: %v", err),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Call debug_traceBlock with RLP-encoded block
+	traceConfig := map[string]interface{}{
+		"tracer": "callTracer",
+	}
+
+	var traceResults []interface{}
+	err = rCtx.Evmd.RPCClient().CallContext(context.Background(), &traceResults, string(MethodNameDebugTraceBlock), blockRLP, traceConfig)
+	if err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	// Validate trace results
+	if traceResults == nil {
+		return &types.RpcResult{
+			Method:   MethodNameDebugTraceBlock,
+			Status:   types.Error,
+			ErrMsg:   "trace result is null",
+			Category: NamespaceDebug,
+		}, nil
+	}
+
+	result := &types.RpcResult{
+		Method:   MethodNameDebugTraceBlock,
+		Status:   types.Ok,
+		Value:    fmt.Sprintf("Block traced successfully with %d transactions", len(traceResults)),
+		Category: NamespaceDebug,
+	}
 	return result, nil
 }
 
 func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugTraceBlockByNumber); result != nil {
-		return result, nil
-	}
 
 	// Get current block number
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
@@ -429,14 +562,10 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Traced block by number with %d results", len(traceResults)),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugGcStats); result != nil {
-		return result, nil
-	}
 
 	var gcStats interface{}
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &gcStats, string(MethodNameDebugGcStats))
@@ -455,14 +584,10 @@ func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    "GC statistics retrieved successfully",
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugFreeOSMemory); result != nil {
-		return result, nil
-	}
 
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugFreeOSMemory))
 	if err != nil {
@@ -480,14 +605,10 @@ func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    "OS memory freed successfully",
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugStacks); result != nil {
-		return result, nil
-	}
 
 	var stacks string
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &stacks, string(MethodNameDebugStacks))
@@ -506,14 +627,10 @@ func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Stack trace retrieved (%d characters)", len(stacks)),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugMutexProfile); result != nil {
-		return result, nil
-	}
 
 	// Call debug_mutexProfile with test parameters
 	filename := "/tmp/mutex_profile.out"
@@ -535,14 +652,10 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Mutex profile written to %s for %d seconds", filename, duration),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugCPUProfile); result != nil {
-		return result, nil
-	}
 
 	// Call debug_cpuProfile with test parameters
 	filename := "/tmp/cpu_profile.out"
@@ -564,14 +677,10 @@ func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("CPU profile written to %s for %d seconds", filename, duration),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugGoTrace); result != nil {
-		return result, nil
-	}
 
 	// Call debug_goTrace with test parameters
 	filename := "/tmp/go_trace.out"
@@ -593,14 +702,10 @@ func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Go trace written to %s for %d seconds", filename, duration),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
 func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugBlockProfile); result != nil {
-		return result, nil
-	}
 
 	// Call debug_blockProfile with test parameters
 	filename := "/tmp/block_profile.out"
@@ -622,7 +727,6 @@ func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Block profile written to %s for %d seconds", filename, duration),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, result)
 	return result, nil
 }
 
@@ -993,9 +1097,6 @@ func DebugVerbosity(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 // DebugStartGoTrace starts Go execution tracing
 func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugStartGoTrace); result != nil {
-		return result, nil
-	}
 
 	// Call debug_startGoTrace with test parameters
 	filename := "/tmp/go_trace_start.out"
@@ -1012,7 +1113,6 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				ErrMsg:   "Method not implemented in Cosmos EVM",
 				Category: NamespaceDebug,
 			}
-			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 			return rpcResult, nil
 		}
 		rpcResult := &types.RpcResult{
@@ -1021,7 +1121,6 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			ErrMsg:   err.Error(),
 			Category: NamespaceDebug,
 		}
-		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
 
@@ -1031,15 +1130,11 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    fmt.Sprintf("Go tracing started, output to %s", filename),
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 	return rpcResult, nil
 }
 
 // DebugStopGoTrace stops Go execution tracing
 func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	if result := rCtx.AlreadyTested(MethodNameDebugStopGoTrace); result != nil {
-		return result, nil
-	}
 
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStopGoTrace))
@@ -1053,7 +1148,6 @@ func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 				ErrMsg:   "Method not implemented in Cosmos EVM",
 				Category: NamespaceDebug,
 			}
-			rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 			return rpcResult, nil
 		}
 		rpcResult := &types.RpcResult{
@@ -1062,7 +1156,6 @@ func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			ErrMsg:   err.Error(),
 			Category: NamespaceDebug,
 		}
-		rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 		return rpcResult, nil
 	}
 
@@ -1072,6 +1165,5 @@ func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 		Value:    "Go tracing stopped successfully",
 		Category: NamespaceDebug,
 	}
-	rCtx.AlreadyTestedRPCs = append(rCtx.AlreadyTestedRPCs, rpcResult)
 	return rpcResult, nil
 }

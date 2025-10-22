@@ -67,7 +67,7 @@ func (s *TestSuite) TestSendTransaction() {
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeaderError(client, &height)
+				RegisterBlockError(client, height)
 			},
 			callArgsDefault,
 			hash,
@@ -83,10 +83,11 @@ func (s *TestSuite) TestSendTransaction() {
 				err := s.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 				s.Require().NoError(err)
 				RegisterParams(QueryClient, &header, height)
-				RegisterHeader(client, &height, nil)
-				_, err = RegisterBlockResults(client, 1)
-				s.Require().NoError(err)
+				RegisterBlock(client, height, nil)
+				RegisterBlockResults(client, 1)
 				RegisterBaseFee(QueryClient, baseFee)
+				RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+				RegisterConsensusParams(client, height)
 			},
 			evmtypes.TransactionArgs{
 				From:     &from,
@@ -250,13 +251,14 @@ func broadcastTx(suite *TestSuite, priv *ethsecp256k1.PrivKey, baseFee math.Int,
 	_ = suite.backend.ClientCtx.Keyring.ImportPrivKey("test_key", armor, "")
 	height := int64(1)
 	RegisterParams(QueryClient, &header, height)
-	RegisterHeader(client, &height, nil)
-	_, err := RegisterBlockResults(client, height)
-	suite.Require().NoError(err)
+	RegisterBlock(client, height, nil)
+	RegisterBlockResults(client, height)
 	RegisterBaseFee(QueryClient, baseFee)
+	RegisterValidatorAccount(QueryClient, sdk.AccAddress(utiltx.GenerateAddress().Bytes()))
+	RegisterConsensusParams(client, height)
 	ethSigner := ethtypes.LatestSigner(suite.backend.ChainConfig())
 	msg := evmtypes.NewTxFromArgs(&callArgsDefault)
-	err = msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
+	err := msg.Sign(ethSigner, suite.backend.ClientCtx.Keyring)
 	suite.Require().NoError(err)
 	baseDenom := evmtypes.GetEVMCoinDenom()
 	tx, _ := msg.BuildTx(suite.backend.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)

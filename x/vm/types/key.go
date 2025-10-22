@@ -29,6 +29,7 @@ const (
 	prefixStorage
 	prefixParams
 	prefixCodeHash
+	prefixEvmCoinInfo
 )
 
 // prefix bytes for the EVM object store
@@ -39,10 +40,11 @@ const (
 
 // KVStore key prefixes
 var (
-	KeyPrefixCode     = []byte{prefixCode}
-	KeyPrefixStorage  = []byte{prefixStorage}
-	KeyPrefixParams   = []byte{prefixParams}
-	KeyPrefixCodeHash = []byte{prefixCodeHash}
+	KeyPrefixCode        = []byte{prefixCode}
+	KeyPrefixStorage     = []byte{prefixStorage}
+	KeyPrefixParams      = []byte{prefixParams}
+	KeyPrefixCodeHash    = []byte{prefixCodeHash}
+	KeyPrefixEvmCoinInfo = []byte{prefixEvmCoinInfo}
 )
 
 // Object Store key prefixes

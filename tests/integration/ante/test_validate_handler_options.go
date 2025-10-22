@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/ante"
-	ethante "github.com/cosmos/evm/ante/evm"
+	antetypes "github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
-	"github.com/cosmos/evm/types"
 )
 
 //nolint:thelper // RunValidateHandlerOptionsTest is not a helper function; it's an externally called benchmark entry point
@@ -113,7 +112,6 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				EvmKeeper:       nw.App.GetEVMKeeper(),
 				SigGasConsumer:  ante.SigVerificationGasConsumer,
 				SignModeHandler: nw.App.GetTxConfig().SignModeHandler(),
-				TxFeeChecker:    nil,
 			},
 			false,
 		},
@@ -123,7 +121,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),
@@ -131,7 +129,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				SignModeHandler:        nw.GetEncodingConfig().TxConfig.SignModeHandler(),
 				SigGasConsumer:         ante.SigVerificationGasConsumer,
 				MaxTxGasWanted:         40000000,
-				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				DynamicFeeChecker:      true,
 				PendingTxListener:      nil,
 			},
 			false,
@@ -142,7 +140,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				Cdc:                    nw.App.AppCodec(),
 				AccountKeeper:          nw.App.GetAccountKeeper(),
 				BankKeeper:             nw.App.GetBankKeeper(),
-				ExtensionOptionChecker: types.HasDynamicFeeExtensionOption,
+				ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 				EvmKeeper:              nw.App.GetEVMKeeper(),
 				FeegrantKeeper:         nw.App.GetFeeGrantKeeper(),
 				IBCKeeper:              nw.App.GetIBCKeeper(),
@@ -150,7 +148,7 @@ func RunValidateHandlerOptionsTest(t *testing.T, create network.CreateEvmApp, op
 				SignModeHandler:        nw.GetEncodingConfig().TxConfig.SignModeHandler(),
 				SigGasConsumer:         ante.SigVerificationGasConsumer,
 				MaxTxGasWanted:         40000000,
-				TxFeeChecker:           ethante.NewDynamicFeeChecker(nw.App.GetFeeMarketKeeper()),
+				DynamicFeeChecker:      true,
 				PendingTxListener:      func(hash common.Hash) {},
 			},
 			true,

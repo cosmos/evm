@@ -19,6 +19,10 @@ type StakingKeeper struct {
 	mock.Mock
 }
 
+func (_m *StakingKeeper) BondDenom(ctx context.Context) (string, error) {
+	return "aatom", nil
+}
+
 // GetHistoricalInfo provides a mock function with given fields: ctx, height
 func (_m *StakingKeeper) GetHistoricalInfo(ctx context.Context, height int64) (types.HistoricalInfo, error) {
 	ret := _m.Called(ctx, height)
