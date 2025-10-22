@@ -2,7 +2,6 @@ package evm_test
 
 import (
 	"context"
-	"github.com/cosmos/evm/testutil/constants"
 	"math/big"
 	"testing"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/encoding"
+	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm/statedb"

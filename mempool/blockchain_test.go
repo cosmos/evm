@@ -1,7 +1,6 @@
 package mempool_test
 
 import (
-	"github.com/cosmos/evm/testutil/constants"
 	"math/big"
 	"sync"
 	"testing"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/mocks"
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
