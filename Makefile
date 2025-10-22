@@ -60,9 +60,8 @@ ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
   ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=cleveldb
 endif
 
-build_tags += gcc
-build_tags += rocksdb
-ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb
+build_tags += pebbledb
+ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=pebbledb
 
 # add build tags to linker flags
 whitespace := $(subst ,, )
