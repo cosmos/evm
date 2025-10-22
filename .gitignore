@@ -37,3 +37,8 @@ build/
 tests/systemtests/binaries
 tests/systemtests/testnet
 .testnets
+
+# Environments
+*.env
+.envrc
+.venv
