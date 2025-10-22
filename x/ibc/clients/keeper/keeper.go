@@ -18,6 +18,8 @@ type Keeper struct {
 	// authority is the address capable of executing a MsgUpdateParams and other authority-gated message.
 	authority string
 
+	clientKeeper types.ClientKeeper
+
 	// state management
 	Schema collections.Schema
 	Params collections.Item[types.Params]
@@ -28,7 +30,7 @@ type Keeper struct {
 }
 
 // NewKeeper creates a new Keeper instance
-func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority string) Keeper {
+func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority string, clientKeeper types.ClientKeeper) Keeper {
 	if _, err := addressCodec.StringToBytes(authority); err != nil {
 		panic(fmt.Errorf("invalid authority address: %w", err))
 	}
@@ -38,6 +40,7 @@ func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService s
 		cdc:               cdc,
 		addressCodec:      addressCodec,
 		authority:         authority,
+		clientKeeper:      clientKeeper,
 		Params:            collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ClientPrecompiles: collections.NewMap(sb, types.ClientPrecompilesKey, "client_precompiles", collections.StringKey, codec.CollValue[types.ClientPrecompile](cdc)),
 		Precompiles:       collections.NewMap(sb, types.PrecompilesKey, "precompiles", collections.BytesKey, codec.CollValue[types.ClientPrecompile](cdc)),
