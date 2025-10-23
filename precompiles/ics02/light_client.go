@@ -70,7 +70,7 @@ type Precompile struct {
 func NewPrecompile(
 	clientPrecompile clientstypes.ClientPrecompile,
 	bankKeeper cmn.BankKeeper,
-	clientsKeeper ibcutils.ClientKeeper,
+	clientKeeper ibcutils.ClientKeeper,
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
@@ -81,7 +81,7 @@ func NewPrecompile(
 		},
 		ABI:              ABI,
 		clientPrecompile: clientPrecompile,
-		clientKeeper:     clientsKeeper,
+		clientKeeper:     clientKeeper,
 		BankKeeper:       bankKeeper,
 	}
 }
