@@ -1,6 +1,8 @@
 package ibc
 
 import (
+	"context"
+
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
 
 	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -30,4 +32,5 @@ type ClientKeeper interface {
 	GetClientTimestampAtHeight(ctx sdk.Context, clientID string, height ibcexported.Height) (uint64, error)
 	// GetClientState gets a particular client from the store
 	GetClientState(ctx sdk.Context, clientID string) (ibcexported.ClientState, bool)
+	ClientState(goCtx context.Context, req *clienttypes.QueryClientStateRequest) (*clienttypes.QueryClientStateResponse, error)
 }
