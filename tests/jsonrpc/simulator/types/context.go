@@ -71,9 +71,6 @@ type RPCContext struct {
 	MaxPriorityFeePerGas *big.Int
 	GasPrice             *big.Int
 
-	// test results
-	AlreadyTestedRPCs []*RpcResult
-
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
@@ -125,16 +122,6 @@ func NewRPCContext(conf *config.Config) (*RPCContext, error) {
 	}
 
 	return ctx, nil
-}
-
-func (rCtx *RPCContext) AlreadyTested(rpc RpcName) *RpcResult {
-	for _, testedRPC := range rCtx.AlreadyTestedRPCs {
-		if rpc == testedRPC.Method {
-			return testedRPC
-		}
-	}
-	return nil
-
 }
 
 // CompareRPCCall performs a dual API call and compares response structures
@@ -400,9 +387,9 @@ func (rCtx *RPCContext) PerformComparison(methodName RpcName, params ...interfac
 	comparisonResult := rCtx.CompareRPCCall(string(methodName), params...)
 	if comparisonResult != nil {
 		log.Printf("Structure Comparison for %s:", methodName)
-		// log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
-		// log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
-		// log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
+		log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
+		log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
+		log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
 		if len(comparisonResult.Differences) > 0 {
 			log.Printf("  Structural Differences: %v", comparisonResult.Differences)
 		}
@@ -418,9 +405,9 @@ func (rCtx *RPCContext) PerformComparisonWithProvider(methodName RpcName, paramP
 	comparisonResult := rCtx.CompareRPCCallWithProvider(string(methodName), paramProvider)
 	if comparisonResult != nil {
 		log.Printf("Structure Comparison for %s:", methodName)
-		// log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
-		// log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
-		// log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
+		log.Printf("  Structure Match: %v", comparisonResult.StructureMatch)
+		log.Printf("  Type Match: %v (%s vs %s)", comparisonResult.TypeMatch, comparisonResult.EvmdType, comparisonResult.GethType)
+		log.Printf("  Errors Match: %v", comparisonResult.ErrorsMatch)
 		if len(comparisonResult.Differences) > 0 {
 			log.Printf("  Structural Differences: %v", comparisonResult.Differences)
 		}

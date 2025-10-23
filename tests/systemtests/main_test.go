@@ -5,13 +5,20 @@ package systemtests
 import (
 	"testing"
 
-	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/accountabstraction"
 	"github.com/cosmos/evm/tests/systemtests/mempool"
+
+	"github.com/cosmos/evm/tests/systemtests/eip712"
+
+	"cosmossdk.io/systemtests"
 )
 
 func TestMain(m *testing.M) {
 	systemtests.RunTests(m)
+}
+
+func TestCosmosTxCompat(t *testing.T) {
+	mempool.TestCosmosTxsCompatibility(t)
 }
 
 // Mempool Tests
@@ -21,7 +28,7 @@ func TestTxsOrdering(t *testing.T) {
 
 func TestTxsReplacement(t *testing.T) {
 	mempool.TestTxsReplacement(t)
-	mempool.TestMixedTxsReplacementEVMAndCosmos(t)
+	mempool.TestTxsReplacementWithCosmosTx(t)
 	mempool.TestMixedTxsReplacementLegacyAndDynamicFee(t)
 }
 
@@ -33,4 +40,17 @@ func TestExceptions(t *testing.T) {
 // Account Abstraction Tests
 func TestEIP7702(t *testing.T) {
 	accountabstraction.TestEIP7702(t)
+}
+
+// EIP-712 Tests
+func TestEIP712BankSend(t *testing.T) {
+	eip712.TestEIP712BankSend(t)
+}
+
+func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
+	eip712.TestEIP712BankSendWithBalanceCheck(t)
+}
+
+func TestEIP712MultipleBankSends(t *testing.T) {
+	eip712.TestEIP712MultipleBankSends(t)
 }

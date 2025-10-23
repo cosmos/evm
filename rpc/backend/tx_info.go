@@ -403,7 +403,7 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 	index := uint64(idx)                               // #nosec G115 -- checked for int overflow already
 	return rpctypes.NewTransactionFromMsg(
 		msg,
-		common.BytesToHash(block.Block.Hash()),
+		common.BytesToHash(block.BlockID.Hash),
 		height,
 		blockTime,
 		index,

@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/systemtests"
 )
 
 // SystemTestSuite implements the TestSuite interface and
@@ -58,8 +59,8 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 // BeforeEach resets the expected mempool state and retrieves the current base fee before each test case
 func (s *SystemTestSuite) BeforeEachCase(t *testing.T) {
 	// Reset expected pending/queued transactions
-	s.SetExpPendingTxs()
-	s.SetExpQueuedTxs()
+	s.expPendingTxs = []*TxInfo{}
+	s.expQueuedTxs = []*TxInfo{}
 
 	// Get current base fee
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
@@ -92,7 +93,7 @@ func (s *SystemTestSuite) AfterEachAction(t *testing.T) {
 func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 	// Check all expected pending txs are committed
 	for _, txInfo := range s.GetExpPendingTxs() {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*15)
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, time.Second*60)
 		require.NoError(t, err)
 	}
 

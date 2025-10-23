@@ -60,8 +60,13 @@ func InitGenesis(
 		}
 	}
 
+	if err := k.InitEvmCoinInfo(ctx); err != nil {
+		panic(fmt.Errorf("error initializing evm coin info: %s", err))
+	}
+
+	coinInfo := k.GetEvmCoinInfo(ctx)
 	initializer.Do(func() {
-		SetGlobalConfigVariables(ctx, k, bankKeeper, data.Params)
+		SetGlobalConfigVariables(coinInfo)
 	})
 
 	if err := k.AddPreinstalls(ctx, data.Preinstalls); err != nil {

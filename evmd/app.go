@@ -22,7 +22,7 @@ import (
 	evmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
 	evmconfig "github.com/cosmos/evm/config"
-	evmosencoding "github.com/cosmos/evm/encoding"
+	evmencoding "github.com/cosmos/evm/encoding"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmmempool "github.com/cosmos/evm/mempool"
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
@@ -214,7 +214,7 @@ func NewExampleApp(
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *EVMD {
 	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
-	encodingConfig := evmosencoding.MakeConfig(evmChainID)
+	encodingConfig := evmencoding.MakeConfig(evmChainID)
 
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -405,7 +405,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -491,6 +491,7 @@ func NewExampleApp(
 		app.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
 		authAddr,
 	)
+	app.TransferKeeper.SetAddressCodec(evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
 
 	/*
 		Create Transfer Stack
@@ -716,29 +717,9 @@ func NewExampleApp(
 	app.setAnteHandler(app.txConfig, maxGasWanted)
 
 	// set the EVM priority nonce mempool
-	// If you wish to use the noop mempool, remove this codeblock
-	if evmtypes.GetChainConfig() != nil {
-		// Get the block gas limit from genesis file
-		blockGasLimit := evmconfig.GetBlockGasLimit(appOpts, logger)
-		// Get GetMinTip from app.toml or cli flag configuration
-		mipTip := evmconfig.GetMinTip(appOpts, logger)
-
-		mempoolConfig := &evmmempool.EVMMempoolConfig{
-			AnteHandler:   app.GetAnteHandler(),
-			BlockGasLimit: blockGasLimit,
-			MinTip:        mipTip,
-		}
-
-		evmMempool := evmmempool.NewExperimentalEVMMempool(app.CreateQueryContext, logger, app.EVMKeeper, app.FeeMarketKeeper, app.txConfig, app.clientCtx, mempoolConfig)
-		app.EVMMempool = evmMempool
-
-		app.SetMempool(evmMempool)
-		checkTxHandler := evmmempool.NewCheckTxHandler(evmMempool)
-		app.SetCheckTxHandler(checkTxHandler)
-
-		abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app)
-		abciProposalHandler.SetSignerExtractionAdapter(evmmempool.NewEthSignerExtractionAdapter(sdkmempool.NewDefaultSignerExtractionAdapter()))
-		app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+	// if you wish to use the noop mempool, remove this codeblock
+	if err := app.configureEVMMempool(appOpts, logger); err != nil {
+		panic(fmt.Sprintf("failed to configure EVM mempool: %s", err.Error()))
 	}
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like

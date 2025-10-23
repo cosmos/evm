@@ -43,6 +43,10 @@ build_tags = netgo
 ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
   build_tags += gcc
 endif
+ifeq (rocksdb,$(findstring rocksdb,$(COSMOS_BUILD_OPTIONS)))
+  build_tags += gcc
+  build_tags += rocksdb
+endif
 build_tags += $(BUILD_TAGS)
 build_tags := $(strip $(build_tags))
 
@@ -57,6 +61,9 @@ ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=os \
 # DB backend selection
 ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
   ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=cleveldb
+endif
+ifeq (rocksdb,$(findstring rocksdb,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb
 endif
 
 # add build tags to linker flags
@@ -90,6 +97,7 @@ endif
 # Build into $(BUILDDIR)
 build: go.sum $(BUILDDIR)/
 	@echo "🏗️  Building evmd to $(BUILDDIR)/$(EXAMPLE_BINARY) ..."
+	@echo "BUILD_FLAGS: $(BUILD_FLAGS)"
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
 	  go build $(BUILD_FLAGS) -o $(BUILDDIR)/$(EXAMPLE_BINARY) $(EVMD_MAIN_PKG)
 
@@ -100,6 +108,7 @@ build-linux:
 # Install into $(BINDIR)
 install: go.sum
 	@echo "🚚  Installing evmd to $(BINDIR) ..."
+	@echo "BUILD_FLAGS: $(BUILD_FLAGS)"
 	@cd $(EVMD_DIR) && CGO_ENABLED="1" \
 	  go install $(BUILD_FLAGS) $(EVMD_MAIN_PKG)
 
@@ -381,6 +390,7 @@ test-rpc-compat-stop:
 test-system: build-v04 build
 	mkdir -p ./tests/systemtests/binaries/
 	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/
+	cd tests/systemtests/Counter && forge build
 	$(MAKE) -C tests/systemtests test
 
 build-v04:

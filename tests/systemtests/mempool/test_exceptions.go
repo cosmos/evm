@@ -12,27 +12,26 @@ func TestTxRebroadcasting(t *testing.T) {
 	testCases := []struct {
 		name    string
 		actions []func(s TestSuite)
-		bypass  bool
 	}{
 		{
 			name: "ordering of pending txs %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
+					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx2, err := s.SendTx(t, s.Node(1), "acc0", 1, s.BaseFee(), nil)
+					tx2, err := s.SendTx(t, s.Node(1), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(2), "acc0", 2, s.BaseFee(), nil)
+					tx3, err := s.SendTx(t, s.Node(2), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// Skip tx4 with nonce 3
 
-					tx5, err := s.SendTx(t, s.Node(3), "acc0", 4, s.BaseFee(), nil)
+					tx5, err := s.SendTx(t, s.Node(3), "acc0", 4, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx6, err := s.SendTx(t, s.Node(0), "acc0", 5, s.BaseFee(), nil)
+					tx6, err := s.SendTx(t, s.Node(0), "acc0", 5, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// At AfterEachAction hook, we will check expected queued txs are not broadcasted.
@@ -50,7 +49,7 @@ func TestTxRebroadcasting(t *testing.T) {
 					// so, we should set nonce idx to 0.
 					nonce3Idx := uint64(0)
 
-					tx4, err := s.SendTx(t, s.Node(2), "acc0", nonce3Idx, s.BaseFee(), nil)
+					tx4, err := s.SendTx(t, s.Node(2), "acc0", nonce3Idx, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					// At AfterEachAction hook, we will check expected pending txs are broadcasted.
@@ -77,10 +76,6 @@ func TestTxRebroadcasting(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				if tc.bypass {
-					return
-				}
-
 				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)
@@ -96,19 +91,18 @@ func TestMinimumGasPricesZero(t *testing.T) {
 	testCases := []struct {
 		name    string
 		actions []func(s TestSuite)
-		bypass  bool
 	}{
 		{
 			name: "sequencial pending txs %s",
 			actions: []func(s TestSuite){
 				func(s TestSuite) {
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.BaseFee(), nil)
+					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx2, err := s.SendTx(t, s.Node(1), "acc0", 1, s.BaseFee(), nil)
+					tx2, err := s.SendTx(t, s.Node(1), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(2), "acc0", 2, s.BaseFee(), nil)
+					tx3, err := s.SendTx(t, s.Node(2), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
 					require.NoError(t, err, "failed to send tx")
 
 					s.SetExpPendingTxs(tx1, tx2, tx3)
@@ -138,10 +132,6 @@ func TestMinimumGasPricesZero(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				if tc.bypass {
-					return
-				}
-
 				s.BeforeEachCase(t)
 				for _, action := range tc.actions {
 					action(s)

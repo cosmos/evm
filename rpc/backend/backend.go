@@ -116,7 +116,7 @@ type EVMBackend interface {
 	Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error)
 	SendRawTransaction(data hexutil.Bytes) (common.Hash, error)
 	SetTxDefaults(args evmtypes.TransactionArgs) (evmtypes.TransactionArgs, error)
-	EstimateGas(args evmtypes.TransactionArgs, blockNrOptional *types.BlockNumber) (hexutil.Uint64, error)
+	EstimateGas(args evmtypes.TransactionArgs, blockNrOrHash *types.BlockNumberOrHash, overrides *json.RawMessage) (hexutil.Uint64, error)
 	DoCall(args evmtypes.TransactionArgs, blockNr types.BlockNumber, overrides *json.RawMessage) (*evmtypes.MsgEthereumTxResponse, error)
 	GasPrice() (*hexutil.Big, error)
 
@@ -134,6 +134,7 @@ type EVMBackend interface {
 	// Tracing
 	TraceTransaction(hash common.Hash, config *types.TraceConfig) (interface{}, error)
 	TraceBlock(height types.BlockNumber, config *types.TraceConfig, block *tmrpctypes.ResultBlock) ([]*evmtypes.TxTraceResult, error)
+	TraceCall(args evmtypes.TransactionArgs, blockNrOrHash types.BlockNumberOrHash, config *types.TraceConfig) (interface{}, error)
 }
 
 var _ BackendI = (*Backend)(nil)
