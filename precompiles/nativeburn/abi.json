@@ -1,0 +1,26 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "NativeBurnI",
+  "sourceName": "solidity/precompiles/nativeburn/NativeBurnI.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "burner", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"}
+      ],
+      "name": "TokenBurned",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {"internalType": "address", "name": "burner", "type": "address"},
+        {"internalType": "uint256", "name": "amount", "type": "uint256"}
+      ],
+      "name": "burnToken",
+      "outputs": [{"internalType": "bool", "name": "success", "type": "bool"}],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}

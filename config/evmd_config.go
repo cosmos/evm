@@ -47,6 +47,9 @@ var maccPerms = map[string][]string{
 	feemarkettypes.ModuleName:   nil,
 	erc20types.ModuleName:       {authtypes.Minter, authtypes.Burner},
 	precisebanktypes.ModuleName: {authtypes.Minter, authtypes.Burner},
+
+	// NativeBurn precompile module account for deflationary burns
+	"nativeburn": {authtypes.Burner},
 }
 
 // BlockedAddresses returns all the app's blocked account addresses.

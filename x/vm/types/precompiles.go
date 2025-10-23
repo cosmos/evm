@@ -13,6 +13,7 @@ const (
 	BankPrecompileAddress         = "0x0000000000000000000000000000000000000804"
 	GovPrecompileAddress          = "0x0000000000000000000000000000000000000805"
 	SlashingPrecompileAddress     = "0x0000000000000000000000000000000000000806"
+	NativeBurnPrecompileAddress   = "0x0000000000000000000000000000000000000900"
 )
 
 // AvailableStaticPrecompiles defines the full list of all available EVM extension addresses.
@@ -29,4 +30,5 @@ var AvailableStaticPrecompiles = []string{
 	BankPrecompileAddress,
 	GovPrecompileAddress,
 	SlashingPrecompileAddress,
+	NativeBurnPrecompileAddress,
 }

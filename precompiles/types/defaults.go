@@ -83,7 +83,8 @@ func DefaultStaticPrecompiles(
 		WithICS20Precompile(bankKeeper, stakingKeeper, transferKeeper, channelKeeper).
 		WithBankPrecompile(bankKeeper, erc20Keeper).
 		WithGovPrecompile(govKeeper, bankKeeper, codec, opts...).
-		WithSlashingPrecompile(slashingKeeper, bankKeeper, opts...)
+		WithSlashingPrecompile(slashingKeeper, bankKeeper, opts...).
+		WithNativeBurnPrecompile(stakingKeeper, bankKeeper, opts...)
 
 	return map[common.Address]vm.PrecompiledContract(precompiles)
 }

@@ -13,6 +13,7 @@ import (
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
 	govprecompile "github.com/cosmos/evm/precompiles/gov"
 	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
+	nativeburnprecompile "github.com/cosmos/evm/precompiles/nativeburn"
 	"github.com/cosmos/evm/precompiles/p256"
 	slashingprecompile "github.com/cosmos/evm/precompiles/slashing"
 	stakingprecompile "github.com/cosmos/evm/precompiles/staking"
@@ -167,5 +168,25 @@ func (s StaticPrecompiles) WithSlashingPrecompile(
 	)
 
 	s[slashingPrecompile.Address()] = slashingPrecompile
+	return s
+}
+
+func (s StaticPrecompiles) WithNativeBurnPrecompile(
+	stakingKeeper stakingkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
+	opts ...Option,
+) StaticPrecompiles {
+	options := defaultOptionals()
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	nativeburnPrecompile := nativeburnprecompile.NewPrecompile(
+		stakingKeeper,
+		bankKeeper,
+		options.AddressCodec,
+	)
+
+	s[nativeburnPrecompile.Address()] = nativeburnPrecompile
 	return s
 }
