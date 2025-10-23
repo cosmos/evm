@@ -9,6 +9,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/tests/contracts"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -223,7 +224,7 @@ func (s *IntegrationTestSuite) fundERC20Tokens() {
 			user0.Priv,
 			txArgs,
 			callArgs,
-			logCheck.WithExpEvents("Transfer"),
+			logCheck.WithExpEvents(&erc20.TransferEvent{}),
 		)
 		Expect(err).To(BeNil(), "failed to transfer ERC20 tokens")
 		Expect(s.network.NextBlock()).To(BeNil())

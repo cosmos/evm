@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/evm/precompiles/staking/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	"github.com/cosmos/evm/precompiles/testutil/contracts/stakingcaller"
 	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
@@ -62,11 +63,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		var s *PrecompileTestSuite
 
 		BeforeEach(func() {
-			var err error
 			s = NewPrecompileTestSuite(create, options...)
 			s.SetupTest()
 
-			valAddr, err = sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
+			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			Expect(err).To(BeNil())
 			valAddr2, err = sdk.ValAddressFromBech32(s.network.GetValidators()[1].GetOperator())
 			Expect(err).To(BeNil())
@@ -168,7 +168,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				defaultCommission = staking.Commission{
+				defaultCommission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -191,7 +191,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// NOTE: increase gas limit here
 					txArgs.GasLimit = 2e5
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+					logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -267,7 +267,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						SecurityContact: "",
 						Details:         "",
 					}
-					commission := staking.Commission{
+					commission := staking.CommissionRates{
 						Rate:          big.NewInt(100000000000000000),
 						MaxRate:       big.NewInt(100000000000000000),
 						MaxChangeRate: big.NewInt(100000000000000000),
@@ -282,7 +282,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Args:        []interface{}{description, commission, minSelfDelegation, hexAddr, pubkeyBase64Str, value},
 					}
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+					logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newPriv,
 						txArgs, createValidatorArgs,
@@ -1391,7 +1391,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			s.SetupTest()
 			delegator := s.keyring.GetKey(0)
 
-			contractAddr, err = s.factory.DeployContract(
+			contractAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1407,7 +1407,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Deploy StakingCallerTwo contract
-			contractTwoAddr, err = s.factory.DeployContract(
+			contractTwoAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1418,7 +1418,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Deploy StakingReverter contract
-			stkReverterAddr, err = s.factory.DeployContract(
+			stkReverterAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1430,7 +1430,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// send some funds to the StakingCallerTwo & StakingReverter contracts to transfer to the
 			// delegator during the tx
-			err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractTwoAddr.Bytes(), testContractInitialBalance)
+			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractTwoAddr.Bytes(), testContractInitialBalance)
 			Expect(err).To(BeNil(), "error while funding the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil())
 			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), stkReverterAddr.Bytes(), testContractInitialBalance)
@@ -1510,7 +1510,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				defaultCommission = staking.Commission{
+				defaultCommission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -1570,12 +1570,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("tx from validator operator with delegated code - should create a validator", func() {
 				s.delegateAccountToContract(valPriv, valHexAddr, contractTwoAddr)
 
-				callArgs = testutiltypes.CallArgs{
-					ContractABI: stakingCallerTwoContract.ABI,
-					MethodName:  "testCreateValidatorWithTransfer",
-					Args: []interface{}{
-						defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
-					},
+				callArgs := &stakingcaller.TestCreateValidatorWithTransferArgs{
+					defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
 				}
 
 				txArgs = evmtypes.EvmTxArgs{
@@ -1587,7 +1583,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					valPriv,
 					txArgs, callArgs,
-					passCheck.WithExpEvents(staking.EventTypeCreateValidator),
+					passCheck.WithExpEvents(&staking.CreateValidatorEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract")
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -1617,12 +1613,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				minSelfDelegation = big.NewInt(1)
 
 				description = staking.Description{}
-				commission  = staking.Commission{}
+				commission  = staking.CommissionRates{}
 			)
 
 			BeforeEach(func() {
-				callArgs.MethodName = "testEditValidator"
-
 				// create a new validator
 				valAddr, valPriv = testutiltx.NewAccAddressAndKey()
 				valHexAddr = common.BytesToAddress(valAddr.Bytes())
@@ -1637,7 +1631,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				commission = staking.Commission{
+				commission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -1645,13 +1639,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				pubkeyBase64Str := "UuhHQmkUh2cPBA6Rg4ei0M2B04cVYGNn/F8SAUsYIb4="
 				value := big.NewInt(1e18)
 
-				createValidatorArgs := testutiltypes.CallArgs{
-					ContractABI: s.precompile.ABI,
-					MethodName:  staking.CreateValidatorMethod,
-					Args:        []interface{}{description, commission, minSelfDelegation, valHexAddr, pubkeyBase64Str, value},
+				createValidatorArgs := &staking.CreateValidatorCall{
+					Description:       description,
+					CommissionRates:   commission,
+					MinSelfDelegation: minSelfDelegation,
+					ValidatorAddress:  valHexAddr,
+					Pubkey:            pubkeyBase64Str,
+					Value:             value,
 				}
 
-				logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+				logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 
 				toAddr := s.precompile.Address()
 				_, _, err = s.factory.CallContractAndCheckLogs(

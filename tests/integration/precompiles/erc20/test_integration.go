@@ -109,8 +109,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			contractsData ContractsData
 
 			erc20MdCallerContract evmtypes.CompiledContract
-			revertCallerContract  evmtypes.CompiledContract
-			erc20MinterV5Contract evmtypes.CompiledContract
 
 			execRevertedCheck testutil.LogCheckArgs
 			failCheck         testutil.LogCheckArgs
@@ -124,10 +122,10 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			erc20MdCallerContract, err = testdata.LoadERC20TestCaller()
 			Expect(err).ToNot(HaveOccurred(), "failed to load ERC20 allowance caller contract")
 
-			erc20MinterV5Contract, err = testdata.LoadERC20MinterV5Contract()
+			erc20MinterV5Contract, err := testdata.LoadERC20MinterV5Contract()
 			Expect(err).ToNot(HaveOccurred(), "failed to load ERC20 minter contract")
 
-			revertCallerContract, err = testdata.LoadERC20TestCaller()
+			revertCallerContract, err := testdata.LoadERC20TestCaller()
 			Expect(err).ToNot(HaveOccurred(), "failed to load ERC20 allowance caller contract")
 
 			sender := is.keyring.GetKey(0)
@@ -217,36 +215,29 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				contractData: map[CallType]ContractData{
 					directCall: {
 						Address: is.precompile.Address(),
-						ABI:     is.precompile.ABI,
 					},
 					directCallToken2: {
 						Address: is.precompileTwo.Address(),
-						ABI:     is.precompileTwo.ABI,
 					},
 					contractCall: {
 						Address: contractAddr,
-						ABI:     erc20MdCallerContract.ABI,
 					},
 					contractCallToken2: {
 						Address: contractAddrTokenTwo,
-						ABI:     erc20MdCallerContract.ABI,
 					},
 					erc20Call: {
 						Address: erc20MinterBurnerAddr,
-						ABI:     contracts.ERC20MinterBurnerDecimalsContract.ABI,
 					},
 					erc20V5Call: {
 						Address: ERC20MinterV5Addr,
-						ABI:     erc20MinterV5Contract.ABI,
 					},
 					erc20V5CallerCall: {
 						Address: erc20MinterV5CallerAddr,
-						ABI:     erc20MdCallerContract.ABI,
 					},
 				},
 			}
 
-			failCheck = testutil.LogCheckArgs{ABIEvents: is.precompile.Events}
+			failCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = failCheck.WithErrContains("execution reverted")
 			passCheck = failCheck.WithExpPass(true)
 
@@ -305,9 +296,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					senderInitialBalance := sdk.Coins{sdk.NewCoin(is.tokenDenom, senderInitialAmt)}
 
 					// Transfer tokens
-					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferCoins[0].Amount.BigInt())
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					transferArgs := &erc20.TransferCall{
+						To:     receiver,
+						Amount: transferCoins[0].Amount.BigInt(),
+					}
 
-					transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
+					transferCheck := passCheck.WithExpEvents(&erc20.TransferEvent{})
 
 					res, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, transferCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -315,7 +310,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					err = is.network.NextBlock()
 					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-					is.ExpectTrueToBeReturned(ethRes, erc20.TransferMethod)
+					is.ExpectTrueToBeReturned(ethRes)
 					is.ExpectBalancesForContract(
 						callType, contractsData,
 						[]ExpectedBalance{
@@ -348,9 +343,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					senderInitialBalance := sdk.Coins{sdk.NewCoin(is.tokenDenom, senderInitialAmt)}
 
 					// Transfer tokens
-					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver.Addr, transferCoin.Amount.BigInt())
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					transferArgs := &erc20.TransferCall{
+						To:     receiver.Addr,
+						Amount: transferCoin.Amount.BigInt(),
+					}
 
-					transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
+					transferCheck := passCheck.WithExpEvents(&erc20.TransferEvent{})
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, transferArgs, transferCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -358,7 +357,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					err = is.network.NextBlock()
 					Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-					is.ExpectTrueToBeReturned(ethRes, erc20.TransferMethod)
+					is.ExpectTrueToBeReturned(ethRes)
 					is.ExpectBalancesForContract(
 						callType, contractsData,
 						[]ExpectedBalance{
@@ -384,7 +383,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					is.fundWithTokens(callType, contractsData, sender.Addr, fundCoins)
 
 					// Transfer tokens
-					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmount)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					transferArgs := &erc20.TransferCall{
+						To:     receiver,
+						Amount: transferAmount,
+					}
 
 					revertReasonCheck := execRevertedCheck.WithErrNested(erc20.ErrTransferAmountExceedsBalance.Error())
 
@@ -407,7 +410,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					transferAmt := new(big.Int).Add(senderInitialAmt.BigInt(), big.NewInt(100))
 
 					// Transfer tokens
-					txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferMethod, receiver, transferAmt)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					transferArgs := &erc20.TransferCall{
+						To:     receiver,
+						Amount: transferAmt,
+					}
 
 					insufficientBalanceCheck := failCheck.WithErrContains(
 						erc20.ErrTransferAmountExceedsBalance.Error(),
@@ -428,14 +435,9 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			When("calling reverter contract", func() {
 				Context("in a direct call to the WEVMOS contract", func() {
 					var (
-						args   testutiltypes.CallArgs
 						txArgs evmtypes.EvmTxArgs
 					)
 					BeforeEach(func() {
-						args = testutiltypes.CallArgs{
-							ContractABI: revertCallerContract.ABI,
-						}
-
 						txArgs = evmtypes.EvmTxArgs{
 							To:       &revertContractAddr,
 							GasLimit: gasLimit,
@@ -454,16 +456,15 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						Expect(err).To(BeNil())
 						senderInitialBalance := balRes.Balance
 
-						args.MethodName = "transferWithRevert"
-						args.Args = []interface{}{
-							receiver.Addr,
-							amountToSend,
-							false,
-							false,
+						args := &testdata.TransferWithRevertCall{
+							To:     receiver.Addr,
+							Amount: amountToSend,
+							Before: false,
+							Aft:    false,
 						}
 						txArgs.Amount = amountToSend
 
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
+						transferCheck := passCheck.WithExpEvents(&erc20.TransferEvent{})
 						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
 						Expect(err).To(BeNil())
 						Expect(is.network.NextBlock()).To(BeNil())
@@ -499,12 +500,11 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						Expect(err).To(BeNil())
 						senderInitialBalance := balRes.Balance
 
-						args.MethodName = "transferWithRevert"
-						args.Args = []interface{}{
-							receiver,
-							amountToSend,
-							before,
-							after,
+						args := &testdata.TransferWithRevertCall{
+							To:     receiver,
+							Amount: amountToSend,
+							Before: before,
+							Aft:    after,
 						}
 						txArgs.Amount = amountToSend
 
@@ -546,18 +546,17 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						Expect(err).To(BeNil())
 						senderInitialBalance := balRes.Balance
 
-						args.MethodName = "testTransferAndSend"
-						args.Args = []interface{}{
-							receiver,
-							big.NewInt(100),
-							big.NewInt(100),
-							big.NewInt(150),
-							false,
-							false,
+						args := &testdata.TestTransferAndSendCall{
+							Source:               receiver,
+							Amount_to_transfer:   big.NewInt(100),
+							Amount_to_send:       big.NewInt(100),
+							Amount_to_send_after: big.NewInt(150),
+							Before:               false,
+							After:                false,
 						}
 						txArgs.Amount = big.NewInt(totalToSend)
 
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
+						transferCheck := passCheck.WithExpEvents(&erc20.TransferEvent{})
 						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
 						Expect(err).To(BeNil())
 						Expect(is.network.NextBlock()).To(BeNil())
@@ -591,14 +590,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						Expect(err).To(BeNil())
 						senderInitialBalance := balRes.Balance
 
-						args.MethodName = "testTransferAndSend"
-						args.Args = []interface{}{
-							receiver,
-							big.NewInt(100),
-							big.NewInt(100),
-							big.NewInt(100),
-							before,
-							after,
+						args := &testdata.TestTransferAndSendCall{
+							Source:               receiver,
+							Amount_to_transfer:   big.NewInt(100),
+							Amount_to_send:       big.NewInt(100),
+							Amount_to_send_after: big.NewInt(100),
+							Before:               before,
+							After:                after,
 						}
 						txArgs.Amount = big.NewInt(300)
 
@@ -639,15 +637,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						Expect(err).To(BeNil())
 						senderInitialBalance := balRes.Balance
 
-						args.MethodName = "transfersWithTry"
-						args.Args = []interface{}{
-							receiver,
-							amountToSend,
-							amountToSend,
+						args := &testdata.TransfersWithTryCall{
+							Receiver:           receiver,
+							Amount_to_transfer: amountToSend,
+							Amount_to_fail:     amountToSend,
 						}
 						txArgs.Amount = big.NewInt(200)
 
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
+						transferCheck := passCheck.WithExpEvents(&erc20.TransferEvent{})
 						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
 						Expect(err).To(BeNil())
 						Expect(is.network.NextBlock()).To(BeNil())
@@ -691,15 +688,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callType, contractsData, owner.Priv, spender.Addr, transferAmount)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							owner.Addr, receiver, transferAmount,
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   owner.Addr,
+							To:     receiver,
+							Amount: transferAmount,
+						}
 
 						transferCheck := passCheck.WithExpEvents(
-							erc20.EventTypeTransfer,
-							erc20.EventTypeApproval,
+							&erc20.TransferEvent{},
+							&erc20.ApprovalEvent{},
 						)
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(spender.Priv, txArgs, transferArgs, transferCheck)
@@ -709,7 +709,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.TransferFromMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						is.ExpectBalancesForContract(
 							callType, contractsData,
 							[]ExpectedBalance{
@@ -745,11 +745,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							ownerInitialBalance := sdk.Coins{sdk.NewCoin(is.tokenDenom, ownerInitialAmt)}
 
 							// Transfer tokens
-							txArgs, transferArgs := is.getTxAndCallArgs(
+							txArgs := is.getTxAndCallArgs(
 								directCall, contractsData,
-								erc20.TransferFromMethod,
-								owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 							)
+							transferArgs := &erc20.TransferFromCall{
+								From:   owner.Addr,
+								To:     receiver,
+								Amount: transferCoins[0].Amount.BigInt(),
+							}
 
 							insufficientAllowanceCheck := failCheck.WithErrContains(
 								erc20.ErrInsufficientAllowance.Error(),
@@ -797,15 +800,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
 							// Transfer tokens
-							txArgs, transferArgs := is.getTxAndCallArgs(
+							txArgs := is.getTxAndCallArgs(
 								callType, contractsData,
-								erc20.TransferFromMethod,
-								owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 							)
+							transferArgs := &erc20.TransferFromCall{
+								From:   owner.Addr,
+								To:     receiver,
+								Amount: transferCoins[0].Amount.BigInt(),
+							}
 
 							transferCheck := passCheck.WithExpEvents(
-								erc20.EventTypeTransfer,
-								erc20.EventTypeApproval,
+								&erc20.TransferEvent{},
+								&erc20.ApprovalEvent{},
 							)
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, transferArgs, transferCheck)
@@ -815,7 +821,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							err = is.network.NextBlock()
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-							is.ExpectTrueToBeReturned(ethRes, erc20.TransferFromMethod)
+							is.ExpectTrueToBeReturned(ethRes)
 							is.ExpectBalancesForContract(
 								callType, contractsData,
 								[]ExpectedBalance{
@@ -854,11 +860,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							owner.Addr, receiver, transferAmount,
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   owner.Addr,
+							To:     receiver,
+							Amount: transferAmount,
+						}
 
 						insufficientAllowanceCheck := failCheck.WithErrContains(erc20.ErrInsufficientAllowance.Error())
 
@@ -886,11 +895,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.fundWithTokens(callType, contractsData, from.Addr, fundCoins)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							from.Addr, receiver, transferAmount,
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   from.Addr,
+							To:     receiver,
+							Amount: transferAmount,
+						}
 
 						insufficientAllowanceCheck := failCheck.WithErrContains(
 							erc20.ErrInsufficientAllowance.Error(),
@@ -930,7 +942,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TransferFromMethod, from.Addr, receiver, transferAmt)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						transferArgs := &erc20.TransferFromCall{
+							From:   from.Addr,
+							To:     receiver,
+							Amount: transferAmt,
+						}
 
 						insufficientBalanceCheck := failCheck.WithErrContains(
 							erc20.ErrTransferAmountExceedsBalance.Error(),
@@ -976,15 +993,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   owner.Addr,
+							To:     receiver,
+							Amount: transferCoins[0].Amount.BigInt(),
+						}
 
 						transferCheck := passCheck.WithExpEvents(
-							erc20.EventTypeTransfer,
-							erc20.EventTypeApproval,
+							&erc20.TransferEvent{},
+							&erc20.ApprovalEvent{},
 						)
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, transferArgs, transferCheck)
@@ -994,7 +1014,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.TransferFromMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						is.ExpectBalancesForContract(
 							callType, contractsData,
 							[]ExpectedBalance{
@@ -1038,15 +1058,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							owner.Addr, receiver, transferCoins[0].Amount.BigInt(),
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   owner.Addr,
+							To:     receiver,
+							Amount: transferCoins[0].Amount.BigInt(),
+						}
 
 						transferCheck := passCheck.WithExpEvents(
-							erc20.EventTypeTransfer,
-							erc20.EventTypeApproval,
+							&erc20.TransferEvent{},
+							&erc20.ApprovalEvent{},
 						)
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(msgSender.Priv, txArgs, transferArgs, transferCheck)
@@ -1056,7 +1079,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.TransferFromMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						is.ExpectBalancesForContract(
 							callType, contractsData,
 							[]ExpectedBalance{
@@ -1094,11 +1117,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callType, contractsData, from.Priv, spender, approveAmount)
 
 						// Transfer tokens
-						txArgs, transferArgs := is.getTxAndCallArgs(
+						txArgs := is.getTxAndCallArgs(
 							callType, contractsData,
-							erc20.TransferFromMethod,
-							from.Addr, receiver, transferAmount,
 						)
+						transferArgs := &erc20.TransferFromCall{
+							From:   from.Addr,
+							To:     receiver,
+							Amount: transferAmount,
+						}
 
 						revertReasonCheck := execRevertedCheck.WithErrNested(erc20.ErrInsufficientAllowance.Error())
 
@@ -1127,15 +1153,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					ownerInitialAmt := is.fundWithTokens(callType, contractsData, sender.Addr, fundCoins)
 
 					// Query the balance
-					txArgs, balancesArgs := is.getTxAndCallArgs(callType, contractsData, erc20.BalanceOfMethod, sender.Addr)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					balancesArgs := &erc20.BalanceOfCall{
+						Account: sender.Addr,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, balancesArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var balance *big.Int
-					err = is.precompile.UnpackIntoInterface(&balance, erc20.BalanceOfMethod, ethRes.Ret)
+					var out erc20.BalanceOfReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(math.NewIntFromBigInt(balance)).To(Equal(ownerInitialAmt), "expected different balance")
+					Expect(math.NewIntFromBigInt(out.Field1)).To(Equal(ownerInitialAmt), "expected different balance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1155,15 +1184,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Expect(is.network.NextBlock()).To(BeNil())
 
 					// Query the balance
-					txArgs, balancesArgs := is.getTxAndCallArgs(callType, contractsData, erc20.BalanceOfMethod, address)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					balancesArgs := &erc20.BalanceOfCall{
+						Account: address,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, balancesArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var balance *big.Int
-					err = is.precompile.UnpackIntoInterface(&balance, erc20.BalanceOfMethod, ethRes.Ret)
+					var out erc20.BalanceOfReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(balance.Int64()).To(BeZero(), "expected zero balance")
+					Expect(out.Field1.Int64()).To(BeZero(), "expected zero balance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1176,15 +1208,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					address := utiltx.GenerateAddress()
 
 					// Query the balance
-					txArgs, balancesArgs := is.getTxAndCallArgs(callType, contractsData, erc20.BalanceOfMethod, address)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					balancesArgs := &erc20.BalanceOfCall{
+						Account: address,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, balancesArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var balance *big.Int
-					err = is.precompile.UnpackIntoInterface(&balance, erc20.BalanceOfMethod, ethRes.Ret)
+					var out erc20.BalanceOfReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(balance.Int64()).To(BeZero(), "expected zero balance")
+					Expect(out.Field1.Int64()).To(BeZero(), "expected zero balance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1202,15 +1237,19 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					is.setAllowanceForContract(callType, contractsData, owner.Priv, spender, approveAmount)
 
-					txArgs, allowanceArgs := is.getTxAndCallArgs(callType, contractsData, erc20.AllowanceMethod, owner.Addr, spender)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					allowanceArgs := &erc20.AllowanceCall{
+						Owner:   owner.Addr,
+						Spender: spender,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, allowanceArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var allowance *big.Int
-					err = is.precompile.UnpackIntoInterface(&allowance, erc20.AllowanceMethod, ethRes.Ret)
+					var out erc20.AllowanceReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(allowance).To(Equal(approveAmount), "expected different allowance")
+					Expect(out.Field1).To(Equal(approveAmount), "expected different allowance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1224,15 +1263,19 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						spender := is.keyring.GetAddr(0)
 						owner := is.keyring.GetKey(0)
 
-						txArgs, allowanceArgs := is.getTxAndCallArgs(directCall, contractsData, erc20.AllowanceMethod, spender, spender)
+						txArgs := is.getTxAndCallArgs(directCall, contractsData)
+						allowanceArgs := &erc20.AllowanceCall{
+							Owner:   spender,
+							Spender: spender,
+						}
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, allowanceArgs, passCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						var allowance *big.Int
-						err = is.precompile.UnpackIntoInterface(&allowance, erc20.AllowanceMethod, ethRes.Ret)
+						var out erc20.AllowanceReturn
+						_, err = out.Decode(ethRes.Ret)
 						Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-						Expect(allowance.Sign()).To(Equal(0), "expected different allowance")
+						Expect(out.Field1.Sign()).To(Equal(0), "expected different allowance")
 					})
 
 					// NOTE: Since it's possible to set an allowance for the own address with the Solidity ERC20 contracts,
@@ -1243,15 +1286,19 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 						is.setAllowanceForContract(callType, contractsData, owner.Priv, owner.Addr, approveAmount)
 
-						txArgs, allowanceArgs := is.getTxAndCallArgs(callType, contractsData, erc20.AllowanceMethod, owner.Addr, owner.Addr)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						allowanceArgs := &erc20.AllowanceCall{
+							Owner:   owner.Addr,
+							Spender: owner.Addr,
+						}
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, allowanceArgs, passCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						var allowance *big.Int
-						err = is.precompile.UnpackIntoInterface(&allowance, erc20.AllowanceMethod, ethRes.Ret)
+						var out erc20.AllowanceReturn
+						_, err = out.Decode(ethRes.Ret)
 						Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-						Expect(allowance).To(Equal(approveAmount), "expected different allowance")
+						Expect(out.Field1).To(Equal(approveAmount), "expected different allowance")
 					},
 						Entry(" - through erc20 contract", erc20Call),
 						Entry(" - through erc20 v5 contract", erc20V5Call),
@@ -1262,15 +1309,19 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					spender := is.keyring.GetAddr(1)
 					owner := is.keyring.GetKey(0)
 
-					txArgs, allowanceArgs := is.getTxAndCallArgs(callType, contractsData, erc20.AllowanceMethod, owner.Addr, spender)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					allowanceArgs := &erc20.AllowanceCall{
+						Owner:   owner.Addr,
+						Spender: spender,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, allowanceArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var allowance *big.Int
-					err = is.precompile.UnpackIntoInterface(&allowance, erc20.AllowanceMethod, ethRes.Ret)
+					var out erc20.AllowanceReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(allowance.Int64()).To(BeZero(), "expected zero allowance")
+					Expect(out.Field1.Int64()).To(BeZero(), "expected zero allowance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1283,15 +1334,19 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					spender := utiltx.GenerateAddress()
 					owner := is.keyring.GetKey(0)
 
-					txArgs, allowanceArgs := is.getTxAndCallArgs(callType, contractsData, erc20.AllowanceMethod, owner.Addr, spender)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					allowanceArgs := &erc20.AllowanceCall{
+						Owner:   owner.Addr,
+						Spender: spender,
+					}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, allowanceArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var allowance *big.Int
-					err = is.precompile.UnpackIntoInterface(&allowance, erc20.AllowanceMethod, ethRes.Ret)
+					var out erc20.AllowanceReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(allowance.Int64()).To(BeZero(), "expected zero allowance")
+					Expect(out.Field1.Int64()).To(BeZero(), "expected zero allowance")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1320,15 +1375,16 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					}
 
 					// Query the balance
-					txArgs, supplyArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TotalSupplyMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					supplyArgs := &erc20.TotalSupplyCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, supplyArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var supply *big.Int
-					err = is.precompile.UnpackIntoInterface(&supply, erc20.TotalSupplyMethod, ethRes.Ret)
+					var out erc20.TotalSupplyReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(supply).To(Equal(expSupply), "expected different supply")
+					Expect(out.Field1).To(Equal(expSupply), "expected different supply")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1339,15 +1395,16 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 				DescribeTable("it should return zero if no tokens exist", func(callType CallType) {
 					sender := is.keyring.GetKey(0)
-					txArgs, supplyArgs := is.getTxAndCallArgs(callType, contractsData, erc20.TotalSupplyMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					supplyArgs := &erc20.TotalSupplyCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, supplyArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var supply *big.Int
-					err = is.precompile.UnpackIntoInterface(&supply, erc20.TotalSupplyMethod, ethRes.Ret)
+					var out erc20.TotalSupplyReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(supply.Int64()).To(BeZero(), "expected zero supply")
+					Expect(out.Field1.Int64()).To(BeZero(), "expected zero supply")
 				},
 					Entry(" - direct call", directCallToken2),
 					Entry(" - through contract", contractCallToken2),
@@ -1365,9 +1422,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						approveAmount := big.NewInt(200)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, approveAmount)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  approveAmount,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1376,7 +1437,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						is.ExpectAllowanceForContract(
 							callType, contractsData,
 							owner.Addr, spender.Addr, approveAmount,
@@ -1397,9 +1458,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callType, contractsData, owner.Priv, spender.Addr, prevAllowance)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, approveAmount)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  approveAmount,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1408,7 +1473,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						// Check allowance contains both spend limits
 						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, approveAmount)
 					},
@@ -1426,14 +1491,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callType, contractsData, owner.Priv, spender.Addr, approveAmount)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 
 						// commit the changes to state
 						err = is.network.NextBlock()
@@ -1456,9 +1525,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callType, contractsData, owner.Priv, spender.Addr, allowance)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1467,7 +1540,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						// Check allowance was deleted
 						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, common.Big0)
 					},
@@ -1481,10 +1554,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						owner := is.keyring.GetKey(0)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 
 						// We are expecting an approval to be made, but no allowance stored since it's 0
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1493,7 +1570,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						// Check still no allowance exists
 						is.ExpectAllowanceForContract(callType, contractsData, owner.Addr, spender.Addr, common.Big0)
 					},
@@ -1509,13 +1586,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							approveAmount := big.NewInt(100)
 
 							// Approve allowance
-							txArgs, approveArgs := is.getTxAndCallArgs(
-								directCall, contractsData,
-								erc20.ApproveMethod,
-								spender.Addr, approveAmount,
-							)
+							txArgs := is.getTxAndCallArgs(directCall, contractsData)
+							approveArgs := &erc20.ApproveCall{
+								Spender: spender.Addr,
+								Amount:  approveAmount,
+							}
 
-							approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+							approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1524,7 +1601,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							err = is.network.NextBlock()
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-							is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+							is.ExpectTrueToBeReturned(ethRes)
 							is.ExpectAllowanceForContract(
 								directCall, contractsData,
 								owner.Addr, spender.Addr, approveAmount,
@@ -1537,13 +1614,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							allowance := big.NewInt(100)
 
 							// Approve allowance
-							txArgs, approveArgs := is.getTxAndCallArgs(
-								callType, contractsData,
-								erc20.ApproveMethod,
-								spender.Addr, allowance,
-							)
+							txArgs := is.getTxAndCallArgs(callType, contractsData)
+							approveArgs := &erc20.ApproveCall{
+								Spender: spender.Addr,
+								Amount:  allowance,
+							}
 
-							approvalCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+							approvalCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approvalCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1552,7 +1629,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							err = is.network.NextBlock()
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-							is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+							is.ExpectTrueToBeReturned(ethRes)
 							is.ExpectAllowanceForContract(
 								callType, contractsData,
 								owner.Addr, spender.Addr, allowance,
@@ -1574,9 +1651,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						is.setAllowanceForContract(callTypeForOtherToken, contractsData, owner.Priv, spender.Addr, prevAllowance)
 
 						// Approve allowance for target token
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(owner.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1585,7 +1666,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						is.ExpectAllowanceForContract(
 							callType, contractsData,
 							owner.Addr, spender.Addr, common.Big0,
@@ -1614,9 +1695,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						transferAmount := big.NewInt(200)
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, transferAmount)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  transferAmount,
+						}
 
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1625,7 +1710,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						// Check allowance
 						is.ExpectAllowanceForContract(
 							callType, contractsData,
@@ -1644,8 +1729,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						newAmount := big.NewInt(200)
 
 						// Set up a first approval
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, initialAmount[0].Amount.BigInt())
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  initialAmount[0].Amount.BigInt(),
+						}
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
@@ -1653,14 +1742,18 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 
 						// Set up a second approval which should overwrite the initial one
-						txArgs, approveArgs = is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, newAmount)
-						approveCheck = passCheck.WithExpEvents(erc20.EventTypeApproval)
+						txArgs = is.getTxAndCallArgs(callType, contractsData)
+						approveArgs = &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  newAmount,
+						}
+						approveCheck = passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 						_, ethRes, err = is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 
 						// commit changes to chain state
 						err = is.network.NextBlock()
@@ -1685,8 +1778,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						// set up a previous allowance
 						//
 						// TODO: refactor using helper
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, approveAmount)
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  approveAmount,
+						}
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
@@ -1694,10 +1791,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 
 						// Approve allowance
-						txArgs, approveArgs = is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs = is.getTxAndCallArgs(callType, contractsData)
+						approveArgs = &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 						_, ethRes, err = is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
@@ -1705,7 +1806,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 
 						// Check allowance was deleted from the keeper / is returning 0 for smart contracts
 						is.ExpectAllowanceForContract(callType, contractsData, owner, spender.Addr, common.Big0)
@@ -1720,10 +1821,14 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						owner := contractsData.GetContractData(callType).Address // the owner will be the contract address
 
 						// Approve allowance
-						txArgs, approveArgs := is.getTxAndCallArgs(callType, contractsData, erc20.ApproveMethod, spender.Addr, common.Big0)
+						txArgs := is.getTxAndCallArgs(callType, contractsData)
+						approveArgs := &erc20.ApproveCall{
+							Spender: spender.Addr,
+							Amount:  common.Big0,
+						}
 
 						// We are expecting an approval event to be emitted, but no allowance to be stored
-						approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+						approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 						_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 						Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1732,7 +1837,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 						err = is.network.NextBlock()
 						Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-						is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+						is.ExpectTrueToBeReturned(ethRes)
 						// Check still no allowance exists
 						is.ExpectAllowanceForContract(callType, contractsData, owner, spender.Addr, common.Big0)
 					},
@@ -1749,13 +1854,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							approveAmount := big.NewInt(100)
 
 							// Approve allowance
-							txArgs, approveArgs := is.getTxAndCallArgs(
-								callType, contractsData,
-								erc20.ApproveMethod,
-								spender, approveAmount,
-							)
+							txArgs := is.getTxAndCallArgs(callType, contractsData)
+							approveArgs := &erc20.ApproveCall{
+								Spender: spender,
+								Amount:  approveAmount,
+							}
 
-							approveCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+							approveCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approveCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
@@ -1763,7 +1868,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							err = is.network.NextBlock()
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-							is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+							is.ExpectTrueToBeReturned(ethRes)
 							is.ExpectAllowanceForContract(
 								callType, contractsData,
 								owner, spender, approveAmount,
@@ -1777,13 +1882,13 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							allowance := big.NewInt(100)
 
 							// Approve allowance
-							txArgs, approveArgs := is.getTxAndCallArgs(
-								callType, contractsData,
-								erc20.ApproveMethod,
-								spender, allowance,
-							)
+							txArgs := is.getTxAndCallArgs(callType, contractsData)
+							approveArgs := &erc20.ApproveCall{
+								Spender: spender,
+								Amount:  allowance,
+							}
 
-							approvalCheck := passCheck.WithExpEvents(erc20.EventTypeApproval)
+							approvalCheck := passCheck.WithExpEvents(&erc20.ApprovalEvent{})
 
 							_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, approveArgs, approvalCheck)
 							Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1792,7 +1897,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 							err = is.network.NextBlock()
 							Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-							is.ExpectTrueToBeReturned(ethRes, erc20.ApproveMethod)
+							is.ExpectTrueToBeReturned(ethRes)
 							is.ExpectAllowanceForContract(
 								callType, contractsData,
 								owner, spender, allowance,
@@ -1829,12 +1934,12 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// the metadata methods but the contract doesn't have them.
 					contractsData.contractData[erc20Call] = ContractData{
 						Address: erc20NoMetadataAddr,
-						ABI:     contracts.ERC20MinterBurnerDecimalsContract.ABI,
 					}
 				})
 
 				DescribeTable("querying the name should return an error", func(callType CallType) {
-					txArgs, nameArgs := is.getTxAndCallArgs(callType, contractsData, erc20.NameMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					nameArgs := &erc20.NameCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, nameArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1846,7 +1951,8 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				)
 
 				DescribeTable("querying the symbol should return an error", func(callType CallType) {
-					txArgs, symbolArgs := is.getTxAndCallArgs(callType, contractsData, erc20.SymbolMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					symbolArgs := &erc20.SymbolCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, symbolArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1858,7 +1964,8 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				)
 
 				DescribeTable("querying the decimals should return an error", func(callType CallType) {
-					txArgs, decimalsArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecimalsMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					decimalsArgs := &erc20.DecimalsCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, decimalsArgs, execRevertedCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
@@ -1904,7 +2011,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// update this in the global contractsData
 					contractsData.contractData[directCall] = ContractData{
 						Address: is.precompile.Address(),
-						ABI:     is.precompile.ABI,
 					}
 
 					// Deploy contract calling the ERC20 precompile
@@ -1926,20 +2032,20 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 
 					contractsData.contractData[contractCall] = ContractData{
 						Address: callerAddr,
-						ABI:     erc20MdCallerContract.ABI,
 					}
 				})
 
 				DescribeTable("querying the name should return the name", func(callType CallType) {
-					txArgs, nameArgs := is.getTxAndCallArgs(callType, contractsData, erc20.NameMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					nameArgs := &erc20.NameCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, nameArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var name string
-					err = is.precompile.UnpackIntoInterface(&name, erc20.NameMethod, ethRes.Ret)
+					var out erc20.NameReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(name).To(Equal(expName), "expected different name")
+					Expect(out.Field1).To(Equal(expName), "expected different name")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1947,15 +2053,16 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				)
 
 				DescribeTable("querying the symbol should return the symbol", func(callType CallType) {
-					txArgs, symbolArgs := is.getTxAndCallArgs(callType, contractsData, erc20.SymbolMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					symbolArgs := &erc20.SymbolCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, symbolArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var symbol string
-					err = is.precompile.UnpackIntoInterface(&symbol, erc20.SymbolMethod, ethRes.Ret)
+					var out erc20.SymbolReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(symbol).To(Equal(expSymbol), "expected different symbol")
+					Expect(out.Field1).To(Equal(expSymbol), "expected different symbol")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -1963,15 +2070,16 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 				)
 
 				DescribeTable("querying the decimals should return the decimals", func(callType CallType) {
-					txArgs, decimalsArgs := is.getTxAndCallArgs(callType, contractsData, erc20.DecimalsMethod)
+					txArgs := is.getTxAndCallArgs(callType, contractsData)
+					decimalsArgs := &erc20.DecimalsCall{}
 
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(is.keyring.GetPrivKey(0), txArgs, decimalsArgs, passCheck)
 					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
 
-					var decimals uint8
-					err = is.precompile.UnpackIntoInterface(&decimals, erc20.DecimalsMethod, ethRes.Ret)
+					var out erc20.DecimalsReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack result")
-					Expect(decimals).To(Equal(expDecimals), "expected different decimals")
+					Expect(out.Field1).To(Equal(expDecimals), "expected different decimals")
 				},
 					Entry(" - direct call", directCall),
 					Entry(" - through contract", contractCall),
@@ -2022,7 +2130,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					contractData: map[CallType]ContractData{
 						erc20V5Call: {
 							Address: erc20Addr,
-							ABI:     erc20MinterV5Contract.ABI,
 						},
 					},
 				}

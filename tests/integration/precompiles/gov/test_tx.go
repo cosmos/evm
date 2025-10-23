@@ -1,12 +1,8 @@
 package gov
 
 import (
-	"fmt"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/precompiles/testutil"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -18,7 +14,6 @@ import (
 
 func (s *PrecompileTestSuite) TestVote() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[gov.VoteMethod]
 	newVoterAddr := utiltx.GenerateAddress()
 	const proposalID uint64 = 1
 	const option uint8 = 1
@@ -26,30 +21,19 @@ func (s *PrecompileTestSuite) TestVote() {
 
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *gov.VoteCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func() {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
 			"fail - invalid voter address",
-			func() []interface{} {
-				return []interface{}{
-					"",
-					proposalID,
-					option,
-					metadata,
+			func() *gov.VoteCall {
+				return &gov.VoteCall{
+					ProposalId: proposalID,
+					Option:     option,
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -59,12 +43,11 @@ func (s *PrecompileTestSuite) TestVote() {
 		},
 		{
 			"fail - invalid voter address",
-			func() []interface{} {
-				return []interface{}{
-					common.Address{},
-					proposalID,
-					option,
-					metadata,
+			func() *gov.VoteCall {
+				return &gov.VoteCall{
+					ProposalId: proposalID,
+					Option:     option,
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -74,12 +57,12 @@ func (s *PrecompileTestSuite) TestVote() {
 		},
 		{
 			"fail - using a different voter address",
-			func() []interface{} {
-				return []interface{}{
-					newVoterAddr,
-					proposalID,
-					option,
-					metadata,
+			func() *gov.VoteCall {
+				return &gov.VoteCall{
+					Voter:      newVoterAddr,
+					ProposalId: proposalID,
+					Option:     option,
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -89,12 +72,12 @@ func (s *PrecompileTestSuite) TestVote() {
 		},
 		{
 			"fail - invalid vote option",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					proposalID,
-					option + 10,
-					metadata,
+			func() *gov.VoteCall {
+				return &gov.VoteCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Option:     option + 10,
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -104,12 +87,12 @@ func (s *PrecompileTestSuite) TestVote() {
 		},
 		{
 			"success - vote proposal success",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					proposalID,
-					option,
-					metadata,
+			func() *gov.VoteCall {
+				return &gov.VoteCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Option:     option,
+					Metadata:   metadata,
 				}
 			},
 			func() {
@@ -132,7 +115,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.Vote(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.Vote(ctx, tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -146,37 +129,25 @@ func (s *PrecompileTestSuite) TestVote() {
 
 func (s *PrecompileTestSuite) TestVoteWeighted() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[gov.VoteWeightedMethod]
 	newVoterAddr := utiltx.GenerateAddress()
 	const proposalID uint64 = 1
 	const metadata = "metadata"
 
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *gov.VoteWeightedCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func() {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
 			"fail - invalid voter address",
-			func() []interface{} {
-				return []interface{}{
-					"",
-					proposalID,
-					[]gov.WeightedVoteOption{},
-					metadata,
+			func() *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					ProposalId: proposalID,
+					Options:    []gov.WeightedVoteOption{},
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -186,12 +157,12 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 		},
 		{
 			"fail - using a different voter address",
-			func() []interface{} {
-				return []interface{}{
-					newVoterAddr,
-					proposalID,
-					[]gov.WeightedVoteOption{},
-					metadata,
+			func() *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					Voter:      newVoterAddr,
+					ProposalId: proposalID,
+					Options:    []gov.WeightedVoteOption{},
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -201,12 +172,12 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 		},
 		{
 			"fail - invalid vote option",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					proposalID,
-					[]gov.WeightedVoteOption{{Option: 10, Weight: "1.0"}},
-					metadata,
+			func() *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Options:    []gov.WeightedVoteOption{{Option: 10, Weight: "1.0"}},
+					Metadata:   metadata,
 				}
 			},
 			func() {},
@@ -216,15 +187,15 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 		},
 		{
 			"fail - invalid weight sum",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					proposalID,
-					[]gov.WeightedVoteOption{
+			func() *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Options: []gov.WeightedVoteOption{
 						{Option: 1, Weight: "0.5"},
 						{Option: 2, Weight: "0.6"},
 					},
-					metadata,
+					Metadata: metadata,
 				}
 			},
 			func() {},
@@ -234,15 +205,15 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 		},
 		{
 			"success - vote weighted proposal",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					proposalID,
-					[]gov.WeightedVoteOption{
+			func() *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Options: []gov.WeightedVoteOption{
 						{Option: 1, Weight: "0.7"},
 						{Option: 2, Weight: "0.3"},
 					},
-					metadata,
+					Metadata: metadata,
 				}
 			},
 			func() {
@@ -266,7 +237,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.VoteWeighted(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.VoteWeighted(ctx, tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

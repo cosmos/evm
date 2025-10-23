@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
@@ -54,7 +55,7 @@ type TxFactory interface {
 	// If the txArgs are not provided, they will be populated with default values or gas estimations.
 	ExecuteEthTx(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs) (abcitypes.ExecTxResult, error)
 	// ExecuteContractCall executes a contract call with the provided private key
-	ExecuteContractCall(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs) (abcitypes.ExecTxResult, error)
+	ExecuteContractCall(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs abi.Method) (abcitypes.ExecTxResult, error)
 	// DeployContract deploys a contract with the provided private key,
 	// compiled contract data and constructor arguments
 	DeployContract(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, deploymentData types.ContractDeploymentData) (common.Address, error)
@@ -63,9 +64,9 @@ type TxFactory interface {
 	//
 	// It returns the Cosmos Tx response, the decoded Ethereum Tx response and an error. This error value
 	// is nil, if the expected logs are found and the VM error is the expected one, should one be expected.
-	CallContractAndCheckLogs(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, logCheckArgs testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error)
+	CallContractAndCheckLogs(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs abi.Method, logCheckArgs testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error)
 	// QueryContract executes a read-only contract call via eth_call.
-	QueryContract(txArgs evmtypes.EvmTxArgs, callArgs types.CallArgs, gasCap uint64) (*evmtypes.MsgEthereumTxResponse, error)
+	QueryContract(txArgs evmtypes.EvmTxArgs, callArgs abi.Method, gasCap uint64) (*evmtypes.MsgEthereumTxResponse, error)
 	// GenerateDeployContractArgs generates the txArgs for a contract deployment.
 	GenerateDeployContractArgs(from common.Address, txArgs evmtypes.EvmTxArgs, deploymentData types.ContractDeploymentData) (evmtypes.EvmTxArgs, error)
 	// GenerateMsgEthereumTx creates a new MsgEthereumTx with the provided arguments.

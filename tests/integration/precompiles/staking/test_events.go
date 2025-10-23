@@ -23,37 +23,36 @@ func (s *PrecompileTestSuite) TestCreateValidatorEvent() {
 		stDB            *statedb.StateDB
 		ctx             sdk.Context
 		delegationValue = big.NewInt(1205000000000000000)
-		method          = s.precompile.Methods[staking.CreateValidatorMethod]
 		pubkey          = "nfJ0axJC9dhta1MAE1EBFaVdxxkYzxYrBaHuJVjG//M="
 	)
 
 	testCases := []struct {
 		name        string
-		malleate    func(delegator common.Address) []interface{}
+		malleate    func(delegator common.Address) *staking.CreateValidatorCall
 		expErr      bool
 		errContains string
 		postCheck   func(delegator common.Address)
 	}{
 		{
 			name: "success - the correct event is emitted",
-			malleate: func(delegator common.Address) []interface{} {
-				return []interface{}{
-					staking.Description{
+			malleate: func(delegator common.Address) *staking.CreateValidatorCall {
+				return &staking.CreateValidatorCall{
+					Description: staking.Description{
 						Moniker:         "node0",
 						Identity:        "",
 						Website:         "",
 						SecurityContact: "",
 						Details:         "",
 					},
-					staking.Commission{
+					CommissionRates: staking.CommissionRates{
 						Rate:          math.LegacyOneDec().BigInt(),
 						MaxRate:       math.LegacyOneDec().BigInt(),
 						MaxChangeRate: math.LegacyOneDec().BigInt(),
 					},
-					big.NewInt(1),
-					delegator,
-					pubkey,
-					delegationValue,
+					MinSelfDelegation: big.NewInt(1),
+					ValidatorAddress:  delegator,
+					Pubkey:            pubkey,
+					Value:             delegationValue,
 				}
 			},
 			postCheck: func(delegator common.Address) {

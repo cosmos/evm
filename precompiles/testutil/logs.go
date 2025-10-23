@@ -2,10 +2,9 @@ package testutil
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/yihuang/go-abi"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -14,14 +13,7 @@ import (
 
 // CheckLogs checks the logs for the given events and whether the transaction was successful or not.
 func CheckLogs(logArgs LogCheckArgs) error {
-	if len(logArgs.ExpEvents) != 0 && len(logArgs.ABIEvents) == 0 {
-		return fmt.Errorf("no ABI events provided in log check arguments, but expected events are present")
-	}
-
-	expABIEvents, err := validateEvents(logArgs.ABIEvents, logArgs.ExpEvents)
-	if err != nil {
-		return err
-	}
+	expABIEvents := logArgs.ExpEvents
 
 	ethRes, err := evmtypes.DecodeTxResponse(logArgs.Res.Data)
 	if err != nil {
@@ -57,7 +49,7 @@ func CheckLogs(logArgs LogCheckArgs) error {
 
 	expEventIDs := make([]string, 0, len(expABIEvents))
 	for _, event := range expABIEvents {
-		expEventIDs = append(expEventIDs, event.ID.String())
+		expEventIDs = append(expEventIDs, event.GetEventID().String())
 	}
 
 	for _, eventID := range expEventIDs {
@@ -71,30 +63,16 @@ func CheckLogs(logArgs LogCheckArgs) error {
 
 // LogCheckArgs is a struct that contains configuration for the log checking.
 type LogCheckArgs struct {
-	// ABIEvents is a map of available abi.Event corresponding to the corresponding event names,
-	// which are available in the contract ABI.
-	ABIEvents map[string]abi.Event
 	// ErrContains is the error message that is expected to be contained in the transaction response.
 	ErrContains string
 	// ExpEvents are the events which are expected to be emitted.
-	ExpEvents []string
+	ExpEvents []abi.Event
 	// ExpPass is whether the transaction is expected to pass or not.
 	ExpPass bool
 	// Res is the response of the transaction.
 	//
 	// NOTE: This does not have to be set when using contracts.CallContractAndCheckLogs.
 	Res abci.ExecTxResult
-}
-
-// WithABIEvents sets the ABIEvents field of LogCheckArgs.
-func (l LogCheckArgs) WithABIEvents(abiEvents ...map[string]abi.Event) LogCheckArgs {
-	combinedABIEvents := make(map[string]abi.Event)
-	for _, evtMap := range abiEvents {
-		maps.Copy(combinedABIEvents, evtMap)
-	}
-
-	l.ABIEvents = combinedABIEvents
-	return l
 }
 
 // WithErrContains sets the ErrContains field of LogCheckArgs.
@@ -118,7 +96,7 @@ func (l LogCheckArgs) WithErrNested(errContains string, printArgs ...interface{}
 }
 
 // WithExpEvents sets the ExpEvents field of LogCheckArgs.
-func (l LogCheckArgs) WithExpEvents(expEvents ...string) LogCheckArgs {
+func (l LogCheckArgs) WithExpEvents(expEvents ...abi.Event) LogCheckArgs {
 	l.ExpEvents = expEvents
 	return l
 }

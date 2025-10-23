@@ -1,7 +1,6 @@
 package distribution
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -21,62 +20,26 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 
 	delegatorAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	withdrawerBech32 := "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"
-	withdrawerHex := "0xABCDEF1234567890123456789012345678901234"
 
 	expectedDelegatorAddr, err := addrCodec.BytesToString(delegatorAddr.Bytes())
 	require.NoError(t, err)
 
-	expectedWithdrawerFromHex, err := sdk.Bech32ifyAddressBytes(
-		sdk.GetConfig().GetBech32AccountAddrPrefix(),
-		common.HexToAddress(withdrawerHex).Bytes(),
-	)
-	require.NoError(t, err)
-
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           SetWithdrawAddressCall
 		wantErr        bool
-		errMsg         string
 		wantDelegator  string
 		wantWithdrawer string
 	}{
 		{
-			name:           "valid with bech32 withdrawer",
-			args:           []interface{}{delegatorAddr, withdrawerBech32},
+			name: "valid with bech32 withdrawer",
+			args: SetWithdrawAddressCall{
+				DelegatorAddress:  delegatorAddr,
+				WithdrawerAddress: withdrawerBech32,
+			},
 			wantErr:        false,
 			wantDelegator:  expectedDelegatorAddr,
 			wantWithdrawer: withdrawerBech32,
-		},
-		{
-			name:           "valid with hex withdrawer",
-			args:           []interface{}{delegatorAddr, withdrawerHex},
-			wantErr:        false,
-			wantDelegator:  expectedDelegatorAddr,
-			wantWithdrawer: expectedWithdrawerFromHex,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, withdrawerBech32, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", withdrawerBech32},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, withdrawerBech32},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -86,7 +49,6 @@ func TestNewMsgSetWithdrawAddress(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -109,36 +71,20 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          WithdrawDelegatorRewardsCall
 		wantErr       bool
-		errMsg        string
 		wantDelegator string
 		wantValidator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{delegatorAddr, validatorAddr},
+			name: "valid",
+			args: WithdrawDelegatorRewardsCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+			},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
 			wantValidator: validatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -148,7 +94,6 @@ func TestNewMsgWithdrawDelegatorReward(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -172,40 +117,18 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          FundCommunityPoolCall
 		wantErr       bool
-		errMsg        string
 		wantDepositor string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{depositorAddr, validCoins},
+			name: "valid",
+			args: FundCommunityPoolCall{
+				Depositor: depositorAddr,
+				Amount:    validCoins,
+			},
 			wantErr:       false,
 			wantDepositor: expectedDepositorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, "not-an-address"),
-		},
-		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, common.Address{}),
-		},
-		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidAmount, "amount arg"),
 		},
 	}
 
@@ -215,7 +138,6 @@ func TestNewMsgFundCommunityPool(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -239,42 +161,21 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          DepositValidatorRewardsPoolCall
 		wantErr       bool
-		errMsg        string
 		wantDepositor string
 		wantValidator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{depositorAddr, validatorAddr, validCoins},
+			name: "valid",
+			args: DepositValidatorRewardsPoolCall{
+				Depositor:        depositorAddr,
+				ValidatorAddress: validatorAddr,
+				Amount:           validCoins,
+			},
 			wantErr:       false,
 			wantDepositor: expectedDepositorAddr,
 			wantValidator: validatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", validatorAddr, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, "not-an-address"),
-		},
-		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, validatorAddr, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidHexAddress, common.Address{}),
-		},
-		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, validatorAddr, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "invalid-coins"),
 		},
 	}
 
@@ -284,7 +185,6 @@ func TestNewMsgDepositValidatorRewardsPool(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, msg)
 			} else {
 				require.NoError(t, err)
@@ -308,36 +208,20 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          DelegationRewardsCall
 		wantErr       bool
-		errMsg        string
 		wantDelegator string
 		wantValidator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{delegatorAddr, validatorAddr},
+			name: "valid",
+			args: DelegationRewardsCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+			},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
 			wantValidator: validatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -347,7 +231,6 @@ func TestNewDelegationRewardsRequest(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -369,34 +252,17 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          DelegationTotalRewardsCall
 		wantErr       bool
-		errMsg        string
 		wantDelegator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{delegatorAddr},
+			name: "valid",
+			args: DelegationTotalRewardsCall{
+				DelegatorAddress: delegatorAddr,
+			},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -406,7 +272,6 @@ func TestNewDelegationTotalRewardsRequest(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -427,34 +292,17 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          DelegatorValidatorsCall
 		wantErr       bool
-		errMsg        string
 		wantDelegator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{delegatorAddr},
+			name: "valid",
+			args: DelegatorValidatorsCall{
+				DelegatorAddress: delegatorAddr,
+			},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -464,7 +312,6 @@ func TestNewDelegatorValidatorsRequest(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)
@@ -485,34 +332,17 @@ func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		args          []interface{}
+		args          DelegatorWithdrawAddressCall
 		wantErr       bool
-		errMsg        string
 		wantDelegator string
 	}{
 		{
-			name:          "valid",
-			args:          []interface{}{delegatorAddr},
+			name: "valid",
+			args: DelegatorWithdrawAddressCall{
+				DelegatorAddress: delegatorAddr,
+			},
 			wantErr:       false,
 			wantDelegator: expectedDelegatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
 		},
 	}
 
@@ -522,7 +352,6 @@ func TestNewDelegatorWithdrawAddressRequest(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errMsg)
 				require.Nil(t, req)
 			} else {
 				require.NoError(t, err)

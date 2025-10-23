@@ -3,8 +3,6 @@ package slashing
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -23,19 +21,11 @@ const (
 // to unjail themselves after being jailed for downtime.
 func (p Precompile) Unjail(
 	ctx sdk.Context,
-	method *abi.Method,
+	args *UnjailCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
-	}
-
-	validatorAddress, ok := args[0].(common.Address)
-	if !ok {
-		return nil, fmt.Errorf("invalid validator hex address")
-	}
+) (*UnjailReturn, error) {
+	validatorAddress := args.ValidatorAddress
 
 	msgSender := contract.Caller()
 	if msgSender != validatorAddress {
@@ -59,5 +49,5 @@ func (p Precompile) Unjail(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &UnjailReturn{Success: true}, nil
 }

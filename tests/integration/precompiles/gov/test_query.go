@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/gov"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -35,12 +33,10 @@ var (
 
 func (s *PrecompileTestSuite) TestGetVotes() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[gov.GetVotesMethod]
-	gas := uint64(200_000)
 	testCases := []struct {
 		name        string
 		malleate    func() []gov.WeightedVote
-		args        []interface{}
+		args        *gov.GetVotesCall
 		expPass     bool
 		errContains string
 		expTotal    uint64
@@ -75,25 +71,20 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					},
 				}}
 			},
-			args:     []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:     &gov.GetVotesCall{ProposalId: uint64(1), Pagination: cmn.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:  true,
 			expTotal: 1,
 		},
 		{
 			name:        "invalid proposal ID",
-			args:        []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:        &gov.GetVotesCall{ProposalId: uint64(0), Pagination: cmn.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:     false,
 			errContains: "proposal id can not be 0",
 		},
 		{
 			name:        "fail - invalid number of args",
-			args:        []interface{}{},
+			args:        &gov.GetVotesCall{},
 			errContains: fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:        "fail - invalid arg types",
-			args:        []interface{}{"string argument 1", 2},
-			errContains: "error while unpacking args to VotesInput",
 		},
 		{
 			name: "fail - internal error from response",
@@ -123,7 +114,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					},
 				}}
 			},
-			args:        []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:        &gov.GetVotesCall{ProposalId: uint64(1), Pagination: cmn.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:     false,
 			errContains: "empty address string is not allowed",
 		},
@@ -139,14 +130,9 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 				votes = tc.malleate()
 			}
 
-			var contract *vm.Contract
-			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), gas)
-
-			bz, err := s.precompile.GetVotes(ctx, &method, contract, tc.args)
+			out, err := s.precompile.GetVotes(ctx, tc.args)
 
 			if tc.expPass {
-				var out gov.VotesOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetVotesMethod, bz)
 				s.Require().NoError(err)
 				s.Require().Equal(votes, out.Votes)
 				s.Require().Equal(tc.expTotal, out.PageResponse.Total)
@@ -162,11 +148,9 @@ func (s *PrecompileTestSuite) TestGetVote() {
 	var voter sdk.AccAddress
 	var voterAddr common.Address
 
-	method := s.precompile.Methods[gov.GetVoteMethod]
-
 	testCases := []struct {
 		name          string
-		malleate      func() []interface{}
+		malleate      func() *gov.GetVoteCall
 		expPass       bool
 		expPropNumber uint64
 		expVoter      common.Address
@@ -174,11 +158,11 @@ func (s *PrecompileTestSuite) TestGetVote() {
 	}{
 		{
 			name: "valid query",
-			malleate: func() []interface{} {
+			malleate: func() *gov.GetVoteCall {
 				err := s.network.App.GetGovKeeper().AddVote(s.network.GetContext(), 1, voter, []*govv1.WeightedVoteOption{{Option: govv1.OptionYes, Weight: "1.0"}}, "")
 				s.Require().NoError(err)
 
-				return []interface{}{uint64(1), voterAddr}
+				return &gov.GetVoteCall{ProposalId: 1, Voter: voterAddr}
 			},
 			expPropNumber: uint64(1),
 			expVoter:      common.BytesToAddress(voter.Bytes()),
@@ -187,42 +171,28 @@ func (s *PrecompileTestSuite) TestGetVote() {
 		{
 			name:    "invalid proposal ID",
 			expPass: false,
-			malleate: func() []interface{} {
+			malleate: func() *gov.GetVoteCall {
 				err := s.network.App.GetGovKeeper().AddVote(s.network.GetContext(), 1, voter, []*govv1.WeightedVoteOption{{Option: govv1.OptionYes, Weight: "1.0"}}, "")
 				s.Require().NoError(err)
 
-				return []interface{}{uint64(10), voterAddr}
+				return &gov.GetVoteCall{ProposalId: 10, Voter: voterAddr}
 			},
 			errContains: "not found for proposal",
 		},
 		{
 			name: "non-existent vote",
-			malleate: func() []interface{} {
-				return []interface{}{uint64(1), voterAddr}
+			malleate: func() *gov.GetVoteCall {
+				return &gov.GetVoteCall{ProposalId: 1, Voter: voterAddr}
 			},
 			expPass:     false,
 			errContains: "not found for proposal",
 		},
 		{
 			name: "invalid number of args",
-			malleate: func() []interface{} {
-				return []interface{}{}
+			malleate: func() *gov.GetVoteCall {
+				return &gov.GetVoteCall{}
 			},
 			errContains: fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name: "fail - invalid proposal id",
-			malleate: func() []interface{} {
-				return []interface{}{"string argument 1", 2}
-			},
-			errContains: "invalid proposal id",
-		},
-		{
-			name: "fail - invalid voter address",
-			malleate: func() []interface{} {
-				return []interface{}{uint64(0), 2}
-			},
-			errContains: "invalid voter address",
 		},
 	}
 
@@ -234,14 +204,14 @@ func (s *PrecompileTestSuite) TestGetVote() {
 			voterAddr = s.keyring.GetAddr(0)
 			gas := uint64(200_000)
 
-			var args []interface{}
+			var args gov.GetVoteCall
 			if tc.malleate != nil {
-				args = tc.malleate()
+				args = *tc.malleate()
 			}
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), voterAddr, s.precompile.Address(), gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), voterAddr, s.precompile.Address(), gas)
 
-			bz, err := s.precompile.GetVote(ctx, &method, contract, args)
+			out, err := s.precompile.GetVote(ctx, &args)
 
 			expVote := gov.WeightedVote{
 				ProposalId: tc.expPropNumber,
@@ -252,9 +222,6 @@ func (s *PrecompileTestSuite) TestGetVote() {
 
 			if tc.expPass {
 				s.Require().NoError(err)
-
-				var out gov.VoteOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetVoteMethod, bz)
 
 				s.Require().NoError(err)
 				s.Require().Equal(expVote.ProposalId, out.Vote.ProposalId)
@@ -271,7 +238,6 @@ func (s *PrecompileTestSuite) TestGetVote() {
 
 func (s *PrecompileTestSuite) TestGetDeposit() {
 	var depositor sdk.AccAddress
-	method := s.precompile.Methods[gov.GetDepositMethod]
 	testCases := []struct {
 		name          string
 		malleate      func()
@@ -307,16 +273,15 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 
 			tc.malleate()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			args := []interface{}{tc.propNumber, common.BytesToAddress(depositor.Bytes())}
-			bz, err := s.precompile.GetDeposit(ctx, &method, contract, args)
+			args := &gov.GetDepositCall{
+				ProposalId: tc.propNumber,
+				Depositor:  common.BytesToAddress(depositor.Bytes()),
+			}
+			out, err := s.precompile.GetDeposit(ctx, args)
 
 			if tc.expPass {
-				s.Require().NoError(err)
-				var out gov.DepositOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetDepositMethod, bz)
-
 				s.Require().NoError(err)
 				s.Require().Equal(tc.expPropNumber, out.Deposit.ProposalId)
 				s.Require().Equal(common.BytesToAddress(depositor.Bytes()), out.Deposit.Depositor)
@@ -330,11 +295,10 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 }
 
 func (s *PrecompileTestSuite) TestGetDeposits() {
-	method := s.precompile.Methods[gov.GetDepositsMethod]
 	testCases := []struct {
 		name     string
 		malleate func() []gov.DepositData
-		args     []interface{}
+		args     *gov.GetDepositsCall
 		expPass  bool
 		expTotal uint64
 		gas      uint64
@@ -346,14 +310,14 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 					{ProposalId: 1, Depositor: s.keyring.GetAddr(0), Amount: []cmn.Coin{{Denom: s.network.GetBaseDenom(), Amount: big.NewInt(100)}}},
 				}
 			},
-			args:     []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:     &gov.GetDepositsCall{ProposalId: 1, Pagination: cmn.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:  true,
 			expTotal: 1,
 			gas:      200_000,
 		},
 		{
 			name:    "invalid proposal ID",
-			args:    []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:    &gov.GetDepositsCall{ProposalId: 0, Pagination: cmn.PageRequest{Limit: 10, CountTotal: true}},
 			expPass: false,
 			gas:     200_000,
 			malleate: func() []gov.DepositData {
@@ -368,12 +332,9 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 			ctx := s.network.GetContext()
 
 			deposits := tc.malleate()
-			contract, ctx := testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.GetDeposits(ctx, &method, contract, tc.args)
+			out, err := s.precompile.GetDeposits(ctx, tc.args)
 			if tc.expPass {
-				var out gov.DepositsOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetDepositsMethod, bz)
 				s.Require().NoError(err)
 				s.Require().Equal(deposits, out.Deposits)
 				s.Require().Equal(tc.expTotal, out.PageResponse.Total)
@@ -385,7 +346,6 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 }
 
 func (s *PrecompileTestSuite) TestGetTallyResult() {
-	method := s.precompile.Methods[gov.GetTallyResultMethod]
 	testCases := []struct {
 		name        string
 		malleate    func() (gov.TallyResultData, uint64)
@@ -428,16 +388,14 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 
 			expTally, propID := tc.malleate()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			args := []interface{}{propID}
-			bz, err := s.precompile.GetTallyResult(ctx, &method, contract, args)
+			args := &gov.GetTallyResultCall{
+				ProposalId: propID,
+			}
+			out, err := s.precompile.GetTallyResult(ctx, args)
 
 			if tc.expPass {
-				s.Require().NoError(err)
-				var out gov.TallyResultOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetTallyResultMethod, bz)
-
 				s.Require().NoError(err)
 				s.Require().Equal(expTally, out.TallyResult)
 			} else {
@@ -449,30 +407,18 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 }
 
 func (s *PrecompileTestSuite) TestGetProposal() {
-	method := s.precompile.Methods[gov.GetProposalMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *gov.GetProposalCall
 		postCheck   func(data *gov.ProposalData)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func(_ *gov.ProposalData) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
 			"fail - invalid proposal ID",
-			func() []interface{} {
-				return []interface{}{uint64(0)}
+			func() *gov.GetProposalCall {
+				return &gov.GetProposalCall{ProposalId: uint64(0)}
 			},
 			func(_ *gov.ProposalData) {},
 			200000,
@@ -481,8 +427,8 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 		},
 		{
 			"fail - proposal doesn't exist",
-			func() []interface{} {
-				return []interface{}{uint64(10)}
+			func() *gov.GetProposalCall {
+				return &gov.GetProposalCall{ProposalId: uint64(10)}
 			},
 			func(_ *gov.ProposalData) {},
 			200000,
@@ -491,8 +437,8 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 		},
 		{
 			"success - get proposal",
-			func() []interface{} {
-				return []interface{}{uint64(1)}
+			func() *gov.GetProposalCall {
+				return &gov.GetProposalCall{ProposalId: uint64(1)}
 			},
 			func(data *gov.ProposalData) {
 				s.Require().Equal(uint64(1), data.Id)
@@ -514,17 +460,14 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.GetProposal(ctx, &method, contract, tc.malleate())
+			out, err := s.precompile.GetProposal(ctx, tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
-				s.Require().NoError(err)
-				var out gov.ProposalOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetProposalMethod, bz)
 				s.Require().NoError(err)
 				tc.postCheck(&out.Proposal)
 			}
@@ -533,40 +476,26 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 }
 
 func (s *PrecompileTestSuite) TestGetProposals() {
-	method := s.precompile.Methods[gov.GetProposalsMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []gov.ProposalData, pageRes *query.PageResponse)
+		malleate    func() *gov.GetProposalsCall
+		postCheck   func(data []gov.ProposalData, pageRes *cmn.PageResponse)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func(_ []gov.ProposalData, _ *query.PageResponse) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
 			"success - get all proposals",
-			func() []interface{} {
-				return []interface{}{
-					uint32(govv1.StatusNil),
-					common.Address{},
-					common.Address{},
-					query.PageRequest{
+			func() *gov.GetProposalsCall {
+				return &gov.GetProposalsCall{
+					ProposalStatus: uint32(govv1.StatusNil),
+					Pagination: cmn.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *cmn.PageResponse) {
 				s.Require().Len(data, 2)
 				s.Require().Equal(uint64(2), pageRes.Total)
 
@@ -586,18 +515,16 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 		},
 		{
 			"success - filter by status",
-			func() []interface{} {
-				return []interface{}{
-					uint32(govv1.StatusVotingPeriod),
-					common.Address{},
-					common.Address{},
-					query.PageRequest{
+			func() *gov.GetProposalsCall {
+				return &gov.GetProposalsCall{
+					ProposalStatus: uint32(govv1.StatusVotingPeriod),
+					Pagination: cmn.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *cmn.PageResponse) {
 				s.Require().Len(data, 2)
 				s.Require().Equal(uint64(2), pageRes.Total)
 				s.Require().Equal(uint32(govv1.StatusVotingPeriod), data[0].Status)
@@ -609,22 +536,21 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 		},
 		{
 			"success - filter by voter",
-			func() []interface{} {
+			func() *gov.GetProposalsCall {
 				// First add a vote
 				err := s.network.App.GetGovKeeper().AddVote(s.network.GetContext(), 1, s.keyring.GetAccAddr(0), govv1.NewNonSplitVoteOption(govv1.OptionYes), "")
 				s.Require().NoError(err)
 
-				return []interface{}{
-					uint32(govv1.StatusVotingPeriod),
-					s.keyring.GetAddr(0),
-					common.Address{},
-					query.PageRequest{
+				return &gov.GetProposalsCall{
+					ProposalStatus: uint32(govv1.StatusVotingPeriod),
+					Voter:          s.keyring.GetAddr(0),
+					Pagination: cmn.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *cmn.PageResponse) {
 				s.Require().Len(data, 1)
 				s.Require().Equal(uint64(1), pageRes.Total)
 			},
@@ -634,18 +560,17 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 		},
 		{
 			"success - filter by depositor",
-			func() []interface{} {
-				return []interface{}{
-					uint32(govv1.StatusVotingPeriod),
-					common.Address{},
-					s.keyring.GetAddr(0),
-					query.PageRequest{
+			func() *gov.GetProposalsCall {
+				return &gov.GetProposalsCall{
+					ProposalStatus: uint32(govv1.StatusVotingPeriod),
+					Depositor:      s.keyring.GetAddr(0),
+					Pagination: cmn.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *cmn.PageResponse) {
 				s.Require().Len(data, 1)
 				s.Require().Equal(uint64(1), pageRes.Total)
 			},
@@ -659,17 +584,14 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
+			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.GetProposals(ctx, &method, contract, tc.malleate())
+			out, err := s.precompile.GetProposals(ctx, tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
-				s.Require().NoError(err)
-				var out gov.ProposalsOutput
-				err = s.precompile.UnpackIntoInterface(&out, gov.GetProposalsMethod, bz)
 				s.Require().NoError(err)
 				tc.postCheck(out.Proposals, &out.PageResponse)
 			}
@@ -680,22 +602,14 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 func (s *PrecompileTestSuite) TestGetParams() {
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *gov.GetParamsCall
 		expPass     bool
 		errContains string
 	}{
 		{
-			"fail - not empty input args",
-			func() []interface{} {
-				return []interface{}{""}
-			},
-			false,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
-		},
-		{
 			"success - get all params",
-			func() []interface{} {
-				return []interface{}{}
+			func() *gov.GetParamsCall {
+				return &gov.GetParamsCall{}
 			},
 			true,
 			"",
@@ -706,8 +620,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			method := s.precompile.Methods[gov.GetParamsMethod]
-			_, err := s.precompile.GetParams(s.network.GetContext(), &method, nil, tc.malleate())
+			_, err := s.precompile.GetParams(s.network.GetContext(), tc.malleate())
 
 			if tc.expPass {
 				s.Require().NoError(err)

@@ -1,14 +1,11 @@
 package ics20
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	_ "embed"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -18,28 +15,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output ics20.abi.go -external-tuples PageRequest=cmn.PageRequest,PageResponse=cmn.PageResponse,Height=cmn.Height -imports cmn=github.com/cosmos/evm/precompiles/common
+
 var _ vm.PrecompiledContract = &Precompile{}
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
 	bankKeeper     cmn.BankKeeper
 	stakingKeeper  cmn.StakingKeeper
 	transferKeeper cmn.TransferKeeper
@@ -61,7 +43,6 @@ func NewPrecompile(
 			ContractAddress:       common.HexToAddress(evmtypes.ICS20PrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		ABI:            ABI,
 		bankKeeper:     bankKeeper,
 		transferKeeper: transferKeeper,
 		channelKeeper:  channelKeeper,
@@ -76,15 +57,9 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return 0
 	}
 
-	methodID := input[:4]
+	methodID := binary.BigEndian.Uint32(input[:4])
 
-	method, err := p.MethodById(methodID)
-	if err != nil {
-		// This should never happen since this method is going to fail during Run
-		return 0
-	}
-
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -94,38 +69,38 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
 	var bz []byte
 
-	switch method.Name {
+	switch methodID {
 	// ICS20 transactions
-	case TransferMethod:
-		bz, err = p.Transfer(ctx, contract, stateDB, method, args)
+	case TransferID:
+		bz, err = p.Transfer(ctx, contract, stateDB, input)
 	// ICS20 queries
-	case DenomMethod:
-		bz, err = p.Denom(ctx, contract, method, args)
-	case DenomsMethod:
-		bz, err = p.Denoms(ctx, contract, method, args)
-	case DenomHashMethod:
-		bz, err = p.DenomHash(ctx, contract, method, args)
+	case DenomID:
+		bz, err = p.Denom(ctx, contract, input)
+	case DenomsID:
+		bz, err = p.Denoms(ctx, contract, input)
+	case DenomHashID:
+		bz, err = p.DenomHash(ctx, contract, input)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf("unknown method: %d", methodID)
 	}
 
 	return bz, err
 }
 
-// IsTransaction checks if the given method name corresponds to a transaction or query.
+// IsTransaction checks if the given method ID corresponds to a transaction or query.
 //
 // Available ics20 transactions are:
 //   - Transfer
-func (Precompile) IsTransaction(method *abi.Method) bool {
-	switch method.Name {
-	case TransferMethod:
+func (Precompile) IsTransaction(methodID uint32) bool {
+	switch methodID {
+	case TransferID:
 		return true
 	default:
 		return false

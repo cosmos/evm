@@ -1,10 +1,9 @@
 package gov
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -21,29 +20,14 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
+//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output gov.abi.go -external-tuples Coin=cmn.Coin,Dec=cmn.Dec,DecCoin=cmn.DecCoin,PageRequest=cmn.PageRequest,PageResponse=cmn.PageResponse -imports cmn=github.com/cosmos/evm/precompiles/common
+
 var _ vm.PrecompiledContract = &Precompile{}
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // Precompile defines the precompiled contract for gov.
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
 	govMsgServer govtypes.MsgServer
 	govQuerier   govtypes.QueryServer
 	codec        codec.Codec
@@ -66,7 +50,6 @@ func NewPrecompile(
 			ContractAddress:       common.HexToAddress(evmtypes.GovPrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		ABI:          ABI,
 		govMsgServer: govMsgServer,
 		govQuerier:   govQuerier,
 		codec:        codec,
@@ -80,15 +63,9 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	if len(input) < 4 {
 		return 0
 	}
-	methodID := input[:4]
+	methodID := binary.BigEndian.Uint32(input[:4])
 
-	method, err := p.MethodById(methodID)
-	if err != nil {
-		// This should never happen since this method is going to fail during Run
-		return 0
-	}
-
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -98,57 +75,53 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	var bz []byte
-
-	switch method.Name {
+	switch methodID {
 	// gov transactions
-	case VoteMethod:
-		bz, err = p.Vote(ctx, contract, stateDB, method, args)
-	case VoteWeightedMethod:
-		bz, err = p.VoteWeighted(ctx, contract, stateDB, method, args)
-	case SubmitProposalMethod:
-		bz, err = p.SubmitProposal(ctx, contract, stateDB, method, args)
-	case DepositMethod:
-		bz, err = p.Deposit(ctx, contract, stateDB, method, args)
-	case CancelProposalMethod:
-		bz, err = p.CancelProposal(ctx, contract, stateDB, method, args)
+	case VoteID:
+		return cmn.RunWithStateDB(ctx, p.Vote, input, stateDB, contract)
+	case VoteWeightedID:
+		return cmn.RunWithStateDB(ctx, p.VoteWeighted, input, stateDB, contract)
+	case SubmitProposalID:
+		return cmn.RunWithStateDB(ctx, p.SubmitProposal, input, stateDB, contract)
+	case DepositID:
+		return cmn.RunWithStateDB(ctx, p.Deposit, input, stateDB, contract)
+	case CancelProposalID:
+		return cmn.RunWithStateDB(ctx, p.CancelProposal, input, stateDB, contract)
 
 	// gov queries
-	case GetVoteMethod:
-		bz, err = p.GetVote(ctx, method, contract, args)
-	case GetVotesMethod:
-		bz, err = p.GetVotes(ctx, method, contract, args)
-	case GetDepositMethod:
-		bz, err = p.GetDeposit(ctx, method, contract, args)
-	case GetDepositsMethod:
-		bz, err = p.GetDeposits(ctx, method, contract, args)
-	case GetTallyResultMethod:
-		bz, err = p.GetTallyResult(ctx, method, contract, args)
-	case GetProposalMethod:
-		bz, err = p.GetProposal(ctx, method, contract, args)
-	case GetProposalsMethod:
-		bz, err = p.GetProposals(ctx, method, contract, args)
-	case GetParamsMethod:
-		bz, err = p.GetParams(ctx, method, contract, args)
-	case GetConstitutionMethod:
-		bz, err = p.GetConstitution(ctx, method, contract, args)
+	case GetVoteID:
+		return cmn.Run(ctx, p.GetVote, input)
+	case GetVotesID:
+		return cmn.Run(ctx, p.GetVotes, input)
+	case GetDepositID:
+		return cmn.Run(ctx, p.GetDeposit, input)
+	case GetDepositsID:
+		return cmn.Run(ctx, p.GetDeposits, input)
+	case GetTallyResultID:
+		return cmn.Run(ctx, p.GetTallyResult, input)
+	case GetProposalID:
+		return cmn.Run(ctx, p.GetProposal, input)
+	case GetProposalsID:
+		return cmn.Run(ctx, p.GetProposals, input)
+	case GetParamsID:
+		return cmn.Run(ctx, p.GetParams, input)
+	case GetConstitutionID:
+		return cmn.Run(ctx, p.GetConstitution, input)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}
-
-	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
-func (Precompile) IsTransaction(method *abi.Method) bool {
-	switch method.Name {
-	case VoteMethod, VoteWeightedMethod,
-		SubmitProposalMethod, DepositMethod, CancelProposalMethod:
+func (Precompile) IsTransaction(methodID uint32) bool {
+	switch methodID {
+	case VoteID, VoteWeightedID,
+		SubmitProposalID, DepositID, CancelProposalID:
 		return true
 	default:
 		return false

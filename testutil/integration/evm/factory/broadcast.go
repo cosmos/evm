@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/yihuang/go-abi"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
@@ -46,7 +47,7 @@ func (tf *IntegrationTxFactory) ExecuteEthTx(
 }
 
 // ExecuteContractCall executes a contract call with the provided private key.
-func (tf *IntegrationTxFactory) ExecuteContractCall(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs testutiltypes.CallArgs) (abcitypes.ExecTxResult, error) {
+func (tf *IntegrationTxFactory) ExecuteContractCall(privKey cryptotypes.PrivKey, txArgs evmtypes.EvmTxArgs, callArgs abi.Method) (abcitypes.ExecTxResult, error) {
 	input, err := GenerateContractCallArgs(callArgs)
 	if err != nil {
 		return abcitypes.ExecTxResult{}, errorsmod.Wrap(err, "failed to generate contract call args")
@@ -85,7 +86,7 @@ func (tf *IntegrationTxFactory) DeployContract(
 func (tf *IntegrationTxFactory) CallContractAndCheckLogs(
 	priv cryptotypes.PrivKey,
 	txArgs evmtypes.EvmTxArgs,
-	callArgs testutiltypes.CallArgs,
+	callArgs abi.Method,
 	logCheckArgs testutil.LogCheckArgs,
 ) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
 	res, err := tf.ExecuteContractCall(priv, txArgs, callArgs)
@@ -107,7 +108,7 @@ func (tf *IntegrationTxFactory) CallContractAndCheckLogs(
 // QueryContract executes a read-only contract call using eth_call without affecting account nonces.
 func (tf *IntegrationTxFactory) QueryContract(
 	txArgs evmtypes.EvmTxArgs,
-	callArgs testutiltypes.CallArgs,
+	callArgs abi.Method,
 	gasCap uint64,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	input, err := GenerateContractCallArgs(callArgs)

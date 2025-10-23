@@ -4,19 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/core/address"
-	sdkerrors "cosmossdk.io/errors"
 
+	sdkerrors "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
@@ -34,113 +32,29 @@ type EventVoteWeighted struct {
 	Options    WeightedVoteOptions
 }
 
-// VotesInput defines the input for the Votes query.
-type VotesInput struct {
-	ProposalId uint64 //nolint:revive
-	Pagination query.PageRequest
-}
-
-// VotesOutput defines the output for the Votes query.
-type VotesOutput struct {
-	Votes        []WeightedVote
-	PageResponse query.PageResponse
-}
-
-// VoteOutput is the output response returned by the vote query method.
-type VoteOutput struct {
-	Vote WeightedVote
-}
-
-// WeightedVote defines a struct of vote for vote split.
-type WeightedVote struct {
-	ProposalId uint64 //nolint:revive
-	Voter      common.Address
-	Options    []WeightedVoteOption
-	Metadata   string
-}
-
-// WeightedVoteOption defines a unit of vote for vote split.
-type WeightedVoteOption struct {
-	Option uint8
-	Weight string
-}
-
 // WeightedVoteOptions defines a slice of WeightedVoteOption.
 type WeightedVoteOptions []WeightedVoteOption
 
-// DepositInput defines the input for the Deposit query.
-type DepositInput struct {
-	ProposalId uint64 //nolint:revive
-	Depositor  common.Address
-}
-
-// DepositOutput defines the output for the Deposit query.
-type DepositOutput struct {
-	Deposit DepositData
-}
-
-// DepositsInput defines the input for the Deposits query.
-type DepositsInput struct {
-	ProposalId uint64 //nolint:revive
-	Pagination query.PageRequest
-}
-
-// DepositsOutput defines the output for the Deposits query.
-type DepositsOutput struct {
-	Deposits     []DepositData      `abi:"deposits"`
-	PageResponse query.PageResponse `abi:"pageResponse"`
-}
-
-// TallyResultOutput defines the output for the TallyResult query.
-type TallyResultOutput struct {
-	TallyResult TallyResultData
-}
-
-// DepositData represents information about a deposit on a proposal
-type DepositData struct {
-	ProposalId uint64         `abi:"proposalId"` //nolint:revive
-	Depositor  common.Address `abi:"depositor"`
-	Amount     []cmn.Coin     `abi:"amount"`
-}
-
-// TallyResultData represents the tally result of a proposal
-type TallyResultData struct {
-	Yes        string
-	Abstain    string
-	No         string
-	NoWithVeto string
-}
-
 // NewMsgSubmitProposal constructs a MsgSubmitProposal.
-// args: [proposerAddress, jsonBlob, []cmn.CoinInput deposit]
-func NewMsgSubmitProposal(args []interface{}, cdc codec.Codec, addrCdc address.Codec) (*govv1.MsgSubmitProposal, common.Address, error) {
+func NewMsgSubmitProposal(args SubmitProposalCall, cdc codec.Codec, addrCdc address.Codec) (*govv1.MsgSubmitProposal, common.Address, error) {
 	emptyAddr := common.Address{}
 	// -------------------------------------------------------------------------
 	// 1. Argument sanity
 	// -------------------------------------------------------------------------
-	if len(args) != 3 {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
-	}
-
-	proposer, ok := args[0].(common.Address)
-	if !ok || proposer == emptyAddr {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposer, args[0])
+	if args.Proposer == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposer, args.Proposer)
 	}
 
 	// 1-a  JSON blob
-	jsonBlob, ok := args[1].([]byte)
-	if !ok || len(jsonBlob) == 0 {
+	if len(args.JsonProposal) == 0 {
 		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposalJSON, "jsonBlob arg")
 	}
 
 	// 1-b  Deposit
-	coins, err := cmn.ToCoins(args[2])
-	if err != nil {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidDeposits, "deposit arg")
-	}
+	coins := args.Deposit
 
 	// -------------------------------------------------------------------------
-	// 2. Call helper that does JSON→Msg→Any conversion and submits the proposal
+	// 2. Convert coins and build proposal
 	// -------------------------------------------------------------------------
 	amt, err := cmn.NewSdkCoinsFromCoins(coins)
 	if err != nil {
@@ -155,7 +69,7 @@ func NewMsgSubmitProposal(args []interface{}, cdc codec.Codec, addrCdc address.C
 		Summary   string            `json:"summary"`
 		Expedited bool              `json:"expedited"`
 	}
-	if err := json.Unmarshal(jsonBlob, &prop); err != nil {
+	if err := json.Unmarshal(args.JsonProposal, &prop); err != nil {
 		return nil, emptyAddr, sdkerrors.Wrap(err, "invalid proposal JSON")
 	}
 
@@ -178,9 +92,8 @@ func NewMsgSubmitProposal(args []interface{}, cdc codec.Codec, addrCdc address.C
 		}
 		anys[i] = anyVal
 	}
-
-	// 4. Build & dispatch MsgSubmitProposal
-	proposerAddr, err := addrCdc.BytesToString(proposer.Bytes())
+	// 3. Build & dispatch MsgSubmitProposal
+	proposerAddr, err := addrCdc.BytesToString(args.Proposer.Bytes())
 	if err != nil {
 		return nil, common.Address{}, fmt.Errorf("failed to decode proposer address: %w", err)
 	}
@@ -194,191 +107,113 @@ func NewMsgSubmitProposal(args []interface{}, cdc codec.Codec, addrCdc address.C
 		Expedited:      prop.Expedited,
 	}
 
-	return smsg, proposer, nil
+	return smsg, args.Proposer, nil
 }
 
 // NewMsgDeposit constructs a MsgDeposit.
-// args: [depositorAddress, proposalID, []cmn.CoinInput deposit]
-func NewMsgDeposit(args []interface{}, addrCdc address.Codec) (*govv1.MsgDeposit, common.Address, error) {
+func NewMsgDeposit(args DepositCall, addrCdc address.Codec) (*govv1.MsgDeposit, common.Address, error) {
 	emptyAddr := common.Address{}
-	if len(args) != 3 {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 3, len(args))
+	if args.Depositor == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidDepositor, args.Depositor)
 	}
 
-	depositor, ok := args[0].(common.Address)
-	if !ok || depositor == emptyAddr {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidDepositor, args[0])
-	}
-
-	proposalID, ok := args[1].(uint64)
-	if !ok {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposalID, args[1])
-	}
-
-	coins, err := cmn.ToCoins(args[2])
+	amt, err := cmn.NewSdkCoinsFromCoins(args.Amount)
 	if err != nil {
 		return nil, emptyAddr, fmt.Errorf(ErrInvalidDeposits, "deposit arg")
 	}
 
-	amt, err := cmn.NewSdkCoinsFromCoins(coins)
-	if err != nil {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidDeposits, "deposit arg")
-	}
-
-	depositorAddr, err := addrCdc.BytesToString(depositor.Bytes())
+	depositorAddr, err := addrCdc.BytesToString(args.Depositor.Bytes())
 	if err != nil {
 		return nil, common.Address{}, fmt.Errorf("failed to decode depositor address: %w", err)
 	}
 	msg := &govv1.MsgDeposit{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 		Amount:     amt,
 		Depositor:  depositorAddr,
 	}
 
-	return msg, depositor, nil
+	return msg, args.Depositor, nil
 }
 
 // NewMsgCancelProposal constructs a MsgCancelProposal.
-// args: [proposerAddress, proposalID]
-func NewMsgCancelProposal(args []interface{}, addrCdc address.Codec) (*govv1.MsgCancelProposal, common.Address, error) {
+func NewMsgCancelProposal(args CancelProposalCall, addrCdc address.Codec) (*govv1.MsgCancelProposal, common.Address, error) {
 	emptyAddr := common.Address{}
-	if len(args) != 2 {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
+	if args.Proposer == emptyAddr {
+		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposer, args.Proposer)
 	}
 
-	proposer, ok := args[0].(common.Address)
-	if !ok || proposer == emptyAddr {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposer, args[0])
-	}
-
-	proposalID, ok := args[1].(uint64)
-	if !ok {
-		return nil, emptyAddr, fmt.Errorf(ErrInvalidProposalID, args[1])
-	}
-
-	proposerAddr, err := addrCdc.BytesToString(proposer.Bytes())
+	proposerAddr, err := addrCdc.BytesToString(args.Proposer.Bytes())
 	if err != nil {
 		return nil, common.Address{}, fmt.Errorf("failed to decode proposer address: %w", err)
 	}
 	return govv1.NewMsgCancelProposal(
-		proposalID,
+		args.ProposalId,
 		proposerAddr,
-	), proposer, nil
+	), args.Proposer, nil
 }
 
 // NewMsgVote creates a new MsgVote instance.
-func NewMsgVote(args []interface{}, addrCdc address.Codec) (*govv1.MsgVote, common.Address, error) {
-	if len(args) != 4 {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+func NewMsgVote(args VoteCall, addrCdc address.Codec) (*govv1.MsgVote, common.Address, error) {
+	if args.Voter == (common.Address{}) {
+		return nil, common.Address{}, fmt.Errorf(ErrInvalidVoter, args.Voter)
 	}
 
-	voterAddress, ok := args[0].(common.Address)
-	if !ok || voterAddress == (common.Address{}) {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidVoter, args[0])
-	}
-
-	proposalID, ok := args[1].(uint64)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidProposalID, args[1])
-	}
-
-	option, ok := args[2].(uint8)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidOption, args[2])
-	}
-
-	metadata, ok := args[3].(string)
-	if !ok {
-		return nil, common.Address{}, fmt.Errorf(ErrInvalidMetadata, args[3])
-	}
-
-	voterAddr, err := addrCdc.BytesToString(voterAddress.Bytes())
+	voterAddr, err := addrCdc.BytesToString(args.Voter.Bytes())
 	if err != nil {
 		return nil, common.Address{}, fmt.Errorf("failed to decode voter address: %w", err)
 	}
 	msg := &govv1.MsgVote{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 		Voter:      voterAddr,
-		Option:     govv1.VoteOption(option),
-		Metadata:   metadata,
+		Option:     govv1.VoteOption(args.Option),
+		Metadata:   args.Metadata,
 	}
 
-	return msg, voterAddress, nil
+	return msg, args.Voter, nil
 }
 
 // NewMsgVoteWeighted creates a new MsgVoteWeighted instance.
-func NewMsgVoteWeighted(method *abi.Method, args []interface{}, addrCdc address.Codec) (*govv1.MsgVoteWeighted, common.Address, WeightedVoteOptions, error) {
-	if len(args) != 4 {
-		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
+func NewMsgVoteWeighted(args VoteWeightedCall, addrCdc address.Codec) (*govv1.MsgVoteWeighted, common.Address, WeightedVoteOptions, error) {
+	if args.Voter == (common.Address{}) {
+		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf(ErrInvalidVoter, args.Voter)
 	}
 
-	voterAddress, ok := args[0].(common.Address)
-	if !ok || voterAddress == (common.Address{}) {
-		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf(ErrInvalidVoter, args[0])
-	}
-
-	proposalID, ok := args[1].(uint64)
-	if !ok {
-		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf(ErrInvalidProposalID, args[1])
-	}
-
-	// Unpack the input struct
-	var options WeightedVoteOptions
-	arguments := abi.Arguments{method.Inputs[2]}
-	if err := arguments.Copy(&options, []interface{}{args[2]}); err != nil {
-		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf("error while unpacking args to Options struct: %s", err)
-	}
-
-	weightedOptions := make([]*govv1.WeightedVoteOption, len(options))
-	for i, option := range options {
+	weightedOptions := make([]*govv1.WeightedVoteOption, len(args.Options))
+	for i, option := range args.Options {
 		weightedOptions[i] = &govv1.WeightedVoteOption{
 			Option: govv1.VoteOption(option.Option),
 			Weight: option.Weight,
 		}
 	}
 
-	metadata, ok := args[3].(string)
-	if !ok {
-		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf(ErrInvalidMetadata, args[3])
-	}
-
-	voterAddr, err := addrCdc.BytesToString(voterAddress.Bytes())
+	voterAddr, err := addrCdc.BytesToString(args.Voter.Bytes())
 	if err != nil {
 		return nil, common.Address{}, WeightedVoteOptions{}, fmt.Errorf("failed to decode voter address: %w", err)
 	}
 	msg := &govv1.MsgVoteWeighted{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 		Voter:      voterAddr,
 		Options:    weightedOptions,
-		Metadata:   metadata,
+		Metadata:   args.Metadata,
 	}
 
-	return msg, voterAddress, options, nil
+	return msg, args.Voter, args.Options, nil
 }
 
 // ParseVotesArgs parses the arguments for the Votes query.
-func ParseVotesArgs(method *abi.Method, args []interface{}) (*govv1.QueryVotesRequest, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	var input VotesInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to VotesInput: %s", err)
-	}
-
+func ParseVotesArgs(args GetVotesCall) (*govv1.QueryVotesRequest, error) {
 	return &govv1.QueryVotesRequest{
-		ProposalId: input.ProposalId,
-		Pagination: &input.Pagination,
+		ProposalId: args.ProposalId,
+		Pagination: args.Pagination.ToPageRequest(),
 	}, nil
 }
 
-func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) (*VotesOutput, error) {
+func (vo *GetVotesReturn) FromResponse(res *govv1.QueryVotesResponse) error {
 	vo.Votes = make([]WeightedVote, len(res.Votes))
 	for i, v := range res.Votes {
 		hexAddr, err := utils.HexAddressFromBech32String(v.Voter)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		options := make([]WeightedVoteOption, len(v.Options))
 		for j, opt := range v.Options {
@@ -395,44 +230,30 @@ func (vo *VotesOutput) FromResponse(res *govv1.QueryVotesResponse) (*VotesOutput
 		}
 	}
 	if res.Pagination != nil {
-		vo.PageResponse = query.PageResponse{
+		vo.PageResponse = cmn.PageResponse{
 			NextKey: res.Pagination.NextKey,
 			Total:   res.Pagination.Total,
 		}
 	}
-	return vo, nil
+	return nil
 }
 
 // ParseVoteArgs parses the arguments for the Votes query.
-func ParseVoteArgs(args []interface{}, addrCdc address.Codec) (*govv1.QueryVoteRequest, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	proposalID, ok := args[0].(uint64)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidProposalID, args[0])
-	}
-
-	voter, ok := args[1].(common.Address)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidVoter, args[1])
-	}
-
-	voterAddr, err := addrCdc.BytesToString(voter.Bytes())
+func ParseVoteArgs(args GetVoteCall, addrCdc address.Codec) (*govv1.QueryVoteRequest, error) {
+	voterAddr, err := addrCdc.BytesToString(args.Voter.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode voter address: %w", err)
 	}
 	return &govv1.QueryVoteRequest{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 		Voter:      voterAddr,
 	}, nil
 }
 
-func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) (*VoteOutput, error) {
+func (vo *GetVoteReturn) FromResponse(res *govv1.QueryVoteResponse) error {
 	hexVoter, err := utils.HexAddressFromBech32String(res.Vote.Voter)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	vo.Vote.Voter = hexVoter
 	vo.Vote.Metadata = res.Vote.Metadata
@@ -446,72 +267,40 @@ func (vo *VoteOutput) FromResponse(res *govv1.QueryVoteResponse) (*VoteOutput, e
 		}
 	}
 	vo.Vote.Options = options
-	return vo, nil
+	return nil
 }
 
 // ParseDepositArgs parses the arguments for the Deposit query.
-func ParseDepositArgs(args []interface{}, addrCdc address.Codec) (*govv1.QueryDepositRequest, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	proposalID, ok := args[0].(uint64)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidProposalID, args[0])
-	}
-
-	depositor, ok := args[1].(common.Address)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidDepositor, args[1])
-	}
-
-	depositorAddr, err := addrCdc.BytesToString(depositor.Bytes())
+func ParseDepositArgs(args GetDepositCall, addrCdc address.Codec) (*govv1.QueryDepositRequest, error) {
+	depositorAddr, err := addrCdc.BytesToString(args.Depositor.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode depositor address: %w", err)
 	}
 	return &govv1.QueryDepositRequest{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 		Depositor:  depositorAddr,
 	}, nil
 }
 
 // ParseDepositsArgs parses the arguments for the Deposits query.
-func ParseDepositsArgs(method *abi.Method, args []interface{}) (*govv1.QueryDepositsRequest, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	var input DepositsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to DepositsInput: %s", err)
-	}
-
+func ParseDepositsArgs(args GetDepositsCall) (*govv1.QueryDepositsRequest, error) {
 	return &govv1.QueryDepositsRequest{
-		ProposalId: input.ProposalId,
-		Pagination: &input.Pagination,
+		ProposalId: args.ProposalId,
+		Pagination: args.Pagination.ToPageRequest(),
 	}, nil
 }
 
 // ParseTallyResultArgs parses the arguments for the TallyResult query.
-func ParseTallyResultArgs(args []interface{}) (*govv1.QueryTallyResultRequest, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
-	}
-
-	proposalID, ok := args[0].(uint64)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidProposalID, args[0])
-	}
-
+func ParseTallyResultArgs(args GetTallyResultCall) (*govv1.QueryTallyResultRequest, error) {
 	return &govv1.QueryTallyResultRequest{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 	}, nil
 }
 
-func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) (*DepositOutput, error) {
+func (do *GetDepositReturn) FromResponse(res *govv1.QueryDepositResponse) error {
 	hexDepositor, err := utils.HexAddressFromBech32String(res.Deposit.Depositor)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	coins := make([]cmn.Coin, len(res.Deposit.Amount))
 	for i, c := range res.Deposit.Amount {
@@ -525,15 +314,15 @@ func (do *DepositOutput) FromResponse(res *govv1.QueryDepositResponse) (*Deposit
 		Depositor:  hexDepositor,
 		Amount:     coins,
 	}
-	return do, nil
+	return nil
 }
 
-func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) (*DepositsOutput, error) {
+func (do *GetDepositsReturn) FromResponse(res *govv1.QueryDepositsResponse) error {
 	do.Deposits = make([]DepositData, len(res.Deposits))
 	for i, d := range res.Deposits {
 		hexDepositor, err := utils.HexAddressFromBech32String(d.Depositor)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		coins := make([]cmn.Coin, len(d.Amount))
 		for j, c := range d.Amount {
@@ -549,114 +338,59 @@ func (do *DepositsOutput) FromResponse(res *govv1.QueryDepositsResponse) (*Depos
 		}
 	}
 	if res.Pagination != nil {
-		do.PageResponse = query.PageResponse{
+		do.PageResponse = cmn.PageResponse{
 			NextKey: res.Pagination.NextKey,
 			Total:   res.Pagination.Total,
 		}
 	}
-	return do, nil
+	return nil
 }
 
-func (tro *TallyResultOutput) FromResponse(res *govv1.QueryTallyResultResponse) *TallyResultOutput {
+func (tro *GetTallyResultReturn) FromResponse(res *govv1.QueryTallyResultResponse) {
 	tro.TallyResult = TallyResultData{
 		Yes:        res.Tally.YesCount,
 		Abstain:    res.Tally.AbstainCount,
 		No:         res.Tally.NoCount,
 		NoWithVeto: res.Tally.NoWithVetoCount,
 	}
-	return tro
-}
-
-// ProposalOutput defines the output for the Proposal query
-type ProposalOutput struct {
-	Proposal ProposalData
-}
-
-// ProposalsInput defines the input for the Proposals query
-type ProposalsInput struct {
-	ProposalStatus uint32
-	Voter          common.Address
-	Depositor      common.Address
-	Pagination     query.PageRequest
-}
-
-// ProposalsOutput defines the output for the Proposals query
-type ProposalsOutput struct {
-	Proposals    []ProposalData
-	PageResponse query.PageResponse
-}
-
-// ProposalData represents a governance proposal
-type ProposalData struct {
-	Id               uint64          `abi:"id"` //nolint
-	Messages         []string        `abi:"messages"`
-	Status           uint32          `abi:"status"`
-	FinalTallyResult TallyResultData `abi:"finalTallyResult"`
-	SubmitTime       uint64          `abi:"submitTime"`
-	DepositEndTime   uint64          `abi:"depositEndTime"`
-	TotalDeposit     []cmn.Coin      `abi:"totalDeposit"`
-	VotingStartTime  uint64          `abi:"votingStartTime"`
-	VotingEndTime    uint64          `abi:"votingEndTime"`
-	Metadata         string          `abi:"metadata"`
-	Title            string          `abi:"title"`
-	Summary          string          `abi:"summary"`
-	Proposer         common.Address  `abi:"proposer"`
 }
 
 // ParseProposalArgs parses the arguments for the Proposal query
-func ParseProposalArgs(args []interface{}) (*govv1.QueryProposalRequest, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
-	}
-
-	proposalID, ok := args[0].(uint64)
-	if !ok {
-		return nil, fmt.Errorf(ErrInvalidProposalID, args[0])
-	}
-
+func ParseProposalArgs(args GetProposalCall) (*govv1.QueryProposalRequest, error) {
 	return &govv1.QueryProposalRequest{
-		ProposalId: proposalID,
+		ProposalId: args.ProposalId,
 	}, nil
 }
 
 // ParseProposalsArgs parses the arguments for the Proposals query
-func ParseProposalsArgs(method *abi.Method, args []interface{}, addrCdc address.Codec) (*govv1.QueryProposalsRequest, error) {
-	if len(args) != 4 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 4, len(args))
-	}
-
-	var input ProposalsInput
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, fmt.Errorf("error while unpacking args to ProposalsInput: %s", err)
-	}
-
+func ParseProposalsArgs(args GetProposalsCall, addrCdc address.Codec) (*govv1.QueryProposalsRequest, error) {
 	voter := ""
-	if input.Voter != (common.Address{}) {
+	if args.Voter != (common.Address{}) {
 		var err error
-		voter, err = addrCdc.BytesToString(input.Voter.Bytes())
+		voter, err = addrCdc.BytesToString(args.Voter.Bytes())
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode voter address: %w", err)
 		}
 	}
 
 	depositor := ""
-	if input.Depositor != (common.Address{}) {
+	if args.Depositor != (common.Address{}) {
 		var err error
-		depositor, err = addrCdc.BytesToString(input.Depositor.Bytes())
+		depositor, err = addrCdc.BytesToString(args.Depositor.Bytes())
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode depositor address: %w", err)
 		}
 	}
 
 	return &govv1.QueryProposalsRequest{
-		ProposalStatus: govv1.ProposalStatus(input.ProposalStatus), //nolint:gosec // G115
+		ProposalStatus: govv1.ProposalStatus(args.ProposalStatus), //nolint:gosec // G115
 		Voter:          voter,
 		Depositor:      depositor,
-		Pagination:     &input.Pagination,
+		Pagination:     args.Pagination.ToPageRequest(),
 	}, nil
 }
 
-func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*ProposalOutput, error) {
+func (po *GetProposalReturn) FromResponse(res *govv1.QueryProposalResponse) error {
 	msgs := make([]string, len(res.Proposal.Messages))
 	for i, msg := range res.Proposal.Messages {
 		msgs[i] = msg.TypeUrl
@@ -672,7 +406,7 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*Propo
 
 	proposer, err := utils.HexAddressFromBech32String(res.Proposal.Proposer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	po.Proposal = ProposalData{
@@ -700,10 +434,10 @@ func (po *ProposalOutput) FromResponse(res *govv1.QueryProposalResponse) (*Propo
 	if res.Proposal.VotingEndTime != nil {
 		po.Proposal.VotingEndTime = uint64(res.Proposal.VotingEndTime.Unix()) //nolint:gosec // G115
 	}
-	return po, nil
+	return nil
 }
 
-func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*ProposalsOutput, error) {
+func (po *GetProposalsReturn) FromResponse(res *govv1.QueryProposalsResponse) (*GetProposalsReturn, error) {
 	po.Proposals = make([]ProposalData, len(res.Proposals))
 	for i, p := range res.Proposals {
 		msgs := make([]string, len(p.Messages))
@@ -755,7 +489,7 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*Pro
 	}
 
 	if res.Pagination != nil {
-		po.PageResponse = query.PageResponse{
+		po.PageResponse = cmn.PageResponse{
 			NextKey: res.Pagination.NextKey,
 			Total:   res.Pagination.Total,
 		}
@@ -763,62 +497,34 @@ func (po *ProposalsOutput) FromResponse(res *govv1.QueryProposalsResponse) (*Pro
 	return po, nil
 }
 
-// ParamsOutput contains the output data for the governance parameters query
-type ParamsOutput struct {
-	VotingPeriod               int64      `abi:"votingPeriod"`
-	MinDeposit                 []cmn.Coin `abi:"minDeposit"`
-	MaxDepositPeriod           int64      `abi:"maxDepositPeriod"`
-	Quorum                     string     `abi:"quorum"`
-	Threshold                  string     `abi:"threshold"`
-	VetoThreshold              string     `abi:"vetoThreshold"`
-	MinInitialDepositRatio     string     `abi:"minInitialDepositRatio"`
-	ProposalCancelRatio        string     `abi:"proposalCancelRatio"`
-	ProposalCancelDest         string     `abi:"proposalCancelDest"`
-	ExpeditedVotingPeriod      int64      `abi:"expeditedVotingPeriod"`
-	ExpeditedThreshold         string     `abi:"expeditedThreshold"`
-	ExpeditedMinDeposit        []cmn.Coin `abi:"expeditedMinDeposit"`
-	BurnVoteQuorum             bool       `abi:"burnVoteQuorum"`
-	BurnProposalDepositPrevote bool       `abi:"burnProposalDepositPrevote"`
-	BurnVoteVeto               bool       `abi:"burnVoteVeto"`
-	MinDepositRatio            string     `abi:"minDepositRatio"`
-}
-
-// FromResponse populates the ParamsOutput from a query response
-func (o *ParamsOutput) FromResponse(res *govv1.QueryParamsResponse) *ParamsOutput {
-	o.VotingPeriod = res.Params.VotingPeriod.Nanoseconds()
-	o.MinDeposit = cmn.NewCoinsResponse(res.Params.MinDeposit)
-	o.MaxDepositPeriod = res.Params.MaxDepositPeriod.Nanoseconds()
-	o.Quorum = res.Params.Quorum
-	o.Threshold = res.Params.Threshold
-	o.VetoThreshold = res.Params.VetoThreshold
-	o.MinInitialDepositRatio = res.Params.MinInitialDepositRatio
-	o.ProposalCancelRatio = res.Params.ProposalCancelRatio
-	o.ProposalCancelDest = res.Params.ProposalCancelDest
-	o.ExpeditedVotingPeriod = res.Params.ExpeditedVotingPeriod.Nanoseconds()
-	o.ExpeditedThreshold = res.Params.ExpeditedThreshold
-	o.ExpeditedMinDeposit = cmn.NewCoinsResponse(res.Params.ExpeditedMinDeposit)
-	o.BurnVoteQuorum = res.Params.BurnVoteQuorum
-	o.BurnProposalDepositPrevote = res.Params.BurnProposalDepositPrevote
-	o.BurnVoteVeto = res.Params.BurnVoteVeto
-	o.MinDepositRatio = res.Params.MinDepositRatio
-	return o
+// FromResponse populates the GetParamsReturn from a query response
+func (o *GetParamsReturn) FromResponse(res *govv1.QueryParamsResponse) {
+	o.Params.VotingPeriod = res.Params.VotingPeriod.Nanoseconds()
+	o.Params.MinDeposit = cmn.NewCoinsResponse(res.Params.MinDeposit)
+	o.Params.MaxDepositPeriod = res.Params.MaxDepositPeriod.Nanoseconds()
+	o.Params.Quorum = res.Params.Quorum
+	o.Params.Threshold = res.Params.Threshold
+	o.Params.VetoThreshold = res.Params.VetoThreshold
+	o.Params.MinInitialDepositRatio = res.Params.MinInitialDepositRatio
+	o.Params.ProposalCancelRatio = res.Params.ProposalCancelRatio
+	o.Params.ProposalCancelDest = res.Params.ProposalCancelDest
+	o.Params.ExpeditedVotingPeriod = res.Params.ExpeditedVotingPeriod.Nanoseconds()
+	o.Params.ExpeditedThreshold = res.Params.ExpeditedThreshold
+	o.Params.ExpeditedMinDeposit = cmn.NewCoinsResponse(res.Params.ExpeditedMinDeposit)
+	o.Params.BurnVoteQuorum = res.Params.BurnVoteQuorum
+	o.Params.BurnProposalDepositPrevote = res.Params.BurnProposalDepositPrevote
+	o.Params.BurnVoteVeto = res.Params.BurnVoteVeto
+	o.Params.MinDepositRatio = res.Params.MinDepositRatio
 }
 
 // BuildQueryParamsRequest returns the structure for the governance parameters query.
-func BuildQueryParamsRequest(args []interface{}) (*govv1.QueryParamsRequest, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
-	}
-
+func BuildQueryParamsRequest(args GetParamsCall) (*govv1.QueryParamsRequest, error) {
 	return &govv1.QueryParamsRequest{
 		ParamsType: "",
 	}, nil
 }
 
 // BuildQueryConstitutionRequest validates the args (none expected).
-func BuildQueryConstitutionRequest(args []interface{}) (*govv1.QueryConstitutionRequest, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
-	}
+func BuildQueryConstitutionRequest(args GetConstitutionCall) (*govv1.QueryConstitutionRequest, error) {
 	return &govv1.QueryConstitutionRequest{}, nil
 }

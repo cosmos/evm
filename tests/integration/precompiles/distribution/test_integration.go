@@ -144,7 +144,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				withdrawAddrSetCheck := passCheck.
-					WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+					WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -212,7 +212,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -273,7 +273,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -352,7 +352,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -458,7 +458,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawValidatorCommission)
+					WithExpEvents(&distribution.WithdrawValidatorCommissionEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -529,7 +529,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawValidatorCommission)
+					WithExpEvents(&distribution.WithdrawValidatorCommissionEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -616,7 +616,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				gasPrice := bfQuery.BaseFee.BigInt()
 				txArgs.GasPrice = gasPrice
 
-				claimRewardsCheck := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				claimRewardsCheck := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				txRes, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -713,7 +713,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					},
 				}
 
-				passCheckWithEvent := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+				passCheckWithEvent := passCheck.WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 				_, txRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0), // tx from Addr0
@@ -759,9 +759,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				passCheckWithEvent := passCheck.WithExpEvents(
-					distribution.EventTypeDepositValidatorRewardsPool,
-					distribution.EventTypeDepositValidatorRewardsPool,
-					distribution.EventTypeDepositValidatorRewardsPool,
+					&distribution.DepositValidatorRewardsPoolEvent{},
+					&distribution.DepositValidatorRewardsPoolEvent{},
+					&distribution.DepositValidatorRewardsPoolEvent{},
 				)
 
 				_, txRes, err := s.factory.CallContractAndCheckLogs(
@@ -858,7 +858,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 				txArgs.GasLimit = 500_000
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.FundCommunityPoolEvent{})
 
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -917,9 +917,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasLimit = 500_000
 
 				logCheckArgs := passCheck.WithExpEvents(
-					distribution.EventTypeFundCommunityPool,
-					distribution.EventTypeFundCommunityPool,
-					distribution.EventTypeFundCommunityPool,
+					&distribution.FundCommunityPoolEvent{},
+					&distribution.FundCommunityPoolEvent{},
+					&distribution.FundCommunityPoolEvent{},
 				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1263,7 +1263,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				txArgs.GasLimit = 200_000
 
-				fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+				fundCheck := passCheck.WithExpEvents(&distribution.FundCommunityPoolEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1421,7 +1421,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					contractAddr, newWithdrawer.String(),
 				}
 
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1454,7 +1454,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("should set withdraw address successfully", func() {
 				callArgs.Args = []interface{}{newWithdrawer.String()}
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1556,7 +1556,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 				logCheckArgs := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1584,7 +1584,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					MethodName:  "testSetWithdrawAddressFromContract",
 					Args:        []interface{}{sdk.AccAddress(tc.withdrawer.Bytes()).String()},
 				}
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -1610,7 +1610,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 
 				logCheckArgs = passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1675,7 +1675,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 								MethodName:  "testSetWithdrawAddressFromContract",
 								Args:        []interface{}{sdk.AccAddress(tc.withdrawer.Bytes()).String()},
 							}
-							logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+							logCheckArgs := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 							_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, logCheckArgs)
 							Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 							Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
@@ -1700,7 +1700,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						}
 
 						logCheckArgs := passCheck.
-							WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+							WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 						res, _, err := s.factory.CallContractAndCheckLogs(
 							txSenderKey,
@@ -1911,7 +1911,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should withdraw rewards successfully", func() {
 				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1939,7 +1939,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// call the smart contract to update the withdrawer
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -1960,7 +1960,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				accruedRewardsAmt = rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1994,7 +1994,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(initialWithdrawerBalance.Amount).To(Equal(math.ZeroInt()))
 
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -2014,7 +2014,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expRewards := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
 
@@ -2131,7 +2131,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.Args = []interface{}{contractAddr, uint32(2)}
 
 				logCheckArgs := passCheck.
-					WithExpEvents(distribution.EventTypeClaimRewards)
+					WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2183,7 +2183,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					callArgs.Args = []interface{}{uint32(2), tc.before, tc.after}
 
 					logCheckArgs := passCheck.
-						WithExpEvents(distribution.EventTypeClaimRewards)
+						WithExpEvents(&distribution.ClaimRewardsEvent{})
 					txArgs.GasLimit = 400_000 // set gas limit to avoid out of gas error
 					_, evmRes, err := s.factory.CallContractAndCheckLogs(
 						txSenderKey,
@@ -2369,7 +2369,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				callArgs.Args = []interface{}{contractAddr, uint32(2)}
 				txArgs.GasPrice = gasPrice.BigInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2410,7 +2410,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -2426,7 +2426,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				callArgs.Args = []interface{}{contractAddr, uint32(2)}
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				rwRes, err := s.grpcHandler.GetDelegationRewards(sdk.AccAddress(contractAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
 				Expect(err).To(BeNil())
@@ -2539,7 +2539,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						txArgs.GasPrice = gasPrice.BigInt()
 
 						logCheckArgs := passCheck.
-							WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+							WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 						res, _, err := s.factory.CallContractAndCheckLogs(
 							txSenderKey,
@@ -2628,7 +2628,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				}
 				txArgs.GasPrice = gasPrice.BigInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),

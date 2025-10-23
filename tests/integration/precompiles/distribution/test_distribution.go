@@ -3,11 +3,11 @@ package distribution
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
+	"github.com/yihuang/go-abi"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
@@ -30,39 +30,39 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 	}{
 		{
 			distribution.SetWithdrawAddressMethod,
-			s.precompile.Methods[distribution.SetWithdrawAddressMethod],
+			&distribution.SetWithdrawAddressCall{},
 			true,
 		},
 		{
 			distribution.WithdrawDelegatorRewardMethod,
-			s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod],
+			&distribution.WithdrawDelegatorRewardsCall{},
 			true,
 		},
 		{
 			distribution.WithdrawValidatorCommissionMethod,
-			s.precompile.Methods[distribution.WithdrawValidatorCommissionMethod],
+			&distribution.WithdrawValidatorCommissionCall{},
 			true,
 		},
 		{
 			distribution.FundCommunityPoolMethod,
-			s.precompile.Methods[distribution.FundCommunityPoolMethod],
+			&distribution.FundCommunityPoolCall{},
 			true,
 		},
 		{
 			distribution.ValidatorDistributionInfoMethod,
-			s.precompile.Methods[distribution.ValidatorDistributionInfoMethod],
+			&distribution.ValidatorDistributionInfoCall{},
 			false,
 		},
 		{
 			"invalid",
-			abi.Method{},
+			&distribution.ClaimRewardsCall{},
 			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.Require().Equal(s.precompile.IsTransaction(&tc.method), tc.isTx)
+			s.Require().Equal(s.precompile.IsTransaction(tc.method.GetMethodID()), tc.isTx)
 		})
 	}
 }
@@ -89,11 +89,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
-				input, err := s.precompile.Pack(
-					distribution.SetWithdrawAddressMethod,
-					s.keyring.GetAddr(0),
-					s.keyring.GetAddr(0).String(),
-				)
+				call := distribution.SetWithdrawAddressCall{
+					DelegatorAddress:  s.keyring.GetAddr(0),
+					WithdrawerAddress: s.keyring.GetAddr(0).String(),
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 				return s.keyring.GetAddr(0), input
 			},
@@ -120,10 +120,10 @@ func (s *PrecompileTestSuite) TestRun() {
 				err = s.mintCoinsForDistrMod(ctx, coins)
 				s.Require().NoError(err, "failed to fund distr module account")
 
-				input, err := s.precompile.Pack(
-					distribution.WithdrawValidatorCommissionMethod,
-					valAddr.String(),
-				)
+				call := distribution.WithdrawValidatorCommissionCall{
+					ValidatorAddress: valAddr.String(),
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 				return caller, input
 			},
@@ -144,11 +144,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				)
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
-				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardMethod,
-					s.keyring.GetAddr(0),
-					val.OperatorAddress,
-				)
+				call := distribution.WithdrawDelegatorRewardsCall{
+					DelegatorAddress:  s.keyring.GetAddr(0),
+					ValidatorAddress: val.OperatorAddress,
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -169,11 +169,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				)
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
-				input, err := s.precompile.Pack(
-					distribution.ClaimRewardsMethod,
-					s.keyring.GetAddr(0),
-					uint32(2),
-				)
+				call := distribution.ClaimRewardsCall{
+					DelegatorAddress: s.keyring.GetAddr(0),
+					MaxRetrieve:      2,
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -184,16 +184,16 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			name: "pass - fund community pool transaction",
 			malleate: func() (common.Address, []byte) {
-				input, err := s.precompile.Pack(
-					distribution.FundCommunityPoolMethod,
-					s.keyring.GetAddr(0),
-					[]cmn.Coin{
+				call := distribution.FundCommunityPoolCall{
+					Depositor: s.keyring.GetAddr(0),
+					Amount: []cmn.Coin{
 						{
 							Denom:  constants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
-				)
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -204,10 +204,9 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
-				input, err := s.precompile.Pack(
-					distribution.FundCommunityPoolMethod,
-					s.keyring.GetAddr(0),
-					[]cmn.Coin{
+				call := distribution.FundCommunityPoolCall{
+					Depositor: s.keyring.GetAddr(0),
+					Amount: []cmn.Coin{
 						{
 							Denom:  constants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
@@ -221,7 +220,8 @@ func (s *PrecompileTestSuite) TestRun() {
 							Amount: big.NewInt(1e18),
 						},
 					},
-				)
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -315,11 +315,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, math.NewInt(1e18)))
 				s.Require().NoError(s.network.App.GetDistrKeeper().AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(coins...)))
 
-				input, err := s.precompile.Pack(
-					distribution.SetWithdrawAddressMethod,
-					s.keyring.GetAddr(0),
-					s.keyring.GetAddr(0).String(),
-				)
+				call := distribution.SetWithdrawAddressCall{
+					DelegatorAddress:  s.keyring.GetAddr(0),
+					WithdrawerAddress: s.keyring.GetAddr(0).String(),
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 				return s.keyring.GetAddr(0), input
 			},
@@ -345,10 +345,10 @@ func (s *PrecompileTestSuite) TestCMS() {
 				err = s.mintCoinsForDistrMod(ctx, coins)
 				s.Require().NoError(err, "failed to fund distr module account")
 
-				input, err := s.precompile.Pack(
-					distribution.WithdrawValidatorCommissionMethod,
-					valAddr.String(),
-				)
+				call := distribution.WithdrawValidatorCommissionCall{
+					ValidatorAddress: valAddr.String(),
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 				return caller, input
 			},
@@ -368,11 +368,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 				)
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
-				input, err := s.precompile.Pack(
-					distribution.WithdrawDelegatorRewardMethod,
-					s.keyring.GetAddr(0),
-					val.OperatorAddress,
-				)
+				call := distribution.WithdrawDelegatorRewardsCall{
+					DelegatorAddress:  s.keyring.GetAddr(0),
+					ValidatorAddress: val.OperatorAddress,
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -392,11 +392,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 				)
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
-				input, err := s.precompile.Pack(
-					distribution.ClaimRewardsMethod,
-					s.keyring.GetAddr(0),
-					uint32(2),
-				)
+				call := distribution.ClaimRewardsCall{
+					DelegatorAddress: s.keyring.GetAddr(0),
+					MaxRetrieve:      2,
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -406,16 +406,16 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			name: "pass - fund community pool transaction",
 			malleate: func() (common.Address, []byte) {
-				input, err := s.precompile.Pack(
-					distribution.FundCommunityPoolMethod,
-					s.keyring.GetAddr(0),
-					[]cmn.Coin{
+				call := distribution.FundCommunityPoolCall{
+					Depositor: s.keyring.GetAddr(0),
+					Amount: []cmn.Coin{
 						{
 							Denom:  constants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
-				)
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input
@@ -425,10 +425,9 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			name: "pass - fund multi coins community pool transaction",
 			malleate: func() (common.Address, []byte) {
-				input, err := s.precompile.Pack(
-					distribution.FundCommunityPoolMethod,
-					s.keyring.GetAddr(0),
-					[]cmn.Coin{
+				call := distribution.FundCommunityPoolCall{
+					Depositor: s.keyring.GetAddr(0),
+					Amount: []cmn.Coin{
 						{
 							Denom:  constants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
@@ -442,7 +441,8 @@ func (s *PrecompileTestSuite) TestCMS() {
 							Amount: big.NewInt(1e18),
 						},
 					},
-				)
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 
 				return s.keyring.GetAddr(0), input

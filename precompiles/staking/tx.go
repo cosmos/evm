@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -35,23 +34,22 @@ const (
 // CreateValidator performs create validator.
 func (p Precompile) CreateValidator(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *CreateValidatorCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
+	contract *vm.Contract,
+) (*CreateValidatorReturn, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
+	msg, validatorHexAddr, err := NewMsgCreateValidator(*args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "createValidator",
 		"commission", msg.Commission.String(),
 		"min_self_delegation", msg.MinSelfDelegation.String(),
 		"validator_address", validatorHexAddr.String(),
@@ -87,25 +85,24 @@ func (p Precompile) CreateValidator(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &CreateValidatorReturn{true}, nil
 }
 
 // EditValidator performs edit validator.
 func (p Precompile) EditValidator(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *EditValidatorCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, validatorHexAddr, err := NewMsgEditValidator(args)
+	contract *vm.Contract,
+) (*EditValidatorReturn, error) {
+	msg, validatorHexAddr, err := NewMsgEditValidator(*args)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "editValidator",
 		"validator_address", msg.ValidatorAddress,
 		"commission_rate", msg.CommissionRate,
 		"min_self_delegation", msg.MinSelfDelegation,
@@ -136,29 +133,28 @@ func (p Precompile) EditValidator(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &EditValidatorReturn{true}, nil
 }
 
 // Delegate performs a delegation of coins from a delegator to a validator.
 func (p *Precompile) Delegate(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *DelegateCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
+	contract *vm.Contract,
+) (*DelegateReturn, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgDelegate(*args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "delegate",
 		"args", fmt.Sprintf(
 			"{ delegator_address: %s, validator_address: %s, amount: %s }",
 			delegatorHexAddr,
@@ -182,30 +178,29 @@ func (p *Precompile) Delegate(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &DelegateReturn{true}, nil
 }
 
 // Undelegate performs the undelegation of coins from a validator for a delegate.
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Undelegate(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *UndelegateCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
+	contract *vm.Contract,
+) (*UndelegateReturn, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgUndelegate(*args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "Undelegate",
 		"args", fmt.Sprintf(
 			"{ delegator_address: %s, validator_address: %s, amount: %s }",
 			delegatorHexAddr,
@@ -230,7 +225,7 @@ func (p Precompile) Undelegate(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
+	return &UndelegateReturn{res.CompletionTime.UTC().Unix()}, nil
 }
 
 // Redelegate performs a redelegation of coins for a delegate from a source validator
@@ -238,23 +233,22 @@ func (p Precompile) Undelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Redelegate(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *RedelegateCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
+	contract *vm.Contract,
+) (*RedelegateReturn, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgRedelegate(*args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "redelegate",
 		"args", fmt.Sprintf(
 			"{ delegator_address: %s, validator_src_address: %s, validator_dst_address: %s, amount: %s }",
 			delegatorHexAddr,
@@ -278,7 +272,7 @@ func (p Precompile) Redelegate(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.CompletionTime.UTC().Unix())
+	return &RedelegateReturn{res.CompletionTime.UTC().Unix()}, nil
 }
 
 // CancelUnbondingDelegation will cancel the unbonding of a delegation and delegate
@@ -286,23 +280,22 @@ func (p Precompile) Redelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) CancelUnbondingDelegation(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *CancelUnbondingDelegationCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
+	contract *vm.Contract,
+) (*CancelUnbondingDelegationReturn, error) {
 	bondDenom, err := p.stakingKeeper.BondDenom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(*args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
 
 	p.Logger(ctx).Debug(
 		"tx called",
-		"method", method.Name,
+		"method", "cancelUnbondingDelegation",
 		"args", fmt.Sprintf(
 			"{ delegator_address: %s, validator_address: %s, amount: %s, creation_height: %d }",
 			delegatorHexAddr,
@@ -325,5 +318,5 @@ func (p Precompile) CancelUnbondingDelegation(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &CancelUnbondingDelegationReturn{true}, nil
 }

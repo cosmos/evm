@@ -3,46 +3,26 @@ package erc20
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
-)
-
-const (
-	// EventTypeTransfer defines the event type for the ERC-20 Transfer and TransferFrom transactions.
-	EventTypeTransfer = "Transfer"
-
-	// EventTypeApproval defines the event type for the ERC-20 Approval event.
-	EventTypeApproval = "Approval"
 )
 
 // EmitTransferEvent creates a new Transfer event emitted on transfer and transferFrom transactions.
 func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from, to common.Address, value *big.Int) error {
+	// Create the event using the generated constructor
+	event := NewTransferEvent(from, to, value)
+
 	// Prepare the event topics
-	event := p.Events[EventTypeTransfer]
-	topics := make([]common.Hash, 3)
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(from)
+	topics, err := event.TransferEventIndexed.EncodeTopics()
 	if err != nil {
 		return err
 	}
 
-	topics[2], err = cmn.MakeTopic(to)
-	if err != nil {
-		return err
-	}
-
-	arguments := abi.Arguments{event.Inputs[2]}
-	packed, err := arguments.Pack(value)
+	// Prepare the event data
+	data, err := event.TransferEventData.Encode()
 	if err != nil {
 		return err
 	}
@@ -50,7 +30,7 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // block height won't exceed uint64
 	})
 
@@ -59,26 +39,17 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 
 // EmitApprovalEvent creates a new approval event emitted on Approve transactions.
 func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, owner, spender common.Address, value *big.Int) error {
+	// Create the event using the generated constructor
+	event := NewApprovalEvent(owner, spender, value)
+
 	// Prepare the event topics
-	event := p.Events[EventTypeApproval]
-	topics := make([]common.Hash, 3)
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(owner)
+	topics, err := event.ApprovalEventIndexed.EncodeTopics()
 	if err != nil {
 		return err
 	}
 
-	topics[2], err = cmn.MakeTopic(spender)
-	if err != nil {
-		return err
-	}
-
-	arguments := abi.Arguments{event.Inputs[2]}
-	packed, err := arguments.Pack(value)
+	// Prepare the event data
+	data, err := event.ApprovalEventData.Encode()
 	if err != nil {
 		return err
 	}
@@ -86,7 +57,7 @@ func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, owner
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // block height won't exceed uint64
 	})
 

@@ -18,43 +18,27 @@ func (s *PrecompileTestSuite) TestBalances() {
 	var ctx sdk.Context
 	// setup test in order to have s.precompile, s.cosmosEVMAddr and s.xmplAddr defined
 	s.SetupTest()
-	method := s.precompile.Methods[bank.BalancesMethod]
 
 	testcases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() common.Address
 		expPass     bool
 		errContains string
 		expBalances func(cosmosEVMAddr, xmplAddr common.Address) []bank.Balance
 	}{
 		{
-			"fail - invalid number of arguments",
-			func() []interface{} {
-				return []interface{}{
-					"", "",
-				}
-			},
-			false,
-			"invalid number of arguments",
-			nil,
-		},
-		{
 			"fail - invalid account address",
-			func() []interface{} {
-				return []interface{}{
-					"random text",
-				}
+			func() common.Address {
+				return common.Address{}
 			},
 			false,
-			"invalid type for account",
+			"invalid address",
 			nil,
 		},
 		{
 			"pass - empty balances for new account",
-			func() []interface{} {
-				return []interface{}{
-					cosmosevmutiltx.GenerateAddress(),
-				}
+			func() common.Address {
+				return cosmosevmutiltx.GenerateAddress()
 			},
 			true,
 			"",
@@ -62,10 +46,8 @@ func (s *PrecompileTestSuite) TestBalances() {
 		},
 		{
 			"pass - Initial balances present",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-				}
+			func() common.Address {
+				return s.keyring.GetAddr(0)
 			},
 			true,
 			"",
@@ -84,11 +66,9 @@ func (s *PrecompileTestSuite) TestBalances() {
 		},
 		{
 			"pass - ATOM and XMPL balances present - mint extra XMPL",
-			func() []interface{} {
+			func() common.Address {
 				ctx = s.mintAndSendXMPLCoin(ctx, s.keyring.GetAccAddr(0), math.NewInt(1e18))
-				return []interface{}{
-					s.keyring.GetAddr(0),
-				}
+				return s.keyring.GetAddr(0)
 			},
 			true,
 			"",
@@ -108,17 +88,13 @@ func (s *PrecompileTestSuite) TestBalances() {
 		s.Run(tc.name, func() {
 			ctx = s.SetupTest() // reset the chain each test
 
-			bz, err := s.precompile.Balances(
-				ctx,
-				&method,
-				tc.malleate(),
-			)
+			addr := tc.malleate()
+			call := &bank.BalancesCall{Account: addr}
+			result, err := s.precompile.Balances(ctx, call)
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				var balances []bank.Balance
-				err = s.precompile.UnpackIntoInterface(&balances, method.Name, bz)
-				s.Require().NoError(err)
+				balances := result.Balances
 				s.Require().Equal(tc.expBalances(s.cosmosEVMAddr, s.xmplAddr), balances)
 			} else {
 				s.Require().Contains(err.Error(), tc.errContains)
@@ -131,7 +107,6 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 	var ctx sdk.Context
 	// setup test in order to have s.precompile, s.cosmosEVMAddr and s.xmplAddr defined
 	s.SetupTest()
-	method := s.precompile.Methods[bank.TotalSupplyMethod]
 
 	totSupplRes, err := s.grpcHandler.GetTotalSupply()
 	s.Require().NoError(err)
@@ -164,16 +139,12 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 		s.Run(tc.name, func() {
 			ctx = s.SetupTest()
 			tc.malleate()
-			bz, err := s.precompile.TotalSupply(
-				ctx,
-				&method,
-				nil,
-			)
+
+			var call bank.TotalSupplyCall
+			result, err := s.precompile.TotalSupply(ctx, &call.EmptyTuple)
 
 			s.Require().NoError(err)
-			var balances []bank.Balance
-			err = s.precompile.UnpackIntoInterface(&balances, method.Name, bz)
-			s.Require().NoError(err)
+			balances := result.TotalSupply
 			s.Require().Equal(tc.expSupply(s.cosmosEVMAddr, s.xmplAddr), balances)
 		})
 	}
@@ -182,7 +153,6 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 func (s *PrecompileTestSuite) TestSupplyOf() {
 	// setup test in order to have s.precompile, s.cosmosEVMAddr and s.xmplAddr defined
 	s.SetupTest()
-	method := s.precompile.Methods[bank.SupplyOfMethod]
 
 	totSupplRes, err := s.grpcHandler.GetTotalSupply()
 	s.Require().NoError(err)
@@ -191,39 +161,24 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 
 	testcases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() common.Address
 		expErr      bool
 		errContains string
 		expSupply   *big.Int
 	}{
 		{
-			"fail - invalid number of arguments",
-			func() []interface{} {
-				return []interface{}{
-					"", "", "",
-				}
-			},
-			true,
-			"invalid number of arguments",
-			nil,
-		},
-		{
 			"fail - invalid hex address",
-			func() []interface{} {
-				return []interface{}{
-					"random text",
-				}
+			func() common.Address {
+				return common.Address{}
 			},
 			true,
-			"invalid type for erc20Address",
+			"invalid address",
 			nil,
 		},
 		{
 			"pass - erc20 not registered return 0 supply",
-			func() []interface{} {
-				return []interface{}{
-					cosmosevmutiltx.GenerateAddress(),
-				}
+			func() common.Address {
+				return cosmosevmutiltx.GenerateAddress()
 			},
 			false,
 			"",
@@ -231,10 +186,8 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 		},
 		{
 			"pass - XMPL total supply",
-			func() []interface{} {
-				return []interface{}{
-					s.xmplAddr,
-				}
+			func() common.Address {
+				return s.xmplAddr
 			},
 			false,
 			"",
@@ -243,10 +196,8 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 
 		{
 			"pass - ATOM total supply",
-			func() []interface{} {
-				return []interface{}{
-					s.cosmosEVMAddr,
-				}
+			func() common.Address {
+				return s.cosmosEVMAddr
 			},
 			false,
 			"",
@@ -258,22 +209,16 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 		s.Run(tc.name, func() {
 			ctx := s.SetupTest()
 
-			bz, err := s.precompile.SupplyOf(
-				ctx,
-				&method,
-				tc.malleate(),
-			)
+			addr := tc.malleate()
+			call := &bank.SupplyOfCall{Erc20Address: addr}
+			result, err := s.precompile.SupplyOf(ctx, call)
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
-				out, err := method.Outputs.Unpack(bz)
-				s.Require().NoError(err, "expected no error unpacking")
-				supply, ok := out[0].(*big.Int)
-				s.Require().True(ok, "expected output to be a big.Int")
 				s.Require().NoError(err)
-				s.Require().Equal(supply.Int64(), tc.expSupply.Int64())
+				s.Require().Equal(result.TotalSupply.Int64(), tc.expSupply.Int64())
 			}
 		})
 	}

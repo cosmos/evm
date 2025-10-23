@@ -24,7 +24,6 @@ import (
 func (s *PrecompileTestSuite) TestCreateValidator() {
 	var (
 		stDB        *statedb.StateDB
-		method      = s.precompile.Methods[staking.CreateValidatorMethod]
 		description = staking.Description{
 			Moniker:         "node0",
 			Identity:        "",
@@ -32,7 +31,7 @@ func (s *PrecompileTestSuite) TestCreateValidator() {
 			SecurityContact: "",
 			Details:         "",
 		}
-		commission = staking.Commission{
+		commission = staking.CommissionRates{
 			Rate:          big.NewInt(5e16), // 5%
 			MaxRate:       big.NewInt(2e17), // 20%
 			MaxChangeRate: big.NewInt(5e16), // 5%

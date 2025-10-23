@@ -1,59 +1,41 @@
 package slashing
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing"
-	"github.com/cosmos/evm/precompiles/testutil"
 
 	"github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
 func (s *PrecompileTestSuite) TestGetSigningInfo() {
-	method := s.precompile.Methods[slashing.GetSigningInfoMethod]
-
 	valSigners := s.network.GetValidators()
 	val0ConsAddr, _ := valSigners[0].GetConsAddr()
 
 	consAddr := types.ConsAddress(val0ConsAddr)
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() slashing.GetSigningInfoCall
 		postCheck   func(signingInfo *slashing.SigningInfo)
-		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func(_ *slashing.SigningInfo) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
 			"fail - invalid consensus address",
-			func() []interface{} {
-				return []interface{}{
-					common.Address{},
+			func() slashing.GetSigningInfoCall {
+				return slashing.GetSigningInfoCall{
+					ConsAddress: common.Address{},
 				}
 			},
 			func(_ *slashing.SigningInfo) {},
-			200000,
 			true,
 			"invalid consensus address",
 		},
 		{
 			"success - get signing info for validator",
-			func() []interface{} {
+			func() slashing.GetSigningInfoCall {
 				err := s.network.App.GetSlashingKeeper().SetValidatorSigningInfo(
 					s.network.GetContext(),
 					consAddr,
@@ -66,8 +48,8 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 					},
 				)
 				s.Require().NoError(err)
-				return []interface{}{
-					common.BytesToAddress(consAddr.Bytes()),
+				return slashing.GetSigningInfoCall{
+					ConsAddress: common.BytesToAddress(consAddr.Bytes()),
 				}
 			},
 			func(signingInfo *slashing.SigningInfo) {
@@ -77,7 +59,6 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 				s.Require().Equal(int64(1), signingInfo.MissedBlocksCounter)
 				s.Require().False(signingInfo.Tombstoned)
 			},
-			200000,
 			false,
 			"",
 		},
@@ -87,56 +68,41 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
-
-			bz, err := s.precompile.GetSigningInfo(ctx, &method, contract, tc.malleate())
+			ctx := s.network.GetContext()
+			call := tc.malleate()
+			result, err := s.precompile.GetSigningInfo(ctx, &call)
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				var out slashing.SigningInfoOutput
-				err = s.precompile.UnpackIntoInterface(&out, slashing.GetSigningInfoMethod, bz)
-				s.Require().NoError(err)
-				tc.postCheck(&out.SigningInfo)
+				s.Require().NotNil(result)
+				tc.postCheck(&result.SigningInfo)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestGetSigningInfos() {
-	method := s.precompile.Methods[slashing.GetSigningInfosMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(signingInfos []slashing.SigningInfo, pageResponse *query.PageResponse)
-		gas         uint64
+		malleate    func() slashing.GetSigningInfosCall
+		postCheck   func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse)
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func(_ []slashing.SigningInfo, _ *query.PageResponse) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
 			"success - get all signing infos",
-			func() []interface{} {
-				return []interface{}{
-					query.PageRequest{
+			func() slashing.GetSigningInfosCall {
+				return slashing.GetSigningInfosCall{
+					Pagination: cmn.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(signingInfos []slashing.SigningInfo, pageResponse *query.PageResponse) {
+			func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse) {
 				s.Require().Len(signingInfos, 3)
 				s.Require().Equal(uint64(3), pageResponse.Total)
 
@@ -165,21 +131,20 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().Equal(int64(0), signingInfos[2].JailedUntil)
 				s.Require().False(signingInfos[2].Tombstoned)
 			},
-			200000,
 			false,
 			"",
 		},
 		{
 			"success - get signing infos with pagination",
-			func() []interface{} {
-				return []interface{}{
-					query.PageRequest{
+			func() slashing.GetSigningInfosCall {
+				return slashing.GetSigningInfosCall{
+					Pagination: cmn.PageRequest{
 						Limit:      1,
 						CountTotal: true,
 					},
 				}
 			},
-			func(signingInfos []slashing.SigningInfo, pageResponse *query.PageResponse) {
+			func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse) {
 				s.Require().Len(signingInfos, 1)
 				s.Require().Equal(uint64(3), pageResponse.Total)
 				s.Require().NotNil(pageResponse.NextKey)
@@ -193,7 +158,6 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 				s.Require().Equal(int64(0), signingInfos[0].JailedUntil)
 				s.Require().False(signingInfos[0].Tombstoned)
 			},
-			200000,
 			false,
 			"",
 		},
@@ -203,39 +167,34 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
-
-			bz, err := s.precompile.GetSigningInfos(ctx, &method, contract, tc.malleate())
+			ctx := s.network.GetContext()
+			call := tc.malleate()
+			result, err := s.precompile.GetSigningInfos(ctx, &call)
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				var out slashing.SigningInfosOutput
-				err = s.precompile.UnpackIntoInterface(&out, slashing.GetSigningInfosMethod, bz)
-				s.Require().NoError(err)
-				tc.postCheck(out.SigningInfos, &out.PageResponse)
+				s.Require().NotNil(result)
+				tc.postCheck(result.SigningInfos, result.PageResponse)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestGetParams() {
-	method := s.precompile.Methods[slashing.GetParamsMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() slashing.GetParamsCall
 		postCheck   func(params *slashing.Params)
-		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
 			"success - get params",
-			func() []interface{} {
-				return []interface{}{}
+			func() slashing.GetParamsCall {
+				return slashing.GetParamsCall{}
 			},
 			func(params *slashing.Params) {
 				// Get the default params from the network
@@ -247,7 +206,6 @@ func (s *PrecompileTestSuite) TestGetParams() {
 				s.Require().Equal(defaultParams.SlashFractionDoubleSign.BigInt(), params.SlashFractionDoubleSign.Value)
 				s.Require().Equal(defaultParams.SlashFractionDowntime.BigInt(), params.SlashFractionDowntime.Value)
 			},
-			200000,
 			false,
 			"",
 		},
@@ -257,19 +215,17 @@ func (s *PrecompileTestSuite) TestGetParams() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			contract, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
-
-			bz, err := s.precompile.GetParams(ctx, &method, contract, tc.malleate())
+			ctx := s.network.GetContext()
+			call := tc.malleate()
+			result, err := s.precompile.GetParams(ctx, &call)
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				var out slashing.ParamsOutput
-				err = s.precompile.UnpackIntoInterface(&out, slashing.GetParamsMethod, bz)
-				s.Require().NoError(err)
-				tc.postCheck(&out.Params)
+				s.Require().NotNil(result)
+				tc.postCheck(&result.Params)
 			}
 		})
 	}

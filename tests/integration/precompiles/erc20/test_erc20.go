@@ -10,24 +10,16 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 	s.SetupTest()
 
 	// Queries
-	method := s.precompile.Methods[erc20.BalanceOfMethod]
-	s.Require().False(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.DecimalsMethod]
-	s.Require().False(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.NameMethod]
-	s.Require().False(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.SymbolMethod]
-	s.Require().False(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.TotalSupplyMethod]
-	s.Require().False(s.precompile.IsTransaction(&method))
+	s.Require().False(s.precompile.IsTransaction(erc20.BalanceOfID))
+	s.Require().False(s.precompile.IsTransaction(erc20.DecimalsID))
+	s.Require().False(s.precompile.IsTransaction(erc20.NameID))
+	s.Require().False(s.precompile.IsTransaction(erc20.SymbolID))
+	s.Require().False(s.precompile.IsTransaction(erc20.TotalSupplyID))
 
 	// Transactions
-	method = s.precompile.Methods[erc20.ApproveMethod]
-	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.TransferMethod]
-	s.Require().True(s.precompile.IsTransaction(&method))
-	method = s.precompile.Methods[erc20.TransferFromMethod]
-	s.Require().True(s.precompile.IsTransaction(&method))
+	s.Require().True(s.precompile.IsTransaction(erc20.ApproveID))
+	s.Require().True(s.precompile.IsTransaction(erc20.TransferID))
+	s.Require().True(s.precompile.IsTransaction(erc20.TransferFromID))
 }
 
 func (s *PrecompileTestSuite) TestRequiredGas() {
@@ -41,7 +33,10 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.BalanceOfMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.BalanceOfMethod, s.keyring.GetAddr(0))
+				call := erc20.BalanceOfCall{
+					Account: s.keyring.GetAddr(0),
+				}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -50,7 +45,8 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.DecimalsMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.DecimalsMethod)
+				call := erc20.DecimalsCall{}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -59,7 +55,8 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.NameMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.NameMethod)
+				call := erc20.NameCall{}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -68,7 +65,8 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.SymbolMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.SymbolMethod)
+				call := erc20.SymbolCall{}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -77,7 +75,8 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TotalSupplyMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.TotalSupplyMethod)
+				call := erc20.TotalSupplyCall{}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -86,7 +85,11 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.ApproveMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.ApproveMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				call := erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(0),
+					Amount:  big.NewInt(1),
+				}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -95,7 +98,11 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TransferMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.TransferMethod, s.keyring.GetAddr(0), big.NewInt(1))
+				call := erc20.TransferCall{
+					To:     s.keyring.GetAddr(0),
+					Amount: big.NewInt(1),
+				}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -104,7 +111,12 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.TransferFromMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.TransferFromMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0), big.NewInt(1))
+				call := erc20.TransferFromCall{
+					From:   s.keyring.GetAddr(0),
+					To:     s.keyring.GetAddr(0),
+					Amount: big.NewInt(1),
+				}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},
@@ -113,7 +125,11 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			name: erc20.AllowanceMethod,
 			malleate: func() []byte {
-				bz, err := s.precompile.Pack(erc20.AllowanceMethod, s.keyring.GetAddr(0), s.keyring.GetAddr(0))
+				call := erc20.AllowanceCall{
+					Owner:   s.keyring.GetAddr(0),
+					Spender: s.keyring.GetAddr(0),
+				}
+				bz, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "expected no error packing ABI")
 				return bz
 			},

@@ -7,6 +7,7 @@
 ### IMPROVEMENTS
 
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+- [\#788](https://github.com/cosmos/evm/pull/788) Use go-abi to replace go-ethereum/accounts/abi usage in precompiles.
 
 ### FEATURES
 

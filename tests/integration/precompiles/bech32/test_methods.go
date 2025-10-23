@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/precompiles/bech32"
-	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -15,63 +14,47 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 	// setup basic test suite
 	s.SetupTest()
 
-	method := s.precompile.Methods[bech32.HexToBech32Method]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
+		malleate    func() bech32.HexToBech32Call
+		postCheck   func(result *bech32.HexToBech32Return)
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - invalid args length",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
 			"fail - invalid hex address",
-			func() []interface{} {
-				return []interface{}{
-					"",
-					"",
+			func() bech32.HexToBech32Call {
+				return bech32.HexToBech32Call{
+					Addr:   common.Address{},
+					Prefix: "",
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.HexToBech32Return) {},
 			true,
-			"invalid hex address",
+			"invalid bech32 human readable prefix (HRP)",
 		},
 		{
 			"fail - invalid bech32 HRP",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					"",
+			func() bech32.HexToBech32Call {
+				return bech32.HexToBech32Call{
+					Addr:   s.keyring.GetAddr(0),
+					Prefix: "",
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.HexToBech32Return) {},
 			true,
 			"invalid bech32 human readable prefix (HRP)",
 		},
 		{
 			"pass - valid hex address and valid bech32 HRP",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					"cosmos",
+			func() bech32.HexToBech32Call {
+				return bech32.HexToBech32Call{
+					Addr:   s.keyring.GetAddr(0),
+					Prefix: "cosmos",
 				}
 			},
-			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.HexToBech32Method, data)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(string)
-				s.Require().True(ok)
-				s.Require().Equal(s.keyring.GetAccAddr(0).String(), addr)
+			func(result *bech32.HexToBech32Return) {
+				s.Require().Equal(s.keyring.GetAccAddr(0).String(), result.Bech32Address)
 			},
 			false,
 			"",
@@ -82,16 +65,15 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			bz, err := s.precompile.HexToBech32(&method, tc.malleate())
+			result, err := s.precompile.HexToBech32(tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().ErrorContains(err, tc.errContains, err.Error())
-				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(result)
+				tc.postCheck(result)
 			}
 		})
 	}
@@ -101,82 +83,66 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 	// setup basic test suite
 	s.SetupTest()
 
-	method := s.precompile.Methods[bech32.Bech32ToHexMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(data []byte)
+		malleate    func() bech32.Bech32ToHexCall
+		postCheck   func(result *bech32.Bech32ToHexReturn)
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - invalid args length",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
 			"fail - empty bech32 address",
-			func() []interface{} {
-				return []interface{}{
-					"",
+			func() bech32.Bech32ToHexCall {
+				return bech32.Bech32ToHexCall{
+					Bech32Address: "",
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.Bech32ToHexReturn) {},
 			true,
 			"invalid bech32 address",
 		},
 		{
 			"fail - invalid bech32 address",
-			func() []interface{} {
-				return []interface{}{
-					"cosmos",
+			func() bech32.Bech32ToHexCall {
+				return bech32.Bech32ToHexCall{
+					Bech32Address: "cosmos",
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.Bech32ToHexReturn) {},
 			true,
 			fmt.Sprintf("invalid bech32 address: %s", "cosmos"),
 		},
 		{
 			"fail - decoding bech32 failed",
-			func() []interface{} {
-				return []interface{}{
-					"cosmos" + "1",
+			func() bech32.Bech32ToHexCall {
+				return bech32.Bech32ToHexCall{
+					Bech32Address: "cosmos" + "1",
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.Bech32ToHexReturn) {},
 			true,
 			"decoding bech32 failed",
 		},
 		{
 			"fail - invalid address format",
-			func() []interface{} {
-				return []interface{}{
-					sdk.AccAddress(make([]byte, 256)).String(),
+			func() bech32.Bech32ToHexCall {
+				return bech32.Bech32ToHexCall{
+					Bech32Address: sdk.AccAddress(make([]byte, 256)).String(),
 				}
 			},
-			func([]byte) {},
+			func(result *bech32.Bech32ToHexReturn) {},
 			true,
 			"address max length is 255",
 		},
 		{
 			"success - valid bech32 address",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAccAddr(0).String(),
+			func() bech32.Bech32ToHexCall {
+				return bech32.Bech32ToHexCall{
+					Bech32Address: s.keyring.GetAccAddr(0).String(),
 				}
 			},
-			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.Bech32ToHexMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(common.Address)
-				s.Require().True(ok)
-				s.Require().Equal(s.keyring.GetAddr(0), addr)
+			func(result *bech32.Bech32ToHexReturn) {
+				s.Require().Equal(s.keyring.GetAddr(0), result.Addr)
 			},
 			false,
 			"",
@@ -187,16 +153,15 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			bz, err := s.precompile.Bech32ToHex(&method, tc.malleate())
+			result, err := s.precompile.Bech32ToHex(tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
 				s.Require().ErrorContains(err, tc.errContains)
-				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(result)
+				tc.postCheck(result)
 			}
 		})
 	}

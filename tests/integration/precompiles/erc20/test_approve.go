@@ -3,7 +3,7 @@ package erc20
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -13,69 +13,36 @@ import (
 
 //nolint:dupl // tests are not duplicate between the functions
 func (s *PrecompileTestSuite) TestApprove() {
-	method := s.precompile.Methods[erc20.ApproveMethod]
 	amount := int64(100)
 
 	testcases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *erc20.ApproveCall
 		postCheck   func()
 		expPass     bool
 		errContains string
 	}{
 		{
-			name:        "fail - empty args",
-			malleate:    func() []interface{} { return nil },
-			errContains: "invalid number of arguments",
-		},
-		{
-			name: "fail - invalid number of arguments",
-			malleate: func() []interface{} {
-				return []interface{}{
-					1, 2, 3,
-				}
-			},
-			errContains: "invalid number of arguments",
-		},
-		{
-			name: "fail - invalid address",
-			malleate: func() []interface{} {
-				return []interface{}{
-					"invalid address", big.NewInt(2),
-				}
-			},
-			errContains: "invalid address",
-		},
-		{
-			name: "fail - invalid amount",
-			malleate: func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(1), "invalid amount",
-				}
-			},
-			errContains: "invalid amount",
-		},
-		{
 			name: "fail - negative amount",
-			malleate: func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(1), big.NewInt(-1),
+			malleate: func() *erc20.ApproveCall {
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: big.NewInt(-1),
 				}
 			},
 			errContains: erc20.ErrNegativeAmount.Error(),
 		},
 		{
 			name: "fail - approve uint256 overflow",
-			malleate: func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(1), new(big.Int).Add(abi.MaxUint256, common.Big1),
+			malleate: func() *erc20.ApproveCall {
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: new(big.Int).Add(ethabi.MaxUint256, common.Big1),
 				}
 			},
 			errContains: "causes integer overflow",
 		},
 		{
 			name: "pass - approve to zero with existing allowance only for other denominations",
-			malleate: func() []interface{} {
+			malleate: func() *erc20.ApproveCall {
 				// NOTE: We are setting up an allowance for a different denomination
 				// and then trying to approve an amount of zero for the token denomination
 				s.setAllowance(
@@ -85,8 +52,8 @@ func (s *PrecompileTestSuite) TestApprove() {
 					big.NewInt(1),
 				)
 
-				return []interface{}{
-					s.keyring.GetAddr(1), common.Big0,
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: common.Big0,
 				}
 			},
 			expPass: true,
@@ -110,9 +77,9 @@ func (s *PrecompileTestSuite) TestApprove() {
 		},
 		{
 			name: "pass - approve without existing allowance",
-			malleate: func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(1), big.NewInt(amount),
+			malleate: func() *erc20.ApproveCall {
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: big.NewInt(amount),
 				}
 			},
 			expPass: true,
@@ -127,7 +94,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 		},
 		{
 			name: "pass - approve with existing allowance",
-			malleate: func() []interface{} {
+			malleate: func() *erc20.ApproveCall {
 				s.setAllowance(
 					s.precompile.Address(),
 					s.keyring.GetPrivKey(0),
@@ -135,8 +102,8 @@ func (s *PrecompileTestSuite) TestApprove() {
 					big.NewInt(1),
 				)
 
-				return []interface{}{
-					s.keyring.GetAddr(1), big.NewInt(amount),
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: big.NewInt(amount),
 				}
 			},
 			expPass: true,
@@ -151,7 +118,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 		},
 		{
 			name: "pass - approve with existing allowance in different denomination",
-			malleate: func() []interface{} {
+			malleate: func() *erc20.ApproveCall {
 				s.setAllowance(
 					s.precompile2.Address(),
 					s.keyring.GetPrivKey(0),
@@ -159,8 +126,8 @@ func (s *PrecompileTestSuite) TestApprove() {
 					big.NewInt(1),
 				)
 
-				return []interface{}{
-					s.keyring.GetAddr(1), big.NewInt(amount),
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: big.NewInt(amount),
 				}
 			},
 			expPass: true,
@@ -184,7 +151,7 @@ func (s *PrecompileTestSuite) TestApprove() {
 		},
 		{
 			name: "pass - delete existing allowance",
-			malleate: func() []interface{} {
+			malleate: func() *erc20.ApproveCall {
 				s.setAllowance(
 					s.precompile.Address(),
 					s.keyring.GetPrivKey(0),
@@ -192,8 +159,8 @@ func (s *PrecompileTestSuite) TestApprove() {
 					big.NewInt(1),
 				)
 
-				return []interface{}{
-					s.keyring.GetAddr(1), common.Big0,
+				return &erc20.ApproveCall{
+					Spender: s.keyring.GetAddr(1), Amount: common.Big0,
 				}
 			},
 			expPass: true,
@@ -223,17 +190,16 @@ func (s *PrecompileTestSuite) TestApprove() {
 				200_000,
 			)
 
-			var args []interface{}
+			var args erc20.ApproveCall
 			if tc.malleate != nil {
-				args = tc.malleate()
+				args = *tc.malleate()
 			}
 
 			bz, err := s.precompile.Approve(
 				ctx,
-				contract,
-				s.network.GetStateDB(),
-				&method,
 				args,
+				s.network.GetStateDB(),
+				contract,
 			)
 
 			if tc.expPass {

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/server/config"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
@@ -155,9 +156,9 @@ func (tf *IntegrationTxFactory) GenerateGethCoreMsg(
 
 // GenerateContractCallArgs generates the txArgs for a contract call.
 func GenerateContractCallArgs(
-	callArgs testutiltypes.CallArgs,
+	callArgs abi.Method,
 ) ([]byte, error) {
-	input, err := callArgs.ContractABI.Pack(callArgs.MethodName, callArgs.Args...)
+	input, err := callArgs.EncodeWithSelector()
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to pack contract arguments")
 	}

@@ -1,24 +1,3 @@
 package callbacks
 
-import (
-	"bytes"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	_ "embed"
-)
-
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-var (
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
+//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output callback.abi.go -external-tuples Coin=cmn.Coin,Dec=cmn.Dec,DecCoin=cmn.DecCoin,PageRequest=cmn.PageRequest -imports cmn=github.com/cosmos/evm/precompiles/common

@@ -1,10 +1,9 @@
 package slashing
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -22,29 +21,14 @@ import (
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
 
+//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output slashing.abi.go -package slashing -external-tuples Dec=cmn.Dec,PageRequest=cmn.PageRequest -imports cmn=github.com/cosmos/evm/precompiles/common
+
 var _ vm.PrecompiledContract = &Precompile{}
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // Precompile defines the precompiled contract for slashing.
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
 	slashingKeeper    cmn.SlashingKeeper
 	slashingMsgServer slashingtypes.MsgServer
 	consCodec         runtime.ConsensusAddressCodec
@@ -66,7 +50,6 @@ func NewPrecompile(
 			ContractAddress:       common.HexToAddress(evmtypes.SlashingPrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		ABI:               ABI,
 		slashingKeeper:    slashingKeeper,
 		slashingMsgServer: slashingMsgServer,
 		valCodec:          valCdc,
@@ -74,21 +57,15 @@ func NewPrecompile(
 	}
 }
 
-// RequiredGas calculates the precompiled contract's base gas rate.
+// RequiredGas returns the required bare minimum gas to execute the precompile.
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// NOTE: This check avoid panicking when trying to decode the method ID
 	if len(input) < 4 {
 		return 0
 	}
-	methodID := input[:4]
 
-	method, err := p.MethodById(methodID)
-	if err != nil {
-		// This should never happen since this method is going to fail during Run
-		return 0
-	}
-
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	methodID := binary.BigEndian.Uint32(input[:4])
+	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -98,38 +75,34 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	var bz []byte
-
-	switch method.Name {
-	// slashing transactions
-	case UnjailMethod:
-		bz, err = p.Unjail(ctx, method, stateDB, contract, args)
-	// slashing queries
-	case GetSigningInfoMethod:
-		bz, err = p.GetSigningInfo(ctx, method, contract, args)
-	case GetSigningInfosMethod:
-		bz, err = p.GetSigningInfos(ctx, method, contract, args)
-	case GetParamsMethod:
-		bz, err = p.GetParams(ctx, method, contract, args)
+	switch methodID {
+	// Slashing transactions
+	case UnjailID:
+		return cmn.RunWithStateDB(ctx, p.Unjail, input, stateDB, contract)
+	// Slashing queries
+	case GetParamsID:
+		return cmn.Run(ctx, p.GetParams, input)
+	case GetSigningInfoID:
+		return cmn.Run(ctx, p.GetSigningInfo, input)
+	case GetSigningInfosID:
+		return cmn.Run(ctx, p.GetSigningInfos, input)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}
-
-	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 //
 // Available slashing transactions are:
 // - Unjail
-func (Precompile) IsTransaction(method *abi.Method) bool {
-	switch method.Name {
-	case UnjailMethod:
+func (Precompile) IsTransaction(method uint32) bool {
+	switch method {
+	case UnjailID:
 		return true
 	default:
 		return false

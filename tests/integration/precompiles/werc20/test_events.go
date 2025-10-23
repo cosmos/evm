@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -129,9 +128,8 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check on the topics
-			event := s.precompile.Events[werc20.EventTypeDeposit]
 			s.Require().Equal(
-				crypto.Keccak256Hash([]byte(event.Sig)),
+				(&werc20.DepositEvent{}).GetEventID(),
 				common.HexToHash(log.Topics[0].Hex()),
 			)
 			var adddressTopic common.Hash
@@ -141,8 +139,8 @@ func (s *PrecompileUnitTestSuite) TestEmitDepositEvent() {
 			s.Require().EqualValues(log.BlockNumber, s.network.GetContext().BlockHeight())
 
 			// Verify data
-			var depositEvent DepositEvent
-			err = cmn.UnpackLog(s.precompile.ABI, &depositEvent, werc20.EventTypeDeposit, *log)
+			var depositEvent werc20.DepositEvent
+			err = cmn.UnpackLog(&depositEvent, *log)
 			s.Require().NoError(err, "unable to unpack log into deposit event")
 
 			s.Require().Equal(caller, depositEvent.Dst, "expected different destination address")
@@ -188,9 +186,8 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check on the topics
-			event := s.precompile.Events[werc20.EventTypeWithdrawal]
 			s.Require().Equal(
-				crypto.Keccak256Hash([]byte(event.Sig)),
+				(&werc20.WithdrawalEvent{}).GetEventID(),
 				common.HexToHash(log.Topics[0].Hex()),
 			)
 			var adddressTopic common.Hash
@@ -200,8 +197,8 @@ func (s *PrecompileUnitTestSuite) TestEmitWithdrawalEvent() {
 			s.Require().EqualValues(log.BlockNumber, s.network.GetContext().BlockHeight())
 
 			// Verify data
-			var withdrawalEvent WithdrawalEvent
-			err = cmn.UnpackLog(s.precompile.ABI, &withdrawalEvent, werc20.EventTypeWithdrawal, *log)
+			var withdrawalEvent werc20.WithdrawalEvent
+			err = cmn.UnpackLog(&withdrawalEvent, *log)
 			s.Require().NoError(err, "unable to unpack log into withdrawal event")
 
 			s.Require().Equal(caller, withdrawalEvent.Src, "expected different source address")

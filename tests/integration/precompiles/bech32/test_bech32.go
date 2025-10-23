@@ -79,22 +79,22 @@ func (s *PrecompileTestSuite) TestRun() {
 			"fail - error during unpack",
 			func() *vm.Contract {
 				// only pass the method ID to the input
-				contract.Input = s.precompile.Methods[bech32.HexToBech32Method].ID
+				contract.Input = bech32.HexToBech32Selector[:]
 				return contract
 			},
 			func([]byte) {},
 			false,
-			"abi: attempting to unmarshal an empty string while arguments are expected",
+			"unexpected EOF",
 		},
 		{
 			"fail - HexToBech32 method error",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.HexToBech32Method,
-					s.keyring.GetAddr(0),
-					"",
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.HexToBech32Call{
+					Addr:   s.keyring.GetAddr(0),
+					Prefix: "",
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 
 				// only pass the method ID to the input
 				contract.Input = input
@@ -107,22 +107,20 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - hex to bech32 account (cosmos)",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.HexToBech32Method,
-					s.keyring.GetAddr(0),
-					"cosmos",
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.HexToBech32Call{
+					Addr:   s.keyring.GetAddr(0),
+					Prefix: "cosmos",
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
 			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.HexToBech32Method, data)
+				var ret bech32.HexToBech32Return
+				_, err := ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(string)
-				s.Require().True(ok)
-				s.Require().Equal(s.keyring.GetAccAddr(0).String(), addr)
+				s.Require().Equal(s.keyring.GetAccAddr(0).String(), ret.Bech32Address)
 			},
 			true,
 			"",
@@ -133,22 +131,20 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddrCodec := s.network.App.GetStakingKeeper().ValidatorAddressCodec()
 				valAddrBz, err := valAddrCodec.StringToBytes(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err, "failed to convert string to bytes")
-				input, err := s.precompile.Pack(
-					bech32.HexToBech32Method,
-					common.BytesToAddress(valAddrBz),
-					"cosmosvaloper",
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.HexToBech32Call{
+					Addr:   common.BytesToAddress(valAddrBz),
+					Prefix: "cosmosvaloper",
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
 			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.HexToBech32Method, data)
+				var ret bech32.HexToBech32Return
+				_, err := ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(string)
-				s.Require().True(ok)
-				s.Require().Equal(s.network.GetValidators()[0].OperatorAddress, addr)
+				s.Require().Equal(s.network.GetValidators()[0].OperatorAddress, ret.Bech32Address)
 			},
 			true,
 			"",
@@ -156,22 +152,20 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - hex to bech32 consensus address (cosmosvalcons)",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.HexToBech32Method,
-					s.keyring.GetAddr(0),
-					"cosmosvalcons",
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.HexToBech32Call{
+					Addr:   s.keyring.GetAddr(0),
+					Prefix: "cosmosvalcons",
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
 			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.HexToBech32Method, data)
+				var ret bech32.HexToBech32Return
+				_, err := ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(string)
-				s.Require().True(ok)
-				s.Require().Equal(sdk.ConsAddress(s.keyring.GetAddr(0).Bytes()).String(), addr)
+				s.Require().Equal(sdk.ConsAddress(s.keyring.GetAddr(0).Bytes()).String(), ret.Bech32Address)
 			},
 			true,
 			"",
@@ -179,21 +173,19 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - bech32 to hex account address",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.Bech32ToHexMethod,
-					s.keyring.GetAccAddr(0).String(),
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.Bech32ToHexCall{
+					Bech32Address: s.keyring.GetAccAddr(0).String(),
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
 			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.Bech32ToHexMethod, data)
+				var ret bech32.Bech32ToHexReturn
+				_, err := ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(common.Address)
-				s.Require().True(ok)
-				s.Require().Equal(s.keyring.GetAddr(0), addr)
+				s.Require().Equal(s.keyring.GetAddr(0), ret.Addr)
 			},
 			true,
 			"",
@@ -201,11 +193,11 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - bech32 to hex validator address",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.Bech32ToHexMethod,
-					s.network.GetValidators()[0].OperatorAddress,
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.Bech32ToHexCall{
+					Bech32Address: s.network.GetValidators()[0].OperatorAddress,
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
@@ -214,12 +206,10 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddrBz, err := valAddrCodec.StringToBytes(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err, "failed to convert string to bytes")
 
-				args, err := s.precompile.Unpack(bech32.Bech32ToHexMethod, data)
+				var ret bech32.Bech32ToHexReturn
+				_, err = ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(common.Address)
-				s.Require().True(ok)
-				s.Require().Equal(common.BytesToAddress(valAddrBz), addr)
+				s.Require().Equal(common.BytesToAddress(valAddrBz), ret.Addr)
 			},
 			true,
 			"",
@@ -227,21 +217,19 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - bech32 to hex consensus address",
 			func() *vm.Contract {
-				input, err := s.precompile.Pack(
-					bech32.Bech32ToHexMethod,
-					sdk.ConsAddress(s.keyring.GetAddr(0).Bytes()).String(),
-				)
-				s.Require().NoError(err, "failed to pack input")
+				call := bech32.Bech32ToHexCall{
+					Bech32Address: sdk.ConsAddress(s.keyring.GetAddr(0).Bytes()).String(),
+				}
+				input, err := call.EncodeWithSelector()
+				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
 				return contract
 			},
 			func(data []byte) {
-				args, err := s.precompile.Unpack(bech32.Bech32ToHexMethod, data)
+				var ret bech32.Bech32ToHexReturn
+				_, err := ret.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(args, 1)
-				addr, ok := args[0].(common.Address)
-				s.Require().True(ok)
-				s.Require().Equal(s.keyring.GetAddr(0), addr)
+				s.Require().Equal(s.keyring.GetAddr(0), ret.Addr)
 			},
 			true,
 			"",

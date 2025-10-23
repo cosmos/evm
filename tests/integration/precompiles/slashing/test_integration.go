@@ -64,11 +64,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		BeforeEach(func() {
 			s.SetupTest()
 
-			valAddr, err = sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
+			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			Expect(err).To(BeNil())
 
 			// send funds to the contract
-			err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(2e18))
+			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(2e18))
 			Expect(err).To(BeNil())
 			Expect(s.network.NextBlock()).To(BeNil())
 

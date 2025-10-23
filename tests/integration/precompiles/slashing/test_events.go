@@ -3,10 +3,9 @@ package slashing
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
+	"github.com/yihuang/go-abi"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/x/vm/statedb"
 
@@ -19,12 +18,11 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 	var (
 		stateDB *statedb.StateDB
 		ctx     sdk.Context
-		method  = s.precompile.Methods[slashing.UnjailMethod]
 	)
 
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() common.Address
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -32,7 +30,7 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func() []interface{} {
+			func() common.Address {
 				validator, err := s.network.App.GetStakingKeeper().GetValidator(ctx, sdk.ValAddress(s.keyring.GetAccAddr(0)))
 				s.Require().NoError(err)
 
@@ -45,28 +43,26 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 				)
 				s.Require().NoError(err)
 
-				return []interface{}{
-					s.keyring.GetAddr(0),
-				}
+				return s.keyring.GetAddr(0)
 			},
 			func() {
 				log := stateDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[slashing.EventTypeValidatorUnjailed]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
+				s.Require().Equal(slashing.ValidatorUnjailedEventTopic, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the validator address in the event matches
-				hash, err := cmn.MakeTopic(s.keyring.GetAddr(0))
+				var hash common.Hash
+				_, err := abi.EncodeAddress(s.keyring.GetAddr(0), hash[:])
 				s.Require().NoError(err)
 
 				s.Require().Equal(hash, log.Topics[1])
 
 				// Check the fully unpacked event matches the one emitted
-				var unjailEvent slashing.EventValidatorUnjailed
-				err = cmn.UnpackLog(s.precompile.ABI, &unjailEvent, slashing.EventTypeValidatorUnjailed, *log)
+				var unjailEvent slashing.ValidatorUnjailedEvent
+				err = unjailEvent.DecodeTopics(log.Topics)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), unjailEvent.Validator)
 			},
@@ -87,7 +83,10 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 			initialGas := ctx.GasMeter().GasConsumed()
 			s.Require().Zero(initialGas)
 
-			_, err := s.precompile.Unjail(ctx, &method, stateDB, contract, tc.malleate())
+			method := slashing.UnjailCall{
+				ValidatorAddress: tc.malleate(),
+			}
+			_, err := s.precompile.Unjail(ctx, &method, stateDB, contract)
 
 			if tc.expError {
 				s.Require().Error(err)

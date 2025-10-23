@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-metrics"
 
-	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/x/erc20/types"
 
 	sdkerrors "cosmossdk.io/errors"
@@ -75,21 +75,19 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 	receiver sdk.AccAddress,
 	sender common.Address,
 ) (*types.MsgConvertERC20Response, error) {
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
 	contract := pair.GetERC20Contract()
 	balanceCoin := k.bankKeeper.GetBalance(ctx, receiver, pair.Denom)
-	balanceToken := k.BalanceOf(ctx, erc20, contract, types.ModuleAddress)
+	balanceToken := k.BalanceOf(ctx, contract, types.ModuleAddress)
 	if balanceToken == nil {
 		return nil, sdkerrors.Wrap(types.ErrEVMCall, "failed to retrieve balance")
 	}
 
 	// Escrow tokens on module account
-	transferData, err := erc20.Pack("transfer", types.ModuleAddress, msg.Amount.BigInt())
-	if err != nil {
-		return nil, err
+	call := &erc20.TransferCall{
+		To:     types.ModuleAddress,
+		Amount: msg.Amount.BigInt(),
 	}
-
-	res, err := k.evmKeeper.CallEVMWithData(ctx, sender, &contract, transferData, true, nil)
+	res, err := k.evmKeeper.CallEVM(ctx, call, sender, contract, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +100,8 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 			return nil, err
 		}
 	} else {
-		if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
+		var ret erc20.TransferReturn
+		if _, err := ret.Decode(res.Ret); err != nil {
 			return nil, err
 		}
 		if !unpackedRet.Value {
@@ -114,7 +113,7 @@ func (k Keeper) convertERC20IntoCoinsForNativeToken(
 	// NOTE: coin fields already validated in the ValidateBasic() of the message
 	coins := sdk.Coins{sdk.Coin{Denom: pair.Denom, Amount: msg.Amount}}
 	tokens := coins[0].Amount.BigInt()
-	balanceTokenAfter := k.BalanceOf(ctx, erc20, contract, types.ModuleAddress)
+	balanceTokenAfter := k.BalanceOf(ctx, contract, types.ModuleAddress)
 	if balanceTokenAfter == nil {
 		return nil, sdkerrors.Wrap(types.ErrEVMCall, "failed to retrieve balance")
 	}
@@ -245,10 +244,9 @@ func (k Keeper) ConvertCoinNativeERC20(
 		return sdkerrors.Wrap(types.ErrNegativeToken, "converted coin amount must be positive")
 	}
 
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
 	contract := pair.GetERC20Contract()
 
-	balanceToken := k.BalanceOf(ctx, erc20, contract, receiver)
+	balanceToken := k.BalanceOf(ctx, contract, receiver)
 	if balanceToken == nil {
 		return sdkerrors.Wrap(types.ErrEVMCall, "failed to retrieve balance")
 	}
@@ -260,7 +258,11 @@ func (k Keeper) ConvertCoinNativeERC20(
 	}
 
 	// Unescrow Tokens and send to receiver
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, true, nil, "transfer", receiver, amount.BigInt())
+	call := &erc20.TransferCall{
+		To:     receiver,
+		Amount: amount.BigInt(),
+	}
+	res, err := k.evmKeeper.CallEVM(ctx, call, types.ModuleAddress, contract, true, nil)
 	if err != nil {
 		return err
 	}
@@ -273,7 +275,8 @@ func (k Keeper) ConvertCoinNativeERC20(
 			return err
 		}
 	} else {
-		if err := erc20.UnpackIntoInterface(&unpackedRet, "transfer", res.Ret); err != nil {
+		var ret erc20.TransferReturn
+		if _, err := ret.Decode(res.Ret); err != nil {
 			return err
 		}
 		if !unpackedRet.Value {
@@ -282,7 +285,7 @@ func (k Keeper) ConvertCoinNativeERC20(
 	}
 
 	// Check expected Receiver balance after transfer execution
-	balanceTokenAfter := k.BalanceOf(ctx, erc20, contract, receiver)
+	balanceTokenAfter := k.BalanceOf(ctx, contract, receiver)
 	if balanceTokenAfter == nil {
 		return sdkerrors.Wrap(types.ErrEVMCall, "failed to retrieve balance")
 	}

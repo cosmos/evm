@@ -14,10 +14,9 @@ import (
 )
 
 func (s *PrecompileTestSuite) TestUnjail() {
-	method := s.precompile.Methods[slashing.UnjailMethod]
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() slashing.UnjailCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -25,8 +24,8 @@ func (s *PrecompileTestSuite) TestUnjail() {
 	}{
 		{
 			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
+			func() slashing.UnjailCall {
+				return slashing.UnjailCall{}
 			},
 			func() {},
 			200000,
@@ -35,9 +34,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 		},
 		{
 			"fail - invalid validator address",
-			func() []interface{} {
-				return []interface{}{
-					"",
+			func() slashing.UnjailCall {
+				return slashing.UnjailCall{
+					ValidatorAddress: common.Address{},
 				}
 			},
 			func() {},
@@ -47,9 +46,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 		},
 		{
 			"fail - msg.sender address does not match the validator address (empty address)",
-			func() []interface{} {
-				return []interface{}{
-					common.Address{},
+			func() slashing.UnjailCall {
+				return slashing.UnjailCall{
+					ValidatorAddress: common.Address{},
 				}
 			},
 			func() {},
@@ -59,9 +58,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 		},
 		{
 			"fail - msg.sender address does not match the validator address",
-			func() []interface{} {
-				return []interface{}{
-					utiltx.GenerateAddress(),
+			func() slashing.UnjailCall {
+				return slashing.UnjailCall{
+					ValidatorAddress: utiltx.GenerateAddress(),
 				}
 			},
 			func() {},
@@ -71,9 +70,9 @@ func (s *PrecompileTestSuite) TestUnjail() {
 		},
 		{
 			"fail - validator not jailed",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() slashing.UnjailCall {
+				return slashing.UnjailCall{
+					ValidatorAddress: s.keyring.GetAddr(0),
 				}
 			},
 			func() {},
@@ -83,7 +82,7 @@ func (s *PrecompileTestSuite) TestUnjail() {
 		},
 		{
 			"success - validator unjailed",
-			func() []interface{} {
+			func() slashing.UnjailCall {
 				validator, err := s.network.App.GetStakingKeeper().GetValidator(s.network.GetContext(), sdk.ValAddress(s.keyring.GetAccAddr(0)))
 				s.Require().NoError(err)
 
@@ -99,8 +98,8 @@ func (s *PrecompileTestSuite) TestUnjail() {
 				s.Require().NoError(err)
 				s.Require().True(validatorAfterJail.IsJailed())
 
-				return []interface{}{
-					s.keyring.GetAddr(0),
+				return slashing.UnjailCall{
+					ValidatorAddress: s.keyring.GetAddr(0),
 				}
 			},
 			func() {
@@ -126,7 +125,8 @@ func (s *PrecompileTestSuite) TestUnjail() {
 				tc.gas,
 			)
 
-			res, err := s.precompile.Unjail(ctx, &method, s.network.GetStateDB(), contract, tc.malleate())
+			call := tc.malleate()
+			res, err := s.precompile.Unjail(ctx, &call, s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

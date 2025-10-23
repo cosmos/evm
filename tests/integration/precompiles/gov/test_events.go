@@ -3,7 +3,6 @@ package gov
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -17,14 +16,13 @@ import (
 
 func (s *PrecompileTestSuite) TestVoteEvent() {
 	var (
-		stDB   *statedb.StateDB
-		ctx    sdk.Context
-		method = s.precompile.Methods[gov.VoteMethod]
+		stDB *statedb.StateDB
+		ctx  sdk.Context
 	)
 
 	testCases := []struct {
 		name        string
-		malleate    func(voter common.Address, proposalId uint64, option uint8, metadata string) []interface{}
+		malleate    func(voter common.Address, proposalId uint64, option uint8, metadata string) *gov.VoteCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -32,12 +30,12 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(voter common.Address, proposalId uint64, option uint8, metadata string) []interface{} {
-				return []interface{}{
-					voter,
-					proposalId,
-					option,
-					metadata,
+			func(voter common.Address, proposalId uint64, option uint8, metadata string) *gov.VoteCall {
+				return &gov.VoteCall{
+					Voter:      voter,
+					ProposalId: proposalId,
+					Option:     option,
+					Metadata:   metadata,
 				}
 			},
 			func() {
@@ -45,13 +43,12 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[gov.EventTypeVote]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
+				s.Require().Equal(gov.VoteEventTopic, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the fully unpacked event matches the one emitted
-				var voteEvent gov.EventVote
-				err := cmn.UnpackLog(s.precompile.ABI, &voteEvent, gov.EventTypeVote, *log)
+				var voteEvent gov.VoteEvent
+				err := cmn.UnpackLog(&voteEvent, *log)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), voteEvent.Voter)
 				s.Require().Equal(uint64(1), voteEvent.ProposalId)
@@ -73,7 +70,7 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.Vote(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"))
+		_, err := s.precompile.Vote(ctx, tc.malleate(s.keyring.GetAddr(0), 1, 1, "metadata"), stDB, contract)
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -87,14 +84,13 @@ func (s *PrecompileTestSuite) TestVoteEvent() {
 
 func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 	var (
-		stDB   *statedb.StateDB
-		ctx    sdk.Context
-		method = s.precompile.Methods[gov.VoteWeightedMethod]
+		stDB *statedb.StateDB
+		ctx  sdk.Context
 	)
 
 	testCases := []struct {
 		name        string
-		malleate    func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) []interface{}
+		malleate    func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) *gov.VoteWeightedCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -102,12 +98,12 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 	}{
 		{
 			"success - the correct VoteWeighted event is emitted",
-			func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) []interface{} {
-				return []interface{}{
-					voter,
-					proposalId,
-					options,
-					"",
+			func(voter common.Address, proposalId uint64, options gov.WeightedVoteOptions) *gov.VoteWeightedCall {
+				return &gov.VoteWeightedCall{
+					Voter:      voter,
+					ProposalId: proposalId,
+					Options:    options,
+					Metadata:   "",
 				}
 			},
 			func() {
@@ -115,13 +111,12 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[gov.EventTypeVoteWeighted]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
+				s.Require().Equal(gov.VoteWeightedEventTopic, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the fully unpacked event matches the one emitted
-				var voteWeightedEvent gov.EventVoteWeighted
-				err := cmn.UnpackLog(s.precompile.ABI, &voteWeightedEvent, gov.EventTypeVoteWeighted, *log)
+				var voteWeightedEvent gov.VoteWeightedEvent
+				err := cmn.UnpackLog(&voteWeightedEvent, *log)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), voteWeightedEvent.Voter)
 				s.Require().Equal(uint64(1), voteWeightedEvent.ProposalId)
@@ -153,7 +148,7 @@ func (s *PrecompileTestSuite) TestVoteWeightedEvent() {
 				{Option: 2, Weight: "0.30"},
 			}
 
-			_, err := s.precompile.VoteWeighted(ctx, contract, stDB, &method, tc.malleate(s.keyring.GetAddr(0), 1, options))
+			_, err := s.precompile.VoteWeighted(ctx, tc.malleate(s.keyring.GetAddr(0), 1, options), stDB, contract)
 
 			if tc.expError {
 				s.Require().Error(err)

@@ -106,9 +106,6 @@ var (
 // NOTE: we test both methods in the same test because they need the same testcases and
 // the same setup.
 func (s *PrecompileTestSuite) TestNameSymbol() {
-	nameMethod := s.precompile.Methods[erc20.NameMethod]
-	symbolMethod := s.precompile.Methods[erc20.SymbolMethod]
-
 	testcases := []struct {
 		name        string
 		denom       string
@@ -190,37 +187,29 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			s.Require().NoError(err)
 
 			s.Run("name", func() {
-				bz, err := precompile.Name(
+				out, err := precompile.Name(
 					s.network.GetContext(),
-					nil,
-					nil,
-					&nameMethod,
-					[]interface{}{},
+					&erc20.NameCall{},
 				)
 
-				// NOTE: all output and error checking happens in here
-				s.requireOut(bz, err, nameMethod, tc.expPass, tc.errContains, tc.expName)
+				s.Require().NoError(err)
+				s.Require().Equal(out.Field1, tc.expName)
 			})
 
 			s.Run("symbol", func() {
-				bz, err := precompile.Symbol(
+				out, err := precompile.Symbol(
 					s.network.GetContext(),
-					nil,
-					nil,
-					&symbolMethod,
-					[]interface{}{},
+					&erc20.SymbolCall{},
 				)
 
-				// NOTE: all output and error checking happens in here
-				s.requireOut(bz, err, symbolMethod, tc.expPass, tc.errContains, tc.expSymbol)
+				s.Require().NoError(err)
+				s.Require().Equal(out.Field1, tc.expSymbol)
 			})
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestDecimals() {
-	DecimalsMethod := s.precompile.Methods[erc20.DecimalsMethod]
-
 	testcases := []struct {
 		name        string
 		denom       string
@@ -380,23 +369,18 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			precompile, err := s.setupERC20Precompile(tc.denom)
 			s.Require().NoError(err)
 
-			bz, err := precompile.Decimals(
+			out, err := precompile.Decimals(
 				s.network.GetContext(),
-				nil,
-				nil,
-				&DecimalsMethod,
-				[]interface{}{},
+				&erc20.DecimalsCall{},
 			)
 
-			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, DecimalsMethod, tc.expPass, tc.errContains, tc.expDecimals)
+			s.Require().NoError(err)
+			s.Require().Equal(out.Field1, tc.expDecimals)
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestTotalSupply() {
-	method := s.precompile.Methods[erc20.TotalSupplyMethod]
-
 	testcases := []struct {
 		name        string
 		malleate    func(sdk.Context, bankkeeper.Keeper, *big.Int)
@@ -432,68 +416,53 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 			precompile, err := s.setupERC20Precompile(validMetadataDenom)
 			s.Require().NoError(err)
 
-			bz, err := precompile.TotalSupply(
+			out, err := precompile.TotalSupply(
 				s.network.GetContext(),
-				nil,
-				nil,
-				&method,
-				[]interface{}{},
+				&erc20.TotalSupplyCall{},
 			)
 
-			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expTotal)
+			s.Require().NoError(err)
+			s.Require().Equal(out.Field1, tc.expTotal)
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestBalanceOf() {
-	method := s.precompile.Methods[erc20.BalanceOfMethod]
-
 	testcases := []struct {
 		name        string
-		malleate    func(sdk.Context, bankkeeper.Keeper, *big.Int) []interface{}
+		malleate    func(sdk.Context, bankkeeper.Keeper, *big.Int) *erc20.BalanceOfCall
 		expPass     bool
 		errContains string
 		expBalance  *big.Int
 	}{
 		{
-			name: "fail - invalid number of arguments",
-			malleate: func(_ sdk.Context, _ bankkeeper.Keeper, _ *big.Int) []interface{} {
-				return []interface{}{}
-			},
-			errContains: "invalid number of arguments; expected 1; got: 0",
-		},
-		{
-			name: "fail - invalid address",
-			malleate: func(_ sdk.Context, _ bankkeeper.Keeper, _ *big.Int) []interface{} {
-				return []interface{}{"invalid address"}
-			},
-			errContains: "invalid account address: invalid address",
-		},
-		{
 			name: "pass - no coins in token denomination of precompile token pair",
-			malleate: func(_ sdk.Context, keeper bankkeeper.Keeper, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, keeper bankkeeper.Keeper, _ *big.Int) *erc20.BalanceOfCall {
 				// NOTE: we fund the account with some coins in a different denomination from what was used in the precompile.
 				err := testutil.FundAccount(
 					s.network.GetContext(), keeper, s.keyring.GetAccAddr(0), sdk.NewCoins(sdk.NewInt64Coin(s.bondDenom, 100)),
 				)
 				s.Require().NoError(err, "expected no error funding account")
 
-				return []interface{}{s.keyring.GetAddr(0)}
+				return &erc20.BalanceOfCall{
+					Account: s.keyring.GetAddr(0),
+				}
 			},
 			expPass:    true,
 			expBalance: common.Big0,
 		},
 		{
 			name: "pass - some coins",
-			malleate: func(ctx sdk.Context, keeper bankkeeper.Keeper, amount *big.Int) []interface{} {
+			malleate: func(ctx sdk.Context, keeper bankkeeper.Keeper, amount *big.Int) *erc20.BalanceOfCall {
 				// NOTE: we fund the account with some coins of the token denomination that was used for the precompile
 				err := testutil.FundAccount(
 					ctx, keeper, s.keyring.GetAccAddr(0), sdk.NewCoins(sdk.NewCoin(s.tokenDenom, sdkmath.NewIntFromBigInt(amount))),
 				)
 				s.Require().NoError(err, "expected no error funding account")
 
-				return []interface{}{s.keyring.GetAddr(0)}
+				return &erc20.BalanceOfCall{
+					Account: s.keyring.GetAddr(0),
+				}
 			},
 			expPass:    true,
 			expBalance: big.NewInt(100),
@@ -504,67 +473,41 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			var balanceOfArgs []interface{}
+			var balanceOfArgs erc20.BalanceOfCall
 			if tc.malleate != nil {
-				balanceOfArgs = tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), tc.expBalance)
+				balanceOfArgs = *tc.malleate(s.network.GetContext(), s.network.App.GetBankKeeper(), tc.expBalance)
 			}
 
-			bz, err := s.precompile.BalanceOf(
+			out, err := s.precompile.BalanceOf(
 				s.network.GetContext(),
-				nil,
-				nil,
-				&method,
-				balanceOfArgs,
+				&balanceOfArgs,
 			)
 
-			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expBalance)
+			s.Require().NoError(err)
+			s.Require().Equal(out.Field1, tc.expBalance)
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestAllowance() {
-	method := s.precompile.Methods[erc20.AllowanceMethod]
-
 	testcases := []struct {
 		name        string
-		malleate    func(sdk.Context, *big.Int) []interface{}
+		malleate    func(sdk.Context, *big.Int) *erc20.AllowanceCall
 		expPass     bool
 		errContains string
 		expAllow    *big.Int
 	}{
 		{
-			name: "fail - invalid number of arguments",
-			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
-				return []interface{}{1}
-			},
-			errContains: "invalid number of arguments; expected 2; got: 1",
-		},
-		{
-			name: "fail - invalid owner address",
-			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
-				return []interface{}{"invalid address", s.keyring.GetAddr(1)}
-			},
-			errContains: "invalid owner address: invalid address",
-		},
-		{
-			name: "fail - invalid spender address",
-			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
-				return []interface{}{s.keyring.GetAddr(0), "invalid address"}
-			},
-			errContains: "invalid spender address: invalid address",
-		},
-		{
 			name: "pass - no allowance exists should return 0",
-			malleate: func(_ sdk.Context, _ *big.Int) []interface{} {
-				return []interface{}{s.keyring.GetAddr(0), s.keyring.GetAddr(1)}
+			malleate: func(_ sdk.Context, _ *big.Int) *erc20.AllowanceCall {
+				return &erc20.AllowanceCall{Owner: s.keyring.GetAddr(0), Spender: s.keyring.GetAddr(1)}
 			},
 			expPass:  true,
 			expAllow: common.Big0,
 		},
 		{
 			name: "pass - allowance exists for precompile token pair denom",
-			malleate: func(_ sdk.Context, amount *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, amount *big.Int) *erc20.AllowanceCall {
 				ownerIdx := 0
 				spenderIdx := 1
 
@@ -575,7 +518,7 @@ func (s *PrecompileTestSuite) TestAllowance() {
 					amount,
 				)
 
-				return []interface{}{s.keyring.GetAddr(ownerIdx), s.keyring.GetAddr(spenderIdx)}
+				return &erc20.AllowanceCall{Owner: s.keyring.GetAddr(ownerIdx), Spender: s.keyring.GetAddr(spenderIdx)}
 			},
 			expPass:  true,
 			expAllow: big.NewInt(100),
@@ -586,21 +529,18 @@ func (s *PrecompileTestSuite) TestAllowance() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			var allowanceArgs []interface{}
+			var allowanceArgs erc20.AllowanceCall
 			if tc.malleate != nil {
-				allowanceArgs = tc.malleate(s.network.GetContext(), tc.expAllow)
+				allowanceArgs = *tc.malleate(s.network.GetContext(), tc.expAllow)
 			}
 
-			bz, err := s.precompile.Allowance(
+			out, err := s.precompile.Allowance(
 				s.network.GetContext(),
-				nil,
-				nil,
-				&method,
-				allowanceArgs,
+				&allowanceArgs,
 			)
 
-			// NOTE: all output and error checking happens in here
-			s.requireOut(bz, err, method, tc.expPass, tc.errContains, tc.expAllow)
+			s.Require().NoError(err)
+			s.Require().Equal(out.Field1, tc.expAllow)
 		})
 	}
 }
