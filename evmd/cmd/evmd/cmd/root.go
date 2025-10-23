@@ -2,12 +2,9 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
-	iavlx "github.com/cosmos/cosmos-sdk/iavl"
 	"github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -295,7 +292,7 @@ func newApp(
 		cast.ToUint32(appOpts.Get(sdkserver.FlagStateSyncSnapshotKeepRecent)),
 	)
 
-	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+	// homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
 	baseappOptions := []func(*baseapp.BaseApp){
 		baseapp.SetPruning(pruningOpts),
 		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(sdkserver.FlagMinGasPrices))),
