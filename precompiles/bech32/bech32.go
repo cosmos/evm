@@ -1,15 +1,16 @@
 package bech32
 
 import (
-	"embed"
+	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	_ "embed"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -18,13 +19,13 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   embed.FS
+	f   []byte
 	ABI abi.ABI
 )
 
 func init() {
 	var err error
-	ABI, err = cmn.LoadABI(f, "abi.json")
+	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
 		panic(err)
 	}

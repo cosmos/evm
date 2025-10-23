@@ -1,7 +1,7 @@
 package erc20
 
 import (
-	"embed"
+	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -14,6 +14,8 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	_ "embed"
 )
 
 const (
@@ -42,13 +44,13 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   embed.FS
+	f   []byte
 	ABI abi.ABI
 )
 
 func init() {
 	var err error
-	ABI, err = cmn.LoadABI(f, abiPath)
+	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
 		panic(err)
 	}
@@ -66,12 +68,6 @@ type Precompile struct {
 	erc20Keeper    Erc20Keeper
 	// BankKeeper is a public field so that the werc20 precompile can use it.
 	BankKeeper cmn.BankKeeper
-}
-
-// LoadABI loads the IERC20Metadata ABI from the embedded abi.json file
-// for the erc20 precompile.
-func LoadABI() (abi.ABI, error) {
-	return cmn.LoadABI(f, abiPath)
 }
 
 // NewPrecompile creates a new ERC-20 Precompile instance as a
