@@ -310,17 +310,17 @@ func newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(sdkserver.FlagIAVLCacheSize))),
 		baseapp.SetIAVLDisableFastNode(cast.ToBool(appOpts.Get(sdkserver.FlagDisableIAVLFastNode))),
 		baseapp.SetChainID(chainID),
-		func(bapp *baseapp.BaseApp) {
-			db, err := iavlx.LoadDB(
-				filepath.Join(homeDir, "data", "iavlx"),
-				&iavlx.Options{},
-				bapp.Logger(),
-			)
-			if err != nil {
-				panic(fmt.Errorf("failed to load iavlx db: %w", err))
-			}
-			bapp.SetCMS(db)
-		},
+		//func(bapp *baseapp.BaseApp) {
+		//	db, err := iavlx.LoadDB(
+		//		filepath.Join(homeDir, "data", "iavlx"),
+		//		&iavlx.Options{},
+		//		bapp.Logger(),
+		//	)
+		//	if err != nil {
+		//		panic(fmt.Errorf("failed to load iavlx db: %w", err))
+		//	}
+		//	bapp.SetCMS(db)
+		//},
 	}
 
 	return evmd.NewExampleApp(
