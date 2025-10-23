@@ -153,7 +153,7 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 func (Precompile) IsTransaction(method *abi.Method) bool {
 	// GetClientStateMethod is the only query method.
-	return !(GetClientStateMethod == method.Name)
+	return GetClientStateMethod != method.Name
 }
 
 // Logger returns a precompile-specific logger.

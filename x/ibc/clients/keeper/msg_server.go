@@ -6,10 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/cosmos/evm/x/ibc/clients/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-
-	"github.com/cosmos/evm/x/ibc/clients/types"
 )
 
 var _ types.MsgServer = (*Keeper)(nil)

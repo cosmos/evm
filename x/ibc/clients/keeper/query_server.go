@@ -5,16 +5,15 @@ import (
 	"errors"
 
 	"github.com/ethereum/go-ethereum/common"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/cosmos/evm/x/ibc/clients/types"
 
 	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/types/query"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"github.com/cosmos/evm/x/ibc/clients/types"
 )
 
 var _ types.QueryServer = (*Keeper)(nil)
@@ -39,7 +38,6 @@ func (k Keeper) ClientPrecompile(ctx context.Context, req *types.QueryClientPrec
 		}
 		return &types.QueryClientPrecompileResponse{Precompile: &precompile}, nil
 	}
-
 }
 
 // ClientPrecompiles defines the handler for the Query/ClientPrecompiles RPC method.

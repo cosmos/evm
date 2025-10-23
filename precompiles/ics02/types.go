@@ -3,11 +3,11 @@ package ics02
 import (
 	"fmt"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 )
 
 // ParseGetClientStateArgs parses the arguments for the GetClientState method.
