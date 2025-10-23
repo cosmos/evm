@@ -5,9 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm/ibc"
 
@@ -40,14 +38,11 @@ const (
 // the token capitalized (e.g. uatom -> Atom).
 func (p Precompile) Name(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	_ []interface{},
-) ([]byte, error) {
+	args *NameCall,
+) (*NameReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if found {
-		return method.Outputs.Pack(metadata.Name)
+		return &NameReturn{Field1: metadata.Name}, nil
 	}
 
 	baseDenom, err := p.getBaseDenomFromIBCVoucher(ctx, p.tokenPair.Denom)
@@ -56,7 +51,7 @@ func (p Precompile) Name(
 	}
 
 	name := strings.ToUpper(string(baseDenom[1])) + baseDenom[2:]
-	return method.Outputs.Pack(name)
+	return &NameReturn{Field1: name}, nil
 }
 
 // Symbol returns the symbol of the token. If the token metadata is registered in the
@@ -64,14 +59,11 @@ func (p Precompile) Name(
 // the token in uppercase (e.g. uatom -> ATOM).
 func (p Precompile) Symbol(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	_ []interface{},
-) ([]byte, error) {
+	args *SymbolCall,
+) (*SymbolReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if found {
-		return method.Outputs.Pack(metadata.Symbol)
+		return &SymbolReturn{Field1: metadata.Symbol}, nil
 	}
 
 	baseDenom, err := p.getBaseDenomFromIBCVoucher(ctx, p.tokenPair.Denom)
@@ -80,7 +72,7 @@ func (p Precompile) Symbol(
 	}
 
 	symbol := strings.ToUpper(baseDenom[1:])
-	return method.Outputs.Pack(symbol)
+	return &SymbolReturn{Field1: symbol}, nil
 }
 
 // Decimals returns the decimals places of the token. If the token metadata is registered in the
@@ -88,11 +80,8 @@ func (p Precompile) Symbol(
 // value from the first character of the base denomination (e.g. uatom -> 6).
 func (p Precompile) Decimals(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	_ []interface{},
-) ([]byte, error) {
+	args *DecimalsCall,
+) (*DecimalsReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if !found {
 		denom, err := ibc.GetDenom(p.transferKeeper, ctx, p.tokenPair.Denom)
@@ -105,7 +94,7 @@ func (p Precompile) Decimals(
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
-		return method.Outputs.Pack(decimals)
+		return &DecimalsReturn{Field1: decimals}, nil
 	}
 
 	var (
@@ -141,63 +130,44 @@ func (p Precompile) Decimals(
 		))
 	}
 
-	return method.Outputs.Pack(uint8(decimals)) //#nosec G115 // we are checking for overflow above
+	return &DecimalsReturn{Field1: uint8(decimals)}, nil //#nosec G115 // we are checking for overflow above
 }
 
 // TotalSupply returns the amount of tokens in existence. It fetches the supply
 // of the coin from the bank keeper and returns zero if not found.
 func (p Precompile) TotalSupply(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	_ []interface{},
-) ([]byte, error) {
+	args *TotalSupplyCall,
+) (*TotalSupplyReturn, error) {
 	supply := p.BankKeeper.GetSupply(ctx, p.tokenPair.Denom)
 
-	return method.Outputs.Pack(supply.Amount.BigInt())
+	return &TotalSupplyReturn{Field1: supply.Amount.BigInt()}, nil
 }
 
 // BalanceOf returns the amount of tokens owned by account. It fetches the balance
 // of the coin from the bank keeper and returns zero if not found.
 func (p Precompile) BalanceOf(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	account, err := ParseBalanceOfArgs(args)
-	if err != nil {
-		return nil, err
-	}
+	args *BalanceOfCall,
+) (*BalanceOfReturn, error) {
+	balance := p.BankKeeper.SpendableCoin(ctx, args.Account.Bytes(), p.tokenPair.Denom)
 
-	balance := p.BankKeeper.SpendableCoin(ctx, account.Bytes(), p.tokenPair.Denom)
-
-	return method.Outputs.Pack(balance.Amount.BigInt())
+	return &BalanceOfReturn{Field1: balance.Amount.BigInt()}, nil
 }
 
 // Allowance returns the remaining allowance of a spender for a given owner.
 func (p Precompile) Allowance(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	owner, spender, err := ParseAllowanceArgs(args)
-	if err != nil {
-		return nil, err
-	}
-
-	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), owner, spender)
+	args *AllowanceCall,
+) (*AllowanceReturn, error) {
+	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), args.Owner, args.Spender)
 	if err != nil {
 		// NOTE: We are not returning the error here, because we want to align the behavior with
 		// standard ERC20 smart contracts, which return zero if an allowance is not found.
 		allowance = common.Big0
 	}
 
-	return method.Outputs.Pack(allowance)
+	return &AllowanceReturn{Field1: allowance}, nil
 }
 
 // getBaseDenomFromIBCVoucher returns the base denomination from the given IBC voucher denomination.

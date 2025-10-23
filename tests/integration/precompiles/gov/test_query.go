@@ -16,7 +16,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -75,13 +74,13 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					},
 				}}
 			},
-			args:     []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:     []interface{}{uint64(1), gov.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:  true,
 			expTotal: 1,
 		},
 		{
 			name:        "invalid proposal ID",
-			args:        []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:        []interface{}{uint64(0), gov.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:     false,
 			errContains: "proposal id can not be 0",
 		},
@@ -123,7 +122,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 					},
 				}}
 			},
-			args:        []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:        []interface{}{uint64(1), gov.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:     false,
 			errContains: "empty address string is not allowed",
 		},
@@ -346,14 +345,14 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 					{ProposalId: 1, Depositor: s.keyring.GetAddr(0), Amount: []cmn.Coin{{Denom: s.network.GetBaseDenom(), Amount: big.NewInt(100)}}},
 				}
 			},
-			args:     []interface{}{uint64(1), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:     []interface{}{uint64(1), gov.PageRequest{Limit: 10, CountTotal: true}},
 			expPass:  true,
 			expTotal: 1,
 			gas:      200_000,
 		},
 		{
 			name:    "invalid proposal ID",
-			args:    []interface{}{uint64(0), query.PageRequest{Limit: 10, CountTotal: true}},
+			args:    []interface{}{uint64(0), gov.PageRequest{Limit: 10, CountTotal: true}},
 			expPass: false,
 			gas:     200_000,
 			malleate: func() []gov.DepositData {
@@ -538,7 +537,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 	testCases := []struct {
 		name        string
 		malleate    func() []interface{}
-		postCheck   func(data []gov.ProposalData, pageRes *query.PageResponse)
+		postCheck   func(data []gov.ProposalData, pageRes *gov.PageResponse)
 		gas         uint64
 		expError    bool
 		errContains string
@@ -548,7 +547,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 			func() []interface{} {
 				return []interface{}{}
 			},
-			func(_ []gov.ProposalData, _ *query.PageResponse) {},
+			func(_ []gov.ProposalData, _ *gov.PageResponse) {},
 			200000,
 			true,
 			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
@@ -560,13 +559,13 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 					uint32(govv1.StatusNil),
 					common.Address{},
 					common.Address{},
-					query.PageRequest{
+					gov.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *gov.PageResponse) {
 				s.Require().Len(data, 2)
 				s.Require().Equal(uint64(2), pageRes.Total)
 
@@ -591,13 +590,13 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 					uint32(govv1.StatusVotingPeriod),
 					common.Address{},
 					common.Address{},
-					query.PageRequest{
+					gov.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *gov.PageResponse) {
 				s.Require().Len(data, 2)
 				s.Require().Equal(uint64(2), pageRes.Total)
 				s.Require().Equal(uint32(govv1.StatusVotingPeriod), data[0].Status)
@@ -618,13 +617,13 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 					uint32(govv1.StatusVotingPeriod),
 					s.keyring.GetAddr(0),
 					common.Address{},
-					query.PageRequest{
+					gov.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *gov.PageResponse) {
 				s.Require().Len(data, 1)
 				s.Require().Equal(uint64(1), pageRes.Total)
 			},
@@ -639,13 +638,13 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 					uint32(govv1.StatusVotingPeriod),
 					common.Address{},
 					s.keyring.GetAddr(0),
-					query.PageRequest{
+					gov.PageRequest{
 						Limit:      10,
 						CountTotal: true,
 					},
 				}
 			},
-			func(data []gov.ProposalData, pageRes *query.PageResponse) {
+			func(data []gov.ProposalData, pageRes *gov.PageResponse) {
 				s.Require().Len(data, 1)
 				s.Require().Equal(uint64(1), pageRes.Total)
 			},
@@ -668,7 +667,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				var out gov.ProposalsOutput
+				var out gov.GetProposalsReturn
 				err = s.precompile.UnpackIntoInterface(&out, gov.GetProposalsMethod, bz)
 				s.Require().NoError(err)
 				tc.postCheck(out.Proposals, &out.PageResponse)

@@ -1,9 +1,6 @@
 package slashing
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/slashing/types"
 )
@@ -18,16 +15,14 @@ const (
 )
 
 // GetSigningInfo handles the `getSigningInfo` precompile call.
-// It expects a single argument: the validator’s consensus address in hex format.
-// That address comes from the validator’s CometBFT ed25519 public key,
+// It expects a single argument: the validator's consensus address in hex format.
+// That address comes from the validator's CometBFT ed25519 public key,
 // typically found in `$HOME/.evmd/config/priv_validator_key.json`.
 func (p *Precompile) GetSigningInfo(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := ParseSigningInfoArgs(args, p.consCodec)
+	args *GetSigningInfoCall,
+) (*GetSigningInfoReturn, error) {
+	req, err := ParseSigningInfoArgs(*args, p.consCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -37,21 +32,20 @@ func (p *Precompile) GetSigningInfo(
 		return nil, err
 	}
 
-	out, err := new(SigningInfoOutput).FromResponse(res)
-	if err != nil {
+	ret := new(GetSigningInfoReturn)
+	if err := ret.FromResponse(res); err != nil {
 		return nil, err
 	}
-	return method.Outputs.Pack(out.SigningInfo)
+
+	return ret, nil
 }
 
 // GetSigningInfos implements the query to get signing info for all validators.
 func (p *Precompile) GetSigningInfos(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := ParseSigningInfosArgs(method, args)
+	args *GetSigningInfosCall,
+) (*GetSigningInfosReturn, error) {
+	req, err := ParseSigningInfosArgs(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -61,25 +55,28 @@ func (p *Precompile) GetSigningInfos(
 		return nil, err
 	}
 
-	out, err := new(SigningInfosOutput).FromResponse(res)
-	if err != nil {
+	ret := new(GetSigningInfosReturn)
+	if err := ret.FromResponse(res); err != nil {
 		return nil, err
 	}
-	return method.Outputs.Pack(out.SigningInfos, out.PageResponse)
+
+	return ret, nil
 }
 
 // GetParams implements the query to get the slashing parameters.
 func (p *Precompile) GetParams(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	_ []interface{},
-) ([]byte, error) {
+	_ *GetParamsCall,
+) (*GetParamsReturn, error) {
 	res, err := p.slashingKeeper.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(ParamsOutput).FromResponse(res)
-	return method.Outputs.Pack(out.Params)
+	ret := new(GetParamsReturn)
+	if err := ret.FromResponse(res); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }
