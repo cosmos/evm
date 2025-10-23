@@ -73,9 +73,9 @@ type Erc20Keeper interface {
 	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
 }
 
-// Erc20Keeper defines the expected interface needed to instantiate ERC20 precompiles.
+// ClientsKeeper defines the expected interface needed to instantiate IBC client precompiles.
 type ClientsKeeper interface {
-	GetERC20PrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
+	GetClientPrecompileInstance(ctx sdk.Context, address common.Address) (contract vm.PrecompiledContract, found bool, err error)
 }
 
 // EvmHooks event hooks for evm tx processing
