@@ -1,11 +1,12 @@
 package ics02
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	// cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 const (
@@ -23,15 +24,19 @@ func (p *Precompile) GetClientState(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	req, err := ParseGetClientStateArgs(args, p.clientPrecompile.ClientId)
+	clientId := p.clientPrecompile.ClientId
+	req, err := ParseGetClientStateArgs(args, clientId)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = p.clientKeeper.ClientState(ctx.Context(), req)
+	res, err := p.clientKeeper.ClientState(ctx.Context(), req)
 	if err != nil {
 		return nil, err
 	}
+	if len(res.ClientState.Value) == 0 {
+		return nil, fmt.Errorf("client state not found for client ID %s", clientId)
+	}
 
-	panic("not implemented")
+	return method.Outputs.Pack(res.ClientState.Value)
 }
