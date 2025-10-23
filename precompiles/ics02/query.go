@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -22,18 +23,22 @@ func (p *Precompile) GetClientState(
 	args []interface{},
 ) ([]byte, error) {
 	clientID := p.clientPrecompile.ClientId
-	req, err := ParseGetClientStateArgs(args, clientID)
-	if err != nil {
+	if err := ParseGetClientStateArgs(args); err != nil {
 		return nil, err
 	}
 
-	res, err := p.clientKeeper.ClientState(ctx.Context(), req)
-	if err != nil {
-		return nil, err
-	}
-	if res.ClientState == nil || len(res.ClientState.Value) == 0 {
+	clientState, found := p.clientKeeper.GetClientState(ctx, clientID)
+	if !found {
 		return nil, fmt.Errorf("client state not found for client ID %s", clientID)
 	}
 
-	return method.Outputs.Pack(res.ClientState.Value)
+	any, err := codectypes.NewAnyWithValue(clientState)
+	if err != nil {
+		return nil, err
+	}
+	if len(any.Value) == 0 {
+		return nil, fmt.Errorf("client state not found for client ID %s", clientID)
+	}
+
+	return method.Outputs.Pack(any.Value)
 }

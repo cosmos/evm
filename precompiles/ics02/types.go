@@ -6,19 +6,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 )
 
 // ParseGetClientStateArgs parses the arguments for the GetClientState method.
-func ParseGetClientStateArgs(args []interface{}, clientID string) (*clienttypes.QueryClientStateRequest, error) {
+func ParseGetClientStateArgs(args []interface{}) error {
 	if len(args) != 0 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
+		return fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 0, len(args))
 	}
-
-	return &clienttypes.QueryClientStateRequest{
-		ClientId: clientID,
-	}, nil
+	return nil
 }
 
 // ParseUpdateClientArgs parses the arguments for the UpdateClient method.

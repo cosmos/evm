@@ -1,12 +1,9 @@
 package ibc
 
 import (
-	"context"
-
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
 
 	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,12 +22,9 @@ type ClientKeeper interface {
 	UpdateClient(ctx sdk.Context, clientID string, clientMsg ibcexported.ClientMessage) error
 	// GetClientStatus returns the status of a client given the client ID
 	GetClientStatus(ctx sdk.Context, clientID string) ibcexported.Status
-	// GetClientLatestHeight returns the latest height of a client given the client ID
-	GetClientLatestHeight(ctx sdk.Context, clientID string) clienttypes.Height
 	// GetClientTimestampAtHeight returns the timestamp for a given height on the client
 	// given its client ID and height
 	GetClientTimestampAtHeight(ctx sdk.Context, clientID string, height ibcexported.Height) (uint64, error)
 	// GetClientState gets a particular client from the store
 	GetClientState(ctx sdk.Context, clientID string) (ibcexported.ClientState, bool)
-	ClientState(goCtx context.Context, req *clienttypes.QueryClientStateRequest) (*clienttypes.QueryClientStateResponse, error)
 }
