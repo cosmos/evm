@@ -1,0 +1,18 @@
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_estimateGas",
+  "params": [
+    {
+      "from": "0x7aFbd19f585A1555566D4CB04B83861CB8A9AB89",
+      "to": "0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101",
+      "value": "0xde0b6b3a7640000"
+    },
+    "latest",
+    {
+      "0x7aFbd19f585A1555566D4CB04B83861CB8A9AB89": {
+        "balance": "0x3635c9adc5dea00000"
+      }
+    }
+  ]
+}
