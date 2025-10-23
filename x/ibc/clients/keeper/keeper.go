@@ -21,6 +21,8 @@ type Keeper struct {
 
 	evmKeeper    types.EVMKeeper
 	clientKeeper ibcutils.ClientKeeper
+	// bankKeeper is passed down to the precompiles
+	bankKeeper types.BankKeeper
 
 	// state management
 	Schema     collections.Schema
@@ -32,7 +34,7 @@ type Keeper struct {
 }
 
 // NewKeeper creates a new Keeper instance
-func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority sdk.AccAddress, evmKeeper types.EVMKeeper, clientKeeper ibcutils.ClientKeeper) Keeper {
+func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority sdk.AccAddress, evmKeeper types.EVMKeeper, clientKeeper ibcutils.ClientKeeper, bankKeeper types.BankKeeper) Keeper {
 	// ensure gov module account is set and is not nil
 	if err := sdk.VerifyAddressFormat(authority); err != nil {
 		panic(err)
@@ -43,6 +45,9 @@ func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService s
 	if clientKeeper == nil {
 		panic("clientKeeper cannot be nil")
 	}
+	if bankKeeper == nil {
+		panic("bankKeeper cannot be nil")
+	}
 
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
@@ -51,6 +56,7 @@ func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService s
 		authority:             authority,
 		evmKeeper:             evmKeeper,
 		clientKeeper:          clientKeeper,
+		bankKeeper:            bankKeeper,
 		ParamsItem:            collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ClientPrecompilesMap:  collections.NewMap(sb, types.ClientPrecompilesKey, "client_precompiles", collections.StringKey, codec.CollValue[types.ClientPrecompile](cdc)),
 		AddressPrecompilesMap: collections.NewMap(sb, types.PrecompilesKey, "address_precompiles", collections.BytesKey, codec.CollValue[types.ClientPrecompile](cdc)),

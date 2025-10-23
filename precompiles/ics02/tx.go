@@ -32,8 +32,8 @@ const (
 // UpdateClient updates the IBC client by passing the update message to the IBC client keeper.
 func (p *Precompile) UpdateClient(
 	ctx sdk.Context,
-	contract *vm.Contract,
-	stateDB vm.StateDB,
+	_ *vm.Contract,
+	_ vm.StateDB,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
@@ -67,8 +67,8 @@ func (p *Precompile) UpdateClient(
 // VerifyMembership verifies a membership proof by passing it to the IBC client keeper.
 func (p *Precompile) VerifyMembership(
 	ctx sdk.Context,
-	contract *vm.Contract,
-	stateDB vm.StateDB,
+	_ *vm.Contract,
+	_ vm.StateDB,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
@@ -96,8 +96,8 @@ func (p *Precompile) VerifyMembership(
 
 func (p *Precompile) VerifyNonMembership(
 	ctx sdk.Context,
-	contract *vm.Contract,
-	stateDB vm.StateDB,
+	_ *vm.Contract,
+	_ vm.StateDB,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
@@ -126,8 +126,8 @@ func (p *Precompile) VerifyNonMembership(
 // Misbehaviour submits a misbehaviour update to the IBC client keeper.
 func (p *Precompile) Misbehaviour(
 	ctx sdk.Context,
-	contract *vm.Contract,
-	stateDB vm.StateDB,
+	_ *vm.Contract,
+	_ vm.StateDB,
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {

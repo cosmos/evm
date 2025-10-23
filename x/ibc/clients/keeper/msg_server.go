@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	// "cosmossdk.io/collections"
+	"github.com/ethereum/go-ethereum/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
@@ -31,9 +31,11 @@ func (k Keeper) RegisterClientPrecompile(goCtx context.Context, msg *types.MsgRe
 		return nil, types.ErrClientNotFound.Wrapf("client ID %s not found", msg.ClientId)
 	}
 
-	// TODO: update map and add dynamic precompile registration
-	// TODO: make sure not registered twice
-	// https://github.com/cosmos/evm//blob/067f919278fcbc710d6152558e49d07875927bce/x/erc20/keeper/token_pairs.go#L22
+	// address is validated in ValidateBasic
+	address := common.HexToAddress(msg.Address)
+	if _, err := k.createNewPrecompile(ctx, msg.ClientId, address); err != nil {
+		return nil, err
+	}
 
 	return &types.MsgRegisterClientPrecompileResponse{}, nil
 }

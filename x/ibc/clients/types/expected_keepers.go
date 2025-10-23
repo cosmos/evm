@@ -10,14 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
-// EVMKeeper defines the expected EVM keeper interface used on this module
+// EVMKeeper defines the expected EVM keeper interface used on this module and is passed down to the dynamic precompiles
 type EVMKeeper interface {
-	// TODO: remove unused methods
 	GetParams(ctx sdk.Context) evmtypes.Params
 	GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) *statedb.Account
 	EstimateGasInternal(c context.Context, req *evmtypes.EthCallRequest, fromType evmtypes.CallType) (*evmtypes.EstimateGasResponse, error)
@@ -31,4 +31,17 @@ type EVMKeeper interface {
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
 	IsContract(ctx sdk.Context, address common.Address) bool
+}
+
+// BankKeeper is passed down to the dynamic precompiles
+type BankKeeper interface {
+	IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool)
+	IterateTotalSupply(ctx context.Context, cb func(coin sdk.Coin) bool)
+	GetSupply(ctx context.Context, denom string) sdk.Coin
+	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
+	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
+	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
+	SendCoins(ctx context.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error
+	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
+	BlockedAddr(addr sdk.AccAddress) bool
 }

@@ -29,11 +29,10 @@ func (k Keeper) GetClientPrecompileInstance(ctx sdk.Context, address common.Addr
 		return nil, false, errorsmod.Wrapf(types.ErrPrecompileDisabled, "precompile at address %s is disabled", address.String())
 	}
 
-	// TODO: pass bank keeper
-	return ics02.NewPrecompile(precompile, nil, k.clientKeeper), true, nil
+	return ics02.NewPrecompile(precompile, k.bankKeeper, k.clientKeeper), true, nil
 }
 
-// CreateNewPrecompile creates and stores a new client precompile mapping.
+// createNewPrecompile creates and stores a new client precompile mapping.
 func (k Keeper) createNewPrecompile(ctx sdk.Context, clientID string, address common.Address) (types.ClientPrecompile, error) {
 	if err := k.validateNewPrecompile(ctx, clientID, address); err != nil {
 		return types.ClientPrecompile{}, err
@@ -58,6 +57,7 @@ func (k Keeper) createNewPrecompile(ctx sdk.Context, clientID string, address co
 	return precompile, nil
 }
 
+// registerClientCodeHash sets the codehash for the client precompile account in the EVM.
 func (k Keeper) registerClientCodeHash(ctx sdk.Context, address common.Address) error {
 	var (
 		bytecode = common.FromHex(types.SolidityLightClientBytecode)
@@ -88,6 +88,7 @@ func (k Keeper) registerClientCodeHash(ctx sdk.Context, address common.Address) 
 	})
 }
 
+// validateNewPrecompile validates that a new precompile can be created for the given client ID and address.
 func (k Keeper) validateNewPrecompile(ctx sdk.Context, clientID string, address common.Address) error {
 	account := k.evmKeeper.GetAccount(ctx, address)
 	if account != nil && account.HasCodeHash() {
