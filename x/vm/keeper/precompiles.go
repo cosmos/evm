@@ -14,6 +14,14 @@ type Precompiles struct {
 	Addresses []common.Address
 }
 
+// NewPrecompiles creates a Precompiles instance from a single precompiled contract.
+func NewPrecompiles(address common.Address, precompile vm.PrecompiledContract) *Precompiles {
+	return &Precompiles{
+		Map:       map[common.Address]vm.PrecompiledContract{address: precompile},
+		Addresses: []common.Address{address},
+	}
+}
+
 // GetPrecompileInstance returns the address and instance of the static or dynamic precompile associated with the
 // given address, or return nil if not found.
 func (k *Keeper) GetPrecompileInstance(
@@ -21,16 +29,12 @@ func (k *Keeper) GetPrecompileInstance(
 	address common.Address,
 ) (*Precompiles, bool, error) {
 	params := k.GetParams(ctx)
+
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
 		return nil, false, err
 	} else if found {
-		addressMap := make(map[common.Address]vm.PrecompiledContract)
-		addressMap[address] = precompile
-		return &Precompiles{
-			Map:       addressMap,
-			Addresses: []common.Address{precompile.Address()},
-		}, found, nil
+		return NewPrecompiles(address, precompile), true, nil
 	}
 
 	// Since erc20Keeper is optional, we check if it is nil, in which case we just return that we didn't find the precompile
@@ -38,25 +42,16 @@ func (k *Keeper) GetPrecompileInstance(
 		if precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address); err != nil {
 			return nil, false, err
 		} else if found {
-			addressMap := make(map[common.Address]vm.PrecompiledContract)
-			addressMap[address] = precompile
-			return &Precompiles{
-				Map:       addressMap,
-				Addresses: []common.Address{precompile.Address()},
-			}, found, nil
+			return NewPrecompiles(address, precompile), true, nil
 		}
 	}
 
+	// Similarly, clientsKeeper is also optional
 	if k.clientsKeeper != nil {
 		if precompile, found, err := k.clientsKeeper.GetClientPrecompileInstance(ctx, address); err != nil {
 			return nil, false, err
 		} else if found {
-			addressMap := make(map[common.Address]vm.PrecompiledContract)
-			addressMap[address] = precompile
-			return &Precompiles{
-				Map:       addressMap,
-				Addresses: []common.Address{precompile.Address()},
-			}, found, nil
+			return NewPrecompiles(address, precompile), true, nil
 		}
 	}
 
