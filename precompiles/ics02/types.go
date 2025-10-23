@@ -55,3 +55,8 @@ func ParseVerifyNonMembershipArgs(args []interface{}) (*sp1ics07tendermint.ILigh
 
 	return &msg, nil
 }
+
+// ParseMisbehaviourArgs parses the arguments for the Misbehaviour method.
+func ParseMisbehaviourArgs(args []interface{}) ([]byte, error) {
+	return ParseUpdateClientArgs(args)
+}

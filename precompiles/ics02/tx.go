@@ -1,10 +1,11 @@
 package ics02
 
 import (
+	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	// "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -12,6 +13,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
 const (
@@ -35,6 +37,7 @@ func (p *Precompile) UpdateClient(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
+	clientId := p.clientPrecompile.ClientId
 	updateMsg, err := ParseUpdateClientArgs(args)
 	if err != nil {
 		return nil, err
@@ -50,8 +53,13 @@ func (p *Precompile) UpdateClient(
 		return nil, err
 	}
 
-	p.clientKeeper.UpdateClient(ctx, p.clientPrecompile.ClientId, clientMsg)
-	// TODO: check client state to make sure it is not frozen due to misbehaviour
+	if err := p.clientKeeper.UpdateClient(ctx, clientId, clientMsg); err != nil {
+		return nil, err
+	}
+
+	if p.clientKeeper.GetClientStatus(ctx, clientId) == ibcexported.Frozen {
+		return method.Outputs.Pack(UpdateResult_Misbehaviour)
+	}
 
 	return method.Outputs.Pack(UpdateResult_Success)
 }
@@ -81,9 +89,9 @@ func (p *Precompile) VerifyMembership(
 	if err != nil {
 		return nil, err
 	}
-	timestampSeconds := uint64(time.Unix(0, int64(timestampNano)).Unix())
+	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
-	return method.Outputs.Pack(timestampSeconds)
+	return method.Outputs.Pack(big.NewInt(timestampSeconds))
 }
 
 func (p *Precompile) VerifyNonMembership(
@@ -110,7 +118,42 @@ func (p *Precompile) VerifyNonMembership(
 	if err != nil {
 		return nil, err
 	}
-	timestampSeconds := uint64(time.Unix(0, int64(timestampNano)).Unix())
+	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
-	return method.Outputs.Pack(timestampSeconds)
+	return method.Outputs.Pack(big.NewInt(timestampSeconds))
+}
+
+// Misbehaviour submits a misbehaviour update to the IBC client keeper.
+func (p *Precompile) Misbehaviour(
+	ctx sdk.Context,
+	contract *vm.Contract,
+	stateDB vm.StateDB,
+	method *abi.Method,
+	args []interface{},
+) ([]byte, error) {
+	clientId := p.clientPrecompile.ClientId
+	updateMsg, err := ParseMisbehaviourArgs(args)
+	if err != nil {
+		return nil, err
+	}
+
+	var anyUpdateMsg codectypes.Any
+	if err := proto.Unmarshal(updateMsg, &anyUpdateMsg); err != nil {
+		return nil, err
+	}
+
+	clientMsg, err := clienttypes.UnpackClientMessage(&anyUpdateMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.clientKeeper.UpdateClient(ctx, clientId, clientMsg); err != nil {
+		return nil, err
+	}
+
+	if p.clientKeeper.GetClientStatus(ctx, clientId) != ibcexported.Frozen {
+		return nil, fmt.Errorf("client %s not frozen after misbehaviour update", clientId)
+	}
+
+	return method.Outputs.Pack(true)
 }
