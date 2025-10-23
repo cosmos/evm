@@ -31,13 +31,13 @@ func (k Keeper) ClientPrecompile(ctx context.Context, req *types.QueryClientPrec
 			return nil, err
 		}
 		return &types.QueryClientPrecompileResponse{Precompile: &precompile}, nil
-	} else {
-		precompile, err := k.ClientPrecompilesMap.Get(ctx, req.Client)
-		if err != nil {
-			return nil, errorsmod.Wrapf(err, "precompile for client ID %s not found", req.Client)
-		}
-		return &types.QueryClientPrecompileResponse{Precompile: &precompile}, nil
 	}
+
+	precompile, err := k.ClientPrecompilesMap.Get(ctx, req.Client)
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "precompile for client ID %s not found", req.Client)
+	}
+	return &types.QueryClientPrecompileResponse{Precompile: &precompile}, nil
 }
 
 // ClientPrecompiles defines the handler for the Query/ClientPrecompiles RPC method.

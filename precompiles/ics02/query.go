@@ -21,8 +21,8 @@ func (p *Precompile) GetClientState(
 	_ *vm.Contract,
 	args []interface{},
 ) ([]byte, error) {
-	clientId := p.clientPrecompile.ClientId
-	req, err := ParseGetClientStateArgs(args, clientId)
+	clientID := p.clientPrecompile.ClientId
+	req, err := ParseGetClientStateArgs(args, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (p *Precompile) GetClientState(
 		return nil, err
 	}
 	if res.ClientState == nil || len(res.ClientState.Value) == 0 {
-		return nil, fmt.Errorf("client state not found for client ID %s", clientId)
+		return nil, fmt.Errorf("client state not found for client ID %s", clientID)
 	}
 
 	return method.Outputs.Pack(res.ClientState.Value)

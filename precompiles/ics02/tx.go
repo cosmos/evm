@@ -2,6 +2,7 @@ package ics02
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -25,9 +26,9 @@ const (
 )
 
 const (
-	UpdateResult_Success      uint8 = 0
-	UpdateResult_Misbehaviour uint8 = 1
-	UpdateResult_Noop         uint8 = 2
+	UpdateResultSuccess      uint8 = 0
+	UpdateResultMisbehaviour uint8 = 1
+	UpdateResultNoop         uint8 = 2
 )
 
 // UpdateClient updates the IBC client by passing the update message to the IBC client keeper.
@@ -38,7 +39,7 @@ func (p *Precompile) UpdateClient(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	clientId := p.clientPrecompile.ClientId
+	clientID := p.clientPrecompile.ClientId
 	updateMsg, err := ParseUpdateClientArgs(args)
 	if err != nil {
 		return nil, err
@@ -54,15 +55,15 @@ func (p *Precompile) UpdateClient(
 		return nil, err
 	}
 
-	if err := p.clientKeeper.UpdateClient(ctx, clientId, clientMsg); err != nil {
+	if err := p.clientKeeper.UpdateClient(ctx, clientID, clientMsg); err != nil {
 		return nil, err
 	}
 
-	if p.clientKeeper.GetClientStatus(ctx, clientId) == ibcexported.Frozen {
-		return method.Outputs.Pack(UpdateResult_Misbehaviour)
+	if p.clientKeeper.GetClientStatus(ctx, clientID) == ibcexported.Frozen {
+		return method.Outputs.Pack(UpdateResultMisbehaviour)
 	}
 
-	return method.Outputs.Pack(UpdateResult_Success)
+	return method.Outputs.Pack(UpdateResultSuccess)
 }
 
 // VerifyMembership verifies a membership proof by passing it to the IBC client keeper.
@@ -78,17 +79,21 @@ func (p *Precompile) VerifyMembership(
 		return nil, err
 	}
 
-	clientId := p.clientPrecompile.ClientId
+	clientID := p.clientPrecompile.ClientId
 	proofHeight := clienttypes.NewHeight(verifyMsg.ProofHeight.RevisionNumber, verifyMsg.ProofHeight.RevisionHeight)
 	path := commitmenttypesv2.NewMerklePath(verifyMsg.Path...)
 
-	if err := p.clientKeeper.VerifyMembership(ctx, clientId, proofHeight, 0, 0, verifyMsg.Proof, path, verifyMsg.Value); err != nil {
+	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, verifyMsg.Proof, path, verifyMsg.Value); err != nil {
 		return nil, err
 	}
 
-	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientId, proofHeight)
+	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
 		return nil, err
+	}
+	// Convert nanoseconds to seconds without overflow.
+	if timestampNano > math.MaxInt64 {
+		return nil, fmt.Errorf("timestamp in nanoseconds exceeds int64 max value")
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
@@ -107,17 +112,21 @@ func (p *Precompile) VerifyNonMembership(
 		return nil, err
 	}
 
-	clientId := p.clientPrecompile.ClientId
+	clientID := p.clientPrecompile.ClientId
 	proofHeight := clienttypes.NewHeight(verifyMsg.ProofHeight.RevisionNumber, verifyMsg.ProofHeight.RevisionHeight)
 	path := commitmenttypesv2.NewMerklePath(verifyMsg.Path...)
 
-	if err := p.clientKeeper.VerifyNonMembership(ctx, clientId, proofHeight, 0, 0, verifyMsg.Proof, path); err != nil {
+	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, verifyMsg.Proof, path); err != nil {
 		return nil, err
 	}
 
-	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientId, proofHeight)
+	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
 		return nil, err
+	}
+	// Convert nanoseconds to seconds without overflow.
+	if timestampNano > math.MaxInt64 {
+		return nil, fmt.Errorf("timestamp in nanoseconds exceeds int64 max value")
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
@@ -132,7 +141,7 @@ func (p *Precompile) Misbehaviour(
 	method *abi.Method,
 	args []interface{},
 ) ([]byte, error) {
-	clientId := p.clientPrecompile.ClientId
+	clientID := p.clientPrecompile.ClientId
 	updateMsg, err := ParseMisbehaviourArgs(args)
 	if err != nil {
 		return nil, err
@@ -148,12 +157,12 @@ func (p *Precompile) Misbehaviour(
 		return nil, err
 	}
 
-	if err := p.clientKeeper.UpdateClient(ctx, clientId, clientMsg); err != nil {
+	if err := p.clientKeeper.UpdateClient(ctx, clientID, clientMsg); err != nil {
 		return nil, err
 	}
 
-	if p.clientKeeper.GetClientStatus(ctx, clientId) != ibcexported.Frozen {
-		return nil, fmt.Errorf("client %s not frozen after misbehaviour update", clientId)
+	if p.clientKeeper.GetClientStatus(ctx, clientID) != ibcexported.Frozen {
+		return nil, fmt.Errorf("client %s not frozen after misbehaviour update", clientID)
 	}
 
 	return method.Outputs.Pack(true)

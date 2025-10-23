@@ -17,7 +17,7 @@ var _ types.MsgServer = (*Keeper)(nil)
 // IncrementCounter defines the handler for the MsgIncrementCounter message.
 func (k Keeper) RegisterClientPrecompile(goCtx context.Context, msg *types.MsgRegisterClientPrecompile) (*types.MsgRegisterClientPrecompileResponse, error) {
 	if _, err := k.addressCodec.StringToBytes(msg.Sender); err != nil {
-		return nil, errortypes.ErrInvalidAddress.Wrapf("invalid sender address: %w", err)
+		return nil, errortypes.ErrInvalidAddress.Wrapf("invalid sender address: %v", err)
 	}
 
 	if !strings.EqualFold(msg.Sender, k.authority.String()) {
@@ -43,7 +43,7 @@ func (k Keeper) RegisterClientPrecompile(goCtx context.Context, msg *types.MsgRe
 // UpdateParams params is defining the handler for the MsgUpdateParams message.
 func (k Keeper) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	if _, err := k.addressCodec.StringToBytes(msg.Authority); err != nil {
-		return nil, errortypes.ErrInvalidAddress.Wrapf("invalid authority address: %w", err)
+		return nil, errortypes.ErrInvalidAddress.Wrapf("invalid authority address: %v", err)
 	}
 
 	if !strings.EqualFold(msg.Authority, k.authority.String()) {
