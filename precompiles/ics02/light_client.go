@@ -17,7 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// var _ vm.PrecompiledContract = (*Precompile)(nil)
+var _ vm.PrecompiledContract = (*Precompile)(nil)
 
 const (
 	// abiPath defines the path to the LightClient precompile ABI JSON file.
