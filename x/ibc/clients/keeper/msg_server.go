@@ -32,6 +32,8 @@ func (k Keeper) RegisterClientPrecompile(goCtx context.Context, msg *types.MsgRe
 	}
 
 	// TODO: update map and add dynamic precompile registration
+	// TODO: make sure not registered twice
+	// https://github.com/cosmos/evm//blob/067f919278fcbc710d6152558e49d07875927bce/x/erc20/keeper/token_pairs.go#L22
 
 	return &types.MsgRegisterClientPrecompileResponse{}, nil
 }

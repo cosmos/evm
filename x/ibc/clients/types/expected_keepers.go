@@ -13,14 +13,7 @@ import (
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
-
-// ClientKeeper expected account IBC client keeper
-type ClientKeeper interface {
-	GetClientState(ctx sdk.Context, clientID string) (ibcexported.ClientState, bool)
-}
 
 // EVMKeeper defines the expected EVM keeper interface used on this module
 type EVMKeeper interface {

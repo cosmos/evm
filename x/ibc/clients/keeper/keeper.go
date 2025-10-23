@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	ibcutils "github.com/cosmos/evm/ibc"
 	"github.com/cosmos/evm/x/ibc/clients/types"
 
 	"cosmossdk.io/collections"
@@ -19,7 +20,7 @@ type Keeper struct {
 	authority sdk.AccAddress
 
 	evmKeeper    types.EVMKeeper
-	clientKeeper types.ClientKeeper
+	clientKeeper ibcutils.ClientKeeper
 
 	// state management
 	Schema     collections.Schema
@@ -31,7 +32,7 @@ type Keeper struct {
 }
 
 // NewKeeper creates a new Keeper instance
-func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority sdk.AccAddress, evmKeeper types.EVMKeeper, clientKeeper types.ClientKeeper) Keeper {
+func NewKeeper(cdc codec.BinaryCodec, addressCodec address.Codec, storeService storetypes.KVStoreService, authority sdk.AccAddress, evmKeeper types.EVMKeeper, clientKeeper ibcutils.ClientKeeper) Keeper {
 	// ensure gov module account is set and is not nil
 	if err := sdk.VerifyAddressFormat(authority); err != nil {
 		panic(err)
