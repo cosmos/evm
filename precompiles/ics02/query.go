@@ -14,10 +14,7 @@ const (
 	GetClientStateMethod = "getClientState"
 )
 
-// GetSigningInfo handles the `getSigningInfo` precompile call.
-// It expects a single argument: the validator’s consensus address in hex format.
-// That address comes from the validator’s CometBFT ed25519 public key,
-// typically found in `$HOME/.evmd/config/priv_validator_key.json`.
+// GetClientState returns the client state for the precompile's client ID.
 func (p *Precompile) GetClientState(
 	ctx sdk.Context,
 	method *abi.Method,
@@ -34,7 +31,7 @@ func (p *Precompile) GetClientState(
 	if err != nil {
 		return nil, err
 	}
-	if len(res.ClientState.Value) == 0 {
+	if res.ClientState == nil || len(res.ClientState.Value) == 0 {
 		return nil, fmt.Errorf("client state not found for client ID %s", clientId)
 	}
 
