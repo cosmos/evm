@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 )
@@ -30,4 +32,26 @@ func ParseUpdateClientArgs(args []interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("invalid update client bytes: %v", args[0])
 	}
 	return updateBytes, nil
+}
+
+// ParseVerifyMembershipArgs parses the arguments for the VerifyMembership method.
+func ParseVerifyMembershipArgs(args []interface{}) (*sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+	}
+
+	msg := *abi.ConvertType(args[0], new(sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership)).(*sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership)
+
+	return &msg, nil
+}
+
+// ParseVerifyNonMembershipArgs parses the arguments for the VerifyNonMembership method.
+func ParseVerifyNonMembershipArgs(args []interface{}) (*sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+	}
+
+	msg := *abi.ConvertType(args[0], new(sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership)).(*sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership)
+
+	return &msg, nil
 }
