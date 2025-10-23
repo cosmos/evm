@@ -37,7 +37,8 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
 		return errortypes.ErrInvalidAddress.Wrapf("authority address '%s' is invalid: %v", m.Authority, err)
 	}
-	return nil
+
+	return m.Params.Validate()
 }
 
 func (m *MsgRegisterClientPrecompile) ValidateBasic() error {

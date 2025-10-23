@@ -2,7 +2,10 @@ package types
 
 import "cosmossdk.io/collections"
 
-const ModuleName = "evmclients"
+const (
+	ModuleName = "precompileclients"
+	StoreKey   = ModuleName
+)
 
 var (
 	ParamsKey            = collections.NewPrefix(0)
