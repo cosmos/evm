@@ -59,10 +59,10 @@ func NewPrecompile(
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.KVGasConfig(),
-			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ContractAddress:      common.HexToAddress(evmtypes.SlashingPrecompileAddress),
-			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
+			KvGasConfig:           storetypes.KVGasConfig(),
+			TransientKVGasConfig:  storetypes.TransientGasConfig(),
+			ContractAddress:       common.HexToAddress(evmtypes.SlashingPrecompileAddress),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:               ABI,
 		slashingKeeper:    slashingKeeper,

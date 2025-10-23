@@ -1,4 +1,5 @@
 package namespaces
+
 import (
 	"context"
 	"encoding/hex"
@@ -1515,22 +1516,139 @@ func EthCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	}, nil
 }
 
-func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
-	// Perform dual API comparison if enabled
-	rCtx.PerformComparison(MethodNameEthEstimateGas, map[string]interface{}{
-		"from":  rCtx.Evmd.Acc.Address.Hex(),
-		"to":    rCtx.Evmd.Acc.Address.Hex(),
-		"value": "0x0",
-	})
-
-	// Simple gas estimation test
+// estimateNativeTransferGas exercises the simplest path – sending native ETH
+// from the pre-funded dev0 account to a second dev account – so we can compare
+// Cosmos EVM and go-ethereum behaviour for plain value transfers.
+func estimateNativeTransferGas(rCtx *types.RPCContext) (string, error) {
+	recipient := utils.StandardDevAccounts["dev2"]
 	callMsg := ethereum.CallMsg{
 		From:  rCtx.Evmd.Acc.Address,
-		To:    &rCtx.Evmd.Acc.Address,
-		Value: big.NewInt(0),
+		To:    &recipient,
+		Value: big.NewInt(1e15),
 	}
 
 	gasLimit, err := rCtx.Evmd.EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("0x%x", gasLimit), nil
+}
+
+// estimateERC20TransferGas measures gas usage for a token transfer against the
+// ERC20 instance that Setup() deploys and mints to the standard dev accounts.
+// This mirrors the real execution path (contract code lives on-chain already).
+func estimateERC20TransferGas(rCtx *types.RPCContext) (string, bool, error) {
+	if rCtx.Evmd.ERC20Abi == nil || rCtx.Evmd.ERC20Addr == (common.Address{}) {
+		return "", true, nil
+	}
+
+	sender := utils.StandardDevAccounts["dev1"]
+	recipient := utils.StandardDevAccounts["dev2"]
+	amount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+
+	data, err := rCtx.Evmd.ERC20Abi.Pack("transfer", recipient, amount)
+	if err != nil {
+		return "", false, err
+	}
+
+	erc20Call := ethereum.CallMsg{From: sender, To: &rCtx.Evmd.ERC20Addr, Data: data}
+
+	if rCtx.EnableComparison {
+		rCtx.PerformComparison(MethodNameEthEstimateGas, map[string]interface{}{
+			"from": sender.Hex(),
+			"to":   rCtx.Evmd.ERC20Addr.Hex(),
+			"data": "0x" + hex.EncodeToString(data),
+		})
+	}
+
+	gas, err := rCtx.Evmd.EstimateGas(context.Background(), erc20Call)
+	if err != nil {
+		return "", false, err
+	}
+
+	return fmt.Sprintf("0x%x", gas), false, nil
+}
+
+// estimateERC20OverrideGas simulates the "deploy via state override" RPC usage:
+//   - inject runtime bytecode at a synthetic contract address
+//   - seed balances[dev1] so the transfer can succeed
+//   - provide enough native balance for dev1 to cover gas
+//
+// This ensures our override behaviour matches geth for contract calls without
+// first deploying on-chain.
+func estimateERC20OverrideGas(rCtx *types.RPCContext) (string, bool, error) {
+	const overrideContractHex = "0x5555555555555555555555555555555555555555"
+
+	if rCtx.Evmd.ERC20Abi == nil || len(rCtx.Evmd.ERC20ByteCode) == 0 {
+		return "", true, nil
+	}
+
+	runtimeHex, err := utils.ExtractRuntimeBytecodeHex(rCtx.Evmd.ERC20ByteCode)
+	if err != nil {
+		return "", true, nil
+	}
+
+	overrideSender := utils.StandardDevAccounts["dev1"]
+	overrideRecipient := utils.StandardDevAccounts["dev2"]
+	overrideAmount := new(big.Int).Mul(big.NewInt(5), big.NewInt(1e18))
+
+	data, err := rCtx.Evmd.ERC20Abi.Pack("transfer", overrideRecipient, overrideAmount)
+	if err != nil {
+		return "", false, err
+	}
+
+	// balanceOf is stored at slot 4 in the deployed ERC20 layout.
+	// (name, symbol, decimals, totalSupply precede the mapping.)
+	const balanceMappingSlot = 4
+	slotKey := utils.MustCalculateSlotKey(overrideSender, balanceMappingSlot)
+	tokenBalance := fmt.Sprintf("0x%064x", overrideAmount)
+	fromBalance := fmt.Sprintf("0x%x", new(big.Int).Mul(big.NewInt(100), big.NewInt(1e18)))
+
+	overrideParams := map[string]interface{}{
+		"from": overrideSender.Hex(),
+		"to":   overrideContractHex,
+		"data": "0x" + hex.EncodeToString(data),
+	}
+	overrideState := map[string]interface{}{
+		overrideContractHex: map[string]interface{}{
+			"code": runtimeHex,
+			"stateDiff": map[string]string{
+				slotKey.Hex(): tokenBalance,
+			},
+		},
+		overrideSender.Hex(): map[string]string{
+			"balance": fromBalance,
+		},
+	}
+
+	if rCtx.EnableComparison {
+		rCtx.PerformComparison(MethodNameEthEstimateGas, overrideParams, "latest", overrideState)
+	}
+
+	var overrideGas hexutil.Uint64
+	if err := rCtx.Evmd.RPCClient().Call(&overrideGas, string(MethodNameEthEstimateGas), overrideParams, "latest", overrideState); err != nil {
+		return "", false, err
+	}
+
+	return fmt.Sprintf("0x%x", uint64(overrideGas)), false, nil
+}
+
+// EthEstimateGas aggregates native ETH, deployed ERC20, and override ERC20
+// scenarios so we continuously exercise the major gas-estimation paths.
+func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
+	if rCtx.EnableComparison {
+		rCtx.PerformComparison(MethodNameEthEstimateGas, map[string]interface{}{
+			"from":  rCtx.Evmd.Acc.Address.Hex(),
+			"to":    rCtx.Evmd.Acc.Address.Hex(),
+			"value": "0x0",
+		})
+	}
+
+	// Collect individual scenario results keyed by a descriptive name.
+	results := map[string]string{}
+
+	single, err := estimateNativeTransferGas(rCtx)
 	if err != nil {
 		return &types.RpcResult{
 			Method:   MethodNameEthEstimateGas,
@@ -1539,11 +1657,39 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 			Category: NamespaceEth,
 		}, nil
 	}
+	singleKey := "nativeTransfer"
+	results[singleKey] = single
+
+	if erc20Gas, skipped, err := estimateERC20TransferGas(rCtx); err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameEthEstimateGas,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}, nil
+	} else if skipped {
+		results["erc20Transfer"] = "skipped"
+	} else {
+		results["erc20Transfer"] = erc20Gas
+	}
+
+	if overrideGas, skipped, err := estimateERC20OverrideGas(rCtx); err != nil {
+		return &types.RpcResult{
+			Method:   MethodNameEthEstimateGas,
+			Status:   types.Error,
+			ErrMsg:   err.Error(),
+			Category: NamespaceEth,
+		}, nil
+	} else if skipped {
+		results["erc20Override"] = "skipped"
+	} else {
+		results["erc20Override"] = overrideGas
+	}
 
 	return &types.RpcResult{
 		Method:   MethodNameEthEstimateGas,
 		Status:   types.Ok,
-		Value:    fmt.Sprintf("0x%x", gasLimit),
+		Value:    results,
 		Category: NamespaceEth,
 	}, nil
 }
