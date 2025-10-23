@@ -50,13 +50,6 @@ func (app EVMD) RegisterUpgradeHandlers() {
 				URIHash: "example_uri_hash",
 			})
 
-			// Persist the EVM coin metadata in keeper state. Chains bootstrapped on earlier
-			// binaries never stored this information (it lived only in process globals),
-			// so migrating nodes would otherwise see an empty EvmCoinInfo on upgrade.
-			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
-				return nil, err
-			}
-
 			// (Required for NON-18 denom chains *only)
 			// Update EVM params to add Extended denom options
 			// Ensure that this corresponds to the EVM denom
@@ -67,7 +60,9 @@ func (app EVMD) RegisterUpgradeHandlers() {
 			if err != nil {
 				return nil, err
 			}
-			// Initialize EvmCoinInfo in the module store
+			// Initialize EvmCoinInfo in the module store. Chains bootstrapped before v0.5.0
+			// binaries never stored this information (it lived only in process globals),
+			// so migrating nodes would otherwise see an empty EvmCoinInfo on upgrade.
 			if err := app.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
 				return nil, err
 			}
