@@ -1,6 +1,6 @@
 module github.com/cosmos/evm
 
-go 1.23.8
+go 1.25.0
 
 require (
 	cosmossdk.io/api v0.9.2
@@ -110,6 +110,7 @@ require (
 	github.com/cosmos/iavl v1.2.2 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
+	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0-20251022080829-1f134e699312 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/creachadair/atomicfile v0.3.7 // indirect
