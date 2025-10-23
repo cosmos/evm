@@ -60,8 +60,7 @@ type Precompile struct {
 
 	abi.ABI
 	clientPrecompile clientstypes.ClientPrecompile
-	// TODO: define keeper in interfaces
-	clientKeeper ibcutils.ClientKeeper
+	clientKeeper     ibcutils.ClientKeeper
 	// BankKeeper is not used directly in the precompile but is needed for the balance handler.
 	BankKeeper cmn.BankKeeper
 }
@@ -125,7 +124,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, _, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -134,15 +133,16 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 
 	switch method.Name {
 	case UpdateClientMethod:
-	// TODO
+		bz, err = p.UpdateClient(ctx, contract, stateDB, method, args)
 	case VerifyMembershipMethod:
-	// TODO
+		bz, err = p.VerifyMembership(ctx, contract, stateDB, method, args)
 	case VerifyNonMembershipMethod:
-	// TODO
+		bz, err = p.VerifyNonMembership(ctx, contract, stateDB, method, args)
 	case MisbehaviourMethod:
-	// TODO
+		bz, err = p.Misbehaviour(ctx, contract, stateDB, method, args)
+	// queries:
 	case GetClientStateMethod:
-	// TODO
+		bz, err = p.GetClientState(ctx, method, contract, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
