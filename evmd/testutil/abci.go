@@ -256,7 +256,7 @@ func checkTxBytes(app evm.EvmApp, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.Resp
 	}
 
 	if res.Code != 0 {
-		return abci.ResponseCheckTx{}, errorsmod.Wrapf(errortypes.ErrInvalidRequest, res.Log)
+		return abci.ResponseCheckTx{}, errorsmod.Wrap(errortypes.ErrInvalidRequest, res.Log)
 	}
 
 	return *res, nil
