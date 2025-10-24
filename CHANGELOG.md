@@ -82,6 +82,7 @@
 
 ### FEATURES
 
+- [\#646](https://github.com/cosmos/evm/pull/646) Add TxTracker support for tracking priority transactions and handling temporary rejections
 - [\#665](https://github.com/cosmos/evm/pull/665) Add EvmCodec address codec implementation
 - [\#346](https://github.com/cosmos/evm/pull/346) Add eth_createAccessList method and implementation
 - [\#337](https://github.com/cosmos/evm/pull/337) Support state overrides in eth_call.

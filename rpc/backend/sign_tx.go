@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
 	"github.com/cosmos/evm/mempool"
+	txlocals "github.com/cosmos/evm/mempool/txpool/locals"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -113,6 +114,14 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
 			// Transaction was successfully queued due to nonce gap, return success to client
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
+			// Track as local for priority and persistence
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+			return txHash, nil
+		}
+		// Temporary txpool rejections should be locally tracked for resubmission
+		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+			b.Logger.Debug("temporary rejection, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
 			return txHash, nil
 		}
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
@@ -120,6 +129,10 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	}
 
 	// Return transaction hash
+	// On success, track as local too to persist across restarts until mined
+	if b.Mempool != nil {
+		b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+	}
 	return txHash, nil
 }
 
