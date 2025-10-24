@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	_ "embed"
+
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -14,14 +16,9 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	_ "embed"
 )
 
 const (
-	// abiPath defines the path to the ERC-20 precompile ABI JSON file.
-	abiPath = "abi.json"
-
 	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which
 	// is not being merged to the main branch. The reason for this was to not clutter the repository with the
 	// necessary tests for this use case.

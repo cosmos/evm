@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	_ "embed"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -18,8 +20,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-
-	_ "embed"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}

@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	_ "embed"
+
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}

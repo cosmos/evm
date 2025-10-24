@@ -7,18 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	_ "embed"
+
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20 "github.com/cosmos/evm/precompiles/erc20"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	_ "embed"
 )
-
-// abiPath defines the path to the WERC-20 precompile ABI JSON file.
-const abiPath = "abi.json"
 
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
