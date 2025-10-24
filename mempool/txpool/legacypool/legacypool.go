@@ -1273,6 +1273,9 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 	defer close(done)
 
 	var promoteAddrs []common.Address
+	// Optionally acquire a shared read lock to coordinate with Commit in tests.
+	unlock := beginCommitRead(any(pool.chain))
+	defer unlock()
 	if dirtyAccounts != nil && reset == nil {
 		// Only dirty accounts need to be promoted, unless we're resetting.
 		// For resets, all addresses in the tx queue will be promoted and

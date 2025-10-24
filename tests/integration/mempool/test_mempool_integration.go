@@ -134,6 +134,8 @@ func (s *IntegrationTestSuite) TestMempoolInsert() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
@@ -220,6 +222,8 @@ func (s *IntegrationTestSuite) TestMempoolRemove() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
@@ -304,6 +308,8 @@ func (s *IntegrationTestSuite) TestMempoolSelect() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
@@ -419,6 +425,8 @@ func (s *IntegrationTestSuite) TestMempoolIterator() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
@@ -805,6 +813,8 @@ func (s *IntegrationTestSuite) TestTransactionOrdering() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
