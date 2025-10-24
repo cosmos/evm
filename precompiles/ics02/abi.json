@@ -1,161 +1,170 @@
-[
-  {
-    "type": "function",
-    "name": "getClientState",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "misbehaviour",
-    "inputs": [
-      {
-        "name": "misbehaviourMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateClient",
-    "inputs": [
-      {
-        "name": "updateMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ILightClientMsgs.UpdateResult"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "upgradeClient",
-    "inputs": [
-      {
-        "name": "upgradeMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "verifyMembership",
-    "inputs": [
-      {
-        "name": "msg_",
-        "type": "tuple",
-        "internalType": "struct ILightClientMsgs.MsgVerifyMembership",
-        "components": [
-          {
-            "name": "proof",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "proofHeight",
-            "type": "tuple",
-            "internalType": "struct IICS02ClientMsgs.Height",
-            "components": [
-              {
-                "name": "revisionNumber",
-                "type": "uint64",
-                "internalType": "uint64"
-              },
-              {
-                "name": "revisionHeight",
-                "type": "uint64",
-                "internalType": "uint64"
-              }
-            ]
-          },
-          {
-            "name": "path",
-            "type": "bytes[]",
-            "internalType": "bytes[]"
-          },
-          {
-            "name": "value",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "verifyNonMembership",
-    "inputs": [
-      {
-        "name": "msg_",
-        "type": "tuple",
-        "internalType": "struct ILightClientMsgs.MsgVerifyNonMembership",
-        "components": [
-          {
-            "name": "proof",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "proofHeight",
-            "type": "tuple",
-            "internalType": "struct IICS02ClientMsgs.Height",
-            "components": [
-              {
-                "name": "revisionNumber",
-                "type": "uint64",
-                "internalType": "uint64"
-              },
-              {
-                "name": "revisionHeight",
-                "type": "uint64",
-                "internalType": "uint64"
-              }
-            ]
-          },
-          {
-            "name": "path",
-            "type": "bytes[]",
-            "internalType": "bytes[]"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  }
-]
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ILightClient",
+  "sourceName": "solidity/precompiles/ics02/ILightClient.sol",
+  "abi": [
+    {
+      "type": "function",
+      "name": "getClientState",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "misbehaviour",
+      "inputs": [
+        {
+          "name": "misbehaviourMsg",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "updateClient",
+      "inputs": [
+        {
+          "name": "updateMsg",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "enum ILightClientMsgs.UpdateResult"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "upgradeClient",
+      "inputs": [
+        {
+          "name": "upgradeMsg",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "verifyMembership",
+      "inputs": [
+        {
+          "name": "msg_",
+          "type": "tuple",
+          "internalType": "struct ILightClientMsgs.MsgVerifyMembership",
+          "components": [
+            {
+              "name": "proof",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "proofHeight",
+              "type": "tuple",
+              "internalType": "struct IICS02ClientMsgs.Height",
+              "components": [
+                {
+                  "name": "revisionNumber",
+                  "type": "uint64",
+                  "internalType": "uint64"
+                },
+                {
+                  "name": "revisionHeight",
+                  "type": "uint64",
+                  "internalType": "uint64"
+                }
+              ]
+            },
+            {
+              "name": "path",
+              "type": "bytes[]",
+              "internalType": "bytes[]"
+            },
+            {
+              "name": "value",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "verifyNonMembership",
+      "inputs": [
+        {
+          "name": "msg_",
+          "type": "tuple",
+          "internalType": "struct ILightClientMsgs.MsgVerifyNonMembership",
+          "components": [
+            {
+              "name": "proof",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "proofHeight",
+              "type": "tuple",
+              "internalType": "struct IICS02ClientMsgs.Height",
+              "components": [
+                {
+                  "name": "revisionNumber",
+                  "type": "uint64",
+                  "internalType": "uint64"
+                },
+                {
+                  "name": "revisionHeight",
+                  "type": "uint64",
+                  "internalType": "uint64"
+                }
+              ]
+            },
+            {
+              "name": "path",
+              "type": "bytes[]",
+              "internalType": "bytes[]"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
