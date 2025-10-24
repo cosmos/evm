@@ -61,6 +61,8 @@ type Keeper struct {
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// optional erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
+	// optional clientsKeeper interface needed to instantiate IBC client precompiles
+	clientsKeeper types.ClientsKeeper
 	// consensusKeeper is used to get consensus params during query contexts.
 	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
 	// grpc query router. This query router builds a context WITHOUT consensus params, so we manually supply the context
@@ -95,6 +97,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
+	clientsKeeper types.ClientsKeeper,
 	evmChainID uint64,
 	tracer string,
 ) *Keeper {
@@ -130,6 +133,7 @@ func NewKeeper(
 		tracer:           tracer,
 		consensusKeeper:  consensusKeeper,
 		erc20Keeper:      erc20Keeper,
+		clientsKeeper:    clientsKeeper,
 		storeKeys:        keys,
 	}
 }

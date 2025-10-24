@@ -96,6 +96,8 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.fmKeeper,
 		suite.consensusKeeper,
 		suite.erc20Keeper,
+		// TODO: mock clientsKeeper
+		nil,
 		config.EighteenDecimalsChainID,
 		"",
 	)

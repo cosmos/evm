@@ -39,9 +39,7 @@ message Params {
   ExtendedDenomOptions extended_denom_options = 11;
 }
 
-message ExtendedDenomOptions {
-  string extended_denom = 1;
-}
+message ExtendedDenomOptions { string extended_denom = 1; }
 
 // AccessControl defines the permission policy of the EVM
 // for creating and calling contracts

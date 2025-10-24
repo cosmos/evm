@@ -355,7 +355,9 @@ message QueryTraceCallRequest {
   // gas_cap defines the default gas cap to be used
   uint64 gas_cap = 2;
   // proposer_address of the requested block in hex format
-  bytes proposer_address = 3 [(gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/types.ConsAddress"];
+  bytes proposer_address = 3
+      [ (gogoproto.casttype) =
+            "github.com/cosmos/cosmos-sdk/types.ConsAddress" ];
   // trace_config holds extra parameters to trace functions.
   TraceConfig trace_config = 4;
   // block_number of requested transaction
@@ -363,7 +365,8 @@ message QueryTraceCallRequest {
   // block_hash of requested transaction
   string block_hash = 6;
   // block_time of requested transaction
-  google.protobuf.Timestamp block_time = 7 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  google.protobuf.Timestamp block_time = 7
+      [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
   // chain_id is the the eip155 chain id parsed from the requested block header
   int64 chain_id = 8;
 }
