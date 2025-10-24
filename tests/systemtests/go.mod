@@ -1,14 +1,14 @@
 module github.com/cosmos/evm/tests/systemtests
 
-go 1.24.4
+go 1.25.0
 
 require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.4.0
 	github.com/cometbft/cometbft v0.38.19
-	github.com/cosmos/cosmos-sdk v0.53.4
+	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20250916155236-2dbb0df4f041
 	github.com/cosmos/evm v0.5.0-rc.0
-	github.com/ethereum/go-ethereum v1.15.11
+	github.com/ethereum/go-ethereum v1.16.3
 	github.com/holiman/uint256 v1.3.2
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
@@ -25,7 +25,7 @@ require (
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/log v1.6.1 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2 // indirect
+	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647 // indirect
 	cosmossdk.io/x/tx v1.2.0-rc.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -37,7 +37,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.2.0 // indirect
-	github.com/bits-and-blooms/bitset v1.22.0 // indirect
+	github.com/bits-and-blooms/bitset v1.24.0 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -54,6 +54,7 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
+	github.com/cosmos/cosmos-sdk/blockstm v0.0.0-20250925051431-4375725cf397 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
@@ -163,7 +164,7 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/tidwall/btree v1.7.0 // indirect
+	github.com/tidwall/btree v1.8.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
@@ -194,7 +195,7 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/grpc v1.76.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
@@ -208,6 +209,8 @@ require (
 
 replace (
 	github.com/cosmos/evm => ../..
+	// TODO replace this once we no longer pull in an ibc-go version which points to old groups module path
+	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 )
 
