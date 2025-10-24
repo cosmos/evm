@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/evm/mempool/txpool/locals"
-
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
@@ -17,6 +15,7 @@ import (
 	"github.com/cosmos/evm/mempool/miner"
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/cosmos/evm/mempool/txpool/locals"
 	"github.com/cosmos/evm/rpc/stream"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -216,6 +215,15 @@ func NewExperimentalEVMMempool(
 	vmKeeper.SetEvmMempool(evmMempool)
 
 	return evmMempool
+}
+
+// TrackLocalTxs tracks transactions as local priority via TxTracker.
+// No-op if local tracking is not initialized.
+func (m *ExperimentalEVMMempool) TrackLocalTxs(txs []*ethtypes.Transaction) {
+	if m == nil || m.localTxTracker == nil || len(txs) == 0 {
+		return
+	}
+	m.localTxTracker.TrackAll(txs)
 }
 
 // GetBlockchain returns the blockchain interface used for chain head event notifications.

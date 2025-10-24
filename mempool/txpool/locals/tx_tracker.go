@@ -18,12 +18,12 @@
 package locals
 
 import (
-	"github.com/cosmos/evm/mempool/txpool"
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"slices"
 	"sync"
 	"time"
 
+	"github.com/cosmos/evm/mempool/txpool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"

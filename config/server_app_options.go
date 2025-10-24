@@ -2,6 +2,7 @@ package config
 
 import (
 	"math"
+	"os"
 	"path/filepath"
 
 	"github.com/holiman/uint256"
@@ -138,6 +139,14 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	}
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
+	}
+
+	// Set journal path under .evmd data dir and ensure dir exists
+	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+	if homeDir != "" {
+		journalDir := filepath.Join(homeDir, "data", "txpool")
+		_ = os.MkdirAll(journalDir, 0o755)
+		legacyConfig.Journal = filepath.Join(journalDir, legacyConfig.Journal)
 	}
 
 	return &legacyConfig

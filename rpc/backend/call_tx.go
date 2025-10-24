@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/evm/mempool"
+	txlocals "github.com/cosmos/evm/mempool/txpool/locals"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -158,6 +159,14 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
 			// Transaction was successfully queued due to nonce gap, return success to client
 			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
+			// Track as local for priority and persistence
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+			return txHash, nil
+		}
+		// Temporary txpool rejections should be locally tracked for resubmission
+		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+			b.Logger.Debug("temporary rejection, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
 		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
@@ -176,6 +185,8 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			}
 
 			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+			// Track as local for persistence until mined
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
 
@@ -183,6 +194,10 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
+	// On success, track as local too to persist across restarts until mined
+	if b.Mempool != nil {
+		b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+	}
 	return txHash, nil
 }
 

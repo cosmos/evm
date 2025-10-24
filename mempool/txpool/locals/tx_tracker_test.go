@@ -21,15 +21,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/evm/mempool/txpool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/txpool"
-	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -54,6 +56,22 @@ type testEnv struct {
 	genDb   ethdb.Database
 }
 
+// testChainAdapter adapts geth *core.BlockChain to the local txpool/legacypool BlockChain interfaces.
+type testChainAdapter struct{ c *core.BlockChain }
+
+func (a *testChainAdapter) Config() *params.ChainConfig { return a.c.Config() }
+func (a *testChainAdapter) CurrentBlock() *types.Header { return a.c.CurrentHeader() }
+func (a *testChainAdapter) GetBlock(hash common.Hash, number uint64) *types.Block {
+	return a.c.GetBlock(hash, number)
+}
+func (a *testChainAdapter) StateAt(root common.Hash) (vm.StateDB, error) {
+	st, err := a.c.StateAt(root)
+	return st, err
+}
+func (a *testChainAdapter) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+	return a.c.SubscribeChainHeadEvent(ch)
+}
+
 func newTestEnv(t *testing.T, n int, gasTip uint64, journal string) *testEnv {
 	genDb, blocks, _ := core.GenerateChainWithGenesis(gspec, ethash.NewFaker(), n, func(i int, gen *core.BlockGen) {
 		tx, err := types.SignTx(types.NewTransaction(gen.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, gen.BaseFee(), nil), signer, key)
@@ -66,8 +84,9 @@ func newTestEnv(t *testing.T, n int, gasTip uint64, journal string) *testEnv {
 	db := rawdb.NewMemoryDatabase()
 	chain, _ := core.NewBlockChain(db, gspec, ethash.NewFaker(), nil)
 
-	legacyPool := legacypool.New(legacypool.DefaultConfig, chain)
-	pool, err := txpool.New(gasTip, chain, []txpool.SubPool{legacyPool})
+	adapter := &testChainAdapter{c: chain}
+	legacyPool := legacypool.New(legacypool.DefaultConfig, adapter)
+	pool, err := txpool.New(gasTip, adapter, []txpool.SubPool{legacyPool})
 	if err != nil {
 		t.Fatalf("Failed to create tx pool: %v", err)
 	}
@@ -161,5 +180,82 @@ func TestResubmit(t *testing.T) {
 	}
 	if len(all[address]) != len(txs) {
 		t.Fatalf("Unexpected transactions being tracked, got: %d, want: %d", len(all[address]), len(txs))
+	}
+}
+
+func TestTrackAddsAndResubmitsAll(t *testing.T) {
+	env := newTestEnv(t, 5, 0, "")
+	defer env.close()
+
+	// Create a contiguous set of txs but do NOT add any to the pool
+	txs := env.makeTxs(5)
+	env.tracker.TrackAll(txs)
+
+	// Since none are present in the pool, all should be scheduled for resubmission
+	resubmit, all := env.tracker.recheck(true)
+	if len(resubmit) != len(txs) {
+		t.Fatalf("expected all transactions to be resubmitted, got %d want %d", len(resubmit), len(txs))
+	}
+	if len(all[address]) != len(txs) {
+		t.Fatalf("expected all transactions tracked, got %d want %d", len(all[address]), len(txs))
+	}
+
+	// Now add them to the pool as if resubmitted
+	env.pool.Add(txs, false)
+
+	resubmit2, _ := env.tracker.recheck(false)
+	if len(resubmit2) != 0 {
+		t.Fatalf("expected no resubmissions after promotion, got %d", len(resubmit2))
+	}
+}
+
+func TestDropObsoleteOnHigherNonce(t *testing.T) {
+	env := newTestEnv(t, 5, 0, "")
+	defer env.close()
+
+	// Make and track 6 txs starting at current nonce
+	txs := env.makeTxs(6)
+	env.tracker.TrackAll(txs)
+
+	// Advance the chain/account nonce by 3 (mine 3 blocks each adding a tx from the same account)
+	for i := 0; i < 3; i++ {
+		env.commit()
+	}
+
+	// Recheck should drop the first 3 as stale
+	resubmit, all := env.tracker.recheck(true)
+	if len(all[address]) != 3 {
+		t.Fatalf("expected 3 transactions to remain tracked after nonce advance, got %d", len(all[address]))
+	}
+	for _, tx := range resubmit {
+		// none of the resubmits should have nonce less than current pool nonce
+		sender, _ := types.Sender(signer, tx)
+		if tx.Nonce() < env.pool.Nonce(sender) {
+			t.Fatalf("found stale tx in resubmits: nonce %d < pool nonce %d", tx.Nonce(), env.pool.Nonce(sender))
+		}
+	}
+}
+
+func TestPromoteThenNoRetry(t *testing.T) {
+	env := newTestEnv(t, 4, 0, "")
+	defer env.close()
+
+	// Track 4 txs, add 2 to pool. Expect 2 resubmits.
+	txs := env.makeTxs(4)
+	txsA := txs[:2]
+	txsB := txs[2:]
+	env.pool.Add(txsA, true)
+	env.tracker.TrackAll(txs)
+
+	resubmit, _ := env.tracker.recheck(false)
+	if len(resubmit) != len(txsB) {
+		t.Fatalf("unexpected resubmit count, got %d want %d", len(resubmit), len(txsB))
+	}
+
+	// Promote missing ones by adding them; next recheck should yield none
+	env.pool.Add(resubmit, false)
+	resubmit2, _ := env.tracker.recheck(false)
+	if len(resubmit2) != 0 {
+		t.Fatalf("expected no resubmits after all txs present in pool, got %d", len(resubmit2))
 	}
 }
