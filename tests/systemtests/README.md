@@ -23,33 +23,46 @@ cp ./build/evmd ./tests/systemtests/binaries/v0.4
 
 ## Run Individual test
 
-### Run test cases for txs ordering
+Each scenario now has its own `Test…` wrapper in `main_test.go`, so you can target a specific flow directly. For example, to exercise the mempool ordering suite:
 
 ```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
---run TestTxsOrdering --verbose --binary evmd --block-time 5s --chain-id local-4221
+cd tests/systemtests
+go test -failfast -mod=readonly -tags=system_test ./... -run TestMempoolTxsOrdering \
+  --verbose --binary evmd --block-time 3s --chain-id local-4221
 ```
 
-### Run test cases for txs replacement
+Mempool scenarios:
 
-```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
---run TestTxsReplacement --verbose --binary evmd --block-time 5s --chain-id local-4221
-```
+| Test name | Description |
+|-----------|-------------|
+| `TestMempoolTxsOrdering` | Ordering of pending transactions across nodes |
+| `TestMempoolTxsReplacement` | Replacement behaviour for EVM transactions |
+| `TestMempoolTxsReplacementWithCosmosTx` | Replacement when Cosmos transactions are present |
+| `TestMempoolMixedTxsReplacementEVMAndCosmos` | Mixed Cosmos/EVM replacement coverage |
+| `TestMempoolTxRebroadcasting` | Rebroadcasting and nonce-gap handling |
+| `TestMempoolCosmosTxsCompatibility` | Cosmos-only transactions interacting with the mempool |
 
-### Run test exceptions
+EIP-712 scenarios:
 
-```shell
-go test -p 1 -parallel 1 -mod=readonly -tags='system_test' -v ./... \
---run TestExceptions --verbose --binary evmd --block-time 5s --chain-id local-4221
-```
+| Test name | Description |
+|-----------|-------------|
+| `TestEIP712BankSend` | Single transfer signed via EIP-712 |
+| `TestEIP712BankSendWithBalanceCheck` | Transfer plus balance assertions |
+| `TestEIP712MultipleBankSends` | Sequential transfers with nonce management |
 
-### Run EIP-7702 test
+Account abstraction:
 
-```shell
-go test -p 1 -mod=readonly -tags='system_test' -v ./... \
---run TestEIP7702 --verbose --binary evmd --block-time 3s --chain-id local-4221
-```
+| Test name | Description |
+|-----------|-------------|
+| `TestAccountAbstractionEIP7702` | Account abstraction (EIP-7702) flow |
+
+Chain lifecycle:
+
+| Test name | Description |
+|-----------|-------------|
+| `TestChainUpgrade` | End-to-end upgrade handling |
+
+> ℹ️ The shared system test suite keeps a single chain alive across multiple tests when the node arguments are identical. Running several tests back-to-back therefore re-uses the same process unless a scenario explicitly changes the node configuration.
 
 ## Run all tests
 

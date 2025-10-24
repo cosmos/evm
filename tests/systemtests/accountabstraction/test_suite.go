@@ -1,3 +1,5 @@
+//go:build system_test
+
 package accountabstraction
 
 import (
@@ -18,32 +20,45 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	basesuite "github.com/cosmos/evm/tests/systemtests/suite"
+	suite "github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 )
 
 type TestSuite struct {
-	*basesuite.SystemTestSuite
+	*suite.BaseTestSuite
 
-	counterAddress common.Address
-	counterABI     abi.ABI
+	counterAddress   common.Address
+	counterABI       abi.ABI
+	primaryAccountID string
 }
 
-func NewTestSuite(t *testing.T) *TestSuite {
+func NewTestSuite(base *suite.BaseTestSuite) *TestSuite {
 	return &TestSuite{
-		SystemTestSuite: basesuite.NewSystemTestSuite(t),
+		BaseTestSuite: base,
 	}
+}
+
+// SetPrimaryAccount configures the account that will be used for contract deployment/setup.
+func (s *TestSuite) SetPrimaryAccount(acc *suite.TestAccount) {
+	if acc == nil {
+		return
+	}
+	s.primaryAccountID = acc.ID
 }
 
 // SetupTest setup test suite and deploy test contracts
 func (s *TestSuite) SetupTest(t *testing.T) {
-	s.SystemTestSuite.SetupTest(t)
+	s.BaseTestSuite.SetupTest(t)
+
+	if s.primaryAccountID == "" {
+		s.primaryAccountID = s.AccID(0)
+	}
 
 	counterPath := filepath.Join("..", "Counter", "out", "Counter.sol", "Counter.json")
 	bytecode, err := loadContractCreationBytecode(counterPath)
 	Expect(err).To(BeNil(), "failed to load counter creation bytecode")
 
-	addr, err := deployContract(s.EthClient, bytecode)
+	addr, err := deployContract(s.EthClient, s.EthAccount(s.primaryAccountID), bytecode)
 	require.NoError(t, err, "failed to deploy counter contract")
 	s.counterAddress = addr
 
@@ -72,7 +87,7 @@ func (s *TestSuite) GetNonce(accID string) uint64 {
 
 // GetSequence returns the Cosmos account sequence for the given account ID.
 func (s *TestSuite) GetSequence(accID string) uint64 {
-	cosmosAcc := s.CosmosClient.Accs[accID]
+	cosmosAcc := s.CosmosAccount(accID)
 	ctx := s.CosmosClient.ClientCtx.WithClient(s.CosmosClient.RpcClients["node0"])
 	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAcc.AccAddress)
 	Expect(err).To(BeNil(), "unable to retrieve cosmos account for %s", accID)
@@ -81,12 +96,12 @@ func (s *TestSuite) GetSequence(accID string) uint64 {
 
 // GetPrivKey returns ecdsa private key of account
 func (s *TestSuite) GetPrivKey(accID string) *ecdsa.PrivateKey {
-	return s.EthClient.Accs[accID].PrivKey
+	return s.EthAccount(accID).PrivKey
 }
 
 // GetAddr returns ethereum address of account
 func (s *TestSuite) GetAddr(accID string) common.Address {
-	return s.EthClient.Accs[accID].Address
+	return s.EthAccount(accID).Address
 }
 
 // GetCounterAddr returns the deployed counter contract address.
@@ -98,7 +113,7 @@ func (s *TestSuite) GetCounterAddr() common.Address {
 func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeAuthorization) (common.Hash, error) {
 	ctx := context.Background()
 	ethCli := s.EthClient.Clients["node0"]
-	acc := s.EthClient.Accs[accID]
+	acc := s.EthAccount(accID)
 	if acc == nil {
 		return common.Hash{}, fmt.Errorf("account %s not found", accID)
 	}
@@ -140,7 +155,7 @@ func (s *TestSuite) SendSetCodeTx(accID string, signedAuths ...ethtypes.SetCodeA
 
 // CheckSetCode checks the account is EIP-7702 SetCode authorized.
 func (s *TestSuite) CheckSetCode(authorityAccID string, delegate common.Address, expectDelegation bool) {
-	account := s.EthClient.Accs[authorityAccID]
+	account := s.EthAccount(authorityAccID)
 	Expect(account).ToNot(BeNil(), "account %s not found", authorityAccID)
 
 	ctx := context.Background()
@@ -163,7 +178,7 @@ func (s *TestSuite) CheckSetCode(authorityAccID string, delegate common.Address,
 
 // InvokeCounter sends a transaction from the delegated account to execute a counter method.
 func (s *TestSuite) InvokeCounter(accID string, method string, args ...interface{}) (common.Hash, error) {
-	account := s.EthClient.Accs[accID]
+	account := s.EthAccount(accID)
 	if account == nil {
 		return common.Hash{}, fmt.Errorf("account %s not found", accID)
 	}
@@ -224,7 +239,7 @@ func (s *TestSuite) InvokeCounter(accID string, method string, args ...interface
 
 // QueryCounterNumber queries the delegated counter contract via the account code.
 func (s *TestSuite) QueryCounterNumber(accID string) (*big.Int, error) {
-	account := s.EthClient.Accs[accID]
+	account := s.EthAccount(accID)
 	if account == nil {
 		return nil, fmt.Errorf("account %s not found", accID)
 	}

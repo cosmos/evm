@@ -10,7 +10,7 @@ import (
 )
 
 // GetOptions retrieves the current test options.
-func (s *SystemTestSuite) SendTx(
+func (s *BaseTestSuite) SendTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -26,7 +26,7 @@ func (s *SystemTestSuite) SendTx(
 }
 
 // SendEthTx sends an Ethereum transaction (either Legacy or Dynamic Fee based on options).
-func (s *SystemTestSuite) SendEthTx(
+func (s *BaseTestSuite) SendEthTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -42,7 +42,7 @@ func (s *SystemTestSuite) SendEthTx(
 }
 
 // SendEthLegacyTx sends an Ethereum legacy transaction.
-func (s *SystemTestSuite) SendEthLegacyTx(
+func (s *BaseTestSuite) SendEthLegacyTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -54,12 +54,13 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
-	to := s.EthClient.Accs["acc3"].Address
+	to := s.EthAccount("acc3").Address
 	value := big.NewInt(1000)
 	gasLimit := uint64(50_000)
 
 	tx := ethtypes.NewTransaction(gappedNonce, to, value, gasLimit, gasPrice, nil)
-	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	account := s.EthAccount(accID)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, account, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send eth legacy tx: %v", err)
 	}
@@ -68,7 +69,7 @@ func (s *SystemTestSuite) SendEthLegacyTx(
 }
 
 // SendEthDynamicFeeTx sends an Ethereum dynamic fee transaction.
-func (s *SystemTestSuite) SendEthDynamicFeeTx(
+func (s *BaseTestSuite) SendEthDynamicFeeTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -81,18 +82,20 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 		return nil, fmt.Errorf("failed to get current nonce: %v", err)
 	}
 	gappedNonce := nonce + nonceIdx
+	toAddr := s.EthAccount("acc3").Address
+	account := s.EthAccount(accID)
 
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID:   s.EthClient.ChainID,
 		Nonce:     gappedNonce,
-		To:        &(s.EthClient.Accs["acc3"].Address),
+		To:        &toAddr,
 		Value:     big.NewInt(1000),
 		Gas:       uint64(50_000),
 		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
 	})
 
-	txHash, err := s.EthClient.SendRawTransaction(nodeID, accID, tx)
+	txHash, err := s.EthClient.SendRawTransaction(nodeID, account, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send eth dynamic fee tx: %v", err)
 	}
@@ -101,7 +104,7 @@ func (s *SystemTestSuite) SendEthDynamicFeeTx(
 }
 
 // SendCosmosTx sends a Cosmos transaction.
-func (s *SystemTestSuite) SendCosmosTx(
+func (s *BaseTestSuite) SendCosmosTx(
 	t *testing.T,
 	nodeID string,
 	accID string,
@@ -109,8 +112,9 @@ func (s *SystemTestSuite) SendCosmosTx(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 ) (*TxInfo, error) {
-	from := s.CosmosClient.Accs[accID].AccAddress
-	to := s.CosmosClient.Accs["acc3"].AccAddress
+	cosmosAccount := s.CosmosAccount(accID)
+	from := cosmosAccount.AccAddress
+	to := s.CosmosAccount("acc3").AccAddress
 	amount := sdkmath.NewInt(1000)
 
 	nonce, err := s.NonceAt(nodeID, accID)
@@ -119,7 +123,7 @@ func (s *SystemTestSuite) SendCosmosTx(
 	}
 	gappedNonce := nonce + nonceIdx
 
-	resp, err := s.CosmosClient.BankSend(nodeID, accID, from, to, amount, gappedNonce, gasPrice)
+	resp, err := s.CosmosClient.BankSend(nodeID, cosmosAccount, from, to, amount, gappedNonce, gasPrice)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send cosmos bank send tx: %v", err)
 	}

@@ -51,7 +51,12 @@ type Config struct {
 func NewConfig() (*Config, error) {
 
 	// private keys of test accounts
-	privKeys := []string{Acc0PrivKey, Acc1PrivKey, Acc2PrivKey, Acc3PrivKey}
+	privKeys := []string{
+		Acc0PrivKey,
+		Acc1PrivKey,
+		Acc2PrivKey,
+		Acc3PrivKey,
+	}
 
 	// jsonrpc urls of testnet nodes
 	jsonRPCUrls := []string{JsonRPCUrl0, JsonRPCUrl1, JsonRPCUrl2, JsonRPCUrl3}
