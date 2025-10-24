@@ -6,8 +6,28 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 )
+
+// ILightClientMsgsMsgVerifyMembership is a low-level Go binding around ILightClientMsgs.MsgVerifyMembership
+type ILightClientMsgsMsgVerifyMembership struct {
+	Proof       []byte
+	ProofHeight IICS02ClientMsgsHeight
+	Path        [][]byte
+	Value       []byte
+}
+
+// ILightClientMsgsMsgVerifyNonMembership is a low-level Go binding around ILightClientMsgs.MsgVerifyNonMembership
+type ILightClientMsgsMsgVerifyNonMembership struct {
+	Proof       []byte
+	ProofHeight IICS02ClientMsgsHeight
+	Path        [][]byte
+}
+
+// IICS02ClientMsgsHeight is a low-level Go binding around ICS02ClientMsgs.Height
+type IICS02ClientMsgsHeight struct {
+	RevisionNumber uint64
+	RevisionHeight uint64
+}
 
 // ParseGetClientStateArgs parses the arguments for the GetClientState method.
 func ParseGetClientStateArgs(args []interface{}) error {
@@ -31,23 +51,23 @@ func ParseUpdateClientArgs(args []interface{}) ([]byte, error) {
 }
 
 // ParseVerifyMembershipArgs parses the arguments for the VerifyMembership method.
-func ParseVerifyMembershipArgs(args []interface{}) (*sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership, error) {
+func ParseVerifyMembershipArgs(args []interface{}) (*ILightClientMsgsMsgVerifyMembership, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	msg := *abi.ConvertType(args[0], new(sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership)).(*sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership)
+	msg := *abi.ConvertType(args[0], new(ILightClientMsgsMsgVerifyMembership)).(*ILightClientMsgsMsgVerifyMembership)
 
 	return &msg, nil
 }
 
 // ParseVerifyNonMembershipArgs parses the arguments for the VerifyNonMembership method.
-func ParseVerifyNonMembershipArgs(args []interface{}) (*sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership, error) {
+func ParseVerifyNonMembershipArgs(args []interface{}) (*ILightClientMsgsMsgVerifyNonMembership, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
 	}
 
-	msg := *abi.ConvertType(args[0], new(sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership)).(*sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership)
+	msg := *abi.ConvertType(args[0], new(ILightClientMsgsMsgVerifyNonMembership)).(*ILightClientMsgsMsgVerifyNonMembership)
 
 	return &msg, nil
 }

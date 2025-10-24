@@ -74,10 +74,10 @@ func NewPrecompile(
 ) *Precompile {
 	return &Precompile{
 		Precompile: cmn.Precompile{
-			KvGasConfig:          storetypes.GasConfig{},
-			TransientKVGasConfig: storetypes.GasConfig{},
-			ContractAddress:      clientPrecompile.GetContractAddress(),
-			BalanceHandler:       cmn.NewBalanceHandler(bankKeeper),
+			KvGasConfig:           storetypes.GasConfig{},
+			TransientKVGasConfig:  storetypes.GasConfig{},
+			ContractAddress:       clientPrecompile.GetContractAddress(),
+			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:              ABI,
 		clientPrecompile: clientPrecompile,
