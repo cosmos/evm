@@ -32,13 +32,13 @@ func (p *Precompile) GetClientState(
 		return nil, fmt.Errorf("client state not found for client ID %s", clientID)
 	}
 
-	any, err := codectypes.NewAnyWithValue(clientState)
+	clientStateAny, err := codectypes.NewAnyWithValue(clientState)
 	if err != nil {
 		return nil, err
 	}
-	if len(any.Value) == 0 {
+	if len(clientStateAny.Value) == 0 {
 		return nil, fmt.Errorf("client state not found for client ID %s", clientID)
 	}
 
-	return method.Outputs.Pack(any.Value)
+	return method.Outputs.Pack(clientStateAny.Value)
 }
