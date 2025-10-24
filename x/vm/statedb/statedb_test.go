@@ -191,7 +191,7 @@ func (suite *StateDBTestSuite) TestAccount() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(ctx, db)
@@ -265,7 +265,7 @@ func (suite *StateDBTestSuite) TestBalance() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -320,7 +320,7 @@ func (suite *StateDBTestSuite) TestState() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 			db := statedb.New(sdk.Context{}, keeper, emptyTxConfig)
 			tc.malleate(db)
@@ -430,7 +430,7 @@ func (suite *StateDBTestSuite) TestRevertSnapshot() {
 	}
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			ctx := sdk.Context{}
+			ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 			keeper := mocks.NewEVMKeeper()
 
 			{
@@ -469,7 +469,7 @@ func (suite *StateDBTestSuite) TestNestedSnapshot() {
 	value1 := common.BigToHash(big.NewInt(1))
 	value2 := common.BigToHash(big.NewInt(2))
 
-	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), emptyTxConfig)
+	db := statedb.New(sdk.Context{}.WithEventManager(sdk.NewEventManager()), mocks.NewEVMKeeper(), emptyTxConfig)
 
 	rev1 := db.Snapshot()
 	db.SetState(address, key, value1)
@@ -652,7 +652,7 @@ func (suite *StateDBTestSuite) TestRefund() {
 }
 
 func (suite *StateDBTestSuite) TestIterateStorage() {
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithEventManager(sdk.NewEventManager())
 
 	key1 := common.BigToHash(big.NewInt(1))
 	value1 := common.BigToHash(big.NewInt(2))

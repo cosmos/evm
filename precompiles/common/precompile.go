@@ -28,8 +28,8 @@ type Precompile struct {
 	TransientKVGasConfig storetypes.GasConfig
 	ContractAddress      common.Address
 
-	// BalanceHandler is optional
-	BalanceHandler *BalanceHandler
+	// BalanceHandlerFactory is optional
+	BalanceHandlerFactory *BalanceHandlerFactory
 }
 
 // RequiredGas calculates the base minimum required gas for a transaction or a query.
@@ -96,8 +96,13 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 	// we need to consume the gas that was already used by the EVM
 	ctx.GasMeter().ConsumeGas(initialGas, "creating a new gas meter")
 
-	if p.BalanceHandler != nil {
-		p.BalanceHandler.BeforeBalanceChange(ctx)
+	var balanceHandler *BalanceHandler
+	if p.BalanceHandlerFactory != nil {
+		balanceHandler = p.BalanceHandlerFactory.NewBalanceHandler()
+	}
+
+	if balanceHandler != nil {
+		balanceHandler.BeforeBalanceChange(ctx)
 	}
 
 	bz, err = action(ctx)
@@ -111,8 +116,8 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 		return nil, vm.ErrOutOfGas
 	}
 
-	if p.BalanceHandler != nil {
-		if err := p.BalanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
+	if balanceHandler != nil {
+		if err := balanceHandler.AfterBalanceChange(ctx, stateDB); err != nil {
 			return nil, err
 		}
 	}
@@ -244,12 +249,4 @@ func standardCallData(api abi.ABI, contract *vm.Contract) (method *abi.Method, e
 	}
 
 	return method, nil
-}
-
-func (p Precompile) GetBalanceHandler() *BalanceHandler {
-	return p.BalanceHandler
-}
-
-func (p *Precompile) SetBalanceHandler(bankKeeper BankKeeper) {
-	p.BalanceHandler = NewBalanceHandler(bankKeeper)
 }
