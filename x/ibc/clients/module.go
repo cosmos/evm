@@ -7,6 +7,9 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
+	"github.com/cosmos/evm/x/ibc/clients/keeper"
+	"github.com/cosmos/evm/x/ibc/clients/types"
+
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	"cosmossdk.io/core/appmodule"
 
@@ -15,9 +18,6 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-
-	"github.com/cosmos/evm/x/ibc/clients/keeper"
-	"github.com/cosmos/evm/x/ibc/clients/types"
 )
 
 var (
