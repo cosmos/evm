@@ -1,280 +1,271 @@
-{
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ICS20I",
-  "sourceName": "solidity/precompiles/ics20/ICS20I.sol",
-  "abi": [
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "string",
-          "name": "receiver",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "sourcePort",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "sourceChannel",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "denom",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "memo",
-          "type": "string"
-        }
-      ],
-      "name": "IBCTransfer",
-      "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "hash",
-          "type": "string"
-        }
-      ],
-      "name": "denom",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "string",
-              "name": "base",
-              "type": "string"
-            },
-            {
-              "components": [
-                {
-                  "internalType": "string",
-                  "name": "portId",
-                  "type": "string"
-                },
-                {
-                  "internalType": "string",
-                  "name": "channelId",
-                  "type": "string"
-                }
-              ],
-              "internalType": "struct Hop[]",
-              "name": "trace",
-              "type": "tuple[]"
-            }
-          ],
-          "internalType": "struct Denom",
-          "name": "denom",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "trace",
-          "type": "string"
-        }
-      ],
-      "name": "denomHash",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "hash",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "components": [
-            {
-              "internalType": "bytes",
-              "name": "key",
-              "type": "bytes"
-            },
-            {
-              "internalType": "uint64",
-              "name": "offset",
-              "type": "uint64"
-            },
-            {
-              "internalType": "uint64",
-              "name": "limit",
-              "type": "uint64"
-            },
-            {
-              "internalType": "bool",
-              "name": "countTotal",
-              "type": "bool"
-            },
-            {
-              "internalType": "bool",
-              "name": "reverse",
-              "type": "bool"
-            }
-          ],
-          "internalType": "struct PageRequest",
-          "name": "pageRequest",
-          "type": "tuple"
-        }
-      ],
-      "name": "denoms",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "string",
-              "name": "base",
-              "type": "string"
-            },
-            {
-              "components": [
-                {
-                  "internalType": "string",
-                  "name": "portId",
-                  "type": "string"
-                },
-                {
-                  "internalType": "string",
-                  "name": "channelId",
-                  "type": "string"
-                }
-              ],
-              "internalType": "struct Hop[]",
-              "name": "trace",
-              "type": "tuple[]"
-            }
-          ],
-          "internalType": "struct Denom[]",
-          "name": "denoms",
-          "type": "tuple[]"
-        },
-        {
-          "components": [
-            {
-              "internalType": "bytes",
-              "name": "nextKey",
-              "type": "bytes"
-            },
-            {
-              "internalType": "uint64",
-              "name": "total",
-              "type": "uint64"
-            }
-          ],
-          "internalType": "struct PageResponse",
-          "name": "pageResponse",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "sourcePort",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "sourceChannel",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "denom",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "internalType": "string",
-          "name": "receiver",
-          "type": "string"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint64",
-              "name": "revisionNumber",
-              "type": "uint64"
-            },
-            {
-              "internalType": "uint64",
-              "name": "revisionHeight",
-              "type": "uint64"
-            }
-          ],
-          "internalType": "struct Height",
-          "name": "timeoutHeight",
-          "type": "tuple"
-        },
-        {
-          "internalType": "uint64",
-          "name": "timeoutTimestamp",
-          "type": "uint64"
-        },
-        {
-          "internalType": "string",
-          "name": "memo",
-          "type": "string"
-        }
-      ],
-      "name": "transfer",
-      "outputs": [
-        {
-          "internalType": "uint64",
-          "name": "nextSequence",
-          "type": "uint64"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
-}
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "receiver",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "sourcePort",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "sourceChannel",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "denom",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "memo",
+        "type": "string"
+      }
+    ],
+    "name": "IBCTransfer",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "hash",
+        "type": "string"
+      }
+    ],
+    "name": "denom",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "string",
+            "name": "base",
+            "type": "string"
+          },
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "portId",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "channelId",
+                "type": "string"
+              }
+            ],
+            "internalType": "struct Hop[]",
+            "name": "trace",
+            "type": "tuple[]"
+          }
+        ],
+        "internalType": "struct Denom",
+        "name": "denom",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "trace",
+        "type": "string"
+      }
+    ],
+    "name": "denomHash",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "hash",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes",
+            "name": "key",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint64",
+            "name": "offset",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "limit",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bool",
+            "name": "countTotal",
+            "type": "bool"
+          },
+          {
+            "internalType": "bool",
+            "name": "reverse",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct PageRequest",
+        "name": "pageRequest",
+        "type": "tuple"
+      }
+    ],
+    "name": "denoms",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "string",
+            "name": "base",
+            "type": "string"
+          },
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "portId",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "channelId",
+                "type": "string"
+              }
+            ],
+            "internalType": "struct Hop[]",
+            "name": "trace",
+            "type": "tuple[]"
+          }
+        ],
+        "internalType": "struct Denom[]",
+        "name": "denoms",
+        "type": "tuple[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes",
+            "name": "nextKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint64",
+            "name": "total",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct PageResponse",
+        "name": "pageResponse",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "sourcePort",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "sourceChannel",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "denom",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "receiver",
+        "type": "string"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "revisionNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "revisionHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct Height",
+        "name": "timeoutHeight",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint64",
+        "name": "timeoutTimestamp",
+        "type": "uint64"
+      },
+      {
+        "internalType": "string",
+        "name": "memo",
+        "type": "string"
+      }
+    ],
+    "name": "transfer",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "nextSequence",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
