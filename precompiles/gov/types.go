@@ -243,7 +243,7 @@ func NewMsgDeposit(args []interface{}, addrCdc address.Codec) (*govv1.MsgDeposit
 func NewMsgCancelProposal(args []interface{}, addrCdc address.Codec) (*govv1.MsgCancelProposal, common.Address, error) {
 	emptyAddr := common.Address{}
 	if len(args) != 2 {
-		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+		return nil, emptyAddr, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
 	}
 
 	proposer, ok := args[0].(common.Address)
