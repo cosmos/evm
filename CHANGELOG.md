@@ -11,7 +11,7 @@
 ### BUG FIXES
 
 - [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
-- [\#756](https://github.com/cosmos/evm/pull/756) Fix error message typo in NewMsgCancelProposal
+- [\#756](https://github.com/cosmos/evm/pull/756) Fix error message typo in NewMsgCancelProposal.
 
 ## v0.5.0
 
