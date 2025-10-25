@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"
 
@@ -9,7 +10,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
-	evmconfig "github.com/cosmos/evm/config"
 	evmmempool "github.com/cosmos/evm/mempool"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
@@ -21,7 +21,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 		return nil
 	}
 
-	cosmosPoolMaxTx := evmconfig.GetCosmosPoolMaxTx(appOpts, logger)
+	cosmosPoolMaxTx := server.GetCosmosPoolMaxTx(appOpts, logger)
 	if cosmosPoolMaxTx < 0 {
 		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
 		return nil
@@ -63,8 +63,8 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 func (app *EVMD) createMempoolConfig(appOpts servertypes.AppOptions, logger log.Logger) (*evmmempool.EVMMempoolConfig, error) {
 	return &evmmempool.EVMMempoolConfig{
 		AnteHandler:      app.GetAnteHandler(),
-		LegacyPoolConfig: evmconfig.GetLegacyPoolConfig(appOpts, logger),
-		BlockGasLimit:    evmconfig.GetBlockGasLimit(appOpts, logger),
-		MinTip:           evmconfig.GetMinTip(appOpts, logger),
+		LegacyPoolConfig: server.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:    server.GetBlockGasLimit(appOpts, logger),
+		MinTip:           server.GetMinTip(appOpts, logger),
 	}, nil
 }
