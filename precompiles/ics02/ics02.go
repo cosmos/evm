@@ -125,24 +125,19 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 		return nil, err
 	}
 
-	var bz []byte
-
 	switch method.Name {
 	case UpdateClientMethod:
-		bz, err = p.UpdateClient(ctx, contract, stateDB, method, args)
+		return p.UpdateClient(ctx, contract, stateDB, method, args)
 	case VerifyMembershipMethod:
-		bz, err = p.VerifyMembership(ctx, contract, stateDB, method, args)
+		return p.VerifyMembership(ctx, contract, stateDB, method, args)
 	case VerifyNonMembershipMethod:
-		bz, err = p.VerifyNonMembership(ctx, contract, stateDB, method, args)
+		return p.VerifyNonMembership(ctx, contract, stateDB, method, args)
 	// queries:
 	case GetClientStateMethod:
-		// TODO:
-		// bz, err = p.GetClientState(ctx, method, contract, args)
+		return p.GetClientState(ctx, contract, stateDB, method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}
-
-	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

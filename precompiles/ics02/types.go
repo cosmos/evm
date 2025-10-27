@@ -10,10 +10,24 @@ import (
 	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
-// height is a struct used to parse the TimeoutHeight parameter
-// used as input in the transfer method
+// height is a struct used to parse the ProofHeight parameter used as input
+// in the VerifyMembership and VerifyNonMembership methods.
 type height struct {
 	ProofHeight clienttypes.Height
+}
+
+// ParseGetClientStateArgs parses the arguments for the GetClientState method.
+func ParseGetClientStateArgs(args []interface{}) (string, error) {
+	if len(args) != 1 {
+		return "", fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
+	}
+
+	clientID, ok := args[0].(string)
+	if !ok {
+		return "", fmt.Errorf("invalid client id: %v", args[0])
+	}
+
+	return clientID, nil
 }
 
 // ParseUpdateClientArgs parses the arguments for the UpdateClient method.
