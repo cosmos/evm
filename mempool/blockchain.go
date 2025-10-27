@@ -44,10 +44,8 @@ type Blockchain struct {
 	previousHeaderHash common.Hash
 	latestCtx          sdk.Context
 	mu                 sync.RWMutex
-	// commitMu guards access to state during ABCI Commit.
-	// Readers acquire RLock via StateAt; the committer acquires Lock
-	// around Commit to avoid concurrent iavl access in tests.
-	commitMu sync.RWMutex
+
+	testingCommitMu sync.RWMutex
 }
 
 // NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -231,17 +229,17 @@ func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 
 // BeginCommit acquires an exclusive lock to prevent mempool state reads during Commit.
 // This avoids data races in the underlying storage (e.g., IAVL) when tests run with -race.
-func (b *Blockchain) BeginCommit() { b.commitMu.Lock() }
+func (b *Blockchain) BeginCommit() { b.testingCommitMu.Lock() }
 
 // EndCommit releases the exclusive lock acquired by BeginCommit.
-func (b *Blockchain) EndCommit() { b.commitMu.Unlock() }
+func (b *Blockchain) EndCommit() { b.testingCommitMu.Unlock() }
 
 // BeginRead acquires a shared lock for background readers (e.g., txpool reorg).
 // This enables optional coordination with Commit without importing the type.
-func (b *Blockchain) BeginRead() { b.commitMu.RLock() }
+func (b *Blockchain) BeginRead() { b.testingCommitMu.RLock() }
 
 // EndRead releases the shared read lock acquired by BeginRead.
-func (b *Blockchain) EndRead() { b.commitMu.RUnlock() }
+func (b *Blockchain) EndRead() { b.testingCommitMu.RUnlock() }
 
 func (b *Blockchain) getPreviousHeaderHash() common.Hash {
 	b.mu.RLock()
