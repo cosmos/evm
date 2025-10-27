@@ -142,6 +142,8 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			delete(s.stateObjects, obj.address)
 		}
 	}
+	// Invalidate journal because reverting across transactions is not allowed.
+	s.clearJournalAndRefund()
 }
 
 // New creates a new state from a given trie.
@@ -329,6 +331,25 @@ func (s *StateDB) GetStateAndCommittedState(addr common.Address, hash common.Has
 		return stateObject.GetState(hash), stateObject.GetCommittedState(hash)
 	}
 	return common.Hash{}, common.Hash{}
+}
+
+// SetStateOverride installs the provided storage value as part of the base state used by simulations.
+func (s *StateDB) SetStateOverride(addr common.Address, key, value common.Hash) {
+	stateObject := s.getOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetStateOverride(key, value)
+	}
+}
+
+func (s *StateDB) clearJournalAndRefund() {
+	if s.journal == nil {
+		s.journal = newJournal()
+	} else {
+		s.journal.reset()
+	}
+	s.validRevisions = nil
+	s.nextRevisionID = 0
+	s.refund = 0
 }
 
 // GetRefund returns the current value of the refund counter.

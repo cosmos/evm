@@ -251,13 +251,15 @@ func (s *stateObject) SetState(key common.Hash, value common.Hash) common.Hash {
 	if prev == value {
 		return prev
 	}
+	origin := s.GetCommittedState(key)
 	// New value is different, update and journal the change
 	s.db.journal.append(storageChange{
-		account:  &s.address,
-		key:      key,
-		prevalue: prev,
+		account:   &s.address,
+		key:       key,
+		prevalue:  prev,
+		origvalue: origin,
 	})
-	s.setState(key, value)
+	s.setState(key, value, origin)
 	return prev
 }
 
@@ -270,6 +272,24 @@ func (s *stateObject) SetStorage(storage Storage) {
 	s.dirtyStorage = make(Storage)
 }
 
-func (s *stateObject) setState(key, value common.Hash) {
+func (s *stateObject) setState(key, value, origin common.Hash) {
+	// Storage slot is set back to its original value, undo the dirty marker
+	if value == origin {
+		delete(s.dirtyStorage, key)
+		return
+	}
 	s.dirtyStorage[key] = value
+}
+
+// SetStateOverride installs the provided storage value as part of the base state used for
+// simulations. Subsequent reads treat the slot as if it were committed on-chain.
+func (s *stateObject) SetStateOverride(key, value common.Hash) {
+	if s.originStorage == nil {
+		s.originStorage = make(Storage)
+	}
+	s.originStorage[key] = value
+	delete(s.dirtyStorage, key)
+	if s.overrideStorage != nil {
+		s.overrideStorage[key] = value
+	}
 }
