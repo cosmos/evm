@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"bytes"
 	"fmt"
 
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -97,7 +98,7 @@ func (s *KeeperTestSuite) TestMintingEnabled() {
 
 			tc.malleate()
 
-			pair, err := s.network.App.GetErc20Keeper().MintingEnabled(ctx, sender, receiver, expPair.Erc20Address)
+			pair, err := s.network.App.GetErc20Keeper().MintingEnabled(ctx, receiver, expPair.Erc20Address, bytes.Equal(sender, receiver))
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(expPair, pair)

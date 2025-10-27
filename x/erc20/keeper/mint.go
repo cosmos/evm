@@ -17,8 +17,9 @@ import (
 //   - bank module transfers are enabled for the Cosmos coin
 func (k Keeper) MintingEnabled(
 	ctx sdk.Context,
-	sender, receiver sdk.AccAddress,
+	receiver sdk.AccAddress,
 	token string,
+	sendToSelf bool,
 ) (types.TokenPair, error) {
 	if !k.IsERC20Enabled(ctx) {
 		return types.TokenPair{}, errorsmod.Wrap(
@@ -57,7 +58,7 @@ func (k Keeper) MintingEnabled(
 
 	// check if minting to a recipient address other than the sender is enabled
 	// for for the given coin denom
-	if !sender.Equals(receiver) && !k.bankKeeper.IsSendEnabledCoin(ctx, coin) {
+	if !sendToSelf && !k.bankKeeper.IsSendEnabledCoin(ctx, coin) {
 		return types.TokenPair{}, errorsmod.Wrapf(
 			banktypes.ErrSendDisabled, "minting '%s' coins to an external address is currently disabled", token,
 		)

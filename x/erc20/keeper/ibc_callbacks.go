@@ -62,11 +62,8 @@ func (k Keeper) OnRecvPacket(
 	}
 	recipient := sdk.AccAddress(recipientBz)
 
-	senderBz, err := k.addrCodec.StringToBytes(data.Sender)
-	if err != nil {
-		return channeltypes.NewErrorAcknowledgement(errorsmod.Wrap(err, "invalid sender"))
-	}
-	sender := sdk.AccAddress(senderBz)
+	// decides if sending to self without decoding sender
+	sendToSelf := data.Sender == data.Receiver
 
 	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
 
@@ -128,7 +125,7 @@ func (k Keeper) OnRecvPacket(
 			return ack
 		}
 
-		pair, err := k.MintingEnabled(ctx, sender, recipient, coin.Denom)
+		pair, err := k.MintingEnabled(ctx, recipient, coin.Denom, sendToSelf)
 		if err != nil {
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("erc20_callback_failure",
