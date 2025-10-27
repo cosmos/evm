@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
-
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -253,7 +251,6 @@ func NewExampleApp(
 	for _, k := range okeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
-	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
