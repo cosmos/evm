@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	ibcutils "github.com/cosmos/evm/ibc"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -69,6 +70,7 @@ func DefaultStaticPrecompiles(
 	erc20Keeper *erc20Keeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
+	clientKeeper ibcutils.ClientKeeper,
 	govKeeper govkeeper.Keeper,
 	slashingKeeper slashingkeeper.Keeper,
 	codec codec.Codec,
@@ -80,6 +82,7 @@ func DefaultStaticPrecompiles(
 		WithBech32Precompile().
 		WithStakingPrecompile(stakingKeeper, bankKeeper, opts...).
 		WithDistributionPrecompile(distributionKeeper, stakingKeeper, bankKeeper, opts...).
+		WithICS02Precompile(bankKeeper, clientKeeper).
 		WithICS20Precompile(bankKeeper, stakingKeeper, transferKeeper, channelKeeper).
 		WithBankPrecompile(bankKeeper, erc20Keeper).
 		WithGovPrecompile(govKeeper, bankKeeper, codec, opts...).

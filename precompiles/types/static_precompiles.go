@@ -7,11 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	ibcutils "github.com/cosmos/evm/ibc"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
 	govprecompile "github.com/cosmos/evm/precompiles/gov"
+	ics02precompile "github.com/cosmos/evm/precompiles/ics02"
 	ics20precompile "github.com/cosmos/evm/precompiles/ics20"
 	"github.com/cosmos/evm/precompiles/p256"
 	slashingprecompile "github.com/cosmos/evm/precompiles/slashing"
@@ -96,6 +98,19 @@ func (s StaticPrecompiles) WithDistributionPrecompile(
 	)
 
 	s[distributionPrecompile.Address()] = distributionPrecompile
+	return s
+}
+
+func (s StaticPrecompiles) WithICS02Precompile(
+	bankKeeper cmn.BankKeeper,
+	clientKeeper ibcutils.ClientKeeper,
+) StaticPrecompiles {
+	ibcClientPrecompile := ics02precompile.NewPrecompile(
+		bankKeeper,
+		clientKeeper,
+	)
+
+	s[ibcClientPrecompile.Address()] = ibcClientPrecompile
 	return s
 }
 
