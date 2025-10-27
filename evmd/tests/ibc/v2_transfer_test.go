@@ -291,7 +291,7 @@ func (suite *TransferTestSuiteV2) TestOnRecvPacket() {
 				originalCoin, suite.chainB.SenderAccount.GetAddress().String(),
 				suite.evmChainA.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				true,
+				false,
 			)
 			_, err := suite.chainB.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed
@@ -394,7 +394,7 @@ func (suite *TransferTestSuiteV2) TestOnAckPacket() {
 				originalCoin, suite.evmChainA.SenderAccount.GetAddress().String(),
 				suite.chainB.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				true,
+				false,
 			)
 			_, err := suite.evmChainA.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed
@@ -502,7 +502,7 @@ func (suite *TransferTestSuiteV2) TestOnTimeoutPacket() {
 				originalCoin, suite.evmChainA.SenderAccount.GetAddress().String(),
 				suite.chainB.SenderAccount.GetAddress().String(), clienttypes.Height{},
 				timeoutTimestamp, "", types.EncodingProtobuf,
-				true,
+				false,
 			)
 			_, err := suite.evmChainA.SendMsgs(msg)
 			suite.Require().NoError(err) // message committed

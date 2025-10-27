@@ -3,7 +3,7 @@ package evmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/x/vm/types"
 	"testing"

@@ -9,7 +9,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttime "github.com/cometbft/cometbft/types/time"
 
-	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/testutil/constants"
 	vmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/evm/x/vm/types/mocks"
@@ -72,7 +72,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.fmKeeper,
 		suite.consensusKeeper,
 		suite.erc20Keeper,
-		config.EighteenDecimalsChainID,
+		constants.EighteenDecimalsChainID,
 		"",
 	)
 }
