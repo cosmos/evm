@@ -55,7 +55,7 @@ func DefaultConfig() Config {
 
 	return Config{
 		chainID:             testconstants.ExampleChainID.ChainID,
-		eip155ChainID:       big.NewInt(testconstants.ExampleEIP155ChainID),
+		eip155ChainID:       big.NewInt(testconstants.EighteenDecimalsChainID),
 		chainCoins:          DefaultChainCoins(),
 		initialAmounts:      DefaultInitialAmounts(),
 		initialBondedAmount: DefaultInitialBondedAmount(),

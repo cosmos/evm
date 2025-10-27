@@ -58,10 +58,9 @@ func FeeChecker(
 	}
 
 	baseFee := feemarketParams.BaseFee
-	// if baseFee is nil because it is disabled
-	// or not found, consider it as 0
+	// if baseFee is not enabled, consider it 0
 	// so the DynamicFeeTx logic can be applied
-	if baseFee.IsNil() {
+	if baseFee.IsNil() || !feemarketParams.IsBaseFeeEnabled(ctx.BlockHeight()) {
 		baseFee = sdkmath.LegacyZeroDec()
 	}
 
