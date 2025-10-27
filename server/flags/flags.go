@@ -79,6 +79,10 @@ const (
 	EVMMempoolAccountQueue = "evm.mempool.account-queue"
 	EVMMempoolGlobalQueue  = "evm.mempool.global-queue"
 	EVMMempoolLifetime     = "evm.mempool.lifetime"
+	EVMMempoolLocals       = "evm.mempool.locals"
+	EVMMempoolNoLocals     = "evm.mempool.no-locals"
+	EVMMempoolJournal      = "evm.mempool.journal"
+	EVMMempoolRejournal    = "evm.mempool.rejournal"
 )
 
 // TLS flags

@@ -2,9 +2,10 @@ package config
 
 import (
 	"math"
-	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
@@ -91,6 +92,21 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 	return minGasPrices
 }
 
+// parseAddresses converts a slice of address strings to common.Address slice
+func parseAddresses(addressStrs []string) []common.Address {
+	addresses := make([]common.Address, 0, len(addressStrs))
+	for _, addrStr := range addressStrs {
+		addrStr = strings.TrimSpace(addrStr)
+		if addrStr == "" {
+			continue
+		}
+		if common.IsHexAddress(addrStr) {
+			addresses = append(addresses, common.HexToAddress(addrStr))
+		}
+	}
+	return addresses
+}
+
 // GetMinTip reads the min tip from the app options, set from app.toml
 // This field is also known as the minimum priority fee
 func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
@@ -140,16 +156,24 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if lifetime := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolLifetime)); lifetime != 0 {
 		legacyConfig.Lifetime = lifetime
 	}
-
-	// Set journal path under .evmd data dir and ensure dir exists
-	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
-	if homeDir != "" {
-		journalDir := filepath.Join(homeDir, "data", "txpool")
-		_ = os.MkdirAll(journalDir, 0o755)
-		legacyConfig.Journal = filepath.Join(journalDir, legacyConfig.Journal)
-	} else {
-		// Disable local transaction journaling when no home directory is set (e.g. in tests)
-		legacyConfig.Journal = ""
+	if localsSlice := cast.ToStringSlice(appOpts.Get(srvflags.EVMMempoolLocals)); len(localsSlice) > 0 {
+		legacyConfig.Locals = parseAddresses(localsSlice)
+	}
+	if noLocals := appOpts.Get(srvflags.EVMMempoolNoLocals); noLocals != nil {
+		legacyConfig.NoLocals = cast.ToBool(noLocals)
+	}
+	if journal := cast.ToString(appOpts.Get(srvflags.EVMMempoolJournal)); journal != "" {
+		legacyConfig.Journal = journal
+		if homeDir := cast.ToString(appOpts.Get(flags.FlagHome)); homeDir != "" {
+			legacyConfig.Journal = filepath.Join(homeDir, "data", "txpool", journal)
+		} else {
+			// this is a valid configuration for testing where we don't want to persist local transactions
+			logger.Warn("no home directory set, disabling local transaction journaling", "journal", journal)
+			legacyConfig.Journal = ""
+		}
+	}
+	if rejournal := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolRejournal)); rejournal != 0 {
+		legacyConfig.Rejournal = rejournal
 	}
 
 	return &legacyConfig

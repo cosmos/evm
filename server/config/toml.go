@@ -52,6 +52,18 @@ global-queue = {{ .EVM.Mempool.GlobalQueue }}
 # Lifetime is the maximum amount of time non-executable transaction are queued
 lifetime = "{{ .EVM.Mempool.Lifetime }}"
 
+# Locals is the set of addresses that should be treated by default as local (comma-separated)
+locals = [{{range $index, $elmt := .EVM.Mempool.Locals}}{{if $index}}, {{end}}"{{$elmt}}"{{end}}]
+
+# NoLocals disables local transaction handling, exempting local accounts from pricing and acceptance
+no-locals = {{ .EVM.Mempool.NoLocals }}
+
+# Journal is the path to the local transaction journal file
+journal = "{{ .EVM.Mempool.Journal }}"
+
+# Rejournal is the time interval to regenerate the local transaction journal
+rejournal = "{{ .EVM.Mempool.Rejournal }}"
+
 ###############################################################################
 ###                           JSON RPC Configuration                        ###
 ###############################################################################
