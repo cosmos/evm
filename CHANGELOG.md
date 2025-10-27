@@ -4,6 +4,8 @@
 
 ### DEPENDENCIES
 
+- [\#589](https://github.com/cosmos/evm/pull/589) TODO
+
 ### IMPROVEMENTS
 
 ### FEATURES
@@ -41,8 +43,6 @@
 - [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
 - [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
 - [\#736](https://github.com/cosmos/evm/pull/736) Add InitEvmCoinInfo upgrade to avoid panic when denom is not registered.
-
-* [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
 
 ### IMPROVEMENTS
 
@@ -99,7 +99,6 @@
 - [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
 - [\#577](https://github.com/cosmos/evm/pull/577) Changed the way to create a stateful precompile based on the cmn.Precompile, change `NewPrecompile` to not return error.
 - [\#661](https://github.com/cosmos/evm/pull/661) Removes evmAppOptions from the repository and moves initialization to genesis. Chains must now have a display and denom metadata set for the defined EVM denom in the bank module's metadata.
-
 
 ## v0.4.1
 
