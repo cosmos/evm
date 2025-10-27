@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647
+	cosmossdk.io/store v1.3.0-beta.0
 	cosmossdk.io/tools/confix v0.1.2
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0

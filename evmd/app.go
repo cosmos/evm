@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	goruntime "runtime"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -38,7 +39,6 @@ import (
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
