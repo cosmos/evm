@@ -8,6 +8,8 @@
 
 ### FEATURES
 
+- [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
+
 ### BUG FIXES
 
 - [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
