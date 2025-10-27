@@ -147,6 +147,9 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 		journalDir := filepath.Join(homeDir, "data", "txpool")
 		_ = os.MkdirAll(journalDir, 0o755)
 		legacyConfig.Journal = filepath.Join(journalDir, legacyConfig.Journal)
+	} else {
+		// Disable local transaction journaling when no home directory is set (e.g. in tests)
+		legacyConfig.Journal = ""
 	}
 
 	return &legacyConfig

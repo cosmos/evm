@@ -107,7 +107,9 @@ func (tracker *TxTracker) TrackAll(txs []*types.Transaction) {
 		tracker.byAddr[addr].Put(tx)
 
 		if tracker.journal != nil {
-			_ = tracker.journal.insert(tx)
+			if err := tracker.journal.insert(tx); err != nil {
+				log.Warn("Failed to journal local transaction", "hash", tx.Hash(), "err", err)
+			}
 		}
 	}
 	localGauge.Update(int64(len(tracker.all)))
@@ -185,6 +187,11 @@ func (tracker *TxTracker) loop() {
 			tracker.TrackAll(transactions)
 			return nil
 		})
+		// Open the journal for writing immediately after load so new transactions
+		// are persisted right away instead of waiting for first rotation
+		if err := tracker.journal.open(); err != nil {
+			log.Warn("Failed to open transaction journal for writing", "err", err)
+		}
 		defer tracker.journal.close()
 	}
 	var (

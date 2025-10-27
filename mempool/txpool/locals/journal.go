@@ -174,6 +174,21 @@ func (journal *journal) rotate(all map[common.Address]types.Transactions) error 
 	return nil
 }
 
+// open opens the journal file for writing (in append mode).
+// This should be called after load() to ensure new transactions are persisted.
+func (journal *journal) open() error {
+	if journal.writer != nil {
+		return nil // Already open
+	}
+	// Open file for appending, create if it doesn't exist
+	sink, err := os.OpenFile(journal.path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	journal.writer = sink
+	return nil
+}
+
 // close flushes the transaction journal contents to disk and closes the file.
 func (journal *journal) close() error {
 	var err error
