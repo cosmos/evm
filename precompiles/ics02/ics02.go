@@ -1,12 +1,13 @@
 package ics02
 
 import (
-	"embed"
+	"bytes"
+	_ "embed"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -21,9 +22,6 @@ import (
 var _ vm.PrecompiledContract = (*Precompile)(nil)
 
 const (
-	// abiPath defines the path to the LightClient precompile ABI JSON file.
-	abiPath = "abi.json"
-
 	// TODO: These gas values are placeholders and should be determined through proper benchmarking.
 
 	GasUpdateClient        = 40_000
@@ -37,22 +35,16 @@ var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
 	//go:embed abi.json
-	f   embed.FS
+	f   []byte
 	ABI abi.ABI
 )
 
 func init() {
 	var err error
-	ABI, err = cmn.LoadABI(f, abiPath)
+	ABI, err = abi.JSON(bytes.NewReader(f))
 	if err != nil {
 		panic(err)
 	}
-}
-
-// LoadABI loads the ILightClient ABI from the embedded abi.json file
-// for the ics02 precompile.
-func LoadABI() (abi.ABI, error) {
-	return cmn.LoadABI(f, abiPath)
 }
 
 // Precompile defines the precompiled contract for ICS02.
