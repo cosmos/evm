@@ -12,9 +12,9 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/mempool"
 	"github.com/cosmos/evm/mempool/mocks"
+	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -47,7 +47,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper := mocks.NewVMKeeper(t)
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
 
-	ethCfg := vmtypes.DefaultChainConfig(config.EighteenDecimalsChainID)
+	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)
 	if err := vmtypes.SetChainConfig(ethCfg); err != nil {
 		panic(err)
 	}
@@ -63,7 +63,7 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper.On("ForEachStorage", mock.Anything, common.Address{}, mock.AnythingOfType("func(common.Hash, common.Hash) bool")).Maybe()
 	mockVMKeeper.On("KVStoreKeys").Return(make(map[string]*storetypes.KVStoreKey)).Maybe()
 
-	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(config.ChainsCoinInfo[config.EighteenDecimalsChainID]).Configure()
+	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Configure()
 	require.NoError(t, err)
 
 	// Mock context callback that returns a valid context

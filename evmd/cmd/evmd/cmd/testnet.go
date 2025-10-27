@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cosmos/evm/config"
+	"github.com/cosmos/evm/evmd/config"
 
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
@@ -324,7 +324,7 @@ func initTestnetFiles(
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
-	evm.EVMChainID = config.EVMChainID
+	evm.EVMChainID = evmtypes.DefaultEVMChainID
 	evmCfg := config.EVMAppConfig{
 		Config:  *appConfig,
 		EVM:     *evm,
@@ -572,7 +572,7 @@ func initGenFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 
-	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, evmnetwork.GenerateBankGenesisMetadata(config.EVMChainID)...)
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, evmnetwork.GenerateBankGenesisMetadata(evmtypes.DefaultEVMChainID)...)
 
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	for _, bal := range bankGenState.Balances {

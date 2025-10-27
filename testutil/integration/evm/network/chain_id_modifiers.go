@@ -5,7 +5,6 @@
 package network
 
 import (
-	"github.com/cosmos/evm/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -24,7 +23,7 @@ func updateBankGenesisStateForChainID(bankGenesisState banktypes.GenesisState, e
 // GenerateBankGenesisMetadata generates the metadata entries
 // for both extended and native EVM denominations depending on the chain.
 func GenerateBankGenesisMetadata(evmChainID uint64) []banktypes.Metadata {
-	denomConfig := config.ChainsCoinInfo[evmChainID]
+	denomConfig := testconstants.ChainsCoinInfo[evmChainID]
 
 	// Basic denom settings
 	displayDenom := denomConfig.DisplayDenom // e.g., "atom"
@@ -83,8 +82,8 @@ func updateErc20GenesisStateForChainID(chainID testconstants.ChainID, erc20Genes
 // updateErc20GenesisStateForChainID modify the default genesis state for the
 // erc20 module on the testing suite depending on the chainID.
 func updateVMGenesisStateForChainID(chainID testconstants.ChainID, vmGenesisState evmtypes.GenesisState) evmtypes.GenesisState {
-	vmGenesisState.Params.EvmDenom = config.ChainsCoinInfo[chainID.EVMChainID].Denom
-	vmGenesisState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: config.ChainsCoinInfo[chainID.EVMChainID].ExtendedDenom}
+	vmGenesisState.Params.EvmDenom = testconstants.ChainsCoinInfo[chainID.EVMChainID].Denom
+	vmGenesisState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: testconstants.ChainsCoinInfo[chainID.EVMChainID].ExtendedDenom}
 
 	return vmGenesisState
 }
