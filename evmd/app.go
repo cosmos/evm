@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	goruntime "runtime"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -36,8 +35,6 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
-
-	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
 
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
@@ -77,7 +74,6 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -262,15 +258,6 @@ func NewExampleApp(
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
-
-	// FIXME workers
-	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		allKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
-		true,
-		"atest",
-	))
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {

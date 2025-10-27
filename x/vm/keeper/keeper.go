@@ -143,11 +143,9 @@ func NewKeeper(
 }
 
 func (k *Keeper) EnableVirtualFeeCollection() {
-	/*
-		if types.GetEVMCoinDecimals() != types.EighteenDecimals {
-			panic("virtual fee collection is only enabled for 18 decimal fee denoms")
-			}
-	*/
+	if types.GetEVMCoinDecimals() != types.EighteenDecimals {
+		panic("virtual fee collection is only enabled for 18 decimal fee denoms")
+	}
 	k.virtualFeeCollection = true
 }
 
