@@ -2,12 +2,13 @@ package ics02
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+
+	_ "embed"
 
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -30,7 +31,6 @@ const (
 	GasGetClientState      = 4_000
 )
 
-
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
@@ -52,7 +52,7 @@ type Precompile struct {
 	cmn.Precompile
 
 	abi.ABI
-	clientKeeper     ibcutils.ClientKeeper
+	clientKeeper ibcutils.ClientKeeper
 	// BankKeeper is not used directly in the precompile but is needed for the balance handler.
 	BankKeeper cmn.BankKeeper
 }
@@ -70,9 +70,9 @@ func NewPrecompile(
 			ContractAddress:       common.HexToAddress(evmtypes.ICS20PrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		ABI:              ABI,
-		clientKeeper:     clientKeeper,
-		BankKeeper:       bankKeeper,
+		ABI:          ABI,
+		clientKeeper: clientKeeper,
+		BankKeeper:   bankKeeper,
 	}
 }
 

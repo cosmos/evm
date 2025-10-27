@@ -5,9 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 )
 
 // height is a struct used to parse the ProofHeight parameter used as input
