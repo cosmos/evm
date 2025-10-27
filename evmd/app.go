@@ -8,12 +8,11 @@ import (
 	"os"
 	"sort"
 
-	"github.com/spf13/cast"
-
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
+	"github.com/spf13/cast"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -247,14 +246,11 @@ func NewExampleApp(
 	)
 	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	var allKeys []storetypes.StoreKey
 	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
-		allKeys = append(allKeys, k)
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	for _, k := range okeys {
-		allKeys = append(allKeys, k)
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
