@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	runtime2 "runtime"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -24,7 +25,7 @@ import (
 	evmencoding "github.com/cosmos/evm/encoding"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmmempool "github.com/cosmos/evm/mempool"
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
+
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
@@ -267,7 +268,7 @@ func NewExampleApp(
 	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
 		encodingConfig.TxConfig.TxDecoder(),
 		allKeys,
-		min(goruntime.GOMAXPROCS(0), goruntime.NumCPU()),
+		min(runtime2.GOMAXPROCS(0), runtime2.NumCPU()),
 		true,
 		"atest",
 	))
@@ -433,7 +434,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		/ register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -510,7 +511,7 @@ func NewExampleApp(
 	// instantiate IBC transfer keeper AFTER the ERC-20 keeper to use it in the instantiation
 	app.TransferKeeper = transferkeeper.NewKeeper(
 		appCodec,
-		app.GetAccountKeeper().AddressCodec(),
+		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
@@ -519,7 +520,6 @@ func NewExampleApp(
 		app.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
 		authAddr,
 	)
-	app.TransferKeeper.SetAddressCodec(evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()))
 
 	/*
 		Create Transfer Stack
