@@ -515,7 +515,10 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware := ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware.SetICS4Wrapper(app.IBCKeeper.ChannelKeeper)
+	callbacksMiddleware.SetUnderlyingApplication(transferStack)
+	transferStack = callbacksMiddleware
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
