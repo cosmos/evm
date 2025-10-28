@@ -6,12 +6,15 @@
 
 ### IMPROVEMENTS
 
+- [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+
 ### FEATURES
 
 ### BUG FIXES
 
 - [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
 - [\#766](https://github.com/cosmos/evm/pull/766) Align gas estimation logic with go-ethereum v1.16.3
+- [\#772](https://github.com/cosmos/evm/pull/772) Avoid panic on close if evm mempool not used.
 
 ## v0.5.0
 
