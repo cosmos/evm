@@ -62,9 +62,6 @@ func (k Keeper) OnRecvPacket(
 	}
 	recipient := sdk.AccAddress(recipientBz)
 
-	// decides if sending to self without decoding sender
-	sendToSelf := data.Sender == data.Receiver
-
 	receiverAcc := k.accountKeeper.GetAccount(ctx, recipient)
 
 	// return acknowledgement without conversion if receiver is a module account
@@ -125,7 +122,7 @@ func (k Keeper) OnRecvPacket(
 			return ack
 		}
 
-		pair, err := k.MintingEnabled(ctx, recipient, coin.Denom, sendToSelf)
+		pair, err := k.MintingEnabled(ctx, recipient, coin.Denom)
 		if err != nil {
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("erc20_callback_failure",
