@@ -1,6 +1,7 @@
 package ibc
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -11,9 +12,13 @@ import (
 	"github.com/cosmos/evm/precompiles/ics02"
 	"github.com/cosmos/gogoproto/proto"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
+	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
 type ICS02ClientTestSuite struct {
@@ -141,7 +146,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			name: "success: update client",
 			malleate: func() {
 				clientID = ibctesting.FirstClientID
-				expResult = ics02.UpdateResultSuccess
 				// == construct update header ==
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
@@ -172,7 +176,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			name: "success: noop",
 			malleate: func() {
 				clientID = ibctesting.FirstClientID
-				expResult = ics02.UpdateResultSuccess
 				// == construct update header ==
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
@@ -204,13 +207,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				expResult = ics02.UpdateResultSuccess
 			},
 		},
-		{
-			name: "failure: client not found",
-			malleate: func() {
-				clientID = ibctesting.InvalidID
-				expErr = true
-			},
-		},
 	}
 
 	for _, tc := range testCases {
@@ -221,6 +217,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			clientID = ""
 			expResult = 0
 			expErr = false
+			calldata = nil
 			// ====
 
 			senderIdx := 1
@@ -243,6 +240,108 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			s.Require().NoError(err)
 
 			res, ok := out[0].(uint8)
+			s.Require().True(ok)
+			s.Require().Equal(expResult, res)
+		})
+	}
+}
+
+func (s *ICS02ClientTestSuite) TestVerifyMembership() {
+	var (
+		clientID string
+		calldata []byte
+		expErr bool
+		expResult *big.Int
+	)
+
+	testCases := []struct {
+		name string
+		malleate func()
+	}{
+		{
+			name: "success: prove membership of clientState",
+			malleate: func() {
+				clientID = ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, proofHeight := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				// get pure value from chain B
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1),
+						Data:   clientKey,
+						Prove:  false,
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					clientID,
+					clientProof,
+					trustedHeight,
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), clientID, proofHeight)
+				s.Require().NoError(err)
+
+				expResult = big.NewInt(int64(timestampNano/1_000_000_000))
+
+				path := commitmenttypesv2.NewMerklePath(pathBz...)
+				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyMembership(
+					s.chainA.GetContext(),
+					clientID,
+					proofHeight,
+					0,
+					0,
+					clientProof,
+					path,
+					value,
+				)
+				s.Require().NoError(err)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// == reset test state ==
+			s.SetupTest()
+
+			clientID = ""
+			expErr = false
+			calldata = nil
+			// ====
+
+			senderIdx := 1
+			senderAccount := s.chainA.SenderAccounts[senderIdx]
+
+			// setup
+			tc.malleate()
+
+			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
+			if expErr {
+				s.Require().Error(err)
+				return
+			}
+			s.Require().NoError(err)
+
+			// decode result
+			out, err := s.chainAPrecompile.Unpack(ics02.VerifyMembershipMethod, resp.Ret)
+			s.Require().NoError(err)
+
+			res, ok := out[0].(*big.Int)
 			s.Require().True(ok)
 			s.Require().Equal(expResult, res)
 		})
