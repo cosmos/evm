@@ -340,8 +340,8 @@ func (suite *KeeperTestSuite) TestTransfer() {
 
 			suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
 				suite.network.App.AppCodec(),
+				suite.network.App.GetAccountKeeper().AddressCodec(),
 				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
-				&MockICS4Wrapper{}, // ICS4 Wrapper
 				mockChannelKeeper,
 				suite.network.App.MsgServiceRouter(),
 				suite.network.App.GetAccountKeeper(),
@@ -492,8 +492,8 @@ func (suite *KeeperTestSuite) TestPrefixTrimming() {
 
 			suite.network.App.SetTransferKeeper(transferkeeper.NewKeeper(
 				suite.network.App.AppCodec(),
+				suite.network.App.GetAccountKeeper().AddressCodec(),
 				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
-				&MockICS4Wrapper{}, // ICS4 Wrapper
 				mockChannelKeeper,
 				suite.network.App.MsgServiceRouter(),
 				suite.network.App.GetAccountKeeper(),

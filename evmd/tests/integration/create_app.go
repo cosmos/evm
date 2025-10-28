@@ -8,7 +8,6 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/evmd"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
@@ -56,7 +55,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		dbm.NewMemDB(),
 		nil,
 		true,
-		NewAppOptionsWithFlagHomeAndChainID("", constants.ExampleEIP155ChainID),
+		NewAppOptionsWithFlagHomeAndChainID("", constants.EighteenDecimalsChainID),
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()
@@ -64,10 +63,10 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 	fmGen.Params.NoBaseFee = true
 	genesisState[feemarkettypes.ModuleName] = app.AppCodec().MustMarshalJSON(fmGen)
 	stakingGen := stakingtypes.DefaultGenesisState()
-	stakingGen.Params.BondDenom = config.ExampleChainDenom
+	stakingGen.Params.BondDenom = constants.ExampleAttoDenom
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGen)
 	mintGen := minttypes.DefaultGenesisState()
-	mintGen.Params.MintDenom = config.ExampleChainDenom
+	mintGen.Params.MintDenom = constants.ExampleAttoDenom
 	genesisState[minttypes.ModuleName] = app.AppCodec().MustMarshalJSON(mintGen)
 
 	return app, genesisState
