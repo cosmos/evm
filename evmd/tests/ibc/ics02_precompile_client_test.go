@@ -7,13 +7,13 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	abci "github.com/cometbft/cometbft/abci/types"
+
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics02"
-	"github.com/cosmos/gogoproto/proto"
-
-	abci "github.com/cometbft/cometbft/abci/types"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
+	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
 	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
@@ -43,7 +43,6 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 	s.pathBToA = evmibctesting.NewTransferPath(s.chainB, s.chainA)
 	s.pathBToA.Setup()
 
-
 	evmAppA := s.chainA.App.(*evmd.EVMD)
 	s.chainAPrecompile = ics02.NewPrecompile(
 		evmAppA.AppCodec(),
@@ -60,13 +59,13 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		clientID string
+		clientID       string
 		expClientState []byte
-		expErr bool
+		expErr         bool
 	)
 
 	testCases := []struct {
-		name string
+		name     string
 		malleate func()
 	}{
 		{
@@ -78,7 +77,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 					clientID,
 				)
 				s.Require().True(found)
-				
+
 				var err error
 				expClientState, err = proto.Marshal(clientState)
 				s.Require().NoError(err)
@@ -132,14 +131,14 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 
 func (s *ICS02ClientTestSuite) TestUpdateClient() {
 	var (
-		clientID string
+		clientID  string
 		expResult uint8
-		calldata []byte
-		expErr bool
+		calldata  []byte
+		expErr    bool
 	)
 
 	testCases := []struct {
-		name string
+		name     string
 		malleate func()
 	}{
 		{
@@ -154,11 +153,10 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 					s.chainA.GetContext(),
 					clientID,
 				)
-				var (
-				)
+				var ()
 				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
 				s.Require().NoError(err)
-	
+
 				anyHeader, err := clienttypes.PackClientMessage(header)
 				s.Require().NoError(err)
 
@@ -184,11 +182,10 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 					s.chainA.GetContext(),
 					clientID,
 				)
-				var (
-				)
+				var ()
 				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
 				s.Require().NoError(err)
-	
+
 				anyHeader, err := clienttypes.PackClientMessage(header)
 				s.Require().NoError(err)
 
@@ -248,14 +245,14 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 	var (
-		clientID string
-		calldata []byte
-		expErr bool
+		clientID  string
+		calldata  []byte
+		expErr    bool
 		expResult *big.Int
 	)
 
 	testCases := []struct {
-		name string
+		name     string
 		malleate func()
 	}{
 		{
@@ -267,7 +264,6 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 					clientID,
 				)
 
-
 				clientKey := ibchost.FullClientStateKey(clientID)
 				clientProof, proofHeight := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
 
@@ -276,9 +272,8 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 					s.chainB.GetContext().Context(),
 					&abci.RequestQuery{
 						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
-						Height: int64(trustedHeight.RevisionHeight - 1),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
 						Data:   clientKey,
-						Prove:  false,
 					})
 				s.Require().NoError(err)
 				value := res.Value
@@ -296,8 +291,9 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), clientID, proofHeight)
 				s.Require().NoError(err)
 
-				expResult = big.NewInt(int64(timestampNano/1_000_000_000))
+				expResult = big.NewInt(int64(timestampNano / 1_000_000_000)) //nolint:gosec
 
+				// verify membership on-chain to ensure proof is valid
 				path := commitmenttypesv2.NewMerklePath(pathBz...)
 				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyMembership(
 					s.chainA.GetContext(),
@@ -350,14 +346,14 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 
 func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 	var (
-		clientID string
-		calldata []byte
-		expErr bool
+		clientID  string
+		calldata  []byte
+		expErr    bool
 		expResult *big.Int
 	)
 
 	testCases := []struct {
-		name string
+		name     string
 		malleate func()
 	}{
 		{
@@ -386,8 +382,9 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), existingClientID, proofHeight)
 				s.Require().NoError(err)
 
-				expResult = big.NewInt(int64(timestampNano/1_000_000_000))
+				expResult = big.NewInt(int64(timestampNano / 1_000_000_000)) //nolint:gosec
 
+				// verify non-membership on-chain to ensure proof is valid
 				path := commitmenttypesv2.NewMerklePath(pathBz...)
 				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyNonMembership(
 					s.chainA.GetContext(),
