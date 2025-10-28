@@ -54,7 +54,7 @@ func newJournal() *journal {
 // reset clears the journal so it can be reused without reallocating.
 func (j *journal) reset() {
 	j.entries = j.entries[:0]
-	for k := range j.dirties {
+	for _, k := range j.sortedDirties() {
 		delete(j.dirties, k)
 	}
 }

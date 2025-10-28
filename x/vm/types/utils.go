@@ -170,13 +170,14 @@ func UnpackEthMsg(msg sdk.Msg) (
 	return msgEthTx, msgEthTx.Raw.Transaction, nil
 }
 
-// BinSearch executes the binary search and hone in on an executable gas limit
+// BinSearch executes the binary search and hone in on an executable gas limit.
+// NOTE: This helper is intended for read-only estimation paths (e.g. eth_estimateGas).
 func BinSearch(lo, hi uint64, executable func(uint64) (bool, *MsgEthereumTxResponse, error)) (uint64, error) {
 	// Allowed overestimation ratio for faster estimation termination
 	const errRatio = 0.015
 
 	for lo+1 < hi {
-		if errRatio > 0 {
+		if errRatio > 0 { // codeql[go/abnormal-floating-point-in-loop-condition]
 			// It is a bit pointless to return a perfect estimation, as changing
 			// network conditions require the caller to bump it up anyway. Since
 			// wallets tend to use 20-25% bump, allowing a small approximation
