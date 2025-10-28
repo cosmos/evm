@@ -25,6 +25,7 @@ var AvailableStaticPrecompiles = []string{
 	Bech32PrecompileAddress,
 	StakingPrecompileAddress,
 	DistributionPrecompileAddress,
+	ICS02PrecompileAddress,
 	ICS20PrecompileAddress,
 	VestingPrecompileAddress,
 	BankPrecompileAddress,
