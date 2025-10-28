@@ -8,7 +8,7 @@ pkgs.mkShell {
     pkgs.test-env
     pkgs.poetry
     pkgs.solc
-    # pkgs.evmd
+    pkgs.evmd
   ];
   shellHook = ''
     export TMPDIR=/tmp
