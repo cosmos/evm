@@ -4,17 +4,20 @@ import (
 	"cmp"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
+	"github.com/spf13/viper"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	errorsmod "cosmossdk.io/errors"
 
+	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/types/multisig"
@@ -218,4 +221,24 @@ func Bytes32ToString(data [32]byte) string {
 		}
 	}
 	return string(data[:i])
+}
+
+// GetChainIDFromHome returns the chain ID from the client configuration
+// in the given home directory.
+func GetChainIDFromHome(home string) (string, error) {
+	v := viper.New()
+	v.AddConfigPath(filepath.Join(home, "config"))
+	v.SetConfigName("client")
+	v.SetConfigType("toml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return "", err
+	}
+	conf := new(config.ClientConfig)
+
+	if err := v.Unmarshal(conf); err != nil {
+		return "", err
+	}
+
+	return conf.ChainID, nil
 }

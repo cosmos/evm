@@ -1,6 +1,6 @@
 module github.com/cosmos/evm/evmd
 
-go 1.23.8
+go 1.25.0
 
 require (
 	cosmossdk.io/api v0.9.2
