@@ -121,8 +121,12 @@ func (k EVMKeeper) Clone() *EVMKeeper {
 	return &EVMKeeper{accounts, codes, storeKeys}
 }
 
-func (k EVMKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
-	return k.storeKeys
+func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
+	result := make(map[string]storetypes.StoreKey, len(k.storeKeys))
+	for k, v := range k.storeKeys {
+		result[k] = v
+	}
+	return result
 }
 
 func (k EVMKeeper) GetCodeHash(_ sdk.Context, _ common.Address) common.Hash {
