@@ -6,6 +6,8 @@
 
 ### IMPROVEMENTS
 
+- [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+
 ### FEATURES
 
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
