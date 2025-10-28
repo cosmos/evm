@@ -4,13 +4,13 @@
 
 ### DEPENDENCIES
 
-- [\#589](https://github.com/cosmos/evm/pull/589) TODO
-
 ### IMPROVEMENTS
 
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
 
 ### FEATURES
+
+- [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 
 ### BUG FIXES
 
