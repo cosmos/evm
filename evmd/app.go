@@ -1084,7 +1084,7 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
 		app.Logger().Info("Shutting down mempool")
 		err = m.Close()
 	}
