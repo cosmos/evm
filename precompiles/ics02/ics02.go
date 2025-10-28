@@ -23,15 +23,6 @@ import (
 
 var _ vm.PrecompiledContract = (*Precompile)(nil)
 
-const (
-	// TODO: These gas values are placeholders and should be determined through proper benchmarking.
-
-	GasUpdateClient        = 40_000
-	GasVerifyMembership    = 15_000
-	GasVerifyNonMembership = 15_000
-	GasGetClientState      = 4_000
-)
-
 var (
 	// Embed abi json file to the executable binary. Needed when importing as dependency.
 	//
