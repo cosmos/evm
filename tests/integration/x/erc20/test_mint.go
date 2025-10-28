@@ -11,7 +11,6 @@ import (
 
 func (s *KeeperTestSuite) TestMintingEnabled() {
 	var ctx sdk.Context
-	sender := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
 	receiver := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
 	expPair := types.NewTokenPair(utiltx.GenerateAddress(), "coin", types.OWNER_MODULE)
 	id := expPair.GetID()
