@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.4.0
 	github.com/cometbft/cometbft v0.39.0-beta.2
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251008150347-20e3a5251d37
+	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
 	github.com/cosmos/evm v0.5.0-rc.0
 	github.com/ethereum/go-ethereum v1.16.5
 	github.com/holiman/uint256 v1.3.2
@@ -25,7 +25,7 @@ require (
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/log v1.6.1 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2 // indirect
+	cosmossdk.io/store v1.3.0-beta.0 // indirect
 	cosmossdk.io/x/tx v1.2.0-rc.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
