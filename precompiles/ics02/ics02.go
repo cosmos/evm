@@ -67,7 +67,7 @@ func NewPrecompile(
 		Precompile: cmn.Precompile{
 			KvGasConfig:           storetypes.GasConfig{},
 			TransientKVGasConfig:  storetypes.GasConfig{},
-			ContractAddress:       common.HexToAddress(evmtypes.ICS20PrecompileAddress),
+			ContractAddress:       common.HexToAddress(evmtypes.ICS02PrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:          ABI,
