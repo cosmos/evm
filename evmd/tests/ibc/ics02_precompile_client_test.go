@@ -20,9 +20,7 @@ import (
 	// transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	// clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
-
 	// sdkmath "cosmossdk.io/math"
-
 	// sdk "github.com/cosmos/cosmos-sdk/types"
 	// "github.com/cosmos/cosmos-sdk/types/query"
 )
@@ -60,7 +58,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
 		clientID string
 		expClientState []byte
-		expErr error
+		expErr bool
 	)
 
 	testCases := []struct {
@@ -77,15 +75,29 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 				)
 				s.Require().True(found)
 				
-				expClientState, expErr = proto.Marshal(clientState)
-				s.Require().NoError(expErr)
+				var err error
+				expClientState, err = proto.Marshal(clientState)
+				s.Require().NoError(err)
+			},
+		},
+		{
+			name: "failure: client not found",
+			malleate: func() {
+				clientID = ibctesting.InvalidID
+				expErr = true
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// == reset test state ==
 			s.SetupTest()
+
+			clientID = ""
+			expClientState = nil
+			expErr = false
+			// ====
 
 			pathBToA := evmibctesting.NewTransferPath(s.chainB, s.chainA)
 			pathBToA.Setup()
@@ -100,8 +112,8 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			s.Require().NoError(err)
 
 			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
-			if expErr != nil {
-				s.Require().ErrorContains(err, expErr.Error())
+			if expErr {
+				s.Require().Error(err)
 				return
 			}
 			s.Require().NoError(err)
