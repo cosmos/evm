@@ -257,10 +257,12 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
+				coin := sdk.Coin{Denom: "coin", Amount: math.OneInt()}
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to mint")).AnyTimes()
 				mockBankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to unescrow")).AnyTimes()
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false).AnyTimes()
-				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: "coin", Amount: math.OneInt()}).AnyTimes()
+				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(coin).AnyTimes()
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), coin).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
@@ -283,10 +285,12 @@ func (s *KeeperTestSuite) TestConvertERC20NativeERC20() {
 				)
 				s.network.App.SetErc20Keeper(erc20Keeper)
 
+				coin := sdk.Coin{Denom: "coin", Amount: math.OneInt()}
 				mockBankKeeper.EXPECT().MintCoins(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockBankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to unescrow"))
 				mockBankKeeper.EXPECT().BlockedAddr(gomock.Any()).Return(false)
-				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.Coin{Denom: "coin", Amount: math.OneInt()})
+				mockBankKeeper.EXPECT().GetBalance(gomock.Any(), gomock.Any(), gomock.Any()).Return(coin)
+				mockBankKeeper.EXPECT().IsSendEnabledCoin(gomock.Any(), coin).Return(true).AnyTimes()
 			},
 			contractMinterBurner,
 			false,
