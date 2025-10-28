@@ -265,6 +265,10 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
+	if blockTxIndex := ctx.TxIndex(); blockTxIndex >= 0 {
+		EmitTxHashEvent(ctx, ethMsg, uint64(blockTxIndex))
+	}
+
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err
 	}

@@ -302,7 +302,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				})
 				suite.Require().NoError(err)
 				suite.Require().Equal(afterRewards.Rewards[0].Amount.String(), ExpectedRewards)
-				suite.Require().Equal(eventAmount, 19)
+				suite.Require().Equal(eventAmount, 20)
 			},
 		},
 		{
@@ -352,7 +352,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				})
 				suite.Require().NoError(err)
 				suite.Require().Nil(afterRewards.Rewards)
-				suite.Require().Equal(eventAmount, 28) // 19 base events + (1 successful reward claim + 1 send + 1 receive + 1 message + 1 transfer) + 4 empty reward claims
+				suite.Require().Equal(eventAmount, 29) // 20 base events + (1 successful reward claim + 1 send + 1 receive + 1 message + 1 transfer) + 4 empty reward claims
 			},
 		},
 	}

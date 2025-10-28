@@ -2,8 +2,6 @@ package balancehandler
 
 import (
 	"fmt"
-
-	"math/big"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -92,7 +90,7 @@ func (s *BalanceHandlerTestSuite) TestRecursivePrecompileCallsWithDebugPrecompil
 	s.Require().NoError(err, "callback transaction should succeed")
 	s.Require().False(res.IsErr(), "callback should not fail: %s", res.Events)
 
-	s.Require().Equal(len(res.Events), 14, "callback should have 14 events")
+	s.Require().Equal(len(res.Events), 15, "callback should have 15 events")
 	debug_count := 0
 	for _, event := range res.Events {
 		if event.Type == "debug_precompile" {
