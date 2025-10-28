@@ -4,7 +4,7 @@ pragma solidity >=0.8.18;
 import "../common/Types.sol";
 
 /// @dev The ICS02I contract's address.
-address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000808;
+address constant ICS02_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000807;
 
 /// @dev The ICS02 contract's instance.
 ICS02I constant ICS02_CONTRACT = ICS02I(ICS02_PRECOMPILE_ADDRESS);
@@ -12,7 +12,7 @@ ICS02I constant ICS02_CONTRACT = ICS02I(ICS02_PRECOMPILE_ADDRESS);
 /// @author CosmosLabs
 /// @title ICS02 Client Router Precompile Interface
 /// @dev The interface through which solidity contracts will interact with IBC Light Clients (ICS02)
-/// @custom:address 0x0000000000000000000000000000000000000808
+/// @custom:address 0x0000000000000000000000000000000000000807
 interface ICS02I {
     /// @notice The result of an update operation
     enum UpdateResult {
