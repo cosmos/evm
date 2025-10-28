@@ -25,7 +25,7 @@ require (
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/log v1.6.1 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647 // indirect
+	cosmossdk.io/store v1.3.0-beta.0 // indirect
 	cosmossdk.io/x/tx v1.2.0-rc.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -213,5 +213,3 @@ replace (
 	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 )
-
-replace cosmossdk.io/store => cosmossdk.io/store v1.1.2
