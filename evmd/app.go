@@ -7,11 +7,12 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cast"
+
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
-	"github.com/spf13/cast"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -1080,7 +1081,7 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
 		app.Logger().Info("Shutting down mempool")
 		err = m.Close()
 	}

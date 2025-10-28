@@ -1,9 +1,12 @@
+//go:build system_test
+
 package accountabstraction
 
 import (
 	"fmt"
-	"github.com/cosmos/evm/tests/systemtests/clients"
 	"math/big"
+
+	"github.com/cosmos/evm/tests/systemtests/clients"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
