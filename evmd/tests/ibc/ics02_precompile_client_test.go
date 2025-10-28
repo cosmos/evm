@@ -348,6 +348,95 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 	}
 }
 
+func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
+	var (
+		clientID string
+		calldata []byte
+		expErr bool
+		expResult *big.Int
+	)
+
+	testCases := []struct {
+		name string
+		malleate func()
+	}{
+		{
+			name: "success: prove non-membership of clientState",
+			malleate: func() {
+				existingClientID := ibctesting.FirstClientID
+				clientID = ibctesting.SecondClientID // NOTE: use a non-existent client ID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					existingClientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, proofHeight := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+					existingClientID,
+					clientProof,
+					trustedHeight,
+					pathBz,
+				)
+				s.Require().NoError(err)
+
+				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), existingClientID, proofHeight)
+				s.Require().NoError(err)
+
+				expResult = big.NewInt(int64(timestampNano/1_000_000_000))
+
+				path := commitmenttypesv2.NewMerklePath(pathBz...)
+				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyNonMembership(
+					s.chainA.GetContext(),
+					existingClientID,
+					proofHeight,
+					0,
+					0,
+					clientProof,
+					path,
+				)
+				s.Require().NoError(err)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// == reset test state ==
+			s.SetupTest()
+
+			clientID = ""
+			expErr = false
+			calldata = nil
+			// ====
+
+			senderIdx := 1
+			senderAccount := s.chainA.SenderAccounts[senderIdx]
+
+			// setup
+			tc.malleate()
+
+			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
+			if expErr {
+				s.Require().Error(err)
+				return
+			}
+			s.Require().NoError(err)
+
+			// decode result
+			out, err := s.chainAPrecompile.Unpack(ics02.VerifyNonMembershipMethod, resp.Ret)
+			s.Require().NoError(err)
+
+			res, ok := out[0].(*big.Int)
+			s.Require().True(ok)
+			s.Require().Equal(expResult, res)
+		})
+	}
+}
+
 func TestICS02ClientTestSuite(t *testing.T) {
 	suite.Run(t, new(ICS02ClientTestSuite))
 }
