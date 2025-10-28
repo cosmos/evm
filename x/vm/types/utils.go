@@ -209,14 +209,14 @@ func HexAddress(a []byte) string {
 }
 
 // SortedKVStoreKeys returns a slice of *KVStoreKey sorted by their map key.
-func SortedKVStoreKeys(keys map[string]*storetypes.KVStoreKey) []*storetypes.KVStoreKey {
+func SortedKVStoreKeys(keys map[string]storetypes.StoreKey) []storetypes.StoreKey {
 	names := make([]string, 0, len(keys))
 	for name := range keys {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	sorted := make([]*storetypes.KVStoreKey, 0, len(keys))
+	sorted := make([]storetypes.StoreKey, 0, len(keys))
 	for _, name := range names {
 		sorted = append(sorted, keys[name])
 	}

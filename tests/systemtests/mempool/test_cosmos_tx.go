@@ -1,3 +1,5 @@
+//go:build system_test
+
 package mempool
 
 import (
@@ -8,36 +10,36 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-// TestCosmosTxsCompatibility tests that cosmos txs are still functional and interacting with the mempool properly.
-func TestCosmosTxsCompatibility(t *testing.T) {
+// RunCosmosTxsCompatibility tests that cosmos txs are still functional and interacting with the mempool properly.
+func RunCosmosTxsCompatibility(t *testing.T, base *suite.BaseTestSuite) {
 	testCases := []struct {
 		name    string
-		actions []func(s TestSuite)
+		actions []func(*TestSuite, *TestContext)
 	}{
 		{
 			name: "single pending tx submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
+					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
-					s.SetExpPendingTxs(tx1)
+					ctx.SetExpPendingTxs(tx1)
 				},
 			},
 		},
 		{
 			name: "multiple pending txs submitted to same nodes %s",
-			actions: []func(s TestSuite){
-				func(s TestSuite) {
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GetTxGasPrice(s.BaseFee()), nil)
+			actions: []func(*TestSuite, *TestContext){
+				func(s *TestSuite, ctx *TestContext) {
+					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					tx3, err := s.SendTx(t, s.Node(0), "acc0", 2, s.GetTxGasPrice(s.BaseFee()), nil)
+					tx3, err := s.SendTx(t, s.Node(0), "acc0", 2, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx")
 
-					s.SetExpPendingTxs(tx1, tx2, tx3)
+					ctx.SetExpPendingTxs(tx1, tx2, tx3)
 				},
 			},
 		},
@@ -50,7 +52,7 @@ func TestCosmosTxsCompatibility(t *testing.T) {
 		},
 	}
 
-	s := suite.NewSystemTestSuite(t)
+	s := NewTestSuite(base)
 	s.SetupTest(t)
 
 	for _, to := range testOptions {
@@ -58,11 +60,13 @@ func TestCosmosTxsCompatibility(t *testing.T) {
 		for _, tc := range testCases {
 			testName := fmt.Sprintf(tc.name, to.Description)
 			t.Run(testName, func(t *testing.T) {
-				s.BeforeEachCase(t)
+				ctx := NewTestContext()
+
+				s.BeforeEachCase(t, ctx)
 				for _, action := range tc.actions {
-					action(s)
+					action(s, ctx)
 				}
-				s.AfterEachCase(t)
+				s.AfterEachCase(t, ctx)
 			})
 		}
 	}
