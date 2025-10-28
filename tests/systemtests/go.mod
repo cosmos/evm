@@ -210,5 +210,3 @@ replace (
 	github.com/cosmos/evm => ../..
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 )
-
-replace cosmossdk.io/store => cosmossdk.io/store v1.1.2
