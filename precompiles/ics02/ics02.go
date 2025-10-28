@@ -80,7 +80,7 @@ func NewPrecompile(
 	}
 }
 
-// RequiredGas calculates the contract gas used for the
+// RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
 	// NOTE: This check avoid panicking when trying to decode the method ID
 	if len(input) < 4 {
@@ -88,25 +88,14 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 
 	methodID := input[:4]
+
 	method, err := p.MethodById(methodID)
 	if err != nil {
+		// This should never happen since this method is going to fail during Run
 		return 0
 	}
 
-	switch method.Name {
-	// ERC-20 transactions
-	case UpdateClientMethod:
-		return GasUpdateClient
-	case VerifyMembershipMethod:
-		return GasVerifyMembership
-	case VerifyNonMembershipMethod:
-		return GasVerifyNonMembership
-	// Read-only transactions
-	case GetClientStateMethod:
-		return GasGetClientState
-	default:
-		return 0
-	}
+	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -138,8 +127,15 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 func (Precompile) IsTransaction(method *abi.Method) bool {
-	// GetClientStateMethod is the only query method.
-	return GetClientStateMethod != method.Name
+	switch method.Name {
+	case UpdateClientMethod,
+		VerifyMembershipMethod,
+		VerifyNonMembershipMethod:
+		return true
+	default:
+		// GetClientStateMethod is the only query method.
+		return false
+	}
 }
 
 // Logger returns a precompile-specific logger.
