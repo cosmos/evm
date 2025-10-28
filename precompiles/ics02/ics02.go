@@ -144,5 +144,5 @@ func (Precompile) IsTransaction(method *abi.Method) bool {
 
 // Logger returns a precompile-specific logger.
 func (p Precompile) Logger(ctx sdk.Context) log.Logger {
-	return ctx.Logger().With("evm extension", "clients")
+	return ctx.Logger().With("evm extension", "ics02")
 }

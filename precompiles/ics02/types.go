@@ -68,7 +68,6 @@ func ParseVerifyMembershipArgs(method *abi.Method, args []interface{}) (string, 
 		return "", nil, clienttypes.Height{}, nil, nil, fmt.Errorf("error while unpacking args to TransferInput struct: %s", err)
 	}
 
-	// TODO: make sure path is deserilized like this
 	path, ok := args[3].([][]byte)
 	if !ok {
 		return "", nil, clienttypes.Height{}, nil, nil, fmt.Errorf("invalid path: %v", args[3])
