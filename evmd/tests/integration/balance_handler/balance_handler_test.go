@@ -2,6 +2,8 @@ package balancehandler
 
 import (
 	"fmt"
+
+	"math/big"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
