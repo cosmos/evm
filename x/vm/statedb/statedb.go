@@ -718,19 +718,19 @@ func (s *StateDB) Commit() error {
 	if s.writeCache != nil {
 		s.writeCache()
 	}
-	return s.commitWithCtx(s.ctx)
+	return s.commitWithCtx(s.ctx, false)
 }
 
 // CommitWithCacheCtx writes the dirty states to keeper using the cacheCtx.
 // This function is used before any precompile call to make sure the cacheCtx
 // is updated with the latest changes within the tx (StateDB's journal entries).
 func (s *StateDB) CommitWithCacheCtx() error {
-	return s.commitWithCtx(s.cacheCtx)
+	return s.commitWithCtx(s.cacheCtx, true)
 }
 
 // commitWithCtx writes the dirty states to keeper
 // using the provided context
-func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
+func (s *StateDB) commitWithCtx(ctx sdk.Context, keepDirty bool) error {
 	for _, addr := range s.journal.sortedDirties() {
 		obj := s.stateObjects[addr]
 		if obj.selfDestructed {
@@ -755,6 +755,32 @@ func (s *StateDB) commitWithCtx(ctx sdk.Context) error {
 					s.keeper.DeleteState(ctx, obj.Address(), key)
 				} else {
 					s.keeper.SetState(ctx, obj.Address(), key, valueBytes)
+				}
+
+				// Track the persisted value as the new baseline so later writes compare
+				// against the most recently flushed state. In go-ethereum the same happens
+				// during commitStorage: originStorage follows the latest flush and act as
+				// the reference for future dirty detection. The actual revert path still
+				// consults the journal's origvalue, so keeping this cache in sync during
+				// cacheCtx flushes is safe even if a precompile subsequently reverts.
+				if obj.originStorage == nil {
+					obj.originStorage = make(Storage)
+				}
+				if len(valueBytes) == 0 {
+					delete(obj.originStorage, key)
+				} else {
+					obj.originStorage[key] = obj.dirtyStorage[key]
+				}
+				// Only the final Commit against the root context should clear dirtyStorage.
+				// During precompile execution we pass keepDirty=true so that the slots remain
+				// marked dirty after cacheCtx flushes, letting the outer transaction still
+				// persist those writes (or revert them via the journal) once execution finishes.
+				//
+				// This is essential after SetState started syncing originStorage: the cacheCtx
+				// flush must leave the dirty slots intact so the final Commit() can push the
+				// same updates into the keeper context.
+				if !keepDirty {
+					delete(obj.dirtyStorage, key)
 				}
 			}
 		}
