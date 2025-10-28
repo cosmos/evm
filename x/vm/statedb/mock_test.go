@@ -120,6 +120,6 @@ func (k MockKeeper) Clone() *MockKeeper {
 	return &MockKeeper{accounts, codes}
 }
 
-func (k MockKeeper) KVStoreKeys() map[string]*storetypes.KVStoreKey {
-	return make(map[string]*storetypes.KVStoreKey)
+func (k MockKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
+	return make(map[string]storetypes.StoreKey)
 }
