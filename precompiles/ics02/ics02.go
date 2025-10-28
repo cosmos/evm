@@ -53,7 +53,7 @@ type Precompile struct {
 	cmn.Precompile
 
 	abi.ABI
-	cdc codec.Codec 
+	cdc          codec.Codec
 	clientKeeper ibcutils.ClientKeeper
 	// BankKeeper is not used directly in the precompile but is needed for the balance handler.
 	BankKeeper cmn.BankKeeper

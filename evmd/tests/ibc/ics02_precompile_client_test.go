@@ -1,12 +1,9 @@
 package ibc
 
 import (
-	// "math/big"
 	"math/big"
 	"testing"
 
-	// "github.com/ethereum/go-ethereum/common"
-	// "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/evmd"
@@ -14,16 +11,9 @@ import (
 	"github.com/cosmos/evm/precompiles/ics02"
 	"github.com/cosmos/gogoproto/proto"
 
-	// chainutil "github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
-	// evmante "github.com/cosmos/evm/x/vm/ante"
-	// transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	// sdkmath "cosmossdk.io/math"
-	// sdk "github.com/cosmos/cosmos-sdk/types"
-	// "github.com/cosmos/cosmos-sdk/types/query"
-	// codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 )
 
 type ICS02ClientTestSuite struct {
