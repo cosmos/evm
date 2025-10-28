@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
@@ -17,7 +16,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	// codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -54,12 +53,7 @@ func (p *Precompile) UpdateClient(
 		)
 	}
 
-	var anyUpdateMsg codectypes.Any
-	if err := proto.Unmarshal(updateBz, &anyUpdateMsg); err != nil {
-		return nil, err
-	}
-
-	clientMsg, err := clienttypes.UnpackClientMessage(&anyUpdateMsg)
+	clientMsg, err := clienttypes.UnmarshalClientMessage(p.cdc, updateBz)
 	if err != nil {
 		return nil, err
 	}

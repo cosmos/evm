@@ -102,10 +102,12 @@ func (s StaticPrecompiles) WithDistributionPrecompile(
 }
 
 func (s StaticPrecompiles) WithICS02Precompile(
+	codec codec.Codec,
 	bankKeeper cmn.BankKeeper,
 	clientKeeper ibcutils.ClientKeeper,
 ) StaticPrecompiles {
 	ibcClientPrecompile := ics02precompile.NewPrecompile(
+		codec,
 		bankKeeper,
 		clientKeeper,
 	)

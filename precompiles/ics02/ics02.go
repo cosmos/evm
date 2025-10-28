@@ -17,6 +17,7 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -52,6 +53,7 @@ type Precompile struct {
 	cmn.Precompile
 
 	abi.ABI
+	cdc codec.Codec 
 	clientKeeper ibcutils.ClientKeeper
 	// BankKeeper is not used directly in the precompile but is needed for the balance handler.
 	BankKeeper cmn.BankKeeper
@@ -60,10 +62,12 @@ type Precompile struct {
 // NewPrecompile creates a new Client Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
+	cdc codec.Codec,
 	bankKeeper cmn.BankKeeper,
 	clientKeeper ibcutils.ClientKeeper,
 ) *Precompile {
 	return &Precompile{
+		cdc: cdc,
 		Precompile: cmn.Precompile{
 			KvGasConfig:           storetypes.GasConfig{},
 			TransientKVGasConfig:  storetypes.GasConfig{},
