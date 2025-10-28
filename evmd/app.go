@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -272,9 +273,6 @@ func NewExampleApp(
 		keys:              keys,
 		okeys:             okeys,
 	}
-
-	// Disable block gas meter since we're executing in parallel
-	app.SetDisableBlockGasMeter(true)
 
 	// removed x/params: no ParamsKeeper initialization
 
