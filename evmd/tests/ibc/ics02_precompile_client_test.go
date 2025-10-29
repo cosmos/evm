@@ -61,7 +61,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		clientID       string
+		calldata  []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -73,7 +73,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 		{
 			name: "success",
 			malleate: func() {
-				clientID = ibctesting.FirstClientID
+				clientID := ibctesting.FirstClientID
 				clientState, found := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientState(
 					s.chainA.GetContext(),
 					clientID,
@@ -81,14 +81,35 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 				s.Require().True(found)
 
 				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, clientID)
+				s.Require().NoError(err)
+
 				expClientState, err = proto.Marshal(clientState)
 				s.Require().NoError(err)
 			},
 		},
 		{
+			name: "failure: invalid client ID",
+			malleate: func() {
+				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, ibctesting.InvalidID)
+				s.Require().NoError(err)
+				expErr = true
+			},
+		},
+		{
 			name: "failure: client not found",
 			malleate: func() {
-				clientID = ibctesting.InvalidID
+				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, ibctesting.SecondClientID)
+				s.Require().NoError(err)
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid calldata",
+			malleate: func() {
+				calldata = []byte(ibctesting.InvalidID)
 				expErr = true
 			},
 		},
@@ -99,7 +120,6 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			// == reset test state ==
 			s.SetupTest()
 
-			clientID = ""
 			expClientState = nil
 			expErr = false
 			// ====
@@ -109,9 +129,6 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 
 			// setup
 			tc.malleate()
-
-			calldata, err := s.chainAPrecompile.Pack(ics02.GetClientStateMethod, clientID)
-			s.Require().NoError(err)
 
 			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
 			if expErr {
