@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -81,6 +82,10 @@ type Keeper struct {
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// runtimeCfg keeps runtime-wide configuration (chain config, coin info,
+	// extra EIPs) to avoid using package-level global variables.
+	runtimeCfg *types.RuntimeConfig
 }
 
 // NewKeeper generates new evm module keeper
@@ -156,6 +161,57 @@ func (k Keeper) EmitBlockBloomEvent(ctx sdk.Context, bloom ethtypes.Bloom) {
 			sdk.NewAttribute(types.AttributeKeyEthereumBloom, string(bloom.Bytes())),
 		),
 	)
+}
+
+// ----------------------------------------------------------------------------
+// Runtime configuration
+// ----------------------------------------------------------------------------
+
+// SetRuntimeConfig stores the runtime configuration shared across components.
+func (k *Keeper) SetRuntimeConfig(cfg *types.RuntimeConfig) error {
+	if cfg == nil {
+		return errors.New("runtime config cannot be nil")
+	}
+
+	if k.runtimeCfg != nil {
+		return errors.New("runtime config already set")
+	}
+
+	k.runtimeCfg = cfg
+
+	return nil
+}
+
+// RuntimeConfig returns the stored runtime configuration.
+func (k Keeper) RuntimeConfig() *types.RuntimeConfig {
+	return k.runtimeCfg
+}
+
+// ChainConfig returns the x/vm ChainConfig kept in runtime config.
+func (k Keeper) ChainConfig() *types.ChainConfig {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return nil
+	}
+	return cfg.ChainConfig()
+}
+
+// EthChainConfig returns the go-ethereum ChainConfig kept in runtime config.
+func (k Keeper) EthChainConfig() *ethparams.ChainConfig {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return nil
+	}
+	return cfg.EthChainConfig()
+}
+
+// RuntimeCoinInfo returns the EvmCoinInfo kept in runtime config.
+func (k Keeper) RuntimeCoinInfo() types.EvmCoinInfo {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return types.EvmCoinInfo{}
+	}
+	return cfg.CoinInfo()
 }
 
 // GetAuthority returns the x/evm module authority address
