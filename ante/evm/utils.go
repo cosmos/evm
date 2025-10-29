@@ -6,6 +6,7 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	gethparams "github.com/ethereum/go-ethereum/params"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -33,6 +34,26 @@ type DecoratorUtils struct {
 	TxFee              *big.Int
 }
 
+type chainConfigProvider interface {
+	EthChainConfig() *gethparams.ChainConfig
+	ChainConfig() *evmtypes.ChainConfig
+}
+
+type runtimeChainConfigProvider interface {
+	chainConfigProvider
+	RuntimeCoinInfo() evmtypes.EvmCoinInfo
+}
+
+func getEthChainConfig(provider chainConfigProvider) *gethparams.ChainConfig {
+	if cfg := provider.EthChainConfig(); cfg != nil {
+		return cfg
+	}
+	if chainCfg := provider.ChainConfig(); chainCfg != nil {
+		return chainCfg.EthereumConfig(nil)
+	}
+	return evmtypes.GetEthChainConfig()
+}
+
 // NewMonoDecoratorUtils returns a new DecoratorUtils instance.
 //
 // These utilities are extracted once at the beginning of the ante handle process,
@@ -47,10 +68,7 @@ func NewMonoDecoratorUtils(
 	evmParams *evmtypes.Params,
 	feemarketParams *feemarkettypes.Params,
 ) (*DecoratorUtils, error) {
-	ethCfg := ek.EthChainConfig()
-	if ethCfg == nil {
-		ethCfg = evmtypes.GetEthChainConfig()
-	}
+	ethCfg := getEthChainConfig(ek)
 
 	evmDenom := ek.RuntimeCoinInfo().Denom
 	if evmDenom == "" {

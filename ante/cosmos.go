@@ -16,7 +16,7 @@ func newCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
 	var txFeeChecker ante.TxFeeChecker
 	if options.DynamicFeeChecker {
-		txFeeChecker = evmante.NewDynamicFeeChecker(&feemarketParams)
+		txFeeChecker = evmante.NewDynamicFeeChecker(options.EvmKeeper, &feemarketParams)
 	}
 
 	return sdk.ChainAnteDecorators(

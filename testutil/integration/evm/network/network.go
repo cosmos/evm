@@ -16,6 +16,7 @@ import (
 	"github.com/cometbft/cometbft/version"
 
 	"github.com/cosmos/evm"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration"
 	basenetwork "github.com/cosmos/evm/testutil/integration/base/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -257,6 +258,21 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	n.valSet = valSet
 	n.valSigners = valSigners
 
+	params := n.app.GetEVMKeeper().GetParams(n.ctx)
+	coinInfo := testconstants.ChainsCoinInfo[n.cfg.eip155ChainID.Uint64()]
+	chainCfg := evmtypes.DefaultChainConfig(n.cfg.eip155ChainID.Uint64())
+	chainCfg.Denom = coinInfo.Denom
+	chainCfg.Decimals = uint64(coinInfo.Decimals)
+	ethCfg := chainCfg.EthereumConfig(nil)
+	_ = evmtypes.SetChainConfig(chainCfg)
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, ethCfg, coinInfo, params.ExtraEIPs)
+	if err != nil {
+		return err
+	}
+	if err := n.app.GetEVMKeeper().SetRuntimeConfig(runtimeCfg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -301,6 +317,12 @@ func (n *IntegrationNetwork) GetEIP155ChainID() *big.Int {
 
 // GetEVMChainConfig returns the network's EVM chain config
 func (n *IntegrationNetwork) GetEVMChainConfig() *gethparams.ChainConfig {
+	if cfg := n.app.GetEVMKeeper().EthChainConfig(); cfg != nil {
+		return cfg
+	}
+	if chainCfg := n.app.GetEVMKeeper().ChainConfig(); chainCfg != nil {
+		return chainCfg.EthereumConfig(nil)
+	}
 	return evmtypes.GetEthChainConfig()
 }
 

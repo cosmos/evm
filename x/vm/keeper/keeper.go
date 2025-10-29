@@ -120,14 +120,12 @@ func NewKeeper(
 		storeKeys[k.Name()] = k
 	}
 
-	// set global chain config
-	ethCfg := types.DefaultChainConfig(evmChainID)
-	if err := types.SetChainConfig(ethCfg); err != nil {
-		panic(err)
+	effectiveChainID := evmChainID
+	if effectiveChainID == 0 {
+		effectiveChainID = types.DefaultEVMChainID
 	}
 
-	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
-	return &Keeper{
+	keeper := &Keeper{
 		cdc:              cdc,
 		authority:        authority,
 		accountKeeper:    ak,
@@ -141,6 +139,11 @@ func NewKeeper(
 		erc20Keeper:      erc20Keeper,
 		storeKeys:        storeKeys,
 	}
+
+	defaultChainCfg := types.DefaultChainConfig(effectiveChainID)
+	keeper.WithChainConfig(defaultChainCfg)
+
+	return keeper
 }
 
 // Logger returns a module-specific logger.
@@ -183,6 +186,56 @@ func (k Keeper) RuntimeConfig() *types.RuntimeConfig {
 	return k.runtimeCfg
 }
 
+func coinInfoFromChainConfig(chainCfg *types.ChainConfig) types.EvmCoinInfo {
+	denom := chainCfg.Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
+	extended := denom
+	display := denom
+	if denom == types.DefaultEVMDenom {
+		display = types.DefaultEVMDisplayDenom
+	}
+	decimals := uint32(types.DefaultEVMDecimals)
+	if chainCfg.Decimals != 0 {
+		decimals = uint32(chainCfg.Decimals)
+	}
+
+	return types.EvmCoinInfo{
+		Denom:         denom,
+		ExtendedDenom: extended,
+		DisplayDenom:  display,
+		Decimals:      decimals,
+	}
+}
+
+// WithChainConfig sets the keeper runtime configuration using the provided chain config.
+// If chainCfg is nil, the default configuration is used. The method updates both the global
+// chain configuration (for legacy consumers) and the keeper's runtime configuration.
+func (k *Keeper) WithChainConfig(chainCfg *types.ChainConfig) *Keeper {
+	if chainCfg == nil {
+		chainCfg = types.DefaultChainConfig(types.DefaultEVMChainID)
+	}
+
+	if err := types.SetChainConfig(chainCfg); err != nil {
+		panic(err)
+	}
+
+	coinInfo := coinInfoFromChainConfig(chainCfg)
+	if err := types.EnsureEVMCoinInfo(coinInfo); err != nil {
+		panic(err)
+	}
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, chainCfg.EthereumConfig(nil), coinInfo, types.DefaultExtraEIPs)
+	if err != nil {
+		panic(err)
+	}
+	if err := k.SetRuntimeConfig(runtimeCfg); err != nil {
+		panic(err)
+	}
+
+	return k
+}
+
 // ChainConfig returns the x/vm ChainConfig kept in runtime config.
 func (k Keeper) ChainConfig() *types.ChainConfig {
 	cfg := k.RuntimeConfig()
@@ -208,6 +261,19 @@ func (k Keeper) RuntimeCoinInfo() types.EvmCoinInfo {
 		return types.EvmCoinInfo{}
 	}
 	return cfg.CoinInfo()
+}
+
+// effectiveEthChainConfig returns the runtime chain config if present, or falls back to the
+// legacy package-level configuration.
+func (k Keeper) effectiveEthChainConfig() *ethparams.ChainConfig {
+	if cfg := k.EthChainConfig(); cfg != nil {
+		return cfg
+	}
+	if cfg := types.GetEthChainConfig(); cfg != nil {
+		return cfg
+	}
+	// Fallback to the default configuration as a last resort.
+	return types.DefaultChainConfig(0).EthereumConfig(nil)
 }
 
 // GetAuthority returns the x/evm module authority address
@@ -404,10 +470,7 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ethCfg := k.EthChainConfig()
-	if ethCfg == nil {
-		ethCfg = types.GetEthChainConfig()
-	}
+	ethCfg := k.effectiveEthChainConfig()
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}

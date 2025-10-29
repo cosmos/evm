@@ -14,6 +14,7 @@ import (
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/params"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -22,6 +23,24 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 )
+
+type staticChainConfigProvider struct {
+	chainCfg *evmtypes.ChainConfig
+	ethCfg   *params.ChainConfig
+	coinInfo evmtypes.EvmCoinInfo
+}
+
+func (p staticChainConfigProvider) ChainConfig() *evmtypes.ChainConfig {
+	return p.chainCfg
+}
+
+func (p staticChainConfigProvider) EthChainConfig() *params.ChainConfig {
+	return p.ethCfg
+}
+
+func (p staticChainConfigProvider) RuntimeCoinInfo() evmtypes.EvmCoinInfo {
+	return p.coinInfo
+}
 
 func TestSDKTxFeeChecker(t *testing.T) {
 	// testCases:
@@ -251,14 +270,20 @@ func TestSDKTxFeeChecker(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := evmtypes.GetEthChainConfig()
+			chainCfg := evmtypes.GetChainConfig()
+			ethCfg := chainCfg.EthereumConfig(nil)
 			if !tc.londonEnabled {
-				cfg.LondonBlock = big.NewInt(10000)
+				ethCfg.LondonBlock = big.NewInt(10000)
 			} else {
-				cfg.LondonBlock = big.NewInt(0)
+				ethCfg.LondonBlock = big.NewInt(0)
+			}
+			provider := staticChainConfigProvider{
+				chainCfg: chainCfg,
+				ethCfg:   ethCfg,
+				coinInfo: testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
 			}
 			feemarketParams := tc.feemarketParamsFn()
-			fees, priority, err := evm.NewDynamicFeeChecker(&feemarketParams)(tc.ctx, tc.buildTx())
+			fees, priority, err := evm.NewDynamicFeeChecker(provider, &feemarketParams)(tc.ctx, tc.buildTx())
 			if tc.expSuccess {
 				require.Equal(t, tc.expFees, fees.String())
 				require.Equal(t, tc.expPriority, priority)

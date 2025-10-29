@@ -115,10 +115,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		Difficulty: big.NewInt(0),
 	}
 
-	chainConfig := md.evmKeeper.EthChainConfig()
-	if chainConfig == nil {
-		chainConfig = evmtypes.GetEthChainConfig()
-	}
+	chainConfig := getEthChainConfig(md.evmKeeper)
 
 	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
 		Config:  chainConfig,

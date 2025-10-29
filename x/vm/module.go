@@ -237,6 +237,9 @@ func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.
 	if chainCfg == nil {
 		chainCfg = types.DefaultChainConfig(0)
 	}
+	if err := types.SetChainConfig(chainCfg); err != nil {
+		panic(err)
+	}
 
 	ethCfg := chainCfg.EthereumConfig(nil)
 

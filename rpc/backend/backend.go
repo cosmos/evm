@@ -173,6 +173,9 @@ type Backend struct {
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
+	// ethChainCfg carries the runtime (keeper-derived) Ethereum chain configuration and is
+	// intentionally kept separate from the static app.toml-backed config in Cfg.
+	ethChainCfg *params.ChainConfig
 }
 
 func (b *Backend) GetConfig() config.Config {

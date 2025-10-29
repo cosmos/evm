@@ -255,7 +255,8 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 
-	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+	chainCfg := k.effectiveEthChainConfig()
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, chainCfg.ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -346,7 +347,8 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
 	}
-	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, types.GetEthChainConfig().ChainID); err != nil {
+	chainCfg := k.effectiveEthChainConfig()
+	if err := args.CallDefaults(req.GasCap, cfg.BaseFee, chainCfg.ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -541,7 +543,8 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	chainCfg := k.effectiveEthChainConfig()
+	signer := ethtypes.MakeSigner(chainCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	txConfig := statedb.NewEmptyTxConfig()
 
 	// gas used at this point corresponds to GetProposerAddress & CalculateBaseFee
@@ -633,7 +636,8 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		cfg.BaseFee = baseFee
 	}
 
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	chainCfg := k.effectiveEthChainConfig()
+	signer := ethtypes.MakeSigner(chainCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	txsLength := len(req.Txs)
 	results := make([]*types.TxTraceResult, 0, txsLength)
 
@@ -717,7 +721,8 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	nonce := k.GetNonce(ctx, args.GetFrom())
 	args.Nonce = (*hexutil.Uint64)(&nonce)
 	// Fill in default values for missing transaction fields (gas, gasPrice, value, etc.)
-	if err := args.CallDefaults(req.GasCap, baseFee, types.GetEthChainConfig().ChainID); err != nil {
+	chainCfg := k.effectiveEthChainConfig()
+	if err := args.CallDefaults(req.GasCap, baseFee, chainCfg.ChainID); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	msg := args.ToMessage(baseFee, true, true)
@@ -774,6 +779,7 @@ func (k *Keeper) traceTxWithMsg(
 		err              error
 		timeout          = defaultTraceTimeout
 	)
+	chainCfg := k.effectiveEthChainConfig()
 
 	if traceConfig == nil {
 		traceConfig = &types.TraceConfig{}
@@ -785,7 +791,7 @@ func (k *Keeper) traceTxWithMsg(
 	}
 
 	if traceConfig.Overrides != nil {
-		overrides = traceConfig.Overrides.EthereumConfig(types.GetEthChainConfig().ChainID)
+		overrides = traceConfig.Overrides.EthereumConfig(chainCfg.ChainID)
 	}
 
 	logConfig := logger.Config{
@@ -815,8 +821,7 @@ func (k *Keeper) traceTxWithMsg(
 		if traceConfig.TracerJsonConfig != "" {
 			cfg = json.RawMessage(traceConfig.TracerJsonConfig)
 		}
-		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg,
-			types.GetEthChainConfig()); err != nil {
+		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg, chainCfg); err != nil {
 			return nil, 0, status.Error(codes.Internal, err.Error())
 		}
 	}

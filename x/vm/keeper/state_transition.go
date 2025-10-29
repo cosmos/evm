@@ -55,10 +55,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
-	ethCfg := k.EthChainConfig()
-	if ethCfg == nil {
-		ethCfg = types.GetEthChainConfig()
-	}
+	ethCfg := k.effectiveEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
@@ -205,10 +202,7 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	ethCfg := k.EthChainConfig()
-	if ethCfg == nil {
-		ethCfg = types.GetEthChainConfig()
-	}
+	ethCfg := k.effectiveEthChainConfig()
 	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
@@ -405,10 +399,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
-	ethCfg := k.EthChainConfig()
-	if ethCfg == nil {
-		ethCfg = types.GetEthChainConfig()
-	}
+	ethCfg := k.effectiveEthChainConfig()
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)
