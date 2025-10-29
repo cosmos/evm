@@ -73,6 +73,10 @@ func NewBlockchain(ctx func(height int64, prove bool) (sdk.Context, error), logg
 // Config returns the Ethereum chain configuration. It should only be called after the chain is initialized.
 // This provides the necessary parameters for EVM execution and transaction validation.
 func (b *Blockchain) Config() *params.ChainConfig {
+	cfg := b.vmKeeper.EthChainConfig()
+	if cfg != nil {
+		return cfg
+	}
 	return evmtypes.GetEthChainConfig()
 }
 
@@ -107,7 +111,10 @@ func (b *Blockchain) CurrentBlock() *types.Header {
 		Difficulty: big.NewInt(0), // 0 difficulty on PoS
 	}
 
-	chainConfig := evmtypes.GetEthChainConfig()
+	chainConfig := b.vmKeeper.EthChainConfig()
+	if chainConfig == nil {
+		chainConfig = evmtypes.GetEthChainConfig()
+	}
 	if chainConfig.IsLondon(header.Number) {
 		baseFee := b.vmKeeper.GetBaseFee(ctx)
 		if baseFee != nil {

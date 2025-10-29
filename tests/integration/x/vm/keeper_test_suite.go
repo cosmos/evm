@@ -35,6 +35,13 @@ type KeeperTestSuite struct {
 	MintFeeCollector bool
 }
 
+func (s *KeeperTestSuite) setRuntimeConfig(chainConfig *evmtypes.ChainConfig, coinInfo evmtypes.EvmCoinInfo) {
+	params := s.Network.App.GetEVMKeeper().GetParams(s.Network.GetContext())
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainConfig, chainConfig.EthereumConfig(nil), coinInfo, params.ExtraEIPs)
+	s.Require().NoError(err)
+	s.Require().NoError(s.Network.App.GetEVMKeeper().SetRuntimeConfig(runtimeCfg))
+}
+
 func NewKeeperTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *KeeperTestSuite {
 	return &KeeperTestSuite{
 		Create:          create,
@@ -119,4 +126,11 @@ func (s *KeeperTestSuite) SetupTest() {
 		}).
 		Configure()
 	s.Require().NoError(err)
+
+	s.setRuntimeConfig(chainConfig, evmtypes.EvmCoinInfo{
+		Denom:         denom,
+		ExtendedDenom: extendedDenom,
+		DisplayDenom:  displayDenom,
+		Decimals:      decimals.Uint32(),
+	})
 }

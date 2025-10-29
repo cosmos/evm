@@ -50,6 +50,8 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1000000000)).Maybe()         // 1 gwei
 	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10000000)).Maybe() // 10M gas
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
+	mockVMKeeper.On("ChainConfig").Return(ethCfg).Maybe()
+	mockVMKeeper.On("EthChainConfig").Return(ethCfg.EthereumConfig(nil)).Maybe()
 	mockVMKeeper.On("GetAccount", mock.Anything, common.Address{}).Return(&statedb.Account{}).Maybe()
 	mockVMKeeper.On("GetState", mock.Anything, common.Address{}, common.Hash{}).Return(common.Hash{}).Maybe()
 	mockVMKeeper.On("GetCode", mock.Anything, common.Hash{}).Return([]byte{}).Maybe()

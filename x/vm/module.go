@@ -140,7 +140,7 @@ func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock,
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
 	am.initializer.Do(func() {
-		SetGlobalConfigVariables(coinInfo)
+		SetGlobalConfigVariables(ctx, am.keeper, coinInfo)
 	})
 	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
@@ -212,7 +212,7 @@ func setBaseDenom(ci types.EvmCoinInfo) (err error) {
 	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
 }
 
-func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
+func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.EvmCoinInfo) {
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
 		panic(err)
@@ -225,6 +225,27 @@ func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
 		WithEVMCoinInfo(coinInfo).
 		Configure()
 	if err != nil {
+		panic(err)
+	}
+
+	params := k.GetParams(ctx)
+
+	chainCfg := k.ChainConfig()
+	if chainCfg == nil {
+		chainCfg = types.GetChainConfig()
+	}
+	if chainCfg == nil {
+		chainCfg = types.DefaultChainConfig(0)
+	}
+
+	ethCfg := chainCfg.EthereumConfig(nil)
+
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, ethCfg, coinInfo, params.ExtraEIPs)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := k.SetRuntimeConfig(runtimeCfg); err != nil {
 		panic(err)
 	}
 }

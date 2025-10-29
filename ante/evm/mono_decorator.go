@@ -76,7 +76,10 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		}
 	}
 
-	evmDenom := evmtypes.GetEVMCoinDenom()
+	evmDenom := md.evmKeeper.RuntimeCoinInfo().Denom
+	if evmDenom == "" {
+		evmDenom = evmtypes.GetEVMCoinDenom()
+	}
 
 	// 1. setup ctx
 	ctx, err = SetupContextAndResetTransientGas(ctx, tx, md.evmKeeper)
@@ -112,7 +115,10 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		Difficulty: big.NewInt(0),
 	}
 
-	chainConfig := evmtypes.GetEthChainConfig()
+	chainConfig := md.evmKeeper.EthChainConfig()
+	if chainConfig == nil {
+		chainConfig = evmtypes.GetEthChainConfig()
+	}
 
 	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
 		Config:  chainConfig,

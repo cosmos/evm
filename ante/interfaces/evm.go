@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
+	gethparams "github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -26,6 +27,9 @@ type EVMKeeper interface {
 	ResetTransientGasUsed(ctx sdk.Context)
 	GetTxIndexTransient(ctx sdk.Context) uint64
 	GetParams(ctx sdk.Context) evmtypes.Params
+	ChainConfig() *evmtypes.ChainConfig
+	EthChainConfig() *gethparams.ChainConfig
+	RuntimeCoinInfo() evmtypes.EvmCoinInfo
 }
 
 // FeeMarketKeeper exposes the required feemarket keeper interface required for ante handlers

@@ -55,7 +55,10 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.EthChainConfig()
+	if ethCfg == nil {
+		ethCfg = types.GetEthChainConfig()
+	}
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
@@ -202,7 +205,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	ethCfg := k.EthChainConfig()
+	if ethCfg == nil {
+		ethCfg = types.GetEthChainConfig()
+	}
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
@@ -398,7 +405,10 @@ func (k *Keeper) ApplyMessageWithConfig(
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.EthChainConfig()
+	if ethCfg == nil {
+		ethCfg = types.GetEthChainConfig()
+	}
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)

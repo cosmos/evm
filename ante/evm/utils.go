@@ -47,8 +47,16 @@ func NewMonoDecoratorUtils(
 	evmParams *evmtypes.Params,
 	feemarketParams *feemarkettypes.Params,
 ) (*DecoratorUtils, error) {
-	ethCfg := evmtypes.GetEthChainConfig()
-	evmDenom := evmtypes.GetEVMCoinDenom()
+	ethCfg := ek.EthChainConfig()
+	if ethCfg == nil {
+		ethCfg = evmtypes.GetEthChainConfig()
+	}
+
+	evmDenom := ek.RuntimeCoinInfo().Denom
+	if evmDenom == "" {
+		evmDenom = evmtypes.GetEVMCoinDenom()
+	}
+
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	baseFee := evmtypes.GetBaseFee(ctx.BlockHeight(), ethCfg, feemarketParams)

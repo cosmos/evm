@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethparams "github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
@@ -17,6 +18,8 @@ type VMKeeperI interface {
 	GetBaseFee(ctx sdk.Context) *big.Int
 	GetParams(ctx sdk.Context) (params vmtypes.Params)
 	GetEvmCoinInfo(ctx sdk.Context) (coinInfo vmtypes.EvmCoinInfo)
+	ChainConfig() *vmtypes.ChainConfig
+	EthChainConfig() *gethparams.ChainConfig
 	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
 	GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash
 	GetCode(ctx sdk.Context, codeHash common.Hash) []byte

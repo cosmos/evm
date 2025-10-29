@@ -173,10 +173,6 @@ func (k *Keeper) SetRuntimeConfig(cfg *types.RuntimeConfig) error {
 		return errors.New("runtime config cannot be nil")
 	}
 
-	if k.runtimeCfg != nil {
-		return errors.New("runtime config already set")
-	}
-
 	k.runtimeCfg = cfg
 
 	return nil
@@ -408,7 +404,10 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.EthChainConfig()
+	if ethCfg == nil {
+		ethCfg = types.GetEthChainConfig()
+	}
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}

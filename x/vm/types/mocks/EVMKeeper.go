@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	gethparams "github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
@@ -31,6 +32,9 @@ type EVMKeeper struct {
 	accounts  map[common.Address]Account
 	codes     map[common.Hash][]byte
 	storeKeys map[string]*storetypes.KVStoreKey
+	chainCfg  *types.ChainConfig
+	ethCfg    *gethparams.ChainConfig
+	coinInfo  types.EvmCoinInfo
 }
 
 func NewEVMKeeper() *EVMKeeper {
@@ -38,6 +42,7 @@ func NewEVMKeeper() *EVMKeeper {
 		accounts:  make(map[common.Address]Account),
 		codes:     make(map[common.Hash][]byte),
 		storeKeys: make(map[string]*storetypes.KVStoreKey),
+		coinInfo:  types.EvmCoinInfo{},
 	}
 }
 
@@ -118,7 +123,14 @@ func (k EVMKeeper) Clone() *EVMKeeper {
 	accounts := maps.Clone(k.accounts)
 	codes := maps.Clone(k.codes)
 	storeKeys := maps.Clone(k.storeKeys)
-	return &EVMKeeper{accounts, codes, storeKeys}
+	return &EVMKeeper{
+		accounts:  accounts,
+		codes:     codes,
+		storeKeys: storeKeys,
+		chainCfg:  k.chainCfg,
+		ethCfg:    k.ethCfg,
+		coinInfo:  k.coinInfo,
+	}
 }
 
 func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
@@ -127,6 +139,18 @@ func (k EVMKeeper) KVStoreKeys() map[string]storetypes.StoreKey {
 		result[k] = v
 	}
 	return result
+}
+
+func (k EVMKeeper) ChainConfig() *types.ChainConfig {
+	return k.chainCfg
+}
+
+func (k EVMKeeper) EthChainConfig() *gethparams.ChainConfig {
+	return k.ethCfg
+}
+
+func (k EVMKeeper) RuntimeCoinInfo() types.EvmCoinInfo {
+	return k.coinInfo
 }
 
 func (k EVMKeeper) GetCodeHash(_ sdk.Context, _ common.Address) common.Hash {

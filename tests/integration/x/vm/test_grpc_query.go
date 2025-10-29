@@ -2041,6 +2041,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
 					Configure()
 				s.Require().NoError(err)
+
+				s.setRuntimeConfig(chainConfig, testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
 			},
 			true,
 		},
@@ -2098,6 +2100,7 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				WithEVMCoinInfo(coinInfo).
 				Configure()
 			s.Require().NoError(err)
+			s.setRuntimeConfig(chainConfig, coinInfo)
 		})
 	}
 }
