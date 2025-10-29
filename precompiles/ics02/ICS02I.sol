@@ -19,9 +19,7 @@ interface ICS02I {
         /// The update was successful
         Update,
         /// A misbehaviour was detected
-        Misbehaviour,
-        /// Client is already up to date
-        NoOp
+        Misbehaviour
     }
 
     /// @notice Updates the client with the given client identifier.

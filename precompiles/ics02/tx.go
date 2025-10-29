@@ -29,7 +29,6 @@ const (
 const (
 	UpdateResultSuccess      uint8 = 0
 	UpdateResultMisbehaviour uint8 = 1
-	UpdateResultNoop         uint8 = 2
 )
 
 // UpdateClient implements the ICS02 UpdateClient transactions.

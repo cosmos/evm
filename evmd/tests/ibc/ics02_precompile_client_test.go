@@ -215,8 +215,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.UpdateClient(s.chainA.GetContext(), clientID, header)
 				s.Require().NoError(err)
 
-				// TODO: right now, precompile always returns UpdateResultSuccess even on noop
-				// This can be improved in future to actually detect noop and return UpdateResultNoop
 				expResult = ics02.UpdateResultSuccess
 			},
 		},
