@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -18,6 +19,7 @@ import (
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
 	ibchost "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 )
 
@@ -204,6 +206,45 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				expResult = ics02.UpdateResultSuccess
 			},
 		},
+		{
+			name: "success: valid fork misbehaviour",
+			malleate: func() {
+				clientID = ibctesting.FirstClientID
+				// == construct update header ==
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+				trustedVals, ok := s.chainB.TrustedValidators[trustedHeight.RevisionHeight]
+				s.Require().True(ok)
+
+				err := s.pathBToA.EndpointB.UpdateClient()
+				s.Require().NoError(err)
+
+				height := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				misbehaviour := &ibctm.Misbehaviour{
+					ClientId: clientID,
+					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+				}
+
+				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)
+				s.Require().NoError(err)
+
+				updateBz, err := anyMisbehavior.Marshal()
+				s.Require().NoError(err)
+
+				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				s.Require().NoError(err)
+				// ====
+
+				expResult = ics02.UpdateResultMisbehaviour
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -223,13 +264,13 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			// setup
 			tc.malleate()
 
-			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 100_000)
+			_, _, resp, err := s.chainA.SendEvmTx(senderAccount, senderIdx, s.chainAPrecompile.Address(), big.NewInt(0), calldata, 200_000)
 			if expErr {
 				s.Require().Error(err)
 				return
 			}
 			if err != nil {
-				s.FailNow(resp.VmError)
+				s.FailNow("failed to send tx", "error: %v", err)
 			}
 
 			// decode result
