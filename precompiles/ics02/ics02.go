@@ -46,15 +46,12 @@ type Precompile struct {
 	abi.ABI
 	cdc          codec.Codec
 	clientKeeper ibcutils.ClientKeeper
-	// BankKeeper is not used directly in the precompile but is needed for the balance handler.
-	BankKeeper cmn.BankKeeper
 }
 
 // NewPrecompile creates a new Client Precompile instance as a
 // PrecompiledContract interface.
 func NewPrecompile(
 	cdc codec.Codec,
-	bankKeeper cmn.BankKeeper,
 	clientKeeper ibcutils.ClientKeeper,
 ) *Precompile {
 	return &Precompile{
@@ -63,11 +60,9 @@ func NewPrecompile(
 			KvGasConfig:           storetypes.GasConfig{},
 			TransientKVGasConfig:  storetypes.GasConfig{},
 			ContractAddress:       common.HexToAddress(evmtypes.ICS02PrecompileAddress),
-			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
 		ABI:          ABI,
 		clientKeeper: clientKeeper,
-		BankKeeper:   bankKeeper,
 	}
 }
 

@@ -48,13 +48,11 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 	evmAppA := s.chainA.App.(*evmd.EVMD)
 	s.chainAPrecompile = ics02.NewPrecompile(
 		evmAppA.AppCodec(),
-		evmAppA.BankKeeper,
 		evmAppA.IBCKeeper.ClientKeeper,
 	)
 	evmAppB := s.chainB.App.(*evmd.EVMD)
 	s.chainBPrecompile = ics02.NewPrecompile(
 		evmAppA.AppCodec(),
-		evmAppB.BankKeeper,
 		evmAppB.IBCKeeper.ClientKeeper,
 	)
 }
