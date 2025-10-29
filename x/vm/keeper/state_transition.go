@@ -22,6 +22,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
@@ -165,6 +166,18 @@ func logsBloom(logs []*ethtypes.Log) []byte {
 	return bin[:]
 }
 
+func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types.MsgEthereumTxResponse) uint64 {
+	cumulativeGasUsed := res.GasUsed
+	if meter != nil {
+		limit := meter.Limit()
+		cumulativeGasUsed += meter.GasConsumed()
+		if cumulativeGasUsed > limit {
+			cumulativeGasUsed = limit
+		}
+	}
+	return cumulativeGasUsed
+}
+
 // ApplyTransaction runs and attempts to perform a state transition with the given transaction (i.e Message), that will
 // only be persisted (committed) to the underlying KVStore if the transaction does not fail.
 //
@@ -222,14 +235,16 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	}
 
 	receipt := &ethtypes.Receipt{
-		Type:            tx.Type(),
-		PostState:       nil,
-		Logs:            ethLogs,
-		TxHash:          txConfig.TxHash,
-		ContractAddress: contractAddr,
-		GasUsed:         res.GasUsed,
-		BlockHash:       common.BytesToHash(ctx.HeaderHash()),
-		BlockNumber:     big.NewInt(ctx.BlockHeight()),
+		Type:              tx.Type(),
+		PostState:         nil,
+		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
+		Logs:              ethLogs,
+		TxHash:            txConfig.TxHash,
+		ContractAddress:   contractAddr,
+		GasUsed:           res.GasUsed,
+		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
+		BlockNumber:       big.NewInt(ctx.BlockHeight()),
+		TransactionIndex:  uint(ctx.TxIndex()),
 	}
 
 	if res.Failed() {
