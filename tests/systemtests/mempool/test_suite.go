@@ -48,7 +48,7 @@ func (s *TestSuite) AfterEachAction(t *testing.T, ctx *TestContext) {
 
 func (s *TestSuite) AfterEachCase(t *testing.T, ctx *TestContext) {
 	for _, txInfo := range ctx.ExpPending {
-		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, 60*time.Second)
+		err := s.WaitForCommit(txInfo.DstNodeID, txInfo.TxHash, txInfo.TxType, txPoolContentTimeout)
 		require.NoError(t, err)
 	}
 }
