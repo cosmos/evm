@@ -377,7 +377,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 	var (
-		clientID  string
 		calldata  []byte
 		expErr    bool
 		expResult *big.Int
@@ -390,7 +389,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 		{
 			name: "success: prove membership of clientState",
 			malleate: func() {
-				clientID = ibctesting.FirstClientID
+				clientID := ibctesting.FirstClientID
 				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
@@ -440,6 +439,218 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				s.Require().NoError(err)
 			},
 		},
+		{
+			name: "failure: pass non-membership proof as membership proof",
+			malleate: func() {
+				existingClientID := ibctesting.FirstClientID
+				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					existingClientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(missingClientID)
+				clientProof, _ := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				// get pure value from chain B (for the existing client)
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
+						Data:   ibchost.FullClientStateKey(existingClientID),
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					existingClientID,
+					clientProof,
+					trustedHeight,
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid client ID",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, _ := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				// get pure value from chain B
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
+						Data:   clientKey,
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					ibctesting.InvalidID, // use invalid client ID
+					clientProof,
+					trustedHeight,
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid proof",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				// get pure value from chain B
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
+						Data:   clientKey,
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					clientID,
+					[]byte(ibctesting.InvalidID), // use invalid client proof
+					trustedHeight,
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid height",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, _ := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				// get pure value from chain B
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
+						Data:   clientKey,
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					clientID,
+					clientProof,
+					clienttypes.NewHeight(69, 420), // use invalid height
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid path",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, _ := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				// get pure value from chain B
+				res, err := s.chainB.App.Query(
+					s.chainB.GetContext().Context(),
+					&abci.RequestQuery{
+						Path:   fmt.Sprintf("store/%s/key", ibcexported.StoreKey),
+						Height: int64(trustedHeight.RevisionHeight - 1), //nolint:gosec
+						Data:   clientKey,
+					})
+				s.Require().NoError(err)
+				value := res.Value
+
+				pathBz := [][]byte{[]byte(ibctesting.InvalidID), clientKey} // use invalid path
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					clientID,
+					clientProof,
+					trustedHeight,
+					pathBz,
+					value,
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid value",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+
+				clientKey := ibchost.FullClientStateKey(clientID)
+				clientProof, _ := s.pathBToA.EndpointA.QueryProofAtHeight(clientKey, trustedHeight.RevisionHeight)
+
+				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
+				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+					clientID,
+					clientProof,
+					trustedHeight,
+					pathBz,
+					[]byte(ibctesting.InvalidID), // use invalid value
+				)
+				s.Require().NoError(err)
+
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid calldata",
+			malleate: func() {
+				calldata = []byte(ibctesting.InvalidID)
+				expErr = true
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -447,7 +658,6 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			// == reset test state ==
 			s.SetupTest()
 
-			clientID = ""
 			expErr = false
 			calldata = nil
 			// ====
