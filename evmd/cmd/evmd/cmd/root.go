@@ -314,7 +314,9 @@ func newApp(
 		func(bapp *baseapp.BaseApp) {
 			db, err := iavlx.LoadDB(
 				filepath.Join(homeDir, "data", "iavlx"),
-				&iavlx.Options{},
+				&iavlx.Options{
+					ReaderUpdateInterval: 1, // TODO: temporary to make things work
+				},
 				bapp.Logger(),
 			)
 			if err != nil {
