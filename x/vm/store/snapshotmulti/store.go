@@ -139,7 +139,7 @@ func (s *Store) GetObjKVStore(key storetypes.StoreKey) storetypes.ObjKVStore {
 	if key == nil || store == nil {
 		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
 	}
-	objStore, ok := store.(storetypes.ObjKVStore)
+	objStore, ok := store.CurrentStore().(storetypes.ObjKVStore)
 	if !ok {
 		panic(fmt.Sprintf("store with key %v is not ObjKVStore", key))
 	}
