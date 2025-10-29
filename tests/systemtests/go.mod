@@ -6,9 +6,9 @@ require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/systemtests v1.4.0
 	github.com/cometbft/cometbft v0.39.0-beta.2
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20250916155236-2dbb0df4f041
+	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
 	github.com/cosmos/evm v0.5.0-rc.0
-	github.com/ethereum/go-ethereum v1.16.3
+	github.com/ethereum/go-ethereum v1.16.5
 	github.com/holiman/uint256 v1.3.2
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
@@ -25,7 +25,7 @@ require (
 	cosmossdk.io/errors v1.0.2 // indirect
 	cosmossdk.io/log v1.6.1 // indirect
 	cosmossdk.io/schema v1.1.0 // indirect
-	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647 // indirect
+	cosmossdk.io/store v1.3.0-beta.0 // indirect
 	cosmossdk.io/x/tx v1.2.0-rc.1 // indirect
 	cosmossdk.io/x/upgrade v0.2.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -35,7 +35,6 @@ require (
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
-	github.com/alitto/pond/v2 v2.5.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.2.0 // indirect
 	github.com/bits-and-blooms/bitset v1.24.1 // indirect
@@ -59,7 +58,7 @@ require (
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
 	github.com/cosmos/iavl v1.2.6 // indirect
-	github.com/cosmos/ibc-go/v10 v10.3.1-0.20250909102629-ed3b125c7b6f // indirect
+	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251027215440-22f0033d0aee // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.16.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
@@ -74,7 +73,6 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/emicklei/dot v1.8.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
@@ -136,6 +134,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
@@ -209,10 +208,6 @@ require (
 )
 
 replace (
-	cosmossdk.io/store => cosmossdk.io/store v1.10.0-rc.2.0.20251027205830-8328d4bfe9d4
-	// use cosmos fork of keyring
-	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251027205830-8328d4bfe9d4
 	github.com/cosmos/evm => ../..
 	// TODO replace this once we no longer pull in an ibc-go version which points to old groups module path
 	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358

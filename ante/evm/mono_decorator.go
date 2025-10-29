@@ -265,6 +265,9 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 
+	// Emit event unconditionally - ctx.TxIndex() will be valid during block execution
+	EmitTxHashEvent(ctx, ethMsg, uint64(ctx.TxIndex())) // #nosec G115 -- no overlfow here
+
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err
 	}

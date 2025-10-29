@@ -9,18 +9,18 @@ require (
 	cosmossdk.io/errors v1.0.2
 	cosmossdk.io/log v1.6.1
 	cosmossdk.io/math v1.5.3
-	cosmossdk.io/store v1.10.0-rc.2.0.20250925032223-fe831d593647
+	cosmossdk.io/store v1.3.0-beta.0
 	cosmossdk.io/tools/confix v0.1.2
 	cosmossdk.io/x/evidence v0.2.0
 	cosmossdk.io/x/feegrant v0.2.0
 	cosmossdk.io/x/upgrade v0.2.0
 	github.com/cometbft/cometbft v0.39.0-beta.2
 	github.com/cosmos/cosmos-db v1.1.3
-	github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20250916155236-2dbb0df4f041
+	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
 	github.com/cosmos/evm v0.2.0
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20250914234212-a3bb228db358
-	github.com/ethereum/go-ethereum v1.16.3
+	github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251027215440-22f0033d0aee
+	github.com/ethereum/go-ethereum v1.16.5
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/spf13/cast v1.10.0
@@ -55,7 +55,6 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
-	github.com/alitto/pond/v2 v2.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.39.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.31.8 // indirect
@@ -120,7 +119,6 @@ require (
 	github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/emicklei/dot v1.8.0 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
@@ -289,11 +287,8 @@ require (
 )
 
 replace (
-	cosmossdk.io/store => cosmossdk.io/store v1.10.0-rc.2.0.20251029013318-e0fee2f42eb9
-
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251029013318-e0fee2f42eb9
 	github.com/cosmos/evm => ../
 	// use Cosmos geth fork
 	// branch: release/1.16

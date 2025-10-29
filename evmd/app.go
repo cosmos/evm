@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	runtime2 "runtime"
-	"sort"
 
 	"github.com/spf13/cast"
 
@@ -25,7 +23,7 @@ import (
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	evmconfig "github.com/cosmos/evm/evmd/config"
 	evmmempool "github.com/cosmos/evm/mempool"
-
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
@@ -37,9 +35,6 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	ibccallbackskeeper "github.com/cosmos/evm/x/ibc/callbacks/keeper"
 
-	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
-
-	precompiletypes "github.com/cosmos/evm/precompiles/types"
 	"github.com/cosmos/evm/x/ibc/transfer"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	transferv2 "github.com/cosmos/evm/x/ibc/transfer/v2"
@@ -78,7 +73,6 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -225,15 +219,13 @@ func NewExampleApp(
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
 
-	bAppOpts := append(baseAppOptions, baseapp.SetOptimisticExecution())
-
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
 		db,
 		// use transaction decoder to support the sdk.Tx interface instead of sdk.StdTx
 		encodingConfig.TxConfig.TxDecoder(),
-		bAppOpts...,
+		baseAppOptions...,
 	)
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
@@ -252,26 +244,13 @@ func NewExampleApp(
 	)
 	okeys := storetypes.NewObjectStoreKeys(banktypes.ObjectStoreKey, evmtypes.ObjectKey)
 
-	var allKeys []storetypes.StoreKey
 	var nonTransientKeys []storetypes.StoreKey
 	for _, k := range keys {
-		allKeys = append(allKeys, k)
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
 	for _, k := range okeys {
-		allKeys = append(allKeys, k)
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
-	sort.SliceStable(allKeys, func(i, j int) bool { return allKeys[i].Name() < allKeys[j].Name() })
-
-	// FIXME workers
-	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
-		encodingConfig.TxConfig.TxDecoder(),
-		allKeys,
-		min(runtime2.GOMAXPROCS(0), runtime2.NumCPU()),
-		true,
-		"atest",
-	))
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -293,9 +272,6 @@ func NewExampleApp(
 		keys:              keys,
 		okeys:             okeys,
 	}
-
-	// Disable block gas meter since we're executing in parallel
-	app.SetDisableBlockGasMeter(true)
 
 	// removed x/params: no ParamsKeeper initialization
 
@@ -495,7 +471,6 @@ func NewExampleApp(
 			appCodec,
 		),
 	)
-	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
@@ -547,7 +522,10 @@ func NewExampleApp(
 		app.EVMKeeper,
 		app.Erc20Keeper,
 	)
-	transferStack = ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware := ibccallbacks.NewIBCMiddleware(app.CallbackKeeper, maxCallbackGas)
+	callbacksMiddleware.SetICS4Wrapper(app.IBCKeeper.ChannelKeeper)
+	callbacksMiddleware.SetUnderlyingApplication(transferStack)
+	transferStack = callbacksMiddleware
 
 	var transferStackV2 ibcapi.IBCModule
 	transferStackV2 = transferv2.NewIBCModule(app.TransferKeeper)
@@ -1103,7 +1081,7 @@ func (app *EVMD) SetClientCtx(clientCtx client.Context) { // TODO:VLAD - Remove 
 // Close unsubscribes from the CometBFT event bus (if set) and closes the mempool and underlying BaseApp.
 func (app *EVMD) Close() error {
 	var err error
-	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+	if m, ok := app.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
 		app.Logger().Info("Shutting down mempool")
 		err = m.Close()
 	}

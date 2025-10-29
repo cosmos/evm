@@ -142,12 +142,10 @@ func NewKeeper(
 	}
 }
 
+// EnableVirtualFeeCollection switches fee deduction for evm transactions to use the virtual fee collection of the
+// bank keeper via the object store.
+// Note: Do NOT use this if your chain does not have an 18 decimal point precision gas token.
 func (k *Keeper) EnableVirtualFeeCollection() {
-	/*
-		if types.GetEVMCoinDecimals() != types.EighteenDecimals {
-			panic("virtual fee collection is only enabled for 18 decimal fee denoms")
-			}
-	*/
 	k.virtualFeeCollection = true
 }
 
@@ -185,6 +183,7 @@ func (k Keeper) CollectTxBloom(ctx sdk.Context) {
 	bloom := new(big.Int)
 	for ; it.Valid(); it.Next() {
 		bloom.Or(bloom, it.Value().(*big.Int))
+		store.Delete(it.Key())
 	}
 
 	k.EmitBlockBloomEvent(ctx, bloom.Bytes())
@@ -350,6 +349,19 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 // adapted according to the evm denom decimals
 func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
+}
+
+// ResetTransientGasUsed reset gas used to prepare for execution of cosmos tx, called in EndBlocker.
+func (k Keeper) ResetTransientGasUsed(ctx sdk.Context) {
+	store := prefix.NewObjStore(ctx.ObjectStore(k.objectKey),
+		types.KeyPrefixObjectGasUsed)
+	it := store.Iterator(nil, nil)
+
+	defer it.Close()
+
+	for ; it.Valid(); it.Next() {
+		store.Delete(it.Key())
+	}
 }
 
 // GetTransientGasUsed returns the gas used by current cosmos tx.
