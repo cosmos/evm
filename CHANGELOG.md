@@ -49,8 +49,6 @@
 - [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
 - [\#736](https://github.com/cosmos/evm/pull/736) Add InitEvmCoinInfo upgrade to avoid panic when denom is not registered.
 
-* [\#658](https://github.com/cosmos/evm/pull/658) Fix race condition between legacypool's RemoveTx and runReorg.
-
 ### IMPROVEMENTS
 
 - [\#708](https://github.com/cosmos/evm/pull/708) Add configurable testnet validator powers

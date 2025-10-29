@@ -283,11 +283,11 @@ require (
 )
 
 replace (
-	cosmossdk.io/store => cosmossdk.io/store v1.10.0-rc.2.0.20251029165658-ac098b4d17b1
+	cosmossdk.io/store => cosmossdk.io/store v1.10.0-rc.2.0.20251029213321-1464fc8ef61f
 
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251029165658-ac098b4d17b1
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.54.0-rc.1.0.20251029213321-1464fc8ef61f
 	// use Cosmos geth fork
 	// branch: release/1.16
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
