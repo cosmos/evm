@@ -306,6 +306,37 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				expErr = true
 			},
 		},
+		{
+			name: "failure: invalid header update",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				// == construct update header ==
+				// 1. Update chain B to have new header
+				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
+				// 2. Construct update header
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
+				s.Require().NoError(err)
+
+				// modify header to be invalid
+				header.Header.Time = header.Header.Time.Add(10 * time.Second)
+
+				anyHeader, err := clienttypes.PackClientMessage(header)
+				s.Require().NoError(err)
+
+				updateBz, err := anyHeader.Marshal()
+				s.Require().NoError(err)
+
+				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				s.Require().NoError(err)
+				// ====
+
+				expErr = true
+			},
+		},
 	}
 
 	for _, tc := range testCases {
