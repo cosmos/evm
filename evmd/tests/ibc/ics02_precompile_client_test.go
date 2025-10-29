@@ -133,7 +133,6 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 
 func (s *ICS02ClientTestSuite) TestUpdateClient() {
 	var (
-		clientID  string
 		expResult uint8
 		calldata  []byte
 		expErr    bool
@@ -146,7 +145,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 		{
 			name: "success: update client",
 			malleate: func() {
-				clientID = ibctesting.FirstClientID
+				clientID := ibctesting.FirstClientID
 				// == construct update header ==
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
@@ -155,7 +154,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 					s.chainA.GetContext(),
 					clientID,
 				)
-				var ()
 				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
 				s.Require().NoError(err)
 
@@ -175,7 +173,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 		{
 			name: "success: noop",
 			malleate: func() {
-				clientID = ibctesting.FirstClientID
+				clientID := ibctesting.FirstClientID
 				// == construct update header ==
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
@@ -184,7 +182,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 					s.chainA.GetContext(),
 					clientID,
 				)
-				var ()
 				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
 				s.Require().NoError(err)
 
@@ -209,7 +206,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 		{
 			name: "success: valid fork misbehaviour",
 			malleate: func() {
-				clientID = ibctesting.FirstClientID
+				clientID := ibctesting.FirstClientID
 				// == construct update header ==
 				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
@@ -245,6 +242,53 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				expResult = ics02.UpdateResultMisbehaviour
 			},
 		},
+		{
+			name: "failure: invalid client ID",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+				// == construct update header ==
+				// 1. Update chain B to have new header
+				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
+				// 2. Construct update header
+				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+					s.chainA.GetContext(),
+					clientID,
+				)
+				header, err := s.pathBToA.EndpointA.Chain.IBCClientHeader(s.pathBToA.EndpointA.Chain.LatestCommittedHeader, trustedHeight)
+				s.Require().NoError(err)
+
+				anyHeader, err := clienttypes.PackClientMessage(header)
+				s.Require().NoError(err)
+
+				updateBz, err := anyHeader.Marshal()
+				s.Require().NoError(err)
+
+				// use invalid client ID
+				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, ibctesting.InvalidID, updateBz)
+				s.Require().NoError(err)
+				// ====
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid client message",
+			malleate: func() {
+				clientID := ibctesting.FirstClientID
+
+				var err error
+				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, []byte(ibctesting.InvalidID))
+				s.Require().NoError(err)
+				// ====
+				expErr = true
+			},
+		},
+		{
+			name: "failure: invalid calldata",
+			malleate: func() {
+				calldata = []byte(ibctesting.InvalidID)
+				expErr = true
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -252,7 +296,6 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			// == reset test state ==
 			s.SetupTest()
 
-			clientID = ""
 			expResult = 0
 			expErr = false
 			calldata = nil
@@ -270,7 +313,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				return
 			}
 			if err != nil {
-				s.FailNow("failed to send tx", "error: %v", err)
+				s.FailNow("failed to send tx", "error: %v", err, "vmerror: %v", resp.VmError)
 			}
 
 			// decode result
