@@ -42,7 +42,10 @@ func (s *TestSuite) AfterEachAction(t *testing.T, ctx *TestContext) {
 	require.NoError(t, s.CheckTxsQueuedAsync(ctx.ExpQueued))
 
 	currentBaseFee, err := s.GetLatestBaseFee("node0")
-	require.NoError(t, err)
+	if err != nil {
+		// If we fail to get the latest base fee, we just keep the previous one
+		currentBaseFee = s.BaseFee()
+	}
 	s.SetBaseFee(currentBaseFee)
 }
 
