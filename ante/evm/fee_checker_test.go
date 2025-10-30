@@ -38,7 +38,7 @@ func (p staticChainConfigProvider) EthChainConfig() *params.ChainConfig {
 	return p.ethCfg
 }
 
-func (p staticChainConfigProvider) RuntimeCoinInfo() evmtypes.EvmCoinInfo {
+func (p staticChainConfigProvider) EvmCoinInfo() evmtypes.EvmCoinInfo {
 	return p.coinInfo
 }
 

@@ -149,7 +149,7 @@ func (k EVMKeeper) EthChainConfig() *gethparams.ChainConfig {
 	return k.ethCfg
 }
 
-func (k EVMKeeper) RuntimeCoinInfo() types.EvmCoinInfo {
+func (k EVMKeeper) EvmCoinInfo() types.EvmCoinInfo {
 	return k.coinInfo
 }
 

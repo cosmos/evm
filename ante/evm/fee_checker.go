@@ -36,7 +36,7 @@ func NewDynamicFeeChecker(evmKeeper runtimeChainConfigProvider, feemarketParams 
 			// genesis transactions: fallback to min-gas-price logic
 			return checkTxFeeWithValidatorMinGasPrices(ctx, feeTx)
 		}
-		coinInfo := evmKeeper.RuntimeCoinInfo()
+		coinInfo := evmKeeper.EvmCoinInfo()
 		denom := coinInfo.Denom
 		if denom == "" {
 			denom = evmtypes.GetEVMCoinDenom()

@@ -41,7 +41,7 @@ type chainConfigProvider interface {
 
 type runtimeChainConfigProvider interface {
 	chainConfigProvider
-	RuntimeCoinInfo() evmtypes.EvmCoinInfo
+	EvmCoinInfo() evmtypes.EvmCoinInfo
 }
 
 func getEthChainConfig(provider chainConfigProvider) *gethparams.ChainConfig {
@@ -70,7 +70,7 @@ func NewMonoDecoratorUtils(
 ) (*DecoratorUtils, error) {
 	ethCfg := getEthChainConfig(ek)
 
-	evmDenom := ek.RuntimeCoinInfo().Denom
+	evmDenom := ek.EvmCoinInfo().Denom
 	if evmDenom == "" {
 		evmDenom = evmtypes.GetEVMCoinDenom()
 	}

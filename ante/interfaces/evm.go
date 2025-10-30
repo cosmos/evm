@@ -29,7 +29,7 @@ type EVMKeeper interface {
 	GetParams(ctx sdk.Context) evmtypes.Params
 	ChainConfig() *evmtypes.ChainConfig
 	EthChainConfig() *gethparams.ChainConfig
-	RuntimeCoinInfo() evmtypes.EvmCoinInfo
+	EvmCoinInfo() evmtypes.EvmCoinInfo
 }
 
 // FeeMarketKeeper exposes the required feemarket keeper interface required for ante handlers

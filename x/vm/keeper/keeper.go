@@ -254,13 +254,13 @@ func (k Keeper) EthChainConfig() *ethparams.ChainConfig {
 	return cfg.EthChainConfig()
 }
 
-// RuntimeCoinInfo returns the EvmCoinInfo kept in runtime config.
-func (k Keeper) RuntimeCoinInfo() types.EvmCoinInfo {
+// EvmCoinInfo returns the EvmCoinInfo kept in runtime config.
+func (k Keeper) EvmCoinInfo() types.EvmCoinInfo {
 	cfg := k.RuntimeConfig()
 	if cfg == nil {
 		return types.EvmCoinInfo{}
 	}
-	return cfg.CoinInfo()
+	return cfg.EvmCoinInfo()
 }
 
 // effectiveEthChainConfig returns the runtime chain config if present, or falls back to the
@@ -440,7 +440,8 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	denom := k.EvmCoinInfo().Denom
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {
@@ -455,7 +456,8 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	denom := k.EvmCoinInfo().Denom
+	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {

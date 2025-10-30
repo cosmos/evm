@@ -55,7 +55,7 @@ func (rc *RuntimeConfig) EthChainConfig() *gethparams.ChainConfig {
 }
 
 // CoinInfo returns the EVM coin info.
-func (rc *RuntimeConfig) CoinInfo() EvmCoinInfo {
+func (rc *RuntimeConfig) EvmCoinInfo() EvmCoinInfo {
 	return rc.coinInfo
 }
 
