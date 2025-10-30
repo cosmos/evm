@@ -1,6 +1,7 @@
 package suite
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"math/big"
@@ -11,8 +12,9 @@ import (
 )
 
 // NonceAt returns the account nonce for the given account at the latest block
-func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
-	ctx, cli, addr := s.EthClient.Setup(nodeID, accID)
+func (s *BaseTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
+	account := s.EthAccount(accID)
+	ctx, cli, addr := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := s.EthClient.Clients[nodeID].BlockNumber(ctx)
 	if err != nil {
 		return uint64(0), fmt.Errorf("failed to get block number from %s: %v", nodeID, err)
@@ -24,8 +26,9 @@ func (s *SystemTestSuite) NonceAt(nodeID string, accID string) (uint64, error) {
 }
 
 // GetLatestBaseFee returns the base fee of the latest block
-func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
-	ctx, cli, _ := s.EthClient.Setup(nodeID, "acc0")
+func (s *BaseTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
+	account := s.EthAccount("acc0")
+	ctx, cli, _ := s.EthClient.Setup(nodeID, account)
 	blockNumber, err := cli.BlockNumber(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block number from %s: %v", nodeID, err)
@@ -47,7 +50,7 @@ func (s *SystemTestSuite) GetLatestBaseFee(nodeID string) (*big.Int, error) {
 }
 
 // BaseFee returns the base fee of the latest block
-func (s *SystemTestSuite) WaitForCommit(
+func (s *BaseTestSuite) WaitForCommit(
 	nodeID string,
 	txHash string,
 	txType string,
@@ -64,7 +67,7 @@ func (s *SystemTestSuite) WaitForCommit(
 }
 
 // waitForEthCommmit waits for the given eth tx to be committed within the timeout duration
-func (s *SystemTestSuite) waitForEthCommmit(
+func (s *BaseTestSuite) waitForEthCommmit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -82,7 +85,7 @@ func (s *SystemTestSuite) waitForEthCommmit(
 }
 
 // waitForCosmosCommmit waits for the given cosmos tx to be committed within the timeout duration
-func (s *SystemTestSuite) waitForCosmosCommmit(
+func (s *BaseTestSuite) waitForCosmosCommmit(
 	nodeID string,
 	txHash string,
 	timeout time.Duration,
@@ -99,8 +102,8 @@ func (s *SystemTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-// CheckTxsPending checks if the given tx is either pending or committed within the timeout duration
-func (s *SystemTestSuite) CheckTxPending(
+// CheckTxPending checks if the given tx is pending within the timeout duration
+func (s *BaseTestSuite) CheckTxPending(
 	nodeID string,
 	txHash string,
 	txType string,
@@ -110,27 +113,45 @@ func (s *SystemTestSuite) CheckTxPending(
 	case TxTypeEVM:
 		return s.EthClient.CheckTxsPending(nodeID, txHash, timeout)
 	case TxTypeCosmos:
-		return s.CosmosClient.CheckTxsPending(nodeID, txHash, timeout)
+		// Note: Cosmos transactions vanish from the mempool right after they get included in a block.
+		// CosmosClient.CheckTxsPending therefore treats “pending or already committed” as success,
+		// whereas the EVM client keeps transactions in the EVM pool until nonce progression occurs.
+		err := s.CosmosClient.CheckTxsPending(nodeID, txHash, timeout)
+		if err != nil {
+			_, err = s.CosmosClient.WaitForCommit(nodeID, txHash, timeout)
+			return err
+		}
+		return nil
+
 	default:
 		return fmt.Errorf("invalid tx type")
 	}
 }
 
+const defaultTxPoolContentTimeout = 60 * time.Second
+
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) TxPoolContent(nodeID string, txType string) (pendingTxs, queuedTxs []string, err error) {
+func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
+	if timeout <= 0 {
+		timeout = defaultTxPoolContentTimeout
+	}
+
 	switch txType {
 	case TxTypeEVM:
-		return s.ethTxPoolContent(nodeID)
+		return s.ethTxPoolContent(nodeID, timeout)
 	case TxTypeCosmos:
-		return s.cosmosTxPoolContent(nodeID)
+		return s.cosmosTxPoolContent(nodeID, timeout)
 	default:
 		return nil, nil, fmt.Errorf("invalid tx type")
 	}
 }
 
 // ethTxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
-	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(nodeID)
+func (s *BaseTestSuite) ethTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pendingTxs, queuedTxs, err := s.EthClient.TxPoolContent(ctx, nodeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get txpool content from eth client: %v", err)
 	}
@@ -139,8 +160,11 @@ func (s *SystemTestSuite) ethTxPoolContent(nodeID string) (pendingTxHashes, queu
 }
 
 // cosmosTxPoolContent returns the pending tx hashes in the tx pool of the given node
-func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, queuedTxHashes []string, err error) {
-	result, err := s.CosmosClient.UnconfirmedTxs(nodeID)
+func (s *BaseTestSuite) cosmosTxPoolContent(nodeID string, timeout time.Duration) (pendingTxHashes, queuedTxHashes []string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	result, err := s.CosmosClient.UnconfirmedTxs(ctx, nodeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call unconfired transactions from cosmos client: %v", err)
 	}
@@ -154,7 +178,7 @@ func (s *SystemTestSuite) cosmosTxPoolContent(nodeID string) (pendingTxHashes, q
 }
 
 // extractTxHashesSorted processes transaction maps in a deterministic order and returns flat slice of tx hashes
-func (s *SystemTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.EthRPCTransaction) []string {
+func (s *BaseTestSuite) extractTxHashesSorted(txMap map[string]map[string]*clients.EthRPCTransaction) []string {
 	var result []string
 
 	// Get addresses and sort them for deterministic iteration

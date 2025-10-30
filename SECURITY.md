@@ -24,13 +24,13 @@ the vulnerability can be reproduced on either one of those.
 | Reporting methods                                             | Bounty eligible |
 |---------------------------------------------------------------|-----------------|
 | [HackerOne program][h1]                                       |       no        |
-| [security@interchain.io](mailto:security@interchain.io)       |       no        |
+| [security@cosmoslabs.io](mailto:security@cosmoslabs.io)       |       no        |
 
 Issues identified in this repository may be eligible for a [bug bounty][h1]. For your report to be bounty
 eligible it must be reported exclusively through the [HackerOne Bug Bounty][h1].
 
 If you do not wish to be eligible for a bounty or do not want to use the HackerOne platform to report an
-issue, please send your report via email to [security@interchain.io](mailto:security@interchain.io) with
+issue, please send your report via email to [security@cosmoslabs.io](mailto:security@cosmoslabs.io) with
 reproduction steps and details of the issue.
 
 ### Guidelines

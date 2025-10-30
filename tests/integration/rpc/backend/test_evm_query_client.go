@@ -194,7 +194,17 @@ func RegisterEthCallError(queryClient *mocks.EVMQueryClient, request *evmtypes.E
 func RegisterEstimateGas(queryClient *mocks.EVMQueryClient, args evmtypes.TransactionArgs) {
 	bz, _ := json.Marshal(args)
 	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), &evmtypes.EthCallRequest{Args: bz, ChainId: args.ChainID.ToInt().Int64()}).
-		Return(&evmtypes.EstimateGasResponse{}, nil)
+		Return(&evmtypes.EstimateGasResponse{Gas: 21000}, nil)
+}
+
+func RegisterEstimateGasError(queryClient *mocks.EVMQueryClient, req *evmtypes.EthCallRequest) {
+	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), req).
+		Return(nil, errortypes.ErrInvalidRequest)
+}
+
+func RegisterEstimateGasWithOverrides(queryClient *mocks.EVMQueryClient, req *evmtypes.EthCallRequest) {
+	queryClient.On("EstimateGas", rpc.ContextWithHeight(1), req).
+		Return(&evmtypes.EstimateGasResponse{Gas: 21000}, nil)
 }
 
 // BaseFee

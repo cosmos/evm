@@ -635,3 +635,150 @@ func (s *TestSuite) TestGasPrice() {
 		})
 	}
 }
+
+func (s *TestSuite) TestEstimateGas() {
+	gasPrice := (*hexutil.Big)(big.NewInt(1))
+	toAddr := utiltx.GenerateAddress()
+	evmChainID := (*hexutil.Big)(s.backend.EvmChainID)
+	callArgs := evmtypes.TransactionArgs{
+		From:                 nil,
+		To:                   &toAddr,
+		Gas:                  nil,
+		GasPrice:             nil,
+		MaxFeePerGas:         gasPrice,
+		MaxPriorityFeePerGas: gasPrice,
+		Value:                gasPrice,
+		Input:                nil,
+		Data:                 nil,
+		AccessList:           nil,
+		ChainID:              evmChainID,
+	}
+	argsBz, err := json.Marshal(callArgs)
+	s.Require().NoError(err)
+
+	overrides := json.RawMessage(`{
+        "` + toAddr.Hex() + `": {
+            "balance": "0x0"
+        }
+    }`)
+	invalidOverrides := json.RawMessage(`{"invalid": json}`)
+	emptyOverrides := json.RawMessage(`{}`)
+
+	testCases := []struct {
+		name         string
+		registerMock func()
+		callArgs     evmtypes.TransactionArgs
+		overrides    *json.RawMessage
+		expGas       hexutil.Uint64
+		expPass      bool
+	}{
+		{
+			"fail - Invalid request",
+			func() {
+				_, bz := s.buildEthereumTx()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				RegisterEstimateGasError(QueryClient, &evmtypes.EthCallRequest{Args: argsBz, ChainId: s.backend.EvmChainID.Int64()})
+			},
+			callArgs,
+			nil,
+			0,
+			false,
+		},
+		{
+			"pass - Returned gas estimate",
+			func() {
+				_, bz := s.buildEthereumTx()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				RegisterEstimateGas(QueryClient, callArgs)
+			},
+			callArgs,
+			nil,
+			21000,
+			true,
+		},
+		{
+			"pass - With state overrides",
+			func() {
+				_, bz := s.buildEthereumTx()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: overrides,
+				}
+				RegisterEstimateGasWithOverrides(QueryClient, expected)
+			},
+			callArgs,
+			&overrides,
+			21000,
+			true,
+		},
+		{
+			"fail - Invalid state overrides JSON",
+			func() {
+				_, bz := s.buildEthereumTx()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: invalidOverrides,
+				}
+				RegisterEstimateGasError(QueryClient, expected)
+			},
+			callArgs,
+			&invalidOverrides,
+			0,
+			false,
+		},
+		{
+			"pass - Empty state overrides",
+			func() {
+				_, bz := s.buildEthereumTx()
+				client := s.backend.ClientCtx.Client.(*mocks.Client)
+				QueryClient := s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+				height := int64(1)
+				RegisterHeader(client, &height, bz)
+				expected := &evmtypes.EthCallRequest{
+					Args:      argsBz,
+					ChainId:   s.backend.EvmChainID.Int64(),
+					Overrides: emptyOverrides,
+				}
+				RegisterEstimateGasWithOverrides(QueryClient, expected)
+			},
+			callArgs,
+			&emptyOverrides,
+			21000,
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("case %s", tc.name), func() {
+			s.SetupTest() // reset test and queries
+			tc.registerMock()
+
+			blockNum := rpctypes.BlockNumber(1)
+			blockNrOrHash := rpctypes.BlockNumberOrHash{BlockNumber: &blockNum}
+			gas, err := s.backend.EstimateGas(tc.callArgs, &blockNrOrHash, tc.overrides)
+
+			if tc.expPass {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expGas, gas)
+			} else {
+				s.Require().Error(err)
+			}
+		})
+	}
+}
