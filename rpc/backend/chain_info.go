@@ -247,17 +247,17 @@ func (b *Backend) FeeHistory(
 					return
 				}
 
-				// eth block
-				ethBlock, err := b.GetBlockByNumber(blockNum, true)
-				if ethBlock == nil {
-					chanErr <- err
-					return
-				}
-
 				// CometBFT block result
 				cometBlockResult, err := b.CometBlockResultByNumber(&cometBlock.Block.Height)
 				if cometBlockResult == nil {
 					b.Logger.Debug("block result not found", "height", cometBlock.Block.Height, "error", err.Error())
+					chanErr <- err
+					return
+				}
+
+				// Build Ethereum-formatted block using the already fetched Comet block and results
+				ethBlock, err := b.RPCBlockFromCometBlock(cometBlock, cometBlockResult, true)
+				if err != nil {
 					chanErr <- err
 					return
 				}
