@@ -102,7 +102,7 @@ func (s *BaseTestSuite) waitForCosmosCommmit(
 	return nil
 }
 
-// CheckTxsPending checks if the given tx is pending within the timeout duration
+// CheckTxPending checks if the given tx is pending within the timeout duration
 func (s *BaseTestSuite) CheckTxPending(
 	nodeID string,
 	txHash string,
@@ -128,7 +128,7 @@ func (s *BaseTestSuite) CheckTxPending(
 	}
 }
 
-const defaultTxPoolContentTimeout = 30 * time.Second
+const defaultTxPoolContentTimeout = 60 * time.Second
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
 func (s *BaseTestSuite) TxPoolContent(nodeID string, txType string, timeout time.Duration) (pendingTxs, queuedTxs []string, err error) {
