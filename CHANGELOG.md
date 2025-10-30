@@ -1,6 +1,18 @@
 # CHANGELOG
 
-## UNRELEASED
+## v0.5.1
+
+### DEPENDENCIES
+
+### IMPROVEMENTS
+
+### FEATURES
+
+### BUG FIXES
+
+- [\#769](https://github.com/cosmos/evm/pull/769) Fix erc20 ibc middleware to not to validate sender address format.
+
+## v0.5.0
 
 ### DEPENDENCIES
 
