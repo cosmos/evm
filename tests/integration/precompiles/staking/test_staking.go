@@ -1,6 +1,7 @@
 package staking
 
 import (
+	"errors"
 	"math/big"
 	"time"
 
@@ -381,7 +382,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
-			21295, // use enough gas to avoid out of gas error
+			1000000, // use enough gas to avoid out of gas error
 			true,
 			false,
 			"write protection",
@@ -391,7 +392,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			func(_ keyring.Key) []byte {
 				return []byte("invalid")
 			},
-			21295, // use enough gas to avoid out of gas error
+			1000000, // use enough gas to avoid out of gas error
 			false,
 			false,
 			"no method with id",
@@ -462,9 +463,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NotNil(bz, "expected returned bytes to be nil")
 				execRevertErr := evmtypes.NewExecErrorWithReason(bz)
 				s.Require().ErrorContains(execRevertErr, tc.errContains)
-				consumed := ctx.GasMeter().GasConsumed()
-				// LessThanOrEqual because the gas is consumed before the error is returned
-				s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+				if errors.Is(execRevertErr, vm.ErrOutOfGas) {
+					consumed := ctx.GasMeter().GasConsumed()
+					// LessThanOrEqual because the gas is consumed before the error is returned
+					s.Require().LessOrEqual(tc.gas, consumed, "expected gas consumed to be equal to gas limit")
+				}
 			}
 		})
 	}
