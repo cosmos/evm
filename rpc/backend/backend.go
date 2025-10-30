@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +23,7 @@ import (
 	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -173,6 +175,12 @@ type Backend struct {
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
+
+	// simple caches
+	cacheMu                sync.RWMutex
+	cometBlockCache        map[int64]*tmrpctypes.ResultBlock
+	cometBlockResultsCache map[int64]*tmrpctypes.ResultBlockResults
+	feeParamsCache         map[int64]feemarkettypes.Params
 }
 
 func (b *Backend) GetConfig() config.Config {
@@ -199,17 +207,44 @@ func NewBackend(
 	}
 
 	b := &Backend{
-		Ctx:                 context.Background(),
-		ClientCtx:           clientCtx,
-		RPCClient:           rpcClient,
-		QueryClient:         types.NewQueryClient(clientCtx),
-		Logger:              logger.With("module", "backend"),
-		EvmChainID:          big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
-		Cfg:                 appConf,
-		AllowUnprotectedTxs: allowUnprotectedTxs,
-		Indexer:             indexer,
-		Mempool:             mempool,
+		Ctx:                    context.Background(),
+		ClientCtx:              clientCtx,
+		RPCClient:              rpcClient,
+		QueryClient:            types.NewQueryClient(clientCtx),
+		Logger:                 logger.With("module", "backend"),
+		EvmChainID:             big.NewInt(int64(appConf.EVM.EVMChainID)), //nolint:gosec // G115 // won't exceed uint64
+		Cfg:                    appConf,
+		AllowUnprotectedTxs:    allowUnprotectedTxs,
+		Indexer:                indexer,
+		Mempool:                mempool,
+		cometBlockCache:        make(map[int64]*tmrpctypes.ResultBlock),
+		cometBlockResultsCache: make(map[int64]*tmrpctypes.ResultBlockResults),
+		feeParamsCache:         make(map[int64]feemarkettypes.Params),
 	}
 	b.ProcessBlocker = b.ProcessBlock
 	return b
+}
+
+// getFeeMarketParamsAtHeight returns FeeMarket params for a given height using a height-keyed cache.
+func (b *Backend) getFeeMarketParamsAtHeight(height int64) (feemarkettypes.Params, error) {
+	b.cacheMu.RLock()
+	if p, ok := b.feeParamsCache[height]; ok {
+		b.cacheMu.RUnlock()
+		return p, nil
+	}
+	b.cacheMu.RUnlock()
+	res, err := b.QueryClient.FeeMarket.Params(types.ContextWithHeight(height), &feemarkettypes.QueryParamsRequest{})
+	if err != nil {
+		return feemarkettypes.Params{}, err
+	}
+	b.cacheMu.Lock()
+	if cap := int(b.Cfg.JSONRPC.FeeHistoryCap) * 2; cap > 0 && len(b.feeParamsCache) >= cap {
+		for k := range b.feeParamsCache {
+			delete(b.feeParamsCache, k)
+			break
+		}
+	}
+	b.feeParamsCache[height] = res.Params
+	b.cacheMu.Unlock()
+	return res.Params, nil
 }

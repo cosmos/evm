@@ -19,6 +19,13 @@ func (b *Backend) CometBlockByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctype
 	if err != nil {
 		return nil, err
 	}
+	// cache lookup
+	b.cacheMu.RLock()
+	if cached, ok := b.cometBlockCache[height]; ok {
+		b.cacheMu.RUnlock()
+		return cached, nil
+	}
+	b.cacheMu.RUnlock()
 	resBlock, err := b.RPCClient.Block(b.Ctx, &height)
 	if err != nil {
 		b.Logger.Debug("cometbft client failed to get block", "height", height, "error", err.Error())
@@ -30,6 +37,16 @@ func (b *Backend) CometBlockByNumber(blockNum rpctypes.BlockNumber) (*cmtrpctype
 		return nil, nil
 	}
 
+	// store in cache (simple bound: FeeHistoryCap*2)
+	b.cacheMu.Lock()
+	if cap := int(b.Cfg.JSONRPC.FeeHistoryCap) * 2; cap > 0 && len(b.cometBlockCache) >= cap {
+		for k := range b.cometBlockCache {
+			delete(b.cometBlockCache, k)
+			break
+		}
+	}
+	b.cometBlockCache[height] = resBlock
+	b.cacheMu.Unlock()
 	return resBlock, nil
 }
 
@@ -49,11 +66,29 @@ func (b *Backend) CometBlockResultByNumber(height *int64) (*cmtrpctypes.ResultBl
 	if height != nil && *height == 0 {
 		height = nil
 	}
+	if height != nil {
+		b.cacheMu.RLock()
+		if cached, ok := b.cometBlockResultsCache[*height]; ok {
+			b.cacheMu.RUnlock()
+			return cached, nil
+		}
+		b.cacheMu.RUnlock()
+	}
 	res, err := b.RPCClient.BlockResults(b.Ctx, height)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch block result from CometBFT %d: %w", *height, err)
 	}
-
+	if height != nil {
+		b.cacheMu.Lock()
+		if cap := int(b.Cfg.JSONRPC.FeeHistoryCap) * 2; cap > 0 && len(b.cometBlockResultsCache) >= cap {
+			for k := range b.cometBlockResultsCache {
+				delete(b.cometBlockResultsCache, k)
+				break
+			}
+		}
+		b.cometBlockResultsCache[*height] = res
+		b.cacheMu.Unlock()
+	}
 	return res, nil
 }
 
