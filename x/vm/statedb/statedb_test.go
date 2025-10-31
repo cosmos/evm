@@ -602,7 +602,7 @@ func (suite *StateDBTestSuite) TestLog() {
 		Data:        data,
 		BlockNumber: 1,
 		TxIndex:     1,
-		Index:       1,
+		Index:       0,
 	}
 	suite.Require().Equal(expecedLog, db.Logs()[0])
 

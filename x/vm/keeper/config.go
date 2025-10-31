@@ -39,7 +39,7 @@ func (k *Keeper) EVMConfig(ctx sdk.Context, proposerAddress sdk.ConsAddress) (*s
 func (k *Keeper) TxConfig(ctx sdk.Context, txHash common.Hash) statedb.TxConfig {
 	return statedb.NewTxConfig(
 		txHash,              // TxHash
-		uint(ctx.TxIndex()), // TxIndex
+		uint(ctx.TxIndex()), //#nosec G115 // TxIndex
 	)
 }
 
