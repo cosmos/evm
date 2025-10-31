@@ -127,7 +127,7 @@ func (diff *StateOverride) Apply(db *statedb.StateDB, precompiles vm.Precompiled
 		// Apply state diff into specified accounts.
 		if account.StateDiff != nil {
 			for key, value := range *account.StateDiff {
-				db.SetState(addr, key, value)
+				db.SetStateOverride(addr, key, value)
 			}
 		}
 	}
