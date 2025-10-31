@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes

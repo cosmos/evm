@@ -2,7 +2,6 @@ package balancehandler
 
 import (
 	"fmt"
-
 	"math/big"
 	"testing"
 

@@ -101,11 +101,11 @@ func (_m *BankKeeper) GetSupply(ctx context.Context, denom string) types.Coin {
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]interface{}, len(coins))
+	_va := make([]any, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -234,7 +234,8 @@ func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 
