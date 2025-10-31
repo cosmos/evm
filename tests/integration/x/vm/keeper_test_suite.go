@@ -37,7 +37,7 @@ type KeeperTestSuite struct {
 
 func (s *KeeperTestSuite) setRuntimeConfig(chainConfig *evmtypes.ChainConfig, coinInfo evmtypes.EvmCoinInfo) {
 	params := s.Network.App.GetEVMKeeper().GetParams(s.Network.GetContext())
-	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainConfig, chainConfig.EthereumConfig(nil), coinInfo, params.ExtraEIPs)
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainConfig, coinInfo, params.ExtraEIPs)
 	s.Require().NoError(err)
 	s.Require().NoError(s.Network.App.GetEVMKeeper().SetRuntimeConfig(runtimeCfg))
 }

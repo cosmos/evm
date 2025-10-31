@@ -20,6 +20,7 @@ import (
 	"github.com/cosmos/evm/rpc/stream"
 	serverconfig "github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/server/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -29,6 +30,7 @@ const shutdownTimeout = 200 * time.Millisecond
 
 type AppWithPendingTxStream interface {
 	RegisterPendingTxListener(listener func(common.Hash))
+	RuntimeConfig() *evmtypes.RuntimeConfig
 }
 
 // StartJSONRPC starts the JSON-RPC server
@@ -61,8 +63,10 @@ func StartJSONRPC(
 	rpcServer.SetBatchLimits(config.JSONRPC.BatchRequestLimit, config.JSONRPC.BatchResponseMaxSize)
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
+	ethChainConfig := app.RuntimeConfig().EthChainConfig()
+	evmCoinInfo := app.RuntimeConfig().EvmCoinInfo()
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool, ethChainConfig, evmCoinInfo)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

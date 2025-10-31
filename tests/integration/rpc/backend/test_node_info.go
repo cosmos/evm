@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
 
@@ -61,6 +60,7 @@ func (s *TestSuite) TestRPCMinGasPrice() {
 
 func (s *TestSuite) TestGenerateMinGasCoin() {
 	defaultGasPrice := (*hexutil.Big)(big.NewInt(1))
+	evmCoinDenom := s.backend.EvmCoinDenom()
 	testCases := []struct {
 		name           string
 		gasPrice       hexutil.Big
@@ -72,7 +72,7 @@ func (s *TestSuite) TestGenerateMinGasCoin() {
 			*defaultGasPrice,
 			sdk.DecCoins{},
 			sdk.DecCoin{
-				Denom:  evmtypes.GetEVMCoinDenom(),
+				Denom:  evmCoinDenom,
 				Amount: math.LegacyNewDecFromBigInt(defaultGasPrice.ToInt()),
 			},
 		},

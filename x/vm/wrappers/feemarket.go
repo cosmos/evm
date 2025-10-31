@@ -10,33 +10,39 @@ import (
 )
 
 // FeeMarketWrapper is a wrapper around the feemarket keeper
-// that is used to manage an evm denom with 6 or 18 decimals.
+// that is used to manage an evm denom with a configurable decimal precision.
 // The wrapper makes the corresponding conversions to achieve:
 //   - With the EVM, the wrapper works always with 18 decimals.
 //   - With the feemarket module, the wrapper works always
-//     with the bank module decimals (either 6 or 18).
+//     with the bank module decimals.
 type FeeMarketWrapper struct {
 	types.FeeMarketKeeper
+	coinInfo types.EvmCoinInfo
 }
 
 // NewFeeMarketWrapper creates a new feemarket Keeper wrapper instance.
-// The BankWrapper is used to manage an evm denom with 6 or 18 decimals.
 func NewFeeMarketWrapper(
 	fk types.FeeMarketKeeper,
+	coinInfo types.EvmCoinInfo,
 ) *FeeMarketWrapper {
 	return &FeeMarketWrapper{
-		fk,
+		FeeMarketKeeper: fk,
+		coinInfo:        coinInfo,
 	}
 }
 
+func (w FeeMarketWrapper) decimals() types.Decimals {
+	return w.coinInfo.DecimalsOrDefault()
+}
+
 // GetBaseFee returns the base fee converted to 18 decimals.
-func (w FeeMarketWrapper) GetBaseFee(ctx sdk.Context, decimals types.Decimals) *big.Int {
+func (w FeeMarketWrapper) GetBaseFee(ctx sdk.Context) *big.Int {
 	baseFee := w.FeeMarketKeeper.GetBaseFee(ctx)
 	if baseFee.IsNil() {
 		return nil
 	}
 
-	return baseFee.MulInt(decimals.ConversionFactor()).TruncateInt().BigInt()
+	return baseFee.MulInt(w.decimals().ConversionFactor()).TruncateInt().BigInt()
 }
 
 // CalculateBaseFee returns the calculated base fee converted to 18 decimals.
@@ -45,14 +51,15 @@ func (w FeeMarketWrapper) CalculateBaseFee(ctx sdk.Context) *big.Int {
 	if baseFee.IsNil() {
 		return nil
 	}
-	return types.ConvertAmountTo18DecimalsLegacy(baseFee).TruncateInt().BigInt()
+	return baseFee.MulInt(w.decimals().ConversionFactor()).TruncateInt().BigInt()
 }
 
 // GetParams returns the params with associated fees values converted to 18 decimals.
 func (w FeeMarketWrapper) GetParams(ctx sdk.Context) feemarkettypes.Params {
 	params := w.FeeMarketKeeper.GetParams(ctx)
+	decimals := w.decimals()
 	if !params.BaseFee.IsNil() {
-		params.BaseFee = types.ConvertAmountTo18DecimalsLegacy(params.BaseFee)
+		params.BaseFee = params.BaseFee.MulInt(decimals.ConversionFactor())
 	}
 	params.MinGasPrice = types.ConvertAmountTo18DecimalsLegacy(params.MinGasPrice)
 	return params

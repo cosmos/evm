@@ -47,6 +47,10 @@ func (b *Backend) ChainConfig() *params.ChainConfig {
 	return b.ethChainCfg
 }
 
+func (b *Backend) EvmCoinDenom() string {
+	return b.coinInfo.Denom
+}
+
 // GlobalMinGasPrice returns MinGasPrice param from FeeMarket
 func (b *Backend) GlobalMinGasPrice() (*big.Int, error) {
 	res, err := b.QueryClient.GlobalMinGasPrice(b.Ctx, &evmtypes.QueryGlobalMinGasPriceRequest{})

@@ -3,6 +3,7 @@ package rpc
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -17,6 +18,7 @@ import (
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/web3"
 	"github.com/cosmos/evm/rpc/stream"
 	servertypes "github.com/cosmos/evm/server/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -49,6 +51,8 @@ type APICreator = func(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	ethChainConfig *params.ChainConfig,
+	evmCoinInfo evmtypes.EvmCoinInfo,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -62,8 +66,10 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			ethChainConfig *params.ChainConfig,
+			evmCoinInfo evmtypes.EvmCoinInfo,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -79,7 +85,7 @@ func init() {
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool, *params.ChainConfig, evmtypes.EvmCoinInfo) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -89,7 +95,7 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool, _ *params.ChainConfig, _ evmtypes.EvmCoinInfo) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -105,8 +111,10 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			ethChainConfig *params.ChainConfig,
+			evmCoinInfo evmtypes.EvmCoinInfo,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
@@ -122,8 +130,10 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			ethChainConfig *params.ChainConfig,
+			evmCoinInfo evmtypes.EvmCoinInfo,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
@@ -139,8 +149,10 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			ethChainConfig *params.ChainConfig,
+			evmCoinInfo evmtypes.EvmCoinInfo,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
@@ -156,8 +168,10 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			ethChainConfig *params.ChainConfig,
+			evmCoinInfo evmtypes.EvmCoinInfo,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
@@ -178,12 +192,14 @@ func GetRPCAPIs(ctx *server.Context,
 	indexer servertypes.EVMTxIndexer,
 	selectedAPIs []string,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	ethChainConfig *params.ChainConfig,
+	evmCoinInfo evmtypes.EvmCoinInfo,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
 		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
+			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool, ethChainConfig, evmCoinInfo)...)
 		} else {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
 		}

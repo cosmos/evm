@@ -55,9 +55,6 @@ func NewMonoDecoratorUtils(
 ) (*DecoratorUtils, error) {
 	ethCfg := ek.EthChainConfig()
 	evmDenom := ek.EvmCoinInfo().Denom
-	if evmDenom == "" {
-		evmDenom = evmtypes.DefaultEVMDenom
-	}
 
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here

@@ -184,15 +184,7 @@ func (b *Backend) GetConfig() config.Config {
 }
 
 func (b *Backend) evmDenom() string {
-	if b.coinInfo.Denom != "" {
-		return b.coinInfo.Denom
-	}
-	// Ensure chain config is loaded; this will populate coin info when successful.
-	b.ChainConfig()
-	if b.coinInfo.Denom != "" {
-		return b.coinInfo.Denom
-	}
-	return evmtypes.DefaultEVMDenom
+	return b.coinInfo.Denom
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
@@ -203,6 +195,8 @@ func NewBackend(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	ethChainConfig *params.ChainConfig,
+	evmCoinInfo evmtypes.EvmCoinInfo,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
@@ -225,7 +219,10 @@ func NewBackend(
 		AllowUnprotectedTxs: allowUnprotectedTxs,
 		Indexer:             indexer,
 		Mempool:             mempool,
+		ethChainCfg:         ethChainConfig,
+		coinInfo:            evmCoinInfo,
 	}
+
 	b.ProcessBlocker = b.ProcessBlock
 	return b
 }

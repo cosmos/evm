@@ -218,15 +218,15 @@ func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.
 		panic(err)
 	}
 
-	configurator := types.NewEVMConfigurator()
-	err := configurator.
-		WithExtendedEips(types.DefaultCosmosEVMActivators).
-		// NOTE: we're using the 18 decimals default for the example chain
-		WithEVMCoinInfo(coinInfo).
-		Configure()
-	if err != nil {
-		panic(err)
-	}
+	// configurator := types.NewEVMConfigurator()
+	// err := configurator.
+	// 	WithExtendedEips(types.DefaultCosmosEVMActivators).
+	// 	// NOTE: we're using the 18 decimals default for the example chain
+	// 	WithEVMCoinInfo(coinInfo).
+	// 	Configure()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	params := k.GetParams(ctx)
 
@@ -244,9 +244,7 @@ func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.
 		chainCfg.Decimals = uint64(coinInfo.Decimals)
 	}
 
-	ethCfg := chainCfg.EthereumConfig(nil)
-
-	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, ethCfg, coinInfo, params.ExtraEIPs)
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
 	if err != nil {
 		panic(err)
 	}

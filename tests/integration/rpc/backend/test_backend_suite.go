@@ -96,7 +96,29 @@ func (s *TestSuite) SetupTest() {
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	chainCfg := evmtypes.DefaultChainConfig(ChainID.EVMChainID)
+	coinInfo, ok := constants.ChainsCoinInfo[ChainID.EVMChainID]
+	if !ok {
+		coinInfo = evmtypes.EvmCoinInfo{
+			Denom:         chainCfg.Denom,
+			ExtendedDenom: chainCfg.Denom,
+			DisplayDenom:  chainCfg.Denom,
+			Decimals:      uint32(chainCfg.Decimals),
+		}
+	}
+	if coinInfo.Denom != "" {
+		chainCfg.Denom = coinInfo.Denom
+	}
+	if coinInfo.Decimals != 0 {
+		chainCfg.Decimals = uint64(coinInfo.Decimals)
+	}
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, coinInfo, evmtypes.DefaultExtraEIPs)
+	s.Require().NoError(err)
+
+	ethChainConfig := runtimeCfg.EthChainConfig()
+	evmCoinInfo := runtimeCfg.EvmCoinInfo()
+
+	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil, ethChainConfig, evmCoinInfo)
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true
@@ -105,16 +127,6 @@ func (s *TestSuite) SetupTest() {
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
 	s.backend.Ctx = rpctypes.ContextWithHeight(1)
 
-	// default chain configuration response for mocked QueryClient
-	chainCfg := evmtypes.DefaultChainConfig(ChainID.EVMChainID)
-	if coinInfo, ok := constants.ChainsCoinInfo[ChainID.EVMChainID]; ok {
-		if coinInfo.Denom != "" {
-			chainCfg.Denom = coinInfo.Denom
-		}
-		if coinInfo.Decimals != 0 {
-			chainCfg.Decimals = uint64(coinInfo.Decimals)
-		}
-	}
 	s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient).
 		On("Config", mock.Anything, mock.AnythingOfType("*types.QueryConfigRequest")).
 		Return(&evmtypes.QueryConfigResponse{Config: chainCfg}, nil).

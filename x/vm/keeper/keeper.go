@@ -54,11 +54,13 @@ type Keeper struct {
 
 	// bankWrapper is used to convert the Cosmos SDK coin used in the EVM to the
 	// proper decimal representation.
+	bankKeeper  types.BankKeeper
 	bankWrapper types.BankWrapper
 
 	// access historical headers for EVM state transition execution
 	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
+	feeMarketKeeper  types.FeeMarketKeeper
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// optional erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
@@ -113,34 +115,33 @@ func NewKeeper(
 		panic(err)
 	}
 
-	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
-	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
-	storeKeys := make(map[string]storetypes.StoreKey)
-	for _, k := range keys {
-		storeKeys[k.Name()] = k
-	}
-
 	effectiveChainID := evmChainID
 	if effectiveChainID == 0 {
 		effectiveChainID = types.DefaultEVMChainID
 	}
 
-	keeper := &Keeper{
-		cdc:              cdc,
-		authority:        authority,
-		accountKeeper:    ak,
-		bankWrapper:      bankWrapper,
-		stakingKeeper:    sk,
-		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		transientKey:     transientKey,
-		tracer:           tracer,
-		consensusKeeper:  consensusKeeper,
-		erc20Keeper:      erc20Keeper,
-		storeKeys:        storeKeys,
+	defaultChainCfg := types.DefaultChainConfig(effectiveChainID)
+
+	storeKeys := make(map[string]storetypes.StoreKey)
+	for _, k := range keys {
+		storeKeys[k.Name()] = k
 	}
 
-	defaultChainCfg := types.DefaultChainConfig(effectiveChainID)
+	keeper := &Keeper{
+		cdc:             cdc,
+		authority:       authority,
+		accountKeeper:   ak,
+		bankKeeper:      bankKeeper,
+		stakingKeeper:   sk,
+		feeMarketKeeper: fmk,
+		storeKey:        storeKey,
+		transientKey:    transientKey,
+		tracer:          tracer,
+		consensusKeeper: consensusKeeper,
+		erc20Keeper:     erc20Keeper,
+		storeKeys:       storeKeys,
+	}
+
 	keeper.WithChainConfig(defaultChainCfg)
 
 	return keeper
@@ -177,6 +178,13 @@ func (k *Keeper) SetRuntimeConfig(cfg *types.RuntimeConfig) error {
 	}
 
 	k.runtimeCfg = cfg
+	coinInfo := cfg.EvmCoinInfo()
+	if k.bankKeeper != nil {
+		k.bankWrapper = wrappers.NewBankWrapper(k.bankKeeper, coinInfo)
+	}
+	if k.feeMarketKeeper != nil {
+		k.feeMarketWrapper = wrappers.NewFeeMarketWrapper(k.feeMarketKeeper, coinInfo)
+	}
 
 	return nil
 }
@@ -225,7 +233,7 @@ func (k *Keeper) WithChainConfig(chainCfg *types.ChainConfig) *Keeper {
 	if err := types.EnsureEVMCoinInfo(coinInfo); err != nil {
 		panic(err)
 	}
-	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, chainCfg.EthereumConfig(nil), coinInfo, types.DefaultExtraEIPs)
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, coinInfo, types.DefaultExtraEIPs)
 	if err != nil {
 		panic(err)
 	}
@@ -482,8 +490,7 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	coinInfo := k.GetEvmCoinInfo(ctx)
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)

@@ -18,20 +18,16 @@ type RuntimeConfig struct {
 // Copies are made where necessary to avoid accidental mutation.
 func NewRuntimeConfig(
 	chainCfg *ChainConfig,
-	ethCfg *gethparams.ChainConfig,
 	coinInfo EvmCoinInfo,
 	extraEIPs []int64,
 ) (*RuntimeConfig, error) {
 	if chainCfg == nil {
 		return nil, errors.New("runtime config requires chain config")
 	}
-	if ethCfg == nil {
-		return nil, errors.New("runtime config requires eth chain config")
-	}
 
 	cfg := &RuntimeConfig{
 		chainConfig:    chainCfg,
-		ethChainConfig: ethCfg,
+		ethChainConfig: chainCfg.EthereumConfig(nil),
 		coinInfo:       coinInfo,
 	}
 

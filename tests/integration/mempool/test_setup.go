@@ -127,11 +127,10 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	// Ensure runtime config is aligned with the network chain ID and coin info.
 	params := s.network.App.GetEVMKeeper().GetParams(s.network.GetContext())
 	chainCfg := evmtypes.DefaultChainConfig(chainID.EVMChainID)
-	ethCfg := chainCfg.EthereumConfig(nil)
 	coinInfo := testconstants.ChainsCoinInfo[chainID.EVMChainID]
 	chainCfg.Denom = coinInfo.Denom
 	chainCfg.Decimals = uint64(coinInfo.Decimals)
-	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, ethCfg, coinInfo, params.ExtraEIPs)
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
 	s.Require().NoError(err)
 	s.Require().NoError(s.network.App.GetEVMKeeper().SetRuntimeConfig(runtimeCfg))
 	s.Require().Equal(chainID.EVMChainID, s.network.App.GetEVMKeeper().EthChainConfig().ChainID.Uint64())

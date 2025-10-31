@@ -263,9 +263,8 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	chainCfg := evmtypes.DefaultChainConfig(n.cfg.eip155ChainID.Uint64())
 	chainCfg.Denom = coinInfo.Denom
 	chainCfg.Decimals = uint64(coinInfo.Decimals)
-	ethCfg := chainCfg.EthereumConfig(nil)
 	_ = evmtypes.SetChainConfig(chainCfg)
-	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, ethCfg, coinInfo, params.ExtraEIPs)
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
 	if err != nil {
 		return err
 	}
