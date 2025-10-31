@@ -114,7 +114,11 @@ func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *uint25
 		return nil
 	}
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	denom := k.EvmCoinInfo().Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, denom)
 
 	balance := coin.Amount.BigInt()
 	delta := new(big.Int).Sub(amount.ToBig(), balance)

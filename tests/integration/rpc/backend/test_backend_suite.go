@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -103,6 +104,21 @@ func (s *TestSuite) SetupTest() {
 	s.backend.QueryClient.QueryClient = mocks.NewEVMQueryClient(s.T())
 	s.backend.QueryClient.FeeMarket = mocks.NewFeeMarketQueryClient(s.T())
 	s.backend.Ctx = rpctypes.ContextWithHeight(1)
+
+	// default chain configuration response for mocked QueryClient
+	chainCfg := evmtypes.DefaultChainConfig(ChainID.EVMChainID)
+	if coinInfo, ok := constants.ChainsCoinInfo[ChainID.EVMChainID]; ok {
+		if coinInfo.Denom != "" {
+			chainCfg.Denom = coinInfo.Denom
+		}
+		if coinInfo.Decimals != 0 {
+			chainCfg.Decimals = uint64(coinInfo.Decimals)
+		}
+	}
+	s.backend.QueryClient.QueryClient.(*mocks.EVMQueryClient).
+		On("Config", mock.Anything, mock.AnythingOfType("*types.QueryConfigRequest")).
+		Return(&evmtypes.QueryConfigResponse{Config: chainCfg}, nil).
+		Maybe()
 
 	// Add codec
 	s.backend.ClientCtx.Codec = encodingConfig.Codec
@@ -199,7 +215,7 @@ func (s *TestSuite) buildEthBlock(
 	miner := common.BytesToAddress(validator.Bytes())
 
 	// 3) Build ethereum header
-	ethHeader := rpctypes.MakeHeader(cmtHeader, gasLimit, miner, baseFee)
+	ethHeader := rpctypes.MakeHeader(cmtHeader, gasLimit, miner, baseFee, s.backend.ChainConfig())
 
 	// 4) Prepare msgs and txs
 	txs := make([]*ethtypes.Transaction, len(msgs))

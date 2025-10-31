@@ -151,7 +151,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	}
 
 	// 4. create blockHeader without transactions, receipts, withdrawals, ...
-	ethHeader := rpctypes.MakeHeader(cmtBlock.Header, gasLimit, miner, baseFee)
+	ethHeader := rpctypes.MakeHeader(cmtBlock.Header, gasLimit, miner, baseFee, b.ChainConfig())
 
 	// 5. get MsgEthereumTxs
 	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)

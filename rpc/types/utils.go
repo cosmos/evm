@@ -127,7 +127,12 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 func MakeHeader(
 	cmtHeader cmttypes.Header, gasLimit int64,
 	validatorAddr common.Address, baseFee *big.Int,
+	ethCfg *ethparams.ChainConfig,
 ) *ethtypes.Header {
+	if ethCfg == nil {
+		ethCfg = evmtypes.DefaultChainConfig(evmtypes.DefaultEVMChainID).EthereumConfig(nil)
+	}
+
 	header := &ethtypes.Header{
 		Root:       common.BytesToHash(hexutil.Bytes(cmtHeader.AppHash)),
 		ParentHash: common.BytesToHash(cmtHeader.LastBlockID.Hash.Bytes()),
@@ -138,15 +143,15 @@ func MakeHeader(
 		Time:       uint64(cmtHeader.Time.UTC().Unix()), //nolint:gosec // G115 // timestamp won't exceed uint64
 	}
 
-	if evmtypes.GetEthChainConfig().IsLondon(header.Number) {
+	if ethCfg.IsLondon(header.Number) {
 		header.BaseFee = baseFee
 	}
-	if evmtypes.GetEthChainConfig().IsCancun(header.Number, header.Time) {
+	if ethCfg.IsCancun(header.Number, header.Time) {
 		header.ExcessBlobGas = new(uint64)
 		header.BlobGasUsed = new(uint64)
 		header.ParentBeaconRoot = new(common.Hash)
 	}
-	if evmtypes.GetEthChainConfig().IsPrague(header.Number, header.Time) {
+	if ethCfg.IsPrague(header.Number, header.Time) {
 		header.RequestsHash = &ethtypes.EmptyRequestsHash
 	}
 	return header

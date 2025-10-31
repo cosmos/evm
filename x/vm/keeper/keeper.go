@@ -269,11 +269,11 @@ func (k Keeper) effectiveEthChainConfig() *ethparams.ChainConfig {
 	if cfg := k.EthChainConfig(); cfg != nil {
 		return cfg
 	}
-	if cfg := types.GetEthChainConfig(); cfg != nil {
-		return cfg
+	if chainCfg := k.ChainConfig(); chainCfg != nil {
+		return chainCfg.EthereumConfig(nil)
 	}
 	// Fallback to the default configuration as a last resort.
-	return types.DefaultChainConfig(0).EthereumConfig(nil)
+	return types.DefaultChainConfig(types.DefaultEVMChainID).EthereumConfig(nil)
 }
 
 // GetAuthority returns the x/evm module authority address
@@ -441,6 +441,9 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	denom := k.EvmCoinInfo().Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
 	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
@@ -457,6 +460,9 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
 	denom := k.EvmCoinInfo().Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
 	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())

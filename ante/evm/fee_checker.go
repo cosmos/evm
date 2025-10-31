@@ -3,6 +3,7 @@ package evm
 import (
 	"math"
 
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	cosmosevmtypes "github.com/cosmos/evm/ante/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -24,7 +25,7 @@ import (
 // - when `ExtensionOptionDynamicFeeTx` is omitted, `tipFeeCap` defaults to `MaxInt64`.
 // - when london hardfork is not enabled, it falls back to SDK default behavior (validator min-gas-prices).
 // - Tx priority is set to `effectiveGasPrice / DefaultPriorityReduction`.
-func NewDynamicFeeChecker(evmKeeper runtimeChainConfigProvider, feemarketParams *feemarkettypes.Params) authante.TxFeeChecker {
+func NewDynamicFeeChecker(evmKeeper anteinterfaces.EVMKeeper, feemarketParams *feemarkettypes.Params) authante.TxFeeChecker {
 	return func(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, error) {
 		feeTx, ok := tx.(sdk.FeeTx)
 		if !ok {
@@ -36,13 +37,12 @@ func NewDynamicFeeChecker(evmKeeper runtimeChainConfigProvider, feemarketParams 
 			// genesis transactions: fallback to min-gas-price logic
 			return checkTxFeeWithValidatorMinGasPrices(ctx, feeTx)
 		}
+		ethCfg := evmKeeper.EthChainConfig()
 		coinInfo := evmKeeper.EvmCoinInfo()
 		denom := coinInfo.Denom
 		if denom == "" {
-			denom = evmtypes.GetEVMCoinDenom()
+			denom = evmtypes.DefaultEVMDenom
 		}
-
-		ethCfg := getEthChainConfig(evmKeeper)
 
 		return FeeChecker(ctx, feemarketParams, denom, ethCfg, feeTx)
 	}

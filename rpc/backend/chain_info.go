@@ -44,7 +44,7 @@ func (b *Backend) ChainID() (*hexutil.Big, error) {
 
 // ChainConfig returns the latest ethereum chain configuration
 func (b *Backend) ChainConfig() *params.ChainConfig {
-	return evmtypes.GetEthChainConfig()
+	return b.ethChainCfg
 }
 
 // GlobalMinGasPrice returns MinGasPrice param from FeeMarket

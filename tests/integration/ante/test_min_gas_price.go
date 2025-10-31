@@ -192,7 +192,8 @@ func (s *AnteTestSuite) TestMinGasPriceDecorator() {
 			s.Run(et.name+"_"+tc.name, func() {
 				ctx := ctx.WithIsReCheckTx(et.isCheckTx)
 				params := nw.App.GetFeeMarketKeeper().GetParams(ctx)
-				dec := cosmosante.NewMinGasPriceDecorator(&params)
+				evmKeeper := nw.App.GetEVMKeeper()
+				dec := cosmosante.NewMinGasPriceDecorator(&params, evmKeeper)
 				_, err := dec.AnteHandle(ctx, tc.malleate(), et.simulate, testutil.NoOpNextFn)
 
 				if (et.name == "deliverTx" && tc.expPass) || (et.name == "deliverTxSimulate" && et.simulate && tc.allowPassOnSimulate) {

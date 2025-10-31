@@ -39,21 +39,6 @@ type chainConfigProvider interface {
 	ChainConfig() *evmtypes.ChainConfig
 }
 
-type runtimeChainConfigProvider interface {
-	chainConfigProvider
-	EvmCoinInfo() evmtypes.EvmCoinInfo
-}
-
-func getEthChainConfig(provider chainConfigProvider) *gethparams.ChainConfig {
-	if cfg := provider.EthChainConfig(); cfg != nil {
-		return cfg
-	}
-	if chainCfg := provider.ChainConfig(); chainCfg != nil {
-		return chainCfg.EthereumConfig(nil)
-	}
-	return evmtypes.GetEthChainConfig()
-}
-
 // NewMonoDecoratorUtils returns a new DecoratorUtils instance.
 //
 // These utilities are extracted once at the beginning of the ante handle process,
@@ -68,11 +53,10 @@ func NewMonoDecoratorUtils(
 	evmParams *evmtypes.Params,
 	feemarketParams *feemarkettypes.Params,
 ) (*DecoratorUtils, error) {
-	ethCfg := getEthChainConfig(ek)
-
+	ethCfg := ek.EthChainConfig()
 	evmDenom := ek.EvmCoinInfo().Denom
 	if evmDenom == "" {
-		evmDenom = evmtypes.GetEVMCoinDenom()
+		evmDenom = evmtypes.DefaultEVMDenom
 	}
 
 	blockHeight := big.NewInt(ctx.BlockHeight())

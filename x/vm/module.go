@@ -232,13 +232,16 @@ func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.
 
 	chainCfg := k.ChainConfig()
 	if chainCfg == nil {
-		chainCfg = types.GetChainConfig()
+		chainCfg = types.DefaultChainConfig(types.DefaultEVMChainID)
+	} else {
+		copied := *chainCfg
+		chainCfg = &copied
 	}
-	if chainCfg == nil {
-		chainCfg = types.DefaultChainConfig(0)
+	if coinInfo.Denom != "" {
+		chainCfg.Denom = coinInfo.Denom
 	}
-	if err := types.SetChainConfig(chainCfg); err != nil {
-		panic(err)
+	if coinInfo.Decimals != 0 {
+		chainCfg.Decimals = uint64(coinInfo.Decimals)
 	}
 
 	ethCfg := chainCfg.EthereumConfig(nil)

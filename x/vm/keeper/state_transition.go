@@ -312,7 +312,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	if msg.GasLimit > res.GasUsed {
 		remainingGas = msg.GasLimit - res.GasUsed
 	}
-	if err = k.RefundGas(ctx, *msg, remainingGas, types.GetEVMCoinDenom()); err != nil {
+	refundDenom := k.EvmCoinInfo().Denom
+	if refundDenom == "" {
+		refundDenom = types.DefaultEVMDenom
+	}
+	if err = k.RefundGas(ctx, *msg, remainingGas, refundDenom); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 

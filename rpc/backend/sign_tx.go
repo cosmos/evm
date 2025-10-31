@@ -74,7 +74,7 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 		return common.Hash{}, err
 	}
 
-	baseDenom := evmtypes.GetEVMCoinDenom()
+	baseDenom := b.evmDenom()
 
 	// Assemble transaction from fields
 	tx, err := msg.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)

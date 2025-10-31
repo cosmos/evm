@@ -176,10 +176,23 @@ type Backend struct {
 	// ethChainCfg carries the runtime (keeper-derived) Ethereum chain configuration and is
 	// intentionally kept separate from the static app.toml-backed config in Cfg.
 	ethChainCfg *params.ChainConfig
+	coinInfo    evmtypes.EvmCoinInfo
 }
 
 func (b *Backend) GetConfig() config.Config {
 	return b.Cfg
+}
+
+func (b *Backend) evmDenom() string {
+	if b.coinInfo.Denom != "" {
+		return b.coinInfo.Denom
+	}
+	// Ensure chain config is loaded; this will populate coin info when successful.
+	b.ChainConfig()
+	if b.coinInfo.Denom != "" {
+		return b.coinInfo.Denom
+	}
+	return evmtypes.DefaultEVMDenom
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces

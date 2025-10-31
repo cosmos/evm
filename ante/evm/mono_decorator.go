@@ -78,7 +78,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	evmDenom := md.evmKeeper.EvmCoinInfo().Denom
 	if evmDenom == "" {
-		evmDenom = evmtypes.GetEVMCoinDenom()
+		evmDenom = evmtypes.DefaultEVMDenom
 	}
 
 	// 1. setup ctx
@@ -115,7 +115,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		Difficulty: big.NewInt(0),
 	}
 
-	chainConfig := getEthChainConfig(md.evmKeeper)
+	chainConfig := md.evmKeeper.EthChainConfig()
 
 	if err := txpool.ValidateTransaction(ethTx, &header, decUtils.Signer, &txpool.ValidationOptions{
 		Config:  chainConfig,
