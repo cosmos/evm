@@ -75,10 +75,6 @@ func TestConvertEvmCoinFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Configure())
-
 			coinConverted, err := evmtypes.ConvertEvmCoinDenomToExtendedDenom(tc.coin)
 
 			if !tc.expErr {
@@ -139,10 +135,6 @@ func TestConvertCoinsFrom18Decimals(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.evmCoinInfo).Configure())
-
 			coinConverted := evmtypes.ConvertCoinsDenomToExtendedDenom(tc.coins)
 			require.Equal(t, tc.expCoins, coinConverted, "expected a different coin")
 		})
@@ -188,9 +180,6 @@ func TestConvertAmountTo18DecimalsLegacy(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
 				res := evmtypes.ConvertBigIntFrom18DecimalsToLegacyDec(tc.amt.ToBig())
 				exp := math.LegacyNewDecFromBigInt(tc.amt.ToBig())
 				if coinInfo.Decimals == evmtypes.SixDecimals.Uint32() {
@@ -226,9 +215,6 @@ func TestConvertAmountTo18DecimalsBigInt(t *testing.T) {
 	} {
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%d dec - %s", coinInfo.Decimals, tc.name), func(t *testing.T) {
-				configurator := evmtypes.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				require.NoError(t, configurator.WithEVMCoinInfo(coinInfo).Configure())
 				res := evmtypes.ConvertAmountTo18DecimalsBigInt(tc.amt)
 				exp := tc.amt
 				if coinInfo.Decimals == evmtypes.SixDecimals.Uint32() {

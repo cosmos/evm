@@ -80,7 +80,7 @@ func (s *IntegrationTestSuite) setupSmartWalletForKey(key testkeyring.Key) {
 	if s.walletConfigured[key.Addr] {
 		return
 	}
-	chainID := evmtypes.GetChainConfig().GetChainId()
+	chainID := s.network.App.GetEVMKeeper().ChainConfig().ChainId
 	acc, err := s.grpcHandler.GetEvmAccount(key.Addr)
 	Expect(err).To(BeNil())
 

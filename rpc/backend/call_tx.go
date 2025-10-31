@@ -131,7 +131,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		return common.Hash{}, fmt.Errorf("failed to validate transaction: %w", err)
 	}
 
-	baseDenom := evmtypes.GetEVMCoinDenom()
+	baseDenom := b.evmDenom()
 
 	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	if err != nil {

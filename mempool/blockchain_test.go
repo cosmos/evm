@@ -48,23 +48,19 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockFeeMarketKeeper := mocks.NewFeeMarketKeeper(t)
 
 	ethCfg := vmtypes.DefaultChainConfig(constants.EighteenDecimalsChainID)
-	if err := vmtypes.SetChainConfig(ethCfg); err != nil {
-		panic(err)
-	}
 
 	// Set up mock expectations for methods that will be called
 	mockVMKeeper.On("GetBaseFee", mock.Anything).Return(big.NewInt(1000000000)).Maybe()         // 1 gwei
 	mockFeeMarketKeeper.On("GetBlockGasWanted", mock.Anything).Return(uint64(10000000)).Maybe() // 10M gas
 	mockVMKeeper.On("GetParams", mock.Anything).Return(vmtypes.DefaultParams()).Maybe()
+	mockVMKeeper.On("ChainConfig").Return(ethCfg).Maybe()
+	mockVMKeeper.On("EthChainConfig").Return(ethCfg.EthereumConfig(nil)).Maybe()
 	mockVMKeeper.On("GetAccount", mock.Anything, common.Address{}).Return(&statedb.Account{}).Maybe()
 	mockVMKeeper.On("GetState", mock.Anything, common.Address{}, common.Hash{}).Return(common.Hash{}).Maybe()
 	mockVMKeeper.On("GetCode", mock.Anything, common.Hash{}).Return([]byte{}).Maybe()
 	mockVMKeeper.On("GetCodeHash", mock.Anything, common.Address{}).Return(common.Hash{}).Maybe()
 	mockVMKeeper.On("ForEachStorage", mock.Anything, common.Address{}, mock.AnythingOfType("func(common.Hash, common.Hash) bool")).Maybe()
 	mockVMKeeper.On("KVStoreKeys").Return(make(map[string]*storetypes.KVStoreKey)).Maybe()
-
-	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Configure()
-	require.NoError(t, err)
 
 	// Mock context callback that returns a valid context
 	getCtxCallback := func(height int64, prove bool) (sdk.Context, error) {

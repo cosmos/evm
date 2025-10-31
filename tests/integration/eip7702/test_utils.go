@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
@@ -44,9 +43,7 @@ func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *Use
 	}
 }
 
-func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey) (*UserOperation, error) {
-	chainID := new(big.Int).SetUint64(evmtypes.GetChainConfig().GetChainId())
-
+func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey, chainID *big.Int) (*UserOperation, error) {
 	addressType, _ := abi.NewType("address", "", nil)
 	uint256Type, _ := abi.NewType("uint256", "", nil)
 	bytes32Type, _ := abi.NewType("bytes32", "", nil)

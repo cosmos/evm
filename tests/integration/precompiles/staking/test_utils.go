@@ -167,7 +167,7 @@ func (s *PrecompileTestSuite) delegateAccountToContract(privKey cryptotypes.Priv
 	ecdsaPriv, err := ethPriv.ToECDSA()
 	Expect(err).To(BeNil(), "error converting to ECDSA private key")
 
-	chainID := evmtypes.GetChainConfig().GetChainId()
+	chainID := s.network.GetEvmChainID()
 	accResp, err := s.grpcHandler.GetEvmAccount(accountAddr)
 	Expect(err).To(BeNil(), "error while getting the EVM account")
 

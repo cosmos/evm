@@ -15,8 +15,9 @@ import (
 
 func (s *EvmAnteTestSuite) TestEthSetupContextDecorator() {
 	dec := evmante.NewEthSetUpContextDecorator(s.GetNetwork().App.GetEVMKeeper())
+	evmChainID := s.GetNetwork().App.GetEVMKeeper().EvmChainID()
 	ethContractCreationTxParams := &evmtypes.EvmTxArgs{
-		ChainID:  evmtypes.GetEthChainConfig().ChainID,
+		ChainID:  evmChainID,
 		Nonce:    1,
 		Amount:   big.NewInt(10),
 		GasLimit: 1000,

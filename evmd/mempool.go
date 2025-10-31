@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"fmt"
+
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"
@@ -11,12 +12,11 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	evmmempool "github.com/cosmos/evm/mempool"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // configureEVMMempool sets up the EVM mempool and related handlers using viper configuration.
 func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
-	if evmtypes.GetChainConfig() == nil {
+	if app.EVMKeeper.ChainConfig() == nil {
 		logger.Debug("evm chain config is not set, skipping mempool configuration")
 		return nil
 	}

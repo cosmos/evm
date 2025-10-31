@@ -89,18 +89,12 @@ func TestGetBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
-			result := feeMarketWrapper.GetBaseFee(sdk.Context{}, evmtypes.Decimals(tc.coinInfo.Decimals))
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.coinInfo)
+			result := feeMarketWrapper.GetBaseFee(sdk.Context{})
 
 			require.Equal(t, tc.expResult, result)
 		})
@@ -179,17 +173,11 @@ func TestCalculateBaseFee(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.coinInfo)
 			result := feeMarketWrapper.CalculateBaseFee(sdk.Context{})
 
 			require.Equal(t, tc.expResult, result)
@@ -254,17 +242,11 @@ func TestGetParams(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup EVM configurator to have access to the EVM coin info.
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err := configurator.WithEVMCoinInfo(tc.coinInfo).Configure()
-			require.NoError(t, err, "failed to configure EVMConfigurator")
-
 			ctrl := gomock.NewController(t)
 			mockFeeMarketKeeper := testutil.NewMockFeeMarketKeeper(ctrl)
 			tc.mockSetup(mockFeeMarketKeeper)
 
-			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper)
+			feeMarketWrapper := wrappers.NewFeeMarketWrapper(mockFeeMarketKeeper, tc.coinInfo)
 			result := feeMarketWrapper.GetParams(sdk.Context{})
 
 			require.Equal(t, tc.expParams, result)

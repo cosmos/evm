@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -53,11 +54,13 @@ type Keeper struct {
 
 	// bankWrapper is used to convert the Cosmos SDK coin used in the EVM to the
 	// proper decimal representation.
+	bankKeeper  types.BankKeeper
 	bankWrapper types.BankWrapper
 
 	// access historical headers for EVM state transition execution
 	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
+	feeMarketKeeper  types.FeeMarketKeeper
 	feeMarketWrapper *wrappers.FeeMarketWrapper
 	// optional erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
@@ -81,6 +84,10 @@ type Keeper struct {
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// runtimeCfg keeps runtime-wide configuration (chain config, coin info,
+	// extra EIPs) to avoid using package-level global variables.
+	runtimeCfg *types.RuntimeConfig
 }
 
 // NewKeeper generates new evm module keeper
@@ -108,34 +115,36 @@ func NewKeeper(
 		panic(err)
 	}
 
-	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
-	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
+	effectiveChainID := evmChainID
+	if effectiveChainID == 0 {
+		effectiveChainID = types.DefaultEVMChainID
+	}
+
+	defaultChainCfg := types.DefaultChainConfig(effectiveChainID)
+
 	storeKeys := make(map[string]storetypes.StoreKey)
 	for _, k := range keys {
 		storeKeys[k.Name()] = k
 	}
 
-	// set global chain config
-	ethCfg := types.DefaultChainConfig(evmChainID)
-	if err := types.SetChainConfig(ethCfg); err != nil {
-		panic(err)
+	keeper := &Keeper{
+		cdc:             cdc,
+		authority:       authority,
+		accountKeeper:   ak,
+		bankKeeper:      bankKeeper,
+		stakingKeeper:   sk,
+		feeMarketKeeper: fmk,
+		storeKey:        storeKey,
+		transientKey:    transientKey,
+		tracer:          tracer,
+		consensusKeeper: consensusKeeper,
+		erc20Keeper:     erc20Keeper,
+		storeKeys:       storeKeys,
 	}
 
-	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
-	return &Keeper{
-		cdc:              cdc,
-		authority:        authority,
-		accountKeeper:    ak,
-		bankWrapper:      bankWrapper,
-		stakingKeeper:    sk,
-		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		transientKey:     transientKey,
-		tracer:           tracer,
-		consensusKeeper:  consensusKeeper,
-		erc20Keeper:      erc20Keeper,
-		storeKeys:        storeKeys,
-	}
+	keeper.WithChainConfig(defaultChainCfg)
+
+	return keeper
 }
 
 // Logger returns a module-specific logger.
@@ -156,6 +165,123 @@ func (k Keeper) EmitBlockBloomEvent(ctx sdk.Context, bloom ethtypes.Bloom) {
 			sdk.NewAttribute(types.AttributeKeyEthereumBloom, string(bloom.Bytes())),
 		),
 	)
+}
+
+// ----------------------------------------------------------------------------
+// Runtime configuration
+// ----------------------------------------------------------------------------
+
+// SetRuntimeConfig stores the runtime configuration shared across components.
+func (k *Keeper) SetRuntimeConfig(cfg *types.RuntimeConfig) error {
+	if cfg == nil {
+		return errors.New("runtime config cannot be nil")
+	}
+
+	k.runtimeCfg = cfg
+	coinInfo := cfg.EvmCoinInfo()
+	if k.bankKeeper != nil {
+		k.bankWrapper = wrappers.NewBankWrapper(k.bankKeeper, coinInfo)
+	}
+	if k.feeMarketKeeper != nil {
+		k.feeMarketWrapper = wrappers.NewFeeMarketWrapper(k.feeMarketKeeper, coinInfo)
+	}
+
+	return nil
+}
+
+// RuntimeConfig returns the stored runtime configuration.
+func (k Keeper) RuntimeConfig() *types.RuntimeConfig {
+	return k.runtimeCfg
+}
+
+func coinInfoFromChainConfig(chainCfg *types.ChainConfig) types.EvmCoinInfo {
+	denom := chainCfg.Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
+	extended := denom
+	display := denom
+	if denom == types.DefaultEVMDenom {
+		display = types.DefaultEVMDisplayDenom
+	}
+	decimals := uint32(types.DefaultEVMDecimals)
+	if chainCfg.Decimals != 0 {
+		decimals = uint32(chainCfg.Decimals)
+	}
+
+	return types.EvmCoinInfo{
+		Denom:         denom,
+		ExtendedDenom: extended,
+		DisplayDenom:  display,
+		Decimals:      decimals,
+	}
+}
+
+// WithChainConfig sets the keeper runtime configuration using the provided chain config.
+// If chainCfg is nil, the default configuration is used. The method updates both the global
+// chain configuration (for legacy consumers) and the keeper's runtime configuration.
+func (k *Keeper) WithChainConfig(chainCfg *types.ChainConfig) *Keeper {
+	if chainCfg == nil {
+		chainCfg = types.DefaultChainConfig(types.DefaultEVMChainID)
+	}
+
+	coinInfo := coinInfoFromChainConfig(chainCfg)
+	if err := types.EnsureEVMCoinInfo(coinInfo); err != nil {
+		panic(err)
+	}
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, coinInfo, types.DefaultExtraEIPs)
+	if err != nil {
+		panic(err)
+	}
+	if err := k.SetRuntimeConfig(runtimeCfg); err != nil {
+		panic(err)
+	}
+
+	return k
+}
+
+// ChainConfig returns the x/vm ChainConfig kept in runtime config.
+func (k Keeper) ChainConfig() *types.ChainConfig {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return nil
+	}
+	return cfg.ChainConfig()
+}
+
+func (k Keeper) EvmChainID() *big.Int {
+	return big.NewInt(int64(k.ChainConfig().ChainId)) //nolint:gosec // won't exceed int64
+}
+
+// EthChainConfig returns the go-ethereum ChainConfig kept in runtime config.
+func (k Keeper) EthChainConfig() *ethparams.ChainConfig {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return nil
+	}
+	return cfg.EthChainConfig()
+}
+
+// EvmCoinInfo returns the EvmCoinInfo kept in runtime config.
+func (k Keeper) EvmCoinInfo() types.EvmCoinInfo {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return types.EvmCoinInfo{}
+	}
+	return cfg.EvmCoinInfo()
+}
+
+// effectiveEthChainConfig returns the runtime chain config if present, or falls back to the
+// legacy package-level configuration.
+func (k Keeper) effectiveEthChainConfig() *ethparams.ChainConfig {
+	if cfg := k.EthChainConfig(); cfg != nil {
+		return cfg
+	}
+	if chainCfg := k.ChainConfig(); chainCfg != nil {
+		return chainCfg.EthereumConfig(nil)
+	}
+	// Fallback to the default configuration as a last resort.
+	return types.DefaultChainConfig(types.DefaultEVMChainID).EthereumConfig(nil)
 }
 
 // GetAuthority returns the x/evm module authority address
@@ -322,7 +448,11 @@ func (k *Keeper) SpendableCoin(ctx sdk.Context, addr common.Address) *uint256.In
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	denom := k.EvmCoinInfo().Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
+	coin := k.bankWrapper.SpendableCoin(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {
@@ -337,7 +467,11 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
 	// Get the balance via bank wrapper to convert it to 18 decimals if needed.
-	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, types.GetEVMCoinDenom())
+	denom := k.EvmCoinInfo().Denom
+	if denom == "" {
+		denom = types.DefaultEVMDenom
+	}
+	coin := k.bankWrapper.GetBalance(ctx, cosmosAddr, denom)
 
 	result, err := utils.Uint256FromBigInt(coin.Amount.BigInt())
 	if err != nil {
@@ -352,12 +486,11 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.effectiveEthChainConfig()
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	coinInfo := k.GetEvmCoinInfo(ctx)
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
+	baseFee := k.feeMarketWrapper.GetBaseFee(ctx)
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)

@@ -14,9 +14,8 @@ import (
 // ConvertAmountTo18DecimalsLegacy convert the given amount into a 18 decimals
 // representation.
 func ConvertAmountTo18DecimalsLegacy(amt sdkmath.LegacyDec) sdkmath.LegacyDec {
-	evmCoinDecimal := GetEVMCoinDecimals()
-
-	return amt.MulInt(evmCoinDecimal.ConversionFactor())
+	eighteenDecimals := Decimals(18)
+	return amt.MulInt(eighteenDecimals.ConversionFactor())
 }
 
 // ConvertAmountTo18DecimalsBigInt convert the given amount into a 18 decimals

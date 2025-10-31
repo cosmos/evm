@@ -66,7 +66,7 @@ func InitGenesis(
 
 	coinInfo := k.GetEvmCoinInfo(ctx)
 	initializer.Do(func() {
-		SetGlobalConfigVariables(coinInfo)
+		SetGlobalConfigVariables(ctx, k, coinInfo)
 	})
 
 	if err := k.AddPreinstalls(ctx, data.Preinstalls); err != nil {

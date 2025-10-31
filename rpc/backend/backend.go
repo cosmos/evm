@@ -173,10 +173,18 @@ type Backend struct {
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
+	// ethChainCfg carries the runtime (keeper-derived) Ethereum chain configuration and is
+	// intentionally kept separate from the static app.toml-backed config in Cfg.
+	ethChainCfg *params.ChainConfig
+	coinInfo    evmtypes.EvmCoinInfo
 }
 
 func (b *Backend) GetConfig() config.Config {
 	return b.Cfg
+}
+
+func (b *Backend) evmDenom() string {
+	return b.coinInfo.Denom
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
@@ -187,6 +195,8 @@ func NewBackend(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	ethChainConfig *params.ChainConfig,
+	evmCoinInfo evmtypes.EvmCoinInfo,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
@@ -209,7 +219,10 @@ func NewBackend(
 		AllowUnprotectedTxs: allowUnprotectedTxs,
 		Indexer:             indexer,
 		Mempool:             mempool,
+		ethChainCfg:         ethChainConfig,
+		coinInfo:            evmCoinInfo,
 	}
+
 	b.ProcessBlocker = b.ProcessBlock
 	return b
 }

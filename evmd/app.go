@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -801,6 +800,10 @@ func (app *EVMD) onPendingTx(hash common.Hash) {
 // RegisterPendingTxListener is used by json-rpc server to listen to pending transactions callback.
 func (app *EVMD) RegisterPendingTxListener(listener func(common.Hash)) {
 	app.pendingTxListeners = append(app.pendingTxListeners, listener)
+}
+
+func (app *EVMD) RuntimeConfig() *evmtypes.RuntimeConfig {
+	return app.EVMKeeper.RuntimeConfig()
 }
 
 func (app *EVMD) setPostHandler() {

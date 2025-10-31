@@ -94,8 +94,9 @@ func DeliverEthTx(
 	msgs ...sdk.Msg,
 ) (abci.ExecTxResult, error) {
 	txConfig := exampleApp.GetTxConfig()
+	evmChainID := exampleApp.GetEVMKeeper().EvmChainID()
 
-	tx, err := tx.PrepareEthTx(txConfig, priv, msgs...)
+	tx, err := tx.PrepareEthTx(txConfig, priv, evmChainID, msgs...)
 	if err != nil {
 		return abci.ExecTxResult{}, err
 	}
@@ -121,8 +122,9 @@ func DeliverEthTxWithoutCheck(
 	msgs ...sdk.Msg,
 ) (abci.ExecTxResult, error) {
 	txConfig := exampleApp.GetTxConfig()
+	evmChainID := exampleApp.GetEVMKeeper().EvmChainID()
 
-	tx, err := tx.PrepareEthTx(txConfig, priv, msgs...)
+	tx, err := tx.PrepareEthTx(txConfig, priv, evmChainID, msgs...)
 	if err != nil {
 		return abci.ExecTxResult{}, err
 	}
@@ -170,8 +172,9 @@ func CheckEthTx(
 	msgs ...sdk.Msg,
 ) (abci.ResponseCheckTx, error) {
 	txConfig := exampleApp.GetTxConfig()
+	evmChainID := exampleApp.GetEVMKeeper().EvmChainID()
 
-	tx, err := tx.PrepareEthTx(txConfig, priv, msgs...)
+	tx, err := tx.PrepareEthTx(txConfig, priv, evmChainID, msgs...)
 	if err != nil {
 		return abci.ResponseCheckTx{}, err
 	}

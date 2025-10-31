@@ -41,6 +41,11 @@ func (n *UnitTestNetwork) GetStateDB() *statedb.StateDB {
 	)
 }
 
+// GetEvmChainID returns evm chain id
+func (n *UnitTestNetwork) GetEvmChainID() uint64 {
+	return n.app.GetEVMKeeper().ChainConfig().ChainId
+}
+
 // FundAccount funds the given account with the given amount of coins.
 func (n *UnitTestNetwork) FundAccount(addr sdktypes.AccAddress, coins sdktypes.Coins) error {
 	ctx := n.GetContext()

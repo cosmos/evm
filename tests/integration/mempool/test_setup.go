@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -122,6 +123,17 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 
 	s.network = nw
 	s.factory = tf
+
+	// Ensure runtime config is aligned with the network chain ID and coin info.
+	params := s.network.App.GetEVMKeeper().GetParams(s.network.GetContext())
+	chainCfg := evmtypes.DefaultChainConfig(chainID.EVMChainID)
+	coinInfo := testconstants.ChainsCoinInfo[chainID.EVMChainID]
+	chainCfg.Denom = coinInfo.Denom
+	chainCfg.Decimals = uint64(coinInfo.Decimals)
+	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
+	s.Require().NoError(err)
+	s.Require().NoError(s.network.App.GetEVMKeeper().SetRuntimeConfig(runtimeCfg))
+	s.Require().Equal(chainID.EVMChainID, s.network.App.GetEVMKeeper().EthChainConfig().ChainID.Uint64())
 }
 
 // FundAccount funds an account with a specific amount of a given denomination.

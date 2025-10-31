@@ -55,7 +55,7 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 		Random:      &common.MaxHash, // need to be different than nil to signal it is after the merge and pick up the right opcodes
 	}
 
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.effectiveEthChainConfig()
 	txCtx := core.NewEVMTxContext(&msg)
 	if tracer == nil {
 		tracer = k.Tracer(ctx, msg, ethCfg)
@@ -202,7 +202,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	txConfig := k.TxConfig(ctx, tx.Hash())
 
 	// get the signer according to the chain rules from the config and block height
-	signer := ethtypes.MakeSigner(types.GetEthChainConfig(), big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
+	ethCfg := k.effectiveEthChainConfig()
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
@@ -311,7 +312,11 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	if msg.GasLimit > res.GasUsed {
 		remainingGas = msg.GasLimit - res.GasUsed
 	}
-	if err = k.RefundGas(ctx, *msg, remainingGas, types.GetEVMCoinDenom()); err != nil {
+	refundDenom := k.EvmCoinInfo().Denom
+	if refundDenom == "" {
+		refundDenom = types.DefaultEVMDenom
+	}
+	if err = k.RefundGas(ctx, *msg, remainingGas, refundDenom); err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
 	}
 
@@ -399,7 +404,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
-	ethCfg := types.GetEthChainConfig()
+	ethCfg := k.effectiveEthChainConfig()
 	evm := k.NewEVMWithOverridePrecompiles(ctx, msg, cfg, tracer, stateDB, overrides == nil)
 	// Gas limit suffices for the floor data cost (EIP-7623)
 	rules := ethCfg.Rules(evm.Context.BlockNumber, true, evm.Context.Time)

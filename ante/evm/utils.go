@@ -6,6 +6,7 @@ import (
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	gethparams "github.com/ethereum/go-ethereum/params"
 
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -33,6 +34,11 @@ type DecoratorUtils struct {
 	TxFee              *big.Int
 }
 
+type chainConfigProvider interface {
+	EthChainConfig() *gethparams.ChainConfig
+	ChainConfig() *evmtypes.ChainConfig
+}
+
 // NewMonoDecoratorUtils returns a new DecoratorUtils instance.
 //
 // These utilities are extracted once at the beginning of the ante handle process,
@@ -47,8 +53,9 @@ func NewMonoDecoratorUtils(
 	evmParams *evmtypes.Params,
 	feemarketParams *feemarkettypes.Params,
 ) (*DecoratorUtils, error) {
-	ethCfg := evmtypes.GetEthChainConfig()
-	evmDenom := evmtypes.GetEVMCoinDenom()
+	ethCfg := ek.EthChainConfig()
+	evmDenom := ek.EvmCoinInfo().Denom
+
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
 	baseFee := evmtypes.GetBaseFee(ctx.BlockHeight(), ethCfg, feemarketParams)

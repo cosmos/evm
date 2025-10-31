@@ -139,9 +139,6 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 			err := vmdb.Commit()
 			s.Require().NoError(err)
 
-			configurator := types.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-
 			if tc.expPanic {
 				s.Require().Panics(func() {
 					_ = vm.InitGenesis(

@@ -65,10 +65,16 @@ func setupMockBackend(t *testing.T) *Backend {
 		WithClient(mocks.NewClient(t)).
 		WithCodec(encodingConfig.Codec)
 
+	chainCfg := evmtypes.DefaultChainConfig(constants.ExampleChainID.EVMChainID)
+	coinInfo := constants.ChainsCoinInfo[constants.ExampleChainID.EVMChainID]
+
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	evmChainID := constants.ExampleChainID.EVMChainID
+	ethChainConfig := *chainCfg.EthereumConfig(big.NewInt(int64(evmChainID))) //nolint:gosec // Won't exceed int64
+
+	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil, &ethChainConfig, coinInfo)
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true

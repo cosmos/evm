@@ -107,13 +107,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			feemarketGenesis.Params.NoBaseFee = true
 			customGenesis[feemarkettypes.ModuleName] = feemarketGenesis
 
-			// Reset evm config here for the standard case
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			Expect(configurator.
-				WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[chainId]).
-				Configure()).To(BeNil(), "expected no error setting the evm configurator")
-
 			opts := []network.ConfigOption{
 				network.WithChainID(chainId),
 				network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),

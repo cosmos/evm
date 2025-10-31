@@ -140,7 +140,7 @@ func (am AppModule) PreBlock(goCtx context.Context) (appmodule.ResponsePreBlock,
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	coinInfo := am.keeper.GetEvmCoinInfo(ctx)
 	am.initializer.Do(func() {
-		SetGlobalConfigVariables(coinInfo)
+		SetGlobalConfigVariables(ctx, am.keeper, coinInfo)
 	})
 	return &sdk.ResponsePreBlock{ConsensusParamsChanged: false}, nil
 }
@@ -212,19 +212,44 @@ func setBaseDenom(ci types.EvmCoinInfo) (err error) {
 	return sdk.RegisterDenom(ci.Denom, math.LegacyNewDecWithPrec(1, int64(ci.Decimals)))
 }
 
-func SetGlobalConfigVariables(coinInfo types.EvmCoinInfo) {
+func SetGlobalConfigVariables(ctx sdk.Context, k *keeper.Keeper, coinInfo types.EvmCoinInfo) {
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
 		panic(err)
 	}
 
-	configurator := types.NewEVMConfigurator()
-	err := configurator.
-		WithExtendedEips(types.DefaultCosmosEVMActivators).
-		// NOTE: we're using the 18 decimals default for the example chain
-		WithEVMCoinInfo(coinInfo).
-		Configure()
+	// configurator := types.NewEVMConfigurator()
+	// err := configurator.
+	// 	WithExtendedEips(types.DefaultCosmosEVMActivators).
+	// 	// NOTE: we're using the 18 decimals default for the example chain
+	// 	WithEVMCoinInfo(coinInfo).
+	// 	Configure()
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	params := k.GetParams(ctx)
+
+	chainCfg := k.ChainConfig()
+	if chainCfg == nil {
+		chainCfg = types.DefaultChainConfig(types.DefaultEVMChainID)
+	} else {
+		copied := *chainCfg
+		chainCfg = &copied
+	}
+	if coinInfo.Denom != "" {
+		chainCfg.Denom = coinInfo.Denom
+	}
+	if coinInfo.Decimals != 0 {
+		chainCfg.Decimals = uint64(coinInfo.Decimals)
+	}
+
+	runtimeCfg, err := types.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
 	if err != nil {
+		panic(err)
+	}
+
+	if err := k.SetRuntimeConfig(runtimeCfg); err != nil {
 		panic(err)
 	}
 }

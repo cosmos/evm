@@ -7,6 +7,7 @@ import (
 
 	mempool "github.com/cosmos/evm/mempool"
 	common "github.com/ethereum/go-ethereum/common"
+	gethparams "github.com/ethereum/go-ethereum/params"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -168,6 +169,46 @@ func (_m *VMKeeper) GetParams(ctx types.Context) vmtypes.Params {
 		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(vmtypes.Params)
+	}
+
+	return r0
+}
+
+// ChainConfig provides a mock function with no fields
+func (_m *VMKeeper) ChainConfig() *vmtypes.ChainConfig {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChainConfig")
+	}
+
+	var r0 *vmtypes.ChainConfig
+	if rf, ok := ret.Get(0).(func() *vmtypes.ChainConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vmtypes.ChainConfig)
+		}
+	}
+
+	return r0
+}
+
+// EthChainConfig provides a mock function with no fields
+func (_m *VMKeeper) EthChainConfig() *gethparams.ChainConfig {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for EthChainConfig")
+	}
+
+	var r0 *gethparams.ChainConfig
+	if rf, ok := ret.Get(0).(func() *gethparams.ChainConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gethparams.ChainConfig)
+		}
 	}
 
 	return r0

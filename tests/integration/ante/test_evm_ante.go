@@ -48,7 +48,7 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 		ctx = s.GetNetwork().GetContext()
 	}
 
-	ethCfg := evmtypes.GetEthChainConfig()
+	ethCfg := s.network.App.GetEVMKeeper().EthChainConfig()
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
 		ChainID:   ethCfg.ChainID,
 		Nonce:     0,
@@ -947,8 +947,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithDynamicTxFee() {
 	addr, privKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
 
-	evmChainID := evmtypes.GetEthChainConfig().ChainID
-
+	evmChainID := s.network.App.GetEVMKeeper().EvmChainID()
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
 		ChainID:   evmChainID,
 		Nonce:     0,
@@ -1112,8 +1111,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 	addr, privKey := utiltx.NewAddrKey()
 	to := utiltx.GenerateAddress()
 
-	ethCfg := evmtypes.GetEthChainConfig()
-
+	ethCfg := s.network.App.GetEVMKeeper().EthChainConfig()
 	ethContractCreationTxParams := evmtypes.EvmTxArgs{
 		ChainID:   ethCfg.ChainID,
 		Nonce:     0,
@@ -1237,7 +1235,7 @@ func (s *EvmAnteTestSuite) TestAnteHandlerWithParams() {
 
 func (s *EvmAnteTestSuite) TestEthSigVerificationDecorator() {
 	addr, privKey := utiltx.NewAddrKey()
-	ethCfg := evmtypes.GetEthChainConfig()
+	ethCfg := s.network.App.GetEVMKeeper().EthChainConfig()
 	ethSigner := types.LatestSignerForChainID(ethCfg.ChainID)
 
 	ethContractCreationTxParams := &evmtypes.EvmTxArgs{
@@ -1309,9 +1307,10 @@ func (s *EvmAnteTestSuite) TestSignatures() {
 
 	privKey := s.GetKeyring().GetPrivKey(0)
 	to := utiltx.GenerateAddress()
+	chainID := s.network.App.GetEVMKeeper().EvmChainID()
 
 	txArgs := evmtypes.EvmTxArgs{
-		ChainID:  evmtypes.GetEthChainConfig().ChainID,
+		ChainID:  chainID,
 		Nonce:    0,
 		To:       &to,
 		Amount:   big.NewInt(10),

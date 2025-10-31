@@ -3,8 +3,7 @@ package evm
 import (
 	"math"
 
-	"github.com/ethereum/go-ethereum/params"
-
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	cosmosevmtypes "github.com/cosmos/evm/ante/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -15,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
+	gethparams "github.com/ethereum/go-ethereum/params"
 )
 
 // NewDynamicFeeChecker returns a `TxFeeChecker` that applies a dynamic fee to
@@ -25,7 +25,7 @@ import (
 // - when `ExtensionOptionDynamicFeeTx` is omitted, `tipFeeCap` defaults to `MaxInt64`.
 // - when london hardfork is not enabled, it falls back to SDK default behavior (validator min-gas-prices).
 // - Tx priority is set to `effectiveGasPrice / DefaultPriorityReduction`.
-func NewDynamicFeeChecker(feemarketParams *feemarkettypes.Params) authante.TxFeeChecker {
+func NewDynamicFeeChecker(evmKeeper anteinterfaces.EVMKeeper, feemarketParams *feemarkettypes.Params) authante.TxFeeChecker {
 	return func(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, error) {
 		feeTx, ok := tx.(sdk.FeeTx)
 		if !ok {
@@ -37,8 +37,12 @@ func NewDynamicFeeChecker(feemarketParams *feemarkettypes.Params) authante.TxFee
 			// genesis transactions: fallback to min-gas-price logic
 			return checkTxFeeWithValidatorMinGasPrices(ctx, feeTx)
 		}
-		denom := evmtypes.GetEVMCoinDenom()
-		ethCfg := evmtypes.GetEthChainConfig()
+		ethCfg := evmKeeper.EthChainConfig()
+		coinInfo := evmKeeper.EvmCoinInfo()
+		denom := coinInfo.Denom
+		if denom == "" {
+			denom = evmtypes.DefaultEVMDenom
+		}
 
 		return FeeChecker(ctx, feemarketParams, denom, ethCfg, feeTx)
 	}
@@ -49,7 +53,7 @@ func FeeChecker(
 	ctx sdk.Context,
 	feemarketParams *feemarkettypes.Params,
 	denom string,
-	ethConfig *params.ChainConfig,
+	ethConfig *gethparams.ChainConfig,
 	feeTx sdk.FeeTx,
 ) (sdk.Coins, int64, error) {
 	if !evmtypes.IsLondon(ethConfig, ctx.BlockHeight()) {
