@@ -62,9 +62,6 @@ func TestBlockchainRaceCondition(t *testing.T) {
 	mockVMKeeper.On("ForEachStorage", mock.Anything, common.Address{}, mock.AnythingOfType("func(common.Hash, common.Hash) bool")).Maybe()
 	mockVMKeeper.On("KVStoreKeys").Return(make(map[string]*storetypes.KVStoreKey)).Maybe()
 
-	err := vmtypes.NewEVMConfigurator().WithEVMCoinInfo(constants.ChainsCoinInfo[constants.EighteenDecimalsChainID]).Configure()
-	require.NoError(t, err)
-
 	// Mock context callback that returns a valid context
 	getCtxCallback := func(height int64, prove bool) (sdk.Context, error) {
 		return createMockContext(), nil

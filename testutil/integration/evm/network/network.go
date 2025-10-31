@@ -77,8 +77,6 @@ type IntegrationNetwork struct {
 //
 // It panics if an error occurs.
 func New(createEvmApp CreateEvmApp, opts ...ConfigOption) *IntegrationNetwork {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
 	cfg := DefaultConfig()
 	// Modify the default config with the given options
 	for _, opt := range opts {

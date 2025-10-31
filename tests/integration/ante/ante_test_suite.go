@@ -110,26 +110,6 @@ func (s *AnteTestSuite) SetupTest() {
 		chainConfig.CancunTime = &maxInt
 		chainConfig.PragueTime = &maxInt
 	}
-
-	// get the denom and decimals set when initialized the chain
-	// to set them again
-	// when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()
-	extendedDenom := evmtypes.GetEVMCoinExtendedDenom()
-	displayDenom := evmtypes.GetEVMCoinDisplayDenom()
-	decimals := evmtypes.GetEVMCoinDecimals()
-
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := configurator.
-		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals.Uint32(),
-		}).
-		Configure()
-	s.Require().NoError(err)
 }
 
 func (s *AnteTestSuite) WithFeemarketEnabled(enabled bool) {

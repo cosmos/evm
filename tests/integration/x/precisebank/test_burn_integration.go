@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -498,12 +496,6 @@ func (s *KeeperIntegrationTestSuite) TestBurnCoinsRandomValueMultiDecimals() {
 }
 
 func FuzzBurnCoins(f *testing.F) {
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	configurator.WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID])
-	err := configurator.Configure()
-	require.NoError(f, err)
-
 	f.Add(int64(0))
 	f.Add(int64(100))
 	f.Add(types.ConversionFactor().Int64())

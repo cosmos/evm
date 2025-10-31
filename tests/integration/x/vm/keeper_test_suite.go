@@ -113,9 +113,6 @@ func (s *KeeperTestSuite) SetupTest() {
 	displayDenom := evmtypes.GetEVMCoinDisplayDenom()
 	decimals := evmtypes.GetEVMCoinDecimals()
 
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-
 	s.setRuntimeConfig(chainConfig, evmtypes.EvmCoinInfo{
 		Denom:         denom,
 		ExtendedDenom: extendedDenom,
