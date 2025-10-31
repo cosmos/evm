@@ -429,7 +429,6 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 			txCfg := statedb.NewTxConfig(
 				txHash,
 				txIndex,
-				logIndex,
 			)
 			vmdb := statedb.New(
 				s.Network.GetContext(),

@@ -585,7 +585,7 @@ func (suite *StateDBTestSuite) TestLog() {
 	// use a non-default tx config
 	txConfig := statedb.NewTxConfig(
 		txHash,
-		1, 1,
+		1,
 	)
 	db := statedb.New(sdk.Context{}, mocks.NewEVMKeeper(), txConfig)
 	data := []byte("hello world")
