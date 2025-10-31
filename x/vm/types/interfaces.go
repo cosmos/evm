@@ -95,3 +95,8 @@ type BankWrapper interface {
 type ConsensusParamsKeeper interface {
 	Params(context.Context, *types.QueryParamsRequest) (*types.QueryParamsResponse, error)
 }
+
+// VMKeeper defines the expected interface needed for the VMKeeper when passed to functions.
+type VMKeeper interface {
+	GetEvmCoinInfo(ctx sdk.Context) (coinInfo EvmCoinInfo)
+}

@@ -73,7 +73,7 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
 		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
-		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
+		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.App.GetEVMKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.Network.App.GetEVMKeeper().EthereumTx(ctx, msg)
@@ -198,7 +198,7 @@ func BenchmarkMessageCall(b *testing.B) {
 		ctx, _ := suite.Network.GetContext().CacheContext()
 
 		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(msg.GetFee()))}
-		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
+		err = vmkeeper.DeductFees(suite.Network.App.GetBankKeeper(), suite.Network.App.GetEVMKeeper(), suite.Network.GetContext(), suite.Network.App.GetAccountKeeper().GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.Network.App.GetEVMKeeper().EthereumTx(ctx, msg)
