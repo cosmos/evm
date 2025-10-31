@@ -143,9 +143,8 @@ func (b *Backend) EthBlockFromCometBlock(
 		return nil, fmt.Errorf("failed to get miner(block proposer) address from comet block")
 	}
 
-	// 3. get block gasLimit
-	ctx := rpctypes.ContextWithHeight(cmtBlock.Height)
-	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, cmtBlock.Height)
+	// 3. get block gasLimit (cached by height)
+	gasLimit, err := b.BlockMaxGasAtHeight(cmtBlock.Height)
 	if err != nil {
 		b.Logger.Error("failed to query consensus params", "error", err.Error())
 	}

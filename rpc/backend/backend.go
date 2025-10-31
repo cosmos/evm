@@ -181,6 +181,7 @@ type Backend struct {
 	cometBlockCache        map[int64]*tmrpctypes.ResultBlock
 	cometBlockResultsCache map[int64]*tmrpctypes.ResultBlockResults
 	feeParamsCache         map[int64]feemarkettypes.Params
+	consensusGasLimitCache map[int64]int64
 }
 
 func (b *Backend) GetConfig() config.Config {
@@ -220,6 +221,7 @@ func NewBackend(
 		cometBlockCache:        make(map[int64]*tmrpctypes.ResultBlock),
 		cometBlockResultsCache: make(map[int64]*tmrpctypes.ResultBlockResults),
 		feeParamsCache:         make(map[int64]feemarkettypes.Params),
+		consensusGasLimitCache: make(map[int64]int64),
 	}
 	b.ProcessBlocker = b.ProcessBlock
 	return b
@@ -247,4 +249,32 @@ func (b *Backend) getFeeMarketParamsAtHeight(height int64) (feemarkettypes.Param
 	b.feeParamsCache[height] = res.Params
 	b.cacheMu.Unlock()
 	return res.Params, nil
+}
+
+// BlockMaxGasAtHeight returns the consensus block gas limit for a given height using a height-keyed cache.
+func (b *Backend) BlockMaxGasAtHeight(height int64) (int64, error) {
+	b.cacheMu.RLock()
+	if gl, ok := b.consensusGasLimitCache[height]; ok {
+		b.cacheMu.RUnlock()
+		return gl, nil
+	}
+	b.cacheMu.RUnlock()
+
+	ctx := types.ContextWithHeight(height)
+	gasLimit, err := types.BlockMaxGasFromConsensusParams(ctx, b.ClientCtx, height)
+	if err != nil {
+		return gasLimit, err
+	}
+
+	b.cacheMu.Lock()
+	// simple prune aligned with fee history window
+	if cap := int(b.Cfg.JSONRPC.FeeHistoryCap) * 2; cap > 0 && len(b.consensusGasLimitCache) >= cap {
+		for k := range b.consensusGasLimitCache {
+			delete(b.consensusGasLimitCache, k)
+			break
+		}
+	}
+	b.consensusGasLimitCache[height] = gasLimit
+	b.cacheMu.Unlock()
+	return gasLimit, nil
 }
