@@ -17,9 +17,7 @@ enum UpdateResult {
     /// The update was successful
     Update,
     /// A misbehaviour was detected
-    Misbehaviour,
-    /// Client is already up to date
-    NoOp
+    Misbehaviour
 }
 ```
 
@@ -88,10 +86,7 @@ This method is meant to be called by `solidity-ibc` relayers. It validates the c
 
 ### `UpdateClient`
 
-This method allows updating the IBC light client state on-chain. It accepts a client identifier and an encoded client message (a protobuf Any). The method processes the update message, verifies it, and updates the client state accordingly. It returns an `UpdateResult` enum indicating whether the update was successful, if misbehaviour was detected, or if no update was necessary.
-
-> [!NOTE]
-> Currently, the no-op case detection is not implemented, and all valid updates will result in a success result (except misbehaviour cases).
+This method allows updating the IBC light client state on-chain. It accepts a client identifier and an encoded client message (a protobuf Any). The method processes the update message, verifies it, and updates the client state accordingly. It returns an `UpdateResult` enum indicating whether the update was successful or if misbehaviour was detected.
 
 ### `VerifyMembership` and `VerifyNonMembership`
 
