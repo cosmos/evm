@@ -2,7 +2,7 @@
 ARG IMG_TAG=latest
 
 # Compile the evmd binary
-FROM golang:1.24-alpine AS evmd-builder
+FROM golang:1.25-alpine AS evmd-builder
 WORKDIR /work
 ENV PACKAGES="curl build-base git bash file linux-headers eudev-dev"
 RUN apk add --no-cache $PACKAGES
