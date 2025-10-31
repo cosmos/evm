@@ -574,7 +574,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				return types.TransactionArgs{}
 			},
 			true,
-			ethparams.TxGasContractCreation,
+			53793,
 			false,
 			config.DefaultGasCap,
 		},
@@ -699,7 +699,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1187108,
+			1197697,
 			false,
 			config.DefaultGasCap,
 		},
@@ -727,7 +727,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			51880,
+			52669,
 			false,
 			config.DefaultGasCap,
 		},
@@ -809,7 +809,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			1187108,
+			1197697,
 			true,
 			config.DefaultGasCap,
 		},
@@ -838,7 +838,7 @@ func (s *KeeperTestSuite) TestEstimateGas() {
 				}
 			},
 			true,
-			51880,
+			52669,
 			true,
 			config.DefaultGasCap,
 		},
@@ -1067,7 +1067,7 @@ func (s *KeeperTestSuite) TestEstimateGasWithStateOverrides() {
 				return string(bz)
 			},
 			true,
-			49140,
+			52114,
 			false,
 			config.DefaultGasCap,
 		},
