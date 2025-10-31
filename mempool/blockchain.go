@@ -44,6 +44,8 @@ type Blockchain struct {
 	previousHeaderHash common.Hash
 	latestCtx          sdk.Context
 	mu                 sync.RWMutex
+
+	testingCommitMu sync.RWMutex
 }
 
 // NewBlockchain creates a new Blockchain instance that bridges Cosmos SDK state with Ethereum mempools.
@@ -217,12 +219,33 @@ func (b *Blockchain) StateAt(hash common.Hash) (vm.StateDB, error) {
 		return nil, fmt.Errorf("failed to get latest context for StateAt: %w", err)
 	}
 
-	appHash := ctx.BlockHeader().AppHash
-	stateDB := statedb.New(ctx, b.vmKeeper, statedb.NewEmptyTxConfig())
+	// Create a cache context to isolate the StateDB from concurrent commits.
+	// This prevents race conditions when the background txpool reorg goroutine
+	// reads state while the main thread is committing new blocks.
+	cacheCtx, _ := ctx.CacheContext()
+	// Use an infinite gas meter to avoid tracking gas for read-only state queries
+	cacheCtx = cacheCtx.WithGasMeter(sdktypes.NewInfiniteGasMeter())
+
+	appHash := cacheCtx.BlockHeader().AppHash
+	stateDB := statedb.New(cacheCtx, b.vmKeeper, statedb.NewEmptyTxConfig())
 
 	b.logger.Debug("StateDB created successfully", "app_hash", common.Hash(appHash).Hex())
 	return stateDB, nil
 }
+
+// BeginCommit acquires an exclusive lock to prevent mempool state reads during Commit.
+// This avoids data races in the underlying storage (e.g., IAVL) when tests run with -race.
+func (b *Blockchain) BeginCommit() { b.testingCommitMu.Lock() }
+
+// EndCommit releases the exclusive lock acquired by BeginCommit.
+func (b *Blockchain) EndCommit() { b.testingCommitMu.Unlock() }
+
+// BeginRead acquires a shared lock for background readers (e.g., txpool reorg).
+// This enables optional coordination with Commit without importing the type.
+func (b *Blockchain) BeginRead() { b.testingCommitMu.RLock() }
+
+// EndRead releases the shared read lock acquired by BeginRead.
+func (b *Blockchain) EndRead() { b.testingCommitMu.RUnlock() }
 
 func (b *Blockchain) getPreviousHeaderHash() common.Hash {
 	b.mu.RLock()
