@@ -410,7 +410,8 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			// resetting the gasMeter after increasing the sequence to have an accurate gas estimation on EVM extensions transactions
 			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
-		// pass false to not commit StateDB
+		// pass "commit" as false to avoid committing StateDB
+		// pass "internal" as true to avoid applying feemarketParams.MinGasMultiplier for gas estimation.
 		rsp, err = k.ApplyMessageWithConfig(tmpCtx, *msg, nil, false, cfg, txConfig, true, overrides)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) {

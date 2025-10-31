@@ -127,8 +127,8 @@ type (
 	storageChange struct {
 		account   *common.Address
 		key       common.Hash
-		prevalue  common.Hash
-		origvalue common.Hash
+		preValue  common.Hash
+		origValue common.Hash
 	}
 	transientStorageChange struct {
 		account       *common.Address
@@ -250,7 +250,7 @@ func (ch codeChange) Dirtied() *common.Address {
 }
 
 func (ch storageChange) Revert(s *StateDB) {
-	s.getStateObject(*ch.account).setState(ch.key, ch.prevalue, ch.origvalue)
+	s.getStateObject(*ch.account).setState(ch.key, ch.preValue, ch.origValue)
 }
 
 func (ch storageChange) Dirtied() *common.Address {

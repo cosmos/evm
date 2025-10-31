@@ -256,8 +256,8 @@ func (s *stateObject) SetState(key common.Hash, value common.Hash) common.Hash {
 	s.db.journal.append(storageChange{
 		account:   &s.address,
 		key:       key,
-		prevalue:  prev,
-		origvalue: origin,
+		preValue:  prev,
+		origValue: origin,
 	})
 	s.setState(key, value, origin)
 	return prev
