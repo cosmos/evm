@@ -1,8 +1,0 @@
-# Compiled contracts
-artifacts/
-
-# Cached files
-cache/
-
-# Node modules
-node_modules/
