@@ -422,7 +422,8 @@ func (chain *TestChain) SendEvmTx(
 	require.NoError(chain.TB, err)
 
 	txConfig := app.GetTxConfig()
-	tx, err := tx.PrepareEthTx(txConfig, senderAcc.SenderPrivKey, msgEthereumTx)
+	chainID := app.GetEVMKeeper().EvmChainID()
+	tx, err := tx.PrepareEthTx(txConfig, senderAcc.SenderPrivKey, chainID, msgEthereumTx)
 	require.NoError(chain.TB, err)
 
 	// bz are bytes to be broadcasted over the network

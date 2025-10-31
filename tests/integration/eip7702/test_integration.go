@@ -15,7 +15,6 @@ import (
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
@@ -34,7 +33,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 		s = NewIntegrationTestSuite(create, options...)
 		s.SetupTest()
 
-		validChainID = evmtypes.GetChainConfig().GetChainId()
+		validChainID = s.network.App.GetEVMKeeper().ChainConfig().ChainId
 		invalidChainID = 1234
 
 		user0 = s.keyring.GetKey(0)
@@ -217,6 +216,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 	Describe("test simple user operation using smart wallet set by eip7702 SetCode", func() {
 		var (
+			chainID      *big.Int
 			user0Balance *big.Int
 			user1Balance *big.Int
 			user2Balance *big.Int
@@ -224,6 +224,8 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 		BeforeEach(func() {
 			s.SetupSmartWallet()
+
+			chainID = s.network.App.GetEVMKeeper().EvmChainID()
 
 			user0Balance = s.getERC20Balance(user0.Addr)
 			user1Balance = s.getERC20Balance(user1.Addr)
@@ -266,7 +268,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 					// Make UserOperation
 					userOp := NewUserOperation(user0.Addr, acc.GetNonce(), swCalldata)
-					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user0.Priv)
+					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user0.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					return []UserOperation{*userOp}
@@ -301,7 +303,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 					// Make UserOperation
 					userOp := NewUserOperation(user1.Addr, acc1.GetNonce(), swCalldata)
-					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv)
+					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					return []UserOperation{*userOp}
@@ -337,12 +339,12 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 
 					// Make UserOperations
 					userOp1 := NewUserOperation(user0.Addr, nonce, swCalldata)
-					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user0.Priv)
+					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user0.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					nonce++
 					userOp2 := NewUserOperation(user0.Addr, nonce, swCalldata)
-					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv)
+					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					return []UserOperation{*userOp1, *userOp2}
@@ -380,7 +382,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "failed to get account")
 
 					userOp1 := NewUserOperation(user1.Addr, acc1.GetNonce(), swCalldata)
-					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user1.Priv)
+					userOp1, err = SignUserOperation(userOp1, s.entryPointAddr, user1.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					// user2 -> user0
@@ -388,7 +390,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					Expect(err).To(BeNil(), "failed to get account")
 
 					userOp2 := NewUserOperation(user2.Addr, acc2.GetNonce(), swCalldata)
-					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv)
+					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv, chainID)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
 					return []UserOperation{*userOp1, *userOp2}

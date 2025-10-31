@@ -57,7 +57,7 @@ func DeployContract(
 	contract evmtypes.CompiledContract,
 	constructorArgs ...interface{},
 ) (common.Address, error) {
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainID := app.GetEVMKeeper().EvmChainID()
 	from := common.BytesToAddress(priv.PubKey().Address().Bytes())
 	nonce := app.GetEVMKeeper().GetNonce(ctx, from)
 
@@ -108,7 +108,7 @@ func DeployContractWithFactory(
 	priv cryptotypes.PrivKey,
 	factoryAddress common.Address,
 ) (common.Address, abci.ExecTxResult, error) {
-	chainID := evmtypes.GetEthChainConfig().ChainID
+	chainID := exampleApp.GetEVMKeeper().EvmChainID()
 	from := common.BytesToAddress(priv.PubKey().Address().Bytes())
 	factoryNonce := exampleApp.GetEVMKeeper().GetNonce(ctx, factoryAddress)
 	nonce := exampleApp.GetEVMKeeper().GetNonce(ctx, from)

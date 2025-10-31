@@ -115,17 +115,6 @@ func (s *KeeperTestSuite) SetupTest() {
 
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
-	err := evmtypes.SetChainConfig(chainConfig)
-	s.Require().NoError(err)
-	err = configurator.
-		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals.Uint32(),
-		}).
-		Configure()
-	s.Require().NoError(err)
 
 	s.setRuntimeConfig(chainConfig, evmtypes.EvmCoinInfo{
 		Denom:         denom,

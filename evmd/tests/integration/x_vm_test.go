@@ -32,28 +32,6 @@ func BenchmarkGasEstimation(b *testing.B) {
 	// gh := grpc.NewIntegrationHandler(nw)
 	// tf := factory.New(nw, gh)
 
-	chainConfig := types.DefaultChainConfig(nw.GetEIP155ChainID().Uint64())
-	// get the denom and decimals set on chain initialization
-	// because we'll need to set them again when resetting the chain config
-	denom := types.GetEVMCoinDenom()
-	extendedDenom := types.GetEVMCoinExtendedDenom()
-	displayDenom := types.GetEVMCoinDisplayDenom()
-	decimals := types.GetEVMCoinDecimals()
-
-	configurator := types.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	err := types.SetChainConfig(chainConfig)
-	require.NoError(b, err)
-	err = configurator.
-		WithEVMCoinInfo(types.EvmCoinInfo{
-			Denom:         denom,
-			ExtendedDenom: extendedDenom,
-			DisplayDenom:  displayDenom,
-			Decimals:      decimals.Uint32(),
-		}).
-		Configure()
-	require.NoError(b, err)
-
 	// Use simple transaction args for consistent benchmarking
 	args := types.TransactionArgs{
 		To: &common.Address{},

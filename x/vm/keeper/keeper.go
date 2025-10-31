@@ -225,10 +225,6 @@ func (k *Keeper) WithChainConfig(chainCfg *types.ChainConfig) *Keeper {
 		chainCfg = types.DefaultChainConfig(types.DefaultEVMChainID)
 	}
 
-	if err := types.SetChainConfig(chainCfg); err != nil {
-		panic(err)
-	}
-
 	coinInfo := coinInfoFromChainConfig(chainCfg)
 	if err := types.EnsureEVMCoinInfo(coinInfo); err != nil {
 		panic(err)
@@ -251,6 +247,10 @@ func (k Keeper) ChainConfig() *types.ChainConfig {
 		return nil
 	}
 	return cfg.ChainConfig()
+}
+
+func (k Keeper) EvmChainID() *big.Int {
+	return big.NewInt(int64(k.ChainConfig().ChainId)) //nolint:gosec // won't exceed int64
 }
 
 // EthChainConfig returns the go-ethereum ChainConfig kept in runtime config.

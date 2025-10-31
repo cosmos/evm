@@ -9,10 +9,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 )
 
-// chainConfig is the chain configuration used in the EVM to defined which
-// opcodes are active based on Ethereum upgrades.
-var chainConfig *ChainConfig
-
 // EthereumConfig returns an Ethereum ChainConfig for EVM state transitions.
 // All the negative or nil values are converted to nil
 func (cc ChainConfig) EthereumConfig(chainID *big.Int) *gethparams.ChainConfig {

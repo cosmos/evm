@@ -24,8 +24,8 @@ func DeliverEthTx(
 	msgs ...sdk.Msg,
 ) (abci.ExecTxResult, error) {
 	txConfig := evmApp.GetTxConfig()
-
-	tx, err := tx.PrepareEthTx(txConfig, priv, msgs...)
+	evmChainID := evmApp.GetEVMKeeper().EvmChainID()
+	tx, err := tx.PrepareEthTx(txConfig, priv, evmChainID, msgs...)
 	if err != nil {
 		return abci.ExecTxResult{}, err
 	}

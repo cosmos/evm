@@ -179,7 +179,8 @@ func BenchmarkApplyTransaction(b *testing.B) { //nolint:dupl
 	suite := KeeperTestSuite{EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	ethSigner := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -208,7 +209,8 @@ func BenchmarkApplyTransactionWithLegacyTx(b *testing.B) { //nolint:dupl
 	suite := KeeperTestSuite{EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	ethSigner := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -237,7 +239,8 @@ func BenchmarkApplyTransactionWithDynamicFeeTx(b *testing.B) {
 	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	ethSigner := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -266,8 +269,8 @@ func BenchmarkApplyMessage(b *testing.B) {
 	suite := KeeperTestSuite{EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethCfg := evmtypes.GetEthChainConfig()
-	signer := ethtypes.LatestSignerForChainID(ethCfg.ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	signer := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -300,8 +303,8 @@ func BenchmarkApplyMessageWithLegacyTx(b *testing.B) {
 	suite := KeeperTestSuite{EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethCfg := evmtypes.GetEthChainConfig()
-	signer := ethtypes.LatestSignerForChainID(ethCfg.ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	signer := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -334,8 +337,8 @@ func BenchmarkApplyMessageWithDynamicFeeTx(b *testing.B) {
 	suite := KeeperTestSuite{EnableFeemarket: true, EnableLondonHF: true}
 	suite.SetupTest()
 
-	ethCfg := evmtypes.GetEthChainConfig()
-	signer := ethtypes.LatestSignerForChainID(ethCfg.ChainID)
+	evmChainID := suite.Network.App.GetEVMKeeper().EvmChainID()
+	signer := ethtypes.LatestSignerForChainID(evmChainID)
 
 	b.ResetTimer()
 	b.ReportAllocs()

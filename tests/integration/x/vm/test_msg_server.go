@@ -59,7 +59,7 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				s.Require().NoError(err)
 
 				auth := ethtypes.SetCodeAuthorization{
-					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					ChainID: *uint256.NewInt(s.Network.App.GetEVMKeeper().ChainConfig().ChainId),
 					Address: target,
 					Nonce:   accResp.GetNonce(),
 				}
@@ -94,7 +94,7 @@ func (s *KeeperTestSuite) TestEthereumTx() {
 				s.Require().NoError(err)
 
 				auth := ethtypes.SetCodeAuthorization{
-					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					ChainID: *uint256.NewInt(s.Network.GetEvmChainID()),
 					Address: target,
 					Nonce:   accResp.GetNonce(),
 				}

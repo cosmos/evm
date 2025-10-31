@@ -121,7 +121,8 @@ func signMsgEthereumTx(t *testing.T, privKey *ethsecp256k1.PrivKey, args *evmsdk
 	msg := evmsdktypes.NewTx(args)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	msg.From = fromAddr.Bytes()
-	ethSigner := ethtypes.LatestSignerForChainID(evmsdktypes.GetEthChainConfig().ChainID)
+	chainID := evmsdktypes.DefaultEVMChainID
+	ethSigner := ethtypes.LatestSignerForChainID(big.NewInt(int64(chainID)))
 	require.NoError(t, msg.Sign(ethSigner, utiltx.NewSigner(privKey)))
 	return msg
 }
@@ -196,23 +197,6 @@ func TestMonoDecorator(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			configurator := evmsdktypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			chainConfig := evmsdktypes.DefaultChainConfig(evmsdktypes.DefaultEVMChainID)
-			err := evmsdktypes.SetChainConfig(chainConfig)
-			require.NoError(t, err)
-			coinInfo := evmsdktypes.EvmCoinInfo{
-				Denom:         evmsdktypes.DefaultEVMExtendedDenom,
-				ExtendedDenom: evmsdktypes.DefaultEVMExtendedDenom,
-				DisplayDenom:  evmsdktypes.DefaultEVMDisplayDenom,
-				Decimals:      18,
-			}
-			err = configurator.
-				WithExtendedEips(evmsdktypes.DefaultCosmosEVMActivators).
-				// NOTE: we're using the 18 decimals default for the example chain
-				WithEVMCoinInfo(coinInfo).
-				Configure()
-			require.NoError(t, err)
 			privKey, _ := ethsecp256k1.GenerateKey()
 			keeper, cosmosAddr := setupFundedKeeper(t, privKey)
 			accountKeeper := MockAccountKeeper{FundedAddr: cosmosAddr}
@@ -223,8 +207,9 @@ func TestMonoDecorator(t *testing.T) {
 			ctx := sdk.NewContext(nil, tmproto.Header{}, false, log.NewNopLogger())
 			ctx = ctx.WithBlockGasMeter(storetypes.NewGasMeter(1e19))
 
+			evmChainID := big.NewInt(int64(evmsdktypes.DefaultEVMChainID))
 			msgs := tc.buildMsgs(privKey)
-			tx, err := utiltx.PrepareEthTx(cfg.TxConfig, nil, toMsgSlice(msgs)...)
+			tx, err := utiltx.PrepareEthTx(cfg.TxConfig, nil, evmChainID, toMsgSlice(msgs)...)
 			require.NoError(t, err)
 
 			newCtx, err := monoDec.AnteHandle(ctx, tx, tc.simulate, func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) { return ctx, nil })

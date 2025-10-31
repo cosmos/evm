@@ -2033,15 +2033,6 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				chainConfig.CancunTime = &maxInt
 				chainConfig.PragueTime = &maxInt
 
-				configurator := types.NewEVMConfigurator()
-				configurator.ResetTestConfig()
-				err := types.SetChainConfig(chainConfig)
-				s.Require().NoError(err)
-				err = configurator.
-					WithEVMCoinInfo(testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]).
-					Configure()
-				s.Require().NoError(err)
-
 				s.setRuntimeConfig(chainConfig, testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID])
 			},
 			true,
@@ -2092,14 +2083,8 @@ func (s *KeeperTestSuite) TestQueryBaseFee() {
 				s.Require().Error(err)
 			}
 			s.Require().NoError(s.Network.NextBlock())
-			configurator := types.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			err = types.SetChainConfig(chainConfig)
-			s.Require().NoError(err)
-			err = configurator.
-				WithEVMCoinInfo(coinInfo).
-				Configure()
-			s.Require().NoError(err)
+
+			// Restore runtime configs
 			s.setRuntimeConfig(chainConfig, coinInfo)
 		})
 	}

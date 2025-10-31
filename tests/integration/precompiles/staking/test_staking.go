@@ -417,7 +417,8 @@ func (s *PrecompileTestSuite) TestRun() {
 
 			// Build and sign Ethereum transaction
 			txArgs := evmtypes.EvmTxArgs{
-				ChainID:   evmtypes.GetEthChainConfig().ChainID,
+				ChainID:   s.network.App.GetEVMKeeper().EvmChainID(),
+				Input:     contract.Input,
 				Nonce:     0,
 				To:        &contractAddr,
 				Amount:    nil,
@@ -757,7 +758,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 			// Build and sign Ethereum transaction
 			txArgs := evmtypes.EvmTxArgs{
 				Input:     input,
-				ChainID:   evmtypes.GetEthChainConfig().ChainID,
+				ChainID:   s.network.App.GetEVMKeeper().EvmChainID(),
 				Nonce:     0,
 				To:        &contractAddr,
 				Amount:    nil,

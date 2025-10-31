@@ -36,23 +36,6 @@ func TestSDKTxFeeChecker(t *testing.T) {
 	chainID := uint64(testconstants.EighteenDecimalsChainID)
 	encodingConfig := encoding.MakeConfig(chainID) //nolint:staticcheck // this is used
 
-	configurator := evmtypes.NewEVMConfigurator()
-	configurator.ResetTestConfig()
-	// set global chain config
-	ethCfg := evmtypes.DefaultChainConfig(chainID)
-	if err := evmtypes.SetChainConfig(ethCfg); err != nil {
-		panic(err)
-	}
-	err := configurator.
-		WithExtendedEips(evmtypes.DefaultCosmosEVMActivators).
-		// NOTE: we're using the 18 decimals default for the example chain
-		WithEVMCoinInfo(testconstants.ChainsCoinInfo[chainID]).
-		Configure()
-	require.NoError(t, err)
-	if err != nil {
-		panic(err)
-	}
-
 	evmDenom := evmtypes.GetEVMCoinDenom()
 	minGasPrices := sdk.NewDecCoins(sdk.NewDecCoin(evmDenom, math.NewInt(10)))
 
@@ -251,14 +234,15 @@ func TestSDKTxFeeChecker(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			chainCfg := evmtypes.GetChainConfig()
+			evmKeeper := NewExtendedEVMKeeper()
+			chainCfg := evmKeeper.ChainConfig()
 			ethCfg := chainCfg.EthereumConfig(nil)
 			if !tc.londonEnabled {
 				ethCfg.LondonBlock = big.NewInt(10000)
 			} else {
 				ethCfg.LondonBlock = big.NewInt(0)
 			}
-			evmKeeper := NewExtendedEVMKeeper()
+
 			feemarketParams := tc.feemarketParamsFn()
 			fees, priority, err := evm.NewDynamicFeeChecker(evmKeeper, &feemarketParams)(tc.ctx, tc.buildTx())
 			if tc.expSuccess {

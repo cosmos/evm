@@ -263,7 +263,7 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 	chainCfg := evmtypes.DefaultChainConfig(n.cfg.eip155ChainID.Uint64())
 	chainCfg.Denom = coinInfo.Denom
 	chainCfg.Decimals = uint64(coinInfo.Decimals)
-	_ = evmtypes.SetChainConfig(chainCfg)
+
 	runtimeCfg, err := evmtypes.NewRuntimeConfig(chainCfg, coinInfo, params.ExtraEIPs)
 	if err != nil {
 		return err
@@ -316,13 +316,7 @@ func (n *IntegrationNetwork) GetEIP155ChainID() *big.Int {
 
 // GetEVMChainConfig returns the network's EVM chain config
 func (n *IntegrationNetwork) GetEVMChainConfig() *gethparams.ChainConfig {
-	if cfg := n.app.GetEVMKeeper().EthChainConfig(); cfg != nil {
-		return cfg
-	}
-	if chainCfg := n.app.GetEVMKeeper().ChainConfig(); chainCfg != nil {
-		return chainCfg.EthereumConfig(nil)
-	}
-	return evmtypes.GetEthChainConfig()
+	return n.app.GetEVMKeeper().EthChainConfig()
 }
 
 // GetBaseDenom returns the network's base denom

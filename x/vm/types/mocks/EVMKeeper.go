@@ -42,6 +42,7 @@ func NewEVMKeeper() *EVMKeeper {
 		accounts:  make(map[common.Address]Account),
 		codes:     make(map[common.Hash][]byte),
 		storeKeys: make(map[string]*storetypes.KVStoreKey),
+		ethCfg:    types.DefaultChainConfig(types.DefaultEVMChainID).EthereumConfig(nil),
 		coinInfo:  types.EvmCoinInfo{},
 	}
 }

@@ -71,7 +71,7 @@ func Call(ctx sdk.Context, app evm.EvmApp, args CallArgs) (res abci.ExecTxResult
 
 	// create MsgEthereumTx that calls the contract
 	msg := evmtypes.NewTx(&evmtypes.EvmTxArgs{
-		ChainID:   evmtypes.GetEthChainConfig().ChainID,
+		ChainID:   app.GetEVMKeeper().EvmChainID(),
 		Nonce:     nonce,
 		To:        &args.ContractAddr,
 		Amount:    args.Amount,

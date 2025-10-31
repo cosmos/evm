@@ -278,7 +278,7 @@ func (s *KeeperTestSuite) TestGetEthIntrinsicGas() {
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.name), func() {
-			ethCfg := types.GetEthChainConfig()
+			ethCfg := s.Network.App.GetEVMKeeper().EthChainConfig()
 			ethCfg.HomesteadBlock = big.NewInt(2)
 			ethCfg.IstanbulBlock = big.NewInt(3)
 			signer := gethtypes.LatestSignerForChainID(ethCfg.ChainID)
@@ -813,10 +813,11 @@ func (s *KeeperTestSuite) TestApplyMessage() {
 	)
 	s.Require().NoError(err)
 
+	ethChainConfig := s.Network.App.GetEVMKeeper().EthChainConfig()
 	tracer := s.Network.App.GetEVMKeeper().Tracer(
 		s.Network.GetContext(),
 		*coreMsg,
-		types.GetEthChainConfig(),
+		ethChainConfig,
 	)
 	res, err := s.Network.App.GetEVMKeeper().ApplyMessage(s.Network.GetContext(), *coreMsg, tracer, true, false)
 	s.Require().NoError(err)
@@ -884,7 +885,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 
 				auth := gethtypes.SetCodeAuthorization{
-					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					ChainID: *uint256.NewInt(s.Network.GetEvmChainID()),
 					Address: target,
 					Nonce:   accResp.GetNonce(),
 				}
@@ -929,7 +930,7 @@ func (s *KeeperTestSuite) TestApplyMessageWithConfig() {
 				s.Require().NoError(err)
 
 				auth := gethtypes.SetCodeAuthorization{
-					ChainID: *uint256.NewInt(types.GetChainConfig().GetChainId()),
+					ChainID: *uint256.NewInt(s.Network.App.GetEVMKeeper().ChainConfig().ChainId),
 					Address: target,
 					Nonce:   accResp.GetNonce(),
 				}
@@ -1213,10 +1214,11 @@ func (s *KeeperTestSuite) TestApplyMessageWithNegativeAmount() {
 	)
 	s.Require().NoError(err)
 
+	ethChainConfig := s.Network.App.GetEVMKeeper().EthChainConfig()
 	tracer := s.Network.App.GetEVMKeeper().Tracer(
 		s.Network.GetContext(),
 		*coreMsg,
-		types.GetEthChainConfig(),
+		ethChainConfig,
 	)
 
 	ctx := s.Network.GetContext()
