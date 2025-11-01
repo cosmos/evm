@@ -2,7 +2,6 @@ package werc20
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -59,12 +58,13 @@ func (p Precompile) Deposit(
 // Withdraw is a no-op and mock function that provides the same interface as the
 // WETH contract to support equality between the native coin and its wrapped
 // ERC-20 (e.g. ATOM and WEVMOS).
-func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.StateDB, args []interface{}) ([]byte, error) {
-	amount, ok := args[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("invalid argument type: %T", args[0])
-	}
-	amountInt := math.NewIntFromBigInt(amount)
+func (p Precompile) Withdraw(
+	ctx sdk.Context,
+	args *WithdrawCall,
+	stateDB vm.StateDB,
+	contract *vm.Contract,
+) (*WithdrawReturn, error) {
+	amountInt := math.NewIntFromBigInt(args.Wad)
 
 	caller := contract.Caller()
 	callerAccAddress := sdk.AccAddress(caller.Bytes())
@@ -73,8 +73,8 @@ func (p Precompile) Withdraw(ctx sdk.Context, contract *vm.Contract, stateDB vm.
 		return nil, fmt.Errorf("account balance %v is lower than withdraw balance %v", nativeBalance.Amount, amountInt)
 	}
 
-	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, amount); err != nil {
+	if err := p.EmitWithdrawalEvent(ctx, stateDB, caller, args.Wad); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &WithdrawReturn{}, nil
 }

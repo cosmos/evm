@@ -1,9 +1,6 @@
 package gov
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -31,11 +28,9 @@ const (
 // GetVotes implements the query logic for getting votes for a proposal.
 func (p *Precompile) GetVotes(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryVotesReq, err := ParseVotesArgs(method, args)
+	args *GetVotesCall,
+) (*GetVotesReturn, error) {
+	queryVotesReq, err := ParseVotesArgs(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -45,21 +40,15 @@ func (p *Precompile) GetVotes(
 		return nil, err
 	}
 
-	output, err := new(VotesOutput).FromResponse(res)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(output.Votes, output.PageResponse)
+	return new(GetVotesReturn).FromResponse(res)
 }
 
 // GetVote implements the query logic for getting votes for a proposal.
 func (p *Precompile) GetVote(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryVotesReq, err := ParseVoteArgs(args, p.addrCdc)
+	args *GetVoteCall,
+) (*GetVoteReturn, error) {
+	queryVotesReq, err := ParseVoteArgs(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -69,21 +58,15 @@ func (p *Precompile) GetVote(
 		return nil, err
 	}
 
-	output, err := new(VoteOutput).FromResponse(res)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(output.Vote)
+	return new(GetVoteReturn).FromResponse(res)
 }
 
 // GetDeposit implements the query logic for getting a deposit for a proposal.
 func (p *Precompile) GetDeposit(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryDepositReq, err := ParseDepositArgs(args, p.addrCdc)
+	args *GetDepositCall,
+) (*GetDepositReturn, error) {
+	queryDepositReq, err := ParseDepositArgs(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -93,21 +76,15 @@ func (p *Precompile) GetDeposit(
 		return nil, err
 	}
 
-	output, err := new(DepositOutput).FromResponse(res)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(output.Deposit)
+	return new(GetDepositReturn).FromResponse(res)
 }
 
 // GetDeposits implements the query logic for getting all deposits for a proposal.
 func (p *Precompile) GetDeposits(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryDepositsReq, err := ParseDepositsArgs(method, args)
+	args *GetDepositsCall,
+) (*GetDepositsReturn, error) {
+	queryDepositsReq, err := ParseDepositsArgs(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -117,21 +94,15 @@ func (p *Precompile) GetDeposits(
 		return nil, err
 	}
 
-	output, err := new(DepositsOutput).FromResponse(res)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(output.Deposits, output.PageResponse)
+	return new(GetDepositsReturn).FromResponse(res)
 }
 
 // GetTallyResult implements the query logic for getting the tally result of a proposal.
 func (p *Precompile) GetTallyResult(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryTallyResultReq, err := ParseTallyResultArgs(args)
+	args *GetTallyResultCall,
+) (*GetTallyResultReturn, error) {
+	queryTallyResultReq, err := ParseTallyResultArgs(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -142,17 +113,15 @@ func (p *Precompile) GetTallyResult(
 	}
 
 	output := new(TallyResultOutput).FromResponse(res)
-	return method.Outputs.Pack(output.TallyResult)
+	return &GetTallyResultReturn{TallyResult: output.TallyResult}, nil
 }
 
 // GetProposal implements the query logic for getting a proposal
 func (p *Precompile) GetProposal(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryProposalReq, err := ParseProposalArgs(args)
+	args *GetProposalCall,
+) (*GetProposalReturn, error) {
+	queryProposalReq, err := ParseProposalArgs(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -166,17 +135,15 @@ func (p *Precompile) GetProposal(
 	if err != nil {
 		return nil, err
 	}
-	return method.Outputs.Pack(output.Proposal)
+	return &GetProposalReturn{Proposal: output.Proposal}, nil
 }
 
 // GetProposals implements the query logic for getting proposals
 func (p *Precompile) GetProposals(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryProposalsReq, err := ParseProposalsArgs(method, args, p.addrCdc)
+	args *GetProposalsCall,
+) (*GetProposalsReturn, error) {
+	queryProposalsReq, err := ParseProposalsArgs(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -186,21 +153,20 @@ func (p *Precompile) GetProposals(
 		return nil, err
 	}
 
-	output, err := new(ProposalsOutput).FromResponse(res)
-	if err != nil {
+	var output GetProposalsReturn
+	if _, err := output.FromResponse(res); err != nil {
 		return nil, err
 	}
-	return method.Outputs.Pack(output.Proposals, output.PageResponse)
+
+	return &output, nil
 }
 
 // GetParams implements the query logic for getting governance parameters
 func (p *Precompile) GetParams(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	queryParamsReq, err := BuildQueryParamsRequest(args)
+	args *GetParamsCall,
+) (*GetParamsReturn, error) {
+	queryParamsReq, err := BuildQueryParamsRequest(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -210,18 +176,16 @@ func (p *Precompile) GetParams(
 		return nil, err
 	}
 
-	output := new(ParamsOutput).FromResponse(res)
-	return method.Outputs.Pack(output)
+	output := new(Params).FromResponse(res)
+	return &GetParamsReturn{*output}, nil
 }
 
 // GetConstitution implements the query logic for getting the constitution
 func (p *Precompile) GetConstitution(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := BuildQueryConstitutionRequest(args)
+	args *GetConstitutionCall,
+) (*GetConstitutionReturn, error) {
+	req, err := BuildQueryConstitutionRequest(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -231,5 +195,5 @@ func (p *Precompile) GetConstitution(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.Constitution)
+	return &GetConstitutionReturn{Constitution: res.Constitution}, nil
 }

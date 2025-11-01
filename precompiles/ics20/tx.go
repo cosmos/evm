@@ -3,7 +3,6 @@ package ics20
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -15,14 +14,6 @@ import (
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-)
-
-// TODO TEST suite for precompile
-
-const (
-	// TransferMethod defines the ABI method name for the ICS20 Transfer
-	// transaction.
-	TransferMethod = "transfer"
 )
 
 // validateV1TransferChannel does the following validation on an ibc v1 channel specified in a MsgTransfer:
@@ -92,10 +83,14 @@ func (p *Precompile) Transfer(
 	ctx sdk.Context,
 	contract *vm.Contract,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
+	input []byte,
 ) ([]byte, error) {
-	msg, sender, err := NewMsgTransfer(method, args)
+	var args TransferCall
+	if _, err := args.Decode(input); err != nil {
+		return nil, err
+	}
+
+	msg, sender, err := NewMsgTransfer(args)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +100,7 @@ func (p *Precompile) Transfer(
 		if err := p.validateV1TransferChannel(ctx, msg); err != nil {
 			return nil, err
 		}
-		// otherwise, it’s a v2 packet, so perform client ID validation
+		// otherwise, it's a v2 packet, so perform client ID validation
 	} else if v2ClientIDErr := host.ClientIdentifierValidator(msg.SourceChannel); v2ClientIDErr != nil {
 		return nil, errorsmod.Wrapf(
 			channeltypes.ErrInvalidChannel,
@@ -127,7 +122,6 @@ func (p *Precompile) Transfer(
 	if err = EmitIBCTransferEvent(
 		ctx,
 		stateDB,
-		p.Events[EventTypeIBCTransfer],
 		p.Address(),
 		sender,
 		msg.Receiver,
@@ -139,5 +133,5 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.Sequence)
+	return TransferReturn{NextSequence: res.Sequence}.Encode()
 }

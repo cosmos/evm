@@ -774,7 +774,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var out gov.ProposalsOutput
+					var out gov.GetProposalsReturn
 					err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
 					Expect(err).To(BeNil())
 
@@ -807,7 +807,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil())
 
-					var out gov.ProposalsOutput
+					var out gov.GetProposalsReturn
 					err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
 					Expect(err).To(BeNil())
 
@@ -854,7 +854,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil())
 
-					var out gov.ProposalsOutput
+					var out gov.GetProposalsReturn
 					err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
 					Expect(err).To(BeNil())
 
@@ -879,7 +879,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil())
 
-					var out gov.ProposalsOutput
+					var out gov.GetProposalsReturn
 					err = s.precompile.UnpackIntoInterface(&out, method, ethRes.Ret)
 					Expect(err).To(BeNil())
 

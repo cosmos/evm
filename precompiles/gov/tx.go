@@ -3,7 +3,6 @@ package gov
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -27,12 +26,11 @@ const (
 // SubmitProposal defines a method to submit a proposal.
 func (p *Precompile) SubmitProposal(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *SubmitProposalCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, proposerHexAddr, err := NewMsgSubmitProposal(args, p.codec, p.addrCdc)
+	contract *vm.Contract,
+) (*SubmitProposalReturn, error) {
+	msg, proposerHexAddr, err := NewMsgSubmitProposal(*args, p.codec, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -51,18 +49,17 @@ func (p *Precompile) SubmitProposal(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(res.ProposalId)
+	return &SubmitProposalReturn{ProposalId: res.ProposalId}, nil
 }
 
 // Deposit defines a method to add a deposit on a specific proposal.
 func (p *Precompile) Deposit(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *DepositCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, depositorHexAddr, err := NewMsgDeposit(args, p.addrCdc)
+	contract *vm.Contract,
+) (*DepositReturn, error) {
+	msg, depositorHexAddr, err := NewMsgDeposit(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -80,18 +77,17 @@ func (p *Precompile) Deposit(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &DepositReturn{Success: true}, nil
 }
 
 // CancelProposal defines a method to cancel a proposal.
 func (p *Precompile) CancelProposal(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *CancelProposalCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, proposerHexAddr, err := NewMsgCancelProposal(args, p.addrCdc)
+	contract *vm.Contract,
+) (*CancelProposalReturn, error) {
+	msg, proposerHexAddr, err := NewMsgCancelProposal(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -109,18 +105,17 @@ func (p *Precompile) CancelProposal(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &CancelProposalReturn{Success: true}, nil
 }
 
 // Vote defines a method to add a vote on a specific proposal.
 func (p Precompile) Vote(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *VoteCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, voterHexAddr, err := NewMsgVote(args, p.addrCdc)
+	contract *vm.Contract,
+) (*VoteReturn, error) {
+	msg, voterHexAddr, err := NewMsgVote(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -138,18 +133,17 @@ func (p Precompile) Vote(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &VoteReturn{Success: true}, nil
 }
 
 // VoteWeighted defines a method to add a vote on a specific proposal.
 func (p Precompile) VoteWeighted(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args *VoteWeightedCall,
 	stateDB vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	msg, voterHexAddr, options, err := NewMsgVoteWeighted(method, args, p.addrCdc)
+	contract *vm.Contract,
+) (*VoteWeightedReturn, error) {
+	msg, voterHexAddr, options, err := NewMsgVoteWeighted(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -167,5 +161,5 @@ func (p Precompile) VoteWeighted(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(true)
+	return &VoteWeightedReturn{Success: true}, nil
 }

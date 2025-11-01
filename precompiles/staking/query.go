@@ -5,9 +5,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -37,11 +34,9 @@ const (
 // Delegation returns the delegation that a delegator has with a specific validator.
 func (p Precompile) Delegation(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewDelegationRequest(args, p.addrCdc)
+	args *DelegationCall,
+) (*DelegationReturn, error) {
+	req, err := NewDelegationRequest(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -54,26 +49,25 @@ func (p Precompile) Delegation(
 			if err != nil {
 				return nil, err
 			}
-			return method.Outputs.Pack(big.NewInt(0), cmn.Coin{Denom: bondDenom, Amount: big.NewInt(0)})
+			return &DelegationReturn{
+				Shares:  big.NewInt(0),
+				Balance: cmn.Coin{Denom: bondDenom, Amount: big.NewInt(0)},
+			}, nil
 		}
 
 		return nil, err
 	}
 
-	out := new(DelegationOutput).FromResponse(res)
-
-	return out.Pack(method.Outputs)
+	return new(DelegationReturn).FromResponse(res), nil
 }
 
 // UnbondingDelegation returns the delegation currently being unbonded for a delegator from
 // a specific validator.
 func (p Precompile) UnbondingDelegation(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewUnbondingDelegationRequest(args, p.addrCdc)
+	args *UnbondingDelegationCall,
+) (*UnbondingDelegationReturn, error) {
+	req, err := NewUnbondingDelegationRequest(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -83,24 +77,20 @@ func (p Precompile) UnbondingDelegation(
 		// return empty unbonding delegation output if the unbonding delegation is not found
 		expError := fmt.Sprintf("unbonding delegation with delegator %s not found for validator %s", req.DelegatorAddr, req.ValidatorAddr)
 		if strings.Contains(err.Error(), expError) {
-			return method.Outputs.Pack(UnbondingDelegationResponse{})
+			return &UnbondingDelegationReturn{}, nil
 		}
 		return nil, err
 	}
 
-	out := new(UnbondingDelegationOutput).FromResponse(res)
-
-	return method.Outputs.Pack(out.UnbondingDelegation)
+	return new(UnbondingDelegationReturn).FromResponse(res), nil
 }
 
 // Validator returns the validator information for a given validator address.
 func (p Precompile) Validator(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewValidatorRequest(args)
+	args *ValidatorCall,
+) (*ValidatorReturn, error) {
+	req, err := NewValidatorRequest(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -110,24 +100,22 @@ func (p Precompile) Validator(
 		// return empty validator info if the validator is not found
 		expError := fmt.Sprintf("validator %s not found", req.ValidatorAddr)
 		if strings.Contains(err.Error(), expError) {
-			return method.Outputs.Pack(DefaultValidatorInfo())
+			return &ValidatorReturn{DefaultValidator()}, nil
 		}
 		return nil, err
 	}
 
-	validatorInfo := NewValidatorInfoFromResponse(res.Validator)
+	validatorInfo := NewValidatorFromResponse(res.Validator)
 
-	return method.Outputs.Pack(validatorInfo)
+	return &ValidatorReturn{validatorInfo}, nil
 }
 
 // Validators returns the validators information with a provided status & pagination (optional).
 func (p Precompile) Validators(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewValidatorsRequest(method, args)
+	args *ValidatorsCall,
+) (*ValidatorsReturn, error) {
+	req, err := NewValidatorsRequest(*args)
 	if err != nil {
 		return nil, err
 	}
@@ -137,28 +125,22 @@ func (p Precompile) Validators(
 		return nil, err
 	}
 
-	out := new(ValidatorsOutput).FromResponse(res)
-
-	return out.Pack(method.Outputs)
+	return new(ValidatorsReturn).FromResponse(res), nil
 }
 
 // Redelegation returns the redelegation between two validators for a delegator.
 func (p Precompile) Redelegation(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewRedelegationRequest(args)
+	args *RedelegateCall,
+) (*RedelegationReturn, error) {
+	req, err := NewRedelegationRequest(*args)
 	if err != nil {
 		return nil, err
 	}
 
 	res, _ := p.stakingKeeper.GetRedelegation(ctx, req.DelegatorAddress, req.ValidatorSrcAddress, req.ValidatorDstAddress)
 
-	out := new(RedelegationOutput).FromResponse(res)
-
-	return method.Outputs.Pack(out.Redelegation)
+	return new(RedelegationReturn).FromResponse(res), nil
 }
 
 // Redelegations returns the redelegations according to
@@ -167,11 +149,9 @@ func (p Precompile) Redelegation(
 // Pagination is only supported for querying redelegations from a source validator or to query all redelegations.
 func (p Precompile) Redelegations(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ *vm.Contract,
-	args []interface{},
-) ([]byte, error) {
-	req, err := NewRedelegationsRequest(method, args, p.addrCdc)
+	args *RedelegationsCall,
+) (*RedelegationsReturn, error) {
+	req, err := NewRedelegationsRequest(*args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +161,5 @@ func (p Precompile) Redelegations(
 		return nil, err
 	}
 
-	out := new(RedelegationsOutput).FromResponse(res)
-
-	return out.Pack(method.Outputs)
+	return new(RedelegationsReturn).FromResponse(res), nil
 }

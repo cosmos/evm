@@ -3,10 +3,10 @@ package keeper
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/x/vm/types"
@@ -19,14 +19,12 @@ import (
 // CallEVM performs a smart contract method call using given args.
 func (k Keeper) CallEVM(
 	ctx sdk.Context,
-	abi abi.ABI,
+	args abi.Method,
 	from, contract common.Address,
 	commit bool,
 	gasCap *big.Int,
-	method string,
-	args ...interface{},
 ) (*types.MsgEthereumTxResponse, error) {
-	data, err := abi.Pack(method, args...)
+	data, err := args.EncodeWithSelector()
 	if err != nil {
 		return nil, errorsmod.Wrap(
 			types.ErrABIPack,
@@ -36,7 +34,7 @@ func (k Keeper) CallEVM(
 
 	resp, err := k.CallEVMWithData(ctx, from, &contract, data, commit, gasCap)
 	if err != nil {
-		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", method, contract)
+		return resp, errorsmod.Wrapf(err, "contract call failed: method '%s', contract '%s'", args.GetMethodName(), contract)
 	}
 	return resp, nil
 }

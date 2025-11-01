@@ -6,36 +6,33 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/precompiles/erc20"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/yihuang/go-abi"
 )
 
 func (s *KeeperTestSuite) TestCallEVM() {
 	wcosmosEVMContract := common.HexToAddress(testconstants.WEVMOSContractMainnet)
 	testCases := []struct {
 		name    string
-		method  string
+		method  abi.Method
 		expPass bool
 	}{
 		{
-			"unknown method",
-			"",
-			false,
-		},
-		{
 			"pass",
-			"balanceOf",
+			&erc20.BalanceOfCall{
+				Account: utiltx.GenerateAddress(),
+			},
 			true,
 		},
 	}
 	for _, tc := range testCases {
 		s.SetupTest() // reset
 
-		erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
-		account := utiltx.GenerateAddress()
-		res, err := s.Network.App.GetEVMKeeper().CallEVM(s.Network.GetContext(), erc20, types.ModuleAddress, wcosmosEVMContract, false, nil, tc.method, account)
+		res, err := s.Network.App.GetEVMKeeper().CallEVM(s.Network.GetContext(), tc.method, types.ModuleAddress, wcosmosEVMContract, false, nil)
 		if tc.expPass {
 			s.Require().IsTypef(&evmtypes.MsgEthereumTxResponse{}, res, tc.name)
 			s.Require().NoError(err)
@@ -46,7 +43,6 @@ func (s *KeeperTestSuite) TestCallEVM() {
 }
 
 func (s *KeeperTestSuite) TestCallEVMWithData() {
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
 	wcosmosEVMContract := common.HexToAddress(testconstants.WEVMOSContractMainnet)
 	testCases := []struct {
 		name     string
@@ -59,9 +55,9 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			"pass with unknown method",
 			types.ModuleAddress,
 			func() []byte {
-				account := utiltx.GenerateAddress()
-				data, _ := erc20.Pack("", account)
-				return data
+				buf := make([]byte, 32)
+				abi.EncodeAddress(utiltx.GenerateAddress(), buf)
+				return buf
 			},
 			false,
 			true,
@@ -71,8 +67,11 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			types.ModuleAddress,
 			func() []byte {
 				account := utiltx.GenerateAddress()
-				data, _ := erc20.Pack("balanceOf", account)
-				return data
+				call := erc20.BalanceOfCall{
+					Account: account,
+				}
+				bz, _ := call.EncodeWithSelector()
+				return bz
 			},
 			false,
 			true,

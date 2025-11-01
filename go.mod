@@ -46,6 +46,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/tyler-smith/go-bip39 v1.1.0
+	github.com/yihuang/go-abi v0.0.0-20251101094340-01f258e337df
 	github.com/zondax/hid v0.9.2
 	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.43.0
