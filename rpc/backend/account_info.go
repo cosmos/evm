@@ -48,7 +48,7 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 		return nil, err
 	}
 
-	height := int64(blockNum)
+	height := blockNum.Int64()
 
 	_, err = b.CometHeaderByNumber(blockNum)
 	if err != nil {
