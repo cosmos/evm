@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/ibc"
 	callbacksabi "github.com/cosmos/evm/precompiles/callbacks"
+	erc20 "github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/utils"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/ibc/callbacks/types"
@@ -182,14 +182,16 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrNumberOverflow, "amount overflow")
 	}
 
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract
-
 	remainingGas := math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt()
 
 	// Call the EVM with the remaining gas as the maximum gas limit.
 	// Up to now, the remaining gas is equal to the callback gas limit set by the user.
 	// NOTE: use the cached ctx for the EVM calls.
-	res, err := k.evmKeeper.CallEVM(cachedCtx, erc20.ABI, receiverHex, tokenPair.GetERC20Contract(), true, remainingGas, "approve", contractAddr, amountInt.BigInt())
+	call := &erc20.ApproveCall{
+		Spender: contractAddr,
+		Amount:  amountInt.BigInt(),
+	}
+	res, err := k.evmKeeper.CallEVM(cachedCtx, call, receiverHex, tokenPair.GetERC20Contract(), true, remainingGas)
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to set allowance: %v", err)
 	}
@@ -201,13 +203,12 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 		return errorsmod.Wrapf(types.ErrOutOfGas, "out of gas")
 	}
 
-	var approveSuccess bool
-	err = erc20.ABI.UnpackIntoInterface(&approveSuccess, "approve", res.Ret)
-	if err != nil {
+	var ret erc20.ApproveReturn
+	if _, err := ret.Decode(res.Ret); err != nil {
 		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to unpack approve return: %v", err)
 	}
 
-	if !approveSuccess {
+	if !ret.Field1 {
 		return errorsmod.Wrapf(types.ErrAllowanceFailed, "failed to set allowance")
 	}
 
@@ -231,7 +232,7 @@ func (k ContractKeeper) IBCReceivePacketCallback(
 	// for the total amount, or the callback will fail.
 	// This check is here to prevent funds from getting stuck in the isolated address,
 	// since they would become irretrievable.
-	receiverTokenBalance := k.erc20Keeper.BalanceOf(ctx, erc20.ABI, tokenPair.GetERC20Contract(), receiverHex) // here,
+	receiverTokenBalance := k.erc20Keeper.BalanceOf(ctx, tokenPair.GetERC20Contract(), receiverHex) // here,
 	// we can use the original ctx and skip manually adding the gas
 	if receiverTokenBalance.Cmp(big.NewInt(0)) != 0 {
 		return errorsmod.Wrapf(erc20types.ErrEVMCall,
@@ -318,8 +319,14 @@ func (k ContractKeeper) IBCOnAcknowledgementPacketCallback(
 
 	// Call the onPacketAcknowledgement function in the contract
 	// NOTE: use the cached ctx for the EVM calls.
-	res, err := k.evmKeeper.CallEVM(cachedCtx, callbacksabi.ABI, sender, contractAddr, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketAcknowledgement",
-		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData(), acknowledgement)
+	call := &callbacksabi.OnPacketAcknowledgementCall{
+		ChannelId:       packet.GetSourceChannel(),
+		PortId:          packet.GetSourcePort(),
+		Sequence:        packet.GetSequence(),
+		Data:            packet.GetData(),
+		Acknowledgement: acknowledgement,
+	}
+	res, err := k.evmKeeper.CallEVM(cachedCtx, call, sender, contractAddr, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
@@ -411,8 +418,13 @@ func (k ContractKeeper) IBCOnTimeoutPacketCallback(
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "provided contract address is not a contract: %s", contractAddr)
 	}
 
-	res, err := k.evmKeeper.CallEVM(ctx, callbacksabi.ABI, sender, contractAddr, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt(), "onPacketTimeout",
-		packet.GetSourceChannel(), packet.GetSourcePort(), packet.GetSequence(), packet.GetData())
+	call := callbacksabi.OnPacketTimeoutCall{
+		ChannelId: packet.GetSourceChannel(),
+		PortId:    packet.GetSourcePort(),
+		Sequence:  packet.GetSequence(),
+		Data:      packet.GetData(),
+	}
+	res, err := k.evmKeeper.CallEVM(ctx, &call, sender, contractAddr, true, math.NewIntFromUint64(cachedCtx.GasMeter().GasRemaining()).BigInt())
 	if err != nil {
 		return errorsmod.Wrapf(types.ErrCallbackFailed, "EVM returned error: %s", err.Error())
 	}
