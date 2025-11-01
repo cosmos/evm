@@ -1,0 +1,50 @@
+{
+    "flake-compat": {
+        "branch": "master",
+        "description": null,
+        "homepage": null,
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "b4a34015c698c7793d592d66adbab377907a2be8",
+        "sha256": "1qc703yg0babixi6wshn5wm2kgl5y1drcswgszh4xxzbrwkk9sv7",
+        "type": "tarball",
+        "url": "https://github.com/edolstra/flake-compat/archive/b4a34015c698c7793d592d66adbab377907a2be8.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "e0ca65c81a2d7a4d82a189f1e23a48d59ad42070",
+        "sha256": "1pq9nh1d8nn3xvbdny8fafzw87mj7gsmp6pxkdl65w2g18rmcmzx",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/e0ca65c81a2d7a4d82a189f1e23a48d59ad42070.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "release-24.11",
+        "description": "Nix Packages collection",
+        "homepage": "",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "daa477e013dd736c939fcc111dc4dd889bc17c94",
+        "sha256": "1vbbl1iy5wxmwww8hi1ngcby6mnyzn7l5x9yxf58yd9z0nmx6p74",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/daa477e013dd736c939fcc111dc4dd889bc17c94.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "poetry2nix": {
+        "branch": "master",
+        "description": "Convert poetry projects to nix automagically [maintainer=@adisbladis] ",
+        "homepage": "",
+        "owner": "nix-community",
+        "repo": "poetry2nix",
+        "rev": "d90f9db68a4bda31c346be16dfd8d3263be4547e",
+        "sha256": "0yfg51z8giwapc4kxxcrh47xr0zppwxiwaj7iyy6qsfd3a9649yz",
+        "type": "tarball",
+        "url": "https://github.com/nix-community/poetry2nix/archive/d90f9db68a4bda31c346be16dfd8d3263be4547e.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
