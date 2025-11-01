@@ -74,7 +74,6 @@ type RPCContext struct {
 	// Dual API testing fields
 	EnableComparison  bool                // Enable dual API comparison
 	ComparisonResults []*ComparisonResult // Store comparison results
-
 }
 
 func NewRPCContext(conf *config.Config) (*RPCContext, error) {

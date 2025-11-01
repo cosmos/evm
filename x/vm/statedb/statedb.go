@@ -222,7 +222,7 @@ func (s *StateDB) AddLog(log *ethtypes.Log) {
 	s.journal.append(addLogChange{})
 
 	log.TxIndex = s.txConfig.TxIndex
-	log.Index = s.txConfig.LogIndex + uint(len(s.logs))
+	log.Index = uint(len(s.logs))
 	s.logs = append(s.logs, log)
 }
 

@@ -569,7 +569,7 @@ func OpenIndexerDB(rootDir string, backendType dbm.BackendType) (dbm.DB, error) 
 // - traceWriterFile: The path to the trace store file. If this is an empty string, no file will be opened.
 func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	if traceWriterFile == "" {
-		return
+		return w, err
 	}
 
 	filePath := filepath.Clean(traceWriterFile)
