@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 
-	"github.com/cometbft/cometbft/libs/strings"
+	cometstrs "github.com/cometbft/cometbft/libs/strings"
 
 	errorsmod "cosmossdk.io/errors"
 
@@ -171,18 +172,30 @@ type MempoolConfig struct {
 	GlobalQueue uint64 `mapstructure:"global-queue"`
 	// Lifetime is the maximum amount of time non-executable transaction are queued
 	Lifetime time.Duration `mapstructure:"lifetime"`
+	// Locals is the set of addresses that should be treated by default as local
+	Locals []string `mapstructure:"locals"`
+	// NoLocals disables local transaction handling, exempting local accounts from pricing and acceptance
+	NoLocals bool `mapstructure:"no-locals"`
+	// Journal is the path to the local transaction journal file
+	Journal string `mapstructure:"journal"`
+	// Rejournal is the time interval to regenerate the local transaction journal
+	Rejournal time.Duration `mapstructure:"rejournal"`
 }
 
 // DefaultMempoolConfig returns the default mempool configuration
 func DefaultMempoolConfig() MempoolConfig {
 	return MempoolConfig{
-		PriceLimit:   1,             // Minimum gas price of 1 wei
-		PriceBump:    10,            // 10% price bump to replace transaction
-		AccountSlots: 16,            // 16 executable transaction slots per account
-		GlobalSlots:  5120,          // 4096 + 1024 = 5120 global executable slots
-		AccountQueue: 64,            // 64 non-executable transaction slots per account
-		GlobalQueue:  1024,          // 1024 global non-executable slots
-		Lifetime:     3 * time.Hour, // 3 hour lifetime for queued transactions
+		PriceLimit:   1,                  // Minimum gas price of 1 wei
+		PriceBump:    10,                 // 10% price bump to replace transaction
+		AccountSlots: 16,                 // 16 executable transaction slots per account
+		GlobalSlots:  5120,               // 4096 + 1024 = 5120 global executable slots
+		AccountQueue: 64,                 // 64 non-executable transaction slots per account
+		GlobalQueue:  1024,               // 1024 global non-executable slots
+		Lifetime:     3 * time.Hour,      // 3 hour lifetime for queued transactions
+		Locals:       []string{},         // No local addresses by default
+		NoLocals:     false,              // Local transaction handling enabled by default
+		Journal:      "transactions.rlp", // Default journal filename
+		Rejournal:    time.Hour,          // Regenerate journal every hour
 	}
 }
 
@@ -208,6 +221,9 @@ func (c MempoolConfig) Validate() error {
 	}
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	}
+	if !strings.HasSuffix(c.Journal, ".rlp") {
+		return fmt.Errorf("journal must end with .rlp, got %s", c.Journal)
 	}
 	return nil
 }
@@ -285,7 +301,7 @@ func DefaultEVMConfig() *EVMConfig {
 
 // Validate returns an error if the tracer type is invalid.
 func (c EVMConfig) Validate() error {
-	if c.Tracer != "" && !strings.StringInSlice(c.Tracer, evmTracers) {
+	if c.Tracer != "" && !cometstrs.StringInSlice(c.Tracer, evmTracers) {
 		return fmt.Errorf("invalid tracer type %s, available types: %v", c.Tracer, evmTracers)
 	}
 
