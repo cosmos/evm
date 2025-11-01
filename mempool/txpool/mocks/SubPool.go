@@ -432,7 +432,8 @@ func (_m *SubPool) ValidateTxBasics(tx *types.Transaction) error {
 func NewSubPool(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *SubPool {
+},
+) *SubPool {
 	mock := &SubPool{}
 	mock.Mock.Test(t)
 

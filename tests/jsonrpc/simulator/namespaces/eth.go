@@ -133,7 +133,6 @@ func EthCoinbase(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
 		return nil, err
@@ -156,7 +155,6 @@ func EthBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGasPrice(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	gasPrice, err := rCtx.Evmd.SuggestGasPrice(context.Background())
 	if err != nil {
 		return nil, err
@@ -183,7 +181,6 @@ func EthGasPrice(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthMaxPriorityFeePerGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	maxPriorityFeePerGas, err := rCtx.Evmd.SuggestGasTipCap(context.Background())
 	if err != nil {
 		return nil, err
@@ -203,7 +200,6 @@ func EthMaxPriorityFeePerGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthChainID(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	chainID, err := rCtx.Evmd.ChainID(context.Background())
 	if err != nil {
 		return nil, err
@@ -228,7 +224,6 @@ func EthChainID(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetBalance(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	balance, err := rCtx.Evmd.BalanceAt(context.Background(), rCtx.Evmd.Acc.Address, nil)
 	if err != nil {
 		return nil, err
@@ -248,7 +243,6 @@ func EthGetBalance(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetTransactionCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	nonce, err := rCtx.Evmd.PendingNonceAt(context.Background(), rCtx.Evmd.Acc.Address)
 	if err != nil {
 		return nil, err
@@ -266,7 +260,6 @@ func EthGetTransactionCount(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a receipt from one of our processed transactions to get a real block hash
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -300,7 +293,6 @@ func EthGetBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a receipt from one of our processed transactions to get a real block hash
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -663,7 +655,6 @@ func EthSendRawTransactionTransferERC20(rCtx *types.RPCContext) (*types.RpcResul
 }
 
 func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// TODO: Random pick
 	// pick a block with transactions
 	blkNum := rCtx.Evmd.BlockNumsIncludingTx[0]
@@ -696,7 +687,6 @@ func EthGetBlockReceipts(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetTransactionByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// TODO: Random pick
 	txHash := rCtx.Evmd.ProcessedTransactions[0]
 
@@ -723,7 +713,6 @@ func EthGetTransactionByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetTransactionByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a receipt from one of our processed transactions to get a real block hash
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -762,7 +751,6 @@ func EthGetTransactionByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcRes
 }
 
 func EthGetTransactionByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// TODO: Random pick
 	blkNum := rCtx.Evmd.BlockNumsIncludingTx[0]
 	var tx gethtypes.Transaction
@@ -791,7 +779,6 @@ func EthGetTransactionByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcR
 }
 
 func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a receipt from one of our processed transactions to get a real block hash
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -826,7 +813,6 @@ func EthGetBlockTransactionCountByNumber(rCtx *types.RPCContext) (*types.RpcResu
 
 // Uncle methods - these should always return 0 or nil in Cosmos EVM (no uncles in PoS)
 func EthGetUncleCountByBlockHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a block hash - try from processed transactions first, fallback to latest block
 	var blockHash common.Hash
 	if len(rCtx.Evmd.ProcessedTransactions) > 0 {
@@ -872,7 +858,6 @@ func EthGetUncleCountByBlockHash(rCtx *types.RPCContext) (*types.RpcResult, erro
 }
 
 func EthGetUncleCountByBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var uncleCount string
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &uncleCount, string(MethodNameEthGetUncleCountByBlockNumber), "latest")
 	if err != nil {
@@ -894,7 +879,6 @@ func EthGetUncleCountByBlockNumber(rCtx *types.RPCContext) (*types.RpcResult, er
 }
 
 func EthGetUncleByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a block hash - try from processed transactions first, fallback to latest block
 	var blockHash common.Hash
 	if len(rCtx.Evmd.ProcessedTransactions) > 0 {
@@ -933,7 +917,6 @@ func EthGetUncleByBlockHashAndIndex(rCtx *types.RPCContext) (*types.RpcResult, e
 }
 
 func EthGetUncleByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var uncle interface{}
 	// Get current block number and format as hex
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
@@ -962,7 +945,6 @@ func EthGetUncleByBlockNumberAndIndex(rCtx *types.RPCContext) (*types.RpcResult,
 }
 
 func EthGetTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// get block
 	blkNum := rCtx.Evmd.BlockNumsIncludingTx[0]
 	blk, err := rCtx.Evmd.BlockByNumber(context.Background(), new(big.Int).SetUint64(blkNum))
@@ -988,7 +970,6 @@ func EthGetTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult, err
 }
 
 func EthGetTransactionReceipt(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if len(rCtx.Evmd.ProcessedTransactions) == 0 {
 		return nil, errors.New("no transactions")
 	}
@@ -1018,7 +999,6 @@ func EthGetTransactionReceipt(rCtx *types.RPCContext) (*types.RpcResult, error) 
 }
 
 func EthGetBlockTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if len(rCtx.Evmd.ProcessedTransactions) == 0 {
 		return nil, errors.New("no processed transactions available - run transaction generation first")
 	}
@@ -1054,7 +1034,6 @@ func EthGetBlockTransactionCountByHash(rCtx *types.RPCContext) (*types.RpcResult
 }
 
 func EthGetCode(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if rCtx.Evmd.ERC20Addr == (common.Address{}) {
 		return nil, errors.New("no contract address, must be deployed first")
 	}
@@ -1082,7 +1061,6 @@ func EthGetCode(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetStorageAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if rCtx.Evmd.ERC20Addr == (common.Address{}) {
 		return nil, errors.New("no contract address, must be deployed first")
 	}
@@ -1113,7 +1091,6 @@ func EthGetStorageAt(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	fErc20Transfer := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(rCtx.Evmd.BlockNumsIncludingTx[0] - 1),
 		Addresses: []common.Address{rCtx.Evmd.ERC20Addr},
@@ -1168,7 +1145,6 @@ func EthNewFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if rCtx.Evmd.FilterID == "" {
 		return nil, errors.New("no filter id, must create a filter first")
 	}
@@ -1216,7 +1192,6 @@ func EthGetFilterLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthNewBlockFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var filterID string
 	if err := rCtx.Evmd.Client.Client().CallContext(context.Background(), &filterID, string(MethodNameEthNewBlockFilter)); err != nil {
 		return nil, err
@@ -1236,7 +1211,6 @@ func EthNewBlockFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var changes []interface{}
 	if err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &changes, string(MethodNameEthGetFilterChanges), rCtx.Evmd.BlockFilterID); err != nil {
 		return nil, err
@@ -1280,7 +1254,6 @@ func EthGetFilterChanges(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthUninstallFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	_, filterID, err := utils.NewERC20FilterLogs(rCtx, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create filter logs: %w", err)
@@ -1314,7 +1287,6 @@ func EthUninstallFilter(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetLogs(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	if _, err := EthNewFilter(rCtx); err != nil {
 		return nil, errors.New("failed to create a filter")
 	}
@@ -1727,7 +1699,6 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthFeeHistory), "0x2", "latest", []float64{25.0, 50.0, 75.0})
-
 	if err != nil {
 		if err.Error() == "the method "+string(MethodNameEthFeeHistory)+" does not exist/is not available" ||
 			err.Error() == types.ErrorMethodNotFound {
@@ -1812,7 +1783,6 @@ func EthGetProof(rCtx *types.RPCContext) (*types.RpcResult, error) {
 // EthSendTransaction sends a transaction using eth_sendTransaction
 // This requires the account to be unlocked or managed by the node
 func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Create a simple transaction object for testing
 	tx := map[string]interface{}{
 		"from":     rCtx.Evmd.Acc.Address.Hex(),
@@ -1868,7 +1838,6 @@ func EthSendTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 // EthSign signs data using eth_sign
 // This requires the account to be unlocked or managed by the node
 func EthSign(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Test data to sign (32-byte hash)
 	testData := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
@@ -1958,7 +1927,6 @@ func EthCreateAccessList(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a block hash from processed transactions
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -1972,7 +1940,6 @@ func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByHash), receipt.BlockHash.Hex())
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2027,7 +1994,6 @@ func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get current block number
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
@@ -2043,7 +2009,6 @@ func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByNumber), blockNumberHex)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2098,7 +2063,6 @@ func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Create a simulation request with test parameters
 	simulationReq := map[string]any{
 		"blockStateCalls": []map[string]any{
@@ -2123,7 +2087,6 @@ func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthSimulateV1), simulationReq)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||
@@ -2180,10 +2143,8 @@ func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func EthPendingTransactions(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var pendingTxs any
 	err := rCtx.Evmd.RPCClient().Call(&pendingTxs, string(MethodNameEthPendingTransactions))
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||

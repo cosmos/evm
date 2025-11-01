@@ -14,7 +14,7 @@ type CustomSlogHandler struct {
 
 // Handle processes slog records and forwards them to your Cosmos SDK logger.
 func (h *CustomSlogHandler) Handle(_ context.Context, r slog.Record) error {
-	attrs := []interface{}{}
+	attrs := []any{}
 	r.Attrs(func(attr slog.Attr) bool {
 		attrs = append(attrs, attr.Key, attr.Value.Any())
 		return true

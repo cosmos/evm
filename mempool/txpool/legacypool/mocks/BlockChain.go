@@ -114,7 +114,8 @@ func (_m *BlockChain) StateAt(root common.Hash) (vm.StateDB, error) {
 func NewBlockChain(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BlockChain {
+},
+) *BlockChain {
 	mock := &BlockChain{}
 	mock.Mock.Test(t)
 

@@ -1,9 +1,10 @@
 package eips_test
 
 import (
+	"testing"
+
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/tests/integration/eips"
-	"testing"
 	//nolint:revive // dot imports are fine for Ginkgo
 	//nolint:revive // dot imports are fine for Ginkgo
 )

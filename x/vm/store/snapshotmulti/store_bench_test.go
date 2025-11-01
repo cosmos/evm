@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	benchSink    interface{}
+	benchSink    any
 	benchTxCount = flag.Int("bench.numtx", 256, "number of transactions per benchmark run")
 )
 

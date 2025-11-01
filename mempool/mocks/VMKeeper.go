@@ -251,7 +251,8 @@ func (_m *VMKeeper) SetState(ctx types.Context, addr common.Address, key common.
 func NewVMKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *VMKeeper {
+},
+) *VMKeeper {
 	mock := &VMKeeper{}
 	mock.Mock.Test(t)
 

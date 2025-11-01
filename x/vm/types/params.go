@@ -77,12 +77,7 @@ func DefaultParams() Params {
 }
 
 // validateChannels checks if channels ids are valid
-func validateChannels(i interface{}) error {
-	channels, ok := i.([]string)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
+func validateChannels(channels []string) error {
 	for _, channel := range channels {
 		if err := host.ChannelIdentifierValidator(channel); err != nil {
 			return errorsmod.Wrap(

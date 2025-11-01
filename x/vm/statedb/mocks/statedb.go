@@ -628,7 +628,8 @@ func (_m *StateDB) Witness() *stateless.Witness {
 func NewStateDB(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *StateDB {
+},
+) *StateDB {
 	mock := &StateDB{}
 	mock.Mock.Test(t)
 
