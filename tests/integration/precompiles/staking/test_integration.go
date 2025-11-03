@@ -65,10 +65,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		var s *PrecompileTestSuite
 
 		BeforeEach(func() {
+			var err error
+
 			s = NewPrecompileTestSuite(create, options...)
 			s.SetupTest()
 
-			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
+			valAddr, err = sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			Expect(err).To(BeNil())
 			valAddr2, err = sdk.ValAddressFromBech32(s.network.GetValidators()[1].GetOperator())
 			Expect(err).To(BeNil())
@@ -123,7 +125,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					expectedCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the contract and checking logs")
@@ -148,7 +150,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					outOfGasCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling precompile")
@@ -186,7 +188,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the contract and checking logs")
@@ -215,7 +217,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the contract and checking logs")
@@ -269,7 +271,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newPriv,
-						txArgs, &createValidatorArgs,
+						txArgs, createValidatorArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the contract and checking logs")
@@ -281,7 +283,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					logCheckArgs = passCheck.WithExpEvents(&staking.EditValidatorEvent{})
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newPriv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the contract and checking logs")
@@ -318,7 +320,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					logCheckArgs := passCheck.WithExpEvents(&staking.EditValidatorEvent{})
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(1),
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).NotTo(BeNil(), "error while calling the contract and checking logs")
@@ -354,7 +356,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -374,9 +376,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(s.network.NextBlock()).To(BeNil())
 
 					// try to delegate more than left in account
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						common.BytesToAddress(newAddr), valAddr.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("insufficient funds")
 
@@ -394,9 +396,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingValAddr := sdk.ValAddress(nonExistingAddr.Bytes())
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						delegator.Addr, nonExistingValAddr.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("validator does not exist")
 
@@ -415,9 +417,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 					differentAddr := testutiltx.GenerateAddress()
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						differentAddr, valAddr.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
 						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
@@ -435,10 +437,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("to undelegate", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.UndelegateMethod
-			})
-
 			Context("as the token owner", func() {
 				It("should undelegate", func() {
 					delegator := s.keyring.GetKey(0)
@@ -458,7 +456,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -480,7 +478,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -499,7 +497,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				})
@@ -520,7 +518,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -542,7 +540,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -568,7 +566,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -587,7 +585,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -609,7 +607,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -632,7 +630,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&undelegateArgs,
+					undelegateArgs,
 					logCheckArgs,
 				)
 				Expect(err).To(BeNil(), "error while setting up an unbonding delegation: %v", err)
@@ -670,7 +668,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
 						txArgs,
-						&callArgs,
+						callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -697,7 +695,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -720,7 +718,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
-						txArgs, &callArgs,
+						txArgs, callArgs,
 						logCheckArgs,
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -734,10 +732,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Validator queries", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.ValidatorMethod
-			})
-
 			It("should return validator", func() {
 				delegator := s.keyring.GetKey(0)
 
@@ -746,7 +740,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &callArgs,
+					txArgs, callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -766,7 +760,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &callArgs,
+					txArgs, callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -780,10 +774,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Validators queries", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.ValidatorsMethod
-			})
-
 			It("should return validators (default pagination)", func() {
 				delegator := s.keyring.GetKey(0)
 
@@ -794,7 +784,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &callArgs,
+					txArgs, callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -829,7 +819,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -863,7 +853,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					invalidStatusCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -880,7 +870,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -907,7 +897,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -931,7 +921,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -959,7 +949,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				unbondCheck := passCheck.WithExpEvents(&staking.UnbondEvent{})
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &undelegateArgs,
+					txArgs, undelegateArgs,
 					unbondCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -982,7 +972,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1007,7 +997,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs,
-					&callArgs,
+					callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1032,7 +1022,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &redelegateArgs,
+					txArgs, redelegateArgs,
 					redelegateCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1047,7 +1037,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &callArgs,
+					txArgs, callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1071,7 +1061,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
-					txArgs, &callArgs,
+					txArgs, callArgs,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1653,7 +1643,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("with tx from validator operator using delegated code - should NOT edit a validator", func() {
 				s.delegateAccountToContract(valPriv, valHexAddr, contractAddr)
-				callArgs := stakingcaller2.NewTestEditValidatorCall(
+				callArgs := stakingcaller.NewTestEditValidatorCall(
 					defaultDescription, valHexAddr,
 					defaultCommissionRate, defaultMinSelfDelegation,
 				)
@@ -1936,7 +1926,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					}
 
 					var (
-						args                           testutiltypes.CallArgs
 						delegatorInitialBal            *sdk.Coin
 						contractInitialBalance         *sdk.Coin
 						bondedTokensPoolInitialBalance *sdk.Coin
@@ -1958,7 +1947,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					})
 
 					DescribeTable("should delegate and update balances accordingly", func(tc testCase) {
-						args := stakingcaller2.NewTestDelegateWithTransferCall(
+						args := stakingcaller2.NewTestDelegateWithCounterAndTransferCall(
 							valAddr.String(), tc.before, tc.after,
 						)
 

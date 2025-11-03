@@ -110,7 +110,7 @@ func (s *PrecompileTestSuite) TestEditValidatorEvent() {
 		{
 			name: "success - the correct event is emitted",
 			malleate: func() staking.EditValidatorCall {
-				return staking.NewEditValidatorCall(
+				return *staking.NewEditValidatorCall(
 					staking.Description{
 						Moniker:         "node0-edited",
 						Identity:        "",
@@ -183,7 +183,7 @@ func (s *PrecompileTestSuite) TestDelegateEvent() {
 		{
 			"success - the correct event is emitted",
 			func(delegator common.Address) staking.DelegateCall {
-				return staking.NewDelegateCall(
+				return *staking.NewDelegateCall(
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
 					delegationAmt,
@@ -251,7 +251,7 @@ func (s *PrecompileTestSuite) TestUnbondEvent() {
 		{
 			"success - the correct event is emitted",
 			func(delegator common.Address) staking.UndelegateCall {
-				return staking.NewUndelegateCall(
+				return *staking.NewUndelegateCall(
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
 					big.NewInt(1000000000000000000),
@@ -316,7 +316,7 @@ func (s *PrecompileTestSuite) TestRedelegateEvent() {
 		{
 			"success - the correct event is emitted",
 			func(delegator common.Address) staking.RedelegateCall {
-				return staking.NewRedelegateCall(
+				return *staking.NewRedelegateCall(
 					delegator,
 					s.network.GetValidators()[0].OperatorAddress,
 					s.network.GetValidators()[1].OperatorAddress,
@@ -392,10 +392,10 @@ func (s *PrecompileTestSuite) TestCancelUnbondingDelegationEvent() {
 					s.network.GetValidators()[0].OperatorAddress,
 					big.NewInt(1000000000000000000),
 				)
-				_, err := s.precompile.Undelegate(ctx, undelegateArgs, stDB, contract)
+				_, err := s.precompile.Undelegate(ctx, *undelegateArgs, stDB, contract)
 				s.Require().NoError(err)
 
-				return staking.NewCancelUnbondingDelegationCall(
+				return *staking.NewCancelUnbondingDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].OperatorAddress,
 					big.NewInt(1000000000000000000),

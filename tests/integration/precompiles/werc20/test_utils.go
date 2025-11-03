@@ -12,7 +12,6 @@ import (
 
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/keyring"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -47,9 +46,8 @@ type CallsData struct {
 func (cd CallsData) getTxAndCallArgs(
 	callType callType,
 	call abi.Method,
-) (evmtypes.EvmTxArgs, testutiltypes.CallArgs) {
+) (evmtypes.EvmTxArgs, abi.Method) {
 	txArgs := evmtypes.EvmTxArgs{}
-	callArgs := testutiltypes.CallArgs{}
 
 	switch callType {
 	case directCall:
@@ -58,15 +56,13 @@ func (cd CallsData) getTxAndCallArgs(
 		txArgs.To = &cd.precompileReverterAddr
 	}
 
-	callArgs.Method = call
-
 	// Setting gas tip cap to zero to have zero gas price.
 	txArgs.GasTipCap = new(big.Int).SetInt64(0)
 	// Gas limit is added only to skip the estimate gas call
 	// that makes debugging more complex.
 	txArgs.GasLimit = 1_000_000_000_000
 
-	return txArgs, callArgs
+	return txArgs, call
 }
 
 // -------------------------------------------------------------------------------------------------

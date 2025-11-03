@@ -189,7 +189,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			s.Run("name", func() {
 				out, err := precompile.Name(
 					s.network.GetContext(),
-					&erc20.NameCall{},
+					erc20.NameCall{},
 				)
 
 				s.Require().NoError(err)
@@ -199,7 +199,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			s.Run("symbol", func() {
 				out, err := precompile.Symbol(
 					s.network.GetContext(),
-					&erc20.SymbolCall{},
+					erc20.SymbolCall{},
 				)
 
 				s.Require().NoError(err)
@@ -371,7 +371,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 
 			out, err := precompile.Decimals(
 				s.network.GetContext(),
-				&erc20.DecimalsCall{},
+				erc20.DecimalsCall{},
 			)
 
 			s.Require().NoError(err)
@@ -418,7 +418,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 
 			out, err := precompile.TotalSupply(
 				s.network.GetContext(),
-				&erc20.TotalSupplyCall{},
+				erc20.TotalSupplyCall{},
 			)
 
 			s.Require().NoError(err)
@@ -480,7 +480,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 
 			out, err := s.precompile.BalanceOf(
 				s.network.GetContext(),
-				&balanceOfArgs,
+				balanceOfArgs,
 			)
 
 			s.Require().NoError(err)
@@ -536,7 +536,7 @@ func (s *PrecompileTestSuite) TestAllowance() {
 
 			out, err := s.precompile.Allowance(
 				s.network.GetContext(),
-				&allowanceArgs,
+				allowanceArgs,
 			)
 
 			s.Require().NoError(err)

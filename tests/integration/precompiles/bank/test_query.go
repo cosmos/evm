@@ -89,8 +89,8 @@ func (s *PrecompileTestSuite) TestBalances() {
 			ctx = s.SetupTest() // reset the chain each test
 
 			addr := tc.malleate()
-			call := &bank.BalancesCall{Account: addr}
-			result, err := s.precompile.Balances(ctx, call)
+			call := bank.NewBalancesCall(addr)
+			result, err := s.precompile.Balances(ctx, *call)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -141,7 +141,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 			tc.malleate()
 
 			var call bank.TotalSupplyCall
-			result, err := s.precompile.TotalSupply(ctx, &call.EmptyTuple)
+			result, err := s.precompile.TotalSupply(ctx, call.EmptyTuple)
 
 			s.Require().NoError(err)
 			balances := result.TotalSupply
@@ -210,7 +210,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 			ctx := s.SetupTest()
 
 			addr := tc.malleate()
-			call := &bank.SupplyOfCall{Erc20Address: addr}
+			call := bank.SupplyOfCall{Erc20Address: addr}
 			result, err := s.precompile.SupplyOf(ctx, call)
 
 			if tc.expErr {
