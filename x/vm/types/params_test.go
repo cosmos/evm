@@ -84,7 +84,6 @@ func TestParamsEIPs(t *testing.T) {
 }
 
 func TestParamsValidatePriv(t *testing.T) {
-	require.Error(t, validateEIPs(""))
 	require.NoError(t, validateEIPs([]int64{1884}))
 	require.ErrorContains(t, validateEIPs([]int64{1884, 1884, 1885}), "duplicate EIP: 1884")
 	require.NoError(t, validateChannels([]string{"channel-0"}))

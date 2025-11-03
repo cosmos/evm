@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -58,7 +59,7 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 	// the bankWrapper to properly convert fees from the 18 decimals
 	// representation to the original one before calling into the bank keeper.
 	if k.virtualFeeCollection {
-		err = DeductFees(k.bankWrapper, ctx, signerAcc, fees)
+		err = DeductFees(k.bankWrapper, k, ctx, signerAcc, fees)
 	} else {
 		err = authante.DeductFees(k.bankWrapper, ctx, signerAcc, fees)
 	}
@@ -126,9 +127,25 @@ func VerifyFee(
 }
 
 // DeductFees deducts fees from the given account.
-func DeductFees(bankKeeper types.BankKeeper, ctx sdk.Context, acc sdk.AccountI, fees sdk.Coins) error {
+func DeductFees(bankKeeper types.BankKeeper, vmKeeper types.VMKeeper, ctx sdk.Context, acc sdk.AccountI, fees sdk.Coins) error {
 	if !fees.IsValid() {
 		return errorsmod.Wrapf(errortypes.ErrInsufficientFee, "invalid fee amount: %s", fees)
+	}
+	evmCoinInfo := vmKeeper.GetEvmCoinInfo(ctx)
+	for _, coin := range fees {
+		md, found := bankKeeper.GetDenomMetaData(ctx, coin.Denom)
+		if !found {
+			// DenomMetadata being set for the evm coin is enforced in genesis
+			continue
+		}
+		for _, du := range md.DenomUnits {
+			if du.Denom == evmCoinInfo.Denom && du.Exponent != evmCoinInfo.Decimals {
+				panic(
+					fmt.Sprintf(
+						"Cannot use virtual fee collection for denom, %s, which has a different exponent, %d, than the evm coin's %d",
+						du.Denom, du.Exponent, evmCoinInfo.Decimals))
+			}
+		}
 	}
 
 	err := bankKeeper.SendCoinsFromAccountToModuleVirtual(ctx, acc.GetAddress(), authtypes.FeeCollectorName, fees)

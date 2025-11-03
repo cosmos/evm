@@ -72,7 +72,6 @@ func (s *KeeperTestSuite) TestEvmHooks() {
 		vmdb := statedb.New(ctx, k, statedb.NewTxConfig(
 			txHash,
 			0,
-			0,
 		))
 
 		vmdb.AddLog(&ethtypes.Log{
