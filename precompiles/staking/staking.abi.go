@@ -1708,8 +1708,8 @@ func NewCancelUnbondingDelegationCall(
 	validatorAddress string,
 	amount *big.Int,
 	creationHeight *big.Int,
-) CancelUnbondingDelegationCall {
-	return CancelUnbondingDelegationCall{
+) *CancelUnbondingDelegationCall {
+	return &CancelUnbondingDelegationCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -1946,8 +1946,8 @@ func NewCreateValidatorCall(
 	validatorAddress common.Address,
 	pubkey string,
 	value *big.Int,
-) CreateValidatorCall {
-	return CreateValidatorCall{
+) *CreateValidatorCall {
+	return &CreateValidatorCall{
 		Description:       description,
 		CommissionRates:   commissionRates,
 		MinSelfDelegation: minSelfDelegation,
@@ -2137,8 +2137,8 @@ func NewDelegateCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
 	amount *big.Int,
-) DelegateCall {
-	return DelegateCall{
+) *DelegateCall {
+	return &DelegateCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -2313,8 +2313,8 @@ func (t DelegationCall) EncodeWithSelector() ([]byte, error) {
 func NewDelegationCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
-) DelegationCall {
-	return DelegationCall{
+) *DelegationCall {
+	return &DelegationCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 	}
@@ -2541,8 +2541,8 @@ func NewEditValidatorCall(
 	validatorAddress common.Address,
 	commissionRate *big.Int,
 	minSelfDelegation *big.Int,
-) EditValidatorCall {
-	return EditValidatorCall{
+) *EditValidatorCall {
+	return &EditValidatorCall{
 		Description:       description,
 		ValidatorAddress:  validatorAddress,
 		CommissionRate:    commissionRate,
@@ -2755,8 +2755,8 @@ func NewRedelegateCall(
 	validatorSrcAddress string,
 	validatorDstAddress string,
 	amount *big.Int,
-) RedelegateCall {
-	return RedelegateCall{
+) *RedelegateCall {
+	return &RedelegateCall{
 		DelegatorAddress:    delegatorAddress,
 		ValidatorSrcAddress: validatorSrcAddress,
 		ValidatorDstAddress: validatorDstAddress,
@@ -2957,8 +2957,8 @@ func NewRedelegationCall(
 	delegatorAddress common.Address,
 	srcValidatorAddress string,
 	dstValidatorAddress string,
-) RedelegationCall {
-	return RedelegationCall{
+) *RedelegationCall {
+	return &RedelegationCall{
 		DelegatorAddress:    delegatorAddress,
 		SrcValidatorAddress: srcValidatorAddress,
 		DstValidatorAddress: dstValidatorAddress,
@@ -3201,8 +3201,8 @@ func NewRedelegationsCall(
 	srcValidatorAddress string,
 	dstValidatorAddress string,
 	pageRequest cmn.PageRequest,
-) RedelegationsCall {
-	return RedelegationsCall{
+) *RedelegationsCall {
+	return &RedelegationsCall{
 		DelegatorAddress:    delegatorAddress,
 		SrcValidatorAddress: srcValidatorAddress,
 		DstValidatorAddress: dstValidatorAddress,
@@ -3420,8 +3420,8 @@ func (t UnbondingDelegationCall) EncodeWithSelector() ([]byte, error) {
 func NewUnbondingDelegationCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
-) UnbondingDelegationCall {
-	return UnbondingDelegationCall{
+) *UnbondingDelegationCall {
+	return &UnbondingDelegationCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 	}
@@ -3625,8 +3625,8 @@ func NewUndelegateCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
 	amount *big.Int,
-) UndelegateCall {
-	return UndelegateCall{
+) *UndelegateCall {
+	return &UndelegateCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -3771,8 +3771,8 @@ func (t ValidatorCall) EncodeWithSelector() ([]byte, error) {
 // NewValidatorCall constructs a new ValidatorCall
 func NewValidatorCall(
 	validatorAddress common.Address,
-) ValidatorCall {
-	return ValidatorCall{
+) *ValidatorCall {
+	return &ValidatorCall{
 		ValidatorAddress: validatorAddress,
 	}
 }
@@ -3976,8 +3976,8 @@ func (t ValidatorsCall) EncodeWithSelector() ([]byte, error) {
 func NewValidatorsCall(
 	status string,
 	pageRequest cmn.PageRequest,
-) ValidatorsCall {
-	return ValidatorsCall{
+) *ValidatorsCall {
+	return &ValidatorsCall{
 		Status:      status,
 		PageRequest: pageRequest,
 	}

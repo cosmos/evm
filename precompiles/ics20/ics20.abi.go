@@ -465,8 +465,8 @@ func (t DenomCall) EncodeWithSelector() ([]byte, error) {
 // NewDenomCall constructs a new DenomCall
 func NewDenomCall(
 	hash string,
-) DenomCall {
-	return DenomCall{
+) *DenomCall {
+	return &DenomCall{
 		Hash: hash,
 	}
 }
@@ -645,8 +645,8 @@ func (t DenomHashCall) EncodeWithSelector() ([]byte, error) {
 // NewDenomHashCall constructs a new DenomHashCall
 func NewDenomHashCall(
 	trace string,
-) DenomHashCall {
-	return DenomHashCall{
+) *DenomHashCall {
+	return &DenomHashCall{
 		Trace: trace,
 	}
 }
@@ -825,8 +825,8 @@ func (t DenomsCall) EncodeWithSelector() ([]byte, error) {
 // NewDenomsCall constructs a new DenomsCall
 func NewDenomsCall(
 	pageRequest cmn.PageRequest,
-) DenomsCall {
-	return DenomsCall{
+) *DenomsCall {
+	return &DenomsCall{
 		PageRequest: pageRequest,
 	}
 }
@@ -1177,8 +1177,8 @@ func NewTransferCall(
 	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
-) TransferCall {
-	return TransferCall{
+) *TransferCall {
+	return &TransferCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,

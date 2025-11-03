@@ -1561,8 +1561,8 @@ func (t CancelProposalCall) EncodeWithSelector() ([]byte, error) {
 func NewCancelProposalCall(
 	proposer common.Address,
 	proposalId uint64,
-) CancelProposalCall {
-	return CancelProposalCall{
+) *CancelProposalCall {
+	return &CancelProposalCall{
 		Proposer:   proposer,
 		ProposalId: proposalId,
 	}
@@ -1748,8 +1748,8 @@ func NewDepositCall(
 	depositor common.Address,
 	proposalId uint64,
 	amount []cmn.Coin,
-) DepositCall {
-	return DepositCall{
+) *DepositCall {
+	return &DepositCall{
 		Depositor:  depositor,
 		ProposalId: proposalId,
 		Amount:     amount,
@@ -1843,8 +1843,8 @@ func (t GetConstitutionCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetConstitutionCall constructs a new GetConstitutionCall
-func NewGetConstitutionCall() GetConstitutionCall {
-	return GetConstitutionCall{}
+func NewGetConstitutionCall() *GetConstitutionCall {
+	return &GetConstitutionCall{}
 }
 
 const GetConstitutionReturnStaticSize = 32
@@ -2015,8 +2015,8 @@ func (t GetDepositCall) EncodeWithSelector() ([]byte, error) {
 func NewGetDepositCall(
 	proposalId uint64,
 	depositor common.Address,
-) GetDepositCall {
-	return GetDepositCall{
+) *GetDepositCall {
+	return &GetDepositCall{
 		ProposalId: proposalId,
 		Depositor:  depositor,
 	}
@@ -2208,8 +2208,8 @@ func (t GetDepositsCall) EncodeWithSelector() ([]byte, error) {
 func NewGetDepositsCall(
 	proposalId uint64,
 	pagination cmn.PageRequest,
-) GetDepositsCall {
-	return GetDepositsCall{
+) *GetDepositsCall {
+	return &GetDepositsCall{
 		ProposalId: proposalId,
 		Pagination: pagination,
 	}
@@ -2344,8 +2344,8 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetParamsCall constructs a new GetParamsCall
-func NewGetParamsCall() GetParamsCall {
-	return GetParamsCall{}
+func NewGetParamsCall() *GetParamsCall {
+	return &GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 32
@@ -2504,8 +2504,8 @@ func (t GetProposalCall) EncodeWithSelector() ([]byte, error) {
 // NewGetProposalCall constructs a new GetProposalCall
 func NewGetProposalCall(
 	proposalId uint64,
-) GetProposalCall {
-	return GetProposalCall{
+) *GetProposalCall {
+	return &GetProposalCall{
 		ProposalId: proposalId,
 	}
 }
@@ -2720,8 +2720,8 @@ func NewGetProposalsCall(
 	voter common.Address,
 	depositor common.Address,
 	pagination cmn.PageRequest,
-) GetProposalsCall {
-	return GetProposalsCall{
+) *GetProposalsCall {
+	return &GetProposalsCall{
 		ProposalStatus: proposalStatus,
 		Voter:          voter,
 		Depositor:      depositor,
@@ -2909,8 +2909,8 @@ func (t GetTallyResultCall) EncodeWithSelector() ([]byte, error) {
 // NewGetTallyResultCall constructs a new GetTallyResultCall
 func NewGetTallyResultCall(
 	proposalId uint64,
-) GetTallyResultCall {
-	return GetTallyResultCall{
+) *GetTallyResultCall {
+	return &GetTallyResultCall{
 		ProposalId: proposalId,
 	}
 }
@@ -3083,8 +3083,8 @@ func (t GetVoteCall) EncodeWithSelector() ([]byte, error) {
 func NewGetVoteCall(
 	proposalId uint64,
 	voter common.Address,
-) GetVoteCall {
-	return GetVoteCall{
+) *GetVoteCall {
+	return &GetVoteCall{
 		ProposalId: proposalId,
 		Voter:      voter,
 	}
@@ -3276,8 +3276,8 @@ func (t GetVotesCall) EncodeWithSelector() ([]byte, error) {
 func NewGetVotesCall(
 	proposalId uint64,
 	pagination cmn.PageRequest,
-) GetVotesCall {
-	return GetVotesCall{
+) *GetVotesCall {
+	return &GetVotesCall{
 		ProposalId: proposalId,
 		Pagination: pagination,
 	}
@@ -3518,8 +3518,8 @@ func NewSubmitProposalCall(
 	proposer common.Address,
 	jsonProposal []byte,
 	deposit []cmn.Coin,
-) SubmitProposalCall {
-	return SubmitProposalCall{
+) *SubmitProposalCall {
+	return &SubmitProposalCall{
 		Proposer:     proposer,
 		JsonProposal: jsonProposal,
 		Deposit:      deposit,
@@ -3718,8 +3718,8 @@ func NewVoteCall(
 	proposalId uint64,
 	option uint8,
 	metadata string,
-) VoteCall {
-	return VoteCall{
+) *VoteCall {
+	return &VoteCall{
 		Voter:      voter,
 		ProposalId: proposalId,
 		Option:     option,
@@ -3932,8 +3932,8 @@ func NewVoteWeightedCall(
 	proposalId uint64,
 	options []WeightedVoteOption,
 	metadata string,
-) VoteWeightedCall {
-	return VoteWeightedCall{
+) *VoteWeightedCall {
+	return &VoteWeightedCall{
 		Voter:      voter,
 		ProposalId: proposalId,
 		Options:    options,

@@ -702,8 +702,8 @@ func (t ClaimRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewClaimRewardsCall(
 	delegatorAddress common.Address,
 	maxRetrieve uint32,
-) ClaimRewardsCall {
-	return ClaimRewardsCall{
+) *ClaimRewardsCall {
+	return &ClaimRewardsCall{
 		DelegatorAddress: delegatorAddress,
 		MaxRetrieve:      maxRetrieve,
 	}
@@ -796,8 +796,8 @@ func (t CommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewCommunityPoolCall constructs a new CommunityPoolCall
-func NewCommunityPoolCall() CommunityPoolCall {
-	return CommunityPoolCall{}
+func NewCommunityPoolCall() *CommunityPoolCall {
+	return &CommunityPoolCall{}
 }
 
 const CommunityPoolReturnStaticSize = 32
@@ -986,8 +986,8 @@ func (t DelegationRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewDelegationRewardsCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
-) DelegationRewardsCall {
-	return DelegationRewardsCall{
+) *DelegationRewardsCall {
+	return &DelegationRewardsCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 	}
@@ -1149,8 +1149,8 @@ func (t DelegationTotalRewardsCall) EncodeWithSelector() ([]byte, error) {
 // NewDelegationTotalRewardsCall constructs a new DelegationTotalRewardsCall
 func NewDelegationTotalRewardsCall(
 	delegatorAddress common.Address,
-) DelegationTotalRewardsCall {
-	return DelegationTotalRewardsCall{
+) *DelegationTotalRewardsCall {
+	return &DelegationTotalRewardsCall{
 		DelegatorAddress: delegatorAddress,
 	}
 }
@@ -1335,8 +1335,8 @@ func (t DelegatorValidatorsCall) EncodeWithSelector() ([]byte, error) {
 // NewDelegatorValidatorsCall constructs a new DelegatorValidatorsCall
 func NewDelegatorValidatorsCall(
 	delegatorAddress common.Address,
-) DelegatorValidatorsCall {
-	return DelegatorValidatorsCall{
+) *DelegatorValidatorsCall {
+	return &DelegatorValidatorsCall{
 		DelegatorAddress: delegatorAddress,
 	}
 }
@@ -1497,8 +1497,8 @@ func (t DelegatorWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 // NewDelegatorWithdrawAddressCall constructs a new DelegatorWithdrawAddressCall
 func NewDelegatorWithdrawAddressCall(
 	delegatorAddress common.Address,
-) DelegatorWithdrawAddressCall {
-	return DelegatorWithdrawAddressCall{
+) *DelegatorWithdrawAddressCall {
+	return &DelegatorWithdrawAddressCall{
 		DelegatorAddress: delegatorAddress,
 	}
 }
@@ -1714,8 +1714,8 @@ func NewDepositValidatorRewardsPoolCall(
 	depositor common.Address,
 	validatorAddress string,
 	amount []cmn.Coin,
-) DepositValidatorRewardsPoolCall {
-	return DepositValidatorRewardsPoolCall{
+) *DepositValidatorRewardsPoolCall {
+	return &DepositValidatorRewardsPoolCall{
 		Depositor:        depositor,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -1890,8 +1890,8 @@ func (t FundCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 func NewFundCommunityPoolCall(
 	depositor common.Address,
 	amount []cmn.Coin,
-) FundCommunityPoolCall {
-	return FundCommunityPoolCall{
+) *FundCommunityPoolCall {
+	return &FundCommunityPoolCall{
 		Depositor: depositor,
 		Amount:    amount,
 	}
@@ -2065,8 +2065,8 @@ func (t SetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 func NewSetWithdrawAddressCall(
 	delegatorAddress common.Address,
 	withdrawerAddress string,
-) SetWithdrawAddressCall {
-	return SetWithdrawAddressCall{
+) *SetWithdrawAddressCall {
+	return &SetWithdrawAddressCall{
 		DelegatorAddress:  delegatorAddress,
 		WithdrawerAddress: withdrawerAddress,
 	}
@@ -2228,8 +2228,8 @@ func (t ValidatorCommissionCall) EncodeWithSelector() ([]byte, error) {
 // NewValidatorCommissionCall constructs a new ValidatorCommissionCall
 func NewValidatorCommissionCall(
 	validatorAddress string,
-) ValidatorCommissionCall {
-	return ValidatorCommissionCall{
+) *ValidatorCommissionCall {
+	return &ValidatorCommissionCall{
 		ValidatorAddress: validatorAddress,
 	}
 }
@@ -2408,8 +2408,8 @@ func (t ValidatorDistributionInfoCall) EncodeWithSelector() ([]byte, error) {
 // NewValidatorDistributionInfoCall constructs a new ValidatorDistributionInfoCall
 func NewValidatorDistributionInfoCall(
 	validatorAddress string,
-) ValidatorDistributionInfoCall {
-	return ValidatorDistributionInfoCall{
+) *ValidatorDistributionInfoCall {
+	return &ValidatorDistributionInfoCall{
 		ValidatorAddress: validatorAddress,
 	}
 }
@@ -2588,8 +2588,8 @@ func (t ValidatorOutstandingRewardsCall) EncodeWithSelector() ([]byte, error) {
 // NewValidatorOutstandingRewardsCall constructs a new ValidatorOutstandingRewardsCall
 func NewValidatorOutstandingRewardsCall(
 	validatorAddress string,
-) ValidatorOutstandingRewardsCall {
-	return ValidatorOutstandingRewardsCall{
+) *ValidatorOutstandingRewardsCall {
+	return &ValidatorOutstandingRewardsCall{
 		ValidatorAddress: validatorAddress,
 	}
 }
@@ -2817,8 +2817,8 @@ func NewValidatorSlashesCall(
 	startingHeight uint64,
 	endingHeight uint64,
 	pageRequest cmn.PageRequest,
-) ValidatorSlashesCall {
-	return ValidatorSlashesCall{
+) *ValidatorSlashesCall {
+	return &ValidatorSlashesCall{
 		ValidatorAddress: validatorAddress,
 		StartingHeight:   startingHeight,
 		EndingHeight:     endingHeight,
@@ -3036,8 +3036,8 @@ func (t WithdrawDelegatorRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewWithdrawDelegatorRewardsCall(
 	delegatorAddress common.Address,
 	validatorAddress string,
-) WithdrawDelegatorRewardsCall {
-	return WithdrawDelegatorRewardsCall{
+) *WithdrawDelegatorRewardsCall {
+	return &WithdrawDelegatorRewardsCall{
 		DelegatorAddress: delegatorAddress,
 		ValidatorAddress: validatorAddress,
 	}
@@ -3217,8 +3217,8 @@ func (t WithdrawValidatorCommissionCall) EncodeWithSelector() ([]byte, error) {
 // NewWithdrawValidatorCommissionCall constructs a new WithdrawValidatorCommissionCall
 func NewWithdrawValidatorCommissionCall(
 	validatorAddress string,
-) WithdrawValidatorCommissionCall {
-	return WithdrawValidatorCommissionCall{
+) *WithdrawValidatorCommissionCall {
+	return &WithdrawValidatorCommissionCall{
 		ValidatorAddress: validatorAddress,
 	}
 }

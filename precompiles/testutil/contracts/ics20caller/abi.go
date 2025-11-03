@@ -75,8 +75,8 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewCounterCall constructs a new CounterCall
-func NewCounterCall() CounterCall {
-	return CounterCall{}
+func NewCounterCall() *CounterCall {
+	return &CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -166,8 +166,8 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewDepositCall constructs a new DepositCall
-func NewDepositCall() DepositCall {
-	return DepositCall{}
+func NewDepositCall() *DepositCall {
+	return &DepositCall{}
 }
 
 // DepositReturn represents the output arguments for deposit function
@@ -425,8 +425,8 @@ func NewIbcTransferAndRevertCall(
 	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
-) IbcTransferAndRevertCall {
-	return IbcTransferAndRevertCall{
+) *IbcTransferAndRevertCall {
+	return &IbcTransferAndRevertCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,
@@ -743,8 +743,8 @@ func NewTestIbcTransferCall(
 	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
-) TestIbcTransferCall {
-	return TestIbcTransferCall{
+) *TestIbcTransferCall {
+	return &TestIbcTransferCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,
@@ -1049,8 +1049,8 @@ func NewTestIbcTransferFromContractCall(
 	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
-) TestIbcTransferFromContractCall {
-	return TestIbcTransferFromContractCall{
+) *TestIbcTransferFromContractCall {
+	return &TestIbcTransferFromContractCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,
@@ -1390,8 +1390,8 @@ func NewTestIbcTransferWithTransferCall(
 	memo string,
 	before bool,
 	after bool,
-) TestIbcTransferWithTransferCall {
-	return TestIbcTransferWithTransferCall{
+) *TestIbcTransferWithTransferCall {
+	return &TestIbcTransferWithTransferCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,
@@ -1734,8 +1734,8 @@ func NewTestRevertIbcTransferCall(
 	timeoutTimestamp uint64,
 	memo string,
 	after bool,
-) TestRevertIbcTransferCall {
-	return TestRevertIbcTransferCall{
+) *TestRevertIbcTransferCall {
+	return &TestRevertIbcTransferCall{
 		SourcePort:       sourcePort,
 		SourceChannel:    sourceChannel,
 		Denom:            denom,

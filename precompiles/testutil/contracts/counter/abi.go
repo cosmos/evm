@@ -60,8 +60,8 @@ func (t AddCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewAddCall constructs a new AddCall
-func NewAddCall() AddCall {
-	return AddCall{}
+func NewAddCall() *AddCall {
+	return &AddCall{}
 }
 
 // AddReturn represents the output arguments for add function
@@ -102,8 +102,8 @@ func (t GetCounterCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetCounterCall constructs a new GetCounterCall
-func NewGetCounterCall() GetCounterCall {
-	return GetCounterCall{}
+func NewGetCounterCall() *GetCounterCall {
+	return &GetCounterCall{}
 }
 
 const GetCounterReturnStaticSize = 32
@@ -193,8 +193,8 @@ func (t SubtractCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewSubtractCall constructs a new SubtractCall
-func NewSubtractCall() SubtractCall {
-	return SubtractCall{}
+func NewSubtractCall() *SubtractCall {
+	return &SubtractCall{}
 }
 
 // SubtractReturn represents the output arguments for subtract function

@@ -326,8 +326,8 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetParamsCall constructs a new GetParamsCall
-func NewGetParamsCall() GetParamsCall {
-	return GetParamsCall{}
+func NewGetParamsCall() *GetParamsCall {
+	return &GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 256
@@ -468,8 +468,8 @@ func (t GetSigningInfoCall) EncodeWithSelector() ([]byte, error) {
 // NewGetSigningInfoCall constructs a new GetSigningInfoCall
 func NewGetSigningInfoCall(
 	consAddress common.Address,
-) GetSigningInfoCall {
-	return GetSigningInfoCall{
+) *GetSigningInfoCall {
+	return &GetSigningInfoCall{
 		ConsAddress: consAddress,
 	}
 }
@@ -630,8 +630,8 @@ func (t GetSigningInfosCall) EncodeWithSelector() ([]byte, error) {
 // NewGetSigningInfosCall constructs a new GetSigningInfosCall
 func NewGetSigningInfosCall(
 	pagination cmn.PageRequest,
-) GetSigningInfosCall {
-	return GetSigningInfosCall{
+) *GetSigningInfosCall {
+	return &GetSigningInfosCall{
 		Pagination: pagination,
 	}
 }
@@ -816,8 +816,8 @@ func (t UnjailCall) EncodeWithSelector() ([]byte, error) {
 // NewUnjailCall constructs a new UnjailCall
 func NewUnjailCall(
 	validatorAddress common.Address,
-) UnjailCall {
-	return UnjailCall{
+) *UnjailCall {
+	return &UnjailCall{
 		ValidatorAddress: validatorAddress,
 	}
 }

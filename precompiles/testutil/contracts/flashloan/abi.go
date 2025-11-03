@@ -158,8 +158,8 @@ func NewDelegateWithRevertCall(
 	delegator common.Address,
 	validator string,
 	amount *big.Int,
-) DelegateWithRevertCall {
-	return DelegateWithRevertCall{
+) *DelegateWithRevertCall {
+	return &DelegateWithRevertCall{
 		Delegator: delegator,
 		Validator: validator,
 		Amount:    amount,
@@ -285,8 +285,8 @@ func (t FlashLoanCall) EncodeWithSelector() ([]byte, error) {
 func NewFlashLoanCall(
 	token common.Address,
 	validator string,
-) FlashLoanCall {
-	return FlashLoanCall{
+) *FlashLoanCall {
+	return &FlashLoanCall{
 		Token:     token,
 		Validator: validator,
 	}
@@ -460,8 +460,8 @@ func (t FlashLoanWithRevertCall) EncodeWithSelector() ([]byte, error) {
 func NewFlashLoanWithRevertCall(
 	token common.Address,
 	validator string,
-) FlashLoanWithRevertCall {
-	return FlashLoanWithRevertCall{
+) *FlashLoanWithRevertCall {
+	return &FlashLoanWithRevertCall{
 		Token:     token,
 		Validator: validator,
 	}
@@ -554,8 +554,8 @@ func (t OwnerCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewOwnerCall constructs a new OwnerCall
-func NewOwnerCall() OwnerCall {
-	return OwnerCall{}
+func NewOwnerCall() *OwnerCall {
+	return &OwnerCall{}
 }
 
 const OwnerReturnStaticSize = 32

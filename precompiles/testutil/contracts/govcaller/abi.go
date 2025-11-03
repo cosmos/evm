@@ -524,8 +524,8 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewCounterCall constructs a new CounterCall
-func NewCounterCall() CounterCall {
-	return CounterCall{}
+func NewCounterCall() *CounterCall {
+	return &CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -615,8 +615,8 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewDepositCall constructs a new DepositCall
-func NewDepositCall() DepositCall {
-	return DepositCall{}
+func NewDepositCall() *DepositCall {
+	return &DepositCall{}
 }
 
 // DepositReturn represents the output arguments for deposit function
@@ -657,8 +657,8 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetParamsCall constructs a new GetParamsCall
-func NewGetParamsCall() GetParamsCall {
-	return GetParamsCall{}
+func NewGetParamsCall() *GetParamsCall {
+	return &GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 32
@@ -853,8 +853,8 @@ func NewTestCancelFromContractWithTransferCall(
 	proposalId uint64,
 	before bool,
 	after bool,
-) TestCancelFromContractWithTransferCall {
-	return TestCancelFromContractWithTransferCall{
+) *TestCancelFromContractWithTransferCall {
+	return &TestCancelFromContractWithTransferCall{
 		RandomAddr: randomAddr,
 		ProposalId: proposalId,
 		Before:     before,
@@ -1000,8 +1000,8 @@ func (t TestCancelProposalFromContractCall) EncodeWithSelector() ([]byte, error)
 // NewTestCancelProposalFromContractCall constructs a new TestCancelProposalFromContractCall
 func NewTestCancelProposalFromContractCall(
 	proposalId uint64,
-) TestCancelProposalFromContractCall {
-	return TestCancelProposalFromContractCall{
+) *TestCancelProposalFromContractCall {
+	return &TestCancelProposalFromContractCall{
 		ProposalId: proposalId,
 	}
 }
@@ -1168,8 +1168,8 @@ func NewTestCancelWithTransferCall(
 	proposalId uint64,
 	before bool,
 	after bool,
-) TestCancelWithTransferCall {
-	return TestCancelWithTransferCall{
+) *TestCancelWithTransferCall {
+	return &TestCancelWithTransferCall{
 		ProposalId: proposalId,
 		Before:     before,
 		After:      after,
@@ -1356,8 +1356,8 @@ func NewTestDepositCall(
 	depositorAddr common.Address,
 	proposalId uint64,
 	deposit []cmn.Coin,
-) TestDepositCall {
-	return TestDepositCall{
+) *TestDepositCall {
+	return &TestDepositCall{
 		DepositorAddr: depositorAddr,
 		ProposalId:    proposalId,
 		Deposit:       deposit,
@@ -1532,8 +1532,8 @@ func (t TestDepositFromContractCall) EncodeWithSelector() ([]byte, error) {
 func NewTestDepositFromContractCall(
 	proposalId uint64,
 	deposit []cmn.Coin,
-) TestDepositFromContractCall {
-	return TestDepositFromContractCall{
+) *TestDepositFromContractCall {
+	return &TestDepositFromContractCall{
 		ProposalId: proposalId,
 		Deposit:    deposit,
 	}
@@ -1743,8 +1743,8 @@ func NewTestDepositFromContractWithTransferCall(
 	deposit []cmn.Coin,
 	before bool,
 	after bool,
-) TestDepositFromContractWithTransferCall {
-	return TestDepositFromContractWithTransferCall{
+) *TestDepositFromContractWithTransferCall {
+	return &TestDepositFromContractWithTransferCall{
 		RandomAddr: randomAddr,
 		ProposalId: proposalId,
 		Deposit:    deposit,
@@ -1945,8 +1945,8 @@ func NewTestDepositWithTransferCall(
 	deposit []cmn.Coin,
 	before bool,
 	after bool,
-) TestDepositWithTransferCall {
-	return TestDepositWithTransferCall{
+) *TestDepositWithTransferCall {
+	return &TestDepositWithTransferCall{
 		ProposalId: proposalId,
 		Deposit:    deposit,
 		Before:     before,
@@ -2147,8 +2147,8 @@ func NewTestFundCommunityPoolCall(
 	depositor common.Address,
 	validatorAddress string,
 	amount []cmn.Coin,
-) TestFundCommunityPoolCall {
-	return TestFundCommunityPoolCall{
+) *TestFundCommunityPoolCall {
+	return &TestFundCommunityPoolCall{
 		Depositor:        depositor,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -2348,8 +2348,8 @@ func NewTestSubmitProposalCall(
 	proposerAddr common.Address,
 	jsonProposal []byte,
 	deposit []cmn.Coin,
-) TestSubmitProposalCall {
-	return TestSubmitProposalCall{
+) *TestSubmitProposalCall {
+	return &TestSubmitProposalCall{
 		ProposerAddr: proposerAddr,
 		JsonProposal: jsonProposal,
 		Deposit:      deposit,
@@ -2537,8 +2537,8 @@ func (t TestSubmitProposalFromContractCall) EncodeWithSelector() ([]byte, error)
 func NewTestSubmitProposalFromContractCall(
 	jsonProposal []byte,
 	deposit []cmn.Coin,
-) TestSubmitProposalFromContractCall {
-	return TestSubmitProposalFromContractCall{
+) *TestSubmitProposalFromContractCall {
+	return &TestSubmitProposalFromContractCall{
 		JsonProposal: jsonProposal,
 		Deposit:      deposit,
 	}
@@ -2761,8 +2761,8 @@ func NewTestSubmitProposalFromContractWithTransferCall(
 	deposit []cmn.Coin,
 	before bool,
 	after bool,
-) TestSubmitProposalFromContractWithTransferCall {
-	return TestSubmitProposalFromContractWithTransferCall{
+) *TestSubmitProposalFromContractWithTransferCall {
+	return &TestSubmitProposalFromContractWithTransferCall{
 		RandomAddr:   randomAddr,
 		JsonProposal: jsonProposal,
 		Deposit:      deposit,
@@ -2976,8 +2976,8 @@ func NewTestSubmitProposalWithTransferCall(
 	deposit []cmn.Coin,
 	before bool,
 	after bool,
-) TestSubmitProposalWithTransferCall {
-	return TestSubmitProposalWithTransferCall{
+) *TestSubmitProposalWithTransferCall {
+	return &TestSubmitProposalWithTransferCall{
 		JsonProposal: jsonProposal,
 		Deposit:      deposit,
 		Before:       before,
@@ -3190,8 +3190,8 @@ func NewTestTransferCancelFundCall(
 	proposalId uint64,
 	denom []byte,
 	validatorAddress string,
-) TestTransferCancelFundCall {
-	return TestTransferCancelFundCall{
+) *TestTransferCancelFundCall {
+	return &TestTransferCancelFundCall{
 		Depositor:        depositor,
 		ProposalId:       proposalId,
 		Denom:            denom,

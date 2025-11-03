@@ -991,8 +991,8 @@ func NewDummyCall(
 	e PageRequest,
 	f PageResponse,
 	g ICS20Allocation,
-) DummyCall {
-	return DummyCall{
+) *DummyCall {
+	return &DummyCall{
 		A: a,
 		B: b,
 		C: c,

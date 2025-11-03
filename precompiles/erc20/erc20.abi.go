@@ -144,8 +144,8 @@ func (t AllowanceCall) EncodeWithSelector() ([]byte, error) {
 func NewAllowanceCall(
 	owner common.Address,
 	spender common.Address,
-) AllowanceCall {
-	return AllowanceCall{
+) *AllowanceCall {
+	return &AllowanceCall{
 		Owner:   owner,
 		Spender: spender,
 	}
@@ -301,8 +301,8 @@ func (t ApproveCall) EncodeWithSelector() ([]byte, error) {
 func NewApproveCall(
 	spender common.Address,
 	amount *big.Int,
-) ApproveCall {
-	return ApproveCall{
+) *ApproveCall {
+	return &ApproveCall{
 		Spender: spender,
 		Amount:  amount,
 	}
@@ -446,8 +446,8 @@ func (t BalanceOfCall) EncodeWithSelector() ([]byte, error) {
 // NewBalanceOfCall constructs a new BalanceOfCall
 func NewBalanceOfCall(
 	account common.Address,
-) BalanceOfCall {
-	return BalanceOfCall{
+) *BalanceOfCall {
+	return &BalanceOfCall{
 		Account: account,
 	}
 }
@@ -539,8 +539,8 @@ func (t DecimalsCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewDecimalsCall constructs a new DecimalsCall
-func NewDecimalsCall() DecimalsCall {
-	return DecimalsCall{}
+func NewDecimalsCall() *DecimalsCall {
+	return &DecimalsCall{}
 }
 
 const DecimalsReturnStaticSize = 32
@@ -630,8 +630,8 @@ func (t NameCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewNameCall constructs a new NameCall
-func NewNameCall() NameCall {
-	return NameCall{}
+func NewNameCall() *NameCall {
+	return &NameCall{}
 }
 
 const NameReturnStaticSize = 32
@@ -739,8 +739,8 @@ func (t SymbolCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewSymbolCall constructs a new SymbolCall
-func NewSymbolCall() SymbolCall {
-	return SymbolCall{}
+func NewSymbolCall() *SymbolCall {
+	return &SymbolCall{}
 }
 
 const SymbolReturnStaticSize = 32
@@ -848,8 +848,8 @@ func (t TotalSupplyCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewTotalSupplyCall constructs a new TotalSupplyCall
-func NewTotalSupplyCall() TotalSupplyCall {
-	return TotalSupplyCall{}
+func NewTotalSupplyCall() *TotalSupplyCall {
+	return &TotalSupplyCall{}
 }
 
 const TotalSupplyReturnStaticSize = 32
@@ -1002,8 +1002,8 @@ func (t TransferCall) EncodeWithSelector() ([]byte, error) {
 func NewTransferCall(
 	to common.Address,
 	amount *big.Int,
-) TransferCall {
-	return TransferCall{
+) *TransferCall {
+	return &TransferCall{
 		To:     to,
 		Amount: amount,
 	}
@@ -1171,8 +1171,8 @@ func NewTransferFromCall(
 	from common.Address,
 	to common.Address,
 	amount *big.Int,
-) TransferFromCall {
-	return TransferFromCall{
+) *TransferFromCall {
+	return &TransferFromCall{
 		From:   from,
 		To:     to,
 		Amount: amount,

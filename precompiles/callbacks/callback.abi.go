@@ -213,8 +213,8 @@ func NewOnPacketAcknowledgementCall(
 	sequence uint64,
 	data []byte,
 	acknowledgement []byte,
-) OnPacketAcknowledgementCall {
-	return OnPacketAcknowledgementCall{
+) *OnPacketAcknowledgementCall {
+	return &OnPacketAcknowledgementCall{
 		ChannelId:       channelId,
 		PortId:          portId,
 		Sequence:        sequence,
@@ -392,8 +392,8 @@ func NewOnPacketTimeoutCall(
 	portId string,
 	sequence uint64,
 	data []byte,
-) OnPacketTimeoutCall {
-	return OnPacketTimeoutCall{
+) *OnPacketTimeoutCall {
+	return &OnPacketTimeoutCall{
 		ChannelId: channelId,
 		PortId:    portId,
 		Sequence:  sequence,

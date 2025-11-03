@@ -689,8 +689,8 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewCounterCall constructs a new CounterCall
-func NewCounterCall() CounterCall {
-	return CounterCall{}
+func NewCounterCall() *CounterCall {
+	return &CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -861,8 +861,8 @@ func (t DelegateCallSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error)
 func NewDelegateCallSetWithdrawAddressCall(
 	delAddr common.Address,
 	withdrawAddr string,
-) DelegateCallSetWithdrawAddressCall {
-	return DelegateCallSetWithdrawAddressCall{
+) *DelegateCallSetWithdrawAddressCall {
+	return &DelegateCallSetWithdrawAddressCall{
 		DelAddr:      delAddr,
 		WithdrawAddr: withdrawAddr,
 	}
@@ -906,8 +906,8 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewDepositCall constructs a new DepositCall
-func NewDepositCall() DepositCall {
-	return DepositCall{}
+func NewDepositCall() *DepositCall {
+	return &DepositCall{}
 }
 
 // DepositReturn represents the output arguments for deposit function
@@ -948,8 +948,8 @@ func (t GetCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewGetCommunityPoolCall constructs a new GetCommunityPoolCall
-func NewGetCommunityPoolCall() GetCommunityPoolCall {
-	return GetCommunityPoolCall{}
+func NewGetCommunityPoolCall() *GetCommunityPoolCall {
+	return &GetCommunityPoolCall{}
 }
 
 const GetCommunityPoolReturnStaticSize = 32
@@ -1138,8 +1138,8 @@ func (t GetDelegationRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewGetDelegationRewardsCall(
 	delAddr common.Address,
 	valAddr string,
-) GetDelegationRewardsCall {
-	return GetDelegationRewardsCall{
+) *GetDelegationRewardsCall {
+	return &GetDelegationRewardsCall{
 		DelAddr: delAddr,
 		ValAddr: valAddr,
 	}
@@ -1301,8 +1301,8 @@ func (t GetDelegationTotalRewardsCall) EncodeWithSelector() ([]byte, error) {
 // NewGetDelegationTotalRewardsCall constructs a new GetDelegationTotalRewardsCall
 func NewGetDelegationTotalRewardsCall(
 	delAddr common.Address,
-) GetDelegationTotalRewardsCall {
-	return GetDelegationTotalRewardsCall{
+) *GetDelegationTotalRewardsCall {
+	return &GetDelegationTotalRewardsCall{
 		DelAddr: delAddr,
 	}
 }
@@ -1487,8 +1487,8 @@ func (t GetDelegatorValidatorsCall) EncodeWithSelector() ([]byte, error) {
 // NewGetDelegatorValidatorsCall constructs a new GetDelegatorValidatorsCall
 func NewGetDelegatorValidatorsCall(
 	delAddr common.Address,
-) GetDelegatorValidatorsCall {
-	return GetDelegatorValidatorsCall{
+) *GetDelegatorValidatorsCall {
+	return &GetDelegatorValidatorsCall{
 		DelAddr: delAddr,
 	}
 }
@@ -1649,8 +1649,8 @@ func (t GetDelegatorWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 // NewGetDelegatorWithdrawAddressCall constructs a new GetDelegatorWithdrawAddressCall
 func NewGetDelegatorWithdrawAddressCall(
 	delAddr common.Address,
-) GetDelegatorWithdrawAddressCall {
-	return GetDelegatorWithdrawAddressCall{
+) *GetDelegatorWithdrawAddressCall {
+	return &GetDelegatorWithdrawAddressCall{
 		DelAddr: delAddr,
 	}
 }
@@ -1829,8 +1829,8 @@ func (t GetValidatorCommissionCall) EncodeWithSelector() ([]byte, error) {
 // NewGetValidatorCommissionCall constructs a new GetValidatorCommissionCall
 func NewGetValidatorCommissionCall(
 	valAddr string,
-) GetValidatorCommissionCall {
-	return GetValidatorCommissionCall{
+) *GetValidatorCommissionCall {
+	return &GetValidatorCommissionCall{
 		ValAddr: valAddr,
 	}
 }
@@ -2009,8 +2009,8 @@ func (t GetValidatorDistributionInfoCall) EncodeWithSelector() ([]byte, error) {
 // NewGetValidatorDistributionInfoCall constructs a new GetValidatorDistributionInfoCall
 func NewGetValidatorDistributionInfoCall(
 	valAddr string,
-) GetValidatorDistributionInfoCall {
-	return GetValidatorDistributionInfoCall{
+) *GetValidatorDistributionInfoCall {
+	return &GetValidatorDistributionInfoCall{
 		ValAddr: valAddr,
 	}
 }
@@ -2189,8 +2189,8 @@ func (t GetValidatorOutstandingRewardsCall) EncodeWithSelector() ([]byte, error)
 // NewGetValidatorOutstandingRewardsCall constructs a new GetValidatorOutstandingRewardsCall
 func NewGetValidatorOutstandingRewardsCall(
 	valAddr string,
-) GetValidatorOutstandingRewardsCall {
-	return GetValidatorOutstandingRewardsCall{
+) *GetValidatorOutstandingRewardsCall {
+	return &GetValidatorOutstandingRewardsCall{
 		ValAddr: valAddr,
 	}
 }
@@ -2418,8 +2418,8 @@ func NewGetValidatorSlashesCall(
 	startingHeight uint64,
 	endingHeight uint64,
 	pageRequest cmn.PageRequest,
-) GetValidatorSlashesCall {
-	return GetValidatorSlashesCall{
+) *GetValidatorSlashesCall {
+	return &GetValidatorSlashesCall{
 		ValAddr:        valAddr,
 		StartingHeight: startingHeight,
 		EndingHeight:   endingHeight,
@@ -2661,8 +2661,8 @@ func NewRevertWithdrawRewardsAndTransferCall(
 	withdrawer common.Address,
 	valAddr string,
 	after bool,
-) RevertWithdrawRewardsAndTransferCall {
-	return RevertWithdrawRewardsAndTransferCall{
+) *RevertWithdrawRewardsAndTransferCall {
+	return &RevertWithdrawRewardsAndTransferCall{
 		DelAddr:    delAddr,
 		Withdrawer: withdrawer,
 		ValAddr:    valAddr,
@@ -2759,8 +2759,8 @@ func (t StaticCallGetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 // NewStaticCallGetWithdrawAddressCall constructs a new StaticCallGetWithdrawAddressCall
 func NewStaticCallGetWithdrawAddressCall(
 	delAddr common.Address,
-) StaticCallGetWithdrawAddressCall {
-	return StaticCallGetWithdrawAddressCall{
+) *StaticCallGetWithdrawAddressCall {
+	return &StaticCallGetWithdrawAddressCall{
 		DelAddr: delAddr,
 	}
 }
@@ -2951,8 +2951,8 @@ func (t StaticCallSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 func NewStaticCallSetWithdrawAddressCall(
 	delAddr common.Address,
 	withdrawAddr string,
-) StaticCallSetWithdrawAddressCall {
-	return StaticCallSetWithdrawAddressCall{
+) *StaticCallSetWithdrawAddressCall {
+	return &StaticCallSetWithdrawAddressCall{
 		DelAddr:      delAddr,
 		WithdrawAddr: withdrawAddr,
 	}
@@ -3059,8 +3059,8 @@ func (t TestClaimRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewTestClaimRewardsCall(
 	delAddr common.Address,
 	maxRetrieve uint32,
-) TestClaimRewardsCall {
-	return TestClaimRewardsCall{
+) *TestClaimRewardsCall {
+	return &TestClaimRewardsCall{
 		DelAddr:     delAddr,
 		MaxRetrieve: maxRetrieve,
 	}
@@ -3228,8 +3228,8 @@ func NewTestClaimRewardsWithTransferCall(
 	maxRetrieve uint32,
 	before bool,
 	after bool,
-) TestClaimRewardsWithTransferCall {
-	return TestClaimRewardsWithTransferCall{
+) *TestClaimRewardsWithTransferCall {
+	return &TestClaimRewardsWithTransferCall{
 		MaxRetrieve: maxRetrieve,
 		Before:      before,
 		After:       after,
@@ -3355,8 +3355,8 @@ func (t TestDelegateFromContractCall) EncodeWithSelector() ([]byte, error) {
 func NewTestDelegateFromContractCall(
 	validatorAddr string,
 	amount *big.Int,
-) TestDelegateFromContractCall {
-	return TestDelegateFromContractCall{
+) *TestDelegateFromContractCall {
+	return &TestDelegateFromContractCall{
 		ValidatorAddr: validatorAddr,
 		Amount:        amount,
 	}
@@ -3506,8 +3506,8 @@ func NewTestDepositValidatorRewardsPoolCall(
 	depositor common.Address,
 	validatorAddress string,
 	amount []cmn.Coin,
-) TestDepositValidatorRewardsPoolCall {
-	return TestDepositValidatorRewardsPoolCall{
+) *TestDepositValidatorRewardsPoolCall {
+	return &TestDepositValidatorRewardsPoolCall{
 		Depositor:        depositor,
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
@@ -3719,8 +3719,8 @@ func NewTestDepositValidatorRewardsPoolWithTransferCall(
 	amount []cmn.Coin,
 	before bool,
 	after bool,
-) TestDepositValidatorRewardsPoolWithTransferCall {
-	return TestDepositValidatorRewardsPoolWithTransferCall{
+) *TestDepositValidatorRewardsPoolWithTransferCall {
+	return &TestDepositValidatorRewardsPoolWithTransferCall{
 		ValidatorAddress: validatorAddress,
 		Amount:           amount,
 		Before:           before,
@@ -3847,8 +3847,8 @@ func (t TestFundCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 func NewTestFundCommunityPoolCall(
 	depositor common.Address,
 	amount []cmn.Coin,
-) TestFundCommunityPoolCall {
-	return TestFundCommunityPoolCall{
+) *TestFundCommunityPoolCall {
+	return &TestFundCommunityPoolCall{
 		Depositor: depositor,
 		Amount:    amount,
 	}
@@ -4046,8 +4046,8 @@ func NewTestFundCommunityPoolWithTransferCall(
 	amount []cmn.Coin,
 	before bool,
 	after bool,
-) TestFundCommunityPoolWithTransferCall {
-	return TestFundCommunityPoolWithTransferCall{
+) *TestFundCommunityPoolWithTransferCall {
+	return &TestFundCommunityPoolWithTransferCall{
 		Depositor: depositor,
 		Amount:    amount,
 		Before:    before,
@@ -4199,8 +4199,8 @@ func NewTestRevertStateCall(
 	withdrawAddr string,
 	delAddr common.Address,
 	valAddr string,
-) TestRevertStateCall {
-	return TestRevertStateCall{
+) *TestRevertStateCall {
+	return &TestRevertStateCall{
 		WithdrawAddr: withdrawAddr,
 		DelAddr:      delAddr,
 		ValAddr:      valAddr,
@@ -4393,8 +4393,8 @@ func (t TestSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 func NewTestSetWithdrawAddressCall(
 	delAddr common.Address,
 	withdrawAddr string,
-) TestSetWithdrawAddressCall {
-	return TestSetWithdrawAddressCall{
+) *TestSetWithdrawAddressCall {
+	return &TestSetWithdrawAddressCall{
 		DelAddr:      delAddr,
 		WithdrawAddr: withdrawAddr,
 	}
@@ -4556,8 +4556,8 @@ func (t TestSetWithdrawAddressFromContractCall) EncodeWithSelector() ([]byte, er
 // NewTestSetWithdrawAddressFromContractCall constructs a new TestSetWithdrawAddressFromContractCall
 func NewTestSetWithdrawAddressFromContractCall(
 	withdrawAddr string,
-) TestSetWithdrawAddressFromContractCall {
-	return TestSetWithdrawAddressFromContractCall{
+) *TestSetWithdrawAddressFromContractCall {
+	return &TestSetWithdrawAddressFromContractCall{
 		WithdrawAddr: withdrawAddr,
 	}
 }
@@ -4712,8 +4712,8 @@ func (t TestTryClaimRewardsCall) EncodeWithSelector() ([]byte, error) {
 func NewTestTryClaimRewardsCall(
 	delegatorAddress common.Address,
 	maxRetrieve uint32,
-) TestTryClaimRewardsCall {
-	return TestTryClaimRewardsCall{
+) *TestTryClaimRewardsCall {
+	return &TestTryClaimRewardsCall{
 		DelegatorAddress: delegatorAddress,
 		MaxRetrieve:      maxRetrieve,
 	}
@@ -4887,8 +4887,8 @@ func (t TestWithdrawDelegatorRewardCall) EncodeWithSelector() ([]byte, error) {
 func NewTestWithdrawDelegatorRewardCall(
 	delAddr common.Address,
 	valAddr string,
-) TestWithdrawDelegatorRewardCall {
-	return TestWithdrawDelegatorRewardCall{
+) *TestWithdrawDelegatorRewardCall {
+	return &TestWithdrawDelegatorRewardCall{
 		DelAddr: delAddr,
 		ValAddr: valAddr,
 	}
@@ -5068,8 +5068,8 @@ func (t TestWithdrawDelegatorRewardFromContractCall) EncodeWithSelector() ([]byt
 // NewTestWithdrawDelegatorRewardFromContractCall constructs a new TestWithdrawDelegatorRewardFromContractCall
 func NewTestWithdrawDelegatorRewardFromContractCall(
 	valAddr string,
-) TestWithdrawDelegatorRewardFromContractCall {
-	return TestWithdrawDelegatorRewardFromContractCall{
+) *TestWithdrawDelegatorRewardFromContractCall {
+	return &TestWithdrawDelegatorRewardFromContractCall{
 		ValAddr: valAddr,
 	}
 }
@@ -5272,8 +5272,8 @@ func NewTestWithdrawDelegatorRewardWithTransferCall(
 	valAddr string,
 	before bool,
 	after bool,
-) TestWithdrawDelegatorRewardWithTransferCall {
-	return TestWithdrawDelegatorRewardWithTransferCall{
+) *TestWithdrawDelegatorRewardWithTransferCall {
+	return &TestWithdrawDelegatorRewardWithTransferCall{
 		ValAddr: valAddr,
 		Before:  before,
 		After:   after,
@@ -5454,8 +5454,8 @@ func (t TestWithdrawValidatorCommissionCall) EncodeWithSelector() ([]byte, error
 // NewTestWithdrawValidatorCommissionCall constructs a new TestWithdrawValidatorCommissionCall
 func NewTestWithdrawValidatorCommissionCall(
 	valAddr string,
-) TestWithdrawValidatorCommissionCall {
-	return TestWithdrawValidatorCommissionCall{
+) *TestWithdrawValidatorCommissionCall {
+	return &TestWithdrawValidatorCommissionCall{
 		ValAddr: valAddr,
 	}
 }
@@ -5670,8 +5670,8 @@ func NewTestWithdrawValidatorCommissionWithTransferCall(
 	withdrawer common.Address,
 	before bool,
 	after bool,
-) TestWithdrawValidatorCommissionWithTransferCall {
-	return TestWithdrawValidatorCommissionWithTransferCall{
+) *TestWithdrawValidatorCommissionWithTransferCall {
+	return &TestWithdrawValidatorCommissionWithTransferCall{
 		ValAddr:    valAddr,
 		Withdrawer: withdrawer,
 		Before:     before,
@@ -5865,8 +5865,8 @@ func (t WithdrawDelegatorRewardsAndRevertCall) EncodeWithSelector() ([]byte, err
 func NewWithdrawDelegatorRewardsAndRevertCall(
 	delAddr common.Address,
 	valAddr string,
-) WithdrawDelegatorRewardsAndRevertCall {
-	return WithdrawDelegatorRewardsAndRevertCall{
+) *WithdrawDelegatorRewardsAndRevertCall {
+	return &WithdrawDelegatorRewardsAndRevertCall{
 		DelAddr: delAddr,
 		ValAddr: valAddr,
 	}

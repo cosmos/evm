@@ -127,8 +127,8 @@ func (t Bech32ToHexCall) EncodeWithSelector() ([]byte, error) {
 // NewBech32ToHexCall constructs a new Bech32ToHexCall
 func NewBech32ToHexCall(
 	bech32Address string,
-) Bech32ToHexCall {
-	return Bech32ToHexCall{
+) *Bech32ToHexCall {
+	return &Bech32ToHexCall{
 		Bech32Address: bech32Address,
 	}
 }
@@ -301,8 +301,8 @@ func (t HexToBech32Call) EncodeWithSelector() ([]byte, error) {
 func NewHexToBech32Call(
 	addr common.Address,
 	prefix string,
-) HexToBech32Call {
-	return HexToBech32Call{
+) *HexToBech32Call {
+	return &HexToBech32Call{
 		Addr:   addr,
 		Prefix: prefix,
 	}

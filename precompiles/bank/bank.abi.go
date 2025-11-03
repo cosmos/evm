@@ -231,8 +231,8 @@ func (t BalancesCall) EncodeWithSelector() ([]byte, error) {
 // NewBalancesCall constructs a new BalancesCall
 func NewBalancesCall(
 	account common.Address,
-) BalancesCall {
-	return BalancesCall{
+) *BalancesCall {
+	return &BalancesCall{
 		Account: account,
 	}
 }
@@ -393,8 +393,8 @@ func (t SupplyOfCall) EncodeWithSelector() ([]byte, error) {
 // NewSupplyOfCall constructs a new SupplyOfCall
 func NewSupplyOfCall(
 	erc20Address common.Address,
-) SupplyOfCall {
-	return SupplyOfCall{
+) *SupplyOfCall {
+	return &SupplyOfCall{
 		Erc20Address: erc20Address,
 	}
 }
@@ -486,8 +486,8 @@ func (t TotalSupplyCall) EncodeWithSelector() ([]byte, error) {
 }
 
 // NewTotalSupplyCall constructs a new TotalSupplyCall
-func NewTotalSupplyCall() TotalSupplyCall {
-	return TotalSupplyCall{}
+func NewTotalSupplyCall() *TotalSupplyCall {
+	return &TotalSupplyCall{}
 }
 
 const TotalSupplyReturnStaticSize = 32

@@ -134,8 +134,8 @@ func (t GetClientStateCall) EncodeWithSelector() ([]byte, error) {
 // NewGetClientStateCall constructs a new GetClientStateCall
 func NewGetClientStateCall(
 	clientId string,
-) GetClientStateCall {
-	return GetClientStateCall{
+) *GetClientStateCall {
+	return &GetClientStateCall{
 		ClientId: clientId,
 	}
 }
@@ -339,8 +339,8 @@ func (t UpdateClientCall) EncodeWithSelector() ([]byte, error) {
 func NewUpdateClientCall(
 	clientId string,
 	updateMsg []byte,
-) UpdateClientCall {
-	return UpdateClientCall{
+) *UpdateClientCall {
+	return &UpdateClientCall{
 		ClientId:  clientId,
 		UpdateMsg: updateMsg,
 	}
@@ -589,8 +589,8 @@ func NewVerifyMembershipCall(
 	proofHeight cmn.Height,
 	path [][]byte,
 	value []byte,
-) VerifyMembershipCall {
-	return VerifyMembershipCall{
+) *VerifyMembershipCall {
+	return &VerifyMembershipCall{
 		ClientId:    clientId,
 		Proof:       proof,
 		ProofHeight: proofHeight,
@@ -817,8 +817,8 @@ func NewVerifyNonMembershipCall(
 	proof []byte,
 	proofHeight cmn.Height,
 	path [][]byte,
-) VerifyNonMembershipCall {
-	return VerifyNonMembershipCall{
+) *VerifyNonMembershipCall {
+	return &VerifyNonMembershipCall{
 		ClientId:    clientId,
 		Proof:       proof,
 		ProofHeight: proofHeight,
