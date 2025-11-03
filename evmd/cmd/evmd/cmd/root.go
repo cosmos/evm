@@ -315,7 +315,14 @@ func newApp(
 			db, err := iavlx.LoadDB(
 				filepath.Join(homeDir, "data", "iavlx"),
 				&iavlx.Options{
+					ZeroCopy:             false,
+					WriteWAL:             true,
+					WalSyncBuffer:        0,
+					DisableCompaction:    true,
+					RetainVersions:       3,
+					ChangesetMaxTarget:   134217728,
 					ReaderUpdateInterval: 1, // TODO: temporary to make things work
+					EvictDepth:           20,
 				},
 				bapp.Logger(),
 			)
