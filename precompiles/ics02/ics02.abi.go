@@ -175,12 +175,12 @@ func (t GetClientStateCall) GetMethodName() string {
 	return "getClientState"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetClientStateCall) GetMethodID() uint32 {
 	return GetClientStateID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetClientStateCall) GetMethodSelector() [4]byte {
 	return GetClientStateSelector
 }
@@ -193,6 +193,15 @@ func (t GetClientStateCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetClientStateCall constructs a new GetClientStateCall
+func NewGetClientStateCall(
+	clientId string,
+) GetClientStateCall {
+	return GetClientStateCall{
+		ClientId: clientId,
+	}
 }
 
 const GetClientStateReturnStaticSize = 32
@@ -370,12 +379,12 @@ func (t UpdateClientCall) GetMethodName() string {
 	return "updateClient"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t UpdateClientCall) GetMethodID() uint32 {
 	return UpdateClientID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t UpdateClientCall) GetMethodSelector() [4]byte {
 	return UpdateClientSelector
 }
@@ -388,6 +397,17 @@ func (t UpdateClientCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewUpdateClientCall constructs a new UpdateClientCall
+func NewUpdateClientCall(
+	clientId string,
+	updateMsg []byte,
+) UpdateClientCall {
+	return UpdateClientCall{
+		ClientId:  clientId,
+		UpdateMsg: updateMsg,
+	}
 }
 
 const UpdateClientReturnStaticSize = 32
@@ -606,12 +626,12 @@ func (t VerifyMembershipCall) GetMethodName() string {
 	return "verifyMembership"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t VerifyMembershipCall) GetMethodID() uint32 {
 	return VerifyMembershipID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t VerifyMembershipCall) GetMethodSelector() [4]byte {
 	return VerifyMembershipSelector
 }
@@ -624,6 +644,23 @@ func (t VerifyMembershipCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewVerifyMembershipCall constructs a new VerifyMembershipCall
+func NewVerifyMembershipCall(
+	clientId string,
+	proof []byte,
+	proofHeight Height,
+	path [][]byte,
+	value []byte,
+) VerifyMembershipCall {
+	return VerifyMembershipCall{
+		ClientId:    clientId,
+		Proof:       proof,
+		ProofHeight: proofHeight,
+		Path:        path,
+		Value:       value,
+	}
 }
 
 const VerifyMembershipReturnStaticSize = 32
@@ -818,12 +855,12 @@ func (t VerifyNonMembershipCall) GetMethodName() string {
 	return "verifyNonMembership"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t VerifyNonMembershipCall) GetMethodID() uint32 {
 	return VerifyNonMembershipID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t VerifyNonMembershipCall) GetMethodSelector() [4]byte {
 	return VerifyNonMembershipSelector
 }
@@ -836,6 +873,21 @@ func (t VerifyNonMembershipCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewVerifyNonMembershipCall constructs a new VerifyNonMembershipCall
+func NewVerifyNonMembershipCall(
+	clientId string,
+	proof []byte,
+	proofHeight Height,
+	path [][]byte,
+) VerifyNonMembershipCall {
+	return VerifyNonMembershipCall{
+		ClientId:    clientId,
+		Proof:       proof,
+		ProofHeight: proofHeight,
+		Path:        path,
+	}
 }
 
 const VerifyNonMembershipReturnStaticSize = 32

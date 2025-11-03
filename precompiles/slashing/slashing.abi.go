@@ -388,12 +388,12 @@ func (t GetParamsCall) GetMethodName() string {
 	return "getParams"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetParamsCall) GetMethodID() uint32 {
 	return GetParamsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetParamsCall) GetMethodSelector() [4]byte {
 	return GetParamsSelector
 }
@@ -406,6 +406,11 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetParamsCall constructs a new GetParamsCall
+func NewGetParamsCall() GetParamsCall {
+	return GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 256
@@ -523,12 +528,12 @@ func (t GetSigningInfoCall) GetMethodName() string {
 	return "getSigningInfo"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetSigningInfoCall) GetMethodID() uint32 {
 	return GetSigningInfoID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetSigningInfoCall) GetMethodSelector() [4]byte {
 	return GetSigningInfoSelector
 }
@@ -541,6 +546,15 @@ func (t GetSigningInfoCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetSigningInfoCall constructs a new GetSigningInfoCall
+func NewGetSigningInfoCall(
+	consAddress common.Address,
+) GetSigningInfoCall {
+	return GetSigningInfoCall{
+		ConsAddress: consAddress,
+	}
 }
 
 const GetSigningInfoReturnStaticSize = 192
@@ -676,12 +690,12 @@ func (t GetSigningInfosCall) GetMethodName() string {
 	return "getSigningInfos"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetSigningInfosCall) GetMethodID() uint32 {
 	return GetSigningInfosID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetSigningInfosCall) GetMethodSelector() [4]byte {
 	return GetSigningInfosSelector
 }
@@ -694,6 +708,15 @@ func (t GetSigningInfosCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetSigningInfosCall constructs a new GetSigningInfosCall
+func NewGetSigningInfosCall(
+	pagination cmn.PageRequest,
+) GetSigningInfosCall {
+	return GetSigningInfosCall{
+		Pagination: pagination,
+	}
 }
 
 const GetSigningInfosReturnStaticSize = 64
@@ -853,12 +876,12 @@ func (t UnjailCall) GetMethodName() string {
 	return "unjail"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t UnjailCall) GetMethodID() uint32 {
 	return UnjailID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t UnjailCall) GetMethodSelector() [4]byte {
 	return UnjailSelector
 }
@@ -871,6 +894,15 @@ func (t UnjailCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewUnjailCall constructs a new UnjailCall
+func NewUnjailCall(
+	validatorAddress common.Address,
+) UnjailCall {
+	return UnjailCall{
+		ValidatorAddress: validatorAddress,
+	}
 }
 
 const UnjailReturnStaticSize = 32

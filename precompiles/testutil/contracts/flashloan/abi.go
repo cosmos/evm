@@ -133,12 +133,12 @@ func (t DelegateWithRevertCall) GetMethodName() string {
 	return "delegateWithRevert"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DelegateWithRevertCall) GetMethodID() uint32 {
 	return DelegateWithRevertID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DelegateWithRevertCall) GetMethodSelector() [4]byte {
 	return DelegateWithRevertSelector
 }
@@ -153,7 +153,20 @@ func (t DelegateWithRevertCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DelegateWithRevertReturn represents the input arguments for delegateWithRevert function
+// NewDelegateWithRevertCall constructs a new DelegateWithRevertCall
+func NewDelegateWithRevertCall(
+	delegator common.Address,
+	validator string,
+	amount *big.Int,
+) DelegateWithRevertCall {
+	return DelegateWithRevertCall{
+		Delegator: delegator,
+		Validator: validator,
+		Amount:    amount,
+	}
+}
+
+// DelegateWithRevertReturn represents the output arguments for delegateWithRevert function
 type DelegateWithRevertReturn struct {
 	abi.EmptyTuple
 }
@@ -248,12 +261,12 @@ func (t FlashLoanCall) GetMethodName() string {
 	return "flashLoan"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t FlashLoanCall) GetMethodID() uint32 {
 	return FlashLoanID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t FlashLoanCall) GetMethodSelector() [4]byte {
 	return FlashLoanSelector
 }
@@ -266,6 +279,17 @@ func (t FlashLoanCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewFlashLoanCall constructs a new FlashLoanCall
+func NewFlashLoanCall(
+	token common.Address,
+	validator string,
+) FlashLoanCall {
+	return FlashLoanCall{
+		Token:     token,
+		Validator: validator,
+	}
 }
 
 const FlashLoanReturnStaticSize = 32
@@ -412,12 +436,12 @@ func (t FlashLoanWithRevertCall) GetMethodName() string {
 	return "flashLoanWithRevert"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t FlashLoanWithRevertCall) GetMethodID() uint32 {
 	return FlashLoanWithRevertID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t FlashLoanWithRevertCall) GetMethodSelector() [4]byte {
 	return FlashLoanWithRevertSelector
 }
@@ -430,6 +454,17 @@ func (t FlashLoanWithRevertCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewFlashLoanWithRevertCall constructs a new FlashLoanWithRevertCall
+func NewFlashLoanWithRevertCall(
+	token common.Address,
+	validator string,
+) FlashLoanWithRevertCall {
+	return FlashLoanWithRevertCall{
+		Token:     token,
+		Validator: validator,
+	}
 }
 
 const FlashLoanWithRevertReturnStaticSize = 32
@@ -498,12 +533,12 @@ func (t OwnerCall) GetMethodName() string {
 	return "owner"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t OwnerCall) GetMethodID() uint32 {
 	return OwnerID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t OwnerCall) GetMethodSelector() [4]byte {
 	return OwnerSelector
 }
@@ -516,6 +551,11 @@ func (t OwnerCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewOwnerCall constructs a new OwnerCall
+func NewOwnerCall() OwnerCall {
+	return OwnerCall{}
 }
 
 const OwnerReturnStaticSize = 32

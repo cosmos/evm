@@ -186,12 +186,12 @@ func (t OnPacketAcknowledgementCall) GetMethodName() string {
 	return "onPacketAcknowledgement"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t OnPacketAcknowledgementCall) GetMethodID() uint32 {
 	return OnPacketAcknowledgementID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t OnPacketAcknowledgementCall) GetMethodSelector() [4]byte {
 	return OnPacketAcknowledgementSelector
 }
@@ -206,7 +206,24 @@ func (t OnPacketAcknowledgementCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// OnPacketAcknowledgementReturn represents the input arguments for onPacketAcknowledgement function
+// NewOnPacketAcknowledgementCall constructs a new OnPacketAcknowledgementCall
+func NewOnPacketAcknowledgementCall(
+	channelId string,
+	portId string,
+	sequence uint64,
+	data []byte,
+	acknowledgement []byte,
+) OnPacketAcknowledgementCall {
+	return OnPacketAcknowledgementCall{
+		ChannelId:       channelId,
+		PortId:          portId,
+		Sequence:        sequence,
+		Data:            data,
+		Acknowledgement: acknowledgement,
+	}
+}
+
+// OnPacketAcknowledgementReturn represents the output arguments for onPacketAcknowledgement function
 type OnPacketAcknowledgementReturn struct {
 	abi.EmptyTuple
 }
@@ -349,12 +366,12 @@ func (t OnPacketTimeoutCall) GetMethodName() string {
 	return "onPacketTimeout"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t OnPacketTimeoutCall) GetMethodID() uint32 {
 	return OnPacketTimeoutID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t OnPacketTimeoutCall) GetMethodSelector() [4]byte {
 	return OnPacketTimeoutSelector
 }
@@ -369,7 +386,22 @@ func (t OnPacketTimeoutCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// OnPacketTimeoutReturn represents the input arguments for onPacketTimeout function
+// NewOnPacketTimeoutCall constructs a new OnPacketTimeoutCall
+func NewOnPacketTimeoutCall(
+	channelId string,
+	portId string,
+	sequence uint64,
+	data []byte,
+) OnPacketTimeoutCall {
+	return OnPacketTimeoutCall{
+		ChannelId: channelId,
+		PortId:    portId,
+		Sequence:  sequence,
+		Data:      data,
+	}
+}
+
+// OnPacketTimeoutReturn represents the output arguments for onPacketTimeout function
 type OnPacketTimeoutReturn struct {
 	abi.EmptyTuple
 }

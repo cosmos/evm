@@ -208,12 +208,12 @@ func (t BalancesCall) GetMethodName() string {
 	return "balances"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t BalancesCall) GetMethodID() uint32 {
 	return BalancesID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t BalancesCall) GetMethodSelector() [4]byte {
 	return BalancesSelector
 }
@@ -226,6 +226,15 @@ func (t BalancesCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewBalancesCall constructs a new BalancesCall
+func NewBalancesCall(
+	account common.Address,
+) BalancesCall {
+	return BalancesCall{
+		Account: account,
+	}
 }
 
 const BalancesReturnStaticSize = 32
@@ -361,12 +370,12 @@ func (t SupplyOfCall) GetMethodName() string {
 	return "supplyOf"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t SupplyOfCall) GetMethodID() uint32 {
 	return SupplyOfID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t SupplyOfCall) GetMethodSelector() [4]byte {
 	return SupplyOfSelector
 }
@@ -379,6 +388,15 @@ func (t SupplyOfCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewSupplyOfCall constructs a new SupplyOfCall
+func NewSupplyOfCall(
+	erc20Address common.Address,
+) SupplyOfCall {
+	return SupplyOfCall{
+		Erc20Address: erc20Address,
+	}
 }
 
 const SupplyOfReturnStaticSize = 32
@@ -447,12 +465,12 @@ func (t TotalSupplyCall) GetMethodName() string {
 	return "totalSupply"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TotalSupplyCall) GetMethodID() uint32 {
 	return TotalSupplyID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TotalSupplyCall) GetMethodSelector() [4]byte {
 	return TotalSupplySelector
 }
@@ -465,6 +483,11 @@ func (t TotalSupplyCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTotalSupplyCall constructs a new TotalSupplyCall
+func NewTotalSupplyCall() TotalSupplyCall {
+	return TotalSupplyCall{}
 }
 
 const TotalSupplyReturnStaticSize = 32

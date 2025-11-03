@@ -104,12 +104,12 @@ func (t Bech32ToHexCall) GetMethodName() string {
 	return "bech32ToHex"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t Bech32ToHexCall) GetMethodID() uint32 {
 	return Bech32ToHexID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t Bech32ToHexCall) GetMethodSelector() [4]byte {
 	return Bech32ToHexSelector
 }
@@ -122,6 +122,15 @@ func (t Bech32ToHexCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewBech32ToHexCall constructs a new Bech32ToHexCall
+func NewBech32ToHexCall(
+	bech32Address string,
+) Bech32ToHexCall {
+	return Bech32ToHexCall{
+		Bech32Address: bech32Address,
+	}
 }
 
 const Bech32ToHexReturnStaticSize = 32
@@ -268,12 +277,12 @@ func (t HexToBech32Call) GetMethodName() string {
 	return "hexToBech32"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t HexToBech32Call) GetMethodID() uint32 {
 	return HexToBech32ID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t HexToBech32Call) GetMethodSelector() [4]byte {
 	return HexToBech32Selector
 }
@@ -286,6 +295,17 @@ func (t HexToBech32Call) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewHexToBech32Call constructs a new HexToBech32Call
+func NewHexToBech32Call(
+	addr common.Address,
+	prefix string,
+) HexToBech32Call {
+	return HexToBech32Call{
+		Addr:   addr,
+		Prefix: prefix,
+	}
 }
 
 const HexToBech32ReturnStaticSize = 32

@@ -1537,12 +1537,12 @@ func (t CancelProposalCall) GetMethodName() string {
 	return "cancelProposal"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CancelProposalCall) GetMethodID() uint32 {
 	return CancelProposalID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CancelProposalCall) GetMethodSelector() [4]byte {
 	return CancelProposalSelector
 }
@@ -1555,6 +1555,17 @@ func (t CancelProposalCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCancelProposalCall constructs a new CancelProposalCall
+func NewCancelProposalCall(
+	proposer common.Address,
+	proposalId uint64,
+) CancelProposalCall {
+	return CancelProposalCall{
+		Proposer:   proposer,
+		ProposalId: proposalId,
+	}
 }
 
 const CancelProposalReturnStaticSize = 32
@@ -1712,12 +1723,12 @@ func (t DepositCall) GetMethodName() string {
 	return "deposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DepositCall) GetMethodID() uint32 {
 	return DepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DepositCall) GetMethodSelector() [4]byte {
 	return DepositSelector
 }
@@ -1730,6 +1741,19 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDepositCall constructs a new DepositCall
+func NewDepositCall(
+	depositor common.Address,
+	proposalId uint64,
+	amount []cmn.Coin,
+) DepositCall {
+	return DepositCall{
+		Depositor:  depositor,
+		ProposalId: proposalId,
+		Amount:     amount,
+	}
 }
 
 const DepositReturnStaticSize = 32
@@ -1798,12 +1822,12 @@ func (t GetConstitutionCall) GetMethodName() string {
 	return "getConstitution"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetConstitutionCall) GetMethodID() uint32 {
 	return GetConstitutionID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetConstitutionCall) GetMethodSelector() [4]byte {
 	return GetConstitutionSelector
 }
@@ -1816,6 +1840,11 @@ func (t GetConstitutionCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetConstitutionCall constructs a new GetConstitutionCall
+func NewGetConstitutionCall() GetConstitutionCall {
+	return GetConstitutionCall{}
 }
 
 const GetConstitutionReturnStaticSize = 32
@@ -1962,12 +1991,12 @@ func (t GetDepositCall) GetMethodName() string {
 	return "getDeposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDepositCall) GetMethodID() uint32 {
 	return GetDepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDepositCall) GetMethodSelector() [4]byte {
 	return GetDepositSelector
 }
@@ -1980,6 +2009,17 @@ func (t GetDepositCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDepositCall constructs a new GetDepositCall
+func NewGetDepositCall(
+	proposalId uint64,
+	depositor common.Address,
+) GetDepositCall {
+	return GetDepositCall{
+		ProposalId: proposalId,
+		Depositor:  depositor,
+	}
 }
 
 const GetDepositReturnStaticSize = 32
@@ -2144,12 +2184,12 @@ func (t GetDepositsCall) GetMethodName() string {
 	return "getDeposits"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDepositsCall) GetMethodID() uint32 {
 	return GetDepositsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDepositsCall) GetMethodSelector() [4]byte {
 	return GetDepositsSelector
 }
@@ -2162,6 +2202,17 @@ func (t GetDepositsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDepositsCall constructs a new GetDepositsCall
+func NewGetDepositsCall(
+	proposalId uint64,
+	pagination cmn.PageRequest,
+) GetDepositsCall {
+	return GetDepositsCall{
+		ProposalId: proposalId,
+		Pagination: pagination,
+	}
 }
 
 const GetDepositsReturnStaticSize = 64
@@ -2272,12 +2323,12 @@ func (t GetParamsCall) GetMethodName() string {
 	return "getParams"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetParamsCall) GetMethodID() uint32 {
 	return GetParamsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetParamsCall) GetMethodSelector() [4]byte {
 	return GetParamsSelector
 }
@@ -2290,6 +2341,11 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetParamsCall constructs a new GetParamsCall
+func NewGetParamsCall() GetParamsCall {
+	return GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 32
@@ -2425,12 +2481,12 @@ func (t GetProposalCall) GetMethodName() string {
 	return "getProposal"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetProposalCall) GetMethodID() uint32 {
 	return GetProposalID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetProposalCall) GetMethodSelector() [4]byte {
 	return GetProposalSelector
 }
@@ -2443,6 +2499,15 @@ func (t GetProposalCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetProposalCall constructs a new GetProposalCall
+func NewGetProposalCall(
+	proposalId uint64,
+) GetProposalCall {
+	return GetProposalCall{
+		ProposalId: proposalId,
+	}
 }
 
 const GetProposalReturnStaticSize = 32
@@ -2629,12 +2694,12 @@ func (t GetProposalsCall) GetMethodName() string {
 	return "getProposals"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetProposalsCall) GetMethodID() uint32 {
 	return GetProposalsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetProposalsCall) GetMethodSelector() [4]byte {
 	return GetProposalsSelector
 }
@@ -2647,6 +2712,21 @@ func (t GetProposalsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetProposalsCall constructs a new GetProposalsCall
+func NewGetProposalsCall(
+	proposalStatus uint32,
+	voter common.Address,
+	depositor common.Address,
+	pagination cmn.PageRequest,
+) GetProposalsCall {
+	return GetProposalsCall{
+		ProposalStatus: proposalStatus,
+		Voter:          voter,
+		Depositor:      depositor,
+		Pagination:     pagination,
+	}
 }
 
 const GetProposalsReturnStaticSize = 64
@@ -2806,12 +2886,12 @@ func (t GetTallyResultCall) GetMethodName() string {
 	return "getTallyResult"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetTallyResultCall) GetMethodID() uint32 {
 	return GetTallyResultID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetTallyResultCall) GetMethodSelector() [4]byte {
 	return GetTallyResultSelector
 }
@@ -2824,6 +2904,15 @@ func (t GetTallyResultCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetTallyResultCall constructs a new GetTallyResultCall
+func NewGetTallyResultCall(
+	proposalId uint64,
+) GetTallyResultCall {
+	return GetTallyResultCall{
+		ProposalId: proposalId,
+	}
 }
 
 const GetTallyResultReturnStaticSize = 32
@@ -2970,12 +3059,12 @@ func (t GetVoteCall) GetMethodName() string {
 	return "getVote"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetVoteCall) GetMethodID() uint32 {
 	return GetVoteID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetVoteCall) GetMethodSelector() [4]byte {
 	return GetVoteSelector
 }
@@ -2988,6 +3077,17 @@ func (t GetVoteCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetVoteCall constructs a new GetVoteCall
+func NewGetVoteCall(
+	proposalId uint64,
+	voter common.Address,
+) GetVoteCall {
+	return GetVoteCall{
+		ProposalId: proposalId,
+		Voter:      voter,
+	}
 }
 
 const GetVoteReturnStaticSize = 32
@@ -3152,12 +3252,12 @@ func (t GetVotesCall) GetMethodName() string {
 	return "getVotes"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetVotesCall) GetMethodID() uint32 {
 	return GetVotesID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetVotesCall) GetMethodSelector() [4]byte {
 	return GetVotesSelector
 }
@@ -3170,6 +3270,17 @@ func (t GetVotesCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetVotesCall constructs a new GetVotesCall
+func NewGetVotesCall(
+	proposalId uint64,
+	pagination cmn.PageRequest,
+) GetVotesCall {
+	return GetVotesCall{
+		ProposalId: proposalId,
+		Pagination: pagination,
+	}
 }
 
 const GetVotesReturnStaticSize = 64
@@ -3382,12 +3493,12 @@ func (t SubmitProposalCall) GetMethodName() string {
 	return "submitProposal"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t SubmitProposalCall) GetMethodID() uint32 {
 	return SubmitProposalID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t SubmitProposalCall) GetMethodSelector() [4]byte {
 	return SubmitProposalSelector
 }
@@ -3400,6 +3511,19 @@ func (t SubmitProposalCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewSubmitProposalCall constructs a new SubmitProposalCall
+func NewSubmitProposalCall(
+	proposer common.Address,
+	jsonProposal []byte,
+	deposit []cmn.Coin,
+) SubmitProposalCall {
+	return SubmitProposalCall{
+		Proposer:     proposer,
+		JsonProposal: jsonProposal,
+		Deposit:      deposit,
+	}
 }
 
 const SubmitProposalReturnStaticSize = 32
@@ -3568,12 +3692,12 @@ func (t VoteCall) GetMethodName() string {
 	return "vote"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t VoteCall) GetMethodID() uint32 {
 	return VoteID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t VoteCall) GetMethodSelector() [4]byte {
 	return VoteSelector
 }
@@ -3586,6 +3710,21 @@ func (t VoteCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewVoteCall constructs a new VoteCall
+func NewVoteCall(
+	voter common.Address,
+	proposalId uint64,
+	option uint8,
+	metadata string,
+) VoteCall {
+	return VoteCall{
+		Voter:      voter,
+		ProposalId: proposalId,
+		Option:     option,
+		Metadata:   metadata,
+	}
 }
 
 const VoteReturnStaticSize = 32
@@ -3767,12 +3906,12 @@ func (t VoteWeightedCall) GetMethodName() string {
 	return "voteWeighted"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t VoteWeightedCall) GetMethodID() uint32 {
 	return VoteWeightedID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t VoteWeightedCall) GetMethodSelector() [4]byte {
 	return VoteWeightedSelector
 }
@@ -3785,6 +3924,21 @@ func (t VoteWeightedCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewVoteWeightedCall constructs a new VoteWeightedCall
+func NewVoteWeightedCall(
+	voter common.Address,
+	proposalId uint64,
+	options []WeightedVoteOption,
+	metadata string,
+) VoteWeightedCall {
+	return VoteWeightedCall{
+		Voter:      voter,
+		ProposalId: proposalId,
+		Options:    options,
+		Metadata:   metadata,
+	}
 }
 
 const VoteWeightedReturnStaticSize = 32

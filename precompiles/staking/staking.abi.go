@@ -1682,12 +1682,12 @@ func (t CancelUnbondingDelegationCall) GetMethodName() string {
 	return "cancelUnbondingDelegation"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CancelUnbondingDelegationCall) GetMethodID() uint32 {
 	return CancelUnbondingDelegationID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CancelUnbondingDelegationCall) GetMethodSelector() [4]byte {
 	return CancelUnbondingDelegationSelector
 }
@@ -1700,6 +1700,21 @@ func (t CancelUnbondingDelegationCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCancelUnbondingDelegationCall constructs a new CancelUnbondingDelegationCall
+func NewCancelUnbondingDelegationCall(
+	delegatorAddress common.Address,
+	validatorAddress string,
+	amount *big.Int,
+	creationHeight *big.Int,
+) CancelUnbondingDelegationCall {
+	return CancelUnbondingDelegationCall{
+		DelegatorAddress: delegatorAddress,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+		CreationHeight:   creationHeight,
+	}
 }
 
 const CancelUnbondingDelegationReturnStaticSize = 32
@@ -1903,12 +1918,12 @@ func (t CreateValidatorCall) GetMethodName() string {
 	return "createValidator"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CreateValidatorCall) GetMethodID() uint32 {
 	return CreateValidatorID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CreateValidatorCall) GetMethodSelector() [4]byte {
 	return CreateValidatorSelector
 }
@@ -1921,6 +1936,25 @@ func (t CreateValidatorCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCreateValidatorCall constructs a new CreateValidatorCall
+func NewCreateValidatorCall(
+	description Description,
+	commissionRates CommissionRates,
+	minSelfDelegation *big.Int,
+	validatorAddress common.Address,
+	pubkey string,
+	value *big.Int,
+) CreateValidatorCall {
+	return CreateValidatorCall{
+		Description:       description,
+		CommissionRates:   commissionRates,
+		MinSelfDelegation: minSelfDelegation,
+		ValidatorAddress:  validatorAddress,
+		Pubkey:            pubkey,
+		Value:             value,
+	}
 }
 
 const CreateValidatorReturnStaticSize = 32
@@ -2078,12 +2112,12 @@ func (t DelegateCall) GetMethodName() string {
 	return "delegate"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DelegateCall) GetMethodID() uint32 {
 	return DelegateID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DelegateCall) GetMethodSelector() [4]byte {
 	return DelegateSelector
 }
@@ -2096,6 +2130,19 @@ func (t DelegateCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDelegateCall constructs a new DelegateCall
+func NewDelegateCall(
+	delegatorAddress common.Address,
+	validatorAddress string,
+	amount *big.Int,
+) DelegateCall {
+	return DelegateCall{
+		DelegatorAddress: delegatorAddress,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+	}
 }
 
 const DelegateReturnStaticSize = 32
@@ -2242,12 +2289,12 @@ func (t DelegationCall) GetMethodName() string {
 	return "delegation"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DelegationCall) GetMethodID() uint32 {
 	return DelegationID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DelegationCall) GetMethodSelector() [4]byte {
 	return DelegationSelector
 }
@@ -2260,6 +2307,17 @@ func (t DelegationCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDelegationCall constructs a new DelegationCall
+func NewDelegationCall(
+	delegatorAddress common.Address,
+	validatorAddress string,
+) DelegationCall {
+	return DelegationCall{
+		DelegatorAddress: delegatorAddress,
+		ValidatorAddress: validatorAddress,
+	}
 }
 
 const DelegationReturnStaticSize = 64
@@ -2457,12 +2515,12 @@ func (t EditValidatorCall) GetMethodName() string {
 	return "editValidator"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t EditValidatorCall) GetMethodID() uint32 {
 	return EditValidatorID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t EditValidatorCall) GetMethodSelector() [4]byte {
 	return EditValidatorSelector
 }
@@ -2475,6 +2533,21 @@ func (t EditValidatorCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewEditValidatorCall constructs a new EditValidatorCall
+func NewEditValidatorCall(
+	description Description,
+	validatorAddress common.Address,
+	commissionRate *big.Int,
+	minSelfDelegation *big.Int,
+) EditValidatorCall {
+	return EditValidatorCall{
+		Description:       description,
+		ValidatorAddress:  validatorAddress,
+		CommissionRate:    commissionRate,
+		MinSelfDelegation: minSelfDelegation,
+	}
 }
 
 const EditValidatorReturnStaticSize = 32
@@ -2656,12 +2729,12 @@ func (t RedelegateCall) GetMethodName() string {
 	return "redelegate"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t RedelegateCall) GetMethodID() uint32 {
 	return RedelegateID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t RedelegateCall) GetMethodSelector() [4]byte {
 	return RedelegateSelector
 }
@@ -2674,6 +2747,21 @@ func (t RedelegateCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewRedelegateCall constructs a new RedelegateCall
+func NewRedelegateCall(
+	delegatorAddress common.Address,
+	validatorSrcAddress string,
+	validatorDstAddress string,
+	amount *big.Int,
+) RedelegateCall {
+	return RedelegateCall{
+		DelegatorAddress:    delegatorAddress,
+		ValidatorSrcAddress: validatorSrcAddress,
+		ValidatorDstAddress: validatorDstAddress,
+		Amount:              amount,
+	}
 }
 
 const RedelegateReturnStaticSize = 32
@@ -2844,12 +2932,12 @@ func (t RedelegationCall) GetMethodName() string {
 	return "redelegation"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t RedelegationCall) GetMethodID() uint32 {
 	return RedelegationID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t RedelegationCall) GetMethodSelector() [4]byte {
 	return RedelegationSelector
 }
@@ -2862,6 +2950,19 @@ func (t RedelegationCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewRedelegationCall constructs a new RedelegationCall
+func NewRedelegationCall(
+	delegatorAddress common.Address,
+	srcValidatorAddress string,
+	dstValidatorAddress string,
+) RedelegationCall {
+	return RedelegationCall{
+		DelegatorAddress:    delegatorAddress,
+		SrcValidatorAddress: srcValidatorAddress,
+		DstValidatorAddress: dstValidatorAddress,
+	}
 }
 
 const RedelegationReturnStaticSize = 32
@@ -3074,12 +3175,12 @@ func (t RedelegationsCall) GetMethodName() string {
 	return "redelegations"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t RedelegationsCall) GetMethodID() uint32 {
 	return RedelegationsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t RedelegationsCall) GetMethodSelector() [4]byte {
 	return RedelegationsSelector
 }
@@ -3092,6 +3193,21 @@ func (t RedelegationsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewRedelegationsCall constructs a new RedelegationsCall
+func NewRedelegationsCall(
+	delegatorAddress common.Address,
+	srcValidatorAddress string,
+	dstValidatorAddress string,
+	pageRequest cmn.PageRequest,
+) RedelegationsCall {
+	return RedelegationsCall{
+		DelegatorAddress:    delegatorAddress,
+		SrcValidatorAddress: srcValidatorAddress,
+		DstValidatorAddress: dstValidatorAddress,
+		PageRequest:         pageRequest,
+	}
 }
 
 const RedelegationsReturnStaticSize = 64
@@ -3280,12 +3396,12 @@ func (t UnbondingDelegationCall) GetMethodName() string {
 	return "unbondingDelegation"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t UnbondingDelegationCall) GetMethodID() uint32 {
 	return UnbondingDelegationID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t UnbondingDelegationCall) GetMethodSelector() [4]byte {
 	return UnbondingDelegationSelector
 }
@@ -3298,6 +3414,17 @@ func (t UnbondingDelegationCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewUnbondingDelegationCall constructs a new UnbondingDelegationCall
+func NewUnbondingDelegationCall(
+	delegatorAddress common.Address,
+	validatorAddress string,
+) UnbondingDelegationCall {
+	return UnbondingDelegationCall{
+		DelegatorAddress: delegatorAddress,
+		ValidatorAddress: validatorAddress,
+	}
 }
 
 const UnbondingDelegationReturnStaticSize = 32
@@ -3473,12 +3600,12 @@ func (t UndelegateCall) GetMethodName() string {
 	return "undelegate"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t UndelegateCall) GetMethodID() uint32 {
 	return UndelegateID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t UndelegateCall) GetMethodSelector() [4]byte {
 	return UndelegateSelector
 }
@@ -3491,6 +3618,19 @@ func (t UndelegateCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewUndelegateCall constructs a new UndelegateCall
+func NewUndelegateCall(
+	delegatorAddress common.Address,
+	validatorAddress string,
+	amount *big.Int,
+) UndelegateCall {
+	return UndelegateCall{
+		DelegatorAddress: delegatorAddress,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+	}
 }
 
 const UndelegateReturnStaticSize = 32
@@ -3608,12 +3748,12 @@ func (t ValidatorCall) GetMethodName() string {
 	return "validator"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t ValidatorCall) GetMethodID() uint32 {
 	return ValidatorID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t ValidatorCall) GetMethodSelector() [4]byte {
 	return ValidatorSelector
 }
@@ -3626,6 +3766,15 @@ func (t ValidatorCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewValidatorCall constructs a new ValidatorCall
+func NewValidatorCall(
+	validatorAddress common.Address,
+) ValidatorCall {
+	return ValidatorCall{
+		ValidatorAddress: validatorAddress,
+	}
 }
 
 const ValidatorReturnStaticSize = 32
@@ -3803,12 +3952,12 @@ func (t ValidatorsCall) GetMethodName() string {
 	return "validators"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t ValidatorsCall) GetMethodID() uint32 {
 	return ValidatorsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t ValidatorsCall) GetMethodSelector() [4]byte {
 	return ValidatorsSelector
 }
@@ -3821,6 +3970,17 @@ func (t ValidatorsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewValidatorsCall constructs a new ValidatorsCall
+func NewValidatorsCall(
+	status string,
+	pageRequest cmn.PageRequest,
+) ValidatorsCall {
+	return ValidatorsCall{
+		Status:      status,
+		PageRequest: pageRequest,
+	}
 }
 
 const ValidatorsReturnStaticSize = 64

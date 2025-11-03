@@ -1026,12 +1026,12 @@ func (t CounterCall) GetMethodName() string {
 	return "counter"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CounterCall) GetMethodID() uint32 {
 	return CounterID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CounterCall) GetMethodSelector() [4]byte {
 	return CounterSelector
 }
@@ -1044,6 +1044,11 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCounterCall constructs a new CounterCall
+func NewCounterCall() CounterCall {
+	return CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -1190,12 +1195,12 @@ func (t DelegateCallSetWithdrawAddressCall) GetMethodName() string {
 	return "delegateCallSetWithdrawAddress"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DelegateCallSetWithdrawAddressCall) GetMethodID() uint32 {
 	return DelegateCallSetWithdrawAddressID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DelegateCallSetWithdrawAddressCall) GetMethodSelector() [4]byte {
 	return DelegateCallSetWithdrawAddressSelector
 }
@@ -1210,7 +1215,18 @@ func (t DelegateCallSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error)
 	return result, nil
 }
 
-// DelegateCallSetWithdrawAddressReturn represents the input arguments for delegateCallSetWithdrawAddress function
+// NewDelegateCallSetWithdrawAddressCall constructs a new DelegateCallSetWithdrawAddressCall
+func NewDelegateCallSetWithdrawAddressCall(
+	delAddr common.Address,
+	withdrawAddr string,
+) DelegateCallSetWithdrawAddressCall {
+	return DelegateCallSetWithdrawAddressCall{
+		DelAddr:      delAddr,
+		WithdrawAddr: withdrawAddr,
+	}
+}
+
+// DelegateCallSetWithdrawAddressReturn represents the output arguments for delegateCallSetWithdrawAddress function
 type DelegateCallSetWithdrawAddressReturn struct {
 	abi.EmptyTuple
 }
@@ -1227,12 +1243,12 @@ func (t DepositCall) GetMethodName() string {
 	return "deposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DepositCall) GetMethodID() uint32 {
 	return DepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DepositCall) GetMethodSelector() [4]byte {
 	return DepositSelector
 }
@@ -1247,7 +1263,12 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DepositReturn represents the input arguments for deposit function
+// NewDepositCall constructs a new DepositCall
+func NewDepositCall() DepositCall {
+	return DepositCall{}
+}
+
+// DepositReturn represents the output arguments for deposit function
 type DepositReturn struct {
 	abi.EmptyTuple
 }
@@ -1264,12 +1285,12 @@ func (t GetCommunityPoolCall) GetMethodName() string {
 	return "getCommunityPool"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetCommunityPoolCall) GetMethodID() uint32 {
 	return GetCommunityPoolID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetCommunityPoolCall) GetMethodSelector() [4]byte {
 	return GetCommunityPoolSelector
 }
@@ -1282,6 +1303,11 @@ func (t GetCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetCommunityPoolCall constructs a new GetCommunityPoolCall
+func NewGetCommunityPoolCall() GetCommunityPoolCall {
+	return GetCommunityPoolCall{}
 }
 
 const GetCommunityPoolReturnStaticSize = 32
@@ -1446,12 +1472,12 @@ func (t GetDelegationRewardsCall) GetMethodName() string {
 	return "getDelegationRewards"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDelegationRewardsCall) GetMethodID() uint32 {
 	return GetDelegationRewardsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDelegationRewardsCall) GetMethodSelector() [4]byte {
 	return GetDelegationRewardsSelector
 }
@@ -1464,6 +1490,17 @@ func (t GetDelegationRewardsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDelegationRewardsCall constructs a new GetDelegationRewardsCall
+func NewGetDelegationRewardsCall(
+	delAddr common.Address,
+	valAddr string,
+) GetDelegationRewardsCall {
+	return GetDelegationRewardsCall{
+		DelAddr: delAddr,
+		ValAddr: valAddr,
+	}
 }
 
 const GetDelegationRewardsReturnStaticSize = 32
@@ -1599,12 +1636,12 @@ func (t GetDelegationTotalRewardsCall) GetMethodName() string {
 	return "getDelegationTotalRewards"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDelegationTotalRewardsCall) GetMethodID() uint32 {
 	return GetDelegationTotalRewardsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDelegationTotalRewardsCall) GetMethodSelector() [4]byte {
 	return GetDelegationTotalRewardsSelector
 }
@@ -1617,6 +1654,15 @@ func (t GetDelegationTotalRewardsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDelegationTotalRewardsCall constructs a new GetDelegationTotalRewardsCall
+func NewGetDelegationTotalRewardsCall(
+	delAddr common.Address,
+) GetDelegationTotalRewardsCall {
+	return GetDelegationTotalRewardsCall{
+		DelAddr: delAddr,
+	}
 }
 
 const GetDelegationTotalRewardsReturnStaticSize = 64
@@ -1776,12 +1822,12 @@ func (t GetDelegatorValidatorsCall) GetMethodName() string {
 	return "getDelegatorValidators"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDelegatorValidatorsCall) GetMethodID() uint32 {
 	return GetDelegatorValidatorsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDelegatorValidatorsCall) GetMethodSelector() [4]byte {
 	return GetDelegatorValidatorsSelector
 }
@@ -1794,6 +1840,15 @@ func (t GetDelegatorValidatorsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDelegatorValidatorsCall constructs a new GetDelegatorValidatorsCall
+func NewGetDelegatorValidatorsCall(
+	delAddr common.Address,
+) GetDelegatorValidatorsCall {
+	return GetDelegatorValidatorsCall{
+		DelAddr: delAddr,
+	}
 }
 
 const GetDelegatorValidatorsReturnStaticSize = 32
@@ -1929,12 +1984,12 @@ func (t GetDelegatorWithdrawAddressCall) GetMethodName() string {
 	return "getDelegatorWithdrawAddress"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetDelegatorWithdrawAddressCall) GetMethodID() uint32 {
 	return GetDelegatorWithdrawAddressID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetDelegatorWithdrawAddressCall) GetMethodSelector() [4]byte {
 	return GetDelegatorWithdrawAddressSelector
 }
@@ -1947,6 +2002,15 @@ func (t GetDelegatorWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetDelegatorWithdrawAddressCall constructs a new GetDelegatorWithdrawAddressCall
+func NewGetDelegatorWithdrawAddressCall(
+	delAddr common.Address,
+) GetDelegatorWithdrawAddressCall {
+	return GetDelegatorWithdrawAddressCall{
+		DelAddr: delAddr,
+	}
 }
 
 const GetDelegatorWithdrawAddressReturnStaticSize = 32
@@ -2100,12 +2164,12 @@ func (t GetValidatorCommissionCall) GetMethodName() string {
 	return "getValidatorCommission"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetValidatorCommissionCall) GetMethodID() uint32 {
 	return GetValidatorCommissionID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetValidatorCommissionCall) GetMethodSelector() [4]byte {
 	return GetValidatorCommissionSelector
 }
@@ -2118,6 +2182,15 @@ func (t GetValidatorCommissionCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetValidatorCommissionCall constructs a new GetValidatorCommissionCall
+func NewGetValidatorCommissionCall(
+	valAddr string,
+) GetValidatorCommissionCall {
+	return GetValidatorCommissionCall{
+		ValAddr: valAddr,
+	}
 }
 
 const GetValidatorCommissionReturnStaticSize = 32
@@ -2271,12 +2344,12 @@ func (t GetValidatorDistributionInfoCall) GetMethodName() string {
 	return "getValidatorDistributionInfo"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetValidatorDistributionInfoCall) GetMethodID() uint32 {
 	return GetValidatorDistributionInfoID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetValidatorDistributionInfoCall) GetMethodSelector() [4]byte {
 	return GetValidatorDistributionInfoSelector
 }
@@ -2289,6 +2362,15 @@ func (t GetValidatorDistributionInfoCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetValidatorDistributionInfoCall constructs a new GetValidatorDistributionInfoCall
+func NewGetValidatorDistributionInfoCall(
+	valAddr string,
+) GetValidatorDistributionInfoCall {
+	return GetValidatorDistributionInfoCall{
+		ValAddr: valAddr,
+	}
 }
 
 const GetValidatorDistributionInfoReturnStaticSize = 32
@@ -2442,12 +2524,12 @@ func (t GetValidatorOutstandingRewardsCall) GetMethodName() string {
 	return "getValidatorOutstandingRewards"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetValidatorOutstandingRewardsCall) GetMethodID() uint32 {
 	return GetValidatorOutstandingRewardsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetValidatorOutstandingRewardsCall) GetMethodSelector() [4]byte {
 	return GetValidatorOutstandingRewardsSelector
 }
@@ -2460,6 +2542,15 @@ func (t GetValidatorOutstandingRewardsCall) EncodeWithSelector() ([]byte, error)
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetValidatorOutstandingRewardsCall constructs a new GetValidatorOutstandingRewardsCall
+func NewGetValidatorOutstandingRewardsCall(
+	valAddr string,
+) GetValidatorOutstandingRewardsCall {
+	return GetValidatorOutstandingRewardsCall{
+		ValAddr: valAddr,
+	}
 }
 
 const GetValidatorOutstandingRewardsReturnStaticSize = 32
@@ -2659,12 +2750,12 @@ func (t GetValidatorSlashesCall) GetMethodName() string {
 	return "getValidatorSlashes"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetValidatorSlashesCall) GetMethodID() uint32 {
 	return GetValidatorSlashesID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetValidatorSlashesCall) GetMethodSelector() [4]byte {
 	return GetValidatorSlashesSelector
 }
@@ -2677,6 +2768,21 @@ func (t GetValidatorSlashesCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetValidatorSlashesCall constructs a new GetValidatorSlashesCall
+func NewGetValidatorSlashesCall(
+	valAddr string,
+	startingHeight uint64,
+	endingHeight uint64,
+	pageRequest PageRequest,
+) GetValidatorSlashesCall {
+	return GetValidatorSlashesCall{
+		ValAddr:        valAddr,
+		StartingHeight: startingHeight,
+		EndingHeight:   endingHeight,
+		PageRequest:    pageRequest,
+	}
 }
 
 const GetValidatorSlashesReturnStaticSize = 64
@@ -2887,12 +2993,12 @@ func (t RevertWithdrawRewardsAndTransferCall) GetMethodName() string {
 	return "revertWithdrawRewardsAndTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t RevertWithdrawRewardsAndTransferCall) GetMethodID() uint32 {
 	return RevertWithdrawRewardsAndTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t RevertWithdrawRewardsAndTransferCall) GetMethodSelector() [4]byte {
 	return RevertWithdrawRewardsAndTransferSelector
 }
@@ -2907,7 +3013,22 @@ func (t RevertWithdrawRewardsAndTransferCall) EncodeWithSelector() ([]byte, erro
 	return result, nil
 }
 
-// RevertWithdrawRewardsAndTransferReturn represents the input arguments for revertWithdrawRewardsAndTransfer function
+// NewRevertWithdrawRewardsAndTransferCall constructs a new RevertWithdrawRewardsAndTransferCall
+func NewRevertWithdrawRewardsAndTransferCall(
+	delAddr common.Address,
+	withdrawer common.Address,
+	valAddr string,
+	after bool,
+) RevertWithdrawRewardsAndTransferCall {
+	return RevertWithdrawRewardsAndTransferCall{
+		DelAddr:    delAddr,
+		Withdrawer: withdrawer,
+		ValAddr:    valAddr,
+		After:      after,
+	}
+}
+
+// RevertWithdrawRewardsAndTransferReturn represents the output arguments for revertWithdrawRewardsAndTransfer function
 type RevertWithdrawRewardsAndTransferReturn struct {
 	abi.EmptyTuple
 }
@@ -2973,12 +3094,12 @@ func (t StaticCallGetWithdrawAddressCall) GetMethodName() string {
 	return "staticCallGetWithdrawAddress"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t StaticCallGetWithdrawAddressCall) GetMethodID() uint32 {
 	return StaticCallGetWithdrawAddressID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t StaticCallGetWithdrawAddressCall) GetMethodSelector() [4]byte {
 	return StaticCallGetWithdrawAddressSelector
 }
@@ -2991,6 +3112,15 @@ func (t StaticCallGetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewStaticCallGetWithdrawAddressCall constructs a new StaticCallGetWithdrawAddressCall
+func NewStaticCallGetWithdrawAddressCall(
+	delAddr common.Address,
+) StaticCallGetWithdrawAddressCall {
+	return StaticCallGetWithdrawAddressCall{
+		DelAddr: delAddr,
+	}
 }
 
 const StaticCallGetWithdrawAddressReturnStaticSize = 32
@@ -3155,12 +3285,12 @@ func (t StaticCallSetWithdrawAddressCall) GetMethodName() string {
 	return "staticCallSetWithdrawAddress"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t StaticCallSetWithdrawAddressCall) GetMethodID() uint32 {
 	return StaticCallSetWithdrawAddressID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t StaticCallSetWithdrawAddressCall) GetMethodSelector() [4]byte {
 	return StaticCallSetWithdrawAddressSelector
 }
@@ -3175,7 +3305,18 @@ func (t StaticCallSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// StaticCallSetWithdrawAddressReturn represents the input arguments for staticCallSetWithdrawAddress function
+// NewStaticCallSetWithdrawAddressCall constructs a new StaticCallSetWithdrawAddressCall
+func NewStaticCallSetWithdrawAddressCall(
+	delAddr common.Address,
+	withdrawAddr string,
+) StaticCallSetWithdrawAddressCall {
+	return StaticCallSetWithdrawAddressCall{
+		DelAddr:      delAddr,
+		WithdrawAddr: withdrawAddr,
+	}
+}
+
+// StaticCallSetWithdrawAddressReturn represents the output arguments for staticCallSetWithdrawAddress function
 type StaticCallSetWithdrawAddressReturn struct {
 	abi.EmptyTuple
 }
@@ -3252,12 +3393,12 @@ func (t TestClaimRewardsCall) GetMethodName() string {
 	return "testClaimRewards"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestClaimRewardsCall) GetMethodID() uint32 {
 	return TestClaimRewardsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestClaimRewardsCall) GetMethodSelector() [4]byte {
 	return TestClaimRewardsSelector
 }
@@ -3270,6 +3411,17 @@ func (t TestClaimRewardsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestClaimRewardsCall constructs a new TestClaimRewardsCall
+func NewTestClaimRewardsCall(
+	delAddr common.Address,
+	maxRetrieve uint32,
+) TestClaimRewardsCall {
+	return TestClaimRewardsCall{
+		DelAddr:     delAddr,
+		MaxRetrieve: maxRetrieve,
+	}
 }
 
 const TestClaimRewardsReturnStaticSize = 32
@@ -3409,12 +3561,12 @@ func (t TestClaimRewardsWithTransferCall) GetMethodName() string {
 	return "testClaimRewardsWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestClaimRewardsWithTransferCall) GetMethodID() uint32 {
 	return TestClaimRewardsWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestClaimRewardsWithTransferCall) GetMethodSelector() [4]byte {
 	return TestClaimRewardsWithTransferSelector
 }
@@ -3429,7 +3581,20 @@ func (t TestClaimRewardsWithTransferCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// TestClaimRewardsWithTransferReturn represents the input arguments for testClaimRewardsWithTransfer function
+// NewTestClaimRewardsWithTransferCall constructs a new TestClaimRewardsWithTransferCall
+func NewTestClaimRewardsWithTransferCall(
+	maxRetrieve uint32,
+	before bool,
+	after bool,
+) TestClaimRewardsWithTransferCall {
+	return TestClaimRewardsWithTransferCall{
+		MaxRetrieve: maxRetrieve,
+		Before:      before,
+		After:       after,
+	}
+}
+
+// TestClaimRewardsWithTransferReturn represents the output arguments for testClaimRewardsWithTransfer function
 type TestClaimRewardsWithTransferReturn struct {
 	abi.EmptyTuple
 }
@@ -3524,12 +3689,12 @@ func (t TestDelegateFromContractCall) GetMethodName() string {
 	return "testDelegateFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDelegateFromContractCall) GetMethodID() uint32 {
 	return TestDelegateFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDelegateFromContractCall) GetMethodSelector() [4]byte {
 	return TestDelegateFromContractSelector
 }
@@ -3544,7 +3709,18 @@ func (t TestDelegateFromContractCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// TestDelegateFromContractReturn represents the input arguments for testDelegateFromContract function
+// NewTestDelegateFromContractCall constructs a new TestDelegateFromContractCall
+func NewTestDelegateFromContractCall(
+	validatorAddr string,
+	amount *big.Int,
+) TestDelegateFromContractCall {
+	return TestDelegateFromContractCall{
+		ValidatorAddr: validatorAddr,
+		Amount:        amount,
+	}
+}
+
+// TestDelegateFromContractReturn represents the output arguments for testDelegateFromContract function
 type TestDelegateFromContractReturn struct {
 	abi.EmptyTuple
 }
@@ -3663,12 +3839,12 @@ func (t TestDepositValidatorRewardsPoolCall) GetMethodName() string {
 	return "testDepositValidatorRewardsPool"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositValidatorRewardsPoolCall) GetMethodID() uint32 {
 	return TestDepositValidatorRewardsPoolID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositValidatorRewardsPoolCall) GetMethodSelector() [4]byte {
 	return TestDepositValidatorRewardsPoolSelector
 }
@@ -3681,6 +3857,19 @@ func (t TestDepositValidatorRewardsPoolCall) EncodeWithSelector() ([]byte, error
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestDepositValidatorRewardsPoolCall constructs a new TestDepositValidatorRewardsPoolCall
+func NewTestDepositValidatorRewardsPoolCall(
+	depositor common.Address,
+	validatorAddress string,
+	amount []cmn.Coin,
+) TestDepositValidatorRewardsPoolCall {
+	return TestDepositValidatorRewardsPoolCall{
+		Depositor:        depositor,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+	}
 }
 
 const TestDepositValidatorRewardsPoolReturnStaticSize = 32
@@ -3862,12 +4051,12 @@ func (t TestDepositValidatorRewardsPoolWithTransferCall) GetMethodName() string 
 	return "testDepositValidatorRewardsPoolWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositValidatorRewardsPoolWithTransferCall) GetMethodID() uint32 {
 	return TestDepositValidatorRewardsPoolWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositValidatorRewardsPoolWithTransferCall) GetMethodSelector() [4]byte {
 	return TestDepositValidatorRewardsPoolWithTransferSelector
 }
@@ -3882,7 +4071,22 @@ func (t TestDepositValidatorRewardsPoolWithTransferCall) EncodeWithSelector() ([
 	return result, nil
 }
 
-// TestDepositValidatorRewardsPoolWithTransferReturn represents the input arguments for testDepositValidatorRewardsPoolWithTransfer function
+// NewTestDepositValidatorRewardsPoolWithTransferCall constructs a new TestDepositValidatorRewardsPoolWithTransferCall
+func NewTestDepositValidatorRewardsPoolWithTransferCall(
+	validatorAddress string,
+	amount []cmn.Coin,
+	before bool,
+	after bool,
+) TestDepositValidatorRewardsPoolWithTransferCall {
+	return TestDepositValidatorRewardsPoolWithTransferCall{
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+		Before:           before,
+		After:            after,
+	}
+}
+
+// TestDepositValidatorRewardsPoolWithTransferReturn represents the output arguments for testDepositValidatorRewardsPoolWithTransfer function
 type TestDepositValidatorRewardsPoolWithTransferReturn struct {
 	abi.EmptyTuple
 }
@@ -3977,12 +4181,12 @@ func (t TestFundCommunityPoolCall) GetMethodName() string {
 	return "testFundCommunityPool"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestFundCommunityPoolCall) GetMethodID() uint32 {
 	return TestFundCommunityPoolID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestFundCommunityPoolCall) GetMethodSelector() [4]byte {
 	return TestFundCommunityPoolSelector
 }
@@ -3995,6 +4199,17 @@ func (t TestFundCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestFundCommunityPoolCall constructs a new TestFundCommunityPoolCall
+func NewTestFundCommunityPoolCall(
+	depositor common.Address,
+	amount []cmn.Coin,
+) TestFundCommunityPoolCall {
+	return TestFundCommunityPoolCall{
+		Depositor: depositor,
+		Amount:    amount,
+	}
 }
 
 const TestFundCommunityPoolReturnStaticSize = 32
@@ -4163,12 +4378,12 @@ func (t TestFundCommunityPoolWithTransferCall) GetMethodName() string {
 	return "testFundCommunityPoolWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestFundCommunityPoolWithTransferCall) GetMethodID() uint32 {
 	return TestFundCommunityPoolWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestFundCommunityPoolWithTransferCall) GetMethodSelector() [4]byte {
 	return TestFundCommunityPoolWithTransferSelector
 }
@@ -4183,7 +4398,22 @@ func (t TestFundCommunityPoolWithTransferCall) EncodeWithSelector() ([]byte, err
 	return result, nil
 }
 
-// TestFundCommunityPoolWithTransferReturn represents the input arguments for testFundCommunityPoolWithTransfer function
+// NewTestFundCommunityPoolWithTransferCall constructs a new TestFundCommunityPoolWithTransferCall
+func NewTestFundCommunityPoolWithTransferCall(
+	depositor common.Address,
+	amount []cmn.Coin,
+	before bool,
+	after bool,
+) TestFundCommunityPoolWithTransferCall {
+	return TestFundCommunityPoolWithTransferCall{
+		Depositor: depositor,
+		Amount:    amount,
+		Before:    before,
+		After:     after,
+	}
+}
+
+// TestFundCommunityPoolWithTransferReturn represents the output arguments for testFundCommunityPoolWithTransfer function
 type TestFundCommunityPoolWithTransferReturn struct {
 	abi.EmptyTuple
 }
@@ -4302,12 +4532,12 @@ func (t TestRevertStateCall) GetMethodName() string {
 	return "testRevertState"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestRevertStateCall) GetMethodID() uint32 {
 	return TestRevertStateID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestRevertStateCall) GetMethodSelector() [4]byte {
 	return TestRevertStateSelector
 }
@@ -4320,6 +4550,19 @@ func (t TestRevertStateCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestRevertStateCall constructs a new TestRevertStateCall
+func NewTestRevertStateCall(
+	withdrawAddr string,
+	delAddr common.Address,
+	valAddr string,
+) TestRevertStateCall {
+	return TestRevertStateCall{
+		WithdrawAddr: withdrawAddr,
+		DelAddr:      delAddr,
+		ValAddr:      valAddr,
+	}
 }
 
 const TestRevertStateReturnStaticSize = 32
@@ -4484,12 +4727,12 @@ func (t TestSetWithdrawAddressCall) GetMethodName() string {
 	return "testSetWithdrawAddress"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSetWithdrawAddressCall) GetMethodID() uint32 {
 	return TestSetWithdrawAddressID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSetWithdrawAddressCall) GetMethodSelector() [4]byte {
 	return TestSetWithdrawAddressSelector
 }
@@ -4502,6 +4745,17 @@ func (t TestSetWithdrawAddressCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSetWithdrawAddressCall constructs a new TestSetWithdrawAddressCall
+func NewTestSetWithdrawAddressCall(
+	delAddr common.Address,
+	withdrawAddr string,
+) TestSetWithdrawAddressCall {
+	return TestSetWithdrawAddressCall{
+		DelAddr:      delAddr,
+		WithdrawAddr: withdrawAddr,
+	}
 }
 
 const TestSetWithdrawAddressReturnStaticSize = 32
@@ -4637,12 +4891,12 @@ func (t TestSetWithdrawAddressFromContractCall) GetMethodName() string {
 	return "testSetWithdrawAddressFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSetWithdrawAddressFromContractCall) GetMethodID() uint32 {
 	return TestSetWithdrawAddressFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSetWithdrawAddressFromContractCall) GetMethodSelector() [4]byte {
 	return TestSetWithdrawAddressFromContractSelector
 }
@@ -4655,6 +4909,15 @@ func (t TestSetWithdrawAddressFromContractCall) EncodeWithSelector() ([]byte, er
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSetWithdrawAddressFromContractCall constructs a new TestSetWithdrawAddressFromContractCall
+func NewTestSetWithdrawAddressFromContractCall(
+	withdrawAddr string,
+) TestSetWithdrawAddressFromContractCall {
+	return TestSetWithdrawAddressFromContractCall{
+		WithdrawAddr: withdrawAddr,
+	}
 }
 
 const TestSetWithdrawAddressFromContractReturnStaticSize = 32
@@ -4783,12 +5046,12 @@ func (t TestTryClaimRewardsCall) GetMethodName() string {
 	return "testTryClaimRewards"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestTryClaimRewardsCall) GetMethodID() uint32 {
 	return TestTryClaimRewardsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestTryClaimRewardsCall) GetMethodSelector() [4]byte {
 	return TestTryClaimRewardsSelector
 }
@@ -4801,6 +5064,17 @@ func (t TestTryClaimRewardsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestTryClaimRewardsCall constructs a new TestTryClaimRewardsCall
+func NewTestTryClaimRewardsCall(
+	delegatorAddress common.Address,
+	maxRetrieve uint32,
+) TestTryClaimRewardsCall {
+	return TestTryClaimRewardsCall{
+		DelegatorAddress: delegatorAddress,
+		MaxRetrieve:      maxRetrieve,
+	}
 }
 
 const TestTryClaimRewardsReturnStaticSize = 32
@@ -4947,12 +5221,12 @@ func (t TestWithdrawDelegatorRewardCall) GetMethodName() string {
 	return "testWithdrawDelegatorReward"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestWithdrawDelegatorRewardCall) GetMethodID() uint32 {
 	return TestWithdrawDelegatorRewardID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestWithdrawDelegatorRewardCall) GetMethodSelector() [4]byte {
 	return TestWithdrawDelegatorRewardSelector
 }
@@ -4965,6 +5239,17 @@ func (t TestWithdrawDelegatorRewardCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestWithdrawDelegatorRewardCall constructs a new TestWithdrawDelegatorRewardCall
+func NewTestWithdrawDelegatorRewardCall(
+	delAddr common.Address,
+	valAddr string,
+) TestWithdrawDelegatorRewardCall {
+	return TestWithdrawDelegatorRewardCall{
+		DelAddr: delAddr,
+		ValAddr: valAddr,
+	}
 }
 
 const TestWithdrawDelegatorRewardReturnStaticSize = 32
@@ -5118,12 +5403,12 @@ func (t TestWithdrawDelegatorRewardFromContractCall) GetMethodName() string {
 	return "testWithdrawDelegatorRewardFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestWithdrawDelegatorRewardFromContractCall) GetMethodID() uint32 {
 	return TestWithdrawDelegatorRewardFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestWithdrawDelegatorRewardFromContractCall) GetMethodSelector() [4]byte {
 	return TestWithdrawDelegatorRewardFromContractSelector
 }
@@ -5136,6 +5421,15 @@ func (t TestWithdrawDelegatorRewardFromContractCall) EncodeWithSelector() ([]byt
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestWithdrawDelegatorRewardFromContractCall constructs a new TestWithdrawDelegatorRewardFromContractCall
+func NewTestWithdrawDelegatorRewardFromContractCall(
+	valAddr string,
+) TestWithdrawDelegatorRewardFromContractCall {
+	return TestWithdrawDelegatorRewardFromContractCall{
+		ValAddr: valAddr,
+	}
 }
 
 const TestWithdrawDelegatorRewardFromContractReturnStaticSize = 32
@@ -5311,12 +5605,12 @@ func (t TestWithdrawDelegatorRewardWithTransferCall) GetMethodName() string {
 	return "testWithdrawDelegatorRewardWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestWithdrawDelegatorRewardWithTransferCall) GetMethodID() uint32 {
 	return TestWithdrawDelegatorRewardWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestWithdrawDelegatorRewardWithTransferCall) GetMethodSelector() [4]byte {
 	return TestWithdrawDelegatorRewardWithTransferSelector
 }
@@ -5329,6 +5623,19 @@ func (t TestWithdrawDelegatorRewardWithTransferCall) EncodeWithSelector() ([]byt
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestWithdrawDelegatorRewardWithTransferCall constructs a new TestWithdrawDelegatorRewardWithTransferCall
+func NewTestWithdrawDelegatorRewardWithTransferCall(
+	valAddr string,
+	before bool,
+	after bool,
+) TestWithdrawDelegatorRewardWithTransferCall {
+	return TestWithdrawDelegatorRewardWithTransferCall{
+		ValAddr: valAddr,
+		Before:  before,
+		After:   after,
+	}
 }
 
 const TestWithdrawDelegatorRewardWithTransferReturnStaticSize = 32
@@ -5482,12 +5789,12 @@ func (t TestWithdrawValidatorCommissionCall) GetMethodName() string {
 	return "testWithdrawValidatorCommission"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestWithdrawValidatorCommissionCall) GetMethodID() uint32 {
 	return TestWithdrawValidatorCommissionID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestWithdrawValidatorCommissionCall) GetMethodSelector() [4]byte {
 	return TestWithdrawValidatorCommissionSelector
 }
@@ -5500,6 +5807,15 @@ func (t TestWithdrawValidatorCommissionCall) EncodeWithSelector() ([]byte, error
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestWithdrawValidatorCommissionCall constructs a new TestWithdrawValidatorCommissionCall
+func NewTestWithdrawValidatorCommissionCall(
+	valAddr string,
+) TestWithdrawValidatorCommissionCall {
+	return TestWithdrawValidatorCommissionCall{
+		ValAddr: valAddr,
+	}
 }
 
 const TestWithdrawValidatorCommissionReturnStaticSize = 32
@@ -5686,12 +6002,12 @@ func (t TestWithdrawValidatorCommissionWithTransferCall) GetMethodName() string 
 	return "testWithdrawValidatorCommissionWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestWithdrawValidatorCommissionWithTransferCall) GetMethodID() uint32 {
 	return TestWithdrawValidatorCommissionWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestWithdrawValidatorCommissionWithTransferCall) GetMethodSelector() [4]byte {
 	return TestWithdrawValidatorCommissionWithTransferSelector
 }
@@ -5704,6 +6020,21 @@ func (t TestWithdrawValidatorCommissionWithTransferCall) EncodeWithSelector() ([
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestWithdrawValidatorCommissionWithTransferCall constructs a new TestWithdrawValidatorCommissionWithTransferCall
+func NewTestWithdrawValidatorCommissionWithTransferCall(
+	valAddr string,
+	withdrawer common.Address,
+	before bool,
+	after bool,
+) TestWithdrawValidatorCommissionWithTransferCall {
+	return TestWithdrawValidatorCommissionWithTransferCall{
+		ValAddr:    valAddr,
+		Withdrawer: withdrawer,
+		Before:     before,
+		After:      after,
+	}
 }
 
 const TestWithdrawValidatorCommissionWithTransferReturnStaticSize = 32
@@ -5868,12 +6199,12 @@ func (t WithdrawDelegatorRewardsAndRevertCall) GetMethodName() string {
 	return "withdrawDelegatorRewardsAndRevert"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t WithdrawDelegatorRewardsAndRevertCall) GetMethodID() uint32 {
 	return WithdrawDelegatorRewardsAndRevertID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t WithdrawDelegatorRewardsAndRevertCall) GetMethodSelector() [4]byte {
 	return WithdrawDelegatorRewardsAndRevertSelector
 }
@@ -5886,6 +6217,17 @@ func (t WithdrawDelegatorRewardsAndRevertCall) EncodeWithSelector() ([]byte, err
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewWithdrawDelegatorRewardsAndRevertCall constructs a new WithdrawDelegatorRewardsAndRevertCall
+func NewWithdrawDelegatorRewardsAndRevertCall(
+	delAddr common.Address,
+	valAddr string,
+) WithdrawDelegatorRewardsAndRevertCall {
+	return WithdrawDelegatorRewardsAndRevertCall{
+		DelAddr: delAddr,
+		ValAddr: valAddr,
+	}
 }
 
 const WithdrawDelegatorRewardsAndRevertReturnStaticSize = 32

@@ -39,12 +39,12 @@ func (t AddCall) GetMethodName() string {
 	return "add"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t AddCall) GetMethodID() uint32 {
 	return AddID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t AddCall) GetMethodSelector() [4]byte {
 	return AddSelector
 }
@@ -59,7 +59,12 @@ func (t AddCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// AddReturn represents the input arguments for add function
+// NewAddCall constructs a new AddCall
+func NewAddCall() AddCall {
+	return AddCall{}
+}
+
+// AddReturn represents the output arguments for add function
 type AddReturn struct {
 	abi.EmptyTuple
 }
@@ -76,12 +81,12 @@ func (t GetCounterCall) GetMethodName() string {
 	return "getCounter"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetCounterCall) GetMethodID() uint32 {
 	return GetCounterID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetCounterCall) GetMethodSelector() [4]byte {
 	return GetCounterSelector
 }
@@ -94,6 +99,11 @@ func (t GetCounterCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetCounterCall constructs a new GetCounterCall
+func NewGetCounterCall() GetCounterCall {
+	return GetCounterCall{}
 }
 
 const GetCounterReturnStaticSize = 32
@@ -162,12 +172,12 @@ func (t SubtractCall) GetMethodName() string {
 	return "subtract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t SubtractCall) GetMethodID() uint32 {
 	return SubtractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t SubtractCall) GetMethodSelector() [4]byte {
 	return SubtractSelector
 }
@@ -182,7 +192,12 @@ func (t SubtractCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// SubtractReturn represents the input arguments for subtract function
+// NewSubtractCall constructs a new SubtractCall
+func NewSubtractCall() SubtractCall {
+	return SubtractCall{}
+}
+
+// SubtractReturn represents the output arguments for subtract function
 type SubtractReturn struct {
 	abi.EmptyTuple
 }

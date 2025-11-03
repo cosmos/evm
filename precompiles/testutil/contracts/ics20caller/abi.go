@@ -118,12 +118,12 @@ func (t CounterCall) GetMethodName() string {
 	return "counter"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CounterCall) GetMethodID() uint32 {
 	return CounterID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CounterCall) GetMethodSelector() [4]byte {
 	return CounterSelector
 }
@@ -136,6 +136,11 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCounterCall constructs a new CounterCall
+func NewCounterCall() CounterCall {
+	return CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -204,12 +209,12 @@ func (t DepositCall) GetMethodName() string {
 	return "deposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DepositCall) GetMethodID() uint32 {
 	return DepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DepositCall) GetMethodSelector() [4]byte {
 	return DepositSelector
 }
@@ -224,7 +229,12 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DepositReturn represents the input arguments for deposit function
+// NewDepositCall constructs a new DepositCall
+func NewDepositCall() DepositCall {
+	return DepositCall{}
+}
+
+// DepositReturn represents the output arguments for deposit function
 type DepositReturn struct {
 	abi.EmptyTuple
 }
@@ -448,12 +458,12 @@ func (t IbcTransferAndRevertCall) GetMethodName() string {
 	return "ibcTransferAndRevert"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t IbcTransferAndRevertCall) GetMethodID() uint32 {
 	return IbcTransferAndRevertID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t IbcTransferAndRevertCall) GetMethodSelector() [4]byte {
 	return IbcTransferAndRevertSelector
 }
@@ -466,6 +476,31 @@ func (t IbcTransferAndRevertCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewIbcTransferAndRevertCall constructs a new IbcTransferAndRevertCall
+func NewIbcTransferAndRevertCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	sender common.Address,
+	receiver string,
+	timeoutHeight Height,
+	timeoutTimestamp uint64,
+	memo string,
+) IbcTransferAndRevertCall {
+	return IbcTransferAndRevertCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Sender:           sender,
+		Receiver:         receiver,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+	}
 }
 
 const IbcTransferAndRevertReturnStaticSize = 32
@@ -741,12 +776,12 @@ func (t TestIbcTransferCall) GetMethodName() string {
 	return "testIbcTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestIbcTransferCall) GetMethodID() uint32 {
 	return TestIbcTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestIbcTransferCall) GetMethodSelector() [4]byte {
 	return TestIbcTransferSelector
 }
@@ -759,6 +794,31 @@ func (t TestIbcTransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestIbcTransferCall constructs a new TestIbcTransferCall
+func NewTestIbcTransferCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	sender common.Address,
+	receiver string,
+	timeoutHeight Height,
+	timeoutTimestamp uint64,
+	memo string,
+) TestIbcTransferCall {
+	return TestIbcTransferCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Sender:           sender,
+		Receiver:         receiver,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+	}
 }
 
 const TestIbcTransferReturnStaticSize = 32
@@ -1023,12 +1083,12 @@ func (t TestIbcTransferFromContractCall) GetMethodName() string {
 	return "testIbcTransferFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestIbcTransferFromContractCall) GetMethodID() uint32 {
 	return TestIbcTransferFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestIbcTransferFromContractCall) GetMethodSelector() [4]byte {
 	return TestIbcTransferFromContractSelector
 }
@@ -1041,6 +1101,29 @@ func (t TestIbcTransferFromContractCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestIbcTransferFromContractCall constructs a new TestIbcTransferFromContractCall
+func NewTestIbcTransferFromContractCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	receiver string,
+	timeoutHeight Height,
+	timeoutTimestamp uint64,
+	memo string,
+) TestIbcTransferFromContractCall {
+	return TestIbcTransferFromContractCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Receiver:         receiver,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+	}
 }
 
 const TestIbcTransferFromContractReturnStaticSize = 32
@@ -1338,12 +1421,12 @@ func (t TestIbcTransferWithTransferCall) GetMethodName() string {
 	return "testIbcTransferWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestIbcTransferWithTransferCall) GetMethodID() uint32 {
 	return TestIbcTransferWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestIbcTransferWithTransferCall) GetMethodSelector() [4]byte {
 	return TestIbcTransferWithTransferSelector
 }
@@ -1356,6 +1439,35 @@ func (t TestIbcTransferWithTransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestIbcTransferWithTransferCall constructs a new TestIbcTransferWithTransferCall
+func NewTestIbcTransferWithTransferCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	sender common.Address,
+	receiver string,
+	timeoutHeight Height,
+	timeoutTimestamp uint64,
+	memo string,
+	before bool,
+	after bool,
+) TestIbcTransferWithTransferCall {
+	return TestIbcTransferWithTransferCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Sender:           sender,
+		Receiver:         receiver,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+		Before:           before,
+		After:            after,
+	}
 }
 
 const TestIbcTransferWithTransferReturnStaticSize = 32
@@ -1653,12 +1765,12 @@ func (t TestRevertIbcTransferCall) GetMethodName() string {
 	return "testRevertIbcTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestRevertIbcTransferCall) GetMethodID() uint32 {
 	return TestRevertIbcTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestRevertIbcTransferCall) GetMethodSelector() [4]byte {
 	return TestRevertIbcTransferSelector
 }
@@ -1673,7 +1785,36 @@ func (t TestRevertIbcTransferCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// TestRevertIbcTransferReturn represents the input arguments for testRevertIbcTransfer function
+// NewTestRevertIbcTransferCall constructs a new TestRevertIbcTransferCall
+func NewTestRevertIbcTransferCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	sender common.Address,
+	receiver string,
+	receiverAddr common.Address,
+	timeoutHeight Height,
+	timeoutTimestamp uint64,
+	memo string,
+	after bool,
+) TestRevertIbcTransferCall {
+	return TestRevertIbcTransferCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Sender:           sender,
+		Receiver:         receiver,
+		ReceiverAddr:     receiverAddr,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+		After:            after,
+	}
+}
+
+// TestRevertIbcTransferReturn represents the output arguments for testRevertIbcTransfer function
 type TestRevertIbcTransferReturn struct {
 	abi.EmptyTuple
 }

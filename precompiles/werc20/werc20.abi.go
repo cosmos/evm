@@ -126,12 +126,12 @@ func (t AllowanceCall) GetMethodName() string {
 	return "allowance"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t AllowanceCall) GetMethodID() uint32 {
 	return AllowanceID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t AllowanceCall) GetMethodSelector() [4]byte {
 	return AllowanceSelector
 }
@@ -144,6 +144,17 @@ func (t AllowanceCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewAllowanceCall constructs a new AllowanceCall
+func NewAllowanceCall(
+	owner common.Address,
+	spender common.Address,
+) AllowanceCall {
+	return AllowanceCall{
+		Owner:   owner,
+		Spender: spender,
+	}
 }
 
 const AllowanceReturnStaticSize = 32
@@ -272,12 +283,12 @@ func (t ApproveCall) GetMethodName() string {
 	return "approve"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t ApproveCall) GetMethodID() uint32 {
 	return ApproveID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t ApproveCall) GetMethodSelector() [4]byte {
 	return ApproveSelector
 }
@@ -290,6 +301,17 @@ func (t ApproveCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewApproveCall constructs a new ApproveCall
+func NewApproveCall(
+	spender common.Address,
+	amount *big.Int,
+) ApproveCall {
+	return ApproveCall{
+		Spender: spender,
+		Amount:  amount,
+	}
 }
 
 const ApproveReturnStaticSize = 32
@@ -407,12 +429,12 @@ func (t BalanceOfCall) GetMethodName() string {
 	return "balanceOf"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t BalanceOfCall) GetMethodID() uint32 {
 	return BalanceOfID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t BalanceOfCall) GetMethodSelector() [4]byte {
 	return BalanceOfSelector
 }
@@ -425,6 +447,15 @@ func (t BalanceOfCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewBalanceOfCall constructs a new BalanceOfCall
+func NewBalanceOfCall(
+	account common.Address,
+) BalanceOfCall {
+	return BalanceOfCall{
+		Account: account,
+	}
 }
 
 const BalanceOfReturnStaticSize = 32
@@ -493,12 +524,12 @@ func (t DecimalsCall) GetMethodName() string {
 	return "decimals"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DecimalsCall) GetMethodID() uint32 {
 	return DecimalsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DecimalsCall) GetMethodSelector() [4]byte {
 	return DecimalsSelector
 }
@@ -511,6 +542,11 @@ func (t DecimalsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDecimalsCall constructs a new DecimalsCall
+func NewDecimalsCall() DecimalsCall {
+	return DecimalsCall{}
 }
 
 const DecimalsReturnStaticSize = 32
@@ -579,12 +615,12 @@ func (t DepositCall) GetMethodName() string {
 	return "deposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DepositCall) GetMethodID() uint32 {
 	return DepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DepositCall) GetMethodSelector() [4]byte {
 	return DepositSelector
 }
@@ -599,7 +635,12 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DepositReturn represents the input arguments for deposit function
+// NewDepositCall constructs a new DepositCall
+func NewDepositCall() DepositCall {
+	return DepositCall{}
+}
+
+// DepositReturn represents the output arguments for deposit function
 type DepositReturn struct {
 	abi.EmptyTuple
 }
@@ -616,12 +657,12 @@ func (t NameCall) GetMethodName() string {
 	return "name"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t NameCall) GetMethodID() uint32 {
 	return NameID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t NameCall) GetMethodSelector() [4]byte {
 	return NameSelector
 }
@@ -634,6 +675,11 @@ func (t NameCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewNameCall constructs a new NameCall
+func NewNameCall() NameCall {
+	return NameCall{}
 }
 
 const NameReturnStaticSize = 32
@@ -720,12 +766,12 @@ func (t SymbolCall) GetMethodName() string {
 	return "symbol"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t SymbolCall) GetMethodID() uint32 {
 	return SymbolID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t SymbolCall) GetMethodSelector() [4]byte {
 	return SymbolSelector
 }
@@ -738,6 +784,11 @@ func (t SymbolCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewSymbolCall constructs a new SymbolCall
+func NewSymbolCall() SymbolCall {
+	return SymbolCall{}
 }
 
 const SymbolReturnStaticSize = 32
@@ -824,12 +875,12 @@ func (t TotalSupplyCall) GetMethodName() string {
 	return "totalSupply"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TotalSupplyCall) GetMethodID() uint32 {
 	return TotalSupplyID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TotalSupplyCall) GetMethodSelector() [4]byte {
 	return TotalSupplySelector
 }
@@ -842,6 +893,11 @@ func (t TotalSupplyCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTotalSupplyCall constructs a new TotalSupplyCall
+func NewTotalSupplyCall() TotalSupplyCall {
+	return TotalSupplyCall{}
 }
 
 const TotalSupplyReturnStaticSize = 32
@@ -970,12 +1026,12 @@ func (t TransferCall) GetMethodName() string {
 	return "transfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TransferCall) GetMethodID() uint32 {
 	return TransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TransferCall) GetMethodSelector() [4]byte {
 	return TransferSelector
 }
@@ -988,6 +1044,17 @@ func (t TransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTransferCall constructs a new TransferCall
+func NewTransferCall(
+	to common.Address,
+	amount *big.Int,
+) TransferCall {
+	return TransferCall{
+		To:     to,
+		Amount: amount,
+	}
 }
 
 const TransferReturnStaticSize = 32
@@ -1127,12 +1194,12 @@ func (t TransferFromCall) GetMethodName() string {
 	return "transferFrom"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TransferFromCall) GetMethodID() uint32 {
 	return TransferFromID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TransferFromCall) GetMethodSelector() [4]byte {
 	return TransferFromSelector
 }
@@ -1145,6 +1212,19 @@ func (t TransferFromCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTransferFromCall constructs a new TransferFromCall
+func NewTransferFromCall(
+	from common.Address,
+	to common.Address,
+	amount *big.Int,
+) TransferFromCall {
+	return TransferFromCall{
+		From:   from,
+		To:     to,
+		Amount: amount,
+	}
 }
 
 const TransferFromReturnStaticSize = 32
@@ -1262,12 +1342,12 @@ func (t WithdrawCall) GetMethodName() string {
 	return "withdraw"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t WithdrawCall) GetMethodID() uint32 {
 	return WithdrawID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t WithdrawCall) GetMethodSelector() [4]byte {
 	return WithdrawSelector
 }
@@ -1282,7 +1362,16 @@ func (t WithdrawCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// WithdrawReturn represents the input arguments for withdraw function
+// NewWithdrawCall constructs a new WithdrawCall
+func NewWithdrawCall(
+	wad *big.Int,
+) WithdrawCall {
+	return WithdrawCall{
+		Wad: wad,
+	}
+}
+
+// WithdrawReturn represents the output arguments for withdraw function
 type WithdrawReturn struct {
 	abi.EmptyTuple
 }

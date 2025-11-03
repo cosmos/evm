@@ -962,12 +962,12 @@ func (t DummyCall) GetMethodName() string {
 	return "dummy"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DummyCall) GetMethodID() uint32 {
 	return DummyID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DummyCall) GetMethodSelector() [4]byte {
 	return DummySelector
 }
@@ -982,7 +982,28 @@ func (t DummyCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DummyReturn represents the input arguments for dummy function
+// NewDummyCall constructs a new DummyCall
+func NewDummyCall(
+	a Coin,
+	b DecCoin,
+	c Dec,
+	d Height,
+	e PageRequest,
+	f PageResponse,
+	g ICS20Allocation,
+) DummyCall {
+	return DummyCall{
+		A: a,
+		B: b,
+		C: c,
+		D: d,
+		E: e,
+		F: f,
+		G: g,
+	}
+}
+
+// DummyReturn represents the output arguments for dummy function
 type DummyReturn struct {
 	abi.EmptyTuple
 }

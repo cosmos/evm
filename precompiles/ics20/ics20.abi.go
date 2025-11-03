@@ -442,12 +442,12 @@ func (t DenomCall) GetMethodName() string {
 	return "denom"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DenomCall) GetMethodID() uint32 {
 	return DenomID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DenomCall) GetMethodSelector() [4]byte {
 	return DenomSelector
 }
@@ -460,6 +460,15 @@ func (t DenomCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDenomCall constructs a new DenomCall
+func NewDenomCall(
+	hash string,
+) DenomCall {
+	return DenomCall{
+		Hash: hash,
+	}
 }
 
 const DenomReturnStaticSize = 32
@@ -613,12 +622,12 @@ func (t DenomHashCall) GetMethodName() string {
 	return "denomHash"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DenomHashCall) GetMethodID() uint32 {
 	return DenomHashID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DenomHashCall) GetMethodSelector() [4]byte {
 	return DenomHashSelector
 }
@@ -631,6 +640,15 @@ func (t DenomHashCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDenomHashCall constructs a new DenomHashCall
+func NewDenomHashCall(
+	trace string,
+) DenomHashCall {
+	return DenomHashCall{
+		Trace: trace,
+	}
 }
 
 const DenomHashReturnStaticSize = 32
@@ -784,12 +802,12 @@ func (t DenomsCall) GetMethodName() string {
 	return "denoms"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DenomsCall) GetMethodID() uint32 {
 	return DenomsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DenomsCall) GetMethodSelector() [4]byte {
 	return DenomsSelector
 }
@@ -802,6 +820,15 @@ func (t DenomsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewDenomsCall constructs a new DenomsCall
+func NewDenomsCall(
+	pageRequest cmn.PageRequest,
+) DenomsCall {
+	return DenomsCall{
+		PageRequest: pageRequest,
+	}
 }
 
 const DenomsReturnStaticSize = 64
@@ -1119,12 +1146,12 @@ func (t TransferCall) GetMethodName() string {
 	return "transfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TransferCall) GetMethodID() uint32 {
 	return TransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TransferCall) GetMethodSelector() [4]byte {
 	return TransferSelector
 }
@@ -1137,6 +1164,31 @@ func (t TransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTransferCall constructs a new TransferCall
+func NewTransferCall(
+	sourcePort string,
+	sourceChannel string,
+	denom string,
+	amount *big.Int,
+	sender common.Address,
+	receiver string,
+	timeoutHeight cmn.Height,
+	timeoutTimestamp uint64,
+	memo string,
+) TransferCall {
+	return TransferCall{
+		SourcePort:       sourcePort,
+		SourceChannel:    sourceChannel,
+		Denom:            denom,
+		Amount:           amount,
+		Sender:           sender,
+		Receiver:         receiver,
+		TimeoutHeight:    timeoutHeight,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+	}
 }
 
 const TransferReturnStaticSize = 32

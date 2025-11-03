@@ -503,12 +503,12 @@ func (t CounterCall) GetMethodName() string {
 	return "counter"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t CounterCall) GetMethodID() uint32 {
 	return CounterID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t CounterCall) GetMethodSelector() [4]byte {
 	return CounterSelector
 }
@@ -521,6 +521,11 @@ func (t CounterCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewCounterCall constructs a new CounterCall
+func NewCounterCall() CounterCall {
+	return CounterCall{}
 }
 
 const CounterReturnStaticSize = 32
@@ -589,12 +594,12 @@ func (t DepositCall) GetMethodName() string {
 	return "deposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t DepositCall) GetMethodID() uint32 {
 	return DepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t DepositCall) GetMethodSelector() [4]byte {
 	return DepositSelector
 }
@@ -609,7 +614,12 @@ func (t DepositCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// DepositReturn represents the input arguments for deposit function
+// NewDepositCall constructs a new DepositCall
+func NewDepositCall() DepositCall {
+	return DepositCall{}
+}
+
+// DepositReturn represents the output arguments for deposit function
 type DepositReturn struct {
 	abi.EmptyTuple
 }
@@ -626,12 +636,12 @@ func (t GetParamsCall) GetMethodName() string {
 	return "getParams"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t GetParamsCall) GetMethodID() uint32 {
 	return GetParamsID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t GetParamsCall) GetMethodSelector() [4]byte {
 	return GetParamsSelector
 }
@@ -644,6 +654,11 @@ func (t GetParamsCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewGetParamsCall constructs a new GetParamsCall
+func NewGetParamsCall() GetParamsCall {
+	return GetParamsCall{}
 }
 
 const GetParamsReturnStaticSize = 32
@@ -812,12 +827,12 @@ func (t TestCancelFromContractWithTransferCall) GetMethodName() string {
 	return "testCancelFromContractWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestCancelFromContractWithTransferCall) GetMethodID() uint32 {
 	return TestCancelFromContractWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestCancelFromContractWithTransferCall) GetMethodSelector() [4]byte {
 	return TestCancelFromContractWithTransferSelector
 }
@@ -830,6 +845,21 @@ func (t TestCancelFromContractWithTransferCall) EncodeWithSelector() ([]byte, er
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestCancelFromContractWithTransferCall constructs a new TestCancelFromContractWithTransferCall
+func NewTestCancelFromContractWithTransferCall(
+	randomAddr common.Address,
+	proposalId uint64,
+	before bool,
+	after bool,
+) TestCancelFromContractWithTransferCall {
+	return TestCancelFromContractWithTransferCall{
+		RandomAddr: randomAddr,
+		ProposalId: proposalId,
+		Before:     before,
+		After:      after,
+	}
 }
 
 const TestCancelFromContractWithTransferReturnStaticSize = 32
@@ -947,12 +977,12 @@ func (t TestCancelProposalFromContractCall) GetMethodName() string {
 	return "testCancelProposalFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestCancelProposalFromContractCall) GetMethodID() uint32 {
 	return TestCancelProposalFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestCancelProposalFromContractCall) GetMethodSelector() [4]byte {
 	return TestCancelProposalFromContractSelector
 }
@@ -965,6 +995,15 @@ func (t TestCancelProposalFromContractCall) EncodeWithSelector() ([]byte, error)
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestCancelProposalFromContractCall constructs a new TestCancelProposalFromContractCall
+func NewTestCancelProposalFromContractCall(
+	proposalId uint64,
+) TestCancelProposalFromContractCall {
+	return TestCancelProposalFromContractCall{
+		ProposalId: proposalId,
+	}
 }
 
 const TestCancelProposalFromContractReturnStaticSize = 32
@@ -1104,12 +1143,12 @@ func (t TestCancelWithTransferCall) GetMethodName() string {
 	return "testCancelWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestCancelWithTransferCall) GetMethodID() uint32 {
 	return TestCancelWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestCancelWithTransferCall) GetMethodSelector() [4]byte {
 	return TestCancelWithTransferSelector
 }
@@ -1122,6 +1161,19 @@ func (t TestCancelWithTransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestCancelWithTransferCall constructs a new TestCancelWithTransferCall
+func NewTestCancelWithTransferCall(
+	proposalId uint64,
+	before bool,
+	after bool,
+) TestCancelWithTransferCall {
+	return TestCancelWithTransferCall{
+		ProposalId: proposalId,
+		Before:     before,
+		After:      after,
+	}
 }
 
 const TestCancelWithTransferReturnStaticSize = 32
@@ -1279,12 +1331,12 @@ func (t TestDepositCall) GetMethodName() string {
 	return "testDeposit"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositCall) GetMethodID() uint32 {
 	return TestDepositID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositCall) GetMethodSelector() [4]byte {
 	return TestDepositSelector
 }
@@ -1297,6 +1349,19 @@ func (t TestDepositCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestDepositCall constructs a new TestDepositCall
+func NewTestDepositCall(
+	depositorAddr common.Address,
+	proposalId uint64,
+	deposit []cmn.Coin,
+) TestDepositCall {
+	return TestDepositCall{
+		DepositorAddr: depositorAddr,
+		ProposalId:    proposalId,
+		Deposit:       deposit,
+	}
 }
 
 const TestDepositReturnStaticSize = 32
@@ -1443,12 +1508,12 @@ func (t TestDepositFromContractCall) GetMethodName() string {
 	return "testDepositFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositFromContractCall) GetMethodID() uint32 {
 	return TestDepositFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositFromContractCall) GetMethodSelector() [4]byte {
 	return TestDepositFromContractSelector
 }
@@ -1461,6 +1526,17 @@ func (t TestDepositFromContractCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestDepositFromContractCall constructs a new TestDepositFromContractCall
+func NewTestDepositFromContractCall(
+	proposalId uint64,
+	deposit []cmn.Coin,
+) TestDepositFromContractCall {
+	return TestDepositFromContractCall{
+		ProposalId: proposalId,
+		Deposit:    deposit,
+	}
 }
 
 const TestDepositFromContractReturnStaticSize = 32
@@ -1640,12 +1716,12 @@ func (t TestDepositFromContractWithTransferCall) GetMethodName() string {
 	return "testDepositFromContractWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositFromContractWithTransferCall) GetMethodID() uint32 {
 	return TestDepositFromContractWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositFromContractWithTransferCall) GetMethodSelector() [4]byte {
 	return TestDepositFromContractWithTransferSelector
 }
@@ -1658,6 +1734,23 @@ func (t TestDepositFromContractWithTransferCall) EncodeWithSelector() ([]byte, e
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestDepositFromContractWithTransferCall constructs a new TestDepositFromContractWithTransferCall
+func NewTestDepositFromContractWithTransferCall(
+	randomAddr common.Address,
+	proposalId uint64,
+	deposit []cmn.Coin,
+	before bool,
+	after bool,
+) TestDepositFromContractWithTransferCall {
+	return TestDepositFromContractWithTransferCall{
+		RandomAddr: randomAddr,
+		ProposalId: proposalId,
+		Deposit:    deposit,
+		Before:     before,
+		After:      after,
+	}
 }
 
 const TestDepositFromContractWithTransferReturnStaticSize = 32
@@ -1826,12 +1919,12 @@ func (t TestDepositWithTransferCall) GetMethodName() string {
 	return "testDepositWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestDepositWithTransferCall) GetMethodID() uint32 {
 	return TestDepositWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestDepositWithTransferCall) GetMethodSelector() [4]byte {
 	return TestDepositWithTransferSelector
 }
@@ -1844,6 +1937,21 @@ func (t TestDepositWithTransferCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestDepositWithTransferCall constructs a new TestDepositWithTransferCall
+func NewTestDepositWithTransferCall(
+	proposalId uint64,
+	deposit []cmn.Coin,
+	before bool,
+	after bool,
+) TestDepositWithTransferCall {
+	return TestDepositWithTransferCall{
+		ProposalId: proposalId,
+		Deposit:    deposit,
+		Before:     before,
+		After:      after,
+	}
 }
 
 const TestDepositWithTransferReturnStaticSize = 32
@@ -2014,12 +2122,12 @@ func (t TestFundCommunityPoolCall) GetMethodName() string {
 	return "testFundCommunityPool"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestFundCommunityPoolCall) GetMethodID() uint32 {
 	return TestFundCommunityPoolID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestFundCommunityPoolCall) GetMethodSelector() [4]byte {
 	return TestFundCommunityPoolSelector
 }
@@ -2032,6 +2140,19 @@ func (t TestFundCommunityPoolCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestFundCommunityPoolCall constructs a new TestFundCommunityPoolCall
+func NewTestFundCommunityPoolCall(
+	depositor common.Address,
+	validatorAddress string,
+	amount []cmn.Coin,
+) TestFundCommunityPoolCall {
+	return TestFundCommunityPoolCall{
+		Depositor:        depositor,
+		ValidatorAddress: validatorAddress,
+		Amount:           amount,
+	}
 }
 
 const TestFundCommunityPoolReturnStaticSize = 32
@@ -2202,12 +2323,12 @@ func (t TestSubmitProposalCall) GetMethodName() string {
 	return "testSubmitProposal"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSubmitProposalCall) GetMethodID() uint32 {
 	return TestSubmitProposalID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSubmitProposalCall) GetMethodSelector() [4]byte {
 	return TestSubmitProposalSelector
 }
@@ -2220,6 +2341,19 @@ func (t TestSubmitProposalCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSubmitProposalCall constructs a new TestSubmitProposalCall
+func NewTestSubmitProposalCall(
+	proposerAddr common.Address,
+	jsonProposal []byte,
+	deposit []cmn.Coin,
+) TestSubmitProposalCall {
+	return TestSubmitProposalCall{
+		ProposerAddr: proposerAddr,
+		JsonProposal: jsonProposal,
+		Deposit:      deposit,
+	}
 }
 
 const TestSubmitProposalReturnStaticSize = 32
@@ -2379,12 +2513,12 @@ func (t TestSubmitProposalFromContractCall) GetMethodName() string {
 	return "testSubmitProposalFromContract"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSubmitProposalFromContractCall) GetMethodID() uint32 {
 	return TestSubmitProposalFromContractID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSubmitProposalFromContractCall) GetMethodSelector() [4]byte {
 	return TestSubmitProposalFromContractSelector
 }
@@ -2397,6 +2531,17 @@ func (t TestSubmitProposalFromContractCall) EncodeWithSelector() ([]byte, error)
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSubmitProposalFromContractCall constructs a new TestSubmitProposalFromContractCall
+func NewTestSubmitProposalFromContractCall(
+	jsonProposal []byte,
+	deposit []cmn.Coin,
+) TestSubmitProposalFromContractCall {
+	return TestSubmitProposalFromContractCall{
+		JsonProposal: jsonProposal,
+		Deposit:      deposit,
+	}
 }
 
 const TestSubmitProposalFromContractReturnStaticSize = 32
@@ -2589,12 +2734,12 @@ func (t TestSubmitProposalFromContractWithTransferCall) GetMethodName() string {
 	return "testSubmitProposalFromContractWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSubmitProposalFromContractWithTransferCall) GetMethodID() uint32 {
 	return TestSubmitProposalFromContractWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSubmitProposalFromContractWithTransferCall) GetMethodSelector() [4]byte {
 	return TestSubmitProposalFromContractWithTransferSelector
 }
@@ -2607,6 +2752,23 @@ func (t TestSubmitProposalFromContractWithTransferCall) EncodeWithSelector() ([]
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSubmitProposalFromContractWithTransferCall constructs a new TestSubmitProposalFromContractWithTransferCall
+func NewTestSubmitProposalFromContractWithTransferCall(
+	randomAddr common.Address,
+	jsonProposal []byte,
+	deposit []cmn.Coin,
+	before bool,
+	after bool,
+) TestSubmitProposalFromContractWithTransferCall {
+	return TestSubmitProposalFromContractWithTransferCall{
+		RandomAddr:   randomAddr,
+		JsonProposal: jsonProposal,
+		Deposit:      deposit,
+		Before:       before,
+		After:        after,
+	}
 }
 
 const TestSubmitProposalFromContractWithTransferReturnStaticSize = 32
@@ -2788,12 +2950,12 @@ func (t TestSubmitProposalWithTransferCall) GetMethodName() string {
 	return "testSubmitProposalWithTransfer"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestSubmitProposalWithTransferCall) GetMethodID() uint32 {
 	return TestSubmitProposalWithTransferID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestSubmitProposalWithTransferCall) GetMethodSelector() [4]byte {
 	return TestSubmitProposalWithTransferSelector
 }
@@ -2806,6 +2968,21 @@ func (t TestSubmitProposalWithTransferCall) EncodeWithSelector() ([]byte, error)
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestSubmitProposalWithTransferCall constructs a new TestSubmitProposalWithTransferCall
+func NewTestSubmitProposalWithTransferCall(
+	jsonProposal []byte,
+	deposit []cmn.Coin,
+	before bool,
+	after bool,
+) TestSubmitProposalWithTransferCall {
+	return TestSubmitProposalWithTransferCall{
+		JsonProposal: jsonProposal,
+		Deposit:      deposit,
+		Before:       before,
+		After:        after,
+	}
 }
 
 const TestSubmitProposalWithTransferReturnStaticSize = 32
@@ -2987,12 +3164,12 @@ func (t TestTransferCancelFundCall) GetMethodName() string {
 	return "testTransferCancelFund"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t TestTransferCancelFundCall) GetMethodID() uint32 {
 	return TestTransferCancelFundID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t TestTransferCancelFundCall) GetMethodSelector() [4]byte {
 	return TestTransferCancelFundSelector
 }
@@ -3005,6 +3182,21 @@ func (t TestTransferCancelFundCall) EncodeWithSelector() ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// NewTestTransferCancelFundCall constructs a new TestTransferCancelFundCall
+func NewTestTransferCancelFundCall(
+	depositor common.Address,
+	proposalId uint64,
+	denom []byte,
+	validatorAddress string,
+) TestTransferCancelFundCall {
+	return TestTransferCancelFundCall{
+		Depositor:        depositor,
+		ProposalId:       proposalId,
+		Denom:            denom,
+		ValidatorAddress: validatorAddress,
+	}
 }
 
 const TestTransferCancelFundReturnStaticSize = 32
