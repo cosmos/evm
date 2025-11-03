@@ -58,7 +58,7 @@ type EVMKeeper interface {
 	DeleteState(ctx sdk.Context, addr common.Address, key common.Hash)
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	DeleteCode(ctx sdk.Context, codeHash []byte)
-	KVStoreKeys() map[string]*storetypes.KVStoreKey
+	KVStoreKeys() map[string]storetypes.StoreKey
 }
 
 type Erc20Keeper interface {

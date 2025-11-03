@@ -107,7 +107,7 @@ func getGenAccountsAndBalances(cfg Config, validators []stakingtypes.Validator) 
 	}
 	genAccounts = append(genAccounts, createGenesisAccounts(valAccs)...)
 
-	return
+	return genAccounts, balances
 }
 
 // ConfigOption defines a function that can modify the NetworkConfig.

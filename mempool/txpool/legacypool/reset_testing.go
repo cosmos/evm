@@ -22,17 +22,17 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 		log.Debug("Skipping reorg on Cosmos chain (testing mode)", "oldHead", oldHead.Hash(), "newHead", newHead.Hash(), "newParent", newHead.ParentHash)
 		reinject = nil // No transactions to reinject
 	}
-	
+
 	// Initialize the internal state to the current head
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
-	
+
 	// Ensure BaseFee is set for EIP-1559 compatibility in tests
 	if newHead.BaseFee == nil && pool.chainconfig.IsLondon(newHead.Number) {
 		// Set a default base fee for testing
 		newHead.BaseFee = big.NewInt(1000000000) // 1 gwei default
 	}
-	
+
 	pool.resetInternalState(newHead, reinject)
 }

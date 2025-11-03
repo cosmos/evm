@@ -11,17 +11,15 @@ import (
 
 // TxConfig encapulates the readonly information of current tx for `StateDB`.
 type TxConfig struct {
-	TxHash   common.Hash // hash of current tx
-	TxIndex  uint        // the index of current transaction
-	LogIndex uint        // the index of next log within current block
+	TxHash  common.Hash // hash of current tx
+	TxIndex uint        // the index of current transaction
 }
 
 // NewTxConfig returns a TxConfig
-func NewTxConfig(thash common.Hash, txIndex, logIndex uint) TxConfig {
+func NewTxConfig(thash common.Hash, txIndex uint) TxConfig {
 	return TxConfig{
-		TxHash:   thash,
-		TxIndex:  txIndex,
-		LogIndex: logIndex,
+		TxHash:  thash,
+		TxIndex: txIndex,
 	}
 }
 
@@ -29,9 +27,8 @@ func NewTxConfig(thash common.Hash, txIndex, logIndex uint) TxConfig {
 // used in context where there's no transaction, e.g. `eth_call`/`eth_estimateGas`.
 func NewEmptyTxConfig() TxConfig {
 	return TxConfig{
-		TxHash:   common.Hash{},
-		TxIndex:  0,
-		LogIndex: 0,
+		TxHash:  common.Hash{},
+		TxIndex: 0,
 	}
 }
 

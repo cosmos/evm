@@ -385,7 +385,7 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 	expLogs := []*types.Log{}
 	txHash := common.BytesToHash([]byte("tx_hash"))
 	txIndex := uint(1)
-	logIndex := uint(1)
+	logIndex := uint(0)
 
 	testCases := []struct {
 		msg      string
@@ -427,7 +427,6 @@ func (s *KeeperTestSuite) TestQueryTxLogs() {
 			txCfg := statedb.NewTxConfig(
 				txHash,
 				txIndex,
-				logIndex,
 			)
 			vmdb := statedb.New(
 				s.Network.GetContext(),
