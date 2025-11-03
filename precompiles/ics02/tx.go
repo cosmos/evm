@@ -6,9 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types/v2"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
@@ -33,15 +30,10 @@ const (
 // UpdateClient implements the ICS02 UpdateClient transactions.
 func (p *Precompile) UpdateClient(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	clientID, updateBz, err := ParseUpdateClientArgs(args)
-	if err != nil {
-		return nil, err
-	}
+	args *UpdateClientCall,
+) (*UpdateClientReturn, error) {
+	clientID := args.ClientId
+	updateBz := args.UpdateMsg
 
 	if host.ClientIdentifierValidator(clientID) != nil {
 		return nil, errorsmod.Wrapf(
@@ -61,25 +53,18 @@ func (p *Precompile) UpdateClient(
 	}
 
 	if p.clientKeeper.GetClientStatus(ctx, clientID) == ibcexported.Frozen {
-		return method.Outputs.Pack(UpdateResultMisbehaviour)
+		return &UpdateClientReturn{UpdateResultMisbehaviour}, nil
 	}
 
-	return method.Outputs.Pack(UpdateResultSuccess)
+	return &UpdateClientReturn{UpdateResultSuccess}, nil
 }
 
 // VerifyMembership implements the ICS02 VerifyMembership transactions.
 func (p *Precompile) VerifyMembership(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	clientID, proof, proofHeight, pathBz, value, err := ParseVerifyMembershipArgs(method, args)
-	if err != nil {
-		return nil, err
-	}
-
+	args *VerifyMembershipCall,
+) (*VerifyMembershipReturn, error) {
+	clientID := args.ClientId
 	if host.ClientIdentifierValidator(clientID) != nil {
 		return nil, errorsmod.Wrapf(
 			clienttypes.ErrInvalidClient,
@@ -88,13 +73,13 @@ func (p *Precompile) VerifyMembership(
 		)
 	}
 
-	path := commitmenttypesv2.NewMerklePath(pathBz...)
+	path := commitmenttypesv2.NewMerklePath(args.Path...)
 
-	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, proof, path, value); err != nil {
+	if err := p.clientKeeper.VerifyMembership(ctx, clientID, args.ProofHeight.ToProofHeight(), 0, 0, args.Proof, path, args.Value); err != nil {
 		return nil, err
 	}
 
-	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
+	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, args.ProofHeight.ToProofHeight())
 	if err != nil {
 		return nil, err
 	}
@@ -104,22 +89,15 @@ func (p *Precompile) VerifyMembership(
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
-	return method.Outputs.Pack(big.NewInt(timestampSeconds))
+	return &VerifyMembershipReturn{big.NewInt(timestampSeconds)}, nil
 }
 
 // VerifyNonMembership implements the ICS02 VerifyNonMembership transactions.
 func (p *Precompile) VerifyNonMembership(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	_ vm.StateDB,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	clientID, proof, proofHeight, pathBz, err := ParseVerifyNonMembershipArgs(method, args)
-	if err != nil {
-		return nil, err
-	}
-
+	args *VerifyNonMembershipCall,
+) (*VerifyMembershipReturn, error) {
+	clientID := args.ClientId
 	if host.ClientIdentifierValidator(clientID) != nil {
 		return nil, errorsmod.Wrapf(
 			clienttypes.ErrInvalidClient,
@@ -127,10 +105,11 @@ func (p *Precompile) VerifyNonMembership(
 			clientID,
 		)
 	}
+	proofHeight := args.ProofHeight.ToProofHeight()
 
-	path := commitmenttypesv2.NewMerklePath(pathBz...)
+	path := commitmenttypesv2.NewMerklePath(args.Path...)
 
-	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, proof, path); err != nil {
+	if err := p.clientKeeper.VerifyNonMembership(ctx, clientID, proofHeight, 0, 0, args.Proof, path); err != nil {
 		return nil, err
 	}
 
@@ -144,5 +123,5 @@ func (p *Precompile) VerifyNonMembership(
 	}
 	timestampSeconds := time.Unix(0, int64(timestampNano)).Unix()
 
-	return method.Outputs.Pack(big.NewInt(timestampSeconds))
+	return &VerifyMembershipReturn{big.NewInt(timestampSeconds)}, nil
 }

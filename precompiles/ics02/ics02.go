@@ -1,10 +1,9 @@
 package ics02
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -21,29 +20,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output ics02.abi.go -external-tuples Coin=cmn.Coin,Dec=cmn.Dec,DecCoin=cmn.DecCoin,PageRequest=cmn.PageRequest -imports cmn=github.com/cosmos/evm/precompiles/common
+
 var _ vm.PrecompiledContract = (*Precompile)(nil)
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // Precompile defines the precompiled contract for ICS02.
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
 	cdc          codec.Codec
 	clientKeeper ibcutils.ClientKeeper
 }
@@ -61,7 +45,6 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.GasConfig{},
 			ContractAddress:      common.HexToAddress(evmtypes.ICS02PrecompileAddress),
 		},
-		ABI:          ABI,
 		clientKeeper: clientKeeper,
 	}
 }
@@ -73,15 +56,8 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 		return 0
 	}
 
-	methodID := input[:4]
-
-	method, err := p.MethodById(methodID)
-	if err != nil {
-		// This should never happen since this method is going to fail during Run
-		return 0
-	}
-
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	methodID := binary.BigEndian.Uint32(input[:4])
+	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -91,32 +67,33 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
+	input = input[4:] // remove method ID
 
-	switch method.Name {
-	case UpdateClientMethod:
-		return p.UpdateClient(ctx, contract, stateDB, method, args)
-	case VerifyMembershipMethod:
-		return p.VerifyMembership(ctx, contract, stateDB, method, args)
-	case VerifyNonMembershipMethod:
-		return p.VerifyNonMembership(ctx, contract, stateDB, method, args)
+	switch methodID {
+	case UpdateClientID:
+		return cmn.Run(ctx, p.UpdateClient, input)
+	case VerifyMembershipID:
+		return cmn.Run(ctx, p.VerifyMembership, input)
+	case VerifyNonMembershipID:
+		return cmn.Run(ctx, p.VerifyNonMembership, input)
 	// queries:
-	case GetClientStateMethod:
-		return p.GetClientState(ctx, contract, stateDB, method, args)
+	case GetClientStateID:
+		return cmn.Run(ctx, p.GetClientState, input)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
-func (Precompile) IsTransaction(method *abi.Method) bool {
-	switch method.Name {
-	case UpdateClientMethod,
-		VerifyMembershipMethod,
-		VerifyNonMembershipMethod:
+func (Precompile) IsTransaction(method uint32) bool {
+	switch method {
+	case UpdateClientID,
+		VerifyMembershipID,
+		VerifyNonMembershipID:
 		return true
 	default:
 		// GetClientStateMethod is the only query method.
