@@ -20,9 +20,9 @@ const (
 // typically found in `$HOME/.evmd/config/priv_validator_key.json`.
 func (p *Precompile) GetSigningInfo(
 	ctx sdk.Context,
-	args *GetSigningInfoCall,
+	args GetSigningInfoCall,
 ) (*GetSigningInfoReturn, error) {
-	req, err := ParseSigningInfoArgs(*args, p.consCodec)
+	req, err := ParseSigningInfoArgs(args, p.consCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +43,9 @@ func (p *Precompile) GetSigningInfo(
 // GetSigningInfos implements the query to get signing info for all validators.
 func (p *Precompile) GetSigningInfos(
 	ctx sdk.Context,
-	args *GetSigningInfosCall,
+	args GetSigningInfosCall,
 ) (*GetSigningInfosReturn, error) {
-	req, err := ParseSigningInfosArgs(*args)
+	req, err := ParseSigningInfosArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (p *Precompile) GetSigningInfos(
 // GetParams implements the query to get the slashing parameters.
 func (p *Precompile) GetParams(
 	ctx sdk.Context,
-	_ *GetParamsCall,
+	_ GetParamsCall,
 ) (*GetParamsReturn, error) {
 	res, err := p.slashingKeeper.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {

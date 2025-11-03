@@ -134,42 +134,24 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	switch methodID {
 	// ERC-20 transactions
 	case TransferID:
-		return cmn.RunWithStateDB(ctx, func(ctx sdk.Context, args *TransferCall, stateDB vm.StateDB, contract *vm.Contract) (*TransferReturn, error) {
-			return p.Transfer(ctx, *args, stateDB, contract)
-		}, input, stateDB, contract)
+		return cmn.RunWithStateDB(ctx, p.Transfer, input, stateDB, contract)
 	case TransferFromID:
-		return cmn.RunWithStateDB(ctx, func(ctx sdk.Context, args *TransferFromCall, stateDB vm.StateDB, contract *vm.Contract) (*TransferFromReturn, error) {
-			return p.TransferFrom(ctx, *args, stateDB, contract)
-		}, input, stateDB, contract)
+		return cmn.RunWithStateDB(ctx, p.TransferFrom, input, stateDB, contract)
 	case ApproveID:
-		return cmn.RunWithStateDB(ctx, func(ctx sdk.Context, args *ApproveCall, stateDB vm.StateDB, contract *vm.Contract) (*ApproveReturn, error) {
-			return p.Approve(ctx, *args, stateDB, contract)
-		}, input, stateDB, contract)
+		return cmn.RunWithStateDB(ctx, p.Approve, input, stateDB, contract)
 	// ERC-20 queries
 	case NameID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *NameCall) (*NameReturn, error) {
-			return p.Name(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.Name, input)
 	case SymbolID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *SymbolCall) (*SymbolReturn, error) {
-			return p.Symbol(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.Symbol, input)
 	case DecimalsID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *DecimalsCall) (*DecimalsReturn, error) {
-			return p.Decimals(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.Decimals, input)
 	case TotalSupplyID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *TotalSupplyCall) (*TotalSupplyReturn, error) {
-			return p.TotalSupply(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.TotalSupply, input)
 	case BalanceOfID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *BalanceOfCall) (*BalanceOfReturn, error) {
-			return p.BalanceOf(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.BalanceOf, input)
 	case AllowanceID:
-		return cmn.Run(ctx, func(ctx sdk.Context, args *AllowanceCall) (*AllowanceReturn, error) {
-			return p.Allowance(ctx, args)
-		}, input)
+		return cmn.Run(ctx, p.Allowance, input)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}

@@ -60,7 +60,7 @@ func (p Precompile) Deposit(
 // ERC-20 (e.g. ATOM and WEVMOS).
 func (p Precompile) Withdraw(
 	ctx sdk.Context,
-	args *WithdrawCall,
+	args WithdrawCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*WithdrawReturn, error) {

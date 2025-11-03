@@ -38,7 +38,7 @@ const (
 // the token capitalized (e.g. uatom -> Atom).
 func (p Precompile) Name(
 	ctx sdk.Context,
-	args *NameCall,
+	args NameCall,
 ) (*NameReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if found {
@@ -59,7 +59,7 @@ func (p Precompile) Name(
 // the token in uppercase (e.g. uatom -> ATOM).
 func (p Precompile) Symbol(
 	ctx sdk.Context,
-	args *SymbolCall,
+	args SymbolCall,
 ) (*SymbolReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if found {
@@ -80,7 +80,7 @@ func (p Precompile) Symbol(
 // value from the first character of the base denomination (e.g. uatom -> 6).
 func (p Precompile) Decimals(
 	ctx sdk.Context,
-	args *DecimalsCall,
+	args DecimalsCall,
 ) (*DecimalsReturn, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if !found {
@@ -137,7 +137,7 @@ func (p Precompile) Decimals(
 // of the coin from the bank keeper and returns zero if not found.
 func (p Precompile) TotalSupply(
 	ctx sdk.Context,
-	args *TotalSupplyCall,
+	args TotalSupplyCall,
 ) (*TotalSupplyReturn, error) {
 	supply := p.BankKeeper.GetSupply(ctx, p.tokenPair.Denom)
 
@@ -148,7 +148,7 @@ func (p Precompile) TotalSupply(
 // of the coin from the bank keeper and returns zero if not found.
 func (p Precompile) BalanceOf(
 	ctx sdk.Context,
-	args *BalanceOfCall,
+	args BalanceOfCall,
 ) (*BalanceOfReturn, error) {
 	balance := p.BankKeeper.SpendableCoin(ctx, args.Account.Bytes(), p.tokenPair.Denom)
 
@@ -158,7 +158,7 @@ func (p Precompile) BalanceOf(
 // Allowance returns the remaining allowance of a spender for a given owner.
 func (p Precompile) Allowance(
 	ctx sdk.Context,
-	args *AllowanceCall,
+	args AllowanceCall,
 ) (*AllowanceReturn, error) {
 	allowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), args.Owner, args.Spender)
 	if err != nil {

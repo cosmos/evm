@@ -26,11 +26,11 @@ const (
 // SubmitProposal defines a method to submit a proposal.
 func (p *Precompile) SubmitProposal(
 	ctx sdk.Context,
-	args *SubmitProposalCall,
+	args SubmitProposalCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*SubmitProposalReturn, error) {
-	msg, proposerHexAddr, err := NewMsgSubmitProposal(*args, p.codec, p.addrCdc)
+	msg, proposerHexAddr, err := NewMsgSubmitProposal(args, p.codec, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -55,11 +55,11 @@ func (p *Precompile) SubmitProposal(
 // Deposit defines a method to add a deposit on a specific proposal.
 func (p *Precompile) Deposit(
 	ctx sdk.Context,
-	args *DepositCall,
+	args DepositCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*DepositReturn, error) {
-	msg, depositorHexAddr, err := NewMsgDeposit(*args, p.addrCdc)
+	msg, depositorHexAddr, err := NewMsgDeposit(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +83,11 @@ func (p *Precompile) Deposit(
 // CancelProposal defines a method to cancel a proposal.
 func (p *Precompile) CancelProposal(
 	ctx sdk.Context,
-	args *CancelProposalCall,
+	args CancelProposalCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*CancelProposalReturn, error) {
-	msg, proposerHexAddr, err := NewMsgCancelProposal(*args, p.addrCdc)
+	msg, proposerHexAddr, err := NewMsgCancelProposal(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +111,11 @@ func (p *Precompile) CancelProposal(
 // Vote defines a method to add a vote on a specific proposal.
 func (p Precompile) Vote(
 	ctx sdk.Context,
-	args *VoteCall,
+	args VoteCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*VoteReturn, error) {
-	msg, voterHexAddr, err := NewMsgVote(*args, p.addrCdc)
+	msg, voterHexAddr, err := NewMsgVote(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +139,11 @@ func (p Precompile) Vote(
 // VoteWeighted defines a method to add a vote on a specific proposal.
 func (p Precompile) VoteWeighted(
 	ctx sdk.Context,
-	args *VoteWeightedCall,
+	args VoteWeightedCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*VoteWeightedReturn, error) {
-	msg, voterHexAddr, options, err := NewMsgVoteWeighted(*args, p.addrCdc)
+	msg, voterHexAddr, options, err := NewMsgVoteWeighted(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

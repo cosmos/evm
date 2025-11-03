@@ -41,9 +41,9 @@ const (
 // ValidatorDistributionInfo returns the distribution info for a validator.
 func (p Precompile) ValidatorDistributionInfo(
 	ctx sdk.Context,
-	args *ValidatorDistributionInfoCall,
+	args ValidatorDistributionInfoCall,
 ) (*ValidatorDistributionInfoReturn, error) {
-	req, err := NewValidatorDistributionInfoRequest(*args)
+	req, err := NewValidatorDistributionInfoRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,9 @@ func (p Precompile) ValidatorDistributionInfo(
 // ValidatorOutstandingRewards returns the outstanding rewards for a validator.
 func (p Precompile) ValidatorOutstandingRewards(
 	ctx sdk.Context,
-	args *ValidatorOutstandingRewardsCall,
+	args ValidatorOutstandingRewardsCall,
 ) (*ValidatorOutstandingRewardsReturn, error) {
-	req, err := NewValidatorOutstandingRewardsRequest(*args)
+	req, err := NewValidatorOutstandingRewardsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,9 @@ func (p Precompile) ValidatorOutstandingRewards(
 // ValidatorCommission returns the commission for a validator.
 func (p Precompile) ValidatorCommission(
 	ctx sdk.Context,
-	args *ValidatorCommissionCall,
+	args ValidatorCommissionCall,
 ) (*ValidatorCommissionReturn, error) {
-	req, err := NewValidatorCommissionRequest(*args)
+	req, err := NewValidatorCommissionRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +95,9 @@ func (p Precompile) ValidatorCommission(
 // ValidatorSlashes returns the slashes for a validator.
 func (p Precompile) ValidatorSlashes(
 	ctx sdk.Context,
-	args *ValidatorSlashesCall,
+	args ValidatorSlashesCall,
 ) (*ValidatorSlashesReturn, error) {
-	req, err := NewValidatorSlashesRequest(*args)
+	req, err := NewValidatorSlashesRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +113,9 @@ func (p Precompile) ValidatorSlashes(
 // DelegationRewards returns the total rewards accrued by a delegation.
 func (p Precompile) DelegationRewards(
 	ctx sdk.Context,
-	args *DelegationRewardsCall,
+	args DelegationRewardsCall,
 ) (*DelegationRewardsReturn, error) {
-	req, err := NewDelegationRewardsRequest(*args, p.addrCdc)
+	req, err := NewDelegationRewardsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -131,9 +131,9 @@ func (p Precompile) DelegationRewards(
 // DelegationTotalRewards returns the total rewards accrued by a delegation.
 func (p Precompile) DelegationTotalRewards(
 	ctx sdk.Context,
-	args *DelegationTotalRewardsCall,
+	args DelegationTotalRewardsCall,
 ) (*DelegationTotalRewardsReturn, error) {
-	req, err := NewDelegationTotalRewardsRequest(*args, p.addrCdc)
+	req, err := NewDelegationTotalRewardsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +149,9 @@ func (p Precompile) DelegationTotalRewards(
 // DelegatorValidators returns the validators a delegator is bonded to.
 func (p Precompile) DelegatorValidators(
 	ctx sdk.Context,
-	args *DelegatorValidatorsCall,
+	args DelegatorValidatorsCall,
 ) (*DelegatorValidatorsReturn, error) {
-	req, err := NewDelegatorValidatorsRequest(*args, p.addrCdc)
+	req, err := NewDelegatorValidatorsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -167,9 +167,9 @@ func (p Precompile) DelegatorValidators(
 // DelegatorWithdrawAddress returns the withdraw address for a delegator.
 func (p Precompile) DelegatorWithdrawAddress(
 	ctx sdk.Context,
-	args *DelegatorWithdrawAddressCall,
+	args DelegatorWithdrawAddressCall,
 ) (*DelegatorWithdrawAddressReturn, error) {
-	req, err := NewDelegatorWithdrawAddressRequest(*args, p.addrCdc)
+	req, err := NewDelegatorWithdrawAddressRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (p Precompile) DelegatorWithdrawAddress(
 // CommunityPool returns the community pool coins.
 func (p Precompile) CommunityPool(
 	ctx sdk.Context,
-	_ *abi.EmptyTuple,
+	_ abi.EmptyTuple,
 ) (*CommunityPoolReturn, error) {
 	req, err := NewCommunityPoolRequest()
 	if err != nil {

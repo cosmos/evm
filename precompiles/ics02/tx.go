@@ -30,7 +30,7 @@ const (
 // UpdateClient implements the ICS02 UpdateClient transactions.
 func (p *Precompile) UpdateClient(
 	ctx sdk.Context,
-	args *UpdateClientCall,
+	args UpdateClientCall,
 ) (*UpdateClientReturn, error) {
 	clientID := args.ClientId
 	updateBz := args.UpdateMsg
@@ -62,7 +62,7 @@ func (p *Precompile) UpdateClient(
 // VerifyMembership implements the ICS02 VerifyMembership transactions.
 func (p *Precompile) VerifyMembership(
 	ctx sdk.Context,
-	args *VerifyMembershipCall,
+	args VerifyMembershipCall,
 ) (*VerifyMembershipReturn, error) {
 	clientID := args.ClientId
 	if host.ClientIdentifierValidator(clientID) != nil {
@@ -74,12 +74,13 @@ func (p *Precompile) VerifyMembership(
 	}
 
 	path := commitmenttypesv2.NewMerklePath(args.Path...)
+	proofHeight := args.ProofHeight.ToProofHeight()
 
-	if err := p.clientKeeper.VerifyMembership(ctx, clientID, args.ProofHeight.ToProofHeight(), 0, 0, args.Proof, path, args.Value); err != nil {
+	if err := p.clientKeeper.VerifyMembership(ctx, clientID, proofHeight, 0, 0, args.Proof, path, args.Value); err != nil {
 		return nil, err
 	}
 
-	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, args.ProofHeight.ToProofHeight())
+	timestampNano, err := p.clientKeeper.GetClientTimestampAtHeight(ctx, clientID, proofHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (p *Precompile) VerifyMembership(
 // VerifyNonMembership implements the ICS02 VerifyNonMembership transactions.
 func (p *Precompile) VerifyNonMembership(
 	ctx sdk.Context,
-	args *VerifyNonMembershipCall,
+	args VerifyNonMembershipCall,
 ) (*VerifyMembershipReturn, error) {
 	clientID := args.ClientId
 	if host.ClientIdentifierValidator(clientID) != nil {

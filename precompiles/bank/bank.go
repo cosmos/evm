@@ -6,8 +6,6 @@
 package bank
 
 import (
-	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -67,12 +65,10 @@ func NewPrecompile(
 
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// NOTE: This check avoid panicking when trying to decode the method ID
-	if len(input) < 4 {
+	methodID, _, err := cmn.SplitMethodID(input)
+	if err != nil {
 		return 0
 	}
-
-	methodID := binary.BigEndian.Uint32(input[:4])
 
 	switch methodID {
 	case BalancesID:
@@ -94,17 +90,13 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 
 // Execute executes the precompiled contract bank query methods defined in the ABI.
 func (p Precompile) Execute(ctx sdk.Context, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	if len(contract.Input) < 4 {
-		return nil, errors.New("invalid input length")
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, func(uint32) bool {
+		// all methods are queries
+		return false
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	// all readonly method
-	if !readOnly {
-		return nil, vm.ErrWriteProtection
-	}
-
-	methodID := binary.BigEndian.Uint32(contract.Input[:4])
-	input := contract.Input[4:]
 
 	switch methodID {
 	// Bank queries

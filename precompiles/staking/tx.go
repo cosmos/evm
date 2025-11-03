@@ -34,7 +34,7 @@ const (
 // CreateValidator performs create validator.
 func (p Precompile) CreateValidator(
 	ctx sdk.Context,
-	args *CreateValidatorCall,
+	args CreateValidatorCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*CreateValidatorReturn, error) {
@@ -42,7 +42,7 @@ func (p Precompile) CreateValidator(
 	if err != nil {
 		return nil, err
 	}
-	msg, validatorHexAddr, err := NewMsgCreateValidator(*args, bondDenom, p.addrCdc)
+	msg, validatorHexAddr, err := NewMsgCreateValidator(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +91,11 @@ func (p Precompile) CreateValidator(
 // EditValidator performs edit validator.
 func (p Precompile) EditValidator(
 	ctx sdk.Context,
-	args *EditValidatorCall,
+	args EditValidatorCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*EditValidatorReturn, error) {
-	msg, validatorHexAddr, err := NewMsgEditValidator(*args)
+	msg, validatorHexAddr, err := NewMsgEditValidator(args)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (p Precompile) EditValidator(
 // Delegate performs a delegation of coins from a delegator to a validator.
 func (p *Precompile) Delegate(
 	ctx sdk.Context,
-	args *DelegateCall,
+	args DelegateCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*DelegateReturn, error) {
@@ -147,7 +147,7 @@ func (p *Precompile) Delegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgDelegate(*args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgDelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (p *Precompile) Delegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Undelegate(
 	ctx sdk.Context,
-	args *UndelegateCall,
+	args UndelegateCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*UndelegateReturn, error) {
@@ -193,7 +193,7 @@ func (p Precompile) Undelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgUndelegate(*args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgUndelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (p Precompile) Undelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) Redelegate(
 	ctx sdk.Context,
-	args *RedelegateCall,
+	args RedelegateCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*RedelegateReturn, error) {
@@ -241,7 +241,7 @@ func (p Precompile) Redelegate(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgRedelegate(*args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgRedelegate(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (p Precompile) Redelegate(
 // The provided amount cannot be negative. This is validated in the msg.ValidateBasic() function.
 func (p Precompile) CancelUnbondingDelegation(
 	ctx sdk.Context,
-	args *CancelUnbondingDelegationCall,
+	args CancelUnbondingDelegationCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*CancelUnbondingDelegationReturn, error) {
@@ -288,7 +288,7 @@ func (p Precompile) CancelUnbondingDelegation(
 	if err != nil {
 		return nil, err
 	}
-	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(*args, bondDenom, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgCancelUnbondingDelegation(args, bondDenom, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

@@ -34,9 +34,9 @@ const (
 // Delegation returns the delegation that a delegator has with a specific validator.
 func (p Precompile) Delegation(
 	ctx sdk.Context,
-	args *DelegationCall,
+	args DelegationCall,
 ) (*DelegationReturn, error) {
-	req, err := NewDelegationRequest(*args, p.addrCdc)
+	req, err := NewDelegationRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +65,9 @@ func (p Precompile) Delegation(
 // a specific validator.
 func (p Precompile) UnbondingDelegation(
 	ctx sdk.Context,
-	args *UnbondingDelegationCall,
+	args UnbondingDelegationCall,
 ) (*UnbondingDelegationReturn, error) {
-	req, err := NewUnbondingDelegationRequest(*args, p.addrCdc)
+	req, err := NewUnbondingDelegationRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +88,9 @@ func (p Precompile) UnbondingDelegation(
 // Validator returns the validator information for a given validator address.
 func (p Precompile) Validator(
 	ctx sdk.Context,
-	args *ValidatorCall,
+	args ValidatorCall,
 ) (*ValidatorReturn, error) {
-	req, err := NewValidatorRequest(*args)
+	req, err := NewValidatorRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +113,9 @@ func (p Precompile) Validator(
 // Validators returns the validators information with a provided status & pagination (optional).
 func (p Precompile) Validators(
 	ctx sdk.Context,
-	args *ValidatorsCall,
+	args ValidatorsCall,
 ) (*ValidatorsReturn, error) {
-	req, err := NewValidatorsRequest(*args)
+	req, err := NewValidatorsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -131,9 +131,9 @@ func (p Precompile) Validators(
 // Redelegation returns the redelegation between two validators for a delegator.
 func (p Precompile) Redelegation(
 	ctx sdk.Context,
-	args *RedelegateCall,
+	args RedelegateCall,
 ) (*RedelegationReturn, error) {
-	req, err := NewRedelegationRequest(*args)
+	req, err := NewRedelegationRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +149,9 @@ func (p Precompile) Redelegation(
 // Pagination is only supported for querying redelegations from a source validator or to query all redelegations.
 func (p Precompile) Redelegations(
 	ctx sdk.Context,
-	args *RedelegationsCall,
+	args RedelegationsCall,
 ) (*RedelegationsReturn, error) {
-	req, err := NewRedelegationsRequest(*args, p.addrCdc)
+	req, err := NewRedelegationsRequest(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,7 @@ const (
 // to unjail themselves after being jailed for downtime.
 func (p Precompile) Unjail(
 	ctx sdk.Context,
-	args *UnjailCall,
+	args UnjailCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*UnjailReturn, error) {

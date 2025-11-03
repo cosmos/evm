@@ -28,9 +28,9 @@ const (
 // GetVotes implements the query logic for getting votes for a proposal.
 func (p *Precompile) GetVotes(
 	ctx sdk.Context,
-	args *GetVotesCall,
+	args GetVotesCall,
 ) (*GetVotesReturn, error) {
-	queryVotesReq, err := ParseVotesArgs(*args)
+	queryVotesReq, err := ParseVotesArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +50,9 @@ func (p *Precompile) GetVotes(
 // GetVote implements the query logic for getting votes for a proposal.
 func (p *Precompile) GetVote(
 	ctx sdk.Context,
-	args *GetVoteCall,
+	args GetVoteCall,
 ) (*GetVoteReturn, error) {
-	queryVotesReq, err := ParseVoteArgs(*args, p.addrCdc)
+	queryVotesReq, err := ParseVoteArgs(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +72,9 @@ func (p *Precompile) GetVote(
 // GetDeposit implements the query logic for getting a deposit for a proposal.
 func (p *Precompile) GetDeposit(
 	ctx sdk.Context,
-	args *GetDepositCall,
+	args GetDepositCall,
 ) (*GetDepositReturn, error) {
-	queryDepositReq, err := ParseDepositArgs(*args, p.addrCdc)
+	queryDepositReq, err := ParseDepositArgs(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +94,9 @@ func (p *Precompile) GetDeposit(
 // GetDeposits implements the query logic for getting all deposits for a proposal.
 func (p *Precompile) GetDeposits(
 	ctx sdk.Context,
-	args *GetDepositsCall,
+	args GetDepositsCall,
 ) (*GetDepositsReturn, error) {
-	queryDepositsReq, err := ParseDepositsArgs(*args)
+	queryDepositsReq, err := ParseDepositsArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -116,9 +116,9 @@ func (p *Precompile) GetDeposits(
 // GetTallyResult implements the query logic for getting the tally result of a proposal.
 func (p *Precompile) GetTallyResult(
 	ctx sdk.Context,
-	args *GetTallyResultCall,
+	args GetTallyResultCall,
 ) (*GetTallyResultReturn, error) {
-	queryTallyResultReq, err := ParseTallyResultArgs(*args)
+	queryTallyResultReq, err := ParseTallyResultArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -136,9 +136,9 @@ func (p *Precompile) GetTallyResult(
 // GetProposal implements the query logic for getting a proposal
 func (p *Precompile) GetProposal(
 	ctx sdk.Context,
-	args *GetProposalCall,
+	args GetProposalCall,
 ) (*GetProposalReturn, error) {
-	queryProposalReq, err := ParseProposalArgs(*args)
+	queryProposalReq, err := ParseProposalArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +158,9 @@ func (p *Precompile) GetProposal(
 // GetProposals implements the query logic for getting proposals
 func (p *Precompile) GetProposals(
 	ctx sdk.Context,
-	args *GetProposalsCall,
+	args GetProposalsCall,
 ) (*GetProposalsReturn, error) {
-	queryProposalsReq, err := ParseProposalsArgs(*args, p.addrCdc)
+	queryProposalsReq, err := ParseProposalsArgs(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -181,9 +181,9 @@ func (p *Precompile) GetProposals(
 // GetParams implements the query logic for getting governance parameters
 func (p *Precompile) GetParams(
 	ctx sdk.Context,
-	args *GetParamsCall,
+	args GetParamsCall,
 ) (*GetParamsReturn, error) {
-	queryParamsReq, err := BuildQueryParamsRequest(*args)
+	queryParamsReq, err := BuildQueryParamsRequest(args)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +201,9 @@ func (p *Precompile) GetParams(
 // GetConstitution implements the query logic for getting the constitution
 func (p *Precompile) GetConstitution(
 	ctx sdk.Context,
-	args *GetConstitutionCall,
+	args GetConstitutionCall,
 ) (*GetConstitutionReturn, error) {
-	req, err := BuildQueryConstitutionRequest(*args)
+	req, err := BuildQueryConstitutionRequest(args)
 	if err != nil {
 		return nil, err
 	}

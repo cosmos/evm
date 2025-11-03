@@ -126,13 +126,23 @@ func (p Precompile) runNativeAction(evm *vm.EVM, contract *vm.Contract, action N
 	return bz, nil
 }
 
-// ParseMethod parse method id, and check if it's allowed in readOnly mode.
-func ParseMethod(input []byte, readOnly bool, isTransaction func(uint32) bool) (uint32, []byte, error) {
+// SplitMethodID splits the method id from the input data.
+func SplitMethodID(input []byte) (uint32, []byte, error) {
 	if len(input) < 4 {
 		return 0, nil, errors.New("invalid input length")
 	}
 
 	methodID := binary.BigEndian.Uint32(input)
+	return methodID, input[4:], nil
+}
+
+// ParseMethod splits method id, and check if it's allowed in readOnly mode.
+func ParseMethod(input []byte, readOnly bool, isTransaction func(uint32) bool) (uint32, []byte, error) {
+	methodID, input, err := SplitMethodID(input)
+	if err != nil {
+		return 0, nil, err
+	}
+
 	if readOnly && isTransaction(methodID) {
 		return 0, nil, vm.ErrWriteProtection
 	}
@@ -140,13 +150,16 @@ func ParseMethod(input []byte, readOnly bool, isTransaction func(uint32) bool) (
 	return methodID, input[4:], nil
 }
 
-func Run[I abi.Decode, O abi.Encode](
+func Run[I any, PI interface {
+	*I
+	abi.Decode
+}, O abi.Encode](
 	ctx sdk.Context,
 	fn func(sdk.Context, I) (O, error),
 	input []byte,
 ) ([]byte, error) {
 	var in I
-	if _, err := in.Decode(input); err != nil {
+	if _, err := PI(&in).Decode(input); err != nil {
 		return nil, err
 	}
 
@@ -158,7 +171,10 @@ func Run[I abi.Decode, O abi.Encode](
 	return out.Encode()
 }
 
-func RunWithStateDB[I abi.Decode, O abi.Encode](
+func RunWithStateDB[I any, PI interface {
+	*I
+	abi.Decode
+}, O abi.Encode](
 	ctx sdk.Context,
 	fn func(sdk.Context, I, vm.StateDB, *vm.Contract) (O, error),
 	input []byte,
@@ -166,7 +182,7 @@ func RunWithStateDB[I abi.Decode, O abi.Encode](
 	contract *vm.Contract,
 ) ([]byte, error) {
 	var in I
-	if _, err := in.Decode(input); err != nil {
+	if _, err := PI(&in).Decode(input); err != nil {
 		return nil, err
 	}
 

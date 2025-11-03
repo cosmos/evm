@@ -32,7 +32,7 @@ const (
 // ClaimRewards claims the rewards accumulated by a delegator from multiple or all validators.
 func (p *Precompile) ClaimRewards(
 	ctx sdk.Context,
-	args *ClaimRewardsCall,
+	args ClaimRewardsCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*ClaimRewardsReturn, error) {
@@ -82,11 +82,11 @@ func (p *Precompile) ClaimRewards(
 // SetWithdrawAddress sets the withdrawal address for a delegator (or validator self-delegation).
 func (p Precompile) SetWithdrawAddress(
 	ctx sdk.Context,
-	args *SetWithdrawAddressCall,
+	args SetWithdrawAddressCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*SetWithdrawAddressReturn, error) {
-	msg, delegatorHexAddr, err := NewMsgSetWithdrawAddress(*args, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgSetWithdrawAddress(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +110,11 @@ func (p Precompile) SetWithdrawAddress(
 // WithdrawDelegatorReward withdraws the rewards of a delegator from a single validator.
 func (p *Precompile) WithdrawDelegatorReward(
 	ctx sdk.Context,
-	args *WithdrawDelegatorRewardsCall,
+	args WithdrawDelegatorRewardsCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*WithdrawDelegatorRewardsReturn, error) {
-	msg, delegatorHexAddr, err := NewMsgWithdrawDelegatorReward(*args, p.addrCdc)
+	msg, delegatorHexAddr, err := NewMsgWithdrawDelegatorReward(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +139,11 @@ func (p *Precompile) WithdrawDelegatorReward(
 // WithdrawValidatorCommission withdraws the rewards of a validator.
 func (p *Precompile) WithdrawValidatorCommission(
 	ctx sdk.Context,
-	args *WithdrawValidatorCommissionCall,
+	args WithdrawValidatorCommissionCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*WithdrawValidatorCommissionReturn, error) {
-	msg, validatorHexAddr, err := NewMsgWithdrawValidatorCommission(*args)
+	msg, validatorHexAddr, err := NewMsgWithdrawValidatorCommission(args)
 	if err != nil {
 		return nil, err
 	}
@@ -168,11 +168,11 @@ func (p *Precompile) WithdrawValidatorCommission(
 // FundCommunityPool directly fund the community pool
 func (p *Precompile) FundCommunityPool(
 	ctx sdk.Context,
-	args *FundCommunityPoolCall,
+	args FundCommunityPoolCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*FundCommunityPoolReturn, error) {
-	msg, depositorHexAddr, err := NewMsgFundCommunityPool(*args, p.addrCdc)
+	msg, depositorHexAddr, err := NewMsgFundCommunityPool(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +198,11 @@ func (p *Precompile) FundCommunityPool(
 // for a specific validator.
 func (p *Precompile) DepositValidatorRewardsPool(
 	ctx sdk.Context,
-	args *DepositValidatorRewardsPoolCall,
+	args DepositValidatorRewardsPoolCall,
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*DepositValidatorRewardsPoolReturn, error) {
-	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(*args, p.addrCdc)
+	msg, depositorHexAddr, err := NewMsgDepositValidatorRewardsPool(args, p.addrCdc)
 	if err != nil {
 		return nil, err
 	}

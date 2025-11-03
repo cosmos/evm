@@ -15,7 +15,7 @@ const (
 // GetClientState returns the client state for the precompile's client ID.
 func (p *Precompile) GetClientState(
 	ctx sdk.Context,
-	args *GetClientStateCall,
+	args GetClientStateCall,
 ) (*GetClientStateReturn, error) {
 	clientState, found := p.clientKeeper.GetClientState(ctx, args.ClientId)
 	if !found {

@@ -27,7 +27,7 @@ const (
 // balanceOf call for each token returned.
 func (p Precompile) Balances(
 	ctx sdk.Context,
-	args *BalancesCall,
+	args BalancesCall,
 ) (*BalancesReturn, error) {
 	i := 0
 	balances := make([]Balance, 0)
@@ -63,7 +63,7 @@ func (p Precompile) Balances(
 // This method charges the account the corresponding value of a ERC-20 totalSupply
 // call for each token returned.
 func (p Precompile) TotalSupply(
-	ctx sdk.Context, _ *abi.EmptyTuple,
+	ctx sdk.Context, _ abi.EmptyTuple,
 ) (TotalSupplyReturn, error) {
 	i := 0
 	balances := make([]Balance, 0)
@@ -100,7 +100,7 @@ func (p Precompile) TotalSupply(
 // stored in the x/bank.
 func (p Precompile) SupplyOf(
 	ctx sdk.Context,
-	args *SupplyOfCall,
+	args SupplyOfCall,
 ) (SupplyOfReturn, error) {
 	tokenPairID := p.erc20Keeper.GetERC20Map(ctx, args.Erc20Address)
 	tokenPair, found := p.erc20Keeper.GetTokenPair(ctx, tokenPairID)
