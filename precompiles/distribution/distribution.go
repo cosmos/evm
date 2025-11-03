@@ -1,7 +1,6 @@
 package distribution
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -61,11 +60,11 @@ func NewPrecompile(
 
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	if len(input) < 4 {
+	methodID, input, err := cmn.SplitMethodID(input)
+	if err != nil {
 		return 0
 	}
 
-	methodID := binary.BigEndian.Uint32(input[:4])
 	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 

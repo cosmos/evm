@@ -1,7 +1,6 @@
 package staking
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,12 +58,11 @@ func NewPrecompile(
 
 // RequiredGas returns the required bare minimum gas to execute the precompile.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// NOTE: This check avoid panicking when trying to decode the method ID
-	if len(input) < 4 {
+	methodID, input, err := cmn.SplitMethodID(input)
+	if err != nil {
 		return 0
 	}
 
-	methodID := binary.BigEndian.Uint32(input[:4])
 	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 

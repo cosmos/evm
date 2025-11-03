@@ -1,7 +1,6 @@
 package erc20
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -75,12 +74,10 @@ func NewPrecompile(
 
 // RequiredGas calculates the contract gas used for the
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// NOTE: This check avoid panicking when trying to decode the method ID
-	if len(input) < 4 {
+	methodID, input, err := cmn.SplitMethodID(input)
+	if err != nil {
 		return 0
 	}
-
-	methodID := binary.BigEndian.Uint32(input[:4])
 
 	// TODO: these values were obtained from Remix using the ERC20.sol from OpenZeppelin.
 	// We should execute the transactions using the ERC20MinterBurnerDecimals.sol from Cosmos EVM testnet

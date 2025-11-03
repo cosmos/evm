@@ -1,7 +1,6 @@
 package werc20
 
 import (
-	"encoding/binary"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -48,16 +47,10 @@ func NewPrecompile(
 
 // RequiredGas calculates the contract gas use.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// TODO: these values were obtained from Remix using the WEVMOS9.sol.
-	// We should execute the transactions from Cosmos EVM testnet
-	// to ensure parity in the values.
-
-	// If there is no method ID, then it's the fallback or receive case
-	if len(input) < 4 {
-		return DepositRequiredGas
+	methodID, input, err := cmn.SplitMethodID(input)
+	if err != nil {
+		return 0
 	}
-
-	methodID := binary.BigEndian.Uint32(input[:4])
 
 	switch methodID {
 	case DepositID:
