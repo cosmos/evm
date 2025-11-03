@@ -18,23 +18,25 @@ func (k Keeper) GetBalance(
 	addr sdk.AccAddress,
 	denom string,
 ) sdk.Coin {
+	extendedDenom := k.ExtendedDenom()
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	// Module balance should display as empty for extended denom. Module
 	// balances are **only** for the reserve which backs the fractional
 	// balances. Returning the backing balances if querying extended denom would
 	// result in a double counting of the fractional balances.
-	if denom == types.ExtendedCoinDenom() && addr.Equals(k.ak.GetModuleAddress(types.ModuleName)) {
+	if denom == extendedDenom && addr.Equals(k.ak.GetModuleAddress(types.ModuleName)) {
 		return sdk.NewCoin(denom, sdkmath.ZeroInt())
 	}
 
 	// Pass through to x/bank for denoms except ExtendedCoinDenom
-	if denom != types.ExtendedCoinDenom() {
+	if denom != extendedDenom {
 		return k.bk.GetBalance(ctx, addr, denom)
 	}
 
+	integerDenom := k.IntegerDenom()
 	// x/bank for integer balance - full balance, including locked
-	integerCoins := k.bk.GetBalance(ctx, addr, types.IntegerCoinDenom())
+	integerCoins := k.bk.GetBalance(ctx, addr, integerDenom)
 
 	// x/precisebank for fractional balance
 	fractionalAmount := k.GetFractionalBalance(ctx, addr)
@@ -42,10 +44,10 @@ func (k Keeper) GetBalance(
 	// (Integer * ConversionFactor) + Fractional
 	fullAmount := integerCoins.
 		Amount.
-		Mul(types.ConversionFactor()).
+		Mul(k.ConversionFactor()).
 		Add(fractionalAmount)
 
-	return sdk.NewCoin(types.ExtendedCoinDenom(), fullAmount)
+	return sdk.NewCoin(extendedDenom, fullAmount)
 }
 
 func (k Keeper) IterateAccountBalances(ctx context.Context, account sdk.AccAddress, cb func(coin sdk.Coin) bool) {
@@ -60,28 +62,30 @@ func (k Keeper) SpendableCoin(
 	addr sdk.AccAddress,
 	denom string,
 ) sdk.Coin {
+	extendedDenom := k.ExtendedDenom()
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	// Same as GetBalance, extended denom balances are transparent to consumers.
-	if denom == types.ExtendedCoinDenom() && addr.Equals(k.ak.GetModuleAddress(types.ModuleName)) {
+	if denom == extendedDenom && addr.Equals(k.ak.GetModuleAddress(types.ModuleName)) {
 		return sdk.NewCoin(denom, sdkmath.ZeroInt())
 	}
 
 	// Pass through to x/bank for denoms except ExtendedCoinDenom
-	if denom != types.ExtendedCoinDenom() {
+	if denom != extendedDenom {
 		return k.bk.SpendableCoin(ctx, addr, denom)
 	}
 
+	integerDenom := k.IntegerDenom()
 	// x/bank for integer balance - excluding locked
-	integerCoin := k.bk.SpendableCoin(ctx, addr, types.IntegerCoinDenom())
+	integerCoin := k.bk.SpendableCoin(ctx, addr, integerDenom)
 
 	// x/precisebank for fractional balance
 	fractionalAmount := k.GetFractionalBalance(ctx, addr)
 
 	// Spendable = (Integer * ConversionFactor) + Fractional
 	fullAmount := integerCoin.Amount.
-		Mul(types.ConversionFactor()).
+		Mul(k.ConversionFactor()).
 		Add(fractionalAmount)
 
-	return sdk.NewCoin(types.ExtendedCoinDenom(), fullAmount)
+	return sdk.NewCoin(extendedDenom, fullAmount)
 }

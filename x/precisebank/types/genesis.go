@@ -24,9 +24,13 @@ func DefaultGenesisState() *GenesisState {
 
 // Validate performs basic validation of genesis data returning an  error for
 // any failed validation criteria.
-func (gs *GenesisState) Validate() error {
+func (gs *GenesisState) Validate(conversionFactor sdkmath.Int) error {
+	if !conversionFactor.IsPositive() {
+		return fmt.Errorf("invalid conversion factor: %s", conversionFactor)
+	}
+
 	// Validate all FractionalBalances
-	if err := gs.Balances.Validate(); err != nil {
+	if err := gs.Balances.Validate(conversionFactor); err != nil {
 		return fmt.Errorf("invalid balances: %w", err)
 	}
 
@@ -39,8 +43,8 @@ func (gs *GenesisState) Validate() error {
 		return fmt.Errorf("negative remainder amount %s", gs.Remainder)
 	}
 
-	if gs.Remainder.GTE(ConversionFactor()) {
-		return fmt.Errorf("remainder %v exceeds max of %v", gs.Remainder, ConversionFactor().SubRaw(1))
+	if gs.Remainder.GTE(conversionFactor) {
+		return fmt.Errorf("remainder %v exceeds max of %v", gs.Remainder, conversionFactor.SubRaw(1))
 	}
 
 	// Determine if sum(fractionalBalances) + remainder = whole integer value
@@ -48,14 +52,14 @@ func (gs *GenesisState) Validate() error {
 	sum := gs.Balances.SumAmount()
 	sumWithRemainder := sum.Add(gs.Remainder)
 
-	offBy := sumWithRemainder.Mod(ConversionFactor())
+	offBy := sumWithRemainder.Mod(conversionFactor)
 
 	if !offBy.IsZero() {
 		return fmt.Errorf(
 			"sum of fractional balances %v + remainder %v is not a multiple of %v",
 			sum,
 			gs.Remainder,
-			ConversionFactor(),
+			conversionFactor,
 		)
 	}
 

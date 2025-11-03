@@ -22,6 +22,9 @@ type Keeper struct {
 
 	bk types.BankKeeper
 	ak types.AccountKeeper
+	// coinInfo stores the runtime coin metadata used for denomination and decimal conversions.
+	coinInfo    evmtypes.EvmCoinInfo
+	coinInfoSet bool
 }
 
 // NewKeeper creates a new keeper

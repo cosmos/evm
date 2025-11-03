@@ -43,6 +43,7 @@ func newMockedTestData(t *testing.T) testData {
 	cfg := evmencoding.MakeConfig(chainID)
 	cdc := cfg.Codec
 	k := keeper.NewKeeper(cdc, storeKey, bk, ak) //nolint: staticcheck // this variable is used
+	k.SetCoinInfo(testconstants.ChainsCoinInfo[chainID])
 
 	return testData{
 		ctx:      ctx,

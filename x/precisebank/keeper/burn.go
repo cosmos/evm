@@ -19,6 +19,8 @@ import (
 func (k Keeper) BurnCoins(goCtx context.Context, moduleName string, amt sdk.Coins) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
+	extendedDenom := k.ExtendedDenom()
+
 	// Custom protection for x/precisebank, no external module should be able to
 	// affect reserves.
 	if moduleName == types.ModuleName {
@@ -43,10 +45,10 @@ func (k Keeper) BurnCoins(goCtx context.Context, moduleName string, amt sdk.Coin
 	// Get non-ExtendedCoinDenom coins
 	passthroughCoins := amt
 
-	extendedAmount := amt.AmountOf(types.ExtendedCoinDenom())
+	extendedAmount := amt.AmountOf(extendedDenom)
 	if extendedAmount.IsPositive() {
 		// Remove ExtendedCoinDenom from the coins as it is managed by x/precisebank
-		removeCoin := sdk.NewCoin(types.ExtendedCoinDenom(), extendedAmount)
+		removeCoin := sdk.NewCoin(extendedDenom, extendedAmount)
 		passthroughCoins = amt.Sub(removeCoin)
 	}
 
@@ -73,6 +75,9 @@ func (k Keeper) burnExtendedCoin(
 	moduleName string,
 	amt sdkmath.Int,
 ) error {
+	conversionFactor := k.ConversionFactor()
+	integerDenom := k.IntegerDenom()
+
 	// Get the module address
 	moduleAddr := k.ak.GetModuleAddress(moduleName)
 
@@ -80,9 +85,9 @@ func (k Keeper) burnExtendedCoin(
 	// The precisebank module account is the reserve and should not have fractional balances
 	if moduleName == types.ModuleName {
 		// For the precisebank module account, just burn the integer coins directly
-		integerBurnAmount := amt.Quo(types.ConversionFactor())
+		integerBurnAmount := amt.Quo(conversionFactor)
 		if integerBurnAmount.IsPositive() {
-			integerBurnCoin := sdk.NewCoin(types.IntegerCoinDenom(), integerBurnAmount)
+			integerBurnCoin := sdk.NewCoin(integerDenom, integerBurnAmount)
 			if err := k.bk.BurnCoins(ctx, moduleName, sdk.NewCoins(integerBurnCoin)); err != nil {
 				return err
 			}
@@ -100,8 +105,8 @@ func (k Keeper) burnExtendedCoin(
 	// -------------------------------------------------------------------------
 	// Pure stateless calculations
 
-	integerBurnAmount := amt.Quo(types.ConversionFactor())
-	fractionalBurnAmount := amt.Mod(types.ConversionFactor())
+	integerBurnAmount := amt.Quo(conversionFactor)
+	fractionalBurnAmount := amt.Mod(conversionFactor)
 
 	// newFractionalBalance can be negative if fractional balance is insufficient.
 	newFractionalBalance := prevFractionalBalance.Sub(fractionalBurnAmount)
@@ -115,7 +120,7 @@ func (k Keeper) burnExtendedCoin(
 
 	// If true, remainder has accumulated enough fractional amounts to burn 1
 	// integer coin.
-	overflowingRemainder := newRemainder.GTE(types.ConversionFactor())
+	overflowingRemainder := newRemainder.GTE(conversionFactor)
 
 	// -------------------------------------------------------------------------
 	// Stateful operations for burn
@@ -131,8 +136,8 @@ func (k Keeper) burnExtendedCoin(
 	// Case #1: (optimization) direct burn instead of borrow (reserve transfer)
 	// & reserve burn. No additional reserve burn would be necessary after this.
 	if requiresBorrow && overflowingRemainder {
-		newFractionalBalance = newFractionalBalance.Add(types.ConversionFactor())
-		newRemainder = newRemainder.Sub(types.ConversionFactor())
+		newFractionalBalance = newFractionalBalance.Add(conversionFactor)
+		newRemainder = newRemainder.Sub(conversionFactor)
 
 		integerBurnAmount = integerBurnAmount.AddRaw(1)
 	}
@@ -140,13 +145,13 @@ func (k Keeper) burnExtendedCoin(
 	// Case #2: Transfer 1 integer coin to reserve for integer borrow to ensure
 	// reserve fully backs the fractional amount.
 	if requiresBorrow && !overflowingRemainder {
-		newFractionalBalance = newFractionalBalance.Add(types.ConversionFactor())
+		newFractionalBalance = newFractionalBalance.Add(conversionFactor)
 
 		// Transfer 1 integer coin to reserve to cover the borrowed fractional
 		// amount. SendCoinsFromModuleToModule will return an error if the
 		// module account has insufficient funds and an error with the full
 		// extended balance will be returned.
-		borrowCoin := sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.OneInt())
+		borrowCoin := sdk.NewCoin(integerDenom, sdkmath.OneInt())
 		if err := k.bk.SendCoinsFromModuleToModule(
 			ctx,
 			moduleName,
@@ -160,12 +165,12 @@ func (k Keeper) burnExtendedCoin(
 	// Case #3: Does not require borrow, but remainder has accumulated enough
 	// fractional amounts to burn 1 integer coin.
 	if !requiresBorrow && overflowingRemainder {
-		reserveBurnCoins := sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.OneInt()))
+		reserveBurnCoins := sdk.NewCoins(sdk.NewCoin(integerDenom, sdkmath.OneInt()))
 		if err := k.bk.BurnCoins(ctx, types.ModuleName, reserveBurnCoins); err != nil {
 			return fmt.Errorf("failed to burn %s for reserve: %w", reserveBurnCoins, err)
 		}
 
-		newRemainder = newRemainder.Sub(types.ConversionFactor())
+		newRemainder = newRemainder.Sub(conversionFactor)
 	}
 
 	// Case #4: No additional work required, no borrow needed and no additional
@@ -174,7 +179,7 @@ func (k Keeper) burnExtendedCoin(
 	// Burn the integer amount - this may include the extra optimization burn
 	// from case #1
 	if !integerBurnAmount.IsZero() {
-		coin := sdk.NewCoin(types.IntegerCoinDenom(), integerBurnAmount)
+		coin := sdk.NewCoin(integerDenom, integerBurnAmount)
 		if err := k.bk.BurnCoins(ctx, moduleName, sdk.NewCoins(coin)); err != nil {
 			return k.updateInsufficientFundsError(ctx, moduleAddr, amt, err)
 		}

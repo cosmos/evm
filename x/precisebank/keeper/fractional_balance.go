@@ -46,7 +46,7 @@ func (k *Keeper) SetFractionalBalance(
 
 	// Ensure the fractional balance is valid before setting it. Use the
 	// ValidateFractionalAmount function to validate the amount.
-	if err := types.ValidateFractionalAmount(amount); err != nil {
+	if err := types.ValidateFractionalAmount(amount, k.ConversionFactor()); err != nil {
 		panic(fmt.Errorf("amount is invalid: %w", err))
 	}
 

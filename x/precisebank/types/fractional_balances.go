@@ -11,12 +11,12 @@ import (
 type FractionalBalances []FractionalBalance
 
 // Validate returns an error if any FractionalBalance in the slice is invalid.
-func (fbs FractionalBalances) Validate() error {
+func (fbs FractionalBalances) Validate(conversionFactor sdkmath.Int) error {
 	seenAddresses := make(map[string]struct{})
 
 	for _, fb := range fbs {
 		// Individual FractionalBalance validation
-		if err := fb.Validate(); err != nil {
+		if err := fb.Validate(conversionFactor); err != nil {
 			return fmt.Errorf("invalid fractional balance for %s: %w", fb.Address, err)
 		}
 

@@ -469,6 +469,8 @@ func NewExampleApp(
 		),
 	)
 
+	app.PreciseBankKeeper.SetCoinInfo(app.EVMKeeper.EvmCoinInfo())
+
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
 		appCodec,
