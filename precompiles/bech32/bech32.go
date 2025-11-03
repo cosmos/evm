@@ -61,7 +61,7 @@ func (p Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, er
 		if err != nil {
 			return nil, err
 		}
-		bz, err = result.Encode()
+		return result.Encode()
 	case Bech32ToHexID:
 		var bech32ToHexArgs Bech32ToHexCall
 		if _, err := bech32ToHexArgs.Decode(argsBz); err != nil {
@@ -71,14 +71,8 @@ func (p Precompile) Run(_ *vm.EVM, contract *vm.Contract, _ bool) (bz []byte, er
 		if err != nil {
 			return nil, err
 		}
-		bz, err = result.Encode()
+		return result.Encode()
 	default:
 		return nil, vm.ErrExecutionReverted
 	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return bz, nil
 }
