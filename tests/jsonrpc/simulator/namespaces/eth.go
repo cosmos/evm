@@ -1532,6 +1532,16 @@ func estimateNativeTransferGas(rCtx *types.RPCContext) (string, error) {
 		return "", err
 	}
 
+	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
+		gethGasLimit, err := rCtx.Geth.EstimateGas(context.Background(), callMsg)
+		if err != nil {
+			return "", fmt.Errorf("geth estimateGas failed: %w", err)
+		}
+		if gasLimit != gethGasLimit {
+			return "", fmt.Errorf("estimateGas mismatch (native): evmd=%d geth=%d", gasLimit, gethGasLimit)
+		}
+	}
+
 	return fmt.Sprintf("0x%x", gasLimit), nil
 }
 
@@ -1565,6 +1575,16 @@ func estimateERC20TransferGas(rCtx *types.RPCContext) (string, bool, error) {
 	gas, err := rCtx.Evmd.EstimateGas(context.Background(), erc20Call)
 	if err != nil {
 		return "", false, err
+	}
+
+	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
+		gethGas, err := rCtx.Geth.EstimateGas(context.Background(), erc20Call)
+		if err != nil {
+			return "", false, fmt.Errorf("geth estimateGas failed: %w", err)
+		}
+		if gas != gethGas {
+			return "", false, fmt.Errorf("estimateGas mismatch (erc20 transfer): evmd=%d geth=%d", gas, gethGas)
+		}
 	}
 
 	return fmt.Sprintf("0x%x", gas), false, nil
@@ -1629,6 +1649,16 @@ func estimateERC20OverrideGas(rCtx *types.RPCContext) (string, bool, error) {
 	var overrideGas hexutil.Uint64
 	if err := rCtx.Evmd.RPCClient().Call(&overrideGas, string(MethodNameEthEstimateGas), overrideParams, "latest", overrideState); err != nil {
 		return "", false, err
+	}
+
+	if rCtx.EnableComparison && rCtx.Geth != nil && rCtx.Geth.Client != nil {
+		var gethGas hexutil.Uint64
+		if err := rCtx.Geth.RPCClient().Call(&gethGas, string(MethodNameEthEstimateGas), overrideParams, "latest", overrideState); err != nil {
+			return "", false, fmt.Errorf("geth estimateGas failed: %w", err)
+		}
+		if uint64(overrideGas) != uint64(gethGas) {
+			return "", false, fmt.Errorf("estimateGas mismatch (erc20 override): evmd=%d geth=%d", uint64(overrideGas), uint64(gethGas))
+		}
 	}
 
 	return fmt.Sprintf("0x%x", uint64(overrideGas)), false, nil
@@ -1697,7 +1727,6 @@ func EthEstimateGas(rCtx *types.RPCContext) (*types.RpcResult, error) {
 func EthFeeHistory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 	var result interface{}
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthFeeHistory), "0x2", "latest", []float64{25.0, 50.0, 75.0})
-
 	if err != nil {
 		if err.Error() == "the method "+string(MethodNameEthFeeHistory)+" does not exist/is not available" ||
 			err.Error() == types.ErrorMethodNotFound {
@@ -1942,7 +1971,6 @@ func EthGetHeaderByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByHash), receipt.BlockHash.Hex())
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2013,7 +2041,6 @@ func EthGetHeaderByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var header any
 	err = rCtx.Evmd.RPCClient().Call(&header, string(MethodNameEthGetHeaderByNumber), blockNumberHex)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") {
@@ -2093,7 +2120,6 @@ func EthSimulateV1(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameEthSimulateV1), simulationReq)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||
@@ -2153,7 +2179,6 @@ func EthPendingTransactions(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 	var pendingTxs any
 	err := rCtx.Evmd.RPCClient().Call(&pendingTxs, string(MethodNameEthPendingTransactions))
-
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist/is not available") ||
 			strings.Contains(err.Error(), "Method not found") ||

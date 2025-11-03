@@ -95,7 +95,7 @@ func getCanCreateFn(accessControl *AccessControl, signer common.Address) callerF
 	return func(_ common.Address) bool { return false }
 }
 
-// CanCreate implements the PermissionPolicy interface.
+// CanCall implements the PermissionPolicy interface.
 // It allows calls if access type is set to everybody.
 // Otherwise, it checks if:
 // - The signer is allowed to do so.

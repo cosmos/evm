@@ -10,9 +10,14 @@
 
 ### FEATURES
 
+- [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
+- [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
+
 ### BUG FIXES
 
 - [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
+- [\#690](https://github.com/cosmos/evm/pull/690) Fix Ledger hardware wallet support for coin type 60.
+- [\#766](https://github.com/cosmos/evm/pull/766) Align gas estimation logic with go-ethereum v1.16.3
 - [\#769](https://github.com/cosmos/evm/pull/769) Fix erc20 ibc middleware to not to validate sender address format.
 - [\#756](https://github.com/cosmos/evm/pull/756) Fix error message typo in NewMsgCancelProposal.
 - [\#772](https://github.com/cosmos/evm/pull/772) Avoid panic on close if evm mempool not used.
@@ -105,7 +110,6 @@
 - [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
 - [\#577](https://github.com/cosmos/evm/pull/577) Changed the way to create a stateful precompile based on the cmn.Precompile, change `NewPrecompile` to not return error.
 - [\#661](https://github.com/cosmos/evm/pull/661) Removes evmAppOptions from the repository and moves initialization to genesis. Chains must now have a display and denom metadata set for the defined EVM denom in the bank module's metadata.
-
 
 ## v0.4.1
 
