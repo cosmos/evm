@@ -753,7 +753,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 			s.SetupTest()
 			vmdb := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewTxConfig(
 				tc.hash,
-				0, 0,
+				0,
 			))
 			tc.malleate(vmdb)
 
