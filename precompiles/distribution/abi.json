@@ -123,9 +123,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
+        "internalType": "string",
         "name": "validatorAddress",
-        "type": "address"
+        "type": "string"
       },
       {
         "indexed": false,
