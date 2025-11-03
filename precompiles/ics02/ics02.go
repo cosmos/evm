@@ -19,7 +19,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output ics02.abi.go -external-tuples Coin=cmn.Coin,Dec=cmn.Dec,DecCoin=cmn.DecCoin,PageRequest=cmn.PageRequest -imports cmn=github.com/cosmos/evm/precompiles/common
+//go:generate go run ../cmd -input abi.json -output ics02.abi.go
 
 var _ vm.PrecompiledContract = (*Precompile)(nil)
 

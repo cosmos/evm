@@ -16,7 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-//go:generate go run github.com/yihuang/go-abi/cmd -input abi.json -output erc20.abi.go
+//go:generate go run ../cmd -input abi.json -output erc20.abi.go
 
 const (
 	// NOTE: These gas values have been derived from tests that have been concluded on a testing branch, which

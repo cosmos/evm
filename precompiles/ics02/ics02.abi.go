@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/yihuang/go-abi"
 )
 
@@ -30,71 +31,6 @@ const (
 	VerifyMembershipID    = 3727430137
 	VerifyNonMembershipID = 4006398787
 )
-
-const HeightStaticSize = 64
-
-var _ abi.Tuple = (*Height)(nil)
-
-// Height represents an ABI tuple
-type Height struct {
-	RevisionNumber uint64
-	RevisionHeight uint64
-}
-
-// EncodedSize returns the total encoded size of Height
-func (t Height) EncodedSize() int {
-	dynamicSize := 0
-
-	return HeightStaticSize + dynamicSize
-}
-
-// EncodeTo encodes Height to ABI bytes in the provided buffer
-func (value Height) EncodeTo(buf []byte) (int, error) {
-	// Encode tuple fields
-	dynamicOffset := HeightStaticSize // Start dynamic data after static section
-	// Field RevisionNumber: uint64
-	if _, err := abi.EncodeUint64(value.RevisionNumber, buf[0:]); err != nil {
-		return 0, err
-	}
-
-	// Field RevisionHeight: uint64
-	if _, err := abi.EncodeUint64(value.RevisionHeight, buf[32:]); err != nil {
-		return 0, err
-	}
-
-	return dynamicOffset, nil
-}
-
-// Encode encodes Height to ABI bytes
-func (value Height) Encode() ([]byte, error) {
-	buf := make([]byte, value.EncodedSize())
-	if _, err := value.EncodeTo(buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-// Decode decodes Height from ABI bytes in the provided buffer
-func (t *Height) Decode(data []byte) (int, error) {
-	if len(data) < 64 {
-		return 0, io.ErrUnexpectedEOF
-	}
-	var (
-		err error
-	)
-	dynamicOffset := 64
-	// Decode static field RevisionNumber: uint64
-	t.RevisionNumber, _, err = abi.DecodeUint64(data[0:])
-	if err != nil {
-		return 0, err
-	}
-	// Decode static field RevisionHeight: uint64
-	t.RevisionHeight, _, err = abi.DecodeUint64(data[32:])
-	if err != nil {
-		return 0, err
-	}
-	return dynamicOffset, nil
-}
 
 var _ abi.Method = (*GetClientStateCall)(nil)
 
@@ -474,7 +410,7 @@ var _ abi.Tuple = (*VerifyMembershipCall)(nil)
 type VerifyMembershipCall struct {
 	ClientId    string
 	Proof       []byte
-	ProofHeight Height
+	ProofHeight cmn.Height
 	Path        [][]byte
 	Value       []byte
 }
@@ -650,7 +586,7 @@ func (t VerifyMembershipCall) EncodeWithSelector() ([]byte, error) {
 func NewVerifyMembershipCall(
 	clientId string,
 	proof []byte,
-	proofHeight Height,
+	proofHeight cmn.Height,
 	path [][]byte,
 	value []byte,
 ) VerifyMembershipCall {
@@ -727,7 +663,7 @@ var _ abi.Tuple = (*VerifyNonMembershipCall)(nil)
 type VerifyNonMembershipCall struct {
 	ClientId    string
 	Proof       []byte
-	ProofHeight Height
+	ProofHeight cmn.Height
 	Path        [][]byte
 }
 
@@ -879,7 +815,7 @@ func (t VerifyNonMembershipCall) EncodeWithSelector() ([]byte, error) {
 func NewVerifyNonMembershipCall(
 	clientId string,
 	proof []byte,
-	proofHeight Height,
+	proofHeight cmn.Height,
 	path [][]byte,
 ) VerifyNonMembershipCall {
 	return VerifyNonMembershipCall{

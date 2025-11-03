@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/yihuang/go-abi"
 )
@@ -40,71 +41,6 @@ const (
 	TestIbcTransferWithTransferID = 3276956752
 	TestRevertIbcTransferID       = 3022767529
 )
-
-const HeightStaticSize = 64
-
-var _ abi.Tuple = (*Height)(nil)
-
-// Height represents an ABI tuple
-type Height struct {
-	RevisionNumber uint64
-	RevisionHeight uint64
-}
-
-// EncodedSize returns the total encoded size of Height
-func (t Height) EncodedSize() int {
-	dynamicSize := 0
-
-	return HeightStaticSize + dynamicSize
-}
-
-// EncodeTo encodes Height to ABI bytes in the provided buffer
-func (value Height) EncodeTo(buf []byte) (int, error) {
-	// Encode tuple fields
-	dynamicOffset := HeightStaticSize // Start dynamic data after static section
-	// Field RevisionNumber: uint64
-	if _, err := abi.EncodeUint64(value.RevisionNumber, buf[0:]); err != nil {
-		return 0, err
-	}
-
-	// Field RevisionHeight: uint64
-	if _, err := abi.EncodeUint64(value.RevisionHeight, buf[32:]); err != nil {
-		return 0, err
-	}
-
-	return dynamicOffset, nil
-}
-
-// Encode encodes Height to ABI bytes
-func (value Height) Encode() ([]byte, error) {
-	buf := make([]byte, value.EncodedSize())
-	if _, err := value.EncodeTo(buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-// Decode decodes Height from ABI bytes in the provided buffer
-func (t *Height) Decode(data []byte) (int, error) {
-	if len(data) < 64 {
-		return 0, io.ErrUnexpectedEOF
-	}
-	var (
-		err error
-	)
-	dynamicOffset := 64
-	// Decode static field RevisionNumber: uint64
-	t.RevisionNumber, _, err = abi.DecodeUint64(data[0:])
-	if err != nil {
-		return 0, err
-	}
-	// Decode static field RevisionHeight: uint64
-	t.RevisionHeight, _, err = abi.DecodeUint64(data[32:])
-	if err != nil {
-		return 0, err
-	}
-	return dynamicOffset, nil
-}
 
 var _ abi.Method = (*CounterCall)(nil)
 
@@ -253,7 +189,7 @@ type IbcTransferAndRevertCall struct {
 	Amount           *big.Int
 	Sender           common.Address
 	Receiver         string
-	TimeoutHeight    Height
+	TimeoutHeight    cmn.Height
 	TimeoutTimestamp uint64
 	Memo             string
 }
@@ -486,7 +422,7 @@ func NewIbcTransferAndRevertCall(
 	amount *big.Int,
 	sender common.Address,
 	receiver string,
-	timeoutHeight Height,
+	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
 ) IbcTransferAndRevertCall {
@@ -571,7 +507,7 @@ type TestIbcTransferCall struct {
 	Amount           *big.Int
 	Sender           common.Address
 	Receiver         string
-	TimeoutHeight    Height
+	TimeoutHeight    cmn.Height
 	TimeoutTimestamp uint64
 	Memo             string
 }
@@ -804,7 +740,7 @@ func NewTestIbcTransferCall(
 	amount *big.Int,
 	sender common.Address,
 	receiver string,
-	timeoutHeight Height,
+	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
 ) TestIbcTransferCall {
@@ -888,7 +824,7 @@ type TestIbcTransferFromContractCall struct {
 	Denom            string
 	Amount           *big.Int
 	Receiver         string
-	TimeoutHeight    Height
+	TimeoutHeight    cmn.Height
 	TimeoutTimestamp uint64
 	Memo             string
 }
@@ -1110,7 +1046,7 @@ func NewTestIbcTransferFromContractCall(
 	denom string,
 	amount *big.Int,
 	receiver string,
-	timeoutHeight Height,
+	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
 ) TestIbcTransferFromContractCall {
@@ -1194,7 +1130,7 @@ type TestIbcTransferWithTransferCall struct {
 	Amount           *big.Int
 	Sender           common.Address
 	Receiver         string
-	TimeoutHeight    Height
+	TimeoutHeight    cmn.Height
 	TimeoutTimestamp uint64
 	Memo             string
 	Before           bool
@@ -1449,7 +1385,7 @@ func NewTestIbcTransferWithTransferCall(
 	amount *big.Int,
 	sender common.Address,
 	receiver string,
-	timeoutHeight Height,
+	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
 	before bool,
@@ -1539,7 +1475,7 @@ type TestRevertIbcTransferCall struct {
 	Sender           common.Address
 	Receiver         string
 	ReceiverAddr     common.Address
-	TimeoutHeight    Height
+	TimeoutHeight    cmn.Height
 	TimeoutTimestamp uint64
 	Memo             string
 	After            bool
@@ -1794,7 +1730,7 @@ func NewTestRevertIbcTransferCall(
 	sender common.Address,
 	receiver string,
 	receiverAddr common.Address,
-	timeoutHeight Height,
+	timeoutHeight cmn.Height,
 	timeoutTimestamp uint64,
 	memo string,
 	after bool,
