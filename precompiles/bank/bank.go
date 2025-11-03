@@ -118,6 +118,3 @@ func (p Precompile) Execute(ctx sdk.Context, contract *vm.Contract, readOnly boo
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}
 }
-
-type CosmosPrecompile interface {
-}
