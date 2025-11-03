@@ -21,7 +21,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
-	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 
@@ -240,50 +240,6 @@ func (k *Keeper) WithChainConfig(chainCfg *types.ChainConfig) *Keeper {
 	return k
 }
 
-// ChainConfig returns the x/vm ChainConfig kept in runtime config.
-func (k Keeper) ChainConfig() *types.ChainConfig {
-	cfg := k.RuntimeConfig()
-	if cfg == nil {
-		return nil
-	}
-	return cfg.ChainConfig()
-}
-
-func (k Keeper) EvmChainID() *big.Int {
-	return big.NewInt(int64(k.ChainConfig().ChainId)) //nolint:gosec // won't exceed int64
-}
-
-// EthChainConfig returns the go-ethereum ChainConfig kept in runtime config.
-func (k Keeper) EthChainConfig() *ethparams.ChainConfig {
-	cfg := k.RuntimeConfig()
-	if cfg == nil {
-		return nil
-	}
-	return cfg.EthChainConfig()
-}
-
-// EvmCoinInfo returns the EvmCoinInfo kept in runtime config.
-func (k Keeper) EvmCoinInfo() types.EvmCoinInfo {
-	cfg := k.RuntimeConfig()
-	if cfg == nil {
-		return types.EvmCoinInfo{}
-	}
-	return cfg.EvmCoinInfo()
-}
-
-// effectiveEthChainConfig returns the runtime chain config if present, or falls back to the
-// legacy package-level configuration.
-func (k Keeper) effectiveEthChainConfig() *ethparams.ChainConfig {
-	if cfg := k.EthChainConfig(); cfg != nil {
-		return cfg
-	}
-	if chainCfg := k.ChainConfig(); chainCfg != nil {
-		return chainCfg.EthereumConfig(nil)
-	}
-	// Fallback to the default configuration as a last resort.
-	return types.DefaultChainConfig(types.DefaultEVMChainID).EthereumConfig(nil)
-}
-
 // GetAuthority returns the x/evm module authority address
 func (k Keeper) GetAuthority() sdk.AccAddress {
 	return k.authority
@@ -500,7 +456,7 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 
 // GetMinGasPrice returns the MinGasPrice param from the fee market module
 // adapted according to the evm denom decimals
-func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
+func (k Keeper) GetMinGasPrice(ctx sdk.Context) sdkmath.LegacyDec {
 	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
 }
 

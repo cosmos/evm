@@ -5,6 +5,8 @@ import (
 
 	"github.com/cosmos/evm/x/vm/types"
 
+	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -72,4 +74,50 @@ func (k Keeper) SetEvmCoinInfo(ctx sdk.Context, coinInfo types.EvmCoinInfo) erro
 
 	store.Set(types.KeyPrefixEvmCoinInfo, bz)
 	return nil
+}
+
+// EvmCoinInfo returns the EvmCoinInfo kept in runtime config.
+func (k Keeper) EvmCoinInfo() types.EvmCoinInfo {
+	cfg := k.RuntimeConfig()
+	if cfg == nil {
+		return types.EvmCoinInfo{}
+	}
+	return cfg.EvmCoinInfo()
+}
+
+// EvmDenom returns the base EVM denom configured for the chain.
+func (k Keeper) EvmDenom() string {
+	return k.EvmCoinInfo().DenomOrDefault()
+}
+
+// EvmExtendedDenom returns the extended denom used for on-chain accounting.
+func (k Keeper) EvmExtendedDenom() string {
+	info := k.EvmCoinInfo()
+	if info.ExtendedDenom != "" {
+		return info.ExtendedDenom
+	}
+	return info.DenomOrDefault()
+}
+
+// EvmDisplayDenom returns the display denom associated with the EVM coin.
+func (k Keeper) EvmDisplayDenom() string {
+	info := k.EvmCoinInfo()
+	if info.DisplayDenom != "" {
+		return info.DisplayDenom
+	}
+	if info.Denom == "" || info.Denom == types.DefaultEVMDenom {
+		return types.DefaultEVMDisplayDenom
+	}
+	return info.Denom
+}
+
+// EvmDecimals returns the decimals configured for the EVM coin.
+func (k Keeper) EvmDecimals() types.Decimals {
+	return k.EvmCoinInfo().DecimalsOrDefault()
+}
+
+// EvmConversionFactor returns the conversion factor between the configured
+// decimals and the canonical 18-decimal representation.
+func (k Keeper) EvmConversionFactor() sdkmath.Int {
+	return k.EvmDecimals().ConversionFactor()
 }
