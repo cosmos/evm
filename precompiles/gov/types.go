@@ -229,12 +229,7 @@ func (vo *GetVotesReturn) FromResponse(res *govv1.QueryVotesResponse) error {
 			Metadata:   v.Metadata,
 		}
 	}
-	if res.Pagination != nil {
-		vo.PageResponse = cmn.PageResponse{
-			NextKey: res.Pagination.NextKey,
-			Total:   res.Pagination.Total,
-		}
-	}
+	vo.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return nil
 }
 
@@ -337,12 +332,7 @@ func (do *GetDepositsReturn) FromResponse(res *govv1.QueryDepositsResponse) erro
 			Amount:     coins,
 		}
 	}
-	if res.Pagination != nil {
-		do.PageResponse = cmn.PageResponse{
-			NextKey: res.Pagination.NextKey,
-			Total:   res.Pagination.Total,
-		}
-	}
+	do.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return nil
 }
 
@@ -488,12 +478,7 @@ func (po *GetProposalsReturn) FromResponse(res *govv1.QueryProposalsResponse) (*
 		po.Proposals[i] = proposalData
 	}
 
-	if res.Pagination != nil {
-		po.PageResponse = cmn.PageResponse{
-			NextKey: res.Pagination.NextKey,
-			Total:   res.Pagination.Total,
-		}
-	}
+	po.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return po, nil
 }
 

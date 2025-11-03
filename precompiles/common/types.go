@@ -1,18 +1,13 @@
 package common
 
 import (
-	"fmt"
 	"math/big"
-	"reflect"
 
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 )
-
-// TrueValue is the byte array representing a true value in solidity.
-var TrueValue = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}
 
 // ToSDKType converts the Coin to the Cosmos SDK representation.
 func (c Coin) ToSDKType() sdk.Coin {
@@ -53,41 +48,6 @@ func SafeAdd(a, b math.Int) (res *big.Int, overflow bool) {
 	return res, res.BitLen() > math.MaxBitLen
 }
 
-// ToCoins converts a value returned from the ABI to a slice of Coin.
-func ToCoins(v interface{}) ([]Coin, error) {
-	// Fast-path: if ABI already returned []Coin (e.g. in tests) just cast.
-	if coins, ok := v.([]Coin); ok {
-		return coins, nil
-	}
-
-	// Slow-path: reflect over anonymous struct slice.
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Slice {
-		return nil, fmt.Errorf("expected slice, got %T", v)
-	}
-
-	out := make([]Coin, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		item := rv.Index(i)
-		denomField := item.FieldByName("Denom")
-		amountField := item.FieldByName("Amount")
-
-		// Field lookup failure would panic → treat as programmer error.
-		if !denomField.IsValid() || !amountField.IsValid() {
-			return nil, fmt.Errorf("coin tuple does not have expected fields")
-		}
-
-		denom, ok1 := denomField.Interface().(string)
-		amount, ok2 := amountField.Interface().(*big.Int)
-		if !ok1 || !ok2 || amount == nil || denom == "" {
-			return nil, fmt.Errorf("invalid coin at index %d", i)
-		}
-
-		out[i] = Coin{Denom: denom, Amount: amount}
-	}
-	return out, nil
-}
-
 // NewSdkCoinsFromCoins converts a slice of Coin to sdk.Coins.
 func NewSdkCoinsFromCoins(coins []Coin) (sdk.Coins, error) {
 	sdkCoins := make(sdk.Coins, len(coins))
@@ -113,4 +73,14 @@ func (p PageRequest) ToPageRequest() *query.PageRequest {
 		CountTotal: p.CountTotal,
 		Reverse:    p.Reverse,
 	}
+}
+
+func FromPageResponse(pr *query.PageResponse) (p PageResponse) {
+	if pr != nil {
+		return
+	}
+
+	p.NextKey = pr.NextKey
+	p.Total = pr.Total
+	return
 }

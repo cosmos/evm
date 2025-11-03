@@ -453,11 +453,7 @@ func (vo *ValidatorsReturn) FromResponse(res *stakingtypes.QueryValidatorsRespon
 		vo.Validators[i] = NewValidatorFromResponse(v)
 	}
 
-	if res.Pagination != nil {
-		vo.PageResponse.Total = res.Pagination.Total
-		vo.PageResponse.NextKey = res.Pagination.NextKey
-	}
-
+	vo.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return vo
 }
 
@@ -528,11 +524,7 @@ func (ro *RedelegationsReturn) FromResponse(res *stakingtypes.QueryRedelegations
 		}
 	}
 
-	if res.Pagination != nil {
-		ro.PageResponse.Total = res.Pagination.Total
-		ro.PageResponse.NextKey = res.Pagination.NextKey
-	}
-
+	ro.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return ro
 }
 

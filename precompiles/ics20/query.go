@@ -66,14 +66,9 @@ func (p Precompile) Denoms(
 		denoms[i] = ConvertDenomToABI(d)
 	}
 
-	pageResponse := cmn.PageResponse{
-		NextKey: res.Pagination.NextKey,
-		Total:   res.Pagination.Total,
-	}
-
 	return DenomsReturn{
 		Denoms:       denoms,
-		PageResponse: pageResponse,
+		PageResponse: cmn.FromPageResponse(res.Pagination),
 	}.Encode()
 }
 

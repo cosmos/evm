@@ -126,13 +126,13 @@ func (s *PrecompileTestSuite) TestUnjail() {
 			)
 
 			call := tc.malleate()
-			res, err := s.precompile.Unjail(ctx, &call, s.network.GetStateDB(), contract)
+			out, err := s.precompile.Unjail(ctx, call, s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().Equal(cmn.TrueValue, res)
+				s.Require().True(out.Success)
 				tc.postCheck()
 			}
 		})

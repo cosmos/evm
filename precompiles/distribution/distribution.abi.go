@@ -163,89 +163,6 @@ func (t *DelegationDelegatorReward) Decode(data []byte) (int, error) {
 	return dynamicOffset, nil
 }
 
-const PageResponseStaticSize = 64
-
-var _ abi.Tuple = (*PageResponse)(nil)
-
-// PageResponse represents an ABI tuple
-type PageResponse struct {
-	NextKey []byte
-	Total   uint64
-}
-
-// EncodedSize returns the total encoded size of PageResponse
-func (t PageResponse) EncodedSize() int {
-	dynamicSize := 0
-	dynamicSize += abi.SizeBytes(t.NextKey)
-
-	return PageResponseStaticSize + dynamicSize
-}
-
-// EncodeTo encodes PageResponse to ABI bytes in the provided buffer
-func (value PageResponse) EncodeTo(buf []byte) (int, error) {
-	// Encode tuple fields
-	dynamicOffset := PageResponseStaticSize // Start dynamic data after static section
-	var (
-		err error
-		n   int
-	)
-	// Field NextKey: bytes
-	// Encode offset pointer
-	binary.BigEndian.PutUint64(buf[0+24:0+32], uint64(dynamicOffset))
-	// Encode dynamic data
-	n, err = abi.EncodeBytes(value.NextKey, buf[dynamicOffset:])
-	if err != nil {
-		return 0, err
-	}
-	dynamicOffset += n
-
-	// Field Total: uint64
-	if _, err := abi.EncodeUint64(value.Total, buf[32:]); err != nil {
-		return 0, err
-	}
-
-	return dynamicOffset, nil
-}
-
-// Encode encodes PageResponse to ABI bytes
-func (value PageResponse) Encode() ([]byte, error) {
-	buf := make([]byte, value.EncodedSize())
-	if _, err := value.EncodeTo(buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-// Decode decodes PageResponse from ABI bytes in the provided buffer
-func (t *PageResponse) Decode(data []byte) (int, error) {
-	if len(data) < 64 {
-		return 0, io.ErrUnexpectedEOF
-	}
-	var (
-		err error
-		n   int
-	)
-	dynamicOffset := 64
-	// Decode dynamic field NextKey
-	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
-		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field NextKey")
-		}
-		t.NextKey, n, err = abi.DecodeBytes(data[dynamicOffset:])
-		if err != nil {
-			return 0, err
-		}
-		dynamicOffset += n
-	}
-	// Decode static field Total: uint64
-	t.Total, _, err = abi.DecodeUint64(data[32:])
-	if err != nil {
-		return 0, err
-	}
-	return dynamicOffset, nil
-}
-
 const ValidatorDistributionInfoStaticSize = 96
 
 var _ abi.Tuple = (*ValidatorDistributionInfo)(nil)
@@ -2784,7 +2701,7 @@ var _ abi.Tuple = (*ValidatorSlashesReturn)(nil)
 // ValidatorSlashesReturn represents an ABI tuple
 type ValidatorSlashesReturn struct {
 	Slashes      []ValidatorSlashEvent
-	PageResponse PageResponse
+	PageResponse cmn.PageResponse
 }
 
 // EncodedSize returns the total encoded size of ValidatorSlashesReturn

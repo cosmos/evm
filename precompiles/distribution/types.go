@@ -169,12 +169,7 @@ func NewMsgDepositValidatorRewardsPool(args DepositValidatorRewardsPoolCall, add
 
 	validatorAddress := args.ValidatorAddress
 
-	coins, err := cmn.ToCoins(args.Amount)
-	if err != nil {
-		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, args.Amount)
-	}
-
-	amount, err := cmn.NewSdkCoinsFromCoins(coins)
+	amount, err := cmn.NewSdkCoinsFromCoins(args.Amount)
 	if err != nil {
 		return nil, common.Address{}, fmt.Errorf(cmn.ErrInvalidAmount, err.Error())
 	}
@@ -315,11 +310,7 @@ func (vs *ValidatorSlashesReturn) FromResponse(res *distributiontypes.QueryValid
 		}
 	}
 
-	if res.Pagination != nil {
-		vs.PageResponse.Total = res.Pagination.Total
-		vs.PageResponse.NextKey = res.Pagination.NextKey
-	}
-
+	vs.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return vs
 }
 
