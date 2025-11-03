@@ -74,7 +74,7 @@ func (ret *GetSigningInfosReturn) FromResponse(res *slashingtypes.QuerySigningIn
 		}
 	}
 	if res.Pagination != nil {
-		ret.PageResponse = PageResponse{
+		ret.PageResponse = cmn.PageResponse{
 			NextKey: res.Pagination.NextKey,
 			Total:   res.Pagination.Total,
 		}

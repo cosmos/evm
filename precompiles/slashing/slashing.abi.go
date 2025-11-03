@@ -893,8 +893,8 @@ type ValidatorUnjailedEvent struct {
 // NewValidatorUnjailedEvent constructs a new ValidatorUnjailed event
 func NewValidatorUnjailedEvent(
 	validator common.Address,
-) ValidatorUnjailedEvent {
-	return ValidatorUnjailedEvent{
+) *ValidatorUnjailedEvent {
+	return &ValidatorUnjailedEvent{
 		ValidatorUnjailedEventIndexed: ValidatorUnjailedEventIndexed{
 			Validator: validator,
 		},

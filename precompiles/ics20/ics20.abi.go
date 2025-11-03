@@ -1268,8 +1268,8 @@ func NewIBCTransferEvent(
 	denom string,
 	amount *big.Int,
 	memo string,
-) IBCTransferEvent {
-	return IBCTransferEvent{
+) *IBCTransferEvent {
+	return &IBCTransferEvent{
 		IBCTransferEventIndexed: IBCTransferEventIndexed{
 			Sender:   sender,
 			Receiver: receiver,

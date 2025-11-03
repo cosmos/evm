@@ -221,8 +221,8 @@ type AddedEvent struct {
 // NewAddedEvent constructs a new Added event
 func NewAddedEvent(
 	counter *big.Int,
-) AddedEvent {
-	return AddedEvent{
+) *AddedEvent {
+	return &AddedEvent{
 		AddedEventIndexed: AddedEventIndexed{},
 		AddedEventData: AddedEventData{
 			Counter: counter,
@@ -309,8 +309,8 @@ type ChangedEvent struct {
 // NewChangedEvent constructs a new Changed event
 func NewChangedEvent(
 	counter *big.Int,
-) ChangedEvent {
-	return ChangedEvent{
+) *ChangedEvent {
+	return &ChangedEvent{
 		ChangedEventIndexed: ChangedEventIndexed{},
 		ChangedEventData: ChangedEventData{
 			Counter: counter,

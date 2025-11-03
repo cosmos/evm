@@ -1254,8 +1254,8 @@ func NewApprovalEvent(
 	owner common.Address,
 	spender common.Address,
 	value *big.Int,
-) ApprovalEvent {
-	return ApprovalEvent{
+) *ApprovalEvent {
+	return &ApprovalEvent{
 		ApprovalEventIndexed: ApprovalEventIndexed{
 			Owner:   owner,
 			Spender: spender,
@@ -1392,8 +1392,8 @@ func NewTransferEvent(
 	from common.Address,
 	to common.Address,
 	value *big.Int,
-) TransferEvent {
-	return TransferEvent{
+) *TransferEvent {
+	return &TransferEvent{
 		TransferEventIndexed: TransferEventIndexed{
 			From: from,
 			To:   to,

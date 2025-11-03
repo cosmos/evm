@@ -1401,8 +1401,8 @@ func NewApprovalEvent(
 	owner common.Address,
 	spender common.Address,
 	value *big.Int,
-) ApprovalEvent {
-	return ApprovalEvent{
+) *ApprovalEvent {
+	return &ApprovalEvent{
 		ApprovalEventIndexed: ApprovalEventIndexed{
 			Owner:   owner,
 			Spender: spender,
@@ -1538,8 +1538,8 @@ type DepositEvent struct {
 func NewDepositEvent(
 	dst common.Address,
 	wad *big.Int,
-) DepositEvent {
-	return DepositEvent{
+) *DepositEvent {
+	return &DepositEvent{
 		DepositEventIndexed: DepositEventIndexed{
 			Dst: dst,
 		},
@@ -1662,8 +1662,8 @@ func NewTransferEvent(
 	from common.Address,
 	to common.Address,
 	value *big.Int,
-) TransferEvent {
-	return TransferEvent{
+) *TransferEvent {
+	return &TransferEvent{
 		TransferEventIndexed: TransferEventIndexed{
 			From: from,
 			To:   to,
@@ -1799,8 +1799,8 @@ type WithdrawalEvent struct {
 func NewWithdrawalEvent(
 	src common.Address,
 	wad *big.Int,
-) WithdrawalEvent {
-	return WithdrawalEvent{
+) *WithdrawalEvent {
+	return &WithdrawalEvent{
 		WithdrawalEventIndexed: WithdrawalEventIndexed{
 			Src: src,
 		},

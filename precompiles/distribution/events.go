@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -121,23 +122,12 @@ func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm
 
 // EmitWithdrawValidatorCommissionEvent creates a new event emitted on a WithdrawValidatorCommission transaction.
 func (p Precompile) EmitWithdrawValidatorCommissionEvent(ctx sdk.Context, stateDB vm.StateDB, validatorAddress string, coins sdk.Coins) error {
-	valAddr, err := sdk.ValAddressFromBech32(validatorAddress)
-	if err != nil {
-		return err
-	}
-
 	// Prepare the event
 	event := NewWithdrawValidatorCommissionEvent(
-		common.BytesToAddress(valAddr.Bytes()),
+		validatorAddress,
 		coins[0].Amount.BigInt(),
 	)
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.WithdrawValidatorCommissionEventData.Encode()
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}

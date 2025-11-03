@@ -4109,8 +4109,8 @@ func NewCancelUnbondingDelegationEvent(
 	validatorAddress common.Address,
 	amount *big.Int,
 	creationHeight *big.Int,
-) CancelUnbondingDelegationEvent {
-	return CancelUnbondingDelegationEvent{
+) *CancelUnbondingDelegationEvent {
+	return &CancelUnbondingDelegationEvent{
 		CancelUnbondingDelegationEventIndexed: CancelUnbondingDelegationEventIndexed{
 			DelegatorAddress: delegatorAddress,
 			ValidatorAddress: validatorAddress,
@@ -4258,8 +4258,8 @@ type CreateValidatorEvent struct {
 func NewCreateValidatorEvent(
 	validatorAddress common.Address,
 	value *big.Int,
-) CreateValidatorEvent {
-	return CreateValidatorEvent{
+) *CreateValidatorEvent {
+	return &CreateValidatorEvent{
 		CreateValidatorEventIndexed: CreateValidatorEventIndexed{
 			ValidatorAddress: validatorAddress,
 		},
@@ -4383,8 +4383,8 @@ func NewDelegateEvent(
 	validatorAddress common.Address,
 	amount *big.Int,
 	newShares *big.Int,
-) DelegateEvent {
-	return DelegateEvent{
+) *DelegateEvent {
+	return &DelegateEvent{
 		DelegateEventIndexed: DelegateEventIndexed{
 			DelegatorAddress: delegatorAddress,
 			ValidatorAddress: validatorAddress,
@@ -4533,8 +4533,8 @@ func NewEditValidatorEvent(
 	validatorAddress common.Address,
 	commissionRate *big.Int,
 	minSelfDelegation *big.Int,
-) EditValidatorEvent {
-	return EditValidatorEvent{
+) *EditValidatorEvent {
+	return &EditValidatorEvent{
 		EditValidatorEventIndexed: EditValidatorEventIndexed{
 			ValidatorAddress: validatorAddress,
 		},
@@ -4671,8 +4671,8 @@ func NewRedelegateEvent(
 	validatorDstAddress common.Address,
 	amount *big.Int,
 	completionTime *big.Int,
-) RedelegateEvent {
-	return RedelegateEvent{
+) *RedelegateEvent {
+	return &RedelegateEvent{
 		RedelegateEventIndexed: RedelegateEventIndexed{
 			DelegatorAddress:    delegatorAddress,
 			ValidatorSrcAddress: validatorSrcAddress,
@@ -4836,8 +4836,8 @@ func NewUnbondEvent(
 	validatorAddress common.Address,
 	amount *big.Int,
 	completionTime *big.Int,
-) UnbondEvent {
-	return UnbondEvent{
+) *UnbondEvent {
+	return &UnbondEvent{
 		UnbondEventIndexed: UnbondEventIndexed{
 			DelegatorAddress: delegatorAddress,
 			ValidatorAddress: validatorAddress,

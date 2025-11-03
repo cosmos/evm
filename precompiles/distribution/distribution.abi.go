@@ -3323,8 +3323,8 @@ type ClaimRewardsEvent struct {
 func NewClaimRewardsEvent(
 	delegatorAddress common.Address,
 	amount *big.Int,
-) ClaimRewardsEvent {
-	return ClaimRewardsEvent{
+) *ClaimRewardsEvent {
+	return &ClaimRewardsEvent{
 		ClaimRewardsEventIndexed: ClaimRewardsEventIndexed{
 			DelegatorAddress: delegatorAddress,
 		},
@@ -3448,8 +3448,8 @@ func NewDepositValidatorRewardsPoolEvent(
 	validatorAddress common.Address,
 	denom string,
 	amount *big.Int,
-) DepositValidatorRewardsPoolEvent {
-	return DepositValidatorRewardsPoolEvent{
+) *DepositValidatorRewardsPoolEvent {
+	return &DepositValidatorRewardsPoolEvent{
 		DepositValidatorRewardsPoolEventIndexed: DepositValidatorRewardsPoolEventIndexed{
 			Depositor:        depositor,
 			ValidatorAddress: validatorAddress,
@@ -3616,8 +3616,8 @@ func NewFundCommunityPoolEvent(
 	depositor common.Address,
 	denom string,
 	amount *big.Int,
-) FundCommunityPoolEvent {
-	return FundCommunityPoolEvent{
+) *FundCommunityPoolEvent {
+	return &FundCommunityPoolEvent{
 		FundCommunityPoolEventIndexed: FundCommunityPoolEventIndexed{
 			Depositor: depositor,
 		},
@@ -3769,8 +3769,8 @@ type SetWithdrawerAddressEvent struct {
 func NewSetWithdrawerAddressEvent(
 	caller common.Address,
 	withdrawerAddress string,
-) SetWithdrawerAddressEvent {
-	return SetWithdrawerAddressEvent{
+) *SetWithdrawerAddressEvent {
+	return &SetWithdrawerAddressEvent{
 		SetWithdrawerAddressEventIndexed: SetWithdrawerAddressEventIndexed{
 			Caller: caller,
 		},
@@ -3911,8 +3911,8 @@ func NewWithdrawDelegatorRewardEvent(
 	delegatorAddress common.Address,
 	validatorAddress common.Address,
 	amount *big.Int,
-) WithdrawDelegatorRewardEvent {
-	return WithdrawDelegatorRewardEvent{
+) *WithdrawDelegatorRewardEvent {
+	return &WithdrawDelegatorRewardEvent{
 		WithdrawDelegatorRewardEventIndexed: WithdrawDelegatorRewardEventIndexed{
 			DelegatorAddress: delegatorAddress,
 			ValidatorAddress: validatorAddress,
@@ -4048,8 +4048,8 @@ type WithdrawValidatorCommissionEvent struct {
 func NewWithdrawValidatorCommissionEvent(
 	validatorAddress string,
 	commission *big.Int,
-) WithdrawValidatorCommissionEvent {
-	return WithdrawValidatorCommissionEvent{
+) *WithdrawValidatorCommissionEvent {
+	return &WithdrawValidatorCommissionEvent{
 		WithdrawValidatorCommissionEventIndexed: WithdrawValidatorCommissionEventIndexed{
 			ValidatorAddress: validatorAddress,
 		},

@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 )
 
 // ToSDKType converts the Coin to the Cosmos SDK representation.
@@ -83,4 +84,16 @@ func FromPageResponse(pr *query.PageResponse) (p PageResponse) {
 	p.NextKey = pr.NextKey
 	p.Total = pr.Total
 	return
+}
+
+func (h *Height) FromProofHeight(ch clienttypes.Height) {
+	h.RevisionNumber = ch.RevisionNumber
+	h.RevisionHeight = ch.RevisionHeight
+}
+
+func (h Height) ToProofHeight() clienttypes.Height {
+	return clienttypes.Height{
+		RevisionNumber: h.RevisionNumber,
+		RevisionHeight: h.RevisionHeight,
+	}
 }

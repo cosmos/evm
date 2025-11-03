@@ -4021,8 +4021,8 @@ type CancelProposalEvent struct {
 func NewCancelProposalEvent(
 	proposer common.Address,
 	proposalId uint64,
-) CancelProposalEvent {
-	return CancelProposalEvent{
+) *CancelProposalEvent {
+	return &CancelProposalEvent{
 		CancelProposalEventIndexed: CancelProposalEventIndexed{
 			Proposer: proposer,
 		},
@@ -4145,8 +4145,8 @@ func NewDepositEvent(
 	depositor common.Address,
 	proposalId uint64,
 	amount []cmn.Coin,
-) DepositEvent {
-	return DepositEvent{
+) *DepositEvent {
+	return &DepositEvent{
 		DepositEventIndexed: DepositEventIndexed{
 			Depositor: depositor,
 		},
@@ -4298,8 +4298,8 @@ type SubmitProposalEvent struct {
 func NewSubmitProposalEvent(
 	proposer common.Address,
 	proposalId uint64,
-) SubmitProposalEvent {
-	return SubmitProposalEvent{
+) *SubmitProposalEvent {
+	return &SubmitProposalEvent{
 		SubmitProposalEventIndexed: SubmitProposalEventIndexed{
 			Proposer: proposer,
 		},
@@ -4422,8 +4422,8 @@ func NewVoteEvent(
 	voter common.Address,
 	proposalId uint64,
 	option uint8,
-) VoteEvent {
-	return VoteEvent{
+) *VoteEvent {
+	return &VoteEvent{
 		VoteEventIndexed: VoteEventIndexed{
 			Voter: voter,
 		},
@@ -4558,8 +4558,8 @@ func NewVoteWeightedEvent(
 	voter common.Address,
 	proposalId uint64,
 	options []WeightedVoteOption,
-) VoteWeightedEvent {
-	return VoteWeightedEvent{
+) *VoteWeightedEvent {
+	return &VoteWeightedEvent{
 		VoteWeightedEventIndexed: VoteWeightedEventIndexed{
 			Voter: voter,
 		},
