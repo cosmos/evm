@@ -43,7 +43,7 @@ func TestInvalidRemainderAmount(t *testing.T) {
 
 	// Set amount over max
 	require.PanicsWithError(t, "remainder amount is invalid: amount 1000000000000 exceeds max of 999999999999", func() {
-		k.SetRemainderAmount(ctx, types.ConversionFactor())
+		k.SetRemainderAmount(ctx, testConversionFactor)
 	})
 }
 

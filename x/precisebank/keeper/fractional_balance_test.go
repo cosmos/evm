@@ -37,7 +37,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 		{
 			"valid - max amount",
 			addr,
-			types.ConversionFactor().SubRaw(1),
+			testConversionFactor.SubRaw(1),
 			"",
 		},
 		{
@@ -55,7 +55,7 @@ func TestSetGetFractionalBalance(t *testing.T) {
 		{
 			"invalid - over max amount",
 			addr,
-			types.ConversionFactor(),
+			testConversionFactor,
 			"amount is invalid: amount 1000000000000 exceeds max of 999999999999",
 		},
 	}

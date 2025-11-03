@@ -28,50 +28,50 @@ func TestKeeper_GetBalance(t *testing.T) {
 	}{
 		{
 			"extended denom - no fractional balance",
-			types.ExtendedCoinDenom(),
+			testExtendedDenom,
 			// queried bank balance in uatom when querying for aatom
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.ZeroInt(),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_000_000_000_000)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_000_000_000_000)),
 		},
 		{
 			"extended denom - with fractional balance",
-			types.ExtendedCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testExtendedDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.NewInt(100),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_000_000_000_100)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_000_000_000_100)),
 		},
 		{
 			"extended denom - only fractional balance",
-			types.ExtendedCoinDenom(),
+			testExtendedDenom,
 			// no coins in bank, only fractional balance
 			sdk.NewCoins(),
 			sdkmath.NewInt(100),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(100)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(100)),
 		},
 		{
 			"extended denom - max fractional balance",
-			types.ExtendedCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
-			types.ConversionFactor().SubRaw(1),
+			testExtendedDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
+			testConversionFactor.SubRaw(1),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_999_999_999_999)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_999_999_999_999)),
 		},
 		{
 			"non-extended denom - uatom returns uatom",
-			types.IntegerCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testIntegerDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.ZeroInt(),
-			sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000)),
+			sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000)),
 		},
 		{
 			"non-extended denom - unaffected by fractional balance",
-			types.IntegerCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testIntegerDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.NewInt(100),
-			sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000)),
+			sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000)),
 		},
 		{
 			"unrelated denom - no fractional",
@@ -97,19 +97,19 @@ func TestKeeper_GetBalance(t *testing.T) {
 			tk.keeper.SetFractionalBalance(tk.ctx, addr, tt.giveFractionalBal)
 
 			// Checks address if its a reserve denom
-			if tt.giveDenom == types.ExtendedCoinDenom() {
+			if tt.giveDenom == testExtendedDenom {
 				tk.ak.EXPECT().GetModuleAddress(types.ModuleName).
 					Return(authtypes.NewModuleAddress(types.ModuleName)).
 					Once()
 			}
 
-			if tt.giveDenom == types.ExtendedCoinDenom() {
+			if tt.giveDenom == testExtendedDenom {
 				// No balance pass through
 				tk.bk.EXPECT().
-					GetBalance(tk.ctx, addr, types.IntegerCoinDenom()).
+					GetBalance(tk.ctx, addr, testIntegerDenom).
 					RunAndReturn(func(_ context.Context, _ sdk.AccAddress, _ string) sdk.Coin {
-						amt := tt.giveBankBal.AmountOf(types.IntegerCoinDenom())
-						return sdk.NewCoin(types.IntegerCoinDenom(), amt)
+						amt := tt.giveBankBal.AmountOf(testIntegerDenom)
+						return sdk.NewCoin(testIntegerDenom, amt)
 					}).
 					Once()
 			} else {
@@ -142,50 +142,50 @@ func TestKeeper_SpendableCoin(t *testing.T) {
 	}{
 		{
 			"extended denom - no fractional balance",
-			types.ExtendedCoinDenom(),
+			testExtendedDenom,
 			// queried bank balance in uatom when querying for aatom
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.ZeroInt(),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_000_000_000_000)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_000_000_000_000)),
 		},
 		{
 			"extended denom - with fractional balance",
-			types.ExtendedCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testExtendedDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.NewInt(100),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_000_000_000_100)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_000_000_000_100)),
 		},
 		{
 			"extended denom - only fractional balance",
-			types.ExtendedCoinDenom(),
+			testExtendedDenom,
 			// no coins in bank, only fractional balance
 			sdk.NewCoins(),
 			sdkmath.NewInt(100),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(100)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(100)),
 		},
 		{
 			"extended denom - max fractional balance",
-			types.ExtendedCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
-			types.ConversionFactor().SubRaw(1),
+			testExtendedDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
+			testConversionFactor.SubRaw(1),
 			// integer + fractional
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(1000_999_999_999_999)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(1000_999_999_999_999)),
 		},
 		{
 			"non-extended denom - uatom returns uatom",
-			types.IntegerCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testIntegerDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.ZeroInt(),
-			sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000)),
+			sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000)),
 		},
 		{
 			"non-extended denom - unaffected by fractional balance",
-			types.IntegerCoinDenom(),
-			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000))),
+			testIntegerDenom,
+			sdk.NewCoins(sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000))),
 			sdkmath.NewInt(100),
-			sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1000)),
+			sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1000)),
 		},
 		{
 			"unrelated denom - no fractional",
@@ -212,19 +212,19 @@ func TestKeeper_SpendableCoin(t *testing.T) {
 			tk.keeper.SetFractionalBalance(tk.ctx, addr, tt.giveFractionalBal)
 
 			// If its a reserve denom, module address is checked
-			if tt.giveDenom == types.ExtendedCoinDenom() {
+			if tt.giveDenom == testExtendedDenom {
 				tk.ak.EXPECT().GetModuleAddress(types.ModuleName).
 					Return(authtypes.NewModuleAddress(types.ModuleName)).
 					Once()
 			}
 
-			if tt.giveDenom == types.ExtendedCoinDenom() {
+			if tt.giveDenom == testExtendedDenom {
 				// No balance pass through
 				tk.bk.EXPECT().
-					SpendableCoin(tk.ctx, addr, types.IntegerCoinDenom()).
+					SpendableCoin(tk.ctx, addr, testIntegerDenom).
 					RunAndReturn(func(_ context.Context, _ sdk.AccAddress, _ string) sdk.Coin {
-						amt := tt.giveBankBal.AmountOf(types.IntegerCoinDenom())
-						return sdk.NewCoin(types.IntegerCoinDenom(), amt)
+						amt := tt.giveBankBal.AmountOf(testIntegerDenom)
+						return sdk.NewCoin(testIntegerDenom, amt)
 					}).
 					Once()
 			} else {
@@ -264,13 +264,13 @@ func TestHiddenReserve(t *testing.T) {
 	}{
 		{
 			"aatom",
-			types.ExtendedCoinDenom(),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.ZeroInt()),
+			testExtendedDenom,
+			sdk.NewCoin(testExtendedDenom, sdkmath.ZeroInt()),
 		},
 		{
 			"uatom",
-			types.IntegerCoinDenom(),
-			sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1)),
+			testIntegerDenom,
+			sdk.NewCoin(testIntegerDenom, sdkmath.NewInt(1)),
 		},
 		{
 			"unrelated denom",
@@ -282,7 +282,7 @@ func TestHiddenReserve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 2 calls for GetBalance and SpendableCoin, only for reserve coins
-			if tt.denom == types.ExtendedCoinDenom() {
+			if tt.denom == testExtendedDenom {
 				tk.ak.EXPECT().GetModuleAddress(types.ModuleName).
 					Return(moduleAddr).
 					Twice()

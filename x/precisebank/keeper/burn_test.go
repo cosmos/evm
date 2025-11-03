@@ -38,7 +38,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 					Return(nil).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(testIntegerDenom, 1000)),
 			"module account notamodule does not exist: unknown address",
 		},
 		{
@@ -54,7 +54,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 					)).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(testIntegerDenom, 1000)),
 			fmt.Sprintf("module account %s does not have permissions to burn tokens: unauthorized", burnerModuleName),
 		},
 		{
@@ -73,11 +73,11 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 
 				// Will call x/bank BurnCoins coins
 				td.bk.EXPECT().
-					BurnCoins(td.ctx, burnerModuleName, cs(c(types.IntegerCoinDenom(), 1000))).
+					BurnCoins(td.ctx, burnerModuleName, cs(c(testIntegerDenom, 1000))).
 					Return(nil).
 					Once()
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(testIntegerDenom, 1000)),
 			"",
 		},
 		{
@@ -87,7 +87,7 @@ func TestBurnCoins_PanicValidations(t *testing.T) {
 				// No mock setup needed since this is checked before module
 				// account checks
 			},
-			cs(c(types.IntegerCoinDenom(), 1000)),
+			cs(c(testIntegerDenom, 1000)),
 			"module account precisebank cannot be burned from: unauthorized",
 		},
 	}
@@ -137,10 +137,10 @@ func TestBurnCoins_Errors(t *testing.T) {
 					Once()
 			},
 			sdk.Coins{sdk.Coin{
-				Denom:  types.IntegerCoinDenom(),
+				Denom:  testIntegerDenom,
 				Amount: sdkmath.NewInt(-1000),
 			}},
-			fmt.Sprintf("-1000%s: invalid coins", types.IntegerCoinDenom()),
+			fmt.Sprintf("-1000%s: invalid coins", testIntegerDenom),
 		},
 	}
 

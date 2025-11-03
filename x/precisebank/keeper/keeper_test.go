@@ -16,6 +16,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+var (
+	// Test coin info constants - matches the setup in newMockedTestData
+	testCoinInfo         = testconstants.ChainsCoinInfo[testconstants.SixDecimalsChainID.EVMChainID]
+	testConversionFactor = testCoinInfo.DecimalsOrDefault().ConversionFactor()
+	testIntegerDenom     = testCoinInfo.DenomOrDefault()
+	testExtendedDenom    = testCoinInfo.ExtendedDenomOrDefault()
+)
+
 // testData defines necessary fields for testing keeper store methods and mocks
 // for unit tests without full app setup.
 type testData struct {

@@ -21,31 +21,31 @@ func TestSumExtendedCoin(t *testing.T) {
 		{
 			"empty",
 			sdk.NewCoins(),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.ZeroInt()),
+			sdk.NewCoin(testExtendedDenom, sdkmath.ZeroInt()),
 		},
 		{
 			"only integer",
-			sdk.NewCoins(sdk.NewInt64Coin(types.IntegerCoinDenom(), 100)),
-			sdk.NewCoin(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(100)),
+			sdk.NewCoins(sdk.NewInt64Coin(testIntegerDenom, 100)),
+			sdk.NewCoin(testExtendedDenom, testConversionFactor.MulRaw(100)),
 		},
 		{
 			"only extended",
-			sdk.NewCoins(sdk.NewInt64Coin(types.ExtendedCoinDenom(), 100)),
-			sdk.NewCoin(types.ExtendedCoinDenom(), sdkmath.NewInt(100)),
+			sdk.NewCoins(sdk.NewInt64Coin(testExtendedDenom, 100)),
+			sdk.NewCoin(testExtendedDenom, sdkmath.NewInt(100)),
 		},
 		{
 			"integer and extended",
 			sdk.NewCoins(
-				sdk.NewInt64Coin(types.IntegerCoinDenom(), 100),
-				sdk.NewInt64Coin(types.ExtendedCoinDenom(), 100),
+				sdk.NewInt64Coin(testIntegerDenom, 100),
+				sdk.NewInt64Coin(testExtendedDenom, 100),
 			),
-			sdk.NewCoin(types.ExtendedCoinDenom(), types.ConversionFactor().MulRaw(100).AddRaw(100)),
+			sdk.NewCoin(testExtendedDenom, testConversionFactor.MulRaw(100).AddRaw(100)),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			extVal := types.SumExtendedCoin(tt.amt)
+			extVal := types.SumExtendedCoin(tt.amt, testCoinInfo)
 			require.Equal(t, tt.want, extVal)
 		})
 	}

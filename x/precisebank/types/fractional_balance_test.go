@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func TestConversionFactor_Immutable(t *testing.T) {
-	cf1 := types.ConversionFactor()
+	cf1 := testCoinInfo.DecimalsOrDefault().ConversionFactor()
 	origInt64 := cf1.Int64()
 
 	// Get the internal pointer to the big.Int without copying
@@ -24,14 +25,14 @@ func TestConversionFactor_Immutable(t *testing.T) {
 	require.Equal(t, origInt64+5, internalBigInt.Int64())
 
 	// Fetch the max amount again
-	cf2 := types.ConversionFactor()
+	cf2 := testCoinInfo.DecimalsOrDefault().ConversionFactor()
 
 	require.Equal(t, origInt64, cf2.Int64(), "conversion factor should be immutable")
 }
 
 func TestConversionFactor_Copied(t *testing.T) {
-	max1 := types.ConversionFactor().BigIntMut()
-	max2 := types.ConversionFactor().BigIntMut()
+	max1 := testCoinInfo.DecimalsOrDefault().ConversionFactor().BigIntMut()
+	max2 := testCoinInfo.DecimalsOrDefault().ConversionFactor().BigIntMut()
 
 	// Checks that the returned two pointers do not reference the same object
 	require.NotSame(t, max1, max2, "max fractional amount should be copied")
@@ -41,7 +42,7 @@ func TestConversionFactor(t *testing.T) {
 	require.Equal(
 		t,
 		sdkmath.NewInt(1_000_000_000_000),
-		types.ConversionFactor(),
+		testCoinInfo.DecimalsOrDefault().ConversionFactor(),
 		"conversion factor should have 12 decimal points",
 	)
 }
@@ -97,7 +98,7 @@ func TestFractionalBalance_Validate(t *testing.T) {
 		{
 			"valid - max balance",
 			"cosmos1gpxd677pp8zr97xvy3pmgk70a9vcpagsprcjap",
-			types.ConversionFactor().SubRaw(1),
+			testMaxFractionalAmount(),
 			"",
 		},
 		{
@@ -133,21 +134,21 @@ func TestFractionalBalance_Validate(t *testing.T) {
 		{
 			"invalid - max amount + 1",
 			"cosmos1gpxd677pp8zr97xvy3pmgk70a9vcpagsprcjap",
-			types.ConversionFactor(),
-			"amount 1000000000000 exceeds max of 999999999999",
+			testConversionFactor,
+			fmt.Sprintf("amount %s exceeds max of %s", testConversionFactor.String(), testMaxFractionalAmount().String()),
 		},
 		{
 			"invalid - much more than max amount",
 			"cosmos1gpxd677pp8zr97xvy3pmgk70a9vcpagsprcjap",
-			sdkmath.NewInt(100000000000_000),
-			"amount 100000000000000 exceeds max of 999999999999",
+			testConversionFactor.MulRaw(100),
+			fmt.Sprintf("amount %s exceeds max of %s", testConversionFactor.MulRaw(100).String(), testMaxFractionalAmount().String()),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fb := types.NewFractionalBalance(tt.giveAddress, tt.giveAmount)
-			err := fb.Validate()
+			err := fb.Validate(testConversionFactor)
 
 			if tt.wantErr == "" {
 				require.NoError(t, err)

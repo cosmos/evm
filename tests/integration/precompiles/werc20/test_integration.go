@@ -24,7 +24,6 @@ import (
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -314,9 +313,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				When("the method is withdraw", func() {
 					It("it should fail if user doesn't have enough funds", func() {
 						newUserAcc, newUserPriv := utiltx.NewAccAddressAndKey()
+						conversionFactor := is.network.App.GetEVMKeeper().EvmConversionFactor()
 						newUserBalance := sdk.Coins{sdk.Coin{
 							Denom:  evmtypes.GetEVMCoinDenom(),
-							Amount: math.NewIntFromBigInt(withdrawAmount).Quo(precisebanktypes.ConversionFactor()).SubRaw(1),
+							Amount: math.NewIntFromBigInt(withdrawAmount).Quo(conversionFactor).SubRaw(1),
 						}}
 						err := is.network.App.GetBankKeeper().SendCoins(is.network.GetContext(), user.AccAddr, newUserAcc, newUserBalance)
 						Expect(err).ToNot(HaveOccurred(), "expected no error sending tokens")

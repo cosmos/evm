@@ -70,11 +70,11 @@ func GenerateEqualFractionalBalances(
 		// If it's 0, Validate() will error.
 		// Why start at 2 instead of 1? We want to make sure its divisible
 		// for the last account, more details below.
-    amt := randRange(2, conversionFactor.Int64())
+		amt := randRange(2, conversionFactor.Int64())
 		amtInt := sdkmath.NewInt(amt)
 
 		fb := types.NewFractionalBalance(addr, amtInt)
-        require.NoError(t, fb.Validate(conversionFactor))
+		require.NoError(t, fb.Validate(conversionFactor))
 
 		fbs[i] = fb
 
@@ -97,9 +97,9 @@ func GenerateEqualFractionalBalances(
 
 	// Note that we only have this issue in tests since we want to calculate a
 	// new valid remainder, but we only validate in the actual code.
-    amt := conversionFactor.
-        Sub(sum.Mod(conversionFactor)).
-        Mod(conversionFactor)
+	amt := conversionFactor.
+		Sub(sum.Mod(conversionFactor)).
+		Mod(conversionFactor)
 
 	// We only want to generate VALID FractionalBalances - zero would not be
 	// valid, so let's just borrow half of the previous amount. We generated
@@ -107,11 +107,11 @@ func GenerateEqualFractionalBalances(
 	// at least 2 and thus able to be split into two valid balances.
 	if amt.IsZero() {
 		fbs[count-2].Amount = fbs[count-2].Amount.QuoRaw(2)
-        amt = fbs[count-2].Amount
+		amt = fbs[count-2].Amount
 	}
 
 	fb := types.NewFractionalBalance(addr, amt)
-    require.NoError(t, fb.Validate(conversionFactor))
+	require.NoError(t, fb.Validate(conversionFactor))
 
 	fbs[count-1] = fb
 
@@ -120,10 +120,10 @@ func GenerateEqualFractionalBalances(
 	for _, fb := range fbs {
 		verificationSum = verificationSum.Add(fb.Amount)
 	}
-    require.True(t, verificationSum.Mod(conversionFactor).IsZero())
+	require.True(t, verificationSum.Mod(conversionFactor).IsZero())
 
 	// Also make sure no duplicate addresses
-    require.NoError(t, fbs.Validate(conversionFactor))
+	require.NoError(t, fbs.Validate(conversionFactor))
 
 	return fbs
 }
@@ -145,7 +145,7 @@ func GenerateEqualFractionalBalancesWithRemainder(
 	countWithRemainder := count + 1
 
 	// Generate 1 additional FractionalBalance so we can use one as remainder
-    fbs := GenerateEqualFractionalBalances(t, countWithRemainder, conversionFactor)
+	fbs := GenerateEqualFractionalBalances(t, countWithRemainder, conversionFactor)
 
 	// Use the last one as remainder
 	remainder := fbs[countWithRemainder-1].Amount

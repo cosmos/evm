@@ -75,7 +75,7 @@ func TestFractionalBalances_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.fbs.Validate()
+			err := tt.fbs.Validate(testConversionFactor)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
