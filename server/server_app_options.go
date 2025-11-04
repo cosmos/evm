@@ -16,6 +16,7 @@ import (
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
@@ -145,8 +146,10 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {
 	if appOpts == nil {
-		logger.Error("app options is nil, using default cosmos pool max tx of -1 (no-op)")
-		return 0
+		// we don't want to return 0 here, as then appOpts.Get() will return nil and that will be
+		// "accidentally" cast to the correct evm max tx default of 0, thereby hiding the error
+		logger.Error("app options is nil, using sdk max tx default of -1 (no-op)")
+		return sdkmempool.DefaultMaxTx
 	}
 
 	return cast.ToInt(appOpts.Get(sdkserver.FlagMempoolMaxTxs))
