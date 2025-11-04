@@ -147,7 +147,7 @@ func ParseMethod(input []byte, readOnly bool, isTransaction func(uint32) bool) (
 		return 0, nil, vm.ErrWriteProtection
 	}
 
-	return methodID, input[4:], nil
+	return methodID, input, nil
 }
 
 func Run[I any, PI interface {
