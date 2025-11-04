@@ -187,7 +187,9 @@ which accepts a path for the resulting pprof file.
 
 	cmd.Flags().Int32(server.FlagMempoolMaxTxs, 0, "The maximum number of transactions in the mempool")
 	// explicitly override the app.toml default value, as normally config file takes precedence over flag defaults
-	cmd.Flags().Set(server.FlagMempoolMaxTxs, "0")
+	if err := cmd.Flags().Set(server.FlagMempoolMaxTxs, "0"); err != nil {
+		panic(err)
+	}
 
 	cmd.Flags().Bool(srvflags.GRPCOnly, false, "Start the node in gRPC query only mode without CometBFT process")
 	cmd.Flags().Bool(srvflags.GRPCEnable, cosmosevmserverconfig.DefaultGRPCEnable, "Define if the gRPC server should be enabled")
