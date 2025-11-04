@@ -17,6 +17,8 @@ import (
 	"github.com/cosmos/evm/utils"
 
 	"github.com/cosmos/evm/contracts"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -29,7 +31,6 @@ import (
 	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -155,14 +156,14 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	// Mint ERC20 tokens
 	_, err = evmAppA.GetEVMKeeper().CallEVM(
 		suite.chainA.GetContext(),
-		contractData.ABI,
+		erc20testdata.NewMintCall(
+			senderEVMAddr,
+			big.NewInt(InitialTokenAmount),
+		),
 		deployerAddr,
 		contractAddr,
 		true,
 		nil,
-		"mint",
-		senderEVMAddr,
-		big.NewInt(InitialTokenAmount),
 	)
 	suite.Require().NoError(err, "mint call failed")
 	suite.chainA.NextBlock()
@@ -205,7 +206,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.chainA.NextBlock()
 
 	// Verify minted balance
-	bal := evmAppA.GetErc20Keeper().BalanceOf(ctxA, contractData.ABI, contractAddr, common.BytesToAddress(senderAddr))
+	bal := evmAppA.GetErc20Keeper().BalanceOf(ctxA, contractAddr, common.BytesToAddress(senderAddr))
 	suite.Require().Equal(big.NewInt(InitialTokenAmount), bal, "unexpected ERC20 balance")
 }
 
@@ -376,7 +377,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			GetBalance := func(addr sdk.AccAddress) sdk.Coin {
 				ctx := suite.chainA.GetContext()
 				if erc20 {
-					balanceAmt := evmAppA.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, nativeErc20.Account)
+					balanceAmt := evmAppA.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAddr, nativeErc20.Account)
 					return sdk.Coin{
 						Denom:  nativeErc20.Denom,
 						Amount: sdkmath.NewIntFromBigInt(balanceAmt),
@@ -394,7 +395,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(contractBondDenomBalance.Amount, sdkmath.NewInt(0))
 
 			// Setup transfer parameters
-			timeoutHeight := clienttypes.NewHeight(1, TimeoutHeight)
+			timeoutHeight := cmn.NewHeight(1, TimeoutHeight)
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 
 			// Check distribution rewards before transfer
@@ -410,7 +411,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			suite.Require().Equal(beforeRewards.Rewards[0].Amount.String(), ExpectedRewards)
 
 			// Execute ICS20 transfer (this triggers the bug)
-			data, err := suite.chainAPrecompile.Pack("transfer",
+			data, err := ics20.NewTransferCall(
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,
@@ -420,7 +421,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 				timeoutHeight,
 				uint64(0),
 				"",
-			)
+			).EncodeWithSelector()
 			suite.Require().NoError(err)
 
 			res, _, _, err := suite.chainA.SendEvmTx(senderAccount, SenderIndex, suite.chainAPrecompile.Address(), big.NewInt(0), data, 0)

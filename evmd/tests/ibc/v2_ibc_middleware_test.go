@@ -337,7 +337,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -414,7 +414,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 				// Check un-escrowed balance on evmChainA after receiving the packet.
 				escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 				suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
-				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
 				bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
 				suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
@@ -622,7 +622,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -634,7 +634,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			escrowAddr := transfertypes.GetEscrowAddress(transfertypes.PortID, path.EndpointA.ClientID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(
 					new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 					erc20BalAfterIbcTransfer.String(),
@@ -649,7 +649,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 				suite.Require().True(escrowedBal.IsZero())
 
 				// Check erc20 balance is same as initial balance after refund.
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
 
@@ -856,7 +856,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -868,7 +868,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			escrowAddr := transfertypes.GetEscrowAddress(transfertypes.PortID, path.EndpointA.ClientID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(
 					new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 					erc20BalAfterIbcTransfer.String(),
@@ -883,7 +883,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 				suite.Require().True(escrowedBal.IsZero())
 
 				// Check erc20 balance is same as initial balance after refund.
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
 
