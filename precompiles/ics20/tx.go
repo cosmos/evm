@@ -81,15 +81,10 @@ func (p *Precompile) validateV1TransferChannel(ctx sdk.Context, msg *transfertyp
 // Transfer implements the ICS20 transfer transactions.
 func (p *Precompile) Transfer(
 	ctx sdk.Context,
-	contract *vm.Contract,
+	args TransferCall,
 	stateDB vm.StateDB,
-	input []byte,
-) ([]byte, error) {
-	var args TransferCall
-	if _, err := args.Decode(input); err != nil {
-		return nil, err
-	}
-
+	contract *vm.Contract,
+) (*TransferReturn, error) {
 	msg, sender, err := NewMsgTransfer(args)
 	if err != nil {
 		return nil, err
@@ -133,5 +128,5 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
-	return TransferReturn{NextSequence: res.Sequence}.Encode()
+	return &TransferReturn{NextSequence: res.Sequence}, nil
 }

@@ -3,8 +3,6 @@ package ics20
 import (
 	"strings"
 
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
@@ -14,14 +12,8 @@ import (
 // Denom returns the requested denomination information.
 func (p Precompile) Denom(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	input []byte,
-) ([]byte, error) {
-	var args DenomCall
-	if _, err := args.Decode(input); err != nil {
-		return nil, err
-	}
-
+	args DenomCall,
+) (*DenomReturn, error) {
 	req, err := NewDenomRequest(args)
 	if err != nil {
 		return nil, err
@@ -31,26 +23,20 @@ func (p Precompile) Denom(
 	if err != nil {
 		// if the trace does not exist, return empty array
 		if strings.Contains(err.Error(), ErrDenomNotFound) {
-			return DenomReturn{Denom: Denom{}}.Encode()
+			return &DenomReturn{Denom: Denom{}}, nil
 		}
 		return nil, err
 	}
 
 	denom := ConvertDenomToABI(*res.Denom)
-	return DenomReturn{Denom: denom}.Encode()
+	return &DenomReturn{Denom: denom}, nil
 }
 
 // Denoms returns the requested denomination information.
 func (p Precompile) Denoms(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	input []byte,
-) ([]byte, error) {
-	var args DenomsCall
-	if _, err := args.Decode(input); err != nil {
-		return nil, err
-	}
-
+	args DenomsCall,
+) (*DenomsReturn, error) {
 	req, err := NewDenomsRequest(args)
 	if err != nil {
 		return nil, err
@@ -66,23 +52,17 @@ func (p Precompile) Denoms(
 		denoms[i] = ConvertDenomToABI(d)
 	}
 
-	return DenomsReturn{
+	return &DenomsReturn{
 		Denoms:       denoms,
 		PageResponse: cmn.FromPageResponse(res.Pagination),
-	}.Encode()
+	}, nil
 }
 
 // DenomHash returns the denom hash (in hex format) of the denomination information.
 func (p Precompile) DenomHash(
 	ctx sdk.Context,
-	_ *vm.Contract,
-	input []byte,
-) ([]byte, error) {
-	var args DenomHashCall
-	if _, err := args.Decode(input); err != nil {
-		return nil, err
-	}
-
+	args DenomHashCall,
+) (*DenomHashReturn, error) {
 	req, err := NewDenomHashRequest(args)
 	if err != nil {
 		return nil, err
@@ -92,12 +72,12 @@ func (p Precompile) DenomHash(
 	if err != nil {
 		// if the denom hash does not exist, return empty string
 		if strings.Contains(err.Error(), ErrDenomNotFound) {
-			return DenomHashReturn{Hash: ""}.Encode()
+			return &DenomHashReturn{Hash: ""}, nil
 		}
 		return nil, err
 	}
 
-	return DenomHashReturn{Hash: res.Hash}.Encode()
+	return &DenomHashReturn{Hash: res.Hash}, nil
 }
 
 // ConvertDenomToABI converts a transfertypes.Denom to the ABI Denom type

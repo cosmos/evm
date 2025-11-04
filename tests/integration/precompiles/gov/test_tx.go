@@ -115,7 +115,7 @@ func (s *PrecompileTestSuite) TestVote() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.Vote(ctx, tc.malleate(), s.network.GetStateDB(), contract)
+			_, err := s.precompile.Vote(ctx, *tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -237,7 +237,7 @@ func (s *PrecompileTestSuite) TestVoteWeighted() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.VoteWeighted(ctx, tc.malleate(), s.network.GetStateDB(), contract)
+			_, err := s.precompile.VoteWeighted(ctx, *tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)

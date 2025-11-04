@@ -14,12 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	"github.com/cosmos/evm/precompiles/testutil/contracts/ics20caller"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/tx"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -89,21 +90,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			sourceChannelID := path.EndpointA.ChannelID
 			sourceBondDenom := s.chainABondDenom
 
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					sourceChannelID,
-					sourceBondDenom,
-					big.NewInt(1),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
-					"",
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferCall(
+				sourcePortID,
+				sourceChannelID,
+				sourceBondDenom,
+				big.NewInt(1),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
+				"",
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -126,21 +123,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			sourceBondDenom := s.chainABondDenom
 			sender := common.BytesToAddress(s.chainA.SenderAccount.GetAddress())
 
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					sourceChannelID,
-					sourceBondDenom,
-					big.NewInt(1),
-					sender,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
-					"",
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferCall(
+				sourcePortID,
+				sourceChannelID,
+				sourceBondDenom,
+				big.NewInt(1),
+				sender,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
+				"",
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -162,21 +155,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			nonExistentChannelID := "channel-100"
 			sourceBondDenom := s.chainABondDenom
 
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					nonExistentChannelID,
-					sourceBondDenom,
-					big.NewInt(1),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
-					"",
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferCall(
+				sourcePortID,
+				nonExistentChannelID,
+				sourceBondDenom,
+				big.NewInt(1),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
+				"",
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -198,21 +187,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			invalidV2ClientID := "v2"
 			sourceBondDenom := s.chainABondDenom
 
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					invalidV2ClientID,
-					sourceBondDenom,
-					big.NewInt(1),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
-					"",
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferCall(
+				sourcePortID,
+				invalidV2ClientID,
+				sourceBondDenom,
+				big.NewInt(1),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().Add(time.Minute).Unix()), //#nosec G115 -- int overflow is not a concern here
+				"",
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -252,21 +237,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			)
 			Expect(err).To(BeNil(), "Failed to send tokens to contract address")
 
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					sourceChannelID,
-					sourceBondDenom,
-					sendAmt.BigInt(),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
-					"",
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferCall(
+				sourcePortID,
+				sourceChannelID,
+				sourceBondDenom,
+				sendAmt.BigInt(),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
+				"",
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -328,23 +309,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 
 			sendAmt := math.NewInt(1)
 			sendAmtConverted := sendAmt.Mul(math.NewInt(1e12))
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testIbcTransferWithTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					sourceChannelID,
-					sourceBondDenom,
-					sendAmt.BigInt(),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
-					"",
-					tc.before,
-					tc.after,
-				},
-			}
+			callArgs := ics20caller.NewTestIbcTransferWithTransferCall(
+				sourcePortID,
+				sourceChannelID,
+				sourceBondDenom,
+				sendAmt.BigInt(),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
+				"",
+				tc.before,
+				tc.after,
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(
@@ -423,23 +400,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, evmAppCreator ibctesting.A
 			Expect(contractBalance.ToBig()).To(Equal(fundAmtConverted.BigInt()), "Contract balance should be equal to the fund amount")
 
 			sendAmt := math.NewInt(1)
-			callArgs := testutiltypes.CallArgs{
-				ContractABI: ics20CallerContract.ABI,
-				MethodName:  "testRevertIbcTransfer",
-				Args: []interface{}{
-					sourcePortID,
-					sourceChannelID,
-					sourceBondDenom,
-					sendAmt.BigInt(),
-					ics20CallerAddr,
-					randomAccAddr.String(),
-					common.BytesToAddress(randomAccAddr.Bytes()),
-					ics20.DefaultTimeoutHeight,
-					uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
-					"",
-					true,
-				},
-			}
+			callArgs := ics20caller.NewTestRevertIbcTransferCall(
+				sourcePortID,
+				sourceChannelID,
+				sourceBondDenom,
+				sendAmt.BigInt(),
+				ics20CallerAddr,
+				randomAccAddr.String(),
+				common.BytesToAddress(randomAccAddr.Bytes()),
+				*cmn.FromProofHeight(ics20.DefaultTimeoutHeight),
+				uint64(time.Now().UTC().UnixNano()), //#nosec G115 -- int overflow is not a concern here
+				"",
+				true,
+			)
 			input, err := factory.GenerateContractCallArgs(callArgs)
 			Expect(err).To(BeNil(), "Failed to generate contract call args")
 			_, _, _, err = s.chainA.SendEvmTx(

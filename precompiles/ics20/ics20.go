@@ -71,24 +71,20 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 		return nil, err
 	}
 
-	var bz []byte
-
 	switch methodID {
 	// ICS20 transactions
 	case TransferID:
-		bz, err = p.Transfer(ctx, contract, stateDB, input)
+		return cmn.RunWithStateDB(ctx, p.Transfer, input, stateDB, contract)
 	// ICS20 queries
 	case DenomID:
-		bz, err = p.Denom(ctx, contract, input)
+		return cmn.Run(ctx, p.Denom, input)
 	case DenomsID:
-		bz, err = p.Denoms(ctx, contract, input)
+		return cmn.Run(ctx, p.Denoms, input)
 	case DenomHashID:
-		bz, err = p.DenomHash(ctx, contract, input)
+		return cmn.Run(ctx, p.DenomHash, input)
 	default:
 		return nil, fmt.Errorf("unknown method: %d", methodID)
 	}
-
-	return bz, err
 }
 
 // IsTransaction checks if the given method ID corresponds to a transaction or query.

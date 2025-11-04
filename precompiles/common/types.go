@@ -86,9 +86,11 @@ func FromPageResponse(pr *query.PageResponse) (p PageResponse) {
 	return
 }
 
-func (h *Height) FromProofHeight(ch clienttypes.Height) {
+func FromProofHeight(ch clienttypes.Height) *Height {
+	var h Height
 	h.RevisionNumber = ch.RevisionNumber
 	h.RevisionHeight = ch.RevisionHeight
+	return &h
 }
 
 func (h Height) ToProofHeight() clienttypes.Height {

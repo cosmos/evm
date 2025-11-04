@@ -130,7 +130,7 @@ func (s *PrecompileTestSuite) TestGetVotes() {
 				votes = tc.malleate()
 			}
 
-			out, err := s.precompile.GetVotes(ctx, tc.args)
+			out, err := s.precompile.GetVotes(ctx, *tc.args)
 
 			if tc.expPass {
 				s.Require().NoError(err)
@@ -211,7 +211,7 @@ func (s *PrecompileTestSuite) TestGetVote() {
 
 			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), voterAddr, s.precompile.Address(), gas)
 
-			out, err := s.precompile.GetVote(ctx, &args)
+			out, err := s.precompile.GetVote(ctx, args)
 
 			expVote := gov.WeightedVote{
 				ProposalId: tc.expPropNumber,
@@ -275,7 +275,7 @@ func (s *PrecompileTestSuite) TestGetDeposit() {
 
 			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			args := &gov.GetDepositCall{
+			args := gov.GetDepositCall{
 				ProposalId: tc.propNumber,
 				Depositor:  common.BytesToAddress(depositor.Bytes()),
 			}
@@ -333,7 +333,7 @@ func (s *PrecompileTestSuite) TestGetDeposits() {
 
 			deposits := tc.malleate()
 
-			out, err := s.precompile.GetDeposits(ctx, tc.args)
+			out, err := s.precompile.GetDeposits(ctx, *tc.args)
 			if tc.expPass {
 				s.Require().NoError(err)
 				s.Require().Equal(deposits, out.Deposits)
@@ -390,7 +390,7 @@ func (s *PrecompileTestSuite) TestGetTallyResult() {
 
 			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			args := &gov.GetTallyResultCall{
+			args := gov.GetTallyResultCall{
 				ProposalId: propID,
 			}
 			out, err := s.precompile.GetTallyResult(ctx, args)
@@ -462,7 +462,7 @@ func (s *PrecompileTestSuite) TestGetProposal() {
 
 			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			out, err := s.precompile.GetProposal(ctx, tc.malleate())
+			out, err := s.precompile.GetProposal(ctx, *tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
@@ -586,7 +586,7 @@ func (s *PrecompileTestSuite) TestGetProposals() {
 
 			_, ctx := testutil.NewPrecompileContract(s.T(), s.network.GetContext(), s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			out, err := s.precompile.GetProposals(ctx, tc.malleate())
+			out, err := s.precompile.GetProposals(ctx, *tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
@@ -620,7 +620,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			_, err := s.precompile.GetParams(s.network.GetContext(), tc.malleate())
+			_, err := s.precompile.GetParams(s.network.GetContext(), *tc.malleate())
 
 			if tc.expPass {
 				s.Require().NoError(err)
