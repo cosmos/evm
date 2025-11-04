@@ -81,6 +81,10 @@ type Keeper struct {
 	// evmMempool is the custom EVM appside mempool
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
+
+	// defaultEvmCoinInfo is the default EVM coin info used when evmCoinInfo is not initialized in the state,
+	// mainly for historical queries.
+	defaultEvmCoinInfo types.EvmCoinInfo
 }
 
 // NewKeeper generates new evm module keeper
@@ -137,6 +141,12 @@ func NewKeeper(
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", types.ModuleName)
+}
+
+// WithDefaultEvmCoinInfo set default EvmCoinInfo
+func (k *Keeper) WithDefaultEvmCoinInfo(coinInfo types.EvmCoinInfo) *Keeper {
+	k.defaultEvmCoinInfo = coinInfo
+	return k
 }
 
 // ----------------------------------------------------------------------------
