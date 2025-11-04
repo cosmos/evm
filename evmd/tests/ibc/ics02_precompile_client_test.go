@@ -12,6 +12,7 @@ import (
 
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics02"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/gogoproto/proto"
@@ -59,7 +60,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		calldata  []byte
+		calldata       []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -79,7 +80,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 				s.Require().True(found)
 
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, clientID)
+				calldata, err = ics02.NewGetClientStateCall(clientID).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expClientState, err = proto.Marshal(clientState)
@@ -90,7 +91,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			name: "failure: invalid client ID",
 			malleate: func() {
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, ibctesting.InvalidID)
+				calldata, err = ics02.NewGetClientStateCall(ibctesting.InvalidID).EncodeWithSelector()
 				s.Require().NoError(err)
 				expErr = true
 			},
@@ -99,7 +100,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			name: "failure: client not found",
 			malleate: func() {
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.GetClientStateMethod, ibctesting.SecondClientID)
+				calldata, err = ics02.NewGetClientStateCall(ibctesting.SecondClientID).EncodeWithSelector()
 				s.Require().NoError(err)
 				expErr = true
 			},
@@ -136,12 +137,11 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			s.Require().NoError(err)
 
 			// decode result
-			out, err := s.chainAPrecompile.Unpack(ics02.GetClientStateMethod, resp.Ret)
+			var out ics02.GetClientStateReturn
+			_, err = out.Decode(resp.Ret)
 			s.Require().NoError(err)
 
-			clientStateBz, ok := out[0].([]byte)
-			s.Require().True(ok)
-			s.Require().Equal(expClientState, clientStateBz)
+			s.Require().Equal(expClientState, out.Field1)
 		})
 	}
 }
@@ -178,7 +178,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				updateBz, err := anyHeader.Marshal()
 				s.Require().NoError(err)
 
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				calldata, err = ics02.NewUpdateClientCall(clientID, updateBz).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 
@@ -206,7 +206,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				updateBz, err := anyHeader.Marshal()
 				s.Require().NoError(err)
 
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				calldata, err = ics02.NewUpdateClientCall(clientID, updateBz).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 
@@ -238,8 +238,8 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 
 				misbehaviour := &ibctm.Misbehaviour{
 					ClientId: clientID,
-					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
-					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header1:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
 				}
 
 				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)
@@ -248,7 +248,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				updateBz, err := anyMisbehavior.Marshal()
 				s.Require().NoError(err)
 
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				calldata, err = ics02.NewUpdateClientCall(clientID, updateBz).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 
@@ -277,7 +277,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				s.Require().NoError(err)
 
 				// use invalid client ID
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, ibctesting.InvalidID, updateBz)
+				calldata, err = ics02.NewUpdateClientCall(ibctesting.InvalidID, updateBz).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 				expErr = true
@@ -289,7 +289,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				clientID := ibctesting.FirstClientID
 
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, []byte(ibctesting.InvalidID))
+				calldata, err = ics02.NewUpdateClientCall(clientID, []byte(ibctesting.InvalidID)).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 				expErr = true
@@ -326,7 +326,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				updateBz, err := anyHeader.Marshal()
 				s.Require().NoError(err)
 
-				calldata, err = s.chainAPrecompile.Pack(ics02.UpdateClientMethod, clientID, updateBz)
+				calldata, err = ics02.NewUpdateClientCall(clientID, updateBz).EncodeWithSelector()
 				s.Require().NoError(err)
 				// ====
 
@@ -361,12 +361,11 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			}
 
 			// decode result
-			out, err := s.chainAPrecompile.Unpack(ics02.UpdateClientMethod, resp.Ret)
+			var out ics02.UpdateClientReturn
+			_, err = out.Decode(resp.Ret)
 			s.Require().NoError(err)
 
-			res, ok := out[0].(uint8)
-			s.Require().True(ok)
-			s.Require().Equal(expResult, res)
+			s.Require().Equal(expResult, out.Field1)
 		})
 	}
 }
@@ -406,13 +405,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					clientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), clientID, proofHeight)
@@ -460,13 +459,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					existingClientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -496,13 +495,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					ibctesting.InvalidID, // use invalid client ID
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -530,13 +529,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					clientID,
 					[]byte(ibctesting.InvalidID), // use invalid client proof
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -566,13 +565,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					clientID,
 					clientProof,
-					clienttypes.NewHeight(69, 420), // use invalid height
+					cmn.NewHeight(69, 420), // use invalid height
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -602,13 +601,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				value := res.Value
 
 				pathBz := [][]byte{[]byte(ibctesting.InvalidID), clientKey} // use invalid path
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					clientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					value,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -628,13 +627,13 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyMembershipMethod,
+				calldata, err = ics02.NewVerifyMembershipCall(
 					clientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
 					[]byte(ibctesting.InvalidID), // use invalid value
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -672,12 +671,11 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			s.Require().NoError(err)
 
 			// decode result
-			out, err := s.chainAPrecompile.Unpack(ics02.VerifyMembershipMethod, resp.Ret)
+			var out ics02.VerifyMembershipReturn
+			_, err = out.Decode(resp.Ret)
 			s.Require().NoError(err)
 
-			res, ok := out[0].(*big.Int)
-			s.Require().True(ok)
-			s.Require().Equal(expResult, res)
+			s.Require().Equal(expResult, out.Field1)
 		})
 	}
 }
@@ -708,12 +706,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					existingClientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), existingClientID, proofHeight)
@@ -749,12 +747,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					clientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -775,12 +773,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					ibctesting.InvalidID, // use invalid client ID
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -799,12 +797,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 				clientKey := ibchost.FullClientStateKey(missingClientID)
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					existingClientID,
 					[]byte(ibctesting.InvalidID), // use invalid client proof
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -825,12 +823,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 
 				pathBz := [][]byte{[]byte(ibcexported.StoreKey), clientKey}
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					existingClientID,
 					clientProof,
-					clienttypes.NewHeight(69, 420), // use invalid height
+					cmn.NewHeight(69, 420), // use invalid height
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -851,12 +849,12 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 
 				pathBz := [][]byte{[]byte(ibctesting.InvalidID), clientKey} // use invalid path
 				var err error
-				calldata, err = s.chainAPrecompile.Pack(ics02.VerifyNonMembershipMethod,
+				calldata, err = ics02.NewVerifyNonMembershipCall(
 					existingClientID,
 					clientProof,
-					trustedHeight,
+					*cmn.FromProofHeight(trustedHeight),
 					pathBz,
-				)
+				).EncodeWithSelector()
 				s.Require().NoError(err)
 
 				expErr = true
@@ -887,12 +885,11 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			s.Require().NoError(err)
 
 			// decode result
-			out, err := s.chainAPrecompile.Unpack(ics02.VerifyNonMembershipMethod, resp.Ret)
+			var out ics02.VerifyNonMembershipReturn
+			_, err = out.Decode(resp.Ret)
 			s.Require().NoError(err)
 
-			res, ok := out[0].(*big.Int)
-			s.Require().True(ok)
-			s.Require().Equal(expResult, res)
+			s.Require().Equal(expResult, out.Field1)
 		})
 	}
 }

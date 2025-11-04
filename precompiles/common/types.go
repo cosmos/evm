@@ -100,3 +100,10 @@ func (h Height) ToProofHeight() clienttypes.Height {
 		RevisionHeight: h.RevisionHeight,
 	}
 }
+
+func NewHeight(revisionNumber, revisionHeight uint64) Height {
+	return Height{
+		RevisionNumber: revisionNumber,
+		RevisionHeight: revisionHeight,
+	}
+}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/contracts"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -67,23 +68,24 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	sendAmt := ibctesting.DefaultCoinAmount
 	senderAddr := senderAcc.SenderAccount.GetAddress()
 
+	args := erc20testdata.NewMintCall(
+		common.BytesToAddress(senderAddr),
+		big.NewInt(sendAmt.Int64()),
+	)
 	_, err = evmApp.GetEVMKeeper().CallEVM(
 		evmCtx,
-		contractAbi,
+		args,
 		erc20types.ModuleAddress,
 		contractAddr,
 		true,
 		nil,
-		"mint",
-		common.BytesToAddress(senderAddr),
-		big.NewInt(sendAmt.Int64()),
 	)
 	if err != nil {
 		t.Fatalf("mint call failed: %v", err)
 	}
 
 	// Verify minted balance
-	bal := evmApp.GetErc20Keeper().BalanceOf(evmCtx, contractAbi, contractAddr, common.BytesToAddress(senderAddr))
+	bal := evmApp.GetErc20Keeper().BalanceOf(evmCtx, contractAddr, common.BytesToAddress(senderAddr))
 	if bal.Cmp(big.NewInt(sendAmt.Int64())) != 0 {
 		t.Fatalf("unexpected ERC20 balance; got %s, want %s", bal.String(), sendAmt.String())
 	}
