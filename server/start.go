@@ -184,7 +184,12 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint(server.FlagInvCheckPeriod, 0, "Assert registered invariants every N blocks")
 	cmd.Flags().Uint64(server.FlagMinRetainBlocks, 0, "Minimum block height offset during ABCI commit to prune CometBFT blocks")
 	cmd.Flags().String(srvflags.AppDBBackend, "", "The type of database for application and snapshots databases")
+
 	cmd.Flags().Int32(server.FlagMempoolMaxTxs, 0, "The maximum number of transactions in the mempool")
+	// explicitly override the app.toml default value, as normally config file takes precedence over flag defaults
+	if err := cmd.Flags().Set(server.FlagMempoolMaxTxs, "0"); err != nil {
+		panic(err)
+	}
 
 	cmd.Flags().Bool(srvflags.GRPCOnly, false, "Start the node in gRPC query only mode without CometBFT process")
 	cmd.Flags().Bool(srvflags.GRPCEnable, cosmosevmserverconfig.DefaultGRPCEnable, "Define if the gRPC server should be enabled")
