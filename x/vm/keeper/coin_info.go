@@ -56,7 +56,7 @@ func (k Keeper) GetEvmCoinInfo(ctx sdk.Context) (coinInfo types.EvmCoinInfo) {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.KeyPrefixEvmCoinInfo)
 	if bz == nil {
-		return coinInfo
+		return k.defaultEvmCoinInfo
 	}
 	k.cdc.MustUnmarshal(bz, &coinInfo)
 	return
