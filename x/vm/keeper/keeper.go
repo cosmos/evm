@@ -95,7 +95,6 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	consensusKeeper types.ConsensusParamsKeeper,
 	erc20Keeper types.Erc20Keeper,
-	evmChainID uint64,
 	tracer string,
 ) *Keeper {
 	// ensure evm module account is set
@@ -110,12 +109,6 @@ func NewKeeper(
 
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
 	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
-
-	// set global chain config
-	ethCfg := types.DefaultChainConfig(evmChainID)
-	if err := types.SetChainConfig(ethCfg); err != nil {
-		panic(err)
-	}
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
