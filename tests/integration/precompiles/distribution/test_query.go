@@ -3,12 +3,11 @@ package distribution
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/uint256"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
+	"github.com/cosmos/evm/testutil"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
+	"github.com/yihuang/go-abi"
 
 	"cosmossdk.io/math"
 
@@ -57,8 +56,6 @@ var baseTestCases = []distrTestCases{
 
 func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.ValidatorDistributionInfoMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - nonexistent validator address",
@@ -107,8 +104,8 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.ValidatorDistributionInfoOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorDistributionInfoMethod, bz)
+				var out distribution.ValidatorDistributionInfoReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
@@ -129,16 +126,19 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
+			args, err := testutil.CallFunction(distribution.NewValidatorDistributionInfoCall, tc.malleate())
+			s.Require().NoError(err)
 
-			bz, err := s.precompile.ValidatorDistributionInfo(ctx, contract, &method, tc.malleate())
+			out, err := s.precompile.ValidatorDistributionInfo(ctx, *args.(*distribution.ValidatorDistributionInfoCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -147,8 +147,6 @@ func (s *PrecompileTestSuite) TestValidatorDistributionInfo() {
 
 func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.ValidatorOutstandingRewardsMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - nonexistent validator address",
@@ -161,10 +159,10 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out []sdk.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorOutstandingRewardsMethod, bz)
+				var out distribution.ValidatorOutstandingRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Rewards))
 			},
 			100000,
 			true,
@@ -178,10 +176,10 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out []sdk.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorOutstandingRewardsMethod, bz)
+				var out distribution.ValidatorOutstandingRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Rewards))
 			},
 			100000,
 			false,
@@ -203,13 +201,13 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorOutstandingRewardsMethod, bz)
+				var out distribution.ValidatorOutstandingRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
-				s.Require().Equal(s.bondDenom, out[0].Denom)
-				s.Require().Equal(expValAmount, out[0].Amount.Int64())
+				s.Require().Equal(1, len(out.Rewards))
+				s.Require().Equal(uint8(18), out.Rewards[0].Precision)
+				s.Require().Equal(s.bondDenom, out.Rewards[0].Denom)
+				s.Require().Equal(expValAmount, out.Rewards[0].Amount.Int64())
 			},
 			100000,
 			false,
@@ -222,16 +220,18 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.ValidatorOutstandingRewards(ctx, contract, &method, tc.malleate())
+			args, err := testutil.CallFunction(distribution.NewValidatorOutstandingRewardsCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.ValidatorOutstandingRewards(ctx, *args.(*distribution.ValidatorOutstandingRewardsCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -240,8 +240,6 @@ func (s *PrecompileTestSuite) TestValidatorOutstandingRewards() {
 
 func (s *PrecompileTestSuite) TestValidatorCommission() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.ValidatorCommissionMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - nonexistent validator address",
@@ -254,10 +252,10 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 				}
 			},
 			func(bz []byte) {
-				var out []sdk.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorCommissionMethod, bz)
+				var out distribution.ValidatorCommissionReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Commission))
 			},
 			100000,
 			true,
@@ -271,10 +269,10 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 				}
 			},
 			func(bz []byte) {
-				var out []sdk.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorCommissionMethod, bz)
+				var out distribution.ValidatorCommissionReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Commission))
 			},
 			100000,
 			false,
@@ -301,13 +299,13 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 				}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorCommissionMethod, bz)
+				var out distribution.ValidatorCommissionReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
-				s.Require().Equal(s.bondDenom, out[0].Denom)
-				s.Require().Equal(expValAmount, out[0].Amount.Int64())
+				s.Require().Equal(1, len(out.Commission))
+				s.Require().Equal(uint8(18), out.Commission[0].Precision)
+				s.Require().Equal(s.bondDenom, out.Commission[0].Denom)
+				s.Require().Equal(expValAmount, out.Commission[0].Amount.Int64())
 			},
 			100000,
 			false,
@@ -320,16 +318,18 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.ValidatorCommission(ctx, contract, &method, tc.malleate())
+			args, err := testutil.CallFunction(distribution.NewValidatorCommissionCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.ValidatorCommission(ctx, *args.(*distribution.ValidatorCommissionCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -338,8 +338,6 @@ func (s *PrecompileTestSuite) TestValidatorCommission() {
 
 func (s *PrecompileTestSuite) TestValidatorSlashes() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.ValidatorSlashesMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - invalid validator address",
@@ -398,8 +396,8 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.ValidatorSlashesOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, bz)
+				var out distribution.ValidatorSlashesReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(0, len(out.Slashes))
 				s.Require().Equal(uint64(0), out.PageResponse.Total)
@@ -419,8 +417,8 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.ValidatorSlashesOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, bz)
+				var out distribution.ValidatorSlashesReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(0, len(out.Slashes))
 				s.Require().Equal(uint64(0), out.PageResponse.Total)
@@ -443,8 +441,8 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.ValidatorSlashesOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, bz)
+				var out distribution.ValidatorSlashesReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(1, len(out.Slashes))
 				s.Require().Equal(math.LegacyNewDec(5).BigInt(), out.Slashes[0].Fraction.Value)
@@ -470,8 +468,8 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.ValidatorSlashesOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, bz)
+				var out distribution.ValidatorSlashesReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(1, len(out.Slashes))
 				s.Require().Equal(math.LegacyNewDec(5).BigInt(), out.Slashes[0].Fraction.Value)
@@ -489,16 +487,18 @@ func (s *PrecompileTestSuite) TestValidatorSlashes() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.ValidatorSlashes(ctx, contract, &method, tc.malleate())
+			args, err := testutil.CallFunction(distribution.NewValidatorSlashesCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.ValidatorSlashes(ctx, *args.(*distribution.ValidatorSlashesCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -510,8 +510,6 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 		ctx sdk.Context
 		err error
 	)
-	method := s.precompile.Methods[distribution.DelegationRewardsMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - invalid validator address",
@@ -565,10 +563,10 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationRewardsMethod, bz)
+				var out distribution.DelegationRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Rewards))
 			},
 			100000,
 			false,
@@ -585,13 +583,13 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationRewardsMethod, bz)
+				var out distribution.DelegationRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
-				s.Require().Equal(s.bondDenom, out[0].Denom)
-				s.Require().Equal(expRewardsAmt.Int64(), out[0].Amount.Int64())
+				s.Require().Equal(1, len(out.Rewards))
+				s.Require().Equal(uint8(18), out.Rewards[0].Precision)
+				s.Require().Equal(s.bondDenom, out.Rewards[0].Denom)
+				s.Require().Equal(expRewardsAmt.Int64(), out.Rewards[0].Amount.Int64())
 			},
 			100000,
 			false,
@@ -604,17 +602,18 @@ func (s *PrecompileTestSuite) TestDelegationRewards() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			args := tc.malleate()
-			bz, err := s.precompile.DelegationRewards(ctx, contract, &method, args)
+			args, err := testutil.CallFunction(distribution.NewDelegationRewardsCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.DelegationRewards(ctx, *args.(*distribution.DelegationRewardsCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -626,8 +625,6 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 		ctx sdk.Context
 		err error
 	)
-	method := s.precompile.Methods[distribution.DelegationTotalRewardsMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - invalid delegator address",
@@ -650,8 +647,8 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.DelegationTotalRewardsOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationTotalRewardsMethod, bz)
+				var out distribution.DelegationTotalRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(0, len(out.Rewards))
 				s.Require().Equal(0, len(out.Total))
@@ -668,8 +665,8 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 				}
 			},
 			func(bz []byte) {
-				var out distribution.DelegationTotalRewardsOutput
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationTotalRewardsMethod, bz)
+				var out distribution.DelegationTotalRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 
 				validatorsCount := len(s.network.GetValidators())
@@ -697,10 +694,10 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			},
 			func(bz []byte) {
 				var (
-					out distribution.DelegationTotalRewardsOutput
-					i   int
+					i int
 				)
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegationTotalRewardsMethod, bz)
+				var out distribution.DelegationTotalRewardsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 
 				validators := s.network.GetValidators()
@@ -738,17 +735,18 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
 
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			args := tc.malleate()
-			bz, err := s.precompile.DelegationTotalRewards(ctx, contract, &method, args)
+			args, err := testutil.CallFunction(distribution.NewDelegationTotalRewardsCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.DelegationTotalRewards(ctx, *args.(*distribution.DelegationTotalRewardsCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -757,8 +755,6 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 
 func (s *PrecompileTestSuite) TestDelegatorValidators() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.DelegatorValidatorsMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - invalid delegator address",
@@ -781,10 +777,10 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 				}
 			},
 			func(bz []byte) {
-				var out []string
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegatorValidatorsMethod, bz)
+				var out distribution.DelegatorValidatorsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Validators))
 			},
 			100000,
 			false,
@@ -798,10 +794,10 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 				}
 			},
 			func(bz []byte) {
-				var out []string
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegatorValidatorsMethod, bz)
+				var out distribution.DelegatorValidatorsReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(3, len(out))
+				s.Require().Equal(3, len(out.Validators))
 				for _, val := range s.network.GetValidators() {
 					s.Require().Contains(
 						out,
@@ -822,16 +818,18 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.DelegatorValidators(ctx, contract, &method, tc.malleate())
+			args, err := testutil.CallFunction(distribution.NewDelegatorValidatorsCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.DelegatorValidators(ctx, *args.(*distribution.DelegatorValidatorsCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -840,8 +838,6 @@ func (s *PrecompileTestSuite) TestDelegatorValidators() {
 
 func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.DelegatorWithdrawAddressMethod]
-
 	testCases := []distrTestCases{
 		{
 			"fail - invalid delegator address",
@@ -863,8 +859,8 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 				}
 			},
 			func(bz []byte) {
-				var out string
-				err := s.precompile.UnpackIntoInterface(&out, distribution.DelegatorWithdrawAddressMethod, bz)
+				var out distribution.DelegatorWithdrawAddressReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 				s.Require().Equal(sdk.AccAddress(s.keyring.GetAddr(0).Bytes()).String(), out)
 			},
@@ -879,16 +875,18 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.DelegatorWithdrawAddress(ctx, contract, &method, tc.malleate())
+			args, err := testutil.CallFunction(distribution.NewDelegatorWithdrawAddressCall, tc.malleate())
+			s.Require().NoError(err)
+			out, err := s.precompile.DelegatorWithdrawAddress(ctx, *args.(*distribution.DelegatorWithdrawAddressCall))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})
@@ -897,31 +895,17 @@ func (s *PrecompileTestSuite) TestDelegatorWithdrawAddress() {
 
 func (s *PrecompileTestSuite) TestCommunityPool() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.CommunityPoolMethod]
-
 	testCases := []distrTestCases{
-		{
-			"fail - invalid number of args",
-			func() []interface{} {
-				return []interface{}{
-					"invalid",
-				}
-			},
-			func(bz []byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 0, 1),
-		},
 		{
 			"success - empty community pool",
 			func() []interface{} {
 				return []interface{}{}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				var out distribution.CommunityPoolReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(0, len(out))
+				s.Require().Equal(0, len(out.Coins))
 			},
 			100000,
 			false,
@@ -937,13 +921,13 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 				return []interface{}{}
 			},
 			func(bz []byte) {
-				var out []cmn.DecCoin
-				err := s.precompile.UnpackIntoInterface(&out, distribution.CommunityPoolMethod, bz)
+				var out distribution.CommunityPoolReturn
+				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
-				s.Require().Equal(1, len(out))
-				s.Require().Equal(uint8(18), out[0].Precision)
-				s.Require().Equal(s.bondDenom, out[0].Denom)
-				s.Require().Equal(expValAmount, out[0].Amount.Int64())
+				s.Require().Equal(1, len(out.Coins))
+				s.Require().Equal(uint8(18), out.Coins[0].Precision)
+				s.Require().Equal(s.bondDenom, out.Coins[0].Denom)
+				s.Require().Equal(expValAmount, out.Coins[0].Amount.Int64())
 			},
 			100000,
 			false,
@@ -955,16 +939,16 @@ func (s *PrecompileTestSuite) TestCommunityPool() {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
 			ctx = s.network.GetContext()
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.CommunityPool(ctx, contract, &method, tc.malleate())
+			out, err := s.precompile.CommunityPool(ctx, abi.EmptyTuple{})
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
+				s.Require().NotEmpty(out)
+				bz, err := out.Encode()
+				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
 		})

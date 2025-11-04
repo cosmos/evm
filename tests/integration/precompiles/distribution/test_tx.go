@@ -1,7 +1,6 @@
 package distribution
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,60 +23,22 @@ import (
 
 func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.SetWithdrawAddressMethod]
 	newWithdrawerAddr := utiltx.GenerateAddress()
 
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *distribution.SetWithdrawAddressCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func() {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func() []interface{} {
-				return []interface{}{
-					"",
-					s.keyring.GetAddr(0).String(),
-				}
-			},
-			func() {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
-		},
-		{
-			"fail - invalid withdrawer address",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					nil,
-				}
-			},
-			func() {},
-			200000,
-			true,
-			"invalid withdraw address: empty address string is not allowed: invalid address",
-		},
-		{
 			"success - using the same address withdrawer address",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.SetWithdrawAddressCall {
+				return distribution.NewSetWithdrawAddressCall(s.keyring.GetAddr(0),
 					s.keyring.GetAddr(0).String(),
-				}
+				)
 			},
 			func() {
 				withdrawerAddr, err := s.network.App.GetDistrKeeper().GetDelegatorWithdrawAddr(ctx, s.keyring.GetAccAddr(0))
@@ -90,11 +51,10 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 		},
 		{
 			"success - using a different withdrawer address",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.SetWithdrawAddressCall {
+				return distribution.NewSetWithdrawAddressCall(s.keyring.GetAddr(0),
 					newWithdrawerAddr.String(),
-				}
+				)
 			},
 			func() {
 				withdrawerAddr, err := s.network.App.GetDistrKeeper().GetDelegatorWithdrawAddr(ctx, s.keyring.GetAddr(0).Bytes())
@@ -115,7 +75,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddress() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
-			_, err := s.precompile.SetWithdrawAddress(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			_, err := s.precompile.SetWithdrawAddress(ctx, *tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
@@ -132,55 +92,17 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 		ctx sdk.Context
 		err error
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
+		malleate    func(val stakingtypes.Validator) *distribution.WithdrawDelegatorRewardsCall
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(stakingtypes.Validator) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func(val stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					"",
-					val.OperatorAddress,
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, ""),
-		},
-		{
-			"fail - invalid validator address",
-			func(stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					nil,
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			"invalid validator address",
-		},
-		{
 			"success - withdraw rewards from a single validator without commission",
-			func(val stakingtypes.Validator) []interface{} {
+			func(val stakingtypes.Validator) *distribution.WithdrawDelegatorRewardsCall {
 				ctx, err = s.prepareStakingRewards(
 					ctx,
 					stakingRewards{
@@ -190,17 +112,16 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 					},
 				)
 				s.Require().NoError(err, "failed to unpack output")
-				return []interface{}{
-					s.keyring.GetAddr(0),
+				return distribution.NewWithdrawDelegatorRewardsCall(s.keyring.GetAddr(0),
 					val.OperatorAddress,
-				}
+				)
 			},
 			func(data []byte) {
-				var coins []cmn.Coin
-				err := s.precompile.UnpackIntoInterface(&coins, distribution.WithdrawDelegatorRewardMethod, data)
+				var out distribution.WithdrawDelegatorRewardsReturn
+				_, err := out.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(coins[0].Denom, testconstants.ExampleAttoDenom)
-				s.Require().Equal(coins[0].Amount.Int64(), expRewardsAmt.Int64())
+				s.Require().Equal(out.Amount[0].Denom, testconstants.ExampleAttoDenom)
+				s.Require().Equal(out.Amount[0].Amount.Int64(), expRewardsAmt.Int64())
 				// Check bank balance after the withdrawal of rewards
 				balance := s.network.App.GetBankKeeper().GetBalance(ctx, s.keyring.GetAddr(0).Bytes(), testconstants.ExampleAttoDenom)
 				s.Require().True(balance.Amount.GT(network.PrefundedAccountInitialBalance))
@@ -220,11 +141,13 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorReward() {
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
-			bz, err := s.precompile.WithdrawDelegatorReward(ctx, contract, s.network.GetStateDB(), &method, args)
+			out, err := s.precompile.WithdrawDelegatorReward(ctx, *args, s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
+				s.Require().NoError(err)
+				bz, err := out.Encode()
 				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
@@ -237,41 +160,17 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 		ctx         sdk.Context
 		prevBalance sdk.Coin
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress string) *distribution.WithdrawValidatorCommissionCall
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(string) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
-			"fail - invalid validator address",
-			func(string) []interface{} {
-				return []interface{}{
-					nil,
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			"empty address string is not allowed",
-		},
-		{
 			"success - withdraw all commission from a single validator",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress string) *distribution.WithdrawValidatorCommissionCall {
 				valAddr, err := sdk.ValAddressFromBech32(operatorAddress)
 				s.Require().NoError(err)
 				amt := math.LegacyNewDecWithPrec(1000000000000000000, 1)
@@ -285,14 +184,13 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 				coins := sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, amt.Mul(math.LegacyNewDec(2)).RoundInt()))
 				err = s.mintCoinsForDistrMod(ctx, coins)
 				s.Require().NoError(err)
-				return []interface{}{
-					operatorAddress,
-				}
+				return distribution.NewWithdrawValidatorCommissionCall(operatorAddress)
 			},
 			func(data []byte) {
 				var coins []cmn.Coin
 				amt := math.NewInt(100000000000000000)
-				err := s.precompile.UnpackIntoInterface(&coins, distribution.WithdrawValidatorCommissionMethod, data)
+				var out distribution.WithdrawValidatorCommissionReturn
+				_, err := out.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().Equal(coins[0].Denom, testconstants.ExampleAttoDenom)
 				s.Require().Equal(coins[0].Amount, amt.BigInt())
@@ -324,11 +222,13 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 			var contract *vm.Contract
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, validatorAddress, s.precompile.Address(), tc.gas)
 
-			bz, err := s.precompile.WithdrawValidatorCommission(ctx, contract, s.network.GetStateDB(), &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			out, err := s.precompile.WithdrawValidatorCommission(ctx, *tc.malleate(s.network.GetValidators()[0].OperatorAddress), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
+				s.Require().NoError(err)
+				bz, err := out.Encode()
 				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
@@ -341,59 +241,20 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 		ctx         sdk.Context
 		prevBalance sdk.Coin
 	)
-	method := s.precompile.Methods[distribution.ClaimRewardsMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *distribution.ClaimRewardsCall
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func() []interface{} {
-				return []interface{}{
-					nil,
-					10,
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			"invalid delegator address",
-		},
-		{
-			"fail - invalid type for maxRetrieve: expected uint32",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					big.NewInt(100000000000000000),
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			"invalid type for maxRetrieve: expected uint32",
-		},
-		{
 			"fail - too many retrieved results",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.ClaimRewardsCall {
+				return distribution.NewClaimRewardsCall(s.keyring.GetAddr(0),
 					uint32(32_000_000),
-				}
+				)
 			},
 			func([]byte) {},
 			200000,
@@ -402,11 +263,10 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 		},
 		{
 			"success - withdraw from all validators - 3",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.ClaimRewardsCall {
+				return distribution.NewClaimRewardsCall(s.keyring.GetAddr(0),
 					uint32(3),
-				}
+				)
 			},
 			func(_ []byte) {
 				balance := s.network.App.GetBankKeeper().GetBalance(ctx, s.keyring.GetAccAddr(0), testconstants.ExampleAttoDenom)
@@ -420,11 +280,10 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 		},
 		{
 			"pass - withdraw from validators with maxRetrieve higher than number of validators",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.ClaimRewardsCall {
+				return distribution.NewClaimRewardsCall(s.keyring.GetAddr(0),
 					uint32(10),
-				}
+				)
 			},
 			func([]byte) {
 				balance := s.network.App.GetBankKeeper().GetBalance(ctx, s.keyring.GetAccAddr(0), testconstants.ExampleAttoDenom)
@@ -438,11 +297,10 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 		},
 		{
 			"success - withdraw from only 1 validator",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.ClaimRewardsCall {
+				return distribution.NewClaimRewardsCall(s.keyring.GetAddr(0),
 					uint32(1),
-				}
+				)
 			},
 			func([]byte) {
 				balance := s.network.App.GetBankKeeper().GetBalance(ctx, s.keyring.GetAccAddr(0), testconstants.ExampleAttoDenom)
@@ -482,11 +340,13 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 			// get previous balance to compare final balance in the postCheck func
 			prevBalance = s.network.App.GetBankKeeper().GetBalance(ctx, addr.Bytes(), testconstants.ExampleAttoDenom)
 
-			bz, err := s.precompile.ClaimRewards(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			out, err := s.precompile.ClaimRewards(ctx, *tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
+				s.Require().NoError(err)
+				bz, err := out.Encode()
 				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
@@ -496,51 +356,25 @@ func (s *PrecompileTestSuite) TestClaimRewards() {
 
 func (s *PrecompileTestSuite) TestFundCommunityPool() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.FundCommunityPoolMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *distribution.FundCommunityPoolCall
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid depositor address",
-			func() []interface{} {
-				return []interface{}{
-					nil,
-					big.NewInt(1e18),
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			"invalid hex address address",
-		},
-		{
 			"success - fund the community pool 1 ATOM",
-			func() []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func() *distribution.FundCommunityPoolCall {
+				return distribution.NewFundCommunityPoolCall(s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{
 							Denom:  testconstants.ExampleAttoDenom,
 							Amount: big.NewInt(1e18),
 						},
 					},
-				}
+				)
 			},
 			func([]byte) {
 				pool, err := s.network.App.GetDistrKeeper().FeePool.Get(ctx)
@@ -569,11 +403,13 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 			balance := s.network.App.GetBankKeeper().GetBalance(ctx, s.keyring.GetAddr(0).Bytes(), testconstants.ExampleAttoDenom)
 			s.Require().Equal(balance.Amount, network.PrefundedAccountInitialBalance)
 
-			bz, err := s.precompile.FundCommunityPool(ctx, contract, s.network.GetStateDB(), &method, tc.malleate())
+			out, err := s.precompile.FundCommunityPool(ctx, *tc.malleate(), s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
+				s.Require().NoError(err)
+				bz, err := out.Encode()
 				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
@@ -583,50 +419,18 @@ func (s *PrecompileTestSuite) TestFundCommunityPool() {
 
 func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 	var ctx sdk.Context
-	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
+		malleate    func(val stakingtypes.Validator) *distribution.DepositValidatorRewardsPoolCall
 		postCheck   func(data []byte)
 		gas         uint64
 		expError    bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(_ stakingtypes.Validator) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			"fail - invalid depositor address",
-			func(val stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					"invalidAddress",
-					val.OperatorAddress,
-					[]cmn.Coin{
-						{
-							Denom:  testconstants.ExampleAttoDenom,
-							Amount: big.NewInt(1e18),
-						},
-					},
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidHexAddress, "invalidAddress"),
-		},
-		{
 			"fail - empty validator address",
-			func(val stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func(val stakingtypes.Validator) *distribution.DepositValidatorRewardsPoolCall {
+				return distribution.NewDepositValidatorRewardsPoolCall(s.keyring.GetAddr(0),
 					"",
 					[]cmn.Coin{
 						{
@@ -634,7 +438,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 							Amount: big.NewInt(1e18),
 						},
 					},
-				}
+				)
 			},
 			func([]byte) {},
 			200000,
@@ -642,24 +446,9 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			"empty address string is not allowed",
 		},
 		{
-			"fail - invalid amount",
-			func(val stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
-					val.OperatorAddress,
-					"invalidAmount",
-				}
-			},
-			func([]byte) {},
-			200000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidAmount, "invalidAmount"),
-		},
-		{
 			"success - deposit rewards to the validator pool",
-			func(val stakingtypes.Validator) []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func(val stakingtypes.Validator) *distribution.DepositValidatorRewardsPoolCall {
+				return distribution.NewDepositValidatorRewardsPoolCall(s.keyring.GetAddr(0),
 					val.OperatorAddress,
 					[]cmn.Coin{
 						{
@@ -667,12 +456,13 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 							Amount: big.NewInt(1e18),
 						},
 					},
-				}
+				)
 			},
 			func(data []byte) {
 				// check data is true
 				var success bool
-				err := s.precompile.UnpackIntoInterface(&success, distribution.DepositValidatorRewardsPoolMethod, data)
+				var out distribution.DepositValidatorRewardsPoolReturn
+				_, err := out.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
 				s.Require().True(success, "expected true, got false")
 
@@ -723,11 +513,13 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolMethod() {
 			contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 			args := tc.malleate(s.network.GetValidators()[0])
-			bz, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, s.network.GetStateDB(), &method, args)
+			out, err := s.precompile.DepositValidatorRewardsPool(ctx, *args, s.network.GetStateDB(), contract)
 
 			if tc.expError {
 				s.Require().ErrorContains(err, tc.errContains)
 			} else {
+				s.Require().NoError(err)
+				bz, err := out.Encode()
 				s.Require().NoError(err)
 				tc.postCheck(bz)
 			}
