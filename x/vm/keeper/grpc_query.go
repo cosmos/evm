@@ -770,7 +770,7 @@ func (k *Keeper) traceTxWithMsg(
 	msg *core.Message,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
-) (*interface{}, error) {
+) (*any, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer           *tracers.Tracer
