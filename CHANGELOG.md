@@ -15,6 +15,7 @@
 
 ### BUG FIXES
 
+- [\#794](https://github.com/cosmos/evm/pull/794) Fix mempool.max-txs flag not using desired default of 0
 - [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
 - [\#690](https://github.com/cosmos/evm/pull/690) Fix Ledger hardware wallet support for coin type 60.
 - [\#766](https://github.com/cosmos/evm/pull/766) Align gas estimation logic with go-ethereum v1.16.3
@@ -22,6 +23,7 @@
 - [\#756](https://github.com/cosmos/evm/pull/756) Fix error message typo in NewMsgCancelProposal.
 - [\#772](https://github.com/cosmos/evm/pull/772) Avoid panic on close if evm mempool not used.
 - [\#774](https://github.com/cosmos/evm/pull/774) Emit proper allowance amount in erc20 event.
+- [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
 
 ## v0.5.0
 
