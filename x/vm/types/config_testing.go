@@ -10,6 +10,7 @@ package types
 import (
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )

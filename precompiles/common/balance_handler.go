@@ -15,18 +15,29 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
+// BalanceHandlerFactory is a factory struct to create BalanceHandler instances.
+type BalanceHandlerFactory struct {
+	bankKeeper BankKeeper
+}
+
+// NewBalanceHandler creates a new BalanceHandler instance.
+func NewBalanceHandlerFactory(bankKeeper BankKeeper) *BalanceHandlerFactory {
+	return &BalanceHandlerFactory{
+		bankKeeper: bankKeeper,
+	}
+}
+
+func (bhf BalanceHandlerFactory) NewBalanceHandler() *BalanceHandler {
+	return &BalanceHandler{
+		bankKeeper:    bhf.bankKeeper,
+		prevEventsLen: 0,
+	}
+}
+
 // BalanceHandler is a struct that handles balance changes in the Cosmos SDK context.
 type BalanceHandler struct {
 	bankKeeper    BankKeeper
 	prevEventsLen int
-}
-
-// NewBalanceHandler creates a new BalanceHandler instance.
-func NewBalanceHandler(bankKeeper BankKeeper) *BalanceHandler {
-	return &BalanceHandler{
-		bankKeeper:    bankKeeper,
-		prevEventsLen: 0,
-	}
 }
 
 // BeforeBalanceChange is called before any balance changes by precompile methods.

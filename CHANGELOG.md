@@ -4,6 +4,32 @@
 
 ### DEPENDENCIES
 
+### IMPROVEMENTS
+
+- [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+
+### FEATURES
+
+- [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
+- [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
+
+### BUG FIXES
+
+- [\#794](https://github.com/cosmos/evm/pull/794) Fix mempool.max-txs flag not using desired default of 0
+- [\#748](https://github.com/cosmos/evm/pull/748) Fix DynamicFeeChecker in Cosmos ante handler to respect NoBaseFee feemarkets' parameter.
+- [\#690](https://github.com/cosmos/evm/pull/690) Fix Ledger hardware wallet support for coin type 60.
+- [\#766](https://github.com/cosmos/evm/pull/766) Align gas estimation logic with go-ethereum v1.16.3
+- [\#769](https://github.com/cosmos/evm/pull/769) Fix erc20 ibc middleware to not to validate sender address format.
+- [\#756](https://github.com/cosmos/evm/pull/756) Fix error message typo in NewMsgCancelProposal.
+- [\#772](https://github.com/cosmos/evm/pull/772) Avoid panic on close if evm mempool not used.
+- [\#774](https://github.com/cosmos/evm/pull/774) Emit proper allowance amount in erc20 event.
+- [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
+- [\#800](https://github.com/cosmos/evm/pull/800) Fix denom exponent validation in virtual fee deduct in vm module.
+
+## v0.5.0
+
+### DEPENDENCIES
+
 ### BUG FIXES
 
 - [\#471](https://github.com/cosmos/evm/pull/471) Notify new block for mempool in time
@@ -22,9 +48,19 @@
 - [\#687](https://github.com/cosmos/evm/pull/687) Avoid blocking node shutdown when evm indexer is enabled, log startup failures instead of using errgroup.
 - [\#689](https://github.com/cosmos/evm/pull/689) Align debug addr for hex address.
 - [\#668](https://github.com/cosmos/evm/pull/668) Fix panic in legacy mempool when Reset() was called with a skipped header between old and new block.
+- [\#723](https://github.com/cosmos/evm/pull/723) Fix TransactionIndex in receipt generation to use actual EthTxIndex instead of loop index.
+- [\#729](https://github.com/cosmos/evm/pull/729) Remove non-deterministic state mutation from EVM pre-blocker.
+- [\#725](https://github.com/cosmos/evm/pull/725) Fix inconsistent block hash in json-rpc.
+- [\#727](https://github.com/cosmos/evm/pull/727) Avoid nil pointer for `tx evm raw` due to uninitialized EVM coin info.
+- [\#730](https://github.com/cosmos/evm/pull/730) Fix panic if evm mempool not used.
+- [\#733](https://github.com/cosmos/evm/pull/733) Avoid rejecting tx with unsupported extension option for ExtensionOptionDynamicFeeTx.
+- [\#736](https://github.com/cosmos/evm/pull/736) Add InitEvmCoinInfo upgrade to avoid panic when denom is not registered.
+- [\#732](https://github.com/cosmos/evm/pull/732) Fix gas meter race condition in integration tests
 
 ### IMPROVEMENTS
 
+- [\#708](https://github.com/cosmos/evm/pull/708) Add configurable testnet validator powers
+- [\#698](https://github.com/cosmos/evm/pull/698) Expose mempool configuration flags and move mempool configuration in app.go to helper
 - [\#538](https://github.com/cosmos/evm/pull/538) Optimize `eth_estimateGas` gRPC path: short-circuit plain transfers, add optimistic gas bound based on `MaxUsedGas`.
 - [\#513](https://github.com/cosmos/evm/pull/513) Replace `TestEncodingConfig` with production `EncodingConfig` in encoding package to remove test dependencies from production code.
 - [\#467](https://github.com/cosmos/evm/pull/467) Replace GlobalEVMMempool by passing to JSONRPC on initiate.
@@ -51,12 +87,14 @@
 - [\#684](https://github.com/cosmos/evm/pull/684) Add unit test cases for EIP-7702
 - [\#685](https://github.com/cosmos/evm/pull/685) Add EIP-7702 e2e test
 - [\#680](https://github.com/cosmos/evm/pull/680) Introduce a `StaticPrecompiles` builder
-- [\#691](https://github.com/cosmos/evm/pull/691) Add debug_traceCall api
 - [\#701](https://github.com/cosmos/evm/pull/701) Add address codec support to ERC20 IBC callbacks to handle hex addresses in addition to bech32 addresses.
-- [\#702](https://github.com/cosmos/evm/pull/702) Fix mempool e2e test
 - [\#704](https://github.com/cosmos/evm/pull/704) Fix EIP-7702 test cases
-- [\#706](https://github.com/cosmos/evm/pull/706) Fix EoA-CA Identification logic
-
+- [\#709](https://github.com/cosmos/evm/pull/709) Fix mempool e2e test
+- [\#710](https://github.com/cosmos/evm/pull/710) Fix EoA-CA Identification logic
+- [\#711](https://github.com/cosmos/evm/pull/711) Add debug_traceCall api
+- [\#720](https://github.com/cosmos/evm/pull/720) Refactor systemtests
+- [\#734](https://github.com/cosmos/evm/pull/734) Disable evm mempool if max-txs set to -1.
+- [\#743](https://github.com/cosmos/evm/pull/743) Apply state overrides to eth_estimateGas api
 
 ### FEATURES
 
@@ -75,7 +113,6 @@
 - [\#594](https://github.com/cosmos/evm/pull/594) Remove all usage of x/params
 - [\#577](https://github.com/cosmos/evm/pull/577) Changed the way to create a stateful precompile based on the cmn.Precompile, change `NewPrecompile` to not return error.
 - [\#661](https://github.com/cosmos/evm/pull/661) Removes evmAppOptions from the repository and moves initialization to genesis. Chains must now have a display and denom metadata set for the defined EVM denom in the bank module's metadata.
-
 
 ## v0.4.1
 

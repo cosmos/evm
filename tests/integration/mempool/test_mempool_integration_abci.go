@@ -166,6 +166,8 @@ func (s *IntegrationTestSuite) TestTransactionOrderingWithABCIMethodCalls() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 
@@ -372,6 +374,8 @@ func (s *IntegrationTestSuite) TestNonceGappedEVMTransactionsWithABCIMethodCalls
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			s.SetupTest()
 
 			txs, expTxHashes := tc.setupTxs()
@@ -479,6 +483,8 @@ func (s *IntegrationTestSuite) TestCheckTxHandlerForCommittedAndLowerNonceTxs() 
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean up previous test's resources before resetting
+			s.TearDownTest()
 			// Reset test setup to ensure clean state
 			s.SetupTest()
 

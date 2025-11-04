@@ -34,7 +34,7 @@ func (m *mockAccountKeeper) GetAccount(ctx context.Context, addr sdk.AccAddress)
 }
 func (m *mockAccountKeeper) SetAccount(ctx context.Context, account sdk.AccountI)    { m.last = account }
 func (m *mockAccountKeeper) RemoveAccount(ctx context.Context, account sdk.AccountI) {}
-func (m *mockAccountKeeper) GetParams(ctx context.Context) (params authtypes.Params) { return }
+func (m *mockAccountKeeper) GetParams(ctx context.Context) (params authtypes.Params) { return params }
 func (m *mockAccountKeeper) GetSequence(ctx context.Context, addr sdk.AccAddress) (uint64, error) {
 	if m.last == nil {
 		return 0, nil

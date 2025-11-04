@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cosmos/evm/utils"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/evm/utils"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -27,9 +28,9 @@ import (
 	cmtclient "github.com/cometbft/cometbft/rpc/client"
 
 	dbm "github.com/cosmos/cosmos-db"
-	evmconfig "github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
+	evmconfig "github.com/cosmos/evm/evmd/config"
 	"github.com/cosmos/evm/server/config"
 	evmtestutil "github.com/cosmos/evm/testutil"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -71,32 +72,33 @@ type AppConstructor = func(val Validator) servertypes.Application
 // Config defines the necessary configuration used to bootstrap and start an
 // in-process local testing network.
 type Config struct {
-	KeyringOptions    []keyring.Option // keyring configuration options
-	Codec             codec.Codec
-	LegacyAmino       *codec.LegacyAmino // TODO: Remove!
-	InterfaceRegistry codectypes.InterfaceRegistry
-	TxConfig          client.TxConfig
-	AccountRetriever  client.AccountRetriever
-	AppConstructor    AppConstructor           // the ABCI application constructor
-	GenesisState      evmtestutil.GenesisState // custom gensis state to provide
-	TimeoutCommit     time.Duration            // the consensus commitment timeout
-	AccountTokens     math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
-	StakingTokens     math.Int                 // the amount of tokens each validator has available to stake
-	BondedTokens      math.Int                 // the amount of tokens each validator stakes
-	NumValidators     int                      // the total number of validators to create and bond
-	ChainID           string                   // the network chain-id
-	EVMChainID        uint64
-	BondDenom         string // the staking bond denomination
-	MinGasPrices      string // the minimum gas prices each validator will accept
-	PruningStrategy   string // the pruning strategy each validator will have
-	SigningAlgo       string // signing algorithm for keys
-	RPCAddress        string // RPC listen address (including port)
-	JSONRPCAddress    string // JSON-RPC listen address (including port)
-	APIAddress        string // REST API listen address (including port)
-	GRPCAddress       string // GRPC server listen address (including port)
-	EnableCMTLogging  bool   // enable CometBFT logging to STDOUT
-	CleanupDir        bool   // remove base temporary directory during cleanup
-	PrintMnemonic     bool   // print the mnemonic of first validator as log output for testing
+	KeyringOptions           []keyring.Option // keyring configuration options
+	Codec                    codec.Codec
+	LegacyAmino              *codec.LegacyAmino // TODO: Remove!
+	InterfaceRegistry        codectypes.InterfaceRegistry
+	TxConfig                 client.TxConfig
+	AccountRetriever         client.AccountRetriever
+	AppConstructor           AppConstructor           // the ABCI application constructor
+	GenesisState             evmtestutil.GenesisState // custom gensis state to provide
+	TimeoutCommit            time.Duration            // the consensus commitment timeout
+	AccountTokens            math.Int                 // the amount of unique validator tokens (e.g. 1000node0)
+	StakingTokens            math.Int                 // the amount of tokens each validator has available to stake
+	BondedTokens             math.Int                 // the amount of tokens each validator stakes (used if BondedTokensPerValidator is nil)
+	BondedTokensPerValidator []math.Int               // optional per-validator bonded tokens (overrides BondedTokens if set)
+	NumValidators            int                      // the total number of validators to create and bond
+	ChainID                  string                   // the network chain-id
+	EVMChainID               uint64
+	BondDenom                string // the staking bond denomination
+	MinGasPrices             string // the minimum gas prices each validator will accept
+	PruningStrategy          string // the pruning strategy each validator will have
+	SigningAlgo              string // signing algorithm for keys
+	RPCAddress               string // RPC listen address (including port)
+	JSONRPCAddress           string // JSON-RPC listen address (including port)
+	APIAddress               string // REST API listen address (including port)
+	GRPCAddress              string // GRPC server listen address (including port)
+	EnableCMTLogging         bool   // enable CometBFT logging to STDOUT
+	CleanupDir               bool   // remove base temporary directory during cleanup
+	PrintMnemonic            bool   // print the mnemonic of first validator as log output for testing
 }
 
 // DefaultConfig returns a sane default configuration suitable for nearly all
@@ -424,10 +426,21 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
+		// determine validator bonded tokens
+		bondedTokens := cfg.BondedTokens
+		if len(cfg.BondedTokensPerValidator) > 0 {
+			if i < len(cfg.BondedTokensPerValidator) {
+				bondedTokens = cfg.BondedTokensPerValidator[i]
+			} else {
+				// use last value if not enough entries
+				bondedTokens = cfg.BondedTokensPerValidator[len(cfg.BondedTokensPerValidator)-1]
+			}
+		}
+
 		createValMsg, err := stakingtypes.NewMsgCreateValidator(
 			sdk.ValAddress(addr).String(),
 			valPubKeys[i],
-			sdk.NewCoin(cfg.BondDenom, cfg.BondedTokens),
+			sdk.NewCoin(cfg.BondDenom, bondedTokens),
 			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
 			stakingtypes.NewCommissionRates(commission, math.LegacyOneDec(), math.LegacyOneDec()),
 			math.OneInt(),
@@ -472,7 +485,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := evmconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.ExampleEIP155ChainID)
+		customAppTemplate, _ := evmconfig.InitAppConfig(testconstants.ExampleAttoDenom, testconstants.EighteenDecimalsChainID)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

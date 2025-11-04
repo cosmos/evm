@@ -6,40 +6,40 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/cosmos/evm/tests/systemtests/suite"
 	"github.com/stretchr/testify/require"
 )
 
-// TestEIP712BankSend tests that a bank send transaction can be signed and broadcast using EIP-712.
-func TestEIP712BankSend(t *testing.T) {
-	sut := NewSystemTestSuite(t)
-	sut.SetupTest(t)
+// RunEIP712BankSend tests that a bank send transaction can be signed and broadcast using EIP-712.
+func RunEIP712BankSend(t *testing.T, base *suite.BaseTestSuite) {
+	s := NewTestSuite(base)
+	s.SetupTest(t)
 
 	// Get initial nonce for acc0
+	acc0 := s.Acc(0)
+
 	gasPrice := big.NewInt(1000000000000)
 
 	// Send a bank send transaction from acc0 to acc1 using EIP-712 signing
-	from := sut.CosmosClient.Accs[sut.Acc(0)].AccAddress
-	cosmosAcc := sut.CosmosClient.Accs[sut.Acc(0)]
-	ctx := sut.CosmosClient.ClientCtx.WithClient(sut.CosmosClient.RpcClients["node0"])
-	account, err := ctx.AccountRetriever.GetAccount(ctx, cosmosAcc.AccAddress)
-	require.Nil(t, err)
-	to := sut.CosmosClient.Accs[sut.Acc(1)].AccAddress
+	from := acc0.Cosmos.AccAddress
+	to := s.Acc(1).Cosmos.AccAddress
 	amount := big.NewInt(1000000)
+	curNonceIdx := uint64(0)
 
-	txHash, err := sut.SendBankSendWithEIP712(
+	txHash, err := s.SendBankSendWithEIP712(
 		t,
-		sut.Node(0),
-		sut.Acc(0),
+		s.Node(0),
+		acc0.ID,
 		to,
 		amount,
-		account.GetSequence(),
+		curNonceIdx,
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send bank send with EIP-712")
 	require.NotEmpty(t, txHash, "Transaction hash should not be empty")
 
 	// Wait for the transaction to be committed
-	err = sut.WaitForCommit(sut.Node(0), txHash)
+	err = s.WaitForCommit(s.Node(0), txHash)
 	require.NoError(t, err, "Transaction should be committed successfully")
 
 	t.Logf("Successfully sent bank send transaction with EIP-712 signing: %s", txHash)
@@ -48,57 +48,59 @@ func TestEIP712BankSend(t *testing.T) {
 	t.Logf("Amount: %s", amount.String())
 }
 
-// TestEIP712BankSendWithBalanceCheck tests that a bank send transaction using EIP-712
+// RunEIP712BankSendWithBalanceCheck tests that a bank send transaction using EIP-712
 // correctly updates the balances of the sender and receiver.
-func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
-	sut := NewSystemTestSuite(t)
-	sut.SetupTest(t)
+func RunEIP712BankSendWithBalanceCheck(t *testing.T, base *suite.BaseTestSuite) {
+	s := NewTestSuite(base)
+	s.SetupTest(t)
+
+	signer := s.Acc(0)
 
 	denom := "atest"
 
 	// Get accounts
-	fromAddr := sut.CosmosClient.Accs[sut.Acc(0)].AccAddress
-	toAddr := sut.CosmosClient.Accs[sut.Acc(1)].AccAddress
+	fromAddr := signer.Cosmos.AccAddress
+	toAddr := s.Acc(1).Cosmos.AccAddress
 
 	// Get initial balances
-	initialFromBalance, err := sut.GetBalance(t, sut.Node(0), fromAddr, denom)
+	initialFromBalance, err := s.GetBalance(t, s.Node(0), fromAddr, denom)
 	require.NoError(t, err, "Failed to get initial balance for sender")
 	t.Logf("Initial sender balance: %s", initialFromBalance.String())
 
-	initialToBalance, err := sut.GetBalance(t, sut.Node(0), toAddr, denom)
+	initialToBalance, err := s.GetBalance(t, s.Node(0), toAddr, denom)
 	require.NoError(t, err, "Failed to get initial balance for receiver")
 	t.Logf("Initial receiver balance: %s", initialToBalance.String())
 
 	// Send a bank send transaction using EIP-712
-	nonce := uint64(0)
+	curNonceIdx := uint64(0)
 	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(5000000)
 
-	txHash, err := sut.SendBankSendWithEIP712(
+	txHash, err := s.SendBankSendWithEIP712(
 		t,
-		sut.Node(0),
-		sut.Acc(0),
+		s.Node(0),
+		signer.ID,
 		toAddr,
 		amount,
-		nonce,
+		curNonceIdx,
 		gasPrice,
 	)
 	require.NoError(t, err, "Failed to send bank send with EIP-712")
 	require.NotEmpty(t, txHash, "Transaction hash should not be empty")
 
 	// Wait for the transaction to be committed
-	err = sut.WaitForCommit(sut.Node(0), txHash)
+	err = s.WaitForCommit(s.Node(0), txHash)
 	require.NoError(t, err, "Transaction should be committed successfully")
 
 	// Wait for one more block to ensure balance updates are finalized
-	sut.AwaitNBlocks(t, 1)
+	s.AwaitNBlocks(t, 1)
 
 	// Get final balances
-	finalFromBalance, err := sut.GetBalance(t, sut.Node(0), fromAddr, denom)
+	finalFromBalance, err := s.GetBalance(t, s.Node(0), fromAddr, denom)
 	require.NoError(t, err, "Failed to get final balance for sender")
 	t.Logf("Final sender balance: %s", finalFromBalance.String())
 
-	finalToBalance, err := sut.GetBalance(t, sut.Node(0), toAddr, denom)
+	finalToBalance, err := s.GetBalance(t, s.Node(0), toAddr, denom)
 	require.NoError(t, err, "Failed to get final balance for receiver")
 	t.Logf("Final receiver balance: %s", finalToBalance.String())
 
@@ -119,20 +121,23 @@ func TestEIP712BankSendWithBalanceCheck(t *testing.T) {
 	t.Logf("Receiver balance change: %s", new(big.Int).Sub(finalToBalance, initialToBalance).String())
 }
 
-// TestEIP712MultipleBankSends tests that multiple bank send transactions can be sent
+// RunEIP712MultipleBankSends tests that multiple bank send transactions can be sent
 // sequentially using EIP-712 signing with correct nonce management.
-func TestEIP712MultipleBankSends(t *testing.T) {
-	sut := NewSystemTestSuite(t)
-	sut.SetupTest(t)
+func RunEIP712MultipleBankSends(t *testing.T, base *suite.BaseTestSuite) {
+	s := NewTestSuite(base)
+	s.SetupTest(t)
+
+	signer := s.Acc(0)
 
 	denom := "atest"
-	toAddr := sut.CosmosClient.Accs[sut.Acc(1)].AccAddress
+	toAddr := s.Acc(1).Cosmos.AccAddress
 
 	// Get initial balance
-	initialBalance, err := sut.GetBalance(t, sut.Node(0), toAddr, denom)
+	initialBalance, err := s.GetBalance(t, s.Node(0), toAddr, denom)
 	require.NoError(t, err, "Failed to get initial balance")
 	t.Logf("Initial receiver balance: %s", initialBalance.String())
 
+	curNonceIdx := uint64(0)
 	gasPrice := big.NewInt(1000000000000)
 	amount := big.NewInt(1000000)
 	numTxs := 3
@@ -141,13 +146,13 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 
 	// Send multiple transactions with sequential nonces
 	for i := 0; i < numTxs; i++ {
-		txHash, err := sut.SendBankSendWithEIP712(
+		txHash, err := s.SendBankSendWithEIP712(
 			t,
-			sut.Node(0),
-			sut.Acc(0),
+			s.Node(0),
+			signer.ID,
 			toAddr,
 			amount,
-			uint64(i),
+			curNonceIdx,
 			gasPrice,
 		)
 		require.NoError(t, err, "Failed to send transaction %d", i)
@@ -156,15 +161,15 @@ func TestEIP712MultipleBankSends(t *testing.T) {
 		t.Logf("Sent transaction %d with hash: %s", i, txHash)
 
 		// Wait for the transaction to be committed
-		err = sut.WaitForCommit(sut.Node(0), txHash)
+		err = s.WaitForCommit(s.Node(0), txHash)
 		require.NoError(t, err, "Transaction %d should be committed successfully", i)
 	}
 
 	// Wait for one more block to ensure all balance updates are finalized
-	sut.AwaitNBlocks(t, 1)
+	s.AwaitNBlocks(t, 1)
 
 	// Get final balance
-	finalBalance, err := sut.GetBalance(t, sut.Node(0), toAddr, denom)
+	finalBalance, err := s.GetBalance(t, s.Node(0), toAddr, denom)
 	require.NoError(t, err, "Failed to get final balance")
 	t.Logf("Final receiver balance: %s", finalBalance.String())
 

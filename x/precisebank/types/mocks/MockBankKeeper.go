@@ -50,7 +50,7 @@ type BankKeeper_BlockedAddr_Call struct {
 
 // BlockedAddr is a helper method to define mock.On call
 //   - addr types.AccAddress
-func (_e *BankKeeper_Expecter) BlockedAddr(addr interface{}) *BankKeeper_BlockedAddr_Call {
+func (_e *BankKeeper_Expecter) BlockedAddr(addr any) *BankKeeper_BlockedAddr_Call {
 	return &BankKeeper_BlockedAddr_Call{Call: _e.mock.On("BlockedAddr", addr)}
 }
 
@@ -98,7 +98,7 @@ type BankKeeper_BurnCoins_Call struct {
 //   - ctx context.Context
 //   - moduleName string
 //   - amt types.Coins
-func (_e *BankKeeper_Expecter) BurnCoins(ctx interface{}, moduleName interface{}, amt interface{}) *BankKeeper_BurnCoins_Call {
+func (_e *BankKeeper_Expecter) BurnCoins(ctx any, moduleName any, amt any) *BankKeeper_BurnCoins_Call {
 	return &BankKeeper_BurnCoins_Call{Call: _e.mock.On("BurnCoins", ctx, moduleName, amt)}
 }
 
@@ -147,7 +147,7 @@ type BankKeeper_GetAllBalances_Call struct {
 // GetAllBalances is a helper method to define mock.On call
 //   - ctx context.Context
 //   - addr types.AccAddress
-func (_e *BankKeeper_Expecter) GetAllBalances(ctx interface{}, addr interface{}) *BankKeeper_GetAllBalances_Call {
+func (_e *BankKeeper_Expecter) GetAllBalances(ctx any, addr any) *BankKeeper_GetAllBalances_Call {
 	return &BankKeeper_GetAllBalances_Call{Call: _e.mock.On("GetAllBalances", ctx, addr)}
 }
 
@@ -195,7 +195,7 @@ type BankKeeper_GetBalance_Call struct {
 //   - ctx context.Context
 //   - addr types.AccAddress
 //   - denom string
-func (_e *BankKeeper_Expecter) GetBalance(ctx interface{}, addr interface{}, denom interface{}) *BankKeeper_GetBalance_Call {
+func (_e *BankKeeper_Expecter) GetBalance(ctx any, addr any, denom any) *BankKeeper_GetBalance_Call {
 	return &BankKeeper_GetBalance_Call{Call: _e.mock.On("GetBalance", ctx, addr, denom)}
 }
 
@@ -252,7 +252,7 @@ type BankKeeper_GetDenomMetaData_Call struct {
 // GetDenomMetaData is a helper method to define mock.On call
 //   - ctx context.Context
 //   - denom string
-func (_e *BankKeeper_Expecter) GetDenomMetaData(ctx interface{}, denom interface{}) *BankKeeper_GetDenomMetaData_Call {
+func (_e *BankKeeper_Expecter) GetDenomMetaData(ctx any, denom any) *BankKeeper_GetDenomMetaData_Call {
 	return &BankKeeper_GetDenomMetaData_Call{Call: _e.mock.On("GetDenomMetaData", ctx, denom)}
 }
 
@@ -299,7 +299,7 @@ type BankKeeper_GetSupply_Call struct {
 // GetSupply is a helper method to define mock.On call
 //   - ctx context.Context
 //   - denom string
-func (_e *BankKeeper_Expecter) GetSupply(ctx interface{}, denom interface{}) *BankKeeper_GetSupply_Call {
+func (_e *BankKeeper_Expecter) GetSupply(ctx any, denom any) *BankKeeper_GetSupply_Call {
 	return &BankKeeper_GetSupply_Call{Call: _e.mock.On("GetSupply", ctx, denom)}
 }
 
@@ -346,7 +346,7 @@ type BankKeeper_IsSendEnabledCoin_Call struct {
 // IsSendEnabledCoin is a helper method to define mock.On call
 //   - ctx context.Context
 //   - coin types.Coin
-func (_e *BankKeeper_Expecter) IsSendEnabledCoin(ctx interface{}, coin interface{}) *BankKeeper_IsSendEnabledCoin_Call {
+func (_e *BankKeeper_Expecter) IsSendEnabledCoin(ctx any, coin any) *BankKeeper_IsSendEnabledCoin_Call {
 	return &BankKeeper_IsSendEnabledCoin_Call{Call: _e.mock.On("IsSendEnabledCoin", ctx, coin)}
 }
 
@@ -369,11 +369,11 @@ func (_c *BankKeeper_IsSendEnabledCoin_Call) RunAndReturn(run func(context.Conte
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]interface{}, len(coins))
+	_va := make([]any, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -400,7 +400,7 @@ type BankKeeper_IsSendEnabledCoins_Call struct {
 // IsSendEnabledCoins is a helper method to define mock.On call
 //   - ctx context.Context
 //   - coins ...types.Coin
-func (_e *BankKeeper_Expecter) IsSendEnabledCoins(ctx interface{}, coins ...interface{}) *BankKeeper_IsSendEnabledCoins_Call {
+func (_e *BankKeeper_Expecter) IsSendEnabledCoins(ctx any, coins ...interface{}) *BankKeeper_IsSendEnabledCoins_Call {
 	return &BankKeeper_IsSendEnabledCoins_Call{Call: _e.mock.On("IsSendEnabledCoins",
 		append([]interface{}{ctx}, coins...)...)}
 }
@@ -677,6 +677,55 @@ func (_c *BankKeeper_SendCoinsFromAccountToModule_Call) RunAndReturn(run func(co
 	return _c
 }
 
+// SendCoinsFromAccountToModuleVirtual provides a mock function with given fields: ctx, senderAddr, recipientModule, amt
+func (_m *BankKeeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr types.AccAddress, recipientModule string, amt types.Coins) error {
+	ret := _m.Called(ctx, senderAddr, recipientModule, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendCoinsFromAccountToModuleVirtual")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, string, types.Coins) error); ok {
+		r0 = rf(ctx, senderAddr, recipientModule, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// BankKeeper_SendCoinsFromAccountToModuleVirtual_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendCoinsFromAccountToModuleVirtual'
+type BankKeeper_SendCoinsFromAccountToModuleVirtual_Call struct {
+	*mock.Call
+}
+
+// SendCoinsFromAccountToModuleVirtual is a helper method to define mock.On call
+//   - ctx context.Context
+//   - senderAddr types.AccAddress
+//   - recipientModule string
+//   - amt types.Coins
+func (_e *BankKeeper_Expecter) SendCoinsFromAccountToModuleVirtual(ctx interface{}, senderAddr interface{}, recipientModule interface{}, amt interface{}) *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call {
+	return &BankKeeper_SendCoinsFromAccountToModuleVirtual_Call{Call: _e.mock.On("SendCoinsFromAccountToModuleVirtual", ctx, senderAddr, recipientModule, amt)}
+}
+
+func (_c *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call) Run(run func(ctx context.Context, senderAddr types.AccAddress, recipientModule string, amt types.Coins)) *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(types.AccAddress), args[2].(string), args[3].(types.Coins))
+	})
+	return _c
+}
+
+func (_c *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call) Return(_a0 error) *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call) RunAndReturn(run func(context.Context, types.AccAddress, string, types.Coins) error) *BankKeeper_SendCoinsFromAccountToModuleVirtual_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendCoinsFromModuleToAccount provides a mock function with given fields: ctx, senderModule, recipientAddr, amt
 func (_m *BankKeeper) SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
 	ret := _m.Called(ctx, senderModule, recipientAddr, amt)
@@ -722,6 +771,55 @@ func (_c *BankKeeper_SendCoinsFromModuleToAccount_Call) Return(_a0 error) *BankK
 }
 
 func (_c *BankKeeper_SendCoinsFromModuleToAccount_Call) RunAndReturn(run func(context.Context, string, types.AccAddress, types.Coins) error) *BankKeeper_SendCoinsFromModuleToAccount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendCoinsFromModuleToAccountVirtual provides a mock function with given fields: ctx, senderModule, recipientAddr, amt
+func (_m *BankKeeper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
+	ret := _m.Called(ctx, senderModule, recipientAddr, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendCoinsFromModuleToAccountVirtual")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, types.AccAddress, types.Coins) error); ok {
+		r0 = rf(ctx, senderModule, recipientAddr, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// BankKeeper_SendCoinsFromModuleToAccountVirtual_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendCoinsFromModuleToAccountVirtual'
+type BankKeeper_SendCoinsFromModuleToAccountVirtual_Call struct {
+	*mock.Call
+}
+
+// SendCoinsFromModuleToAccountVirtual is a helper method to define mock.On call
+//   - ctx context.Context
+//   - senderModule string
+//   - recipientAddr types.AccAddress
+//   - amt types.Coins
+func (_e *BankKeeper_Expecter) SendCoinsFromModuleToAccountVirtual(ctx interface{}, senderModule interface{}, recipientAddr interface{}, amt interface{}) *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call {
+	return &BankKeeper_SendCoinsFromModuleToAccountVirtual_Call{Call: _e.mock.On("SendCoinsFromModuleToAccountVirtual", ctx, senderModule, recipientAddr, amt)}
+}
+
+func (_c *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call) Run(run func(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins)) *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(types.AccAddress), args[3].(types.Coins))
+	})
+	return _c
+}
+
+func (_c *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call) Return(_a0 error) *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call) RunAndReturn(run func(context.Context, string, types.AccAddress, types.Coins) error) *BankKeeper_SendCoinsFromModuleToAccountVirtual_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -862,7 +960,8 @@ func (_c *BankKeeper_SpendableCoin_Call) RunAndReturn(run func(context.Context, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

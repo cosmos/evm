@@ -685,7 +685,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 	msg2.From = addr.Bytes()
 
 	ethTx3Params := &types.EvmTxArgs{
-		ChainID:   big.NewInt(testconstants.ExampleEIP155ChainID),
+		ChainID:   big.NewInt(testconstants.EighteenDecimalsChainID),
 		Nonce:     0,
 		To:        &toAddr,
 		Amount:    common.Big1,
@@ -753,7 +753,7 @@ func (s *KeeperTestSuite) TestAddLog() {
 			s.SetupTest()
 			vmdb := statedb.New(s.Network.GetContext(), s.Network.App.GetEVMKeeper(), statedb.NewTxConfig(
 				tc.hash,
-				0, 0,
+				0,
 			))
 			tc.malleate(vmdb)
 

@@ -82,7 +82,16 @@ type EVMMempoolConfig struct {
 // It initializes both EVM and Cosmos transaction pools, sets up blockchain interfaces,
 // and configures fee-based prioritization. The config parameter allows customization
 // of pools and verification functions, with sensible defaults created if not provided.
-func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sdk.Context, error), logger log.Logger, vmKeeper VMKeeperI, feeMarketKeeper FeeMarketKeeperI, txConfig client.TxConfig, clientCtx client.Context, config *EVMMempoolConfig) *ExperimentalEVMMempool {
+func NewExperimentalEVMMempool(
+	getCtxCallback func(height int64, prove bool) (sdk.Context, error),
+	logger log.Logger,
+	vmKeeper VMKeeperI,
+	feeMarketKeeper FeeMarketKeeperI,
+	txConfig client.TxConfig,
+	clientCtx client.Context,
+	config *EVMMempoolConfig,
+	cosmosPoolMaxTx int,
+) *ExperimentalEVMMempool {
 	var (
 		cosmosPool sdkmempool.ExtMempool
 		blockchain *Blockchain
@@ -137,6 +146,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		panic("tx pool should contain only legacypool")
 	}
 
+	// TODO: move this logic to evmd.createMempoolConfig and set the max tx there
 	// Create Cosmos Mempool from configuration
 	cosmosPoolConfig := config.CosmosPoolConfig
 	if cosmosPoolConfig == nil {
@@ -166,6 +176,7 @@ func NewExperimentalEVMMempool(getCtxCallback func(height int64, prove bool) (sd
 		cosmosPoolConfig = &defaultConfig
 	}
 
+	cosmosPoolConfig.MaxTx = cosmosPoolMaxTx
 	cosmosPool = sdkmempool.NewPriorityMempool(*cosmosPoolConfig)
 
 	evmMempool := &ExperimentalEVMMempool{

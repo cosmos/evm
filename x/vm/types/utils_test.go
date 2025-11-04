@@ -372,7 +372,9 @@ func TestBinSearch(t *testing.T) {
 
 	gas, err := evmtypes.BinSearch(20000, 21001, successExecutable)
 	require.NoError(t, err)
-	require.Equal(t, gas, uint64(21000))
+	// The helper allows a ~1.5% error ratio, so the upper bound of 21001 is returned here.
+	// The RPC estimator still short-circuits native transfers to 21000 (see grpc_query.go).
+	require.Equal(t, gas, uint64(21001))
 
 	gas, err = evmtypes.BinSearch(20000, 21001, failedExecutable)
 	require.Error(t, err)

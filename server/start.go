@@ -185,6 +185,12 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(server.FlagMinRetainBlocks, 0, "Minimum block height offset during ABCI commit to prune CometBFT blocks")
 	cmd.Flags().String(srvflags.AppDBBackend, "", "The type of database for application and snapshots databases")
 
+	cmd.Flags().Int(server.FlagMempoolMaxTxs, 0, "The maximum number of transactions in the mempool")
+	// explicitly override the app.toml default value, as normally config file takes precedence over flag defaults
+	if err := cmd.Flags().Set(server.FlagMempoolMaxTxs, "0"); err != nil {
+		panic(err)
+	}
+
 	cmd.Flags().Bool(srvflags.GRPCOnly, false, "Start the node in gRPC query only mode without CometBFT process")
 	cmd.Flags().Bool(srvflags.GRPCEnable, cosmosevmserverconfig.DefaultGRPCEnable, "Define if the gRPC server should be enabled")
 	cmd.Flags().String(srvflags.GRPCAddress, serverconfig.DefaultGRPCAddress, "the gRPC server address to listen on")
@@ -222,6 +228,14 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMChainID, cosmosevmserverconfig.DefaultEVMChainID, "the EIP-155 compatible replay protection chain ID")
 	cmd.Flags().Uint64(srvflags.EVMMinTip, cosmosevmserverconfig.DefaultEVMMinTip, "the minimum priority fee for the mempool")
 	cmd.Flags().String(srvflags.EvmGethMetricsAddress, cosmosevmserverconfig.DefaultGethMetricsAddress, "the address to bind the geth metrics server to")
+
+	cmd.Flags().Uint64(srvflags.EVMMempoolPriceLimit, cosmosevmserverconfig.DefaultMempoolConfig().PriceLimit, "the minimum gas price to enforce for acceptance into the pool (in wei)")
+	cmd.Flags().Uint64(srvflags.EVMMempoolPriceBump, cosmosevmserverconfig.DefaultMempoolConfig().PriceBump, "the minimum price bump percentage to replace an already existing transaction (nonce)")
+	cmd.Flags().Uint64(srvflags.EVMMempoolAccountSlots, cosmosevmserverconfig.DefaultMempoolConfig().AccountSlots, "the number of executable transaction slots guaranteed per account")
+	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalSlots, cosmosevmserverconfig.DefaultMempoolConfig().GlobalSlots, "the maximum number of executable transaction slots for all accounts")
+	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
+	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
+	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
 
 	cmd.Flags().String(srvflags.TLSCertPath, "", "the cert.pem file path for the server TLS configuration")
 	cmd.Flags().String(srvflags.TLSKeyPath, "", "the key.pem file path for the server TLS configuration")
@@ -435,7 +449,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			return err
 		}
 
-		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok {
+		if m, ok := evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool); ok && m != nil {
 			m.SetEventBus(bftNode.EventBus())
 		}
 		defer func() {
@@ -560,7 +574,7 @@ func OpenIndexerDB(rootDir string, backendType dbm.BackendType) (dbm.DB, error) 
 // - traceWriterFile: The path to the trace store file. If this is an empty string, no file will be opened.
 func openTraceWriter(traceWriterFile string) (w io.Writer, err error) {
 	if traceWriterFile == "" {
-		return
+		return w, err
 	}
 
 	filePath := filepath.Clean(traceWriterFile)

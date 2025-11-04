@@ -25,13 +25,12 @@ func (b *Backend) RPCHeaderFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) (map[string]interface{}, error) {
-	cmtBlock := resBlock.Block
 	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
 
-	return rpctypes.RPCMarshalHeader(ethBlock.Header(), cmtBlock.Header), nil
+	return rpctypes.RPCMarshalHeader(ethBlock.Header(), resBlock.BlockID.Hash), nil
 }
 
 // RPCBlockFromCometBlock returns a JSON-RPC compatible Ethereum block from a
@@ -41,14 +40,13 @@ func (b *Backend) RPCBlockFromCometBlock(
 	blockRes *cmtrpctypes.ResultBlockResults,
 	fullTx bool,
 ) (map[string]interface{}, error) {
-	cmtBlock := resBlock.Block
 	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
 	ethBlock, err := b.EthBlockFromCometBlock(resBlock, blockRes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rpc block from comet block: %w", err)
 	}
 
-	return rpctypes.RPCMarshalBlock(ethBlock, cmtBlock, msgs, true, fullTx, b.ChainConfig())
+	return rpctypes.RPCMarshalBlock(ethBlock, resBlock, msgs, true, fullTx, b.ChainConfig())
 }
 
 // BlockNumberFromComet returns the BlockNumber from BlockNumberOrHash
@@ -235,7 +233,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		b.Logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", resBlock.Block.Height, "error", err)
 	}
 
-	blockHash := common.BytesToHash(resBlock.Block.Header.Hash())
+	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
 	receipts := make([]*ethtypes.Receipt, len(msgs))
 	cumulatedGasUsed := uint64(0)
 	for i, ethMsg := range msgs {
@@ -298,7 +296,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// transaction corresponding to this receipt.
 			BlockHash:        blockHash,
 			BlockNumber:      big.NewInt(resBlock.Block.Height),
-			TransactionIndex: uint(i), // #nosec G115 -- checked for int overflow already
+			TransactionIndex: uint(i), // #nosec G115 -- no overflow here
 		}
 
 		receipts[i] = receipt

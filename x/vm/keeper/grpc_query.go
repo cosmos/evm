@@ -286,6 +286,14 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
+	var overrides *rpctypes.StateOverride
+	if len(req.Overrides) > 0 {
+		overrides = new(rpctypes.StateOverride)
+		if err := json.Unmarshal(req.Overrides, overrides); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid state overrides format: %s", err.Error()))
+		}
+	}
+
 	ctx := sdk.UnwrapSDKContext(c)
 
 	if req.GasCap < ethparams.TxGas {
@@ -300,7 +308,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo     = ethparams.TxGas - 1
+		lo     uint64
 		hi     uint64
 		gasCap uint64
 	)
@@ -402,8 +410,9 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 			// resetting the gasMeter after increasing the sequence to have an accurate gas estimation on EVM extensions transactions
 			tmpCtx = buildTraceCtx(tmpCtx, msg.GasLimit)
 		}
-		// pass false to not commit StateDB
-		rsp, err = k.ApplyMessageWithConfig(tmpCtx, *msg, nil, false, cfg, txConfig, false, nil)
+		// pass "commit" as false to avoid committing StateDB
+		// pass "internal" as true to avoid applying feemarketParams.MinGasMultiplier for gas estimation.
+		rsp, err = k.ApplyMessageWithConfig(tmpCtx, *msg, nil, false, cfg, txConfig, true, overrides)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) || errors.Is(err, core.ErrFloorDataGas) {
 				return true, nil, nil // Special case, raise gas limit
@@ -453,6 +462,12 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 		// If no larger allowance is available, fail fast
 		return nil, fmt.Errorf("gas required exceeds allowance (%d)", hi)
 	}
+	// For almost any transaction, the gas consumed by the unconstrained execution
+	// above lower-bounds the gas limit required for it to succeed. One exception
+	// is those that explicitly check gas remaining in order to execute within a
+	// given limit, but we probably don't want to return the lowest possible gas
+	// limit for these cases anyway.
+	lo = result.GasUsed - 1
 
 	// There's a fairly high chance for the transaction to execute successfully
 	// with gasLimit set to the first execution's usedGas + gasRefund. Explicitly
@@ -558,7 +573,6 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		rsp, _ := k.ApplyMessageWithConfig(ctx, *msg, nil, true, cfg, txConfig, false, nil)
 		if rsp != nil {
 			ctx.GasMeter().ConsumeGas(rsp.GasUsed, "evm predecessor tx")
-			txConfig.LogIndex += uint(len(rsp.Logs))
 		}
 	}
 
@@ -568,7 +582,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 		txConfig.TxIndex++
 	}
 
-	result, _, err := k.traceTx(ctx, cfg, txConfig, signer, tx, req.TraceConfig, false)
+	result, err := k.traceTx(ctx, cfg, txConfig, signer, tx, req.TraceConfig, false)
 	if err != nil {
 		// error will be returned with detail status from traceTx
 		return nil, err
@@ -636,11 +650,10 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 		ethTx := tx.AsTransaction()
 		txConfig.TxHash = ethTx.Hash()
 		txConfig.TxIndex = uint(i) //nolint:gosec // G115 // won't exceed uint64
-		traceResult, logIndex, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true)
+		traceResult, err := k.traceTx(ctx, cfg, txConfig, signer, ethTx, req.TraceConfig, true)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
-			txConfig.LogIndex = logIndex
 			result.Result = traceResult
 		}
 		results = append(results, &result)
@@ -715,7 +728,7 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	msg := args.ToMessage(baseFee, true, true)
 
 	// trace call
-	result, _, err := k.traceTxWithMsg(ctx, cfg, txConfig, msg, req.GetTraceConfig(), false)
+	result, err := k.traceTxWithMsg(ctx, cfg, txConfig, msg, req.GetTraceConfig(), false)
 	if err != nil {
 		// error will be returned with detail status from traceTx
 		return nil, err
@@ -731,7 +744,7 @@ func (k Keeper) TraceCall(c context.Context, req *types.QueryTraceCallRequest) (
 	}, nil
 }
 
-// traceTx do trace on one transaction, it returns a tuple: (traceResult, nextLogIndex, error).
+// traceTx do trace on one transaction, it returns a tuple: (traceResult, error).
 func (k *Keeper) traceTx(
 	ctx sdk.Context,
 	cfg *statedb.EVMConfig,
@@ -740,16 +753,16 @@ func (k *Keeper) traceTx(
 	tx *ethtypes.Transaction,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
-) (*any, uint, error) {
+) (*any, error) {
 	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
 	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return k.traceTxWithMsg(ctx, cfg, txConfig, msg, traceConfig, commitMessage)
 }
 
-// traceTxWithMsg do trace on one Ethereum message, it returns a tuple: (traceResult, nextLogIndex, error).
+// traceTxWithMsg do trace on one Ethereum message, it returns a tuple: (traceResult, error).
 func (k *Keeper) traceTxWithMsg(
 	ctx sdk.Context,
 	cfg *statedb.EVMConfig,
@@ -757,7 +770,7 @@ func (k *Keeper) traceTxWithMsg(
 	msg *core.Message,
 	traceConfig *types.TraceConfig,
 	commitMessage bool,
-) (*interface{}, uint, error) {
+) (*any, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer           *tracers.Tracer
@@ -809,14 +822,14 @@ func (k *Keeper) traceTxWithMsg(
 		}
 		if tracer, err = tracers.DefaultDirectory.New(traceConfig.Tracer, tCtx, cfg,
 			types.GetEthChainConfig()); err != nil {
-			return nil, 0, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 	}
 
 	// Define a meaningful timeout of a single transaction trace
 	if traceConfig.Timeout != "" {
 		if timeout, err = time.ParseDuration(traceConfig.Timeout); err != nil {
-			return nil, 0, status.Errorf(codes.InvalidArgument, "timeout value: %s", err.Error())
+			return nil, status.Errorf(codes.InvalidArgument, "timeout value: %s", err.Error())
 		}
 	}
 
@@ -833,18 +846,18 @@ func (k *Keeper) traceTxWithMsg(
 
 	// Build EVM execution context
 	ctx = buildTraceCtx(ctx, msg.GasLimit)
-	res, err := k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig, false, nil)
+	_, err = k.ApplyMessageWithConfig(ctx, *msg, tracer.Hooks, commitMessage, cfg, txConfig, false, nil)
 	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	var result interface{}
 	result, err = tracer.GetResult()
 	if err != nil {
-		return nil, 0, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &result, txConfig.LogIndex + uint(len(res.Logs)), nil
+	return &result, nil
 }
 
 // BaseFee implements the Query/BaseFee gRPC method

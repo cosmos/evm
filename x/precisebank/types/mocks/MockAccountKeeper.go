@@ -100,7 +100,7 @@ type AccountKeeper_GetModuleAccount_Call struct {
 // GetModuleAccount is a helper method to define mock.On call
 //   - ctx context.Context
 //   - moduleName string
-func (_e *AccountKeeper_Expecter) GetModuleAccount(ctx interface{}, moduleName interface{}) *AccountKeeper_GetModuleAccount_Call {
+func (_e *AccountKeeper_Expecter) GetModuleAccount(ctx any, moduleName any) *AccountKeeper_GetModuleAccount_Call {
 	return &AccountKeeper_GetModuleAccount_Call{Call: _e.mock.On("GetModuleAccount", ctx, moduleName)}
 }
 
@@ -148,7 +148,7 @@ type AccountKeeper_GetModuleAddress_Call struct {
 
 // GetModuleAddress is a helper method to define mock.On call
 //   - moduleName string
-func (_e *AccountKeeper_Expecter) GetModuleAddress(moduleName interface{}) *AccountKeeper_GetModuleAddress_Call {
+func (_e *AccountKeeper_Expecter) GetModuleAddress(moduleName any) *AccountKeeper_GetModuleAddress_Call {
 	return &AccountKeeper_GetModuleAddress_Call{Call: _e.mock.On("GetModuleAddress", moduleName)}
 }
 
@@ -205,7 +205,7 @@ type AccountKeeper_GetSequence_Call struct {
 // GetSequence is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 cosmos_sdktypes.AccAddress
-func (_e *AccountKeeper_Expecter) GetSequence(_a0 interface{}, _a1 interface{}) *AccountKeeper_GetSequence_Call {
+func (_e *AccountKeeper_Expecter) GetSequence(_a0 any, _a1 any) *AccountKeeper_GetSequence_Call {
 	return &AccountKeeper_GetSequence_Call{Call: _e.mock.On("GetSequence", _a0, _a1)}
 }
 

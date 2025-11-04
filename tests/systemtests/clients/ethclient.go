@@ -18,21 +18,20 @@ import (
 type EthClient struct {
 	ChainID *big.Int
 	Clients map[string]*ethclient.Client
-	Accs    map[string]*EthAccount
 }
 
-// NewEthClient creates a new EthClient instance.
-func NewEthClient() (*EthClient, error) {
+// NewEthClient creates a new EthClient instance and returns it together with the loaded accounts.
+func NewEthClient() (*EthClient, map[string]*EthAccount, error) {
 	config, err := NewConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config")
+		return nil, nil, fmt.Errorf("failed to load config")
 	}
 
 	clients := make(map[string]*ethclient.Client, 0)
 	for i, jsonrpcUrl := range config.JsonRPCUrls {
 		ethcli, err := ethclient.Dial(jsonrpcUrl)
 		if err != nil {
-			return nil, fmt.Errorf("failed to connecting node url: %s", jsonrpcUrl)
+			return nil, nil, fmt.Errorf("failed to connecting node url: %s", jsonrpcUrl)
 		}
 		clients[fmt.Sprintf("node%v", i)] = ethcli
 	}
@@ -41,7 +40,7 @@ func NewEthClient() (*EthClient, error) {
 	for i, privKey := range config.PrivKeys {
 		ecdsaPrivKey, err := crypto.HexToECDSA(privKey)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		address := crypto.PubkeyToAddress(ecdsaPrivKey.PublicKey)
 		acc := &EthAccount{
@@ -54,23 +53,22 @@ func NewEthClient() (*EthClient, error) {
 	return &EthClient{
 		ChainID: config.EVMChainID,
 		Clients: clients,
-		Accs:    accs,
-	}, nil
+	}, accs, nil
 }
 
-// Setup prepares the context, client, and address for the given node and account IDs.
-func (ec *EthClient) Setup(nodeID string, accID string) (context.Context, *ethclient.Client, common.Address) {
-	return context.Background(), ec.Clients[nodeID], ec.Accs[accID].Address
+// Setup prepares the context, client, and address for the given node and account.
+func (ec *EthClient) Setup(nodeID string, account *EthAccount) (context.Context, *ethclient.Client, common.Address) {
+	return context.Background(), ec.Clients[nodeID], account.Address
 }
 
 // SendRawTransaction sends a raw Ethereum transaction to the specified node.
 func (ec *EthClient) SendRawTransaction(
 	nodeID string,
-	accID string,
+	account *EthAccount,
 	tx *ethtypes.Transaction,
 ) (common.Hash, error) {
 	ethCli := ec.Clients[nodeID]
-	privKey := ec.Accs[accID].PrivKey
+	privKey := account.PrivKey
 
 	signer := ethtypes.NewLondonSigner(ec.ChainID)
 	signedTx, err := ethtypes.SignTx(tx, signer, privKey)
@@ -131,8 +129,9 @@ func (ec *EthClient) CheckTxsPending(
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for transaction %s", txHash)
 		case <-ticker.C:
-			pendingTxs, _, err := ec.TxPoolContent(nodeID)
+			pendingTxs, _, err := ec.TxPoolContent(ctx, nodeID)
 			if err != nil {
+				fmt.Printf("DEBUG: failed to get txpool content: %v", err)
 				continue // Retry on error
 			}
 
@@ -146,11 +145,11 @@ func (ec *EthClient) CheckTxsPending(
 }
 
 // TxPoolContent returns the pending and queued tx hashes in the tx pool of the given node
-func (ec *EthClient) TxPoolContent(nodeID string) (map[string]map[string]*EthRPCTransaction, map[string]map[string]*EthRPCTransaction, error) {
+func (ec *EthClient) TxPoolContent(ctx context.Context, nodeID string) (map[string]map[string]*EthRPCTransaction, map[string]map[string]*EthRPCTransaction, error) {
 	ethCli := ec.Clients[nodeID]
 
 	var result TxPoolResult
-	err := ethCli.Client().Call(&result, "txpool_content")
+	err := ethCli.Client().CallContext(ctx, &result, "txpool_content")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call txpool_content eth api: %v", err)
 	}
@@ -183,12 +182,7 @@ func extractTxHashesSorted(txMap map[string]map[string]*EthRPCTransaction) []str
 	return result
 }
 
-func (ec *EthClient) CodeAt(nodeID, accID string) ([]byte, error) {
-	acc := ec.Accs[accID]
-	if acc == nil {
-		return nil, fmt.Errorf("account %s not found", accID)
-	}
-
+func (ec *EthClient) CodeAt(nodeID string, account *EthAccount) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -197,9 +191,9 @@ func (ec *EthClient) CodeAt(nodeID, accID string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to query block number: %w", err)
 	}
 
-	code, err := ec.Clients[nodeID].CodeAt(ctx, acc.Address, big.NewInt(int64(blockNumber)))
+	code, err := ec.Clients[nodeID].CodeAt(ctx, account.Address, big.NewInt(int64(blockNumber)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query code for %s: %w", accID, err)
+		return nil, fmt.Errorf("failed to query code for %s: %w", account.Address.Hex(), err)
 	}
 
 	return code, nil

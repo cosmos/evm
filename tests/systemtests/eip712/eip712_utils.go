@@ -22,7 +22,8 @@ import (
 // BankSendWithEIP712 sends a bank send transaction using EIP-712 signing.
 func BankSendWithEIP712(
 	cosmosClient *clients.CosmosClient,
-	nodeID, accID string,
+	account *clients.CosmosAccount,
+	nodeID string,
 	from, to sdk.AccAddress,
 	amount sdkmath.Int,
 	nonce uint64,
@@ -30,14 +31,14 @@ func BankSendWithEIP712(
 ) (*sdk.TxResponse, error) {
 	cosmosClient.ClientCtx = cosmosClient.ClientCtx.WithClient(cosmosClient.RpcClients[nodeID])
 
-	privKey := cosmosClient.Accs[accID].PrivKey
+	privKey := account.PrivKey
 
 	// Query account number from chain
-	account, err := cosmosClient.ClientCtx.AccountRetriever.GetAccount(cosmosClient.ClientCtx, from)
+	accountInfo, err := cosmosClient.ClientCtx.AccountRetriever.GetAccount(cosmosClient.ClientCtx, from)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %v", err)
 	}
-	accountNumber := account.GetAccountNumber()
+	accountNumber := accountInfo.GetAccountNumber()
 
 	msg := banktypes.NewMsgSend(from, to, sdk.NewCoins(sdk.NewCoin("atest", amount)))
 
@@ -50,6 +51,9 @@ func BankSendWithEIP712(
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast tx: %v", err)
 	}
+
+	// This debug string is useful for transactions that don't yield an error until after they're broadcasted to the chain
+	fmt.Printf("DEBUG: CosmosClient BankSend: %s\n", resp.String())
 
 	return resp, nil
 }

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
@@ -85,6 +86,17 @@ func MustBeautifyTransaction(tx *gethtypes.Transaction) string {
 	}
 
 	return string(indentedTxJSON)
+}
+
+// ExtractRuntimeBytecodeHex strips the init code suffix (F3FE...) and returns the runtime bytecode as hex string with 0x prefix.
+func ExtractRuntimeBytecodeHex(creation []byte) (string, error) {
+	marker := []byte{0xf3, 0xfe}
+	idx := bytes.Index(creation, marker)
+	if idx == -1 {
+		return "", fmt.Errorf("runtime marker not found in creation bytecode")
+	}
+	runtime := creation[idx+len(marker):]
+	return hexutil.Encode(runtime), nil
 }
 
 func MustCalculateSlotKey(addr common.Address, slotIndex uint64) common.Hash {

@@ -23,11 +23,13 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -401,6 +403,104 @@ func TestCreateAccessList(t *testing.T) {
 			if tc.expectAccList {
 				require.NotNil(t, result.AccessList)
 			}
+		})
+	}
+}
+
+func buildMsgEthereumTx(t *testing.T) *evmtypes.MsgEthereumTx {
+	t.Helper()
+	from, _ := utiltx.NewAddrKey()
+	ethTxParams := evmtypes.EvmTxArgs{
+		ChainID:  new(big.Int).SetUint64(constants.ExampleChainID.EVMChainID),
+		Nonce:    uint64(0),
+		To:       &common.Address{},
+		Amount:   big.NewInt(0),
+		GasLimit: 100000,
+		GasPrice: big.NewInt(1),
+	}
+	msgEthereumTx := evmtypes.NewTx(&ethTxParams)
+	msgEthereumTx.From = from.Bytes()
+	return msgEthereumTx
+}
+
+type MockIndexer struct {
+	txResults map[common.Hash]*servertypes.TxResult
+}
+
+func (m *MockIndexer) LastIndexedBlock() (int64, error) {
+	return 0, nil
+}
+
+func (m *MockIndexer) IndexBlock(block *tmtypes.Block, txResults []*abcitypes.ExecTxResult) error {
+	return nil
+}
+
+func (m *MockIndexer) GetByTxHash(hash common.Hash) (*servertypes.TxResult, error) {
+	if result, exists := m.txResults[hash]; exists {
+		return result, nil
+	}
+	return nil, nil
+}
+
+func (m *MockIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*servertypes.TxResult, error) {
+	return nil, nil
+}
+
+func TestReceiptsFromCometBlock(t *testing.T) {
+	backend := setupMockBackend(t)
+	height := int64(100)
+	resBlock := &tmrpctypes.ResultBlock{
+		Block: &tmtypes.Block{
+			Header: tmtypes.Header{
+				Height: height,
+			},
+		},
+	}
+	anyData := codectypes.UnsafePackAny(&evmtypes.MsgEthereumTxResponse{Hash: "hash"})
+	txMsgData := &sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyData}}
+	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
+	encodedData, err := encodingConfig.Codec.Marshal(txMsgData)
+	require.NoError(t, err)
+	blockRes := &tmrpctypes.ResultBlockResults{
+		Height:     height,
+		TxsResults: []*abcitypes.ExecTxResult{{Code: 0, Data: encodedData}},
+	}
+	tcs := []struct {
+		name       string
+		ethTxIndex int
+	}{
+		{"tx_with_index_5", 5},
+		{"tx_with_index_10", 10},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			var msgs []*evmtypes.MsgEthereumTx
+			for range tc.ethTxIndex + 1 {
+				msgs = append(msgs, buildMsgEthereumTx(t))
+			}
+			expectedTxResult := &servertypes.TxResult{
+				Height:     height,
+				TxIndex:    0,
+				EthTxIndex: int32(tc.ethTxIndex), // #nosec G115 -- no overflow here
+				MsgIndex:   0,
+			}
+			mockIndexer := &MockIndexer{
+				txResults: map[common.Hash]*servertypes.TxResult{
+					msgs[0].Hash(): expectedTxResult,
+				},
+			}
+			backend.Indexer = mockIndexer
+			mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
+			mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
+			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+			require.NoError(t, err)
+			require.Len(t, receipts, tc.ethTxIndex+1)
+			actualTxIndex := receipts[tc.ethTxIndex].TransactionIndex
+			require.NotEqual(t, uint(0), actualTxIndex)
+			require.Equal(t, uint(tc.ethTxIndex), actualTxIndex) // #nosec G115
+			require.Equal(t, msgs[tc.ethTxIndex].Hash(), receipts[tc.ethTxIndex].TxHash)
+			require.Equal(t, big.NewInt(height), receipts[tc.ethTxIndex].BlockNumber)
+			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[tc.ethTxIndex].Status)
 		})
 	}
 }
