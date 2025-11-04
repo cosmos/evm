@@ -9,27 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/tests/contracts"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
-type UserOperation struct {
-	Sender               common.Address
-	Nonce                *big.Int
-	InitCode             []byte
-	CallData             []byte
-	CallGasLimit         *big.Int
-	VerificationGasLimit *big.Int
-	PreVerificationGas   *big.Int
-	MaxFeePerGas         *big.Int
-	MaxPriorityFeePerGas *big.Int
-	PaymasterAndData     []byte
-	Signature            []byte
-}
-
-func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *UserOperation {
-	return &UserOperation{
+func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *contracts.UserOperation {
+	return &contracts.UserOperation{
 		Sender:               sender,
 		Nonce:                big.NewInt(int64(nonce)), //#nosec G115
 		InitCode:             []byte{},
@@ -44,7 +31,7 @@ func NewUserOperation(sender common.Address, nonce uint64, calldata []byte) *Use
 	}
 }
 
-func SignUserOperation(userOp *UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey) (*UserOperation, error) {
+func SignUserOperation(userOp *contracts.UserOperation, entryPointAddr common.Address, privKey cryptotypes.PrivKey) (*contracts.UserOperation, error) {
 	chainID := new(big.Int).SetUint64(evmtypes.GetChainConfig().GetChainId())
 
 	addressType, _ := abi.NewType("address", "", nil)

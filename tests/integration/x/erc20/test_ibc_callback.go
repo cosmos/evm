@@ -7,8 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/testutil"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/keeper"
@@ -344,7 +344,7 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 
 			if tc.checkBalances {
 				// Check ERC20 balances
-				balanceTokenAfter := s.network.App.GetErc20Keeper().BalanceOf(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, pair.GetERC20Contract(), common.BytesToAddress(tc.receiver.Bytes()))
+				balanceTokenAfter := s.network.App.GetErc20Keeper().BalanceOf(ctx, pair.GetERC20Contract(), common.BytesToAddress(tc.receiver.Bytes()))
 				s.Require().Equal(tc.expErc20s.Int64(), balanceTokenAfter.Int64())
 				// Check Cosmos Coin Balances
 				balances := s.network.App.GetBankKeeper().GetAllBalances(ctx, tc.receiver)
@@ -427,7 +427,8 @@ func (s *KeeperTestSuite) TestConvertCoinToERC20FromPacket() {
 				)
 				s.Require().NoError(err)
 
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(10))
+				args := erc20testdata.NewMintCall(types.ModuleAddress, big.NewInt(10))
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, args, s.keyring.GetAddr(0), contractAddr, true, nil)
 				s.Require().NoError(err)
 
 				return transfertypes.NewFungibleTokenPacketData(pair.Denom, "10", senderAddr, "", "")
@@ -563,7 +564,8 @@ func (s *KeeperTestSuite) TestOnAcknowledgementPacket() {
 				)
 				s.Require().NoError(err)
 
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(100))
+				args := erc20testdata.NewMintCall(types.ModuleAddress, big.NewInt(100))
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, args, s.keyring.GetAddr(0), contractAddr, true, nil)
 				s.Require().NoError(err)
 
 				ack = channeltypes.NewErrorAcknowledgement(errors.New("error"))
@@ -628,7 +630,7 @@ func (s *KeeperTestSuite) TestOnAcknowledgementPacket() {
 				s.Require().NoError(err)
 				// check balance is the same as expected
 				balance := s.network.App.GetErc20Keeper().BalanceOf(
-					ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI,
+					ctx,
 					pair.GetERC20Contract(),
 					common.BytesToAddress(sender.Bytes()),
 				)
@@ -669,7 +671,8 @@ func (s *KeeperTestSuite) TestOnTimeoutPacket() {
 				pair, _ = s.network.App.GetErc20Keeper().GetTokenPair(ctx, id)
 				s.Require().NotNil(pair)
 
-				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI, s.keyring.GetAddr(0), contractAddr, true, nil, "mint", types.ModuleAddress, big.NewInt(100))
+				args := erc20testdata.NewMintCall(types.ModuleAddress, big.NewInt(100))
+				_, err = s.network.App.GetEVMKeeper().CallEVM(ctx, args, s.keyring.GetAddr(0), contractAddr, true, nil)
 				s.Require().NoError(err)
 
 				// Fund module account with ATOM, ERC20 coins and IBC vouchers
@@ -758,7 +761,7 @@ func (s *KeeperTestSuite) TestOnTimeoutPacket() {
 				s.Require().NoError(err)
 				// check balance is the same as expected
 				balance := s.network.App.GetErc20Keeper().BalanceOf(
-					ctx, contracts.ERC20MinterBurnerDecimalsContract.ABI,
+					ctx,
 					pair.GetERC20Contract(),
 					common.BytesToAddress(sender.Bytes()),
 				)

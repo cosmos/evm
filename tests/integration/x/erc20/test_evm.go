@@ -126,8 +126,7 @@ func (s *KeeperTestSuite) TestBalanceOf() {
 
 		tc.malleate()
 
-		abi := contracts.ERC20MinterBurnerDecimalsContract.ABI
-		balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), abi, contract, utiltx.GenerateAddress())
+		balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), contract, utiltx.GenerateAddress())
 		if tc.res {
 			s.Require().Equal(balance.Int64(), tc.expBalance)
 		} else {

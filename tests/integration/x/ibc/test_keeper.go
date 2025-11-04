@@ -10,6 +10,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/contracts"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	cmnfactory "github.com/cosmos/evm/testutil/integration/base/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -149,11 +150,7 @@ func (s *KeeperTestSuite) MintERC20Token(contractAddr, to common.Address, amount
 		evmtypes.EvmTxArgs{
 			To: &contractAddr,
 		},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "mint",
-			Args:        []interface{}{to, amount},
-		},
+		erc20testdata.NewMintCall(to, amount),
 	)
 	if err != nil {
 		return res, err

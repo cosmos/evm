@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/precompiles/erc20"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	testcontracts "github.com/cosmos/evm/precompiles/testutil/contracts"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -104,11 +106,7 @@ func (s *NestedEVMExtensionCallSuite) SetupTest() {
 	_, err = s.factory.ExecuteContractCall(
 		s.deployer.Priv,
 		evmtypes.EvmTxArgs{To: &s.erc20Addr},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "mint",
-			Args:        []interface{}{s.deployer.Addr, s.mintAmount},
-		},
+		erc20testdata.NewMintCall(s.deployer.Addr, s.mintAmount),
 	)
 	s.Require().NoError(err, "failed to mint tokens")
 	s.Require().NoError(s.network.NextBlock(), "failed to commit block")
@@ -127,11 +125,7 @@ func (s *NestedEVMExtensionCallSuite) SetupTest() {
 	_, err = s.factory.ExecuteContractCall(
 		s.deployer.Priv,
 		evmtypes.EvmTxArgs{To: &s.erc20Addr},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "approve",
-			Args:        []interface{}{s.flashLoanAddr, s.mintAmount},
-		},
+		erc20.NewApproveCall(s.flashLoanAddr, s.mintAmount),
 	)
 	s.Require().NoError(err, "failed to approve flash loan contract")
 	s.Require().NoError(s.network.NextBlock(), "failed to commit block")
@@ -140,11 +134,7 @@ func (s *NestedEVMExtensionCallSuite) SetupTest() {
 	res, err := s.factory.ExecuteContractCall(
 		s.deployer.Priv,
 		evmtypes.EvmTxArgs{To: &s.erc20Addr},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "allowance",
-			Args:        []interface{}{s.deployer.Addr, s.flashLoanAddr},
-		},
+		erc20.NewAllowanceCall(s.deployer.Addr, s.flashLoanAddr),
 	)
 	s.Require().NoError(err, "failed to get allowance")
 	s.Require().NoError(s.network.NextBlock(), "failed to commit block")

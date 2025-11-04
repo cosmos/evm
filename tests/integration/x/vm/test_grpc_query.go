@@ -1686,10 +1686,6 @@ func (s *KeeperTestSuite) TestTraceCall() {
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
 
-	// Load ERC20 contract
-	erc20Contract, err := testdata.LoadERC20Contract()
-	s.Require().NoError(err)
-
 	// Deploy ERC20 contract for testing
 	senderKey := s.Keyring.GetKey(0)
 	contractAddr, err := deployErc20Contract(senderKey, s.Factory)
@@ -2464,10 +2460,9 @@ func executeTransferCall(
 	transferArgs := types.EvmTxArgs{
 		To: &transferParams.contractAddr,
 	}
-	input, err := factory.GenerateContractCallArgs(&erc20.TransferCall{
-		To:     transferParams.recipientAddr,
-		Amount: big.NewInt(1000),
-	})
+	callArgs := erc20.NewTransferCall(transferParams.recipientAddr, big.NewInt(1000))
+
+	input, err := factory.GenerateContractCallArgs(callArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -2483,7 +2478,7 @@ func executeTransferCall(
 		return nil, fmt.Errorf("invalid type")
 	}
 
-	result, err := txFactory.ExecuteContractCall(transferParams.senderKey.Priv, transferArgs, testutiltypes.CallArgs{})
+	result, err := txFactory.ExecuteContractCall(transferParams.senderKey.Priv, transferArgs, callArgs)
 	if err != nil || !result.IsOK() {
 		return nil, err
 	}

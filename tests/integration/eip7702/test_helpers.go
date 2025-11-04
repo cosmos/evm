@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"github.com/yihuang/go-abi"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
@@ -14,9 +15,10 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
+	"github.com/cosmos/evm/tests/contracts"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -78,11 +80,7 @@ func (s *IntegrationTestSuite) initSmartWallet(key testkeyring.Key, entryPointAd
 		To:       &key.Addr,
 		GasLimit: DefaultGasLimit,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: s.smartWalletContract.ABI,
-		MethodName:  "initialize",
-		Args:        []interface{}{key.Addr, entryPointAddr},
-	}
+	callArgs := contracts.NewInitializeCall(key.Addr, entryPointAddr)
 	res, ethRes, err := s.factory.CallContractAndCheckLogs(key.Priv, txArgs, callArgs, logCheck)
 	if err != nil {
 		return abcitypes.ExecTxResult{}, nil, fmt.Errorf("error while initializing smart wallet: %w", err)
@@ -91,14 +89,13 @@ func (s *IntegrationTestSuite) initSmartWallet(key testkeyring.Key, entryPointAd
 }
 
 func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPointAddr common.Address) {
+	var callArgs abi.Method
+
 	// Get smart wallet owner
 	txArgs := evmtypes.EvmTxArgs{
 		To: &key.Addr,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: s.smartWalletContract.ABI,
-		MethodName:  "owner",
-	}
+	callArgs = contracts.NewOwnerCall()
 	ethRes, err := s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
 	Expect(err).To(BeNil(), "error while querying owner of smart wallet")
 	Expect(ethRes.Ret).NotTo(BeNil())
@@ -113,10 +110,7 @@ func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPoi
 	txArgs = evmtypes.EvmTxArgs{
 		To: &key.Addr,
 	}
-	callArgs = testutiltypes.CallArgs{
-		ContractABI: s.smartWalletContract.ABI,
-		MethodName:  "entryPoint",
-	}
+	callArgs = contracts.NewEntryPointCall()
 	ethRes, err = s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
 	Expect(err).To(BeNil(), "error while querying owner of smart wallet")
 	Expect(ethRes.Ret).NotTo(BeNil())
@@ -128,18 +122,12 @@ func (s *IntegrationTestSuite) checkInitEntrypoint(key testkeyring.Key, entryPoi
 	Expect(entryPoint).To(Equal(entryPointAddr))
 }
 
-func (s *IntegrationTestSuite) handleUserOps(key testkeyring.Key, userOps []UserOperation, eventCheck testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
+func (s *IntegrationTestSuite) handleUserOps(key testkeyring.Key, userOps []contracts.UserOperation, eventCheck testutil.LogCheckArgs) (abcitypes.ExecTxResult, *evmtypes.MsgEthereumTxResponse, error) {
 	txArgs := evmtypes.EvmTxArgs{
 		To:       &s.entryPointAddr,
 		GasLimit: DefaultGasLimit,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: s.entryPointContract.ABI,
-		MethodName:  "handleOps",
-		Args: []interface{}{
-			userOps,
-		},
-	}
+	callArgs := contracts.NewHandleOpsCall(userOps)
 	return s.factory.CallContractAndCheckLogs(key.Priv, txArgs, callArgs, eventCheck)
 }
 
@@ -152,11 +140,7 @@ func (s *IntegrationTestSuite) getERC20Balance(addr common.Address) *big.Int {
 	txArgs := evmtypes.EvmTxArgs{
 		To: &s.erc20Addr,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: s.erc20Contract.ABI,
-		MethodName:  "balanceOf",
-		Args:        []interface{}{addr},
-	}
+	callArgs := erc20.NewBalanceOfCall(addr)
 	ethRes, err := s.factory.QueryContract(txArgs, callArgs, DefaultGasLimit)
 	Expect(err).To(BeNil(), "error while calling erc20 balanceOf")
 

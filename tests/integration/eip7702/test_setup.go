@@ -148,11 +148,7 @@ func (s *IntegrationTestSuite) loadContracts() {
 	Expect(err).To(BeNil(), "failed to load SimpleSmartWallet contract")
 	s.smartWalletContract = smartWalletContract
 
-	logCheck = logCheck.WithABIEvents(
-		s.erc20Contract.ABI.Events,
-		s.entryPointContract.ABI.Events,
-		s.smartWalletContract.ABI.Events,
-	).WithExpPass(true)
+	logCheck = logCheck.WithExpPass(true)
 }
 
 func (s *IntegrationTestSuite) deployContracts() {
@@ -212,14 +208,10 @@ func (s *IntegrationTestSuite) fundERC20Tokens() {
 			To:       &s.erc20Addr,
 			GasLimit: DefaultGasLimit,
 		}
-		callArgs := testutiltypes.CallArgs{
-			ContractABI: s.erc20Contract.ABI,
-			MethodName:  "transfer",
-			Args: []interface{}{
-				recipient,
-				amount,
-			},
-		}
+		callArgs := erc20.NewTransferCall(
+			recipient,
+			amount,
+		)
 		_, _, err := s.factory.CallContractAndCheckLogs(
 			user0.Priv,
 			txArgs,

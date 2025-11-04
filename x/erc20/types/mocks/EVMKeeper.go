@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	abi "github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/yihuang/go-abi"
 
 	common "github.com/ethereum/go-ethereum/common"
 
@@ -59,11 +59,10 @@ func (_m *EVMKeeper) ApplyMessage(ctx types.Context, msg core.Message, tracer *t
 	return r0, r1
 }
 
-// CallEVM provides a mock function with given fields: ctx, _a1, from, contract, commit, gasCap, method, args
-func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*vmtypes.MsgEthereumTxResponse, error) {
+// CallEVM provides a mock function with given fields: ctx, args, from, contract, commit, gasCap
+func (_m *EVMKeeper) CallEVM(ctx types.Context, args abi.Method, from common.Address, contract common.Address, commit bool, gasCap *big.Int) (*vmtypes.MsgEthereumTxResponse, error) {
 	var _ca []interface{}
-	_ca = append(_ca, ctx, _a1, from, contract, commit, gasCap, method)
-	_ca = append(_ca, args...)
+	_ca = append(_ca, ctx, args, from, contract, commit, gasCap)
 	ret := _m.Called(_ca...)
 
 	if len(ret) == 0 {
@@ -72,19 +71,19 @@ func (_m *EVMKeeper) CallEVM(ctx types.Context, _a1 abi.ABI, from common.Address
 
 	var r0 *vmtypes.MsgEthereumTxResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) (*vmtypes.MsgEthereumTxResponse, error)); ok {
-		return rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
+	if rf, ok := ret.Get(0).(func(types.Context, abi.Method, common.Address, common.Address, bool, *big.Int) (*vmtypes.MsgEthereumTxResponse, error)); ok {
+		return rf(ctx, args, from, contract, commit, gasCap)
 	}
-	if rf, ok := ret.Get(0).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) *vmtypes.MsgEthereumTxResponse); ok {
-		r0 = rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
+	if rf, ok := ret.Get(0).(func(types.Context, abi.Method, common.Address, common.Address, bool, *big.Int) *vmtypes.MsgEthereumTxResponse); ok {
+		r0 = rf(ctx, args, from, contract, commit, gasCap)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*vmtypes.MsgEthereumTxResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(types.Context, abi.ABI, common.Address, common.Address, bool, *big.Int, string, ...interface{}) error); ok {
-		r1 = rf(ctx, _a1, from, contract, commit, gasCap, method, args...)
+	if rf, ok := ret.Get(1).(func(types.Context, abi.Method, common.Address, common.Address, bool, *big.Int) error); ok {
+		r1 = rf(ctx, args, from, contract, commit, gasCap)
 	} else {
 		r1 = ret.Error(1)
 	}

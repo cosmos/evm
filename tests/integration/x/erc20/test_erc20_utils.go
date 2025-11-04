@@ -1,15 +1,14 @@
 package erc20
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/evm/contracts"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
+	"github.com/cosmos/evm/precompiles/erc20"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -19,11 +18,7 @@ func (s *KeeperTestSuite) MintERC20Token(contractAddr, to common.Address, amount
 		evmtypes.EvmTxArgs{
 			To: &contractAddr,
 		},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "mint",
-			Args:        []interface{}{to, amount},
-		},
+		erc20testdata.NewMintCall(to, amount),
 	)
 	if err != nil {
 		return res, err
@@ -33,18 +28,12 @@ func (s *KeeperTestSuite) MintERC20Token(contractAddr, to common.Address, amount
 }
 
 func (s *KeeperTestSuite) BalanceOf(contract, account common.Address) (interface{}, error) {
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
-
 	res, err := s.factory.ExecuteContractCall(
 		s.keyring.GetPrivKey(0),
 		evmtypes.EvmTxArgs{
 			To: &contract,
 		},
-		testutiltypes.CallArgs{
-			ContractABI: erc20,
-			MethodName:  "balanceOf",
-			Args:        []interface{}{account},
-		},
+		erc20.NewBalanceOfCall(account),
 	)
 	if err != nil {
 		return nil, err
@@ -55,13 +44,11 @@ func (s *KeeperTestSuite) BalanceOf(contract, account common.Address) (interface
 		return nil, err
 	}
 
-	unpacked, err := erc20.Unpack("balanceOf", ethRes.Ret)
+	var out erc20.BalanceOfReturn
+	_, err = out.Decode(ethRes.Ret)
 	if err != nil {
 		return nil, err
 	}
-	if len(unpacked) == 0 {
-		return nil, errors.New("nothing unpacked from response")
-	}
 
-	return unpacked[0], s.network.NextBlock()
+	return out.Field1, s.network.NextBlock()
 }

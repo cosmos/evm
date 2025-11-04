@@ -11,7 +11,9 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
+	"github.com/cosmos/evm/tests/contracts"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -231,7 +233,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 		})
 
 		type TestCase struct {
-			makeUserOps func() []UserOperation
+			makeUserOps func() []contracts.UserOperation
 			getLogCheck func() testutil.LogCheckArgs
 			postCheck   func()
 		}
@@ -249,7 +251,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 			tc.postCheck()
 		},
 			Entry("single user operation signed by tx sender", TestCase{
-				makeUserOps: func() []UserOperation {
+				makeUserOps: func() []contracts.UserOperation {
 					transferAmount := big.NewInt(1000)
 					calldata, err := s.erc20Contract.ABI.Pack(
 						"transfer", user1.Addr, transferAmount,
@@ -269,10 +271,10 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user0.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-					return []UserOperation{*userOp}
+					return []contracts.UserOperation{*userOp}
 				},
 				getLogCheck: func() testutil.LogCheckArgs {
-					return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
+					return logCheck.WithExpEvents(&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{})
 				},
 				postCheck: func() {
 					transferAmount := big.NewInt(1000)
@@ -284,7 +286,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				},
 			}),
 			Entry("single user operation signed by other user", TestCase{
-				makeUserOps: func() []UserOperation {
+				makeUserOps: func() []contracts.UserOperation {
 					transferAmount := big.NewInt(1000)
 					calldata, err := s.erc20Contract.ABI.Pack(
 						"transfer", user2.Addr, transferAmount,
@@ -304,10 +306,10 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					userOp, err = SignUserOperation(userOp, s.entryPointAddr, user1.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-					return []UserOperation{*userOp}
+					return []contracts.UserOperation{*userOp}
 				},
 				getLogCheck: func() testutil.LogCheckArgs {
-					return logCheck.WithExpEvents("UserOperationEvent", "Transfer")
+					return logCheck.WithExpEvents(&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{})
 				},
 				postCheck: func() {
 					transferAmount := big.NewInt(1000)
@@ -319,7 +321,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				},
 			}),
 			Entry("batch of user operations signed by tx sender", TestCase{
-				makeUserOps: func() []UserOperation {
+				makeUserOps: func() []contracts.UserOperation {
 					transferAmount := big.NewInt(1000)
 					calldata, err := s.erc20Contract.ABI.Pack(
 						"transfer", user1.Addr, transferAmount,
@@ -345,12 +347,12 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user0.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-					return []UserOperation{*userOp1, *userOp2}
+					return []contracts.UserOperation{*userOp1, *userOp2}
 				},
 				getLogCheck: func() testutil.LogCheckArgs {
 					return logCheck.WithExpEvents(
-						"UserOperationEvent", "Transfer",
-						"UserOperationEvent", "Transfer",
+						&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{},
+						&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{},
 					)
 				},
 				postCheck: func() {
@@ -363,7 +365,7 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 				},
 			}),
 			Entry("batch of user operations signed by other users", TestCase{
-				makeUserOps: func() []UserOperation {
+				makeUserOps: func() []contracts.UserOperation {
 					transferAmount := big.NewInt(1000)
 					calldata, err := s.erc20Contract.ABI.Pack(
 						"transfer", user0.Addr, transferAmount,
@@ -391,12 +393,12 @@ func TestEIP7702IntegrationTestSuite(t *testing.T, create network.CreateEvmApp, 
 					userOp2, err = SignUserOperation(userOp2, s.entryPointAddr, user2.Priv)
 					Expect(err).To(BeNil(), "failed to sign UserOperation")
 
-					return []UserOperation{*userOp1, *userOp2}
+					return []contracts.UserOperation{*userOp1, *userOp2}
 				},
 				getLogCheck: func() testutil.LogCheckArgs {
 					return logCheck.WithExpEvents(
-						"UserOperationEvent", "Transfer",
-						"UserOperationEvent", "Transfer",
+						&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{},
+						&contracts.UserOperationEventEvent{}, &erc20.TransferEvent{},
 					)
 				},
 				postCheck: func() {
