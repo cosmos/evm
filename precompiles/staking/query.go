@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -133,13 +135,21 @@ func (p Precompile) Redelegation(
 	ctx sdk.Context,
 	args RedelegationCall,
 ) (*RedelegationReturn, error) {
-	req, err := NewRedelegationRequest(args)
+	if args.DelegatorAddress == (common.Address{}) {
+		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args.DelegatorAddress)
+	}
+
+	validatorSrcAddr, err := sdk.ValAddressFromBech32(args.SrcValidatorAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	res, _ := p.stakingKeeper.GetRedelegation(ctx, req.DelegatorAddress, req.ValidatorSrcAddress, req.ValidatorDstAddress)
+	validatorDstAddr, err := sdk.ValAddressFromBech32(args.DstValidatorAddress)
+	if err != nil {
+		return nil, err
+	}
 
+	res, _ := p.stakingKeeper.GetRedelegation(ctx, args.DelegatorAddress.Bytes(), validatorSrcAddr, validatorDstAddr)
 	return new(RedelegationReturn).FromResponse(res), nil
 }
 

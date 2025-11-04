@@ -10,27 +10,13 @@ import (
 	"github.com/cosmos/evm/utils"
 
 	"cosmossdk.io/core/address"
-
 	sdkerrors "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
-
-// EventVote defines the event data for the Vote transaction.
-type EventVote struct {
-	Voter      common.Address
-	ProposalId uint64 //nolint:revive
-	Option     uint8
-}
-
-// EventVoteWeighted defines the event data for the VoteWeighted transaction.
-type EventVoteWeighted struct {
-	Voter      common.Address
-	ProposalId uint64 //nolint:revive
-	Options    WeightedVoteOptions
-}
 
 // WeightedVoteOptions defines a slice of WeightedVoteOption.
 type WeightedVoteOptions []WeightedVoteOption

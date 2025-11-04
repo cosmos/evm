@@ -28,52 +28,6 @@ const (
 	DoNotModifyMinSelfDelegation = -1
 )
 
-// EventCreateValidator defines the event data for the staking CreateValidator transaction.
-type EventCreateValidator struct {
-	ValidatorAddress common.Address
-	Value            *big.Int
-}
-
-// EventEditValidator defines the event data for the staking EditValidator transaction.
-type EventEditValidator struct {
-	ValidatorAddress  common.Address
-	CommissionRate    *big.Int
-	MinSelfDelegation *big.Int
-}
-
-// EventDelegate defines the event data for the staking Delegate transaction.
-type EventDelegate struct {
-	DelegatorAddress common.Address
-	ValidatorAddress common.Address
-	Amount           *big.Int
-	NewShares        *big.Int
-}
-
-// EventUnbond defines the event data for the staking Undelegate transaction.
-type EventUnbond struct {
-	DelegatorAddress common.Address
-	ValidatorAddress common.Address
-	Amount           *big.Int
-	CompletionTime   *big.Int
-}
-
-// EventRedelegate defines the event data for the staking Redelegate transaction.
-type EventRedelegate struct {
-	DelegatorAddress    common.Address
-	ValidatorSrcAddress common.Address
-	ValidatorDstAddress common.Address
-	Amount              *big.Int
-	CompletionTime      *big.Int
-}
-
-// EventCancelUnbonding defines the event data for the staking CancelUnbond transaction.
-type EventCancelUnbonding struct {
-	DelegatorAddress common.Address
-	ValidatorAddress common.Address
-	Amount           *big.Int
-	CreationHeight   *big.Int
-}
-
 func NewDescriptionFromResponse(d stakingtypes.Description) Description {
 	return Description{
 		Moniker:         d.Moniker,
@@ -309,30 +263,6 @@ func NewValidatorsRequest(args ValidatorsCall) (*stakingtypes.QueryValidatorsReq
 	}, nil
 }
 
-// NewRedelegationRequest create a new QueryRedelegationRequest instance and does sanity checks
-// on the given arguments before populating the request.
-func NewRedelegationRequest(args RedelegationCall) (*RedelegationRequest, error) {
-	if args.DelegatorAddress == (common.Address{}) {
-		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args.DelegatorAddress)
-	}
-
-	validatorSrcAddr, err := sdk.ValAddressFromBech32(args.SrcValidatorAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	validatorDstAddr, err := sdk.ValAddressFromBech32(args.DstValidatorAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RedelegationRequest{
-		DelegatorAddress:    args.DelegatorAddress.Bytes(), // bech32 formatted
-		ValidatorSrcAddress: validatorSrcAddr,
-		ValidatorDstAddress: validatorDstAddr,
-	}, nil
-}
-
 // NewRedelegationsRequest create a new QueryRedelegationsRequest instance and does sanity checks
 // on the given arguments before populating the request.
 func NewRedelegationsRequest(args RedelegationsCall, addrCdc address.Codec) (*stakingtypes.QueryRedelegationsRequest, error) {
@@ -366,26 +296,6 @@ func NewRedelegationsRequest(args RedelegationsCall, addrCdc address.Codec) (*st
 		DstValidatorAddr: args.DstValidatorAddress,
 		Pagination:       args.PageRequest.ToPageRequest(),
 	}, nil
-}
-
-// RedelegationRequest is a struct that contains the information to pass into a redelegation query.
-type RedelegationRequest struct {
-	DelegatorAddress    sdk.AccAddress
-	ValidatorSrcAddress sdk.ValAddress
-	ValidatorDstAddress sdk.ValAddress
-}
-
-// RedelegationsRequest is a struct that contains the information to pass into a redelegations query.
-type RedelegationsRequest struct {
-	DelegatorAddress sdk.AccAddress
-	MaxRetrieve      int64
-}
-
-// UnbondingDelegationResponse is a struct that contains the information about an unbonding delegation.
-type UnbondingDelegationResponse struct {
-	DelegatorAddress string
-	ValidatorAddress string
-	Entries          []UnbondingDelegationEntry
 }
 
 // FromResponse populates the DelegationReturn from a QueryDelegationResponse.
@@ -455,15 +365,6 @@ func (vo *ValidatorsReturn) FromResponse(res *stakingtypes.QueryValidatorsRespon
 
 	vo.PageResponse = cmn.FromPageResponse(res.Pagination)
 	return vo
-}
-
-// RedelegationValues is a struct to represent the key information from
-// a redelegation response.
-type RedelegationValues struct {
-	DelegatorAddress    string
-	ValidatorSrcAddress string
-	ValidatorDstAddress string
-	Entries             []RedelegationEntry
 }
 
 // FromResponse populates the RedelegationReturn from a QueryRedelegationsResponse.
@@ -543,15 +444,6 @@ func NewUnbondingDelegationRequest(args UnbondingDelegationCall, addrCdc address
 		DelegatorAddr: delegatorAddrStr,
 		ValidatorAddr: args.ValidatorAddress,
 	}, nil
-}
-
-// checkDelegationUndelegationArgs checks the arguments for the delegation and undelegation functions.
-func checkDelegationUndelegationArgs(args DelegateCall) (common.Address, string, *big.Int, error) {
-	if args.DelegatorAddress == (common.Address{}) {
-		return common.Address{}, "", nil, fmt.Errorf(cmn.ErrInvalidDelegator, args.DelegatorAddress)
-	}
-
-	return args.DelegatorAddress, args.ValidatorAddress, args.Amount, nil
 }
 
 // FormatConsensusPubkey format ConsensusPubkey into a base64 string

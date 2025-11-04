@@ -5,8 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	_ "embed"
-
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -74,7 +72,7 @@ func NewPrecompile(
 
 // RequiredGas calculates the contract gas used for the
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	methodID, input, err := cmn.SplitMethodID(input)
+	methodID, _, err := cmn.SplitMethodID(input)
 	if err != nil {
 		return 0
 	}

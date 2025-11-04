@@ -60,8 +60,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			txSender, user keyring.Key
 
-			revertContractAddr      common.Address
-			revertCallerContract   evmtypes.CompiledContract
+			revertContractAddr   common.Address
+			revertCallerContract evmtypes.CompiledContract
 
 			// Account balance tracking
 			accountBalances      []*AccountBalanceInfo
@@ -193,8 +193,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// Support struct used to simplify transactions creation.
 			callsData = CallsData{
-				sender:               txSender,
-				precompileAddr:        precompileAddr,
+				sender:                 txSender,
+				precompileAddr:         precompileAddr,
 				precompileReverterAddr: revertContractAddr,
 			}
 

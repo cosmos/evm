@@ -187,13 +187,12 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommission() {
 				return distribution.NewWithdrawValidatorCommissionCall(operatorAddress)
 			},
 			func(data []byte) {
-				var coins []cmn.Coin
 				amt := math.NewInt(100000000000000000)
 				var out distribution.WithdrawValidatorCommissionReturn
 				_, err := out.Decode(data)
 				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(coins[0].Denom, testconstants.ExampleAttoDenom)
-				s.Require().Equal(coins[0].Amount, amt.BigInt())
+				s.Require().Equal(out.Amount[0].Denom, testconstants.ExampleAttoDenom)
+				s.Require().Equal(out.Amount[0].Amount, amt.BigInt())
 
 				// Check bank balance after the withdrawal of commission
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())

@@ -145,7 +145,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				call := distribution.WithdrawDelegatorRewardsCall{
-					DelegatorAddress:  s.keyring.GetAddr(0),
+					DelegatorAddress: s.keyring.GetAddr(0),
 					ValidatorAddress: val.OperatorAddress,
 				}
 				input, err := call.EncodeWithSelector()
@@ -369,7 +369,7 @@ func (s *PrecompileTestSuite) TestCMS() {
 				s.Require().NoError(err, "failed to prepare staking rewards")
 
 				call := distribution.WithdrawDelegatorRewardsCall{
-					DelegatorAddress:  s.keyring.GetAddr(0),
+					DelegatorAddress: s.keyring.GetAddr(0),
 					ValidatorAddress: val.OperatorAddress,
 				}
 				input, err := call.EncodeWithSelector()

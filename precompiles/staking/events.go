@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -30,12 +31,7 @@ const (
 func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgCreateValidator, validatorAddr common.Address) error {
 	// Prepare the event topics
 	event := NewCreateValidatorEvent(validatorAddr, msg.Value.Amount.BigInt())
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data, err := event.Encode()
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -63,12 +59,7 @@ func (p Precompile) EmitEditValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, 
 	}
 
 	event := NewEditValidatorEvent(validatorAddr, commissionRate, minSelfDelegation)
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data, err := event.Encode()
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -107,12 +98,7 @@ func (p Precompile) EmitDelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *
 		msg.Amount.Amount.BigInt(),
 		newShares.BigInt(),
 	)
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data, err := event.Encode()
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -141,12 +127,7 @@ func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *st
 		msg.Amount.Amount.BigInt(),
 		big.NewInt(completionTime),
 	)
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data, err := event.Encode()
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -174,21 +155,14 @@ func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg
 	}
 
 	// Prepare the event topics
-	event := RedelegateEventIndexed{
-		DelegatorAddress:    delegatorAddr,
-		ValidatorSrcAddress: common.BytesToAddress(valSrcAddr),
-		ValidatorDstAddress: common.BytesToAddress(valDstAddr),
-	}
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data := RedelegateEventData{
-		Amount:         msg.Amount.Amount.BigInt(),
-		CompletionTime: big.NewInt(completionTime),
-	}
-	bz, err := data.Encode()
+	event := NewRedelegateEvent(
+		delegatorAddr,
+		common.BytesToAddress(valSrcAddr),
+		common.BytesToAddress(valDstAddr),
+		msg.Amount.Amount.BigInt(),
+		big.NewInt(completionTime),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -196,7 +170,7 @@ func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        bz,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -211,20 +185,13 @@ func (p Precompile) EmitCancelUnbondingDelegationEvent(ctx sdk.Context, stateDB 
 	}
 
 	// Prepare the event topics
-	event := CancelUnbondingDelegationEventIndexed{
-		DelegatorAddress: delegatorAddr,
-		ValidatorAddress: common.BytesToAddress(valAddr),
-	}
-	topics, err := event.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	data := CancelUnbondingDelegationEventData{
-		Amount:         msg.Amount.Amount.BigInt(),
-		CreationHeight: big.NewInt(int64(msg.CreationHeight)),
-	}
-	bz, err := data.Encode()
+	event := NewCancelUnbondingDelegationEvent(
+		delegatorAddr,
+		common.BytesToAddress(valAddr),
+		msg.Amount.Amount.BigInt(),
+		big.NewInt(msg.CreationHeight),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -232,7 +199,7 @@ func (p Precompile) EmitCancelUnbondingDelegationEvent(ctx sdk.Context, stateDB 
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        bz,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 

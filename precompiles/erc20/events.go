@@ -16,13 +16,13 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 	event := NewTransferEvent(from, to, value)
 
 	// Prepare the event topics
-	topics, err := event.TransferEventIndexed.EncodeTopics()
+	topics, err := event.EncodeTopics()
 	if err != nil {
 		return err
 	}
 
 	// Prepare the event data
-	data, err := event.TransferEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}
@@ -43,13 +43,13 @@ func (p Precompile) EmitApprovalEvent(ctx sdk.Context, stateDB vm.StateDB, owner
 	event := NewApprovalEvent(owner, spender, value)
 
 	// Prepare the event topics
-	topics, err := event.ApprovalEventIndexed.EncodeTopics()
+	topics, err := event.EncodeTopics()
 	if err != nil {
 		return err
 	}
 
 	// Prepare the event data
-	data, err := event.ApprovalEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}

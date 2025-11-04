@@ -39,10 +39,6 @@ var (
 	differentAddr, diffKey = testutiltx.NewAddrKey()
 	// gasPrice is the gas price used for the transactions
 	gasPrice = math.NewInt(1e9)
-	// callArgs  are the default arguments for calling the smart contract
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
 
 	// defaultLogCheck instantiates a log check arguments struct with the precompile ABI events populated.
 	defaultLogCheck testutil.LogCheckArgs
@@ -63,9 +59,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 		BeforeEach(func() {
 			s.SetupTest()
-
-			// set the default call arguments
-			callArgs = testutiltypes.CallArgs{}
 
 			defaultLogCheck = testutil.LogCheckArgs{}
 			passCheck = defaultLogCheck.WithExpPass(true)
@@ -211,11 +204,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
 				var out distribution.WithdrawDelegatorRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
 				// The accrued rewards are based on 3 equal delegations to the existing 3 validators
 				// The query is from only 1 validator, thus, the expected reward
@@ -224,8 +216,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				accruedRewardsAmt := accruedRewards.AmountOf(s.bondDenom)
 				expRewardPerValidator := accruedRewardsAmt.Quo(math.LegacyNewDec(int64(valCount)))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardPerValidator.TruncateInt().BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardPerValidator.TruncateInt().BigInt()))
 
 				// check that the rewards were added to the balance
 				queryRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -274,14 +266,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
 				var out distribution.WithdrawDelegatorRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// check that the delegator final balance is initialBalance - fee
 				queryRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -354,13 +345,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
 				var out distribution.WithdrawDelegatorRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// check tx sender balance is reduced by fees paid
 				balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -461,13 +451,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var comm []cmn.Coin
 				var out distribution.WithdrawValidatorCommissionReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(comm)).To(Equal(1))
-				Expect(comm[0].Denom).To(Equal(s.bondDenom))
-				Expect(comm[0].Amount).To(Equal(expCommAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expCommAmt.BigInt()))
 
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -537,13 +526,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// persist state change
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				var comm []cmn.Coin
 				var out distribution.WithdrawValidatorCommissionReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(comm)).To(Equal(1))
-				Expect(comm[0].Denom).To(Equal(s.bondDenom))
-				Expect(comm[0].Amount).To(Equal(expCommAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expCommAmt.BigInt()))
 
 				balRes, err = s.grpcHandler.GetBalanceFromBank(s.validatorsKeys[0].AccAddr, s.bondDenom)
 				Expect(err).To(BeNil(), "error while calling GetBalance")
@@ -640,8 +628,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Execute DepositValidatorRewardsPool transaction", func() {
-			const method = distribution.DepositValidatorRewardsPoolMethod
-
 			BeforeEach(func() {
 				txArgs.GasLimit = 300_000
 				txArgs.GasPrice = gasPrice.BigInt()
@@ -789,8 +775,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Execute FundCommunityPool transaction", func() {
-			const method = distribution.FundCommunityPoolMethod
-
 			It("should fail if the depositor has insufficient balance", func() {
 				// Here, we attempt to deposit an amount that the EOA does not have.
 
@@ -997,14 +981,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
 				var out distribution.ValidatorOutstandingRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Rewards)).To(Equal(1))
 
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
-				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
+				Expect(uint8(18)).To(Equal(out.Rewards[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Rewards[0].Denom))
 
 				// the expected rewards should be the accruedRewards per validator
 				// plus the 5% commission
@@ -1013,7 +996,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Quo(math.LegacyNewDecWithPrec(95, 2)). // add 5% commission
 					TruncateInt()
 
-				Expect(rewards[0].Amount.String()).To(Equal(expRewardAmt.BigInt().String()))
+				Expect(out.Rewards[0].Amount.String()).To(Equal(expRewardAmt.BigInt().String()))
 			})
 
 			It("should get validator commission - validatorCommission query", func() {
@@ -1035,16 +1018,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var commission []cmn.DecCoin
 				var out distribution.ValidatorCommissionReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(commission)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(commission[0].Precision))
-				Expect(s.bondDenom).To(Equal(commission[0].Denom))
+				Expect(len(out.Commission)).To(Equal(1))
+				Expect(uint8(18)).To(Equal(out.Commission[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Commission[0].Denom))
 
 				expCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
-				Expect(commission[0].Amount).To(Equal(expCommissionAmt.BigInt()))
+				Expect(out.Commission[0].Amount).To(Equal(expCommissionAmt.BigInt()))
 			})
 
 			Context("validatorSlashes query query", Ordered, func() {
@@ -1128,11 +1110,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
 				var out distribution.DelegationRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(0))
+				Expect(len(out.Rewards)).To(Equal(0))
 			})
 
 			It("should get delegation rewards - delegationRewards query", func() {
@@ -1152,19 +1133,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
 				var out distribution.DelegationRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Rewards)).To(Equal(1))
 
 				// The accrued rewards are based on 3 equal delegations to the existing 3 validators
 				// The query is from only 1 validator, thus, the expected reward
 				// for this delegation is totalAccruedRewards / validatorsCount (3)
 				expRewardAmt := accruedRewards.AmountOf(s.bondDenom).Quo(math.LegacyNewDec(3))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardAmt.TruncateInt().BigInt()))
+				Expect(out.Rewards[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Rewards[0].Amount).To(Equal(expRewardAmt.TruncateInt().BigInt()))
 			})
 
 			It("should get delegators's total rewards - delegationTotalRewards query", func() {
@@ -1217,11 +1197,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var validators []string
 				var out distribution.DelegatorValidatorsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(3).To(Equal(len(validators)))
+				Expect(3).To(Equal(len(out.Validators)))
 			})
 
 			It("should get withdraw address - delegatorWithdrawAddress query", func() {
@@ -1277,13 +1256,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var coins []cmn.DecCoin
 				var out distribution.CommunityPoolReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(coins)).To(Equal(1))
-				Expect(coins[0].Denom).To(Equal(s.bondDenom))
-				Expect(coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
+				Expect(len(out.Coins)).To(Equal(1))
+				Expect(out.Coins[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
 			})
 		})
 	})
@@ -1365,9 +1343,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// wait to accrue some rewards for contract address
 			_, err = utils.WaitToAccrueRewards(s.network, s.grpcHandler, contractAccAddr.String(), minExpRewardOrCommission)
 			Expect(err).To(BeNil())
-
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{}
 
 			// reset tx args each test to avoid keeping custom
 			// values of previous tests (e.g. gasLimit)
@@ -1597,14 +1572,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
 
-				var rewards []cmn.Coin
 				var out distribution.WithdrawDelegatorRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// should increase withdrawer balance by rewards
 				balRes, err = s.grpcHandler.GetBalanceFromBank(tc.withdrawer.Bytes(), s.bondDenom)
@@ -2739,20 +2713,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var rewards []cmn.DecCoin
 				var out distribution.ValidatorOutstandingRewardsReturn
 				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
-				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
+				Expect(len(out.Rewards)).To(Equal(1))
+				Expect(uint8(18)).To(Equal(out.Rewards[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Rewards[0].Denom))
 
 				res, err := s.grpcHandler.GetValidatorOutstandingRewards(opAddr)
 				Expect(err).To(BeNil())
 
 				expRewardsAmt := res.Rewards.Rewards.AmountOf(s.bondDenom).TruncateInt()
 				Expect(expRewardsAmt.IsPositive()).To(BeTrue())
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 			})
 
 			Context("get validator commission", func() {
@@ -2807,17 +2780,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var commission []cmn.DecCoin
 					var out distribution.ValidatorCommissionReturn
 					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(commission)).To(Equal(1))
-					Expect(uint8(18)).To(Equal(commission[0].Precision))
-					Expect(s.bondDenom).To(Equal(commission[0].Denom))
+					Expect(len(out.Commission)).To(Equal(1))
+					Expect(uint8(18)).To(Equal(out.Commission[0].Precision))
+					Expect(s.bondDenom).To(Equal(out.Commission[0].Denom))
 
 					accruedCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
 
-					Expect(commission[0].Amount).To(Equal(accruedCommissionAmt.BigInt()))
+					Expect(out.Commission[0].Amount).To(Equal(accruedCommissionAmt.BigInt()))
 				})
 			})
 
@@ -2945,14 +2917,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var rewards []cmn.DecCoin
 					var out distribution.DelegationRewardsReturn
 					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(rewards)).To(Equal(1))
-					Expect(len(rewards)).To(Equal(1))
-					Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-					Expect(rewards[0].Amount.Int64()).To(BeNumerically(">", 0), "expected rewards amount to be greater than 0")
+					Expect(len(out.Rewards)).To(Equal(1))
+					Expect(len(out.Rewards)).To(Equal(1))
+					Expect(out.Rewards[0].Denom).To(Equal(s.bondDenom))
+					Expect(out.Rewards[0].Amount.Int64()).To(BeNumerically(">", 0), "expected rewards amount to be greater than 0")
 				})
 			})
 
@@ -3080,11 +3051,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var validators []string
 					var out distribution.DelegatorValidatorsReturn
 					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(3).To(Equal(len(validators)))
+					Expect(3).To(Equal(len(out.Validators)))
 				})
 			})
 
@@ -3139,12 +3109,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var coins []cmn.DecCoin
 					var out distribution.CommunityPoolReturn
 					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(coins)).To(Equal(1))
-					Expect(s.bondDenom).To(Equal(coins[0].Denom))
+					Expect(len(out.Coins)).To(Equal(1))
+					Expect(s.bondDenom).To(Equal(out.Coins[0].Denom))
 				})
 			})
 		})

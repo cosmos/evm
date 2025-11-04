@@ -33,8 +33,11 @@ func (p *Precompile) Transfer(
 	contract *vm.Contract,
 ) (*TransferReturn, error) {
 	from := contract.Caller()
-
-	return p.transfer(ctx, args, stateDB, contract, from, args.To, args.Amount)
+	success, err := p.transfer(ctx, stateDB, contract, from, args.To, args.Amount)
+	if err != nil {
+		return nil, err
+	}
+	return &TransferReturn{success}, nil
 }
 
 // TransferFrom executes a transfer on behalf of the specified from address in
@@ -45,11 +48,11 @@ func (p *Precompile) TransferFrom(
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 ) (*TransferFromReturn, error) {
-	ret, err := p.transfer(ctx, args, stateDB, contract, args.From, args.To, args.Amount)
+	success, err := p.transfer(ctx, stateDB, contract, args.From, args.To, args.Amount)
 	if err != nil {
 		return nil, err
 	}
-	return &TransferFromReturn{Field1: ret.Field1}, nil
+	return &TransferFromReturn{success}, nil
 }
 
 // transfer is a common function that handles transfers for the ERC-20 Transfer
@@ -57,18 +60,17 @@ func (p *Precompile) TransferFrom(
 // the sender of the transfer, it checks the allowance and updates it accordingly.
 func (p *Precompile) transfer(
 	ctx sdk.Context,
-	args interface{},
 	stateDB vm.StateDB,
 	contract *vm.Contract,
 	from, to common.Address,
 	amount *big.Int,
-) (*TransferReturn, error) {
+) (bool, error) {
 	coins := sdk.Coins{{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}}
 
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
 
 	if err := msg.Amount.Validate(); err != nil {
-		return nil, err
+		return false, err
 	}
 
 	isTransferFrom := from != contract.Caller()
@@ -78,12 +80,12 @@ func (p *Precompile) transfer(
 	if isTransferFrom {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
-			return nil, ConvertErrToERC20Error(err)
+			return false, ConvertErrToERC20Error(err)
 		}
 
 		newAllowance = new(big.Int).Sub(prevAllowance, amount)
 		if newAllowance.Sign() < 0 {
-			return nil, ErrInsufficientAllowance
+			return false, ErrInsufficientAllowance
 		}
 
 		if newAllowance.Sign() == 0 {
@@ -94,27 +96,27 @@ func (p *Precompile) transfer(
 			err = p.erc20Keeper.SetAllowance(ctx, p.Address(), from, spenderAddr, newAllowance)
 		}
 		if err != nil {
-			return nil, ConvertErrToERC20Error(err)
+			return false, ConvertErrToERC20Error(err)
 		}
 	}
 
 	msgSrv := NewMsgServerImpl(p.BankKeeper)
 	if err := msgSrv.Send(ctx, msg); err != nil {
 		// This should return an error to avoid the contract from being executed and an event being emitted
-		return nil, ConvertErrToERC20Error(err)
+		return false, ConvertErrToERC20Error(err)
 	}
 
 	if err := p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
-		return nil, err
+		return false, err
 	}
 
 	// NOTE: if it's a direct transfer, we return here but if used through transferFrom,
 	// we need to emit the approval event with the new allowance.
 	if isTransferFrom {
 		if err := p.EmitApprovalEvent(ctx, stateDB, from, spenderAddr, newAllowance); err != nil {
-			return nil, err
+			return false, err
 		}
 	}
 
-	return &TransferReturn{Field1: true}, nil
+	return true, nil
 }

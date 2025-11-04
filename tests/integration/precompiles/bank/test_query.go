@@ -37,9 +37,7 @@ func (s *PrecompileTestSuite) TestBalances() {
 		},
 		{
 			"pass - empty balances for new account",
-			func() common.Address {
-				return cosmosevmutiltx.GenerateAddress()
-			},
+			cosmosevmutiltx.GenerateAddress,
 			true,
 			"",
 			func(common.Address, common.Address) []bank.Balance { return []bank.Balance{} },
@@ -177,9 +175,7 @@ func (s *PrecompileTestSuite) TestSupplyOf() {
 		},
 		{
 			"pass - erc20 not registered return 0 supply",
-			func() common.Address {
-				return cosmosevmutiltx.GenerateAddress()
-			},
+			cosmosevmutiltx.GenerateAddress,
 			false,
 			"",
 			big.NewInt(0),

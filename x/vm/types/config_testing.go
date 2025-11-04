@@ -3,13 +3,13 @@
 // Its primary purpose is to be used during application initialization.
 
 //go:build test
-// +build test
 
 package types
 
 import (
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/core/vm"
 	geth "github.com/ethereum/go-ethereum/params"
 )

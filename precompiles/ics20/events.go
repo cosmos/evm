@@ -22,13 +22,13 @@ func EmitIBCTransferEvent(
 	event := NewIBCTransferEvent(senderAddr, receiver, sourcePort, sourceChannel, token.Denom, token.Amount.BigInt(), memo)
 
 	// Prepare the event topics
-	topics, err := event.IBCTransferEventIndexed.EncodeTopics()
+	topics, err := event.EncodeTopics()
 	if err != nil {
 		return err
 	}
 
 	// Prepare the event data
-	data, err := event.IBCTransferEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}

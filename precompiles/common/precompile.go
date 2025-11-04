@@ -7,9 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/yihuang/go-abi"
 
 	storetypes "cosmossdk.io/store/types"
 

@@ -307,12 +307,6 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 		})
 
 		Context("Calls from a contract", func() {
-			const (
-				BalancesFunction = "callBalances"
-				TotalSupplyOf    = "callTotalSupply"
-				SupplyOfFunction = "callSupplyOf"
-			)
-
 			Context("balances query", func() {
 				It("should return the correct balance", func() {
 					receiver := utiltx.GenerateAddress()

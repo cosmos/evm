@@ -6,8 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	_ "embed"
-
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"

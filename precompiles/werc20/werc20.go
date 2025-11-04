@@ -69,18 +69,26 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
-	if err != nil {
-		return nil, err
+	var (
+		methodID uint32
+		err      error
+		input    []byte
+	)
+
+	if len(contract.Input) > 0 {
+		methodID, input, err = cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var bz []byte
 
-	switch {
-	case methodID == 0, // fallback or receive
-		methodID == DepositID:
+	switch methodID {
+	case 0, DepositID:
+		// fallback or receive
 		bz, err = p.Deposit(ctx, contract, stateDB)
-	case methodID == WithdrawID:
+	case WithdrawID:
 		return cmn.RunWithStateDB(ctx, p.Withdraw, input, stateDB, contract)
 	default:
 		// ERC20 transactions and queries

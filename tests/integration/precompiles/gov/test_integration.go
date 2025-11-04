@@ -51,11 +51,6 @@ var (
 	govModuleAddr sdk.AccAddress
 )
 
-const (
-	testDepositFromContract        = "testDepositFromContract"
-	testSubmitProposalFromContract = "testSubmitProposalFromContract"
-)
-
 func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	_ = Describe("Calling governance precompile from EOA", func() {
 		var (
@@ -96,8 +91,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		// 				TRANSACTIONS
 		// =====================================
 		Describe("Execute SubmitProposal transaction", func() {
-			const method = gov.SubmitProposalMethod
-
 			It("fails with low gas", func() {
 				txArgs.GasLimit = 37_790 // meed the requirement of floor data gas cost
 				jsonBlob := minimalBankSendProposalJSON(proposerAccAddr, s.network.GetBaseDenom(), "50")
@@ -155,11 +148,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Execute Deposit transaction", func() {
-			const method = gov.DepositMethod
-
 			It("fails with wrong proposal id", func() {
-				callArgs := &gov.DepositCall{
-					Depositor: proposerAddr, ProposalId: uint64(999), Amount: minimalDeposit(s.network.GetBaseDenom(), big.NewInt(1))}
+				callArgs := gov.NewDepositCall(
+					proposerAddr,
+					uint64(999),
+					minimalDeposit(s.network.GetBaseDenom(),
+						big.NewInt(1),
+					),
+				)
 				errCheck := defaultLogCheck.WithErrContains("not found")
 				_, _, err := s.factory.CallContractAndCheckLogs(proposerKey, txArgs, callArgs, errCheck)
 				Expect(err).To(BeNil())

@@ -31,10 +31,6 @@ var (
 
 	// gasPrice is the gas price used for the transactions
 	gasPrice = math.NewInt(1e9)
-	// callArgs  are the default arguments for calling the smart contract
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
 
 	// defaultLogCheck instantiates a log check arguments struct with the precompile ABI events populated.
 	defaultLogCheck testutil.LogCheckArgs

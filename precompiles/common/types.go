@@ -3,11 +3,12 @@ package common
 import (
 	"math/big"
 
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 )
 
 // ToSDKType converts the Coin to the Cosmos SDK representation.

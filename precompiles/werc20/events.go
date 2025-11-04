@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -18,16 +19,7 @@ func (p Precompile) EmitDepositEvent(
 	amount *big.Int,
 ) error {
 	// Create the event using the generated constructor
-	event := NewDepositEvent(caller, amount)
-
-	// Prepare the event topics
-	topics, err := event.DepositEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.DepositEventData.Encode()
+	topics, data, err := abi.EncodeEvent(NewDepositEvent(caller, amount))
 	if err != nil {
 		return err
 	}
@@ -50,16 +42,7 @@ func (p Precompile) EmitWithdrawalEvent(
 	amount *big.Int,
 ) error {
 	// Create the event using the generated constructor
-	event := NewWithdrawalEvent(src, amount)
-
-	// Prepare the event topics
-	topics, err := event.WithdrawalEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.WithdrawalEventData.Encode()
+	topics, data, err := abi.EncodeEvent(NewWithdrawalEvent(src, amount))
 	if err != nil {
 		return err
 	}

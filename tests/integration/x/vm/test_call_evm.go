@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/precompiles/erc20"
@@ -11,7 +12,6 @@ import (
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/yihuang/go-abi"
 )
 
 func (s *KeeperTestSuite) TestCallEVM() {
@@ -56,7 +56,8 @@ func (s *KeeperTestSuite) TestCallEVMWithData() {
 			types.ModuleAddress,
 			func() []byte {
 				buf := make([]byte, 32)
-				abi.EncodeAddress(utiltx.GenerateAddress(), buf)
+				_, err := abi.EncodeAddress(utiltx.GenerateAddress(), buf)
+				s.Require().NoError(err)
 				return buf
 			},
 			false,

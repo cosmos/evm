@@ -1,12 +1,17 @@
 package gov
 
 import (
+	"errors"
+	"math"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	cmn "github.com/cosmos/evm/precompiles/common"
 )
 
 const (
@@ -27,14 +32,8 @@ func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 	// Create the event using the generated constructor
 	event := NewSubmitProposalEvent(proposerAddress, proposalID)
 
-	// Prepare the event topics
-	topics, err := event.SubmitProposalEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.SubmitProposalEventData.Encode()
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -54,14 +53,8 @@ func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 	// Create the event using the generated constructor
 	event := NewCancelProposalEvent(proposerAddress, proposalID)
 
-	// Prepare the event topics
-	topics, err := event.CancelProposalEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.CancelProposalEventData.Encode()
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -81,14 +74,8 @@ func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, deposi
 	// Create the event using the generated constructor
 	event := NewDepositEvent(depositorAddress, proposalID, cmn.NewCoinsResponse(amount))
 
-	// Prepare the event topics
-	topics, err := event.DepositEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.DepositEventData.Encode()
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -105,17 +92,15 @@ func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, deposi
 
 // EmitVoteEvent creates a new event emitted on a Vote transaction.
 func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddress common.Address, proposalID uint64, option int32) error {
-	// Create the event using the generated constructor
-	event := NewVoteEvent(voterAddress, proposalID, uint8(option))
-
-	// Prepare the event topics
-	topics, err := event.VoteEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
+	if option > math.MaxUint8 {
+		return errors.New("vote option exceeds uint8 limit")
 	}
 
-	// Prepare the event data
-	data, err := event.VoteEventData.Encode()
+	// Create the event using the generated constructor
+	event := NewVoteEvent(voterAddress, proposalID, uint8(option)) //nolint:gosec
+
+	// Prepare the event topics data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -135,14 +120,8 @@ func (p Precompile) EmitVoteWeightedEvent(ctx sdk.Context, stateDB vm.StateDB, v
 	// Create the event using the generated constructor
 	event := NewVoteWeightedEvent(voterAddress, proposalID, options)
 
-	// Prepare the event topics
-	topics, err := event.VoteWeightedEventIndexed.EncodeTopics()
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	data, err := event.VoteWeightedEventData.Encode()
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}

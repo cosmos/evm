@@ -166,11 +166,7 @@ func (s *PrecompileTestSuite) TestValidator() {
 	}{
 		{
 			"success",
-			func(operatorAddress common.Address) *staking.ValidatorCall {
-				return staking.NewValidatorCall(
-					operatorAddress,
-				)
-			},
+			staking.NewValidatorCall,
 			func(valOut staking.ValidatorReturn) {
 				operatorAddress, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)

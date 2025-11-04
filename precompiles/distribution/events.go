@@ -43,7 +43,7 @@ func (p Precompile) EmitClaimRewardsEvent(ctx sdk.Context, stateDB vm.StateDB, d
 	}
 
 	// Prepare the event data
-	data, err := event.ClaimRewardsEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (p Precompile) EmitSetWithdrawAddressEvent(ctx sdk.Context, stateDB vm.Stat
 	}
 
 	// Prepare the event data
-	data, err := event.SetWithdrawerAddressEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (p Precompile) EmitWithdrawDelegatorRewardEvent(ctx sdk.Context, stateDB vm
 	}
 
 	// Prepare the event data
-	data, err := event.WithdrawDelegatorRewardEventData.Encode()
+	data, err := event.Encode()
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (p Precompile) EmitFundCommunityPoolEvent(ctx sdk.Context, stateDB vm.State
 		}
 
 		// Prepare the event data
-		data, err := event.FundCommunityPoolEventData.Encode()
+		data, err := event.Encode()
 		if err != nil {
 			return err
 		}
@@ -195,7 +195,7 @@ func (p Precompile) EmitDepositValidatorRewardsPoolEvent(ctx sdk.Context, stateD
 		}
 
 		// Prepare the event data
-		data, err := event.DepositValidatorRewardsPoolEventData.Encode()
+		data, err := event.Encode()
 		if err != nil {
 			return err
 		}

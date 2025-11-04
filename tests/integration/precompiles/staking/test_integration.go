@@ -47,10 +47,6 @@ var (
 	// valAddr and valAddr2 are the two validator addresses used for testing
 	valAddr, valAddr2 sdk.ValAddress
 
-	// callArgs is the default arguments for calling the smart contract.
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
 	// txArgs are the EVM transaction arguments to use in the transactions
 	txArgs evmtypes.EvmTxArgs
 	// defaultLogCheck instantiates a log check arguments struct with the precompile ABI events populated.
@@ -1382,8 +1378,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// populate default TxArgs
 			txArgs.To = &contractAddr
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{}
 			// populate default log check args
 			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())

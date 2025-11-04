@@ -2,7 +2,6 @@ package distribution
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -15,65 +14,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
-
-// EventSetWithdrawAddress defines the event data for the SetWithdrawAddress transaction.
-type EventSetWithdrawAddress struct {
-	Caller            common.Address
-	WithdrawerAddress string
-}
-
-// EventWithdrawDelegatorReward defines the event data for the WithdrawDelegatorReward transaction.
-type EventWithdrawDelegatorReward struct {
-	DelegatorAddress common.Address
-	ValidatorAddress common.Address
-	Amount           *big.Int
-}
-
-// EventWithdrawValidatorRewards defines the event data for the WithdrawValidatorRewards transaction.
-type EventWithdrawValidatorRewards struct {
-	ValidatorAddress common.Hash
-	Commission       *big.Int
-}
-
-// EventClaimRewards defines the event data for the ClaimRewards transaction.
-type EventClaimRewards struct {
-	DelegatorAddress common.Address
-	Amount           *big.Int
-}
-
-// EventFundCommunityPool defines the event data for the FundCommunityPool transaction.
-type EventFundCommunityPool struct {
-	Depositor common.Address
-	Denom     string
-	Amount    *big.Int
-}
-
-// EventDepositValidatorRewardsPool defines the event data for the DepositValidatorRewardsPool transaction.
-type EventDepositValidatorRewardsPool struct {
-	Depositor        common.Address
-	ValidatorAddress common.Address
-	Denom            string
-	Amount           *big.Int
-}
-
-// parseClaimRewardsArgs parses the arguments for the ClaimRewards method.
-func parseClaimRewardsArgs(args []interface{}) (common.Address, uint32, error) {
-	if len(args) != 2 {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	delegatorAddress, ok := args[0].(common.Address)
-	if !ok || delegatorAddress == (common.Address{}) {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidDelegator, args[0])
-	}
-
-	maxRetrieve, ok := args[1].(uint32)
-	if !ok {
-		return common.Address{}, 0, fmt.Errorf(cmn.ErrInvalidType, "maxRetrieve", uint32(0), args[1])
-	}
-
-	return delegatorAddress, maxRetrieve, nil
-}
 
 // NewMsgSetWithdrawAddress creates a new MsgSetWithdrawAddress instance.
 func NewMsgSetWithdrawAddress(args SetWithdrawAddressCall, addrCdc address.Codec) (*distributiontypes.MsgSetWithdrawAddress, common.Address, error) {

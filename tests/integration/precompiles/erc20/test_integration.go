@@ -434,9 +434,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			})
 			When("calling reverter contract", func() {
 				Context("in a direct call to the WEVMOS contract", func() {
-					var (
-						txArgs evmtypes.EvmTxArgs
-					)
+					var txArgs evmtypes.EvmTxArgs
 					BeforeEach(func() {
 						txArgs = evmtypes.EvmTxArgs{
 							To:       &revertContractAddr,

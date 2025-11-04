@@ -3,11 +3,12 @@ package distribution
 import (
 	"fmt"
 
+	"github.com/yihuang/go-abi"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
 	"github.com/cosmos/evm/testutil"
 	testutiltx "github.com/cosmos/evm/testutil/tx"
-	"github.com/yihuang/go-abi"
 
 	"cosmossdk.io/math"
 
@@ -694,9 +695,9 @@ func (s *PrecompileTestSuite) TestDelegationTotalRewards() {
 			},
 			func(bz []byte) {
 				var (
-					i int
+					i   int
+					out distribution.DelegationTotalRewardsReturn
 				)
-				var out distribution.DelegationTotalRewardsReturn
 				_, err := out.Decode(bz)
 				s.Require().NoError(err, "failed to unpack output", err)
 
