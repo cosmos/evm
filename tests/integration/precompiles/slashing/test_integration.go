@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/precompiles/slashing/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -64,9 +65,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		BeforeEach(func() {
 			s.SetupTest()
 
-			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
-			Expect(err).To(BeNil())
-
 			// send funds to the contract
 			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(2e18))
 			Expect(err).To(BeNil())
@@ -88,11 +86,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			isContract := s.network.App.GetEVMKeeper().IsContract(s.network.GetContext(), contractAddr)
 			Expect(isContract).To(BeTrue(), "account should be a contract")
 
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: slashingCallerContract.ABI,
-			}
-
 			// reset tx args each test to avoid keeping custom
 			// values of previous tests (e.g. gasLimit)
 			txArgs = evmtypes.EvmTxArgs{
@@ -101,7 +94,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			}
 
 			// default log check arguments
-			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains("execution reverted")
 		})
 
@@ -114,18 +107,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				res, err := s.grpcHandler.GetDelegatorWithdrawAddr(s.keyring.GetAccAddr(0).String())
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(res.WithdrawAddress).To(Equal(s.keyring.GetAccAddr(0).String()))
-
-				// populate default arguments
-				callArgs.MethodName = "testUnjail"
 			})
 
 			It("should fail if sender is not jailed validator", func() {
 				txArgs = evmtypes.EvmTxArgs{
 					To: &contractAddr,
 				}
-				callArgs.Args = []interface{}{
+				callArgs := slashing.NewUnjailCall(
 					common.BytesToAddress(valAddr.Bytes()),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
 					cmn.ErrRequesterIsNotMsgSender,

@@ -70,7 +70,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfo() {
 
 			ctx := s.network.GetContext()
 			call := tc.malleate()
-			result, err := s.precompile.GetSigningInfo(ctx, &call)
+			result, err := s.precompile.GetSigningInfo(ctx, call)
 
 			if tc.expError {
 				s.Require().Error(err)
@@ -88,7 +88,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 	testCases := []struct {
 		name        string
 		malleate    func() slashing.GetSigningInfosCall
-		postCheck   func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse)
+		postCheck   func(signingInfos []slashing.SigningInfo, pageResponse cmn.PageResponse)
 		expError    bool
 		errContains string
 	}{
@@ -102,7 +102,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 					},
 				}
 			},
-			func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse) {
+			func(signingInfos []slashing.SigningInfo, pageResponse cmn.PageResponse) {
 				s.Require().Len(signingInfos, 3)
 				s.Require().Equal(uint64(3), pageResponse.Total)
 
@@ -144,7 +144,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 					},
 				}
 			},
-			func(signingInfos []slashing.SigningInfo, pageResponse slashing.PageResponse) {
+			func(signingInfos []slashing.SigningInfo, pageResponse cmn.PageResponse) {
 				s.Require().Len(signingInfos, 1)
 				s.Require().Equal(uint64(3), pageResponse.Total)
 				s.Require().NotNil(pageResponse.NextKey)
@@ -169,7 +169,7 @@ func (s *PrecompileTestSuite) TestGetSigningInfos() {
 
 			ctx := s.network.GetContext()
 			call := tc.malleate()
-			result, err := s.precompile.GetSigningInfos(ctx, &call)
+			result, err := s.precompile.GetSigningInfos(ctx, call)
 
 			if tc.expError {
 				s.Require().Error(err)
@@ -217,7 +217,7 @@ func (s *PrecompileTestSuite) TestGetParams() {
 
 			ctx := s.network.GetContext()
 			call := tc.malleate()
-			result, err := s.precompile.GetParams(ctx, &call)
+			result, err := s.precompile.GetParams(ctx, call)
 
 			if tc.expError {
 				s.Require().Error(err)

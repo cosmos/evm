@@ -86,7 +86,7 @@ func (s *PrecompileTestSuite) TestUnjailEvent() {
 			method := slashing.UnjailCall{
 				ValidatorAddress: tc.malleate(),
 			}
-			_, err := s.precompile.Unjail(ctx, &method, stateDB, contract)
+			_, err := s.precompile.Unjail(ctx, method, stateDB, contract)
 
 			if tc.expError {
 				s.Require().Error(err)
