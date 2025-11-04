@@ -1,7 +1,6 @@
 package staking
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,71 +14,42 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 func (s *PrecompileTestSuite) TestDelegation() {
-	method := s.precompile.Methods[staking.DelegationMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func(bz []byte)
+		malleate    func(operatorAddress string) *staking.DelegationCall
+		postCheck   func(out staking.DelegationReturn)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(string) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func(operatorAddress string) []interface{} {
-				return []interface{}{
-					"invalid",
-					operatorAddress,
-				}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
-		},
-		{
 			"fail - invalid operator address",
-			func(string) []interface{} {
-				return []interface{}{
+			func(string) *staking.DelegationCall {
+				return staking.NewDelegationCall(
 					s.keyring.GetAddr(0),
 					"invalid",
-				}
+				)
 			},
-			func([]byte) {},
+			func(staking.DelegationReturn) {},
 			100000,
 			true,
 			"invalid: unknown address",
 		},
 		{
 			"success - empty delegation",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress string) *staking.DelegationCall {
 				addr, _ := testutiltx.NewAddrKey()
-				return []interface{}{
+				return staking.NewDelegationCall(
 					addr,
 					operatorAddress,
-				}
+				)
 			},
-			func(bz []byte) {
-				var delOut staking.DelegationOutput
-				err := s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, bz)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(delOut.Shares.Int64(), common.U2560.ToBig().Int64())
+			func(out staking.DelegationReturn) {
+				s.Require().Equal(out.Shares.Int64(), common.U2560.ToBig().Int64())
 			},
 			100000,
 			false,
@@ -87,17 +57,14 @@ func (s *PrecompileTestSuite) TestDelegation() {
 		},
 		{
 			"success",
-			func(operatorAddress string) []interface{} {
-				return []interface{}{
+			func(operatorAddress string) *staking.DelegationCall {
+				return staking.NewDelegationCall(
 					s.keyring.GetAddr(0),
 					operatorAddress,
-				}
+				)
 			},
-			func(bz []byte) {
-				var delOut staking.DelegationOutput
-				err := s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, bz)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Equal(delOut.Shares, big.NewInt(1e18))
+			func(out staking.DelegationReturn) {
+				s.Require().Equal(out.Shares, big.NewInt(1e18))
 			},
 			100000,
 			false,
@@ -108,69 +75,38 @@ func (s *PrecompileTestSuite) TestDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.Delegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			out, err := s.precompile.Delegation(s.network.GetContext(), *tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotEmpty(bz)
-				tc.postCheck(bz)
+				tc.postCheck(*out)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestUnbondingDelegation() {
-	method := s.precompile.Methods[staking.UnbondingDelegationMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
-		postCheck   func(bz []byte)
+		malleate    func(operatorAddress string) *staking.UnbondingDelegationCall
+		postCheck   func(staking.UnbondingDelegationReturn)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(string) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func(operatorAddress string) []interface{} {
-				return []interface{}{
-					"invalid",
-					operatorAddress,
-				}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
-		},
-		{
 			"success - no unbonding delegation found",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress string) *staking.UnbondingDelegationCall {
 				addr, _ := testutiltx.NewAddrKey()
-				return []interface{}{
+				return staking.NewUnbondingDelegationCall(
 					addr,
 					operatorAddress,
-				}
+				)
 			},
-			func(data []byte) {
-				var ubdOut staking.UnbondingDelegationOutput
-				err := s.precompile.UnpackIntoInterface(&ubdOut, staking.UnbondingDelegationMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
+			func(ubdOut staking.UnbondingDelegationReturn) {
 				s.Require().Len(ubdOut.UnbondingDelegation.Entries, 0)
 			},
 			100000,
@@ -179,16 +115,13 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 		},
 		{
 			"success",
-			func(operatorAddress string) []interface{} {
-				return []interface{}{
+			func(operatorAddress string) *staking.UnbondingDelegationCall {
+				return staking.NewUnbondingDelegationCall(
 					s.keyring.GetAddr(0),
 					operatorAddress,
-				}
+				)
 			},
-			func(data []byte) {
-				var ubdOut staking.UnbondingDelegationOutput
-				err := s.precompile.UnpackIntoInterface(&ubdOut, staking.UnbondingDelegationMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
+			func(ubdOut staking.UnbondingDelegationReturn) {
 				s.Require().Len(ubdOut.UnbondingDelegation.Entries, 1)
 				s.Require().Equal(ubdOut.UnbondingDelegation.Entries[0].CreationHeight, s.network.GetContext().BlockHeight())
 				s.Require().Equal(ubdOut.UnbondingDelegation.Entries[0].Balance, big.NewInt(1e18))
@@ -202,64 +135,47 @@ func (s *PrecompileTestSuite) TestUnbondingDelegation() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
 			valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].GetOperator())
 			s.Require().NoError(err)
 			_, _, err = s.network.App.GetStakingKeeper().Undelegate(s.network.GetContext(), s.keyring.GetAddr(0).Bytes(), valAddr, math.LegacyNewDec(1))
 			s.Require().NoError(err)
 
-			bz, err := s.precompile.UnbondingDelegation(s.network.GetContext(), contract, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+			out, err := s.precompile.UnbondingDelegation(s.network.GetContext(), *tc.malleate(s.network.GetValidators()[0].OperatorAddress))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(out)
+				tc.postCheck(*out)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestValidator() {
-	method := s.precompile.Methods[staking.ValidatorMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress common.Address) []interface{}
-		postCheck   func(bz []byte)
+		malleate    func(operatorAddress common.Address) *staking.ValidatorCall
+		postCheck   func(staking.ValidatorReturn)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(common.Address) []interface{} {
-				return []interface{}{}
-			},
-			func(_ []byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
-		},
-		{
 			"success",
-			func(operatorAddress common.Address) []interface{} {
-				return []interface{}{
+			func(operatorAddress common.Address) *staking.ValidatorCall {
+				return staking.NewValidatorCall(
 					operatorAddress,
-				}
+				)
 			},
-			func(data []byte) {
-				var valOut staking.ValidatorOutput
-				err := s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
-
+			func(valOut staking.ValidatorReturn) {
 				operatorAddress, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 
-				s.Require().Equal(common.HexToAddress(valOut.Validator.OperatorAddress), common.BytesToAddress(operatorAddress.Bytes()))
+				s.Require().Equal(valOut.Validator, common.BytesToAddress(operatorAddress.Bytes()))
 			},
 			100000,
 			false,
@@ -267,17 +183,14 @@ func (s *PrecompileTestSuite) TestValidator() {
 		},
 		{
 			name: "success - empty validator",
-			malleate: func(_ common.Address) []interface{} {
+			malleate: func(_ common.Address) *staking.ValidatorCall {
 				newAddr, _ := testutiltx.NewAccAddressAndKey()
 				newValAddr := sdk.ValAddress(newAddr)
-				return []interface{}{
+				return staking.NewValidatorCall(
 					common.BytesToAddress(newValAddr.Bytes()),
-				}
+				)
 			},
-			postCheck: func(data []byte) {
-				var valOut staking.ValidatorOutput
-				err := s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
+			postCheck: func(valOut staking.ValidatorReturn) {
 				s.Require().Equal(valOut.Validator.OperatorAddress, "")
 				s.Require().Equal(valOut.Validator.Status, uint8(0))
 			},
@@ -288,75 +201,45 @@ func (s *PrecompileTestSuite) TestValidator() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
 			operatorAddress, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 			s.Require().NoError(err)
 
-			bz, err := s.precompile.Validator(s.network.GetContext(), &method, contract, tc.malleate(common.BytesToAddress(operatorAddress.Bytes())))
+			out, err := s.precompile.Validator(s.network.GetContext(), *tc.malleate(common.BytesToAddress(operatorAddress.Bytes())))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(out)
+				tc.postCheck(*out)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestValidators() {
-	method := s.precompile.Methods[staking.ValidatorsMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(bz []byte)
+		malleate    func() *staking.ValidatorsCall
+		postCheck   func(staking.ValidatorsReturn)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func(_ []byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			"fail - invalid number of arguments",
-			func() []interface{} {
-				return []interface{}{
-					stakingtypes.Bonded.String(),
-				}
-			},
-			func(_ []byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 1),
-		},
-		{
 			"success - bonded status & pagination w/countTotal",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.ValidatorsCall {
+				return staking.NewValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      1,
 						CountTotal: true,
 					},
-				}
+				)
 			},
-			func(data []byte) {
+			func(valOut staking.ValidatorsReturn) {
 				const expLen = 1
-				var valOut staking.ValidatorsOutput
-				err := s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
-
 				s.Require().Len(valOut.Validators, expLen)
 				// passed CountTotal = true
 				s.Require().Equal(len(s.network.GetValidators()), int(valOut.PageResponse.Total)) //nolint:gosec
@@ -369,21 +252,18 @@ func (s *PrecompileTestSuite) TestValidators() {
 		},
 		{
 			"success - bonded status & pagination w/countTotal & key is []byte{0}",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.ValidatorsCall {
+				return staking.NewValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{
+					cmn.PageRequest{
 						Key:        []byte{0},
 						Limit:      1,
 						CountTotal: true,
 					},
-				}
+				)
 			},
-			func(data []byte) {
+			func(valOut staking.ValidatorsReturn) {
 				const expLen = 1
-				var valOut staking.ValidatorsOutput
-				err := s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
 
 				s.Require().Len(valOut.Validators, expLen)
 				// passed CountTotal = true
@@ -400,102 +280,70 @@ func (s *PrecompileTestSuite) TestValidators() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
-			bz, err := s.precompile.Validators(s.network.GetContext(), &method, contract, tc.malleate())
+			out, err := s.precompile.Validators(s.network.GetContext(), *tc.malleate())
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(out)
+				tc.postCheck(*out)
 			}
 		})
 	}
 }
 
 func (s *PrecompileTestSuite) TestRedelegation() {
-	method := s.precompile.Methods[staking.RedelegationMethod]
-	redelegateMethod := s.precompile.Methods[staking.RedelegateMethod]
-
 	testCases := []struct {
 		name        string
-		malleate    func(srcOperatorAddr, destOperatorAddr string) []interface{}
-		postCheck   func(bz []byte)
+		malleate    func(srcOperatorAddr, destOperatorAddr string) *staking.RedelegationCall
+		postCheck   func(staking.RedelegationOutput)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func(string, string) []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func(srcOperatorAddr, destOperatorAddr string) []interface{} {
-				return []interface{}{
-					"invalid",
-					srcOperatorAddr,
-					destOperatorAddr,
-				}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidDelegator, "invalid"),
-		},
-		{
 			"fail - empty src validator addr",
-			func(_, destOperatorAddr string) []interface{} {
-				return []interface{}{
+			func(_, destOperatorAddr string) *staking.RedelegationCall {
+				return staking.NewRedelegationCall(
 					s.keyring.GetAddr(0),
 					"",
 					destOperatorAddr,
-				}
+				)
 			},
-			func([]byte) {},
+			func(staking.RedelegationOutput) {},
 			100000,
 			true,
 			"empty address string is not allowed",
 		},
 		{
 			"fail - empty destination addr",
-			func(srcOperatorAddr, _ string) []interface{} {
-				return []interface{}{
+			func(srcOperatorAddr, _ string) *staking.RedelegationCall {
+				return staking.NewRedelegationCall(
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
 					"",
-				}
+				)
 			},
-			func([]byte) {},
+			func(staking.RedelegationOutput) {},
 			100000,
 			true,
 			"empty address string is not allowed",
 		},
 		{
 			"success",
-			func(srcOperatorAddr, destOperatorAddr string) []interface{} {
-				return []interface{}{
+			func(srcOperatorAddr, destOperatorAddr string) *staking.RedelegationCall {
+				return staking.NewRedelegationCall(
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
 					destOperatorAddr,
-				}
+				)
 			},
-			func(data []byte) {
-				var redOut staking.RedelegationOutput
-				err := s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(redOut.Redelegation.Entries, 1)
-				s.Require().Equal(redOut.Redelegation.Entries[0].CreationHeight, s.network.GetContext().BlockHeight())
-				s.Require().Equal(redOut.Redelegation.Entries[0].SharesDst, big.NewInt(1e18))
+			func(redOut staking.RedelegationOutput) {
+				s.Require().Len(redOut.Entries, 1)
+				s.Require().Equal(redOut.Entries[0].CreationHeight, s.network.GetContext().BlockHeight())
+				s.Require().Equal(redOut.Entries[0].SharesDst, big.NewInt(1e18))
 			},
 			100000,
 			false,
@@ -503,19 +351,16 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		},
 		{
 			name: "success - no redelegation found",
-			malleate: func(srcOperatorAddr, _ string) []interface{} {
+			malleate: func(srcOperatorAddr, _ string) *staking.RedelegationCall {
 				nonExistentOperator := sdk.ValAddress([]byte("non-existent-operator"))
-				return []interface{}{
+				return staking.NewRedelegationCall(
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
 					nonExistentOperator.String(),
-				}
+				)
 			},
-			postCheck: func(data []byte) {
-				var redOut staking.RedelegationOutput
-				err := s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationMethod, data)
-				s.Require().NoError(err, "failed to unpack output")
-				s.Require().Len(redOut.Redelegation.Entries, 0)
+			postCheck: func(redOut staking.RedelegationOutput) {
+				s.Require().Len(redOut.Entries, 0)
 			},
 			gas: 100000,
 		},
@@ -526,25 +371,25 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 			s.SetupTest() // reset
 			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
 
-			delegationArgs := []interface{}{
+			delegationArgs := staking.NewRedelegateCall(
 				s.keyring.GetAddr(0),
 				s.network.GetValidators()[0].OperatorAddress,
 				s.network.GetValidators()[1].OperatorAddress,
 				big.NewInt(1e18),
-			}
+			)
 
-			_, err := s.precompile.Redelegate(s.network.GetContext(), contract, s.network.GetStateDB(), &redelegateMethod, delegationArgs)
+			_, err := s.precompile.Redelegate(s.network.GetContext(), *delegationArgs, s.network.GetStateDB(), contract)
 			s.Require().NoError(err)
 
-			bz, err := s.precompile.Redelegation(s.network.GetContext(), &method, contract, tc.malleate(s.network.GetValidators()[0].OperatorAddress, s.network.GetValidators()[1].OperatorAddress))
+			out, err := s.precompile.Redelegation(s.network.GetContext(), *tc.malleate(s.network.GetValidators()[0].OperatorAddress, s.network.GetValidators()[1].OperatorAddress))
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
+				s.Require().NotNil(out)
+				tc.postCheck(out.Redelegation)
 			}
 		})
 	}
@@ -554,84 +399,58 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 	var (
 		delAmt                 = big.NewInt(3e17)
 		redelTotalCount uint64 = 2
-		method                 = s.precompile.Methods[staking.RedelegationsMethod]
 	)
 
 	testCases := []struct {
 		name        string
-		malleate    func() []interface{}
-		postCheck   func(bz []byte)
+		malleate    func() *staking.RedelegationsCall
+		postCheck   func(staking.RedelegationsReturn)
 		gas         uint64
 		expErr      bool
 		errContains string
 	}{
 		{
-			"fail - empty input args",
-			func() []interface{} {
-				return []interface{}{}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
-			"fail - invalid delegator address",
-			func() []interface{} {
-				return []interface{}{
-					common.BytesToAddress([]byte("invalid")),
-					s.network.GetValidators()[0].OperatorAddress,
-					s.network.GetValidators()[1].OperatorAddress,
-					query.PageRequest{},
-				}
-			},
-			func([]byte) {},
-			100000,
-			true,
-			"redelegation not found",
-		},
-		{
 			"fail - invalid query | all empty args ",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.RedelegationsCall {
+				return staking.NewRedelegationsCall(
 					common.Address{},
 					"",
 					"",
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 			},
-			func([]byte) {},
+			func(out staking.RedelegationsReturn) {},
 			100000,
 			true,
 			"invalid query. Need to specify at least a source validator address or delegator address",
 		},
 		{
 			"fail - invalid query | only destination validator address",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.RedelegationsCall {
+				return staking.NewRedelegationsCall(
 					common.Address{},
 					"",
 					s.network.GetValidators()[1].OperatorAddress,
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 			},
-			func([]byte) {},
+			func(out staking.RedelegationsReturn) {},
 			100000,
 			true,
 			"invalid query. Need to specify at least a source validator address or delegator address",
 		},
 		{
 			"success - specified delegator, source & destination",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.RedelegationsCall {
+				return staking.NewRedelegationsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
 					s.network.GetValidators()[1].OperatorAddress,
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 			},
-			func(data []byte) {
-				s.assertRedelegationsOutput(data, 0, delAmt, s.network.GetContext().BlockHeight(), false)
+			func(out staking.RedelegationsReturn) {
+				s.assertRedelegationsOutput(out, 0, delAmt, s.network.GetContext().BlockHeight(), false)
 			},
 			100000,
 			false,
@@ -639,19 +458,19 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 		},
 		{
 			"success - specifying only source w/pagination",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.RedelegationsCall {
+				return staking.NewRedelegationsCall(
 					common.Address{},
 					s.network.GetValidators()[0].OperatorAddress,
 					"",
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      1,
 						CountTotal: true,
 					},
-				}
+				)
 			},
-			func(data []byte) {
-				s.assertRedelegationsOutput(data, redelTotalCount, delAmt, s.network.GetContext().BlockHeight(), true)
+			func(out staking.RedelegationsReturn) {
+				s.assertRedelegationsOutput(out, redelTotalCount, delAmt, s.network.GetContext().BlockHeight(), true)
 			},
 			100000,
 			false,
@@ -659,19 +478,19 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 		},
 		{
 			"success - get all existing redelegations for a delegator w/pagination",
-			func() []interface{} {
-				return []interface{}{
+			func() *staking.RedelegationsCall {
+				return staking.NewRedelegationsCall(
 					s.keyring.GetAddr(0),
 					"",
 					"",
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      1,
 						CountTotal: true,
 					},
-				}
+				)
 			},
-			func(data []byte) {
-				s.assertRedelegationsOutput(data, redelTotalCount, delAmt, s.network.GetContext().BlockHeight(), true)
+			func(out staking.RedelegationsReturn) {
+				s.assertRedelegationsOutput(out, redelTotalCount, delAmt, s.network.GetContext().BlockHeight(), true)
 			},
 			100000,
 			false,
@@ -682,21 +501,18 @@ func (s *PrecompileTestSuite) TestRedelegations() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			s.SetupTest() // reset
-			contract := vm.NewContract(s.keyring.GetAddr(0), s.precompile.Address(), uint256.NewInt(0), tc.gas, nil)
-
 			err := s.setupRedelegations(s.network.GetContext(), delAmt)
 			s.Require().NoError(err)
 
 			// query redelegations
-			bz, err := s.precompile.Redelegations(s.network.GetContext(), &method, contract, tc.malleate())
+			out, err := s.precompile.Redelegations(s.network.GetContext(), *tc.malleate())
 
 			if tc.expErr {
 				s.Require().Error(err)
 				s.Require().Contains(err.Error(), tc.errContains)
 			} else {
 				s.Require().NoError(err)
-				s.Require().NotNil(bz)
-				tc.postCheck(bz)
+				tc.postCheck(*out)
 			}
 		})
 	}

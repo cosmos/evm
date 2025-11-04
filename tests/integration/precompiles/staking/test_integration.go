@@ -18,6 +18,8 @@ import (
 	compiledcontracts "github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/erc20"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/staking/testdata"
 	"github.com/cosmos/evm/precompiles/staking/testdata/stakingcaller"
@@ -3201,7 +3203,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Mint tokens to the StakingCaller contract
-			mintArgs := erc20Contract.NewMintCall(
+			mintArgs := erc20testdata.NewMintCall(
 				contractAddr, mintAmount,
 			)
 
@@ -3210,8 +3212,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			}
 
 			mintCheck := testutil.LogCheckArgs{
-				ABIEvents: erc20Contract.ABI.Events,
-				ExpEvents: []string{"Transfer"}, // minting produces a Transfer event
+				ExpEvents: []abi.Event{&erc20.TransferEvent{}}, // minting produces a Transfer event
 				ExpPass:   true,
 			}
 
@@ -3222,21 +3223,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Check that the StakingCaller contract has the correct balance
-			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, contractAddr)
+			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, contractAddr)
 			Expect(erc20Balance).To(Equal(mintAmount), "expected different ERC20 balance for the StakingCaller contract")
-
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: stakingCallerContract.ABI,
-				MethodName:  "callERC20AndDelegate",
-			}
 
 			txArgs.To = &contractAddr
 
 			// populate default log check args
-			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.Events,
-			}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())
 			passCheck = defaultLogCheck.WithExpPass(true)
 		})
@@ -3266,13 +3259,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							validator.String(),
-						},
-					},
+					stakingcaller.NewTestDelegateCall(
+						validator.String(),
+					),
 					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the StakingCaller contract")
@@ -3291,7 +3280,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// NOTE: passing an invalid validator address here should fail AFTER the erc20 transfer was made in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
-				callArgs.Args = []interface{}{erc20ContractAddr, "invalid validator", transferredAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, "invalid_validator_address", transferredAmount,
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3305,7 +3296,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
@@ -3324,7 +3315,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
 				moreThanMintedAmount := new(big.Int).Add(mintAmount, big.NewInt(1))
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, moreThanMintedAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, moreThanMintedAmount,
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3338,7 +3331,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
@@ -3356,16 +3349,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, transferredAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, transferredAmount,
+				)
 
 				// Build combined map of ABI events to check for both ERC20 Transfer event as well as precompile events
-				combinedABIEvents := s.precompile.Events
-				combinedABIEvents["Transfer"] = erc20Contract.ABI.Events["Transfer"]
-
 				successCheck := passCheck.
-					WithABIEvents(combinedABIEvents).
 					WithExpEvents(
-						"Transfer", &staking.DelegateEvent{},
+						&erc20.TransferEvent{}, &staking.DelegateEvent{},
 					)
 
 				txArgs.Amount = big.NewInt(1e18)
@@ -3386,7 +3377,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost.GT(sharesPre)).To(BeTrue(), "expected shares to be more than before")
 				Expect(erc20BalancePost).To(Equal(transferredAmount), "expected different erc20 balance of target address")

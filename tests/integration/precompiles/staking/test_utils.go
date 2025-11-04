@@ -54,11 +54,7 @@ func (s *PrecompileTestSuite) assertValidatorsResponse(validators []staking.Vali
 }
 
 // assertRedelegation asserts the redelegationOutput struct and its fields
-func (s *PrecompileTestSuite) assertRedelegationsOutput(data []byte, redelTotalCount uint64, expAmt *big.Int, expCreationHeight int64, hasPagination bool) {
-	var redOut staking.RedelegationsReturn
-	err := s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationsMethod, data)
-	s.Require().NoError(err, "failed to unpack output")
-
+func (s *PrecompileTestSuite) assertRedelegationsOutput(redOut staking.RedelegationsReturn, redelTotalCount uint64, expAmt *big.Int, expCreationHeight int64, hasPagination bool) {
 	s.Require().Len(redOut.Response, 1)
 	// check pagination - total count should be 2
 	s.Require().Equal(redelTotalCount, redOut.PageResponse.Total)

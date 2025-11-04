@@ -93,12 +93,12 @@ func (t MintCall) GetMethodName() string {
 	return "mint"
 }
 
-// GetMethodID returns the function name
+// GetMethodID returns the function id
 func (t MintCall) GetMethodID() uint32 {
 	return MintID
 }
 
-// GetMethodSelector returns the function name
+// GetMethodSelector returns the function selector
 func (t MintCall) GetMethodSelector() [4]byte {
 	return MintSelector
 }
@@ -113,7 +113,18 @@ func (t MintCall) EncodeWithSelector() ([]byte, error) {
 	return result, nil
 }
 
-// MintReturn represents the input arguments for mint function
+// NewMintCall constructs a new MintCall
+func NewMintCall(
+	to common.Address,
+	amount *big.Int,
+) *MintCall {
+	return &MintCall{
+		To:     to,
+		Amount: amount,
+	}
+}
+
+// MintReturn represents the output arguments for mint function
 type MintReturn struct {
 	abi.EmptyTuple
 }

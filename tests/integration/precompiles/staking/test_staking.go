@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -27,49 +26,49 @@ import (
 func (s *PrecompileTestSuite) TestIsTransaction() {
 	testCases := []struct {
 		name   string
-		method abi.Method
+		method uint32
 		isTx   bool
 	}{
 		{
 			staking.CreateValidatorMethod,
-			s.precompile.Methods[staking.CreateValidatorMethod],
+			staking.CreateValidatorID,
 			true,
 		},
 		{
 			staking.DelegateMethod,
-			s.precompile.Methods[staking.DelegateMethod],
+			staking.DelegateID,
 			true,
 		},
 		{
 			staking.UndelegateMethod,
-			s.precompile.Methods[staking.UndelegateMethod],
+			staking.UndelegateID,
 			true,
 		},
 		{
 			staking.RedelegateMethod,
-			s.precompile.Methods[staking.RedelegateMethod],
+			staking.RedelegateID,
 			true,
 		},
 		{
 			staking.CancelUnbondingDelegationMethod,
-			s.precompile.Methods[staking.CancelUnbondingDelegationMethod],
+			staking.CancelUnbondingDelegationID,
 			true,
 		},
 		{
 			staking.DelegationMethod,
-			s.precompile.Methods[staking.DelegationMethod],
+			staking.DelegationID,
 			false,
 		},
 		{
 			"invalid",
-			abi.Method{},
+			0,
 			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.Require().Equal(s.precompile.IsTransaction(&tc.method), tc.isTx)
+			s.Require().Equal(s.precompile.IsTransaction(tc.method), tc.isTx)
 		})
 	}
 }
@@ -83,12 +82,12 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			"success - delegate transaction with correct gas estimation",
 			func() []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(10000000000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err)
 				return input
 			},
@@ -97,12 +96,12 @@ func (s *PrecompileTestSuite) TestRequiredGas() {
 		{
 			"success - undelegate transaction with correct gas estimation",
 			func() []byte {
-				input, err := s.precompile.Pack(
-					staking.UndelegateMethod,
+				args := staking.NewUndelegateCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err)
 				return input
 			},
@@ -137,12 +136,12 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"fail - contract gas limit is < gas cost to run a query / tx",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -154,12 +153,12 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - delegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -171,12 +170,12 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - undelegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.UndelegateMethod,
+				args := staking.NewUndelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -188,13 +187,13 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - redelegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.RedelegateMethod,
+				args := staking.NewRedelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					s.network.GetValidators()[1].GetOperator(),
 					big.NewInt(1),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -228,13 +227,13 @@ func (s *PrecompileTestSuite) TestRun() {
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
-				input, err := s.precompile.Pack(
-					staking.CancelUnbondingDelegationMethod,
+				args := staking.NewCancelUnbondingDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 					big.NewInt(ctx.BlockHeight()),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -246,11 +245,11 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - delegation query",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegationMethod,
+				args := staking.NewDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -265,10 +264,10 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 
-				input, err := s.precompile.Pack(
-					staking.ValidatorMethod,
+				args := staking.NewValidatorCall(
 					common.BytesToAddress(valAddr.Bytes()),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -301,12 +300,12 @@ func (s *PrecompileTestSuite) TestRun() {
 				err = s.network.App.GetStakingKeeper().SetRedelegation(ctx, redelegation)
 				s.Require().NoError(err, "failed to set redelegation")
 
-				input, err := s.precompile.Pack(
-					staking.RedelegationMethod,
+				args := staking.NewRedelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					s.network.GetValidators()[1].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -318,11 +317,11 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - delegation query - read only",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegationMethod,
+				args := staking.NewDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -356,11 +355,11 @@ func (s *PrecompileTestSuite) TestRun() {
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
-				input, err := s.precompile.Pack(
-					staking.UnbondingDelegationMethod,
+				args := staking.NewUnbondingDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -372,12 +371,12 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"fail - delegate method - read only",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -485,12 +484,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"fail - contract gas limit is < gas cost to run a query / tx",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -502,12 +501,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - delegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegateMethod,
+				args := staking.NewDelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -519,12 +518,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - undelegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.UndelegateMethod,
+				args := staking.NewUndelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -536,13 +535,13 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - redelegate transaction",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.RedelegateMethod,
+				args := staking.NewRedelegateCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					s.network.GetValidators()[1].GetOperator(),
 					big.NewInt(1),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -576,13 +575,13 @@ func (s *PrecompileTestSuite) TestCMS() {
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
-				input, err := s.precompile.Pack(
-					staking.CancelUnbondingDelegationMethod,
+				args := staking.NewCancelUnbondingDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					big.NewInt(1000),
 					big.NewInt(ctx.BlockHeight()),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -594,11 +593,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - delegation query",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegationMethod,
+				args := staking.NewDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -613,10 +612,10 @@ func (s *PrecompileTestSuite) TestCMS() {
 				valAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
 				s.Require().NoError(err)
 
-				input, err := s.precompile.Pack(
-					staking.ValidatorMethod,
+				args := staking.NewValidatorCall(
 					common.BytesToAddress(valAddr.Bytes()),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -649,12 +648,12 @@ func (s *PrecompileTestSuite) TestCMS() {
 				err = s.network.App.GetStakingKeeper().SetRedelegation(ctx, redelegation)
 				s.Require().NoError(err, "failed to set redelegation")
 
-				input, err := s.precompile.Pack(
-					staking.RedelegationMethod,
+				args := staking.NewRedelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 					s.network.GetValidators()[1].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -666,11 +665,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 		{
 			"pass - delegation query - read only",
 			func(delegator keyring.Key) []byte {
-				input, err := s.precompile.Pack(
-					staking.DelegationMethod,
+				args := staking.NewDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
@@ -704,11 +703,11 @@ func (s *PrecompileTestSuite) TestCMS() {
 				err = s.network.App.GetBankKeeper().SendCoinsFromModuleToModule(ctx, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName, sdk.Coins{coin})
 				s.Require().NoError(err, "failed to send coins from module to module")
 
-				input, err := s.precompile.Pack(
-					staking.UnbondingDelegationMethod,
+				args := staking.NewUnbondingDelegationCall(
 					delegator.Addr,
 					s.network.GetValidators()[0].GetOperator(),
 				)
+				input, err := args.Encode()
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},

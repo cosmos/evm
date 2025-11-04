@@ -131,7 +131,7 @@ func (p Precompile) Validators(
 // Redelegation returns the redelegation between two validators for a delegator.
 func (p Precompile) Redelegation(
 	ctx sdk.Context,
-	args RedelegateCall,
+	args RedelegationCall,
 ) (*RedelegationReturn, error) {
 	req, err := NewRedelegationRequest(args)
 	if err != nil {

@@ -311,17 +311,17 @@ func NewValidatorsRequest(args ValidatorsCall) (*stakingtypes.QueryValidatorsReq
 
 // NewRedelegationRequest create a new QueryRedelegationRequest instance and does sanity checks
 // on the given arguments before populating the request.
-func NewRedelegationRequest(args RedelegateCall) (*RedelegationRequest, error) {
+func NewRedelegationRequest(args RedelegationCall) (*RedelegationRequest, error) {
 	if args.DelegatorAddress == (common.Address{}) {
 		return nil, fmt.Errorf(cmn.ErrInvalidDelegator, args.DelegatorAddress)
 	}
 
-	validatorSrcAddr, err := sdk.ValAddressFromBech32(args.ValidatorSrcAddress)
+	validatorSrcAddr, err := sdk.ValAddressFromBech32(args.SrcValidatorAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	validatorDstAddr, err := sdk.ValAddressFromBech32(args.ValidatorDstAddress)
+	validatorDstAddr, err := sdk.ValAddressFromBech32(args.DstValidatorAddress)
 	if err != nil {
 		return nil, err
 	}
