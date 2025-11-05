@@ -50,7 +50,7 @@ type BankKeeper_BlockedAddr_Call struct {
 
 // BlockedAddr is a helper method to define mock.On call
 //   - addr types.AccAddress
-func (_e *BankKeeper_Expecter) BlockedAddr(addr interface{}) *BankKeeper_BlockedAddr_Call {
+func (_e *BankKeeper_Expecter) BlockedAddr(addr any) *BankKeeper_BlockedAddr_Call {
 	return &BankKeeper_BlockedAddr_Call{Call: _e.mock.On("BlockedAddr", addr)}
 }
 
@@ -98,7 +98,7 @@ type BankKeeper_BurnCoins_Call struct {
 //   - ctx context.Context
 //   - moduleName string
 //   - amt types.Coins
-func (_e *BankKeeper_Expecter) BurnCoins(ctx interface{}, moduleName interface{}, amt interface{}) *BankKeeper_BurnCoins_Call {
+func (_e *BankKeeper_Expecter) BurnCoins(ctx any, moduleName any, amt any) *BankKeeper_BurnCoins_Call {
 	return &BankKeeper_BurnCoins_Call{Call: _e.mock.On("BurnCoins", ctx, moduleName, amt)}
 }
 
@@ -147,7 +147,7 @@ type BankKeeper_GetAllBalances_Call struct {
 // GetAllBalances is a helper method to define mock.On call
 //   - ctx context.Context
 //   - addr types.AccAddress
-func (_e *BankKeeper_Expecter) GetAllBalances(ctx interface{}, addr interface{}) *BankKeeper_GetAllBalances_Call {
+func (_e *BankKeeper_Expecter) GetAllBalances(ctx any, addr any) *BankKeeper_GetAllBalances_Call {
 	return &BankKeeper_GetAllBalances_Call{Call: _e.mock.On("GetAllBalances", ctx, addr)}
 }
 
@@ -195,7 +195,7 @@ type BankKeeper_GetBalance_Call struct {
 //   - ctx context.Context
 //   - addr types.AccAddress
 //   - denom string
-func (_e *BankKeeper_Expecter) GetBalance(ctx interface{}, addr interface{}, denom interface{}) *BankKeeper_GetBalance_Call {
+func (_e *BankKeeper_Expecter) GetBalance(ctx any, addr any, denom any) *BankKeeper_GetBalance_Call {
 	return &BankKeeper_GetBalance_Call{Call: _e.mock.On("GetBalance", ctx, addr, denom)}
 }
 
@@ -252,7 +252,7 @@ type BankKeeper_GetDenomMetaData_Call struct {
 // GetDenomMetaData is a helper method to define mock.On call
 //   - ctx context.Context
 //   - denom string
-func (_e *BankKeeper_Expecter) GetDenomMetaData(ctx interface{}, denom interface{}) *BankKeeper_GetDenomMetaData_Call {
+func (_e *BankKeeper_Expecter) GetDenomMetaData(ctx any, denom any) *BankKeeper_GetDenomMetaData_Call {
 	return &BankKeeper_GetDenomMetaData_Call{Call: _e.mock.On("GetDenomMetaData", ctx, denom)}
 }
 
@@ -299,7 +299,7 @@ type BankKeeper_GetSupply_Call struct {
 // GetSupply is a helper method to define mock.On call
 //   - ctx context.Context
 //   - denom string
-func (_e *BankKeeper_Expecter) GetSupply(ctx interface{}, denom interface{}) *BankKeeper_GetSupply_Call {
+func (_e *BankKeeper_Expecter) GetSupply(ctx any, denom any) *BankKeeper_GetSupply_Call {
 	return &BankKeeper_GetSupply_Call{Call: _e.mock.On("GetSupply", ctx, denom)}
 }
 
@@ -346,7 +346,7 @@ type BankKeeper_IsSendEnabledCoin_Call struct {
 // IsSendEnabledCoin is a helper method to define mock.On call
 //   - ctx context.Context
 //   - coin types.Coin
-func (_e *BankKeeper_Expecter) IsSendEnabledCoin(ctx interface{}, coin interface{}) *BankKeeper_IsSendEnabledCoin_Call {
+func (_e *BankKeeper_Expecter) IsSendEnabledCoin(ctx any, coin any) *BankKeeper_IsSendEnabledCoin_Call {
 	return &BankKeeper_IsSendEnabledCoin_Call{Call: _e.mock.On("IsSendEnabledCoin", ctx, coin)}
 }
 
@@ -369,11 +369,11 @@ func (_c *BankKeeper_IsSendEnabledCoin_Call) RunAndReturn(run func(context.Conte
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]interface{}, len(coins))
+	_va := make([]any, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -400,7 +400,7 @@ type BankKeeper_IsSendEnabledCoins_Call struct {
 // IsSendEnabledCoins is a helper method to define mock.On call
 //   - ctx context.Context
 //   - coins ...types.Coin
-func (_e *BankKeeper_Expecter) IsSendEnabledCoins(ctx interface{}, coins ...interface{}) *BankKeeper_IsSendEnabledCoins_Call {
+func (_e *BankKeeper_Expecter) IsSendEnabledCoins(ctx any, coins ...interface{}) *BankKeeper_IsSendEnabledCoins_Call {
 	return &BankKeeper_IsSendEnabledCoins_Call{Call: _e.mock.On("IsSendEnabledCoins",
 		append([]interface{}{ctx}, coins...)...)}
 }
