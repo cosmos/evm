@@ -6,50 +6,6 @@ import "./../../common/Types.sol";
 
 contract InterchainSender {
     int64 public counter;
-    /// @dev Approves the required spend limits for IBC transactions.
-    /// @dev This creates a Cosmos Authorization Grants for the given methods.
-    /// @dev This emits an Approval event.
-    function testApprove(ICS20Allocation[] calldata allocs) public {
-        bool success = ICS20_CONTRACT.approve(address(this), allocs);
-        require(success, "Failed to perform approval");
-    }
-
-    function testRevoke() external {
-        bool success = ICS20_CONTRACT.revoke(address(this));
-        require(success, "Failed to revoke approval");
-    }
-
-    function testIncreaseAllowance(
-        string calldata sourcePort,
-        string calldata sourceChannel,
-        string calldata denom,
-        uint256 amount
-    ) public {
-        bool success = ICS20_CONTRACT.increaseAllowance(
-            address(this),
-            sourcePort,
-            sourceChannel,
-            denom,
-            amount
-        );
-        require(success, "Failed to increase allowance");
-    }
-
-    function testDecreaseAllowance(
-        string calldata sourcePort,
-        string calldata sourceChannel,
-        string calldata denom,
-        uint256 amount
-    ) public {
-        bool success = ICS20_CONTRACT.decreaseAllowance(
-            address(this),
-            sourcePort,
-            sourceChannel,
-            denom,
-            amount
-        );
-        require(success, "Failed to decrease allowance");
-    }
 
     /// @dev transfer a given amount of tokens. Returns the IBC packet sequence of the IBC transaction.
     /// @dev This emits a IBCTransfer event.
@@ -199,23 +155,23 @@ contract InterchainSender {
     }
 
     // QUERIES
-    function testDenomTraces(
+    function testDenoms(
         PageRequest calldata pageRequest
     )
         public
         view
         returns (
-            DenomTrace[] memory denomTraces,
+            Denom[] memory denoms,
             PageResponse memory pageResponse
         )
     {
-        return ICS20_CONTRACT.denomTraces(pageRequest);
+        return ICS20_CONTRACT.denoms(pageRequest);
     }
 
-    function testDenomTrace(
+    function testDenom(
         string memory hash
-    ) public view returns (DenomTrace memory denomTrace) {
-        return ICS20_CONTRACT.denomTrace(hash);
+    ) public view returns (Denom memory denom) {
+        return ICS20_CONTRACT.denom(hash);
     }
 
     function testDenomHash(
@@ -224,10 +180,4 @@ contract InterchainSender {
         return ICS20_CONTRACT.denomHash(trace);
     }
 
-    function testAllowance(
-        address owner,
-        address spender
-    ) public view returns (ICS20Allocation[] memory allocations) {
-        return ICS20_CONTRACT.allowance(owner, spender);
-    }
 }

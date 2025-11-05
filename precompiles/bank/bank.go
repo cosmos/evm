@@ -9,14 +9,15 @@ import (
 	"embed"
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
 )
 
 const (
@@ -40,14 +41,14 @@ var f embed.FS
 // Precompile defines the bank precompile
 type Precompile struct {
 	cmn.Precompile
-	bankKeeper  bankkeeper.Keeper
+	bankKeeper  cmn.BankKeeper
 	erc20Keeper erc20keeper.Keeper
 }
 
 // NewPrecompile creates a new bank Precompile instance implementing the
 // PrecompiledContract interface.
 func NewPrecompile(
-	bankKeeper bankkeeper.Keeper,
+	bankKeeper cmn.BankKeeper,
 	erc20Keeper erc20keeper.Keeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, "abi.json")
@@ -109,35 +110,41 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	// This handles any out of gas errors that may occur during the execution of a precompile query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	switch method.Name {
-	// Bank queries
-	case BalancesMethod:
-		bz, err = p.Balances(ctx, contract, method, args)
-	case TotalSupplyMethod:
-		bz, err = p.TotalSupply(ctx, contract, method, args)
-	case SupplyOfMethod:
-		bz, err = p.SupplyOf(ctx, contract, method, args)
-	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
-	}
+	return p.RunAtomic(
+		snapshot,
+		stateDB,
+		func() ([]byte, error) {
+			switch method.Name {
+			// Bank queries
+			case BalancesMethod:
+				bz, err = p.Balances(ctx, contract, method, args)
+			case TotalSupplyMethod:
+				bz, err = p.TotalSupply(ctx, contract, method, args)
+			case SupplyOfMethod:
+				bz, err = p.SupplyOf(ctx, contract, method, args)
+			default:
+				return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+			}
 
-	if err != nil {
-		return nil, err
-	}
+			if err != nil {
+				return nil, err
+			}
 
-	cost := ctx.GasMeter().GasConsumed() - initialGas
+			cost := ctx.GasMeter().GasConsumed() - initialGas
 
-	if !contract.UseGas(cost) {
-		return nil, vm.ErrOutOfGas
-	}
+			if !contract.UseGas(cost) {
+				return nil, vm.ErrOutOfGas
+			}
 
-	if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-		return nil, err
-	}
+			if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+				return nil, err
+			}
 
-	return bz, nil
+			return bz, nil
+		},
+	)
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.17;
 
-import "../authorization/AuthorizationI.sol" as authorization;
 import "../common/Types.sol";
 
 /// @dev The StakingI contract's address.
@@ -130,7 +129,7 @@ enum BondStatus {
 /// We follow this same interface including four-byte function selectors, in the precompile that
 /// wraps the pallet.
 /// @custom:address 0x0000000000000000000000000000000000000800
-interface StakingI is authorization.AuthorizationI {
+interface StakingI {
     /// @dev Defines a method for creating a new validator.
     /// @param description The initial description
     /// @param commissionRates The initial commissionRates

@@ -1,11 +1,11 @@
 package txpool
 
 import (
-	"cosmossdk.io/log"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/cosmos/evm/rpc/types"
+
+	"cosmossdk.io/log"
 )
 
 // PublicAPI offers and API for the transaction pool. It only operates on data that is non-confidential.

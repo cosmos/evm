@@ -3,13 +3,16 @@ package keeper
 import (
 	"fmt"
 
-	errorsmod "cosmossdk.io/errors"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/werc20"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/ethereum/go-ethereum/common"
+
+	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // GetERC20PrecompileInstance returns the precompile instance for the given address.
@@ -50,10 +53,10 @@ func (k Keeper) InstantiateERC20Precompile(ctx sdk.Context, contractAddr common.
 	}
 
 	if hasWrappedMethods {
-		return werc20.NewPrecompile(pair, k.bankKeeper, k.authzKeeper, *k.transferKeeper)
+		return werc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper)
 	}
 
-	return erc20.NewPrecompile(pair, k.bankKeeper, k.authzKeeper, *k.transferKeeper)
+	return erc20.NewPrecompile(pair, k.bankKeeper, k, *k.transferKeeper)
 }
 
 // IsAvailableERC20Precompile returns true if the given precompile address

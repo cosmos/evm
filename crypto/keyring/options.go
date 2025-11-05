@@ -1,13 +1,13 @@
 package keyring
 
 import (
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	cosmosLedger "github.com/cosmos/cosmos-sdk/crypto/ledger"
-	"github.com/cosmos/cosmos-sdk/crypto/types"
-
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/wallets/ledger"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	cosmosLedger "github.com/cosmos/cosmos-sdk/crypto/ledger"
+	"github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
 // AppName defines the Ledger app used for signing. Cosmos EVM uses the Ethereum app

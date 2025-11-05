@@ -6,14 +6,17 @@ import (
 	"math/big"
 	"sort"
 
-	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/cosmos/evm/x/vm/types"
+
+	errorsmod "cosmossdk.io/errors"
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // revision is the identifier of a version of state.
@@ -108,9 +111,19 @@ func (s *StateDB) MultiStoreSnapshot() storetypes.CacheMultiStore {
 	// the cacheCtx multi store is already a CacheMultiStore
 	// so we need to pass a copy of the current state of it
 	cms := s.cacheCtx.MultiStore().(storetypes.CacheMultiStore)
-	snapshot := cms.Copy()
+	snapshot := cms.CacheMultiStore()
 
 	return snapshot
+}
+
+func (s *StateDB) RevertMultiStore(cms storetypes.CacheMultiStore, events sdk.Events) {
+	s.cacheCtx = s.cacheCtx.WithMultiStore(cms)
+	s.writeCache = func() {
+		// rollback the events to the ones
+		// on the snapshot
+		s.ctx.EventManager().EmitEvents(events)
+		cms.Write()
+	}
 }
 
 // cache creates the stateDB cache context

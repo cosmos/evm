@@ -1,11 +1,14 @@
 package factory
 
 import (
-	errorsmod "cosmossdk.io/errors"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	errorsmod "cosmossdk.io/errors"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
 // SignMsgEthereumTx signs a MsgEthereumTx with the provided private key and chainID.

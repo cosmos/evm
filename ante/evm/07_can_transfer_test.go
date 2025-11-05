@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"math/big"
 
-	"cosmossdk.io/math"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/cosmos/evm/ante/evm"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	"cosmossdk.io/math"
+
+	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 func (suite *EvmAnteTestSuite) TestCanTransfer() {

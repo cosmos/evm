@@ -1,11 +1,13 @@
 package network
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+
+	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/x/vm/statedb"
+
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // UnitTestNetwork is the implementation of the Network interface for unit tests.
@@ -13,7 +15,7 @@ import (
 // makes the App public for easier testing.
 type UnitTestNetwork struct {
 	IntegrationNetwork
-	App *exampleapp.ExampleChain
+	App *exampleapp.EVMD
 }
 
 var _ Network = (*UnitTestNetwork)(nil)

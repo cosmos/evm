@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"strings"
 
-	"cosmossdk.io/tools/confix"
 	"github.com/creachadair/tomledit"
 	"github.com/creachadair/tomledit/parser"
 	"github.com/creachadair/tomledit/transform"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"cosmossdk.io/tools/confix"
 )
 
 // This package includes the logic to migrate the app.toml file with the

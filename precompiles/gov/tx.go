@@ -3,13 +3,12 @@ package gov
 import (
 	"fmt"
 
-	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
+	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 )
 
 const (

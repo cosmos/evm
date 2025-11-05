@@ -21,9 +21,11 @@ import (
 	"math/big"
 	"sort"
 
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // JournalEntry is a modification entry in the state change journal that can be
@@ -163,13 +165,7 @@ var (
 func (pc precompileCallChange) Revert(s *StateDB) {
 	// rollback multi store from cache ctx to the previous
 	// state stored in the snapshot
-	s.cacheCtx = s.cacheCtx.WithMultiStore(pc.multiStore)
-	s.writeCache = func() {
-		// rollback the events to the ones snapshot
-		// on the snapshot
-		s.ctx.EventManager().EmitEvents(pc.events)
-		pc.multiStore.Write()
-	}
+	s.RevertMultiStore(pc.multiStore, pc.events)
 }
 
 func (pc precompileCallChange) Dirtied() *common.Address {

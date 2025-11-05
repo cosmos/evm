@@ -3,22 +3,24 @@ package keeper
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types"
+	"github.com/cosmos/evm/x/vm/wrappers"
+
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/evm/x/vm/wrappers"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
@@ -55,8 +57,8 @@ type Keeper struct {
 	// Tracer used to collect execution traces from the EVM transaction execution
 	tracer string
 
-	// Legacy subspace
-	ss paramstypes.Subspace
+	hooks types.EvmHooks
+	// EVM Hooks for tx post-processing
 
 	// precompiles defines the map of all available precompiled smart contracts.
 	// Some of these precompiled contracts might not be active depending on the EVM
@@ -75,7 +77,6 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	erc20Keeper types.Erc20Keeper,
 	tracer string,
-	ss paramstypes.Subspace,
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -102,7 +103,6 @@ func NewKeeper(
 		transientKey:     transientKey,
 		tracer:           tracer,
 		erc20Keeper:      erc20Keeper,
-		ss:               ss,
 	}
 }
 
@@ -165,6 +165,30 @@ func (k Keeper) SetTxIndexTransient(ctx sdk.Context, index uint64) {
 func (k Keeper) GetTxIndexTransient(ctx sdk.Context) uint64 {
 	store := ctx.TransientStore(k.transientKey)
 	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientTxIndex))
+}
+
+// ----------------------------------------------------------------------------
+// Hooks
+// ----------------------------------------------------------------------------
+
+// SetHooks sets the hooks for the EVM module
+// Called only once during initialization, panics if called more than once.
+func (k *Keeper) SetHooks(eh types.EvmHooks) *Keeper {
+	if k.hooks != nil {
+		panic("cannot set evm hooks twice")
+	}
+
+	k.hooks = eh
+	return k
+}
+
+// PostTxProcessing delegates the call to the hooks.
+// If no hook has been registered, this function returns with a `nil` error
+func (k *Keeper) PostTxProcessing(ctx sdk.Context, sender common.Address, msg core.Message, receipt *ethtypes.Receipt) error {
+	if k.hooks == nil {
+		return nil
+	}
+	return k.hooks.PostTxProcessing(ctx, sender, msg, receipt)
 }
 
 // ----------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 package types_test
 
 import (
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/cosmos/evm/x/vm/types"
 )
 
 func (suite *TxDataTestSuite) TestTestNewAccessList() {

@@ -3,11 +3,13 @@ package network
 import (
 	"math/big"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type InitialAmounts struct {
@@ -62,12 +64,7 @@ func GetInitialBaseFeeAmount(decimals evmtypes.Decimals) math.LegacyDec {
 		panic("unsupported decimals")
 	}
 
-	switch decimals {
-	case evmtypes.EighteenDecimals:
-		return math.LegacyNewDec(1_000_000_000)
-	case evmtypes.SixDecimals:
-		return math.LegacyNewDecWithPrec(1, 3)
-	default:
-		panic("base fee not specified")
-	}
+	baseFee := math.LegacyNewDec(1_000_000_000)
+	baseFee = baseFee.Quo(decimals.ConversionFactor().ToLegacyDec())
+	return baseFee
 }

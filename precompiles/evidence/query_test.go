@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	evidencetypes "cosmossdk.io/x/evidence/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
-
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/evidence"
 	"github.com/cosmos/evm/precompiles/testutil"
+
+	evidencetypes "cosmossdk.io/x/evidence/types"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 func (s *PrecompileTestSuite) TestEvidence() {

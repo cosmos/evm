@@ -5,15 +5,10 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/client"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-
 	"github.com/cosmos/evm/ante"
 	evmante "github.com/cosmos/evm/ante/evm"
-	chainante "github.com/cosmos/evm/example_chain/ante"
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	chainante "github.com/cosmos/evm/evmd/ante"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/testutil/integration/os/factory"
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
@@ -21,6 +16,12 @@ import (
 	"github.com/cosmos/evm/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 )
 
 type AnteTestSuite struct {
@@ -102,13 +103,19 @@ func (suite *AnteTestSuite) SetupTest() {
 	// get the denom and decimals set when initialized the chain
 	// to set them again
 	// when resetting the chain config
-	denom := evmtypes.GetEVMCoinDenom()       //nolint:staticcheck
-	decimals := evmtypes.GetEVMCoinDecimals() //nolint:staticcheck
+	denom := evmtypes.GetEVMCoinDenom()                 //nolint:staticcheck
+	extendedDenom := evmtypes.GetEVMCoinExtendedDenom() //nolint:staticcheck
+	decimals := evmtypes.GetEVMCoinDecimals()           //nolint:staticcheck
+
 	configurator := evmtypes.NewEVMConfigurator()
 	configurator.ResetTestConfig()
 	err := configurator.
 		WithChainConfig(chainConfig).
-		WithEVMCoinInfo(denom, uint8(decimals)).
+		WithEVMCoinInfo(evmtypes.EvmCoinInfo{
+			Denom:         denom,
+			ExtendedDenom: extendedDenom,
+			Decimals:      decimals,
+		}).
 		Configure()
 	suite.Require().NoError(err)
 

@@ -1,14 +1,15 @@
 package utils
 
 import (
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
+	exampleapp "github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/testutil/constants"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 // CreateGenesisWithTokenPairs creates a genesis that includes
@@ -50,7 +51,7 @@ func CreateGenesisWithTokenPairs(keyring testkeyring.Keyring, denoms ...string) 
 	tokenPairs := make([]erc20types.TokenPair, 0, len(denoms)+1)
 	tokenPairs = append(tokenPairs,
 		// NOTE: the example token pairs are being added in the integration test utils
-		exampleapp.ExampleTokenPairs...,
+		constants.ExampleTokenPairs...,
 	)
 
 	dynPrecAddr := make([]string, 0, len(denoms))

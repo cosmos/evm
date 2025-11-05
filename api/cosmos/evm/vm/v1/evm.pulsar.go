@@ -17,7 +17,7 @@ import (
 var _ protoreflect.List = (*_Params_4_list)(nil)
 
 type _Params_4_list struct {
-	list *[]string
+	list *[]int64
 }
 
 func (x *_Params_4_list) Len() int {
@@ -28,17 +28,17 @@ func (x *_Params_4_list) Len() int {
 }
 
 func (x *_Params_4_list) Get(i int) protoreflect.Value {
-	return protoreflect.ValueOfString((*x.list)[i])
+	return protoreflect.ValueOfInt64((*x.list)[i])
 }
 
 func (x *_Params_4_list) Set(i int, value protoreflect.Value) {
-	valueUnwrapped := value.String()
+	valueUnwrapped := value.Int()
 	concreteValue := valueUnwrapped
 	(*x.list)[i] = concreteValue
 }
 
 func (x *_Params_4_list) Append(value protoreflect.Value) {
-	valueUnwrapped := value.String()
+	valueUnwrapped := value.Int()
 	concreteValue := valueUnwrapped
 	*x.list = append(*x.list, concreteValue)
 }
@@ -52,8 +52,8 @@ func (x *_Params_4_list) Truncate(n int) {
 }
 
 func (x *_Params_4_list) NewElement() protoreflect.Value {
-	v := ""
-	return protoreflect.ValueOfString(v)
+	v := int64(0)
+	return protoreflect.ValueOfInt64(v)
 }
 
 func (x *_Params_4_list) IsValid() bool {
@@ -449,7 +449,7 @@ func (x *fastReflection_Params) Mutable(fd protoreflect.FieldDescriptor) protore
 	switch fd.FullName() {
 	case "cosmos.evm.vm.v1.Params.extra_eips":
 		if x.ExtraEips == nil {
-			x.ExtraEips = []string{}
+			x.ExtraEips = []int64{}
 		}
 		value := &_Params_4_list{list: &x.ExtraEips}
 		return protoreflect.ValueOfList(value)
@@ -495,7 +495,7 @@ func (x *fastReflection_Params) NewField(fd protoreflect.FieldDescriptor) protor
 	case "cosmos.evm.vm.v1.Params.evm_denom":
 		return protoreflect.ValueOfString("")
 	case "cosmos.evm.vm.v1.Params.extra_eips":
-		list := []string{}
+		list := []int64{}
 		return protoreflect.ValueOfList(&_Params_4_list{list: &list})
 	case "cosmos.evm.vm.v1.Params.chain_config":
 		m := new(ChainConfig)
@@ -585,10 +585,11 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 			n += 1 + l + runtime.Sov(uint64(l))
 		}
 		if len(x.ExtraEips) > 0 {
-			for _, s := range x.ExtraEips {
-				l = len(s)
-				n += 1 + l + runtime.Sov(uint64(l))
+			l = 0
+			for _, e := range x.ExtraEips {
+				l += runtime.Sov(uint64(e))
 			}
+			n += 1 + runtime.Sov(uint64(l)) + l
 		}
 		if x.ChainConfig != nil {
 			l = options.Size(x.ChainConfig)
@@ -699,13 +700,25 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 			dAtA[i] = 0x2a
 		}
 		if len(x.ExtraEips) > 0 {
-			for iNdEx := len(x.ExtraEips) - 1; iNdEx >= 0; iNdEx-- {
-				i -= len(x.ExtraEips[iNdEx])
-				copy(dAtA[i:], x.ExtraEips[iNdEx])
-				i = runtime.EncodeVarint(dAtA, i, uint64(len(x.ExtraEips[iNdEx])))
-				i--
-				dAtA[i] = 0x22
+			var pksize2 int
+			for _, num := range x.ExtraEips {
+				pksize2 += runtime.Sov(uint64(num))
 			}
+			i -= pksize2
+			j1 := i
+			for _, num1 := range x.ExtraEips {
+				num := uint64(num1)
+				for num >= 1<<7 {
+					dAtA[j1] = uint8(uint64(num)&0x7f | 0x80)
+					num >>= 7
+					j1++
+				}
+				dAtA[j1] = uint8(num)
+				j1++
+			}
+			i = runtime.EncodeVarint(dAtA, i, uint64(pksize2))
+			i--
+			dAtA[i] = 0x22
 		}
 		if len(x.EvmDenom) > 0 {
 			i -= len(x.EvmDenom)
@@ -796,37 +809,81 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 				x.EvmDenom = string(dAtA[iNdEx:postIndex])
 				iNdEx = postIndex
 			case 4:
-				if wireType != 2 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ExtraEips", wireType)
-				}
-				var stringLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				if wireType == 0 {
+					var v int64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+						}
+						if iNdEx >= l {
+							return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= int64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					x.ExtraEips = append(x.ExtraEips, v)
+				} else if wireType == 2 {
+					var packedLen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+						}
+						if iNdEx >= l {
+							return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						packedLen |= int(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if packedLen < 0 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+					}
+					postIndex := iNdEx + packedLen
+					if postIndex < 0 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+					}
+					if postIndex > l {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
+					var elementCount int
+					var count int
+					for _, integer := range dAtA[iNdEx:postIndex] {
+						if integer < 128 {
+							count++
+						}
 					}
+					elementCount = count
+					if elementCount != 0 && len(x.ExtraEips) == 0 {
+						x.ExtraEips = make([]int64, 0, elementCount)
+					}
+					for iNdEx < postIndex {
+						var v int64
+						for shift := uint(0); ; shift += 7 {
+							if shift >= 64 {
+								return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+							}
+							if iNdEx >= l {
+								return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+							}
+							b := dAtA[iNdEx]
+							iNdEx++
+							v |= int64(b&0x7F) << shift
+							if b < 0x80 {
+								break
+							}
+						}
+						x.ExtraEips = append(x.ExtraEips, v)
+					}
+				} else {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ExtraEips", wireType)
 				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				postIndex := iNdEx + intStringLen
-				if postIndex < 0 {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
-				}
-				if postIndex > l {
-					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
-				}
-				x.ExtraEips = append(x.ExtraEips, string(dAtA[iNdEx:postIndex]))
-				iNdEx = postIndex
 			case 5:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field ChainConfig", wireType)
@@ -8124,7 +8181,7 @@ type Params struct {
 	// transitions.
 	EvmDenom string `protobuf:"bytes,1,opt,name=evm_denom,json=evmDenom,proto3" json:"evm_denom,omitempty"`
 	// extra_eips defines the additional EIPs for the vm.Config
-	ExtraEips []string `protobuf:"bytes,4,rep,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
+	ExtraEips []int64 `protobuf:"varint,4,rep,packed,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
 	// chain_config defines the EVM chain configuration parameters
 	ChainConfig *ChainConfig `protobuf:"bytes,5,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config,omitempty"`
 	// allow_unprotected_txs defines if replay-protected (i.e non EIP155
@@ -8166,7 +8223,7 @@ func (x *Params) GetEvmDenom() string {
 	return ""
 }
 
-func (x *Params) GetExtraEips() []string {
+func (x *Params) GetExtraEips() []int64 {
 	if x != nil {
 		return x.ExtraEips
 	}
@@ -9026,7 +9083,7 @@ var file_cosmos_evm_vm_v1_evm_proto_rawDesc = []byte{
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x14, 0xf2, 0xde, 0x1f, 0x10, 0x79, 0x61, 0x6d, 0x6c, 0x3a,
 	0x22, 0x65, 0x76, 0x6d, 0x5f, 0x64, 0x65, 0x6e, 0x6f, 0x6d, 0x22, 0x52, 0x08, 0x65, 0x76, 0x6d,
 	0x44, 0x65, 0x6e, 0x6f, 0x6d, 0x12, 0x41, 0x0a, 0x0a, 0x65, 0x78, 0x74, 0x72, 0x61, 0x5f, 0x65,
-	0x69, 0x70, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x42, 0x22, 0xe2, 0xde, 0x1f, 0x09, 0x45,
+	0x69, 0x70, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x03, 0x42, 0x22, 0xe2, 0xde, 0x1f, 0x09, 0x45,
 	0x78, 0x74, 0x72, 0x61, 0x45, 0x49, 0x50, 0x73, 0xf2, 0xde, 0x1f, 0x11, 0x79, 0x61, 0x6d, 0x6c,
 	0x3a, 0x22, 0x65, 0x78, 0x74, 0x72, 0x61, 0x5f, 0x65, 0x69, 0x70, 0x73, 0x22, 0x52, 0x09, 0x65,
 	0x78, 0x74, 0x72, 0x61, 0x45, 0x69, 0x70, 0x73, 0x12, 0x62, 0x0a, 0x0c, 0x63, 0x68, 0x61, 0x69,

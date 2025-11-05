@@ -5,20 +5,23 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
+	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/server/config"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	"github.com/cosmos/evm/server/config"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 // PrepareEthTx creates an ethereum tx and signs it with the provided messages and private key.
@@ -89,15 +92,15 @@ func PrepareEthTx(
 // Should this not be the case, just pass in zero.
 func CreateEthTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	privKey cryptotypes.PrivKey,
-	from sdk.AccAddress,
-	dest sdk.AccAddress,
+	dest []byte,
 	amount *big.Int,
+	data []byte,
 	nonceIncrement int,
 ) (*evmtypes.MsgEthereumTx, error) {
-	toAddr := common.BytesToAddress(dest.Bytes())
-	fromAddr := common.BytesToAddress(from.Bytes())
+	toAddr := common.BytesToAddress(dest)
+	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID
 
 	baseFeeRes, err := exampleApp.EVMKeeper.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
@@ -115,7 +118,9 @@ func CreateEthTx(
 		Amount:    amount,
 		GasLimit:  100000,
 		GasFeeCap: baseFee,
-		GasTipCap: big.NewInt(1),
+		GasPrice:  big.NewInt(0),
+		GasTipCap: big.NewInt(0),
+		Input:     data,
 		Accesses:  &ethtypes.AccessList{},
 	}
 	msgEthereumTx := evmtypes.NewTx(evmTxParams)

@@ -4,16 +4,18 @@ import (
 	"embed"
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	cmn "github.com/cosmos/evm/precompiles/common"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+
+	cmn "github.com/cosmos/evm/precompiles/common"
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
+	storetypes "cosmossdk.io/store/types"
+
+	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -36,7 +38,6 @@ type Precompile struct {
 func NewPrecompile(
 	distributionKeeper distributionkeeper.Keeper,
 	stakingKeeper stakingkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
@@ -47,10 +48,8 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  newAbi,
-			AuthzKeeper:          authzKeeper,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
-			ApprovalExpiration:   cmn.DefaultExpirationDuration, // should be configurable in the future.
 		},
 		stakingKeeper:      stakingKeeper,
 		distributionKeeper: distributionKeeper,
@@ -92,55 +91,57 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 
 	// This handles any out of gas errors that may occur during the execution of a precompile tx or query.
 	// It avoids panics and returns the out of gas error so the EVM can continue gracefully.
-	defer cmn.HandleGasError(ctx, contract, initialGas, &err)()
+	defer cmn.HandleGasError(ctx, contract, initialGas, &err, stateDB, snapshot)()
 
-	switch method.Name {
-	// Custom transactions
-	case ClaimRewardsMethod:
-		bz, err = p.ClaimRewards(ctx, evm.Origin, contract, stateDB, method, args)
-	// Distribution transactions
-	case SetWithdrawAddressMethod:
-		bz, err = p.SetWithdrawAddress(ctx, evm.Origin, contract, stateDB, method, args)
-	case WithdrawDelegatorRewardsMethod:
-		bz, err = p.WithdrawDelegatorRewards(ctx, evm.Origin, contract, stateDB, method, args)
-	case WithdrawValidatorCommissionMethod:
-		bz, err = p.WithdrawValidatorCommission(ctx, evm.Origin, contract, stateDB, method, args)
-	case FundCommunityPoolMethod:
-		bz, err = p.FundCommunityPool(ctx, evm.Origin, contract, stateDB, method, args)
-	// Distribution queries
-	case ValidatorDistributionInfoMethod:
-		bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)
-	case ValidatorOutstandingRewardsMethod:
-		bz, err = p.ValidatorOutstandingRewards(ctx, contract, method, args)
-	case ValidatorCommissionMethod:
-		bz, err = p.ValidatorCommission(ctx, contract, method, args)
-	case ValidatorSlashesMethod:
-		bz, err = p.ValidatorSlashes(ctx, contract, method, args)
-	case DelegationRewardsMethod:
-		bz, err = p.DelegationRewards(ctx, contract, method, args)
-	case DelegationTotalRewardsMethod:
-		bz, err = p.DelegationTotalRewards(ctx, contract, method, args)
-	case DelegatorValidatorsMethod:
-		bz, err = p.DelegatorValidators(ctx, contract, method, args)
-	case DelegatorWithdrawAddressMethod:
-		bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
-	}
+	return p.RunAtomic(snapshot, stateDB, func() ([]byte, error) {
+		switch method.Name {
+		// Custom transactions
+		case ClaimRewardsMethod:
+			bz, err = p.ClaimRewards(ctx, evm.Origin, contract, stateDB, method, args)
+		// Distribution transactions
+		case SetWithdrawAddressMethod:
+			bz, err = p.SetWithdrawAddress(ctx, evm.Origin, contract, stateDB, method, args)
+		case WithdrawDelegatorRewardsMethod:
+			bz, err = p.WithdrawDelegatorRewards(ctx, evm.Origin, contract, stateDB, method, args)
+		case WithdrawValidatorCommissionMethod:
+			bz, err = p.WithdrawValidatorCommission(ctx, evm.Origin, contract, stateDB, method, args)
+		case FundCommunityPoolMethod:
+			bz, err = p.FundCommunityPool(ctx, evm.Origin, contract, stateDB, method, args)
+		// Distribution queries
+		case ValidatorDistributionInfoMethod:
+			bz, err = p.ValidatorDistributionInfo(ctx, contract, method, args)
+		case ValidatorOutstandingRewardsMethod:
+			bz, err = p.ValidatorOutstandingRewards(ctx, contract, method, args)
+		case ValidatorCommissionMethod:
+			bz, err = p.ValidatorCommission(ctx, contract, method, args)
+		case ValidatorSlashesMethod:
+			bz, err = p.ValidatorSlashes(ctx, contract, method, args)
+		case DelegationRewardsMethod:
+			bz, err = p.DelegationRewards(ctx, contract, method, args)
+		case DelegationTotalRewardsMethod:
+			bz, err = p.DelegationTotalRewards(ctx, contract, method, args)
+		case DelegatorValidatorsMethod:
+			bz, err = p.DelegatorValidators(ctx, contract, method, args)
+		case DelegatorWithdrawAddressMethod:
+			bz, err = p.DelegatorWithdrawAddress(ctx, contract, method, args)
+		}
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	cost := ctx.GasMeter().GasConsumed() - initialGas
+		cost := ctx.GasMeter().GasConsumed() - initialGas
 
-	if !contract.UseGas(cost) {
-		return nil, vm.ErrOutOfGas
-	}
+		if !contract.UseGas(cost) {
+			return nil, vm.ErrOutOfGas
+		}
 
-	if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
-		return nil, err
-	}
+		if err := p.AddJournalEntries(stateDB, snapshot); err != nil {
+			return nil, err
+		}
 
-	return bz, nil
+		return bz, nil
+	})
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

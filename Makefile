@@ -2,6 +2,10 @@
 
 PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
 VERSION ?= $(shell echo $(shell git describe --tags --always) | sed 's/^v//')
+TMVERSION := $(shell go list -m github.com/cometbft/cometbft | sed 's:.* ::')
+COMMIT := $(shell git log -1 --format='%H')
+BINDIR ?= $(GOPATH)/bin
+EXAMPLE_BINARY = evmd
 BUILDDIR ?= $(CURDIR)/build
 HTTPS_GIT := https://github.com/cosmos/evm.git
 DOCKER := $(shell which docker)
@@ -11,7 +15,74 @@ export GO111MODULE = on
 # Default target executed when no arguments are given to make.
 default_target: all
 
-.PHONY: build, default_target
+.PHONY: build default_target
+
+###############################################################################
+###                          evmd Build & Install                           ###
+###############################################################################
+
+# process build tags
+build_tags = netgo
+
+ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
+  build_tags += gcc
+endif
+build_tags += $(BUILD_TAGS)
+build_tags := $(strip $(build_tags))
+
+# process linker flags
+
+ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=os \
+          -X github.com/cosmos/cosmos-sdk/version.AppName=$(EXAMPLE_BINARY) \
+          -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
+          -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
+          -X github.com/cometbft/cometbft/version.TMCoreSemVer=$(TMVERSION)
+
+# DB backend selection
+ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=cleveldb
+endif
+
+# add build tags to linker flags
+whitespace := $(subst ,, )
+comma := ,
+build_tags_comma_sep := $(subst $(whitespace),$(comma),$(build_tags))
+ldflags += -X "github.com/cosmos/cosmos-sdk/version.BuildTags=$(build_tags_comma_sep)"
+
+ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -w -s
+endif
+ldflags += $(LDFLAGS)
+ldflags := $(strip $(ldflags))
+
+ifeq (staticlink,$(findstring staticlink,$(COSMOS_BUILD_OPTIONS)))
+  ldflags += -linkmode external -extldflags '-static'
+endif
+
+BUILD_FLAGS := -tags "$(build_tags)" -ldflags '$(ldflags)'
+# check for nostrip option
+ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
+  BUILD_FLAGS += -trimpath
+endif
+
+# check if no optimization option is passed
+# used for remote debugging
+ifneq (,$(findstring nooptimization,$(COSMOS_BUILD_OPTIONS)))
+  BUILD_FLAGS += -gcflags "all=-N -l"
+endif
+
+
+BUILD_TARGETS := build install
+
+build: BUILD_ARGS=-o $(BUILDDIR)/
+build-linux:
+	GOOS=linux GOARCH=amd64 $(MAKE) build
+
+$(BUILD_TARGETS): go.sum $(BUILDDIR)/
+	CGO_ENABLED="1" go $@ $(BUILD_FLAGS) $(BUILD_ARGS) ./...
+
+$(BUILDDIR)/:
+	mkdir -p $(BUILDDIR)/
 
 ###############################################################################
 ###                          Tools & Dependencies                           ###
@@ -59,6 +130,18 @@ else
 	go test -tags=test -mod=readonly $(ARGS)  $(EXTRA_ARGS) $(TEST_PACKAGES)
 endif
 
+# Use the old Apple linker to workaround broken xcode - https://github.com/golang/go/issues/65169
+ifeq ($(OS_FAMILY),Darwin)
+  FUZZLDFLAGS := -ldflags=-extldflags=-Wl,-ld_classic
+endif
+
+test-fuzz:
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzMintCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzBurnCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzSendCoins ./x/precisebank/keeper
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_NonZeroRemainder ./x/precisebank/types
+	go test -tags=test $(FUZZLDFLAGS) -run NOTAREALTEST -v -fuzztime 10s -fuzz=FuzzGenesisStateValidate_ZeroRemainder ./x/precisebank/types
+
 test-scripts:
 	@echo "Running scripts tests"
 	@pytest -s -vv ./scripts
@@ -77,12 +160,15 @@ benchmark:
 ###############################################################################
 ###                                Linting                                  ###
 ###############################################################################
+golangci_lint_cmd=golangci-lint
+golangci_version=v1.64.8
 
 lint: lint-go lint-python lint-contracts
 
 lint-go:
-	gofumpt -l .
-	golangci-lint run --out-format=tab
+	@echo "--> Running linter"
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_cmd) run --timeout=10m
 
 lint-python:
 	find . -name "*.py" -type f -not -path "*/node_modules/*" | xargs pylint
@@ -92,7 +178,8 @@ lint-contracts:
 	solhint contracts/**/*.sol
 
 lint-fix:
-	golangci-lint run --fix --out-format=tab --issues-exit-code=0
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_cmd) run --timeout=10m --fix
 
 lint-fix-contracts:
 	solhint --fix contracts/**/*.sol

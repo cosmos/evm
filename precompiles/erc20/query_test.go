@@ -4,30 +4,31 @@ import (
 	"math"
 	"math/big"
 
-	chainutil "github.com/cosmos/evm/example_chain/testutil"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+
+	app "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
+	"github.com/cosmos/evm/precompiles/erc20"
+	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	app "github.com/cosmos/evm/example_chain"
-	auth "github.com/cosmos/evm/precompiles/authorization"
-	"github.com/cosmos/evm/precompiles/erc20"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // Define useful variables for tests here.
 var (
-	// tooShortTrace is a denomination trace with a name that will raise the "denom too short" error
-	tooShortTrace = types.DenomTrace{Path: "channel-0", BaseDenom: "ab"}
-	// validTraceDenom is a denomination trace with a valid IBC voucher name
-	validTraceDenom = types.DenomTrace{Path: "channel-0", BaseDenom: "uosmo"}
-	// validAttoTraceDenom is a denomination trace with a valid IBC voucher name and 18 decimals
-	validAttoTraceDenom = types.DenomTrace{Path: "channel-0", BaseDenom: "aatom"}
-	// validTraceDenomNoMicroAtto is a denomination trace with a valid IBC voucher name but no micro or atto prefix
-	validTraceDenomNoMicroAtto = types.DenomTrace{Path: "channel-0", BaseDenom: "matom"}
+	// tooShort is a denomination with a name that will raise the "denom too short" error
+	tooShort = types.NewDenom("ab", types.NewHop(types.PortID, "channel-0"))
+	// validDenom is a denomination with a valid IBC voucher name
+	validDenom = types.NewDenom("uosmo", types.NewHop(types.PortID, "channel-0"))
+	// validAttoDenom is a denomination with a valid IBC voucher name and 18 decimals
+	validAttoDenom = types.NewDenom("aatom", types.NewHop(types.PortID, "channel-0"))
+	// validDenomNoMicroAtto is a denomination with a valid IBC voucher name but no micro or atto prefix
+	validDenomNoMicroAtto = types.NewDenom("matom", types.NewHop(types.PortID, "channel-0"))
 
 	// --------------------
 	// Variables for coin with valid metadata
@@ -110,32 +111,27 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 	testcases := []struct {
 		name        string
 		denom       string
-		malleate    func(sdk.Context, *app.ExampleChain)
+		malleate    func(sdk.Context, *app.EVMD)
 		expPass     bool
 		errContains string
 		expName     string
 		expSymbol   string
 	}{
 		{
-			name:        "fail - empty denom",
-			denom:       "",
-			errContains: vm.ErrExecutionReverted.Error(),
-		},
-		{
 			name:        "fail - invalid denom trace",
-			denom:       tooShortTrace.IBCDenom()[:len(tooShortTrace.IBCDenom())-1],
+			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
 			errContains: "odd length hex string",
 		},
 		{
 			name:        "fail - denom not found",
-			denom:       types.DenomTrace{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
+			denom:       types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
 		{
 			name:  "fail - invalid denom (too short < 3 chars)",
-			denom: tooShortTrace.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, tooShortTrace)
+			denom: tooShort.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, tooShort)
 			},
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
@@ -146,9 +142,9 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 		},
 		{
 			name:  "pass - valid ibc denom without metadata and neither atto nor micro prefix",
-			denom: validTraceDenomNoMicroAtto.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenomNoMicroAtto)
+			denom: validDenomNoMicroAtto.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, validDenomNoMicroAtto)
 			},
 			expPass:   true,
 			expName:   "Atom",
@@ -157,7 +153,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 		{
 			name:  "pass - valid denom with metadata",
 			denom: validMetadataDenom,
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
 				// NOTE: we mint some coins to the inflation module address to be able to set denom metadata
 				err := app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.Coins{sdk.NewInt64Coin(validMetadata.Base, 1)})
 				s.Require().NoError(err)
@@ -171,9 +167,9 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 		},
 		{
 			name:  "pass - valid ibc denom without metadata",
-			denom: validTraceDenom.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenom)
+			denom: validDenom.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, validDenom)
 			},
 			expPass:   true,
 			expName:   "Osmo",
@@ -226,24 +222,19 @@ func (s *PrecompileTestSuite) TestDecimals() {
 	testcases := []struct {
 		name        string
 		denom       string
-		malleate    func(sdk.Context, *app.ExampleChain)
+		malleate    func(sdk.Context, *app.EVMD)
 		expPass     bool
 		errContains string
 		expDecimals uint8
 	}{
 		{
-			name:        "fail - empty denom",
-			denom:       "",
-			errContains: vm.ErrExecutionReverted.Error(),
-		},
-		{
 			name:        "fail - invalid denom trace",
-			denom:       tooShortTrace.IBCDenom()[:len(tooShortTrace.IBCDenom())-1],
+			denom:       tooShort.IBCDenom()[:len(tooShort.IBCDenom())-1],
 			errContains: "odd length hex string",
 		},
 		{
 			name:        "fail - denom not found",
-			denom:       types.DenomTrace{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
+			denom:       types.NewDenom("notfound", types.NewHop(types.PortID, "channel-0")).IBCDenom(),
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
 		{
@@ -253,17 +244,17 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		},
 		{
 			name:  "fail - valid ibc denom without metadata and neither atto nor micro prefix",
-			denom: validTraceDenomNoMicroAtto.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenomNoMicroAtto)
+			denom: validDenomNoMicroAtto.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, validDenomNoMicroAtto)
 			},
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
 		{
 			name:  "pass - invalid denom (too short < 3 chars)",
-			denom: tooShortTrace.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, tooShortTrace)
+			denom: tooShort.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, tooShort)
 			},
 			expPass:     true, // TODO: do we want to check in decimals query for the above error?
 			expDecimals: 18,   // expect 18 decimals here because of "a" prefix
@@ -271,7 +262,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		{
 			name:  "pass - valid denom with metadata",
 			denom: validMetadataDenom,
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
 				// NOTE: we mint some coins to the inflation module address to be able to set denom metadata
 				err := app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.Coins{sdk.NewInt64Coin(validMetadata.Base, 1)})
 				s.Require().NoError(err)
@@ -284,18 +275,18 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		},
 		{
 			name:  "pass - valid ibc denom without metadata",
-			denom: validTraceDenom.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenom)
+			denom: validDenom.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, validDenom)
 			},
 			expPass:     true,
 			expDecimals: 6,
 		},
 		{
 			name:  "pass - valid ibc denom without metadata and 18 decimals",
-			denom: validAttoTraceDenom.IBCDenom(),
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validAttoTraceDenom)
+			denom: validAttoDenom.IBCDenom(),
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
+				app.TransferKeeper.SetDenom(ctx, validAttoDenom)
 			},
 			expPass:     true,
 			expDecimals: 18,
@@ -303,7 +294,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		{
 			name:  "pass - valid denom with metadata but decimals overflow",
 			denom: validMetadataDenom,
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
 				// NOTE: we mint some coins to the inflation module address to be able to set denom metadata
 				err := app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.Coins{sdk.NewInt64Coin(validMetadata.Base, 1)})
 				s.Require().NoError(err)
@@ -316,7 +307,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		{
 			name:  "pass - valid ibc denom with metadata but no display denom",
 			denom: validMetadataDenom,
-			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
+			malleate: func(ctx sdk.Context, app *app.EVMD) {
 				// NOTE: we mint some coins to the inflation module address to be able to set denom metadata
 				err := app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.Coins{sdk.NewInt64Coin(validMetadata.Base, 1)})
 				s.Require().NoError(err)
@@ -357,7 +348,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 
 	testcases := []struct {
 		name        string
-		malleate    func(sdk.Context, *app.ExampleChain, *big.Int)
+		malleate    func(sdk.Context, *app.EVMD, *big.Int)
 		expPass     bool
 		errContains string
 		expTotal    *big.Int
@@ -369,7 +360,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 		},
 		{
 			name: "pass - some coins",
-			malleate: func(ctx sdk.Context, app *app.ExampleChain, amount *big.Int) {
+			malleate: func(ctx sdk.Context, app *app.EVMD, amount *big.Int) {
 				// NOTE: we mint some coins to the inflation module address to be able to set denom metadata
 				err := app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.Coins{sdk.NewCoin(validMetadata.Base, sdkmath.NewIntFromBigInt(amount))})
 				s.Require().NoError(err)
@@ -408,28 +399,28 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 
 	testcases := []struct {
 		name        string
-		malleate    func(sdk.Context, *app.ExampleChain, *big.Int) []interface{}
+		malleate    func(sdk.Context, *app.EVMD, *big.Int) []interface{}
 		expPass     bool
 		errContains string
 		expBalance  *big.Int
 	}{
 		{
 			name: "fail - invalid number of arguments",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{}
 			},
 			errContains: "invalid number of arguments; expected 1; got: 0",
 		},
 		{
 			name: "fail - invalid address",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{"invalid address"}
 			},
 			errContains: "invalid account address: invalid address",
 		},
 		{
 			name: "pass - no coins in token denomination of precompile token pair",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				// NOTE: we fund the account with some coins in a different denomination from what was used in the precompile.
 				err := chainutil.FundAccount(
 					s.network.GetContext(), s.network.App.BankKeeper, s.keyring.GetAccAddr(0), sdk.NewCoins(sdk.NewInt64Coin(s.bondDenom, 100)),
@@ -443,7 +434,7 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 		},
 		{
 			name: "pass - some coins",
-			malleate: func(ctx sdk.Context, app *app.ExampleChain, amount *big.Int) []interface{} {
+			malleate: func(ctx sdk.Context, app *app.EVMD, amount *big.Int) []interface{} {
 				// NOTE: we fund the account with some coins of the token denomination that was used for the precompile
 				err := chainutil.FundAccount(
 					ctx, app.BankKeeper, s.keyring.GetAccAddr(0), sdk.NewCoins(sdk.NewCoin(s.tokenDenom, sdkmath.NewIntFromBigInt(amount))),
@@ -483,74 +474,58 @@ func (s *PrecompileTestSuite) TestBalanceOf() {
 }
 
 func (s *PrecompileTestSuite) TestAllowance() {
-	method := s.precompile.Methods[auth.AllowanceMethod]
+	method := s.precompile.Methods[erc20.AllowanceMethod]
 
 	testcases := []struct {
 		name        string
-		malleate    func(sdk.Context, *app.ExampleChain, *big.Int) []interface{}
+		malleate    func(sdk.Context, *app.EVMD, *big.Int) []interface{}
 		expPass     bool
 		errContains string
 		expAllow    *big.Int
 	}{
 		{
 			name: "fail - invalid number of arguments",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{1}
 			},
 			errContains: "invalid number of arguments; expected 2; got: 1",
 		},
 		{
 			name: "fail - invalid owner address",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{"invalid address", s.keyring.GetAddr(1)}
 			},
 			errContains: "invalid owner address: invalid address",
 		},
 		{
 			name: "fail - invalid spender address",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{s.keyring.GetAddr(0), "invalid address"}
 			},
 			errContains: "invalid spender address: invalid address",
 		},
 		{
 			name: "pass - no allowance exists should return 0",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
+			malleate: func(_ sdk.Context, _ *app.EVMD, _ *big.Int) []interface{} {
 				return []interface{}{s.keyring.GetAddr(0), s.keyring.GetAddr(1)}
 			},
 			expPass:  true,
 			expAllow: common.Big0,
 		},
 		{
-			name: "pass - allowance exists but not for precompile token pair denom",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, _ *big.Int) []interface{} {
-				granterIdx := 0
-				granteeIdx := 1
-
-				s.setupSendAuthz(
-					s.keyring.GetAccAddr(granteeIdx),
-					s.keyring.GetPrivKey(granterIdx),
-					sdk.NewCoins(sdk.NewInt64Coin(s.bondDenom, 100)),
-				)
-
-				return []interface{}{s.keyring.GetAddr(granterIdx), s.keyring.GetAddr(granteeIdx)}
-			},
-			expPass:  true,
-			expAllow: common.Big0,
-		},
-		{
 			name: "pass - allowance exists for precompile token pair denom",
-			malleate: func(_ sdk.Context, _ *app.ExampleChain, amount *big.Int) []interface{} {
-				granterIdx := 0
-				granteeIdx := 1
+			malleate: func(_ sdk.Context, _ *app.EVMD, amount *big.Int) []interface{} {
+				ownerIdx := 0
+				spenderIdx := 1
 
-				s.setupSendAuthz(
-					s.keyring.GetAccAddr(granteeIdx),
-					s.keyring.GetPrivKey(granterIdx),
-					sdk.NewCoins(sdk.NewCoin(s.tokenDenom, sdkmath.NewIntFromBigInt(amount))),
+				s.setAllowance(
+					s.precompile.Address(),
+					s.keyring.GetPrivKey(ownerIdx),
+					s.keyring.GetAddr(spenderIdx),
+					amount,
 				)
 
-				return []interface{}{s.keyring.GetAddr(granterIdx), s.keyring.GetAddr(granteeIdx)}
+				return []interface{}{s.keyring.GetAddr(ownerIdx), s.keyring.GetAddr(spenderIdx)}
 			},
 			expPass:  true,
 			expAllow: big.NewInt(100),
@@ -566,9 +541,7 @@ func (s *PrecompileTestSuite) TestAllowance() {
 				allowanceArgs = tc.malleate(s.network.GetContext(), s.network.App, tc.expAllow)
 			}
 
-			precompile := s.setupERC20Precompile(s.tokenDenom)
-
-			bz, err := precompile.Allowance(
+			bz, err := s.precompile.Allowance(
 				s.network.GetContext(),
 				nil,
 				nil,

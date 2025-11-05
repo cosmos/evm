@@ -3,39 +3,42 @@ package network_test
 import (
 	"testing"
 
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/stretchr/testify/require"
+
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	grpchandler "github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 func TestWithChainID(t *testing.T) {
+	eighteenDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID]
+	sixDecimalsCoinInfo := testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID]
+
 	testCases := []struct {
 		name            string
 		chainID         string
-		denom           string
-		decimals        evmtypes.Decimals
+		coinInfo        evmtypes.EvmCoinInfo
 		expBaseFee      math.LegacyDec
 		expCosmosAmount math.Int
 	}{
 		{
 			name:            "18 decimals",
 			chainID:         testconstants.ExampleChainID,
-			denom:           testconstants.ExampleAttoDenom,
-			decimals:        evmtypes.EighteenDecimals,
+			coinInfo:        eighteenDecimalsCoinInfo,
 			expBaseFee:      math.LegacyNewDec(875_000_000),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.EighteenDecimals),
 		},
 		{
 			name:            "6 decimals",
 			chainID:         testconstants.SixDecimalsChainID,
-			denom:           testconstants.ExampleMicroDenom,
-			decimals:        evmtypes.SixDecimals,
+			coinInfo:        sixDecimalsCoinInfo,
 			expBaseFee:      math.LegacyNewDecWithPrec(875, 6),
 			expCosmosAmount: network.GetInitialAmount(evmtypes.SixDecimals),
 		},
@@ -53,12 +56,7 @@ func TestWithChainID(t *testing.T) {
 
 			nw := network.New(opts...)
 
-			handler := grpchandler.NewIntegrationHandler(nw) //nolint:staticcheck // Somehow the linter marks this as not being used, even though it's used below to get balances
-
-			// reset configuration to use the correct decimals coin info
-			configurator := evmtypes.NewEVMConfigurator()
-			configurator.ResetTestConfig()
-			require.NoError(t, configurator.WithEVMCoinInfo(tc.denom, uint8(tc.decimals)).Configure())
+			handler := grpchandler.NewIntegrationHandler(nw)
 
 			// ------------------------------------------------------------------------------------
 			// Checks on initial balances.
@@ -77,7 +75,7 @@ func TestWithChainID(t *testing.T) {
 			)
 
 			// Bank balance should always be in the original amount.
-			cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.denom)
+			cReq, err := handler.GetBalanceFromBank(keyring.GetAccAddr(0), tc.coinInfo.Denom)
 			require.NoError(t, err, "error getting balances")
 			require.Equal(t,
 				tc.expCosmosAmount.String(),

@@ -3,6 +3,14 @@ package tx
 import (
 	"errors"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+
+	cryptocodec "github.com/cosmos/evm/crypto/codec"
+	"github.com/cosmos/evm/ethereum/eip712"
+	exampleapp "github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/types"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -11,12 +19,6 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	cryptocodec "github.com/cosmos/evm/crypto/codec"
-	"github.com/cosmos/evm/ethereum/eip712"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	"github.com/cosmos/evm/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 type EIP712TxArgs struct {
@@ -42,7 +44,7 @@ type signatureV2Args struct {
 // It returns the signed transaction and an error
 func CreateEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	args EIP712TxArgs,
 ) (sdk.Tx, error) {
 	builder, err := PrepareEIP712CosmosTx(
@@ -58,7 +60,7 @@ func CreateEIP712CosmosTx(
 // It returns the tx builder with the signed transaction and an error
 func PrepareEIP712CosmosTx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	args EIP712TxArgs,
 ) (client.TxBuilder, error) {
 	txArgs := args.CosmosTxArgs
@@ -121,7 +123,7 @@ func PrepareEIP712CosmosTx(
 // the provided private key and the typed data
 func signCosmosEIP712Tx(
 	ctx sdk.Context,
-	exampleApp *exampleapp.ExampleChain,
+	exampleApp *exampleapp.EVMD,
 	args EIP712TxArgs,
 	builder authtx.ExtensionOptionsTxBuilder,
 	data apitypes.TypedData,

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"cosmossdk.io/x/evidence/exported"
-	"cosmossdk.io/x/evidence/types"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/cosmos/evm/precompiles/evidence"
@@ -14,6 +12,9 @@ import (
 	"github.com/cosmos/evm/testutil/integration/os/grpc"
 	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
 	"github.com/cosmos/evm/testutil/integration/os/network"
+
+	"cosmossdk.io/x/evidence/exported"
+	"cosmossdk.io/x/evidence/types"
 )
 
 type PrecompileTestSuite struct {
@@ -52,7 +53,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 
 	if s.precompile, err = evidence.NewPrecompile(
 		s.network.App.EvidenceKeeper,
-		s.network.App.AuthzKeeper,
 	); err != nil {
 		panic(err)
 	}

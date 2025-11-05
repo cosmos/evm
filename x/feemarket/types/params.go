@@ -3,9 +3,11 @@ package types
 import (
 	"fmt"
 
-	"cosmossdk.io/math"
-	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/ethereum/go-ethereum/params"
+
+	"cosmossdk.io/math"
+
+	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 var (

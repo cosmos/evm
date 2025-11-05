@@ -3,14 +3,15 @@ package keeper
 import (
 	"fmt"
 
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
+
+	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
 // Keeper of this module maintains collections of erc20.
@@ -24,7 +25,6 @@ type Keeper struct {
 	bankKeeper     bankkeeper.Keeper
 	evmKeeper      types.EVMKeeper
 	stakingKeeper  types.StakingKeeper
-	authzKeeper    authzkeeper.Keeper
 	transferKeeper *transferkeeper.Keeper
 }
 
@@ -37,7 +37,6 @@ func NewKeeper(
 	bk bankkeeper.Keeper,
 	evmKeeper types.EVMKeeper,
 	sk types.StakingKeeper,
-	authzKeeper authzkeeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 ) Keeper {
 	// ensure gov module account is set and is not nil
@@ -53,7 +52,6 @@ func NewKeeper(
 		bankKeeper:     bk,
 		evmKeeper:      evmKeeper,
 		stakingKeeper:  sk,
-		authzKeeper:    authzKeeper,
 		transferKeeper: transferKeeper,
 	}
 }
