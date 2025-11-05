@@ -1,4 +1,4 @@
-package statedb_test
+package statedb
 
 import (
 	"errors"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/cosmos/evm/x/vm/types"
 
 	storetypes "cosmossdk.io/store/types"
@@ -16,13 +15,13 @@ import (
 )
 
 var (
-	_          statedb.Keeper = &MockKeeper{}
+	_          Keeper         = &MockKeeper{}
 	errAddress common.Address = common.BigToAddress(big.NewInt(100))
 )
 
 type MockAcount struct {
-	account statedb.Account
-	states  statedb.Storage
+	account Account
+	states  Storage
 }
 
 type MockKeeper struct {
@@ -41,7 +40,7 @@ func NewMockKeeper() *MockKeeper {
 	}
 }
 
-func (k MockKeeper) GetAccount(_ sdk.Context, addr common.Address) *statedb.Account {
+func (k MockKeeper) GetAccount(_ sdk.Context, addr common.Address) *Account {
 	acct, ok := k.accounts[addr]
 	if !ok {
 		return nil
@@ -67,7 +66,7 @@ func (k MockKeeper) ForEachStorage(_ sdk.Context, addr common.Address, cb func(k
 	}
 }
 
-func (k MockKeeper) SetAccount(_ sdk.Context, addr common.Address, account statedb.Account) error {
+func (k MockKeeper) SetAccount(_ sdk.Context, addr common.Address, account Account) error {
 	if addr == errAddress {
 		return errors.New("mock db error")
 	}
@@ -77,7 +76,7 @@ func (k MockKeeper) SetAccount(_ sdk.Context, addr common.Address, account state
 		acct.account = account
 		k.accounts[addr] = acct
 	} else {
-		k.accounts[addr] = MockAcount{account: account, states: make(statedb.Storage)}
+		k.accounts[addr] = MockAcount{account: account, states: make(Storage)}
 	}
 	return nil
 }

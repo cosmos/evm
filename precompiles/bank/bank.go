@@ -80,16 +80,16 @@ type Precompile struct {
 	cmn.Precompile
 
 	abi.ABI
-	bankMsgServer cmn.BankMsgServer
-	bankKeeper    cmn.BankKeeper
+	bankMsgServer BankMsgServer
+	bankKeeper    BankKeeper
 	erc20Keeper   cmn.ERC20Keeper
 }
 
 // NewPrecompile creates a new bank Precompile instance implementing the
 // PrecompiledContract interface.
 func NewPrecompile(
-	bankMsgServer cmn.BankMsgServer,
-	bankKeeper cmn.BankKeeper,
+	bankMsgServer BankMsgServer,
+	bankKeeper BankKeeper,
 	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
 	// NOTE: we set an empty gas configuration to avoid extra gas costs

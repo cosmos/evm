@@ -28,11 +28,6 @@ type BankKeeper interface {
 	BlockedAddr(addr sdk.AccAddress) bool
 }
 
-type BankMsgServer interface {
-	// Send defines a method for sending coins from one account to another account.
-	Send(context.Context, *banktypes.MsgSend) (*banktypes.MsgSendResponse, error)
-}
-
 type TransferKeeper interface {
 	Denom(ctx context.Context, req *ibctypes.QueryDenomRequest) (*ibctypes.QueryDenomResponse, error)
 	Denoms(ctx context.Context, req *ibctypes.QueryDenomsRequest) (*ibctypes.QueryDenomsResponse, error)
