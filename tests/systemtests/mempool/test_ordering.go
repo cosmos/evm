@@ -20,8 +20,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 			name: "ordering of pending txs %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					accIdx := 0
-					signer := s.Acc(accIdx)
+					signer := s.Acc(0)
 
 					expPendingTxs := make([]*suite.TxInfo, 5)
 					for i := 0; i < 5; i++ {
@@ -37,11 +36,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 						}
 
 						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GasPriceMultiplier(10), big.NewInt(1))
-						if nonceIdx <= uint64(accIdx) {
-							require.NoError(t, err, "failed to send tx")
-						} else {
-							require.Error(t, err, "expected error for nonce gap")
-						}
+						require.NoError(t, err, "failed to send tx")
 
 						// nonce order of committed txs: 0,1,2,3,4
 						expPendingTxs[nonceIdx] = txInfo
