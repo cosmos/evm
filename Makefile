@@ -388,7 +388,7 @@ build-v04:
 	mkdir -p ./tests/systemtests/binaries/v0.4
 	git checkout v0.4.1
 	make build
-	cp $(BUILDDIR)/epixd ./tests/systemtests/binaries/v0.4
+	cp $(BUILDDIR)/evmd ./tests/systemtests/binaries/v0.4
 	git checkout -
 
 mocks:

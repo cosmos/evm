@@ -179,7 +179,8 @@ KEYRING="os"  # Use secure keyring for mainnet
 # Initialize node (this also generates a validator consensus signing key at `~/.epixd/config/priv_validator_key.json`)
 epixd init $MONIKER --chain-id $CHAIN_ID --home ~/.epixd
 
-# Create validator operator key (SECURE THIS KEY!). This key is used to sign the `create-validator` transaction and to withdraw commissions.
+# Create validator operator key (SECURE THIS KEY!).
+# This key is used to sign the `create-validator` transaction and to withdraw commissions.
 epixd keys add validator --keyring-backend $KEYRING --home ~/.epixd
 # OR import validator operator key (prompts for seed phrase)
 epixd keys add validator --recover --keyring-backend $KEYRING --home ~/.epixd
@@ -228,22 +229,81 @@ sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.001aepix"/' ~/.epixd/c
 # Wait for node to sync completely
 epixd status | jq .SyncInfo.catching_up
 
-# Create validator (adjust values as needed)
-epixd tx staking create-validator \
-  --amount=1000000000000000000aepix \
-  --pubkey=$(epixd comet show-validator --home ~/.epixd) \
-  --moniker="$MONIKER" \
+# Create validator JSON file (customize the values below)
+cat > validator.json << EOF
+{
+  "pubkey": $(epixd comet show-validator --home ~/.epixd),
+  "amount": "1000000000000000000aepix",
+  "moniker": "$MONIKER",
+  "identity": "",
+  "website": "",
+  "security": "",
+  "details": "EpixChain validator",
+  "commission-rate": "0.05",
+  "commission-max-rate": "0.20",
+  "commission-max-change-rate": "0.01",
+  "min-self-delegation": "1000000000000000000"
+}
+EOF
+
+# IMPORTANT: Customize the validator.json file before creating your validator:
+# - moniker: Your validator name (already set from $MONIKER variable)
+# - identity: Your 16-digit Keybase identity (optional, for validator logo)
+# - website: Your validator website (optional)
+# - security: Security contact email (optional)
+# - details: Description of your validator (max 280 characters)
+# - commission-rate: Your commission rate (0.05 = 5%)
+# - amount: Self-delegation amount (1000000000000000000aepix = 1 EPIX)
+
+# Create validator using JSON file
+epixd tx staking create-validator validator.json \
   --chain-id="$CHAIN_ID" \
-  --commission-rate="0.05" \
-  --commission-max-rate="0.20" \
-  --commission-max-change-rate="0.01" \
-  --min-self-delegation="1000000000000000000" \
   --gas="auto" \
   --gas-adjustment="1.2" \
   --gas-prices="0.001aepix" \
   --from=validator \
   --keyring-backend=$KEYRING \
   --home ~/.epixd
+
+# Alternative: Create validator with inline flags (if JSON method doesn't work)
+# epixd tx staking create-validator \
+#   --amount=1000000000000000000aepix \
+#   --pubkey=$(epixd comet show-validator --home ~/.epixd) \
+#   --moniker="$MONIKER" \
+#   --chain-id="$CHAIN_ID" \
+#   --commission-rate="0.05" \
+#   --commission-max-rate="0.20" \
+#   --commission-max-change-rate="0.01" \
+#   --min-self-delegation="1000000000000000000" \
+#   --gas="auto" \
+#   --gas-adjustment="1.2" \
+#   --gas-prices="0.001aepix" \
+#   --from=validator \
+#   --keyring-backend=$KEYRING \
+#   --home ~/.epixd
+
+# Verify your validator was created successfully
+epixd query staking validator $(epixd keys show validator --bech val -a --keyring-backend $KEYRING --home ~/.epixd)
+```
+
+### Troubleshooting create-validator
+
+If you encounter issues with the create-validator command:
+
+1. **"validator already exists" error**: Your validator is already created
+2. **"insufficient funds" error**: Make sure your validator account has enough EPIX tokens
+3. **"invalid pubkey" error**: Ensure your node is initialized and the pubkey is correct
+4. **JSON parsing error**: Validate your validator.json file format
+
+```bash
+# Check your validator account balance
+epixd query bank balances $(epixd keys show validator -a --keyring-backend $KEYRING --home ~/.epixd)
+
+# Verify your validator pubkey
+epixd comet show-validator --home ~/.epixd
+
+# Validate JSON format
+cat validator.json | jq .
 ```
 
 ### 3. Verify Validator Creation
@@ -274,7 +334,12 @@ epixd query staking validator $(epixd keys show validator --bech val -a --keyrin
 epixd query bank balances $(epixd keys show validator -a --keyring-backend $KEYRING --home ~/.epixd)
 
 # Delegate more tokens
-epixd tx staking delegate $(epixd keys show validator --bech val -a --keyring-backend $KEYRING --home ~/.epixd) 1000000000000000000aepix --from validator --keyring-backend $KEYRING --home ~/.epixd
+epixd tx staking delegate \
+  $(epixd keys show validator --bech val -a --keyring-backend $KEYRING --home ~/.epixd) \
+  1000000000000000000aepix \
+  --from validator \
+  --keyring-backend $KEYRING \
+  --home ~/.epixd
 
 # Edit validator description
 epixd tx staking edit-validator \
