@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/mempool/txpool"
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 )
 
 func TestIsTemporaryReject_PositiveCases(t *testing.T) {
@@ -19,6 +19,7 @@ func TestIsTemporaryReject_PositiveCases(t *testing.T) {
 		{name: "underpriced", err: txpool.ErrUnderpriced},
 		{name: "txpool overflow", err: legacypool.ErrTxPoolOverflow},
 		{name: "future replace pending", err: legacypool.ErrFutureReplacePending},
+		{name: "tx nonce is higher than account nonce", err: ErrNonceGap},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
