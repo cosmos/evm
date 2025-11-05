@@ -47,8 +47,8 @@ func (p Precompile) Balances(
 		}
 
 		balances = append(balances, Balance{
-			Contract: contractAddress,
-			Amount:   coin.Amount.BigInt(),
+			ContractAddress: contractAddress,
+			Amount:          coin.Amount.BigInt(),
 		})
 
 		return false
@@ -84,8 +84,8 @@ func (p Precompile) TotalSupply(
 		}
 
 		totalSupply = append(totalSupply, Balance{
-			Contract: contractAddress,
-			Amount:   coin.Amount.BigInt(),
+			ContractAddress: contractAddress,
+			Amount:          coin.Amount.BigInt(),
 		})
 
 		return false

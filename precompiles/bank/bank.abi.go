@@ -56,8 +56,8 @@ var _ abi.Tuple = (*Balance)(nil)
 
 // Balance represents an ABI tuple
 type Balance struct {
-	Contract common.Address
-	Amount   *big.Int
+	ContractAddress common.Address
+	Amount          *big.Int
 }
 
 // EncodedSize returns the total encoded size of Balance
@@ -71,8 +71,8 @@ func (t Balance) EncodedSize() int {
 func (value Balance) EncodeTo(buf []byte) (int, error) {
 	// Encode tuple fields
 	dynamicOffset := BalanceStaticSize // Start dynamic data after static section
-	// Field Contract: address
-	if _, err := abi.EncodeAddress(value.Contract, buf[0:]); err != nil {
+	// Field ContractAddress: address
+	if _, err := abi.EncodeAddress(value.ContractAddress, buf[0:]); err != nil {
 		return 0, err
 	}
 
@@ -102,8 +102,8 @@ func (t *Balance) Decode(data []byte) (int, error) {
 		err error
 	)
 	dynamicOffset := 64
-	// Decode static field Contract: address
-	t.Contract, _, err = abi.DecodeAddress(data[0:])
+	// Decode static field ContractAddress: address
+	t.ContractAddress, _, err = abi.DecodeAddress(data[0:])
 	if err != nil {
 		return 0, err
 	}

@@ -6,6 +6,7 @@
 package bank
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -22,11 +23,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-//go:generate go run ../cmd -var=ABI -output bank.abi.go
+//go:generate go run ../cmd -var=HumanABI -output bank.abi.go
 
-var ABI = []string{
+var HumanABI = []string{
 	// backwards compatibility
-	"struct Balance{ address contract; uint amount; }",
+	"struct Balance{ address contractAddress; uint amount; }",
 	"function balances(address account) returns (Balance[] balances)",
 	"function totalSupply() returns (Balance[] totalSupply)",
 	"function supplyOf(address contract) returns (uint totalSupply)",
@@ -41,6 +42,22 @@ var ABI = []string{
 
 	// generate the erc20 constructor abi
 	"function erc20ctor(string denom, address bank)",
+}
+
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   []byte
+	ABI abi.ABI
+)
+
+func init() {
+	var err error
+	ABI, err = abi.JSON(bytes.NewReader(f))
+	if err != nil {
+		panic(err)
+	}
 }
 
 const (
@@ -62,6 +79,7 @@ var _ vm.PrecompiledContract = &Precompile{}
 type Precompile struct {
 	cmn.Precompile
 
+	abi.ABI
 	bankMsgServer cmn.BankMsgServer
 	bankKeeper    cmn.BankKeeper
 	erc20Keeper   cmn.ERC20Keeper
@@ -82,6 +100,7 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.GasConfig{},
 			ContractAddress:      common.HexToAddress(evmtypes.BankPrecompileAddress),
 		},
+		ABI:           ABI,
 		bankMsgServer: bankMsgServer,
 		bankKeeper:    bankKeeper,
 		erc20Keeper:   erc20Keeper,
