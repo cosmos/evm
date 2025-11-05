@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/evm/mempool"
-	"github.com/cosmos/evm/mempool/txpool/locals"
 	txlocals "github.com/cosmos/evm/mempool/txpool/locals"
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -114,18 +113,19 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	if rsp != nil && rsp.Code != 0 {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
-	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			// Track as local for priority and persistence
+	// Check for temporary rejection in response raw log
+	if b.Mempool != nil && rsp != nil && rsp.Code != 0 {
+		if txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
 			return txHash, nil
 		}
-		// Temporary txpool rejections should be locally tracked for resubmission
+		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
+	}
+	if err != nil {
+		// Check for temporary rejection in error
 		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
-			b.Logger.Debug("temporary rejection, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
 			return txHash, nil
 		}
@@ -192,19 +192,19 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 
 	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
 	rsp, err := syncCtx.BroadcastTx(txBytes)
+	// Check for temporary rejection in response raw log
 	if b.Mempool != nil && rsp != nil && rsp.Code != 0 {
-		if shouldSkip := locals.IsTemporaryReject(errors.New(rsp.RawLog)); shouldSkip {
-			b.Logger.Debug("temporary rejection, tracking locally", "tx_hash", txHash.Hex())
+		if txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
 	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			// Track as local for priority and persistence
+		// Check for temporary rejection in response raw log
+		if b.Mempool != nil && rsp != nil && rsp.Code != 0 && txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
