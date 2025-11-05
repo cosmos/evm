@@ -18,7 +18,7 @@ import (
 
 const (
 	upgradeHeight int64 = 22
-	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in evmd/upgrades.go
+	upgradeName         = "v0.6.0"
 )
 
 func TestChainUpgrade(t *testing.T) {
