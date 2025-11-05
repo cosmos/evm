@@ -12,6 +12,7 @@
 
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
+- [\#804](https://github.com/cosmos/evm/pull/804) Bank precompile redesign.
 
 ### BUG FIXES
 
