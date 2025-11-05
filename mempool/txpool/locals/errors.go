@@ -27,8 +27,7 @@ func IsTemporaryReject(err error) bool {
 		legacypool.ErrAuthorityReserved.Error(),
 		txpool.ErrUnderpriced.Error(),
 		legacypool.ErrTxPoolOverflow.Error(),
-		legacypool.ErrFutureReplacePending.Error(),
-		ErrNonceGap.Error():
+		legacypool.ErrFutureReplacePending.Error():
 		return true
 	}
 
