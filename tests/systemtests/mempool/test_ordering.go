@@ -36,7 +36,7 @@ func RunTxsOrdering(t *testing.T, base *suite.BaseTestSuite) {
 						}
 
 						txInfo, err := s.SendTx(t, nodeId, signer.ID, nonceIdx, s.GasPriceMultiplier(10), big.NewInt(1))
-						if i < 4 {
+						if nonceIdx < 4 {
 							require.NoError(t, err, "failed to send tx")
 						} else {
 							require.Error(t, err, "expected error for nonce gap")
