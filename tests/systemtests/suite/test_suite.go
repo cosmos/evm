@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/systemtests"
 	"github.com/cosmos/evm/tests/systemtests/clients"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 )
 
 // SystemTestSuite implements the TestSuite interface and
@@ -51,6 +52,7 @@ func (s *SystemTestSuite) SetupTest(t *testing.T, nodeStartArgs ...string) {
 	}
 
 	s.ResetChain(t)
+	s.ModifyGenesisJSON(t, setupTestDenomMetadata(t))
 	s.StartChain(t, nodeStartArgs...)
 	s.AwaitNBlocks(t, 2)
 }
@@ -114,4 +116,42 @@ func (s *SystemTestSuite) AfterEachCase(t *testing.T) {
 
 	// Wait for block commit
 	s.AwaitNBlocks(t, 1)
+}
+
+// setupTestDenomMetadata returns a function that sets up the required denom metadata for "atest" in genesis
+func setupTestDenomMetadata(t *testing.T) func(genesis []byte) []byte {
+	return func(genesis []byte) []byte {
+		// Set up denom metadata for "atest" as a proper JSON object
+		denomMetadata := `{"description":"The native staking token for system tests.","denom_units":[{"denom":"atest","exponent":0,"aliases":["attotest"]},{"denom":"test","exponent":18,"aliases":[]}],"base":"atest","display":"test","name":"Test Token","symbol":"TEST","uri":"","uri_hash":""}`
+
+		// Add denom metadata to bank module as an array with one element using SetRaw
+		genesis, err := sjson.SetRawBytes(genesis, "app_state.bank.denom_metadata.0", []byte(denomMetadata))
+		require.NoError(t, err)
+
+		// Also add "stake" denom metadata for the genesis transaction
+		stakeMetadata := `{"description":"The native staking token for genesis.","denom_units":[{"denom":"stake","exponent":0,"aliases":[]},{"denom":"stake","exponent":0,"aliases":[]}],"base":"stake","display":"stake","name":"Stake Token","symbol":"STAKE","uri":"","uri_hash":""}`
+		genesis, err = sjson.SetRawBytes(genesis, "app_state.bank.denom_metadata.1", []byte(stakeMetadata))
+		require.NoError(t, err)
+
+		// Set EVM module to use "atest" as the EVM denomination
+		genesis, err = sjson.SetBytes(genesis, "app_state.evm.params.evm_denom", "atest")
+		require.NoError(t, err)
+
+		// Set staking bond denom to "stake" to match genesis transaction
+		genesis, err = sjson.SetBytes(genesis, "app_state.staking.params.bond_denom", "stake")
+		require.NoError(t, err)
+
+		// Set mint denom to "atest"
+		genesis, err = sjson.SetBytes(genesis, "app_state.mint.params.mint_denom", "atest")
+		require.NoError(t, err)
+
+		// Set gov deposit denom to "atest"
+		genesis, err = sjson.SetBytes(genesis, "app_state.gov.params.min_deposit.0.denom", "atest")
+		require.NoError(t, err)
+
+		genesis, err = sjson.SetBytes(genesis, "app_state.gov.params.expedited_min_deposit.0.denom", "atest")
+		require.NoError(t, err)
+
+		return genesis
+	}
 }
