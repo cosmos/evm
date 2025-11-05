@@ -6,7 +6,6 @@
 package bank
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -23,6 +22,27 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+//go:generate go run ../cmd -var=ABI -output bank.abi.go
+
+var ABI = []string{
+	// backwards compatibility
+	"struct Balance{ address contract; uint amount; }",
+	"function balances(address account) returns (Balance[] balances)",
+	"function totalSupply() returns (Balance[] totalSupply)",
+	"function supplyOf(address contract) returns (uint totalSupply)",
+
+	// v2 design
+	"function name(string denom) external returns (string name)",
+	"function symbol(string denom) returns (string symbol)",
+	"function decimals(string denom) returns (uint8 decimals)",
+	"function totalSupply(string denom) returns (uint256 supply)",
+	"function balanceOf(address account, string denom) returns (uint256 balance)",
+	"function transferFrom(address from, address to, uint256 value, string denom) returns (bool)",
+
+	// generate the erc20 contractor abi
+	"function erc20ctor(string denom, address bank)",
+}
+
 const (
 	// GasBalances defines the gas cost for a single ERC-20 balanceOf query
 	GasBalances = 2_851
@@ -32,38 +52,25 @@ const (
 
 	// GasSupplyOf defines the gas cost for a single ERC-20 supplyOf query, taken from totalSupply of ERC20
 	GasSupplyOf = 2_477
+
+	TransferFromMethod = "transferFrom"
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // Precompile defines the bank precompile
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
-	bankKeeper  cmn.BankKeeper
-	erc20Keeper cmn.ERC20Keeper
+	bankMsgServer cmn.BankMsgServer
+	bankKeeper    cmn.BankKeeper
+	erc20Keeper   cmn.ERC20Keeper
 }
 
 // NewPrecompile creates a new bank Precompile instance implementing the
 // PrecompiledContract interface.
 func NewPrecompile(
+	bankMsgServer cmn.BankMsgServer,
 	bankKeeper cmn.BankKeeper,
 	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
@@ -75,70 +82,82 @@ func NewPrecompile(
 			TransientKVGasConfig: storetypes.GasConfig{},
 			ContractAddress:      common.HexToAddress(evmtypes.BankPrecompileAddress),
 		},
-		ABI:         ABI,
-		bankKeeper:  bankKeeper,
-		erc20Keeper: erc20Keeper,
+		bankMsgServer: bankMsgServer,
+		bankKeeper:    bankKeeper,
+		erc20Keeper:   erc20Keeper,
 	}
 }
 
 // RequiredGas calculates the precompiled contract's base gas rate.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// NOTE: This check avoid panicking when trying to decode the method ID
-	if len(input) < 4 {
-		return 0
-	}
-
-	methodID := input[:4]
-
-	method, err := p.MethodById(methodID)
+	methodID, input, err := cmn.SplitMethodID(input)
 	if err != nil {
-		// This should never happen since this method is going to fail during Run
 		return 0
 	}
 
-	switch method.Name {
-	case BalancesMethod:
+	// backward compatibility
+	switch methodID {
+	case BalancesID:
 		return GasBalances
-	case TotalSupplyMethod:
+	case TotalSupplyID:
 		return GasTotalSupply
-	case SupplyOfMethod:
+	case SupplyOfID:
 		return GasSupplyOf
 	}
 
-	return 0
+	return p.Precompile.RequiredGas(input, p.IsTransactionID(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
 	return p.RunNativeAction(evm, contract, func(ctx sdk.Context) ([]byte, error) {
-		return p.Execute(ctx, contract, readonly)
+		return p.Execute(ctx, evm.StateDB, contract, readonly)
 	})
 }
 
 // Execute executes the precompiled contract bank query methods defined in the ABI.
-func (p Precompile) Execute(ctx sdk.Context, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransactionID)
 	if err != nil {
 		return nil, err
 	}
 
-	var bz []byte
-	switch method.Name {
-	// Bank queries
-	case BalancesMethod:
-		bz, err = p.Balances(ctx, method, args)
-	case TotalSupplyMethod:
-		bz, err = p.TotalSupply(ctx, method, args)
-	case SupplyOfMethod:
-		bz, err = p.SupplyOf(ctx, method, args)
+	switch methodID {
+	// backward compatibility
+	case BalancesID:
+		return cmn.Run(ctx, p.Balances, input)
+	case TotalSupplyID:
+		return cmn.Run(ctx, p.TotalSupply, input)
+	case SupplyOfID:
+		return cmn.Run(ctx, p.SupplyOf, input)
+
+	// v2 design
+	case NameID:
+		return cmn.Run(ctx, p.Name, input)
+	case SymbolID:
+		return cmn.Run(ctx, p.Symbol, input)
+	case DecimalsID:
+		return cmn.Run(ctx, p.Decimals, input)
+	case TotalSupply0ID:
+		return cmn.Run(ctx, p.TotalSupplyV2, input)
+	case BalanceOfID:
+		return cmn.Run(ctx, p.BalanceOf, input)
+	case TransferFromID:
+		return cmn.RunWithStateDB(ctx, p.TransferFrom, input, stateDB, contract)
+
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf(cmn.ErrUnknownMethodID, methodID)
 	}
 
-	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
 // It returns false since all bank methods are queries.
-func (Precompile) IsTransaction(_ *abi.Method) bool {
-	return false
+func (Precompile) IsTransaction(method *abi.Method) bool {
+	return method.Name == TransferFromMethod
+}
+
+// IsTransaction checks if the given method name corresponds to a transaction or query.
+// It returns false since all bank methods are queries.
+func (Precompile) IsTransactionID(methodID uint32) bool {
+	return methodID == TransferFromID
 }

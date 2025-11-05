@@ -2,7 +2,6 @@ package bank
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -10,12 +9,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-// Balance contains the amount for a corresponding ERC-20 contract address.
-type Balance struct {
-	ContractAddress common.Address
-	Amount          *big.Int
-}
 
 // ParseBalancesArgs parses the call arguments for the bank Balances query.
 func ParseBalancesArgs(args []interface{}) (sdk.AccAddress, error) {

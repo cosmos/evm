@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -67,6 +68,7 @@ func DefaultStaticPrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
 	distributionKeeper distributionkeeper.Keeper,
 	bankKeeper cmn.BankKeeper,
+	realBankKeeper bankkeeper.Keeper,
 	erc20Keeper *erc20Keeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
@@ -76,6 +78,7 @@ func DefaultStaticPrecompiles(
 	codec codec.Codec,
 	opts ...Option,
 ) map[common.Address]vm.PrecompiledContract {
+	bankMsgServer := bankkeeper.NewMsgServerImpl(realBankKeeper)
 	precompiles := NewStaticPrecompiles().
 		WithPraguePrecompiles().
 		WithP256Precompile().
@@ -84,7 +87,7 @@ func DefaultStaticPrecompiles(
 		WithDistributionPrecompile(distributionKeeper, stakingKeeper, bankKeeper, opts...).
 		WithICS02Precompile(codec, clientKeeper).
 		WithICS20Precompile(bankKeeper, stakingKeeper, transferKeeper, channelKeeper).
-		WithBankPrecompile(bankKeeper, erc20Keeper).
+		WithBankPrecompile(bankMsgServer, bankKeeper, erc20Keeper).
 		WithGovPrecompile(govKeeper, bankKeeper, codec, opts...).
 		WithSlashingPrecompile(slashingKeeper, bankKeeper, opts...)
 

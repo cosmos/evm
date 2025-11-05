@@ -1,10 +1,9 @@
 package bank
 
 import (
-	"fmt"
+	"errors"
+	"math"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -28,18 +27,12 @@ const (
 // balanceOf call for each token returned.
 func (p Precompile) Balances(
 	ctx sdk.Context,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	account, err := ParseBalancesArgs(args)
-	if err != nil {
-		return nil, fmt.Errorf("error calling account balances in bank precompile: %s", err)
-	}
-
+	args BalancesCall,
+) (*BalancesReturn, error) {
 	i := 0
 	balances := make([]Balance, 0)
 
-	p.bankKeeper.IterateAccountBalances(ctx, account, func(coin sdk.Coin) bool {
+	p.bankKeeper.IterateAccountBalances(ctx, args.Account.Bytes(), func(coin sdk.Coin) bool {
 		defer func() { i++ }()
 
 		// NOTE: we already charged for a single balanceOf request so we don't
@@ -54,14 +47,14 @@ func (p Precompile) Balances(
 		}
 
 		balances = append(balances, Balance{
-			ContractAddress: contractAddress,
-			Amount:          coin.Amount.BigInt(),
+			Contract: contractAddress,
+			Amount:   coin.Amount.BigInt(),
 		})
 
 		return false
 	})
 
-	return method.Outputs.Pack(balances)
+	return &BalancesReturn{balances}, nil
 }
 
 // TotalSupply returns the total supply of all tokens registered in the x/bank
@@ -71,9 +64,8 @@ func (p Precompile) Balances(
 // call for each token returned.
 func (p Precompile) TotalSupply(
 	ctx sdk.Context,
-	method *abi.Method,
-	_ []interface{},
-) ([]byte, error) {
+	args TotalSupplyCall,
+) (*TotalSupplyReturn, error) {
 	i := 0
 	totalSupply := make([]Balance, 0)
 
@@ -92,14 +84,14 @@ func (p Precompile) TotalSupply(
 		}
 
 		totalSupply = append(totalSupply, Balance{
-			ContractAddress: contractAddress,
-			Amount:          coin.Amount.BigInt(),
+			Contract: contractAddress,
+			Amount:   coin.Amount.BigInt(),
 		})
 
 		return false
 	})
 
-	return method.Outputs.Pack(totalSupply)
+	return &TotalSupplyReturn{totalSupply}, nil
 }
 
 // SupplyOf returns the total supply of a given registered erc20 token
@@ -109,21 +101,93 @@ func (p Precompile) TotalSupply(
 // stored in the x/bank.
 func (p Precompile) SupplyOf(
 	ctx sdk.Context,
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	erc20ContractAddress, err := ParseSupplyOfArgs(args)
-	if err != nil {
-		return nil, fmt.Errorf("error getting the supply in bank precompile: %s", err)
-	}
-
-	tokenPairID := p.erc20Keeper.GetERC20Map(ctx, erc20ContractAddress)
+	args SupplyOfCall,
+) (*SupplyOfReturn, error) {
+	tokenPairID := p.erc20Keeper.GetERC20Map(ctx, args.Contract)
 	tokenPair, found := p.erc20Keeper.GetTokenPair(ctx, tokenPairID)
 	if !found {
-		return method.Outputs.Pack(big.NewInt(0))
+		return &SupplyOfReturn{big.NewInt(0)}, nil
 	}
 
 	supply := p.bankKeeper.GetSupply(ctx, tokenPair.Denom)
 
-	return method.Outputs.Pack(supply.Amount.BigInt())
+	return &SupplyOfReturn{supply.Amount.BigInt()}, nil
+}
+
+func (p Precompile) Name(
+	ctx sdk.Context,
+	args NameCall,
+) (*NameReturn, error) {
+	metadata, found := p.bankKeeper.GetDenomMetaData(ctx, args.Denom)
+	if !found {
+		return nil, ErrDenomNotFound
+	}
+
+	return &NameReturn{metadata.Name}, nil
+}
+
+func (p Precompile) Symbol(
+	ctx sdk.Context,
+	args SymbolCall,
+) (*SymbolReturn, error) {
+	metadata, found := p.bankKeeper.GetDenomMetaData(ctx, args.Denom)
+	if !found {
+		return nil, ErrDenomNotFound
+	}
+
+	return &SymbolReturn{metadata.Symbol}, nil
+}
+
+func (p Precompile) Decimals(
+	ctx sdk.Context,
+	args DecimalsCall,
+) (*DecimalsReturn, error) {
+	m, found := p.bankKeeper.GetDenomMetaData(ctx, args.Denom)
+	if !found {
+		return nil, ErrDenomNotFound
+	}
+
+	if len(m.DenomUnits) == 0 {
+		return &DecimalsReturn{0}, nil
+	}
+
+	// look up Display denom unit
+	index := -1
+	for i, denomUnit := range m.DenomUnits {
+		if denomUnit.Denom == m.Display {
+			index = i
+			break
+		}
+	}
+
+	var exponent uint32
+	if index == -1 {
+		exponent = 0
+	} else {
+		exponent = m.DenomUnits[index].Exponent
+	}
+
+	if exponent > math.MaxUint8 {
+		return nil, errors.New("exponent too large")
+	}
+
+	return &DecimalsReturn{uint8(exponent)}, nil
+}
+
+func (p Precompile) TotalSupplyV2(
+	ctx sdk.Context,
+	args TotalSupply0Call,
+) (*TotalSupply0Return, error) {
+	supply := p.bankKeeper.GetSupply(ctx, args.Denom)
+
+	return &TotalSupply0Return{supply.Amount.BigInt()}, nil
+}
+
+func (p Precompile) BalanceOf(
+	ctx sdk.Context,
+	args BalanceOfCall,
+) (*BalanceOfReturn, error) {
+	balance := p.bankKeeper.GetBalance(ctx, args.Account.Bytes(), args.Denom)
+
+	return &BalanceOfReturn{balance.Amount.BigInt()}, nil
 }
