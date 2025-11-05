@@ -18,7 +18,7 @@ import (
 
 const (
 	upgradeHeight int64 = 12
-	upgradeName         = "v0.4.0-to-v0.5.0" // must match UpgradeName in evmd/upgrades.go
+	upgradeName         = "v0.5.0-to-v0.6.0" // must match UpgradeName in evmd/upgrades.go
 )
 
 // RunChainUpgrade exercises an on-chain software upgrade using the injected shared suite.
@@ -37,7 +37,7 @@ func RunChainUpgrade(t *testing.T, base *suite.BaseTestSuite) {
 	currentBranchBinary := sut.ExecBinary()
 	currentInitializer := sut.TestnetInitializer()
 
-	legacyBinary := systest.WorkDir + "/binaries/v0.4/evmd"
+	legacyBinary := systest.WorkDir + "/binaries/v0.5/evmd"
 	sut.SetExecBinary(legacyBinary)
 	sut.SetTestnetInitializer(systest.InitializerWithBinary(legacyBinary, sut))
 	sut.SetupChain()
