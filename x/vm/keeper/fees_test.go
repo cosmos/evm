@@ -30,18 +30,18 @@ func TestDeductFees(t *testing.T) {
 		expectedErr   error
 	}{
 		{
-			name:          "happy path coins matching",
+			name:          "happy path coins",
 			feeCoin:       sdk.NewCoin("feecoin", sdkmath.NewInt(100)),
 			sdkDenom:      banktypes.DenomUnit{Denom: "feecoin", Exponent: 18},
-			evmCoinInfo:   vmtypes.EvmCoinInfo{Denom: "feecoin", Decimals: 18},
+			evmCoinInfo:   vmtypes.EvmCoinInfo{DisplayDenom: "feecoin"},
 			expectedPanic: false,
 			expectedErr:   nil,
 		},
 		{
-			name:          "panic on decimal mismatch",
+			name:          "panic on exponent mismatch",
 			feeCoin:       sdk.NewCoin("feecoin", sdkmath.NewInt(100)),
 			sdkDenom:      banktypes.DenomUnit{Denom: "feecoin", Exponent: 6},
-			evmCoinInfo:   vmtypes.EvmCoinInfo{Denom: "feecoin", Decimals: 18},
+			evmCoinInfo:   vmtypes.EvmCoinInfo{DisplayDenom: "feecoin"},
 			expectedPanic: true,
 			expectedErr:   nil,
 		},
@@ -49,7 +49,7 @@ func TestDeductFees(t *testing.T) {
 			name:          "error on bank call failure",
 			feeCoin:       sdk.NewCoin("feecoin", sdkmath.NewInt(100)),
 			sdkDenom:      banktypes.DenomUnit{Denom: "feecoin", Exponent: 18},
-			evmCoinInfo:   vmtypes.EvmCoinInfo{Denom: "feecoin", Decimals: 18},
+			evmCoinInfo:   vmtypes.EvmCoinInfo{DisplayDenom: "feecoin"},
 			expectedPanic: false,
 			expectedErr:   errors.New("foo"),
 		},

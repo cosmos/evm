@@ -139,11 +139,11 @@ func DeductFees(bankKeeper types.BankKeeper, vmKeeper types.VMKeeper, ctx sdk.Co
 			continue
 		}
 		for _, du := range md.DenomUnits {
-			if du.Denom == evmCoinInfo.Denom && du.Exponent != evmCoinInfo.Decimals {
+			if du.Denom == evmCoinInfo.DisplayDenom && du.Exponent != types.EighteenDecimals.Uint32() {
 				panic(
 					fmt.Sprintf(
-						"Cannot use virtual fee collection for denom, %s, which has a different exponent, %d, than the evm coin's %d",
-						du.Denom, du.Exponent, evmCoinInfo.Decimals))
+						"Cannot use virtual fee collection for denom %s, which has a display denom that has %d exponent",
+						du.Denom, du.Exponent))
 			}
 		}
 	}
