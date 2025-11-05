@@ -32,14 +32,14 @@ var ABI = []string{
 	"function supplyOf(address contract) returns (uint totalSupply)",
 
 	// v2 design
-	"function name(string denom) external returns (string name)",
+	"function name(string denom) returns (string name)",
 	"function symbol(string denom) returns (string symbol)",
 	"function decimals(string denom) returns (uint8 decimals)",
 	"function totalSupply(string denom) returns (uint256 supply)",
 	"function balanceOf(address account, string denom) returns (uint256 balance)",
 	"function transferFrom(address from, address to, uint256 value, string denom) returns (bool)",
 
-	// generate the erc20 contractor abi
+	// generate the erc20 constructor abi
 	"function erc20ctor(string denom, address bank)",
 }
 
