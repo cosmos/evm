@@ -7,12 +7,12 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-type BankMsgServer interface {
+type MsgServer interface {
 	// Send defines a method for sending coins from one account to another account.
 	Send(context.Context, *banktypes.MsgSend) (*banktypes.MsgSendResponse, error)
 }
 
-type BankKeeper interface {
+type Keeper interface {
 	GetSupply(ctx context.Context, denom string) sdk.Coin
 	GetDenomMetaData(ctx context.Context, denom string) (banktypes.Metadata, bool)
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin

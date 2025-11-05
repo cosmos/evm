@@ -80,16 +80,16 @@ type Precompile struct {
 	cmn.Precompile
 
 	abi.ABI
-	bankMsgServer BankMsgServer
-	bankKeeper    BankKeeper
+	bankMsgServer MsgServer
+	bankKeeper    Keeper
 	erc20Keeper   cmn.ERC20Keeper
 }
 
 // NewPrecompile creates a new bank Precompile instance implementing the
 // PrecompiledContract interface.
 func NewPrecompile(
-	bankMsgServer BankMsgServer,
-	bankKeeper BankKeeper,
+	bankMsgServer MsgServer,
+	bankKeeper Keeper,
 	erc20Keeper cmn.ERC20Keeper,
 ) *Precompile {
 	// NOTE: we set an empty gas configuration to avoid extra gas costs
@@ -166,7 +166,6 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethodID, methodID)
 	}
-
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.

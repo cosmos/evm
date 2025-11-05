@@ -162,7 +162,8 @@ func TestBankPrecompile(t *testing.T) {
 		{"name", user1, NewNameCall(token.Denom), &NameReturn{token.Name}, nil},
 		{"symbol", user1, NewSymbolCall(token.Denom), &SymbolReturn{token.Symbol}, nil},
 		{"decimals", user1, NewDecimalsCall(token.Denom), &DecimalsReturn{token.Decimals}, nil},
-		{"supplyOf", user1, NewTotalSupply0Call(token.Denom),
+		{
+			"supplyOf", user1, NewTotalSupply0Call(token.Denom),
 			&TotalSupply0Return{new(big.Int).SetUint64(amount)},
 			nil,
 		},
@@ -213,6 +214,7 @@ func TestBankPrecompile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			evm := setup(t)
 			input, err := tc.args.EncodeWithSelector()
+			require.NoError(t, err)
 			ret, _, err := evm.Call(tc.caller, BankPrecompile, input, GasLimit, uint256.NewInt(0))
 			if tc.expErr != nil {
 				require.Equal(t, tc.expErr, err)

@@ -31,8 +31,8 @@ type MockBankMsgServer struct {
 }
 
 var (
-	_ BankKeeper    = MockBankKeeper{}
-	_ BankMsgServer = MockBankMsgServer{}
+	_ Keeper    = MockBankKeeper{}
+	_ MsgServer = MockBankMsgServer{}
 )
 
 func NewMockBankKeeper() MockBankKeeper {

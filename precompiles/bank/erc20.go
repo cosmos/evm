@@ -1,10 +1,10 @@
 package bank
 
 import (
-	_ "embed"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	_ "embed"
 )
 
 // generated with solc 0.8.30+commit.73712a01:

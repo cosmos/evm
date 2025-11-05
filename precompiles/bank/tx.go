@@ -6,10 +6,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 func (p Precompile) TransferFrom(
