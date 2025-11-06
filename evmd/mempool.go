@@ -32,6 +32,7 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	if err != nil {
 		return fmt.Errorf("failed to get mempool config: %w", err)
 	}
+	mempoolConfig.LegacyPoolConfig.GlobalSlots = (4096 + 1024) * 30
 
 	evmMempool := evmmempool.NewExperimentalEVMMempool(
 		app.CreateQueryContext,
