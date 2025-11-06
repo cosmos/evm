@@ -1,4 +1,5 @@
 local chain = (import 'chains.jsonnet')[std.extVar('CHAIN_CONFIG')];
+local gas_price = 1000000000;
 
 {
   dotenv: '../../scripts/.env',
@@ -39,13 +40,13 @@ local chain = (import 'chains.jsonnet')[std.extVar('CHAIN_CONFIG')];
       'coin-type': 60,
       coins: '100000000000000000000' + chain.evm_denom,
       staked: '10000000000000000000' + chain.evm_denom,
-      gas_prices: '0.01' + chain.evm_denom,
+      gas_prices: gas_price + chain.evm_denom,
       mnemonic: '${VALIDATOR1_MNEMONIC}',
     }, {
       'coin-type': 60,
       coins: '100000000000000000000' + chain.evm_denom,
       staked: '10000000000000000000' + chain.evm_denom,
-      gas_prices: '0.01' + chain.evm_denom,
+      gas_prices: gas_price + chain.evm_denom,
       mnemonic: '${VALIDATOR2_MNEMONIC}',
       config: {
         db_backend: 'pebbledb',
@@ -57,7 +58,7 @@ local chain = (import 'chains.jsonnet')[std.extVar('CHAIN_CONFIG')];
       'coin-type': 60,
       coins: '100000000000000000000' + chain.evm_denom,
       staked: '10000000000000000000' + chain.evm_denom,
-      gas_prices: '0.01' + chain.evm_denom,
+      gas_prices: gas_price + chain.evm_denom,
       mnemonic: '${VALIDATOR3_MNEMONIC}',
       config: {
         db_backend: 'goleveldb',
@@ -106,6 +107,8 @@ local chain = (import 'chains.jsonnet')[std.extVar('CHAIN_CONFIG')];
             evm_denom: chain.evm_denom,
             active_static_precompiles: [
               '0x0000000000000000000000000000000000000800',
+              '0x0000000000000000000000000000000000000801',
+              '0x0000000000000000000000000000000000000805',
               '0x0000000000000000000000000000000000000807',
             ],
           },

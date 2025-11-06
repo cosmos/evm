@@ -46,5 +46,30 @@
         "type": "tarball",
         "url": "https://github.com/nix-community/poetry2nix/archive/d90f9db68a4bda31c346be16dfd8d3263be4547e.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "hermes": {
+        "branch": "v1.13.2",
+        "description": "Rust implementation of an Inter-Blockchain Communication (IBC) relayer",
+        "homepage": "",
+        "owner": "allthatjazzleo",
+        "repo": "hermes",
+        "rev": "96035808651ae542e6a5db465eeb364c75351f93",
+        "sha256": "1kxzwb8wi87xcjw1p22wadqwifr1n0v3gl21lghivig8yhg8ya0c",
+        "type": "tarball",
+        "url": "https://github.com/allthatjazzleo/hermes/archive/96035808651ae542e6a5db465eeb364c75351f93.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "dapptools": {
+        "branch": "master",
+        "description": "Dapp, Seth, Hevm, and more",
+        "homepage": "https://dapp.tools",
+        "owner": "dapphub",
+        "repo": "dapptools",
+        "rev": "a782a9dfcbf87756170c975c30e83339a99194b5",
+        "sha256": "sha256:0fsp4pvip77qjb3yciz2a3224ir8wvbb1snc851fbgmf34q7dqfi",
+        "type": "tarball",
+        "url": "https://github.com/dapphub/dapptools/archive/a782a9dfcbf87756170c975c30e83339a99194b5.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz",
+        "version": "hevm/0.49.0"
     }
 }

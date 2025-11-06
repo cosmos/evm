@@ -239,6 +239,12 @@ lint-fix:
 lint-fix-contracts:
 	solhint --fix contracts/**/*.sol
 
+lint-py:
+	flake8 --show-source --count --statistics \
+		--format="::error file=%(path)s,line=%(row)d,col=%(col)d::%(path)s:%(row)d:%(col)d: %(code)s %(text)s" \
+		--exclude=tests/integration_tests/contracts \
+		tests/integration_tests/
+
 .PHONY: lint lint-fix lint-contracts lint-go lint-python
 
 format: format-go format-python format-shell

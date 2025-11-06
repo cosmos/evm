@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import _jsonnet
+import tomlkit
 import web3
 from pystarport import cluster, ports
 from pystarport.expansion import expand
@@ -18,7 +19,6 @@ from requests.exceptions import (
     TooManyRedirects,
 )
 from web3 import AsyncHTTPProvider, AsyncWeb3, HTTPProvider, WebSocketProvider
-from web3.middleware import ExtraDataToPOAMiddleware
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 
 from .cosmoscli import CosmosCLI
@@ -107,6 +107,13 @@ class Evm:
 
     def supervisorctl(self, *args):
         return supervisorctl(self.base_dir / "../tasks.ini", *args)
+
+
+class Hermes:
+    def __init__(self, config: Path):
+        self.configpath = config
+        self.config = tomlkit.loads(config.read_text())
+        self.port = 3000
 
 
 def setup_evm(path, base_port, chain):

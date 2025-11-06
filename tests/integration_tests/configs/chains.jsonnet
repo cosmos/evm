@@ -27,7 +27,7 @@
     feemarket: {
       params: {
         base_fee: '1000000000',
-        min_gas_price: '0',
+        min_gas_price: '1000000000',
       },
     },
   },
