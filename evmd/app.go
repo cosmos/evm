@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	runtime2 "runtime"
 
+	"github.com/cosmos/cosmos-sdk/blockstm"
+	iavlx "github.com/cosmos/cosmos-sdk/iavl"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -218,6 +222,8 @@ func NewExampleApp(
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	txConfig := encodingConfig.TxConfig
 
+	baseAppOptions = append(baseAppOptions, baseapp.SetOptimisticExecution())
+
 	bApp := baseapp.NewBaseApp(
 		appName,
 		logger,
@@ -230,6 +236,22 @@ func NewExampleApp(
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
+
+	if _, ok := db.(*dbm.MemDB); !ok {
+		var iavlxOpts iavlx.Options
+		iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
+		err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
+		if err != nil {
+			panic("nope")
+		}
+		iavlxOpts.ReaderUpdateInterval = 1
+		dir := filepath.Join(defaultNodeHome, "data", "iavlx")
+		iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
+		if err != nil {
+			panic("nope")
+		}
+		bApp.SetCMS(iavlxDB)
+	}
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -250,6 +272,14 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
+	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		nonTransientKeys,
+		min(runtime2.GOMAXPROCS(0), runtime2.NumCPU()),
+		true,
+		"atest",
+	))
+	bApp.SetDisableBlockGasMeter(true)
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -471,6 +501,7 @@ func NewExampleApp(
 			appCodec,
 		),
 	)
+	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
