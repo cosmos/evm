@@ -7,6 +7,7 @@
 ### IMPROVEMENTS
 
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+- [\#810](https://github.com/cosmos/evm/pull/810) Fix integration test suite to resolve lock contention problem from external app injection
 
 ### FEATURES
 
