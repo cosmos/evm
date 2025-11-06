@@ -125,13 +125,13 @@ func TestNewMsgCancelProposal(t *testing.T) {
 			name:    "no arguments",
 			args:    []interface{}{},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
 		},
 		{
 			name:    "too many arguments",
 			args:    []interface{}{proposerAddr, proposalID, "extra"},
 			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 3),
+			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
 		},
 		{
 			name:    "invalid proposer type",

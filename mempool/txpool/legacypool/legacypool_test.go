@@ -125,7 +125,7 @@ func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key
 	var tx *types.Transaction
 
 	// 10 attempts is statistically sufficient since leading zeros in ECDSA signatures are rare and randomly distributed.
-	var retryTimes = 10
+	retryTimes := 10
 	for i := 0; i < retryTimes; i++ {
 		data := make([]byte, dataBytes)
 		crand.Read(data)

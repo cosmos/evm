@@ -296,7 +296,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// transaction corresponding to this receipt.
 			BlockHash:        blockHash,
 			BlockNumber:      big.NewInt(resBlock.Block.Height),
-			TransactionIndex: uint(txResult.EthTxIndex), // #nosec G115 -- checked for int overflow already
+			TransactionIndex: uint(i), // #nosec G115 -- no overflow here
 		}
 
 		receipts[i] = receipt

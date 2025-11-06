@@ -381,7 +381,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to pack input")
 				return input
 			},
-			21295, // use enough gas to avoid out of gas error
+			21559, // use enough gas to avoid out of gas error
 			true,
 			false,
 			"write protection",
@@ -391,7 +391,7 @@ func (s *PrecompileTestSuite) TestRun() {
 			func(_ keyring.Key) []byte {
 				return []byte("invalid")
 			},
-			21295, // use enough gas to avoid out of gas error
+			21559, // use enough gas to avoid out of gas error
 			false,
 			false,
 			"no method with id",

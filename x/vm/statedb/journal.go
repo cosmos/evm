@@ -51,6 +51,14 @@ func newJournal() *journal {
 	}
 }
 
+// reset clears the journal so it can be reused without reallocating.
+func (j *journal) reset() {
+	j.entries = j.entries[:0]
+	for _, k := range j.sortedDirties() {
+		delete(j.dirties, k)
+	}
+}
+
 // sortedDirties sort the dirty addresses for deterministic iteration
 func (j *journal) sortedDirties() []common.Address {
 	keys := make([]common.Address, 0, len(j.dirties))
@@ -117,8 +125,10 @@ type (
 		prev    uint64
 	}
 	storageChange struct {
-		account       *common.Address
-		key, prevalue common.Hash
+		account   *common.Address
+		key       common.Hash
+		preValue  common.Hash
+		origValue common.Hash
 	}
 	transientStorageChange struct {
 		account       *common.Address
@@ -240,7 +250,7 @@ func (ch codeChange) Dirtied() *common.Address {
 }
 
 func (ch storageChange) Revert(s *StateDB) {
-	s.getStateObject(*ch.account).setState(ch.key, ch.prevalue)
+	s.getStateObject(*ch.account).setState(ch.key, ch.preValue, ch.origValue)
 }
 
 func (ch storageChange) Dirtied() *common.Address {

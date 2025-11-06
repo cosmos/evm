@@ -31,8 +31,7 @@ func (s *KeeperTestSuite) TestEndBlock() {
 			false,
 			func() {
 				meter := storetypes.NewGasMeter(uint64(1000000000))
-				ctx = ctx.WithBlockGasMeter(meter)
-				nw.App.GetFeeMarketKeeper().SetTransientBlockGasWanted(ctx, 5000000)
+				ctx = ctx.WithBlockGasMeter(meter).WithBlockGasWanted(5000000)
 			},
 			uint64(2500000),
 		},

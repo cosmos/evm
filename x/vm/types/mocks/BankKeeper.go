@@ -101,11 +101,11 @@ func (_m *BankKeeper) GetSupply(ctx context.Context, denom string) types.Coin {
 
 // IsSendEnabledCoins provides a mock function with given fields: ctx, coins
 func (_m *BankKeeper) IsSendEnabledCoins(ctx context.Context, coins ...types.Coin) error {
-	_va := make([]interface{}, len(coins))
+	_va := make([]any, len(coins))
 	for _i := range coins {
 		_va[_i] = coins[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
@@ -188,12 +188,48 @@ func (_m *BankKeeper) SendCoinsFromAccountToModule(ctx context.Context, senderAd
 	return r0
 }
 
+// SendCoinsFromAccountToModuleVirtual provides a mock function with given fields: ctx, senderAddr, recipientModule, amt
+func (_m *BankKeeper) SendCoinsFromAccountToModuleVirtual(ctx context.Context, senderAddr types.AccAddress, recipientModule string, amt types.Coins) error {
+	ret := _m.Called(ctx, senderAddr, recipientModule, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendCoinsFromAccountToModuleVirtual")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.AccAddress, string, types.Coins) error); ok {
+		r0 = rf(ctx, senderAddr, recipientModule, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SendCoinsFromModuleToAccount provides a mock function with given fields: ctx, senderModule, recipientAddr, amt
 func (_m *BankKeeper) SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
 	ret := _m.Called(ctx, senderModule, recipientAddr, amt)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendCoinsFromModuleToAccount")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, types.AccAddress, types.Coins) error); ok {
+		r0 = rf(ctx, senderModule, recipientAddr, amt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SendCoinsFromModuleToAccountVirtual provides a mock function with given fields: ctx, senderModule, recipientAddr, amt
+func (_m *BankKeeper) SendCoinsFromModuleToAccountVirtual(ctx context.Context, senderModule string, recipientAddr types.AccAddress, amt types.Coins) error {
+	ret := _m.Called(ctx, senderModule, recipientAddr, amt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendCoinsFromModuleToAccountVirtual")
 	}
 
 	var r0 error
@@ -234,7 +270,8 @@ func (_m *BankKeeper) SpendableCoin(ctx context.Context, addr types.AccAddress, 
 func NewBankKeeper(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *BankKeeper {
+},
+) *BankKeeper {
 	mock := &BankKeeper{}
 	mock.Mock.Test(t)
 

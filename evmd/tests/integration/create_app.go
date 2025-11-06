@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
 	dbm "github.com/cosmos/cosmos-db"

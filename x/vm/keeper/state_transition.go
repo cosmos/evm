@@ -154,15 +154,16 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	}
 }
 
-func (k *Keeper) initializeBloomFromLogs(ctx sdk.Context, ethLogs []*ethtypes.Log) (bloom *big.Int, bloomReceipt ethtypes.Bloom) {
-	// Compute block bloom filter
-	if len(ethLogs) > 0 {
-		bloom = k.GetBlockBloomTransient(ctx)
-		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(&ethtypes.Receipt{Logs: ethLogs}).Bytes()))
-		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
+// logsBloom returns the bloom bytes for the given logs
+func logsBloom(logs []*ethtypes.Log) []byte {
+	var bin ethtypes.Bloom
+	for _, log := range logs {
+		bin.Add(log.Address.Bytes())
+		for _, b := range log.Topics {
+			bin.Add(b[:])
+		}
 	}
-
-	return
+	return bin[:]
 }
 
 func calculateCumulativeGasFromEthResponse(meter storetypes.GasMeter, res *types.MsgEthereumTxResponse) uint64 {
@@ -223,7 +224,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 	}
 
 	ethLogs := types.LogsToEthereum(res.Logs)
-	_, bloomReceipt := k.initializeBloomFromLogs(ctx, ethLogs)
+	// Compute block bloom filter
+	if len(ethLogs) > 0 {
+		k.SetTxBloom(tmpCtx, new(big.Int).SetBytes(logsBloom(ethLogs)))
+	}
 
 	var contractAddr common.Address
 	if msg.To == nil {
@@ -234,14 +238,13 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		Type:              tx.Type(),
 		PostState:         nil,
 		CumulativeGasUsed: calculateCumulativeGasFromEthResponse(ctx.GasMeter(), res),
-		Bloom:             bloomReceipt,
 		Logs:              ethLogs,
 		TxHash:            txConfig.TxHash,
 		ContractAddress:   contractAddr,
 		GasUsed:           res.GasUsed,
 		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
 		BlockNumber:       big.NewInt(ctx.BlockHeight()),
-		TransactionIndex:  txConfig.TxIndex,
+		TransactionIndex:  uint(ctx.TxIndex()), //#nosec G115
 	}
 
 	if res.Failed() {
@@ -302,26 +305,14 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		}
 	}
 
-	// update logs and bloom for full view if post processing updated them
-	ethLogs = types.LogsToEthereum(res.Logs)
-	bloom, _ := k.initializeBloomFromLogs(ctx, ethLogs)
-
 	// refund gas to match the Ethereum gas consumption instead of the default SDK one.
 	remainingGas := uint64(0)
 	if msg.GasLimit > res.GasUsed {
 		remainingGas = msg.GasLimit - res.GasUsed
 	}
 	if err = k.RefundGas(ctx, *msg, remainingGas, types.GetEVMCoinDenom()); err != nil {
-		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
+		return nil, errorsmod.Wrapf(err, "failed to refund leftover gas to sender %s", msg.From)
 	}
-
-	if len(ethLogs) > 0 {
-		// Update transient block bloom filter
-		k.SetBlockBloomTransient(ctx, bloom)
-		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(ethLogs)))
-	}
-
-	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
 
 	totalGasUsed, err := k.AddTransientGasUsed(ctx, res.GasUsed)
 	if err != nil {
@@ -393,8 +384,9 @@ func (k *Keeper) ApplyMessageWithConfig(
 	overrides *rpctypes.StateOverride,
 ) (*types.MsgEthereumTxResponse, error) {
 	var (
-		ret   []byte // return bytes from evm execution
-		vmErr error  // vm errors do not effect consensus and are therefore not assigned to err
+		ret          []byte // return bytes from evm execution
+		vmErr        error  // vm errors do not effect consensus and are therefore not assigned to err
+		floorDataGas uint64
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
@@ -443,7 +435,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 		return nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
 	}
 	if rules.IsPrague {
-		floorDataGas, err := core.FloorDataGas(msg.Data)
+		floorDataGas, err = core.FloorDataGas(msg.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -498,10 +490,6 @@ func (k *Keeper) ApplyMessageWithConfig(
 		refundQuotient = params.RefundQuotientEIP3529
 	}
 
-	if internal {
-		refundQuotient = 1 // full refund on internal calls
-	}
-
 	// calculate gas refund
 	if msg.GasLimit < leftoverGas {
 		return nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
@@ -513,6 +501,20 @@ func (k *Keeper) ApplyMessageWithConfig(
 	// update leftoverGas and temporaryGasUsed with refund amount
 	leftoverGas += refund
 	temporaryGasUsed := maxUsedGas - refund
+	if rules.IsPrague {
+		// After EIP-7623: Data-heavy transactions pay the floor gas.
+		if temporaryGasUsed < floorDataGas {
+			prev := leftoverGas
+			leftoverGas = msg.GasLimit - floorDataGas
+			temporaryGasUsed = floorDataGas
+			if vmCfg.Tracer != nil && vmCfg.Tracer.OnGasChange != nil {
+				vmCfg.Tracer.OnGasChange(prev, leftoverGas, tracing.GasChangeTxDataFloor)
+			}
+		}
+		if maxUsedGas < floorDataGas {
+			maxUsedGas = floorDataGas
+		}
+	}
 
 	// EVM execution error needs to be available for the JSON-RPC client
 	var vmError string

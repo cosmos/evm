@@ -102,28 +102,28 @@ func (s *KeeperTestSuite) TestOnRecvPacketRegistered() {
 			expCoins:      coins,
 		},
 		{
-			name: "error - invalid sender (no '1')",
+			name: "success - invalid sender (no '1')",
 			malleate: func() {
 				transfer := transfertypes.NewFungibleTokenPacketData(registeredDenom, "100", "evmos", ethsecpAddrCosmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
 				packet = channeltypes.NewPacket(bz, 100, transfertypes.PortID, sourceChannel, transfertypes.PortID, cosmosEVMChannel, timeoutHeight, 0)
 			},
 			receiver:      secpAddr,
-			ackSuccess:    false,
-			checkBalances: false,
+			ackSuccess:    true,
+			checkBalances: true,
 			expErc20s:     big.NewInt(0),
 			expCoins:      coins,
 		},
 		{
-			name: "error - invalid sender (bad address)",
+			name: "success - invalid sender (bad address)",
 			malleate: func() {
 				transfer := transfertypes.NewFungibleTokenPacketData(registeredDenom, "100", "badba1sv9m0g7ycejwr3s369km58h5qe7xj77hvcxrms", ethsecpAddrCosmos, "")
 				bz := transfertypes.ModuleCdc.MustMarshalJSON(&transfer)
 				packet = channeltypes.NewPacket(bz, 100, transfertypes.PortID, sourceChannel, transfertypes.PortID, cosmosEVMChannel, timeoutHeight, 0)
 			},
 			receiver:      secpAddr,
-			ackSuccess:    false,
-			checkBalances: false,
+			ackSuccess:    true,
+			checkBalances: true,
 			expErc20s:     big.NewInt(0),
 			expCoins:      coins,
 		},
