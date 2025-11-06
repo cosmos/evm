@@ -43,7 +43,6 @@ def test_ledger(custom_evm):
     rsp = cli.transfer(
         hw, community, f"{amt2}{DEFAULT_DENOM}", ledger=True, sign_mode="amino-json"
     )
-    print("mm-rsp", rsp)
     assert rsp["code"] == 0, rsp["raw_log"]
     assert cli.balance(hw) == amt2 - find_fee(rsp)
     assert cli.balance(community) == community_balance + amt2

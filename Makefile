@@ -205,6 +205,10 @@ test-solidity:
 	@echo "Beginning solidity tests..."
 	./scripts/run-solidity-tests.sh
 
+test-e2e-nix:
+	@bash ./tests/scripts/restore_envs.sh
+	@nix-shell ./tests/integration_tests/shell.nix --run "CHAIN_CONFIG=$(CHAIN_CONFIG) ./tests/scripts/run-integration-tests.sh"
+
 .PHONY: run-tests test test-all $(TEST_TARGETS)
 
 benchmark:

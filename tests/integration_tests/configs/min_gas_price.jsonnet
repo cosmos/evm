@@ -20,8 +20,8 @@ config {
           params+: {
             base_fee_change_denominator: '3',
             elasticity_multiplier: '4',
-            base_fee: gas_price,
-            min_gas_price: gas_price,
+            base_fee: gas_price + '',
+            min_gas_price: gas_price + '',
           },
         },
       },
