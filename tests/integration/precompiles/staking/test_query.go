@@ -504,7 +504,8 @@ func (s *PrecompileTestSuite) TestRedelegation() {
 		{
 			name: "success - no redelegation found",
 			malleate: func(srcOperatorAddr, _ string) []interface{} {
-				nonExistentOperator := sdk.ValAddress([]byte("non-existent-operator"))
+				nonExistentAddr, _ := testutiltx.NewAccAddressAndKey()
+				nonExistentOperator := sdk.ValAddress(nonExistentAddr)
 				return []interface{}{
 					s.keyring.GetAddr(0),
 					srcOperatorAddr,
