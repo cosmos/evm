@@ -4,6 +4,10 @@
 
 ### DEPENDENCIES
 
+### API-BREAKING
+
+- [\#808](https://github.com/cosmos/evm/pull/808) Remove werc20 precompile.
+
 ### IMPROVEMENTS
 
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.

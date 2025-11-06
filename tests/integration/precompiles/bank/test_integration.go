@@ -35,8 +35,8 @@ import (
 type IntegrationTestSuite struct {
 	suite.Suite
 
-	bondDenom, tokenDenom   string
-	cosmosEVMAddr, xmplAddr common.Address
+	bondDenom, tokenDenom string
+	xmplAddr              common.Address
 
 	create      network.CreateEvmApp
 	options     []network.ConfigOption
@@ -86,17 +86,12 @@ func (is *IntegrationTestSuite) SetupTest() {
 	is.keyring = keyring
 	is.network = integrationNetwork
 
-	tokenPairID := is.network.App.GetErc20Keeper().GetTokenPairID(is.network.GetContext(), is.bondDenom)
-	tokenPair, found := is.network.App.GetErc20Keeper().GetTokenPair(is.network.GetContext(), tokenPairID)
-	Expect(found).To(BeTrue(), "failed to register token erc20 extension")
-	is.cosmosEVMAddr = common.HexToAddress(tokenPair.Erc20Address)
-
 	// Mint and register a second coin for testing purposes
 	err = is.network.App.GetBankKeeper().MintCoins(is.network.GetContext(), minttypes.ModuleName, sdk.Coins{{Denom: is.tokenDenom, Amount: math.NewInt(1e18)}})
 	Expect(err).ToNot(HaveOccurred(), "failed to mint coin")
 
-	tokenPairID = is.network.App.GetErc20Keeper().GetTokenPairID(is.network.GetContext(), is.tokenDenom)
-	tokenPair, found = is.network.App.GetErc20Keeper().GetTokenPair(is.network.GetContext(), tokenPairID)
+	tokenPairID := is.network.App.GetErc20Keeper().GetTokenPairID(is.network.GetContext(), is.tokenDenom)
+	tokenPair, found := is.network.App.GetErc20Keeper().GetTokenPair(is.network.GetContext(), tokenPairID)
 	Expect(found).To(BeTrue(), "failed to register token erc20 extension")
 	is.xmplAddr = common.HexToAddress(tokenPair.Erc20Address)
 	is.precompile = is.setupBankPrecompile()
@@ -258,16 +253,6 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 			})
 
 			Context("supplyOf query", func() {
-				It("should return the supply of Cosmos EVM", func() {
-					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.cosmosEVMAddr)
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-					Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
-				})
 
 				It("should return the supply of XMPL", func() {
 					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
@@ -401,16 +386,6 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 			})
 
 			Context("supplyOf query", func() {
-				It("should return the supply of Cosmos EVM", func() {
-					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.cosmosEVMAddr)
-					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
-					Expect(err).ToNot(HaveOccurred(), "unexpected result calling contract")
-
-					out, err := is.precompile.Unpack(bank2.SupplyOfMethod, ethRes.Ret)
-					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
-
-					Expect(out[0].(*big.Int).String()).To(Equal(cosmosEVMTotalSupply.String()))
-				})
 
 				It("should return the supply of XMPL", func() {
 					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)

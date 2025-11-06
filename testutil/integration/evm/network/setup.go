@@ -466,12 +466,7 @@ func setDefaultMintGenesisState(cosmosEVMApp evm.EvmApp, genesisState testutil.G
 func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, genesisState testutil.GenesisState) testutil.GenesisState {
 	// NOTE: here we are using the setup from the example chain
 	erc20Gen := newErc20GenesisState()
-	updatedErc20Gen := updateErc20GenesisStateForChainID(testconstants.ChainID{
-		ChainID:    cosmosEVMApp.ChainID(),
-		EVMChainID: evmChainID,
-	}, *erc20Gen)
-
-	genesisState[erc20types.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(&updatedErc20Gen)
+	genesisState[erc20types.ModuleName] = cosmosEVMApp.AppCodec().MustMarshalJSON(erc20Gen)
 	return genesisState
 }
 
@@ -483,7 +478,6 @@ func setDefaultErc20GenesisState(cosmosEVMApp evm.EvmApp, evmChainID uint64, gen
 func newErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
 
 	return erc20GenState
 }

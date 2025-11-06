@@ -19,7 +19,6 @@ import (
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
-	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -250,10 +249,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			execRevertedCheck = failCheck.WithErrContains("execution reverted")
 			passCheck = failCheck.WithExpPass(true)
 
-			erc20Keeper := is.network.App.GetErc20Keeper()
-			available := erc20Keeper.IsNativePrecompileAvailable(is.network.GetContext(), common.HexToAddress(testconstants.WEVMOSContractMainnet))
-			Expect(available).To(BeTrue())
-
 			revertContractAddr, err = is.factory.DeployContract(
 				sender.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
@@ -261,7 +256,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					Contract: revertCallerContract,
 					// NOTE: we're passing the precompile address to the constructor because that initiates the contract
 					// to make calls to the correct ERC20 precompile.
-					ConstructorArgs: []interface{}{common.HexToAddress(testconstants.WEVMOSContractMainnet)},
+					ConstructorArgs: []interface{}{is.precompile.Address()},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), "failed to deploy reverter contract")
@@ -424,252 +419,6 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 					// // TODO: The ERC20 V5 contract is raising the ERC-6093 standardized error which we are not as of yet
 					// Entry(" - through erc20 v5 contract", erc20V5Call),
 				)
-			})
-			When("calling reverter contract", func() {
-				Context("in a direct call to the WEVMOS contract", func() {
-					var (
-						args   testutiltypes.CallArgs
-						txArgs evmtypes.EvmTxArgs
-					)
-					BeforeEach(func() {
-						args = testutiltypes.CallArgs{
-							ContractABI: revertCallerContract.ABI,
-						}
-
-						txArgs = evmtypes.EvmTxArgs{
-							To:       &revertContractAddr,
-							GasLimit: gasLimit,
-							GasPrice: gasPrice,
-						}
-					})
-					It("should transfer tokens", func() {
-						sender := is.keyring.GetKey(0)
-						receiver := is.keyring.GetKey(1)
-						amountToSend := big.NewInt(100)
-
-						balRes, err := is.handler.GetBalanceFromBank(receiver.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						denomInitialBalance := balRes.Balance
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderInitialBalance := balRes.Balance
-
-						args.MethodName = "transferWithRevert"
-						args.Args = []interface{}{
-							receiver.Addr,
-							amountToSend,
-							false,
-							false,
-						}
-						txArgs.Amount = amountToSend
-
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
-						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
-						Expect(err).To(BeNil())
-						Expect(is.network.NextBlock()).To(BeNil())
-						fees := math.NewIntFromBigInt(gasPrice).MulRaw(res.GasUsed)
-
-						Expect(is.network.NextBlock()).ToNot(HaveOccurred(), "failed to advance block")
-
-						balRes, err = is.handler.GetBalanceFromBank(receiver.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						denomFinalBalance := balRes.Balance
-						Expect(denomFinalBalance.Amount).To(Equal(denomInitialBalance.Amount.Add(math.NewInt(amountToSend.Int64()))))
-
-						balRes, err = is.handler.GetBalanceFromBank(revertContractAddr.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						contractBalance := balRes.Balance
-						Expect(contractBalance.Amount).To(Equal(math.ZeroInt()))
-
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderFinalBalance := balRes.Balance
-						denomSpent := fees.Add(math.NewIntFromBigInt(amountToSend))
-						Expect(senderFinalBalance.Amount).To(Equal(senderInitialBalance.Amount.Sub(denomSpent)))
-					},
-					)
-					DescribeTable("it should revert token transfer from the WEVMOS contract", func(before bool, after bool) {
-						sender := is.keyring.GetKey(0)
-						receiver := is.keyring.GetAddr(1)
-						amountToSend := big.NewInt(100)
-						balRes, err := is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomInitialBalance := balRes.Balance
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderInitialBalance := balRes.Balance
-
-						args.MethodName = "transferWithRevert"
-						args.Args = []interface{}{
-							receiver,
-							amountToSend,
-							before,
-							after,
-						}
-						txArgs.Amount = amountToSend
-
-						revertReasonCheck := execRevertedCheck.WithErrNested("revert here")
-
-						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, revertReasonCheck)
-						Expect(err).To(BeNil())
-						Expect(is.network.NextBlock()).To(BeNil())
-
-						fees := math.NewIntFromBigInt(gasPrice).MulRaw(res.GasUsed)
-
-						// contract balance should remain unchanged
-						balRes, err = is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomFinalBalance := balRes.Balance
-						Expect(denomFinalBalance.Amount).To(Equal(denomInitialBalance.Amount))
-
-						balRes, err = is.handler.GetBalanceFromBank(revertContractAddr.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						contractBalance := balRes.Balance
-						Expect(contractBalance.Amount).To(Equal(math.ZeroInt()))
-
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderFinalBalance := balRes.Balance
-						Expect(senderFinalBalance.Amount).To(Equal(senderInitialBalance.Amount.Sub(fees)))
-					},
-						Entry("revert before", true, false),
-						Entry("revert after", false, true),
-					)
-					It("it should send token transfer and send from WEVMOS contract", func() {
-						sender := is.keyring.GetKey(0)
-						receiver := is.keyring.GetAddr(1)
-						totalToSend := int64(350)
-						balRes, err := is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomInitialBalance := balRes.Balance
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderInitialBalance := balRes.Balance
-
-						args.MethodName = "testTransferAndSend"
-						args.Args = []interface{}{
-							receiver,
-							big.NewInt(100),
-							big.NewInt(100),
-							big.NewInt(150),
-							false,
-							false,
-						}
-						txArgs.Amount = big.NewInt(totalToSend)
-
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
-						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
-						Expect(err).To(BeNil())
-						Expect(is.network.NextBlock()).To(BeNil())
-						fees := math.NewIntFromBigInt(gasPrice).MulRaw(res.GasUsed)
-
-						// contract balance should remain unchanged
-						balRes, err = is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomFinalBalance := balRes.Balance
-						Expect(denomFinalBalance.Amount).To(Equal(denomInitialBalance.Amount.Add(math.NewInt(totalToSend))))
-
-						balRes, err = is.handler.GetBalanceFromBank(revertContractAddr.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						contractBalance := balRes.Balance
-						Expect(contractBalance.Amount).To(Equal(math.ZeroInt()))
-
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderFinalBalance := balRes.Balance
-						denomSpent := fees.AddRaw(totalToSend)
-						Expect(senderFinalBalance.Amount).To(Equal(senderInitialBalance.Amount.Sub(denomSpent)))
-					},
-					)
-					DescribeTable("it should revert token transfer and send from WEVMOS contract", func(before bool, after bool) {
-						sender := is.keyring.GetKey(0)
-						receiver := is.keyring.GetAddr(1)
-						balRes, err := is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomInitialBalance := balRes.Balance
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderInitialBalance := balRes.Balance
-
-						args.MethodName = "testTransferAndSend"
-						args.Args = []interface{}{
-							receiver,
-							big.NewInt(100),
-							big.NewInt(100),
-							big.NewInt(100),
-							before,
-							after,
-						}
-						txArgs.Amount = big.NewInt(300)
-
-						revertReasonCheck := execRevertedCheck.WithErrNested("revert here")
-
-						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, revertReasonCheck)
-						Expect(err).To(BeNil())
-						Expect(is.network.NextBlock()).To(BeNil())
-						fees := math.NewIntFromBigInt(gasPrice).MulRaw(res.GasUsed)
-
-						// contract balance should remain unchanged
-						balRes, err = is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomFinalBalance := balRes.Balance
-						Expect(denomFinalBalance.Amount).To(Equal(denomInitialBalance.Amount))
-
-						balRes, err = is.handler.GetBalanceFromBank(revertContractAddr.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						contractBalance := balRes.Balance
-						Expect(contractBalance.Amount).To(Equal(math.ZeroInt()))
-
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderFinalBalance := balRes.Balance
-						Expect(senderFinalBalance.Amount).To(Equal(senderInitialBalance.Amount.Sub(fees)))
-					},
-						Entry("revert before", true, false),
-						Entry("revert after", false, true),
-					)
-					It("revert when transfer with try", func() {
-						sender := is.keyring.GetKey(0)
-						receiver := is.keyring.GetAddr(1)
-						amountToSend := big.NewInt(100)
-						balRes, err := is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomInitialBalance := balRes.Balance
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderInitialBalance := balRes.Balance
-
-						args.MethodName = "transfersWithTry"
-						args.Args = []interface{}{
-							receiver,
-							amountToSend,
-							amountToSend,
-						}
-						txArgs.Amount = big.NewInt(200)
-
-						transferCheck := passCheck.WithExpEvents(erc20.EventTypeTransfer)
-						res, _, err := is.factory.CallContractAndCheckLogs(sender.Priv, txArgs, args, transferCheck)
-						Expect(err).To(BeNil())
-						Expect(is.network.NextBlock()).To(BeNil())
-						fees := math.NewIntFromBigInt(gasPrice).MulRaw(res.GasUsed)
-
-						balRes, err = is.handler.GetBalanceFromBank(receiver.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						denomFinalBalance := balRes.Balance
-						Expect(denomFinalBalance.Amount).To(Equal(denomInitialBalance.Amount.Add(math.NewInt(amountToSend.Int64()))))
-
-						balRes, err = is.handler.GetBalanceFromBank(revertContractAddr.Bytes(), is.bondDenom)
-						Expect(err).To(BeNil())
-						contractBalance := balRes.Balance
-						Expect(contractBalance.Amount.Int64()).To(Equal(amountToSend.Int64()))
-
-						balRes, err = is.handler.GetBalanceFromBank(sender.AccAddr, is.bondDenom)
-						Expect(err).To(BeNil())
-						senderFinalBalance := balRes.Balance
-						denomSpent := fees.AddRaw(amountToSend.Int64() + amountToSend.Int64())
-						Expect(senderFinalBalance.Amount).To(Equal(senderInitialBalance.Amount.Sub(denomSpent)))
-					})
-				})
 			})
 
 			When("transferring tokens from another account", func() {
