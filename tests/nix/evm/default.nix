@@ -1,7 +1,8 @@
 {
   lib,
   stdenv,
-  buildGo123Module,
+  buildGoModule,
+  go_1_25,
   fetchFromGitHub,
   rev ? "dirty",
   nativeByteOrder ? true, # nativeByteOrder mode will panic on big endian machines
@@ -13,9 +14,11 @@ let
   pname = "evmd";
 
   # Use static packages for Linux to ensure musl compatibility
-  buildPackages = if stdenv.isLinux then pkgsStatic else { inherit stdenv buildGo123Module; };
+  buildPackages = if stdenv.isLinux then pkgsStatic else { inherit stdenv; buildGoModule = buildGoModule.override { go = go_1_25; }; };
   buildStdenv = buildPackages.stdenv;
-  buildGo123Module' = if stdenv.isLinux then buildPackages.buildGo123Module else buildGo123Module;
+  buildGoModule' = if stdenv.isLinux 
+    then (buildPackages.buildGoModule.override { go = go_1_25; })
+    else (buildGoModule.override { go = go_1_25; });
 
   tags =
     [
@@ -25,6 +28,7 @@ let
       "pebbledb"
     ]
     ++ lib.optionals nativeByteOrder [ "nativebyteorder" ]
+    ++ lib.optionals buildStdenv.isDarwin [ "static_wasm" ]
     ++ lib.optionals buildStdenv.isLinux [ "muslc" ];
 
   ldflags =
@@ -45,7 +49,7 @@ let
     ];
 
 in
-buildGo123Module' rec {
+  buildGoModule' rec {
   inherit
     pname
     version
@@ -56,19 +60,20 @@ buildGo123Module' rec {
   src = fetchFromGitHub {
     owner = "cosmos";
     repo = "evm";
-    rev = "733ea6190eb1be15ed1276ab54f4a8b511ff1c66";
-    hash = "sha256-mZQhW6CpIUGPj3WWw5v2Zeov1mMnKx+ZqNX3YcFOcVE=";
+    rev = "79bcc14fefa4b5c82386a3fb0724c3f9a7688ba5";
+    hash = "sha256-QoQR7VBkAUMTj9M4qbAK76avjgiyH8htUeFFggVDExA=";
   };
   
-  vendorHash = "sha256-IDJHj2e2LBMe0BtwduG7/wLM/C2rRQyIUpbMawJAilk=";
+  vendorHash = "sha256-DO9SS1c5p9hSMR2M+bCxci/kdjpN7a9TZhMZhq2Efag=";
   proxyVendor = true;
   sourceRoot = "source/evmd";
   subPackages = [ "cmd/evmd" ];
-  CGO_ENABLED = "1";
 
   preBuild = ''
     mkdir -p $TMPDIR/lib
+    export CGO_ENABLED=1
     export CGO_LDFLAGS="-L$TMPDIR/lib $CGO_LDFLAGS"
+    export GOTOOLCHAIN=local
   '';
 
   doCheck = false;
