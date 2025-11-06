@@ -237,21 +237,21 @@ func NewExampleApp(
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
-	if _, ok := db.(*dbm.MemDB); !ok {
-		var iavlxOpts iavlx.Options
-		iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
-		err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
-		if err != nil {
-			panic("nope")
-		}
-		iavlxOpts.ReaderUpdateInterval = 1
-		dir := filepath.Join(defaultNodeHome, "data", "iavlx")
-		iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
-		if err != nil {
-			panic("nope")
-		}
-		bApp.SetCMS(iavlxDB)
-	}
+	//if _, ok := db.(*dbm.MemDB); !ok {
+	//	var iavlxOpts iavlx.Options
+	//	iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
+	//	err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
+	//	if err != nil {
+	//		panic("nope")
+	//	}
+	//	iavlxOpts.ReaderUpdateInterval = 1
+	//	dir := filepath.Join(defaultNodeHome, "data", "iavlx")
+	//	iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
+	//	if err != nil {
+	//		panic("nope")
+	//	}
+	//	bApp.SetCMS(iavlxDB)
+	//}
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
@@ -439,7 +439,7 @@ func NewExampleApp(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
