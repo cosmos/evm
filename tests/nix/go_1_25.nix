@@ -11,4 +11,4 @@ let
     config = {};
   };
 in
-  unstable.go_1_25 or pkgs.go_1_23
+  unstable.go_1_25

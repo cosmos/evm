@@ -57,23 +57,25 @@ in
     ldflags
     ;
   stdenv = buildStdenv;
-  src = fetchFromGitHub {
-    owner = "cosmos";
-    repo = "evm";
-    rev = "79bcc14fefa4b5c82386a3fb0724c3f9a7688ba5";
-    hash = "sha256-QoQR7VBkAUMTj9M4qbAK76avjgiyH8htUeFFggVDExA=";
-  };
   
-  vendorHash = "sha256-DO9SS1c5p9hSMR2M+bCxci/kdjpN7a9TZhMZhq2Efag=";
+  src = lib.sourceByRegex ../../.. [
+    "^(evmd|ante|api|client|crypto|encoding|ethereum|ibc|indexer|mempool|metrics|precompiles|proto|rpc|server|testutil|utils|version|wallets|x|eips|contracts|go.mod|go.sum|interfaces.go)($|/.*)"
+    "^tests(/.*[.]go)?$"
+  ];
+  
+  vendorHash = null;
   proxyVendor = true;
-  sourceRoot = "source/evmd";
+  
+  setSourceRoot = ''
+    export sourceRoot=$(find . -maxdepth 2 -name "evmd" -type d | head -1)
+    echo "evmd at: $sourceRoot"
+  '';
   subPackages = [ "cmd/evmd" ];
-
   preBuild = ''
     mkdir -p $TMPDIR/lib
     export CGO_ENABLED=1
     export CGO_LDFLAGS="-L$TMPDIR/lib $CGO_LDFLAGS"
-    export GOTOOLCHAIN=local
+    export GOPROXY=https://proxy.golang.org,direct
   '';
 
   doCheck = false;
