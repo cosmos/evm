@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   integration_tests:
-    runs-on: ubuntu-latest-x64-xlarge
+    runs-on: ubuntu-latest
     timeout-minutes: 240
     strategy:
       matrix:

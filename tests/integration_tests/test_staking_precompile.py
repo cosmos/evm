@@ -137,7 +137,7 @@ async def test_staking_unbond(evm):
     data = find_log_event_attrs(
         rsp["events"], "unbond", lambda attrs: "completion_time" in attrs
     )
-    wait_for_block_time(cli, isoparse(data["completion_time"]) + timedelta(seconds=1))
+    wait_for_block_time(cli, isoparse(data["completion_time"]) + timedelta(seconds=5))
     balance = await w3.eth.get_balance(acct.address)
     assert balance == balance_bf - (sum(amounts) - unbonded_amt) * WEI_PER_DENOM - fee
 
