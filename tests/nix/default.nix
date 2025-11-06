@@ -9,6 +9,7 @@ import sources.nixpkgs {
       flake-compat = import sources.flake-compat;
     })
     (import "${sources.poetry2nix}/overlay.nix")
+    (_: pkgs: { hermes = pkgs.callPackage ./hermes.nix { src = sources.hermes; };})
     (_: pkgs: { test-env = pkgs.callPackage ./testenv.nix { }; })
     (_: pkgs: { evmd = pkgs.callPackage ./evm/default.nix { }; })
     (_: pkgs: { 

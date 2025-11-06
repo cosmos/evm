@@ -8,6 +8,7 @@ pkgs.mkShell {
     pkgs.test-env
     pkgs.poetry
     pkgs.solc
+    pkgs.hermes
     pkgs.evmd
   ];
   shellHook = ''
