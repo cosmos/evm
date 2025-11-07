@@ -450,6 +450,8 @@ func (s *KeeperTestSuite) TestQueryParams() {
 	expParams := types.DefaultParams()
 	expParams.ActiveStaticPrecompiles = types.AvailableStaticPrecompiles
 	expParams.ExtraEIPs = nil
+	expParams.EvmDenom = testconstants.ExampleAttoDenom
+	expParams.ExtendedDenomOptions = &types.ExtendedDenomOptions{ExtendedDenom: testconstants.ExampleAttoDenom}
 
 	res, err := s.Network.GetEvmClient().Params(ctx, &types.QueryParamsRequest{})
 	s.Require().NoError(err)
