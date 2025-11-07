@@ -204,7 +204,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	if err != nil {
 		// Check for temporary rejection in response raw log
 		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
-			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
+			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
@@ -224,10 +224,12 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			}
 
 			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-			// Track as local for persistence until mined
+			// Track as local for persistence until pending
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}
+
+		panic(fmt.Sprintf("------------------>>>> %s, %s, %v", err.Error(), txlocals.IsTemporaryReject(err), b.Mempool != nil))
 
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
