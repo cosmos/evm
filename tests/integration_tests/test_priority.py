@@ -40,7 +40,6 @@ def tx_priority(tx, base_fee):
         return (tx["gasPrice"] - base_fee) // PRIORITY_REDUCTION
 
 
-@pytest.mark.skip(reason="https://github.com/cosmos/evm/pull/806")
 def test_priority(evm):
     """
     test priorities of different tx types

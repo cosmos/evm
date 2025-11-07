@@ -150,7 +150,6 @@ async def test_minimal_gas_price(evm):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="https://github.com/cosmos/evm/pull/806")
 async def test_transaction(evm):
     w3 = evm.async_w3
     gas_price = await w3.eth.gas_price
