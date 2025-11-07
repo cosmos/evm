@@ -61,9 +61,9 @@ type BlockExecutionBenchConfig struct {
 // DefaultBlockExecutionBenchConfig returns a default configuration
 func DefaultBlockExecutionBenchConfig() BlockExecutionBenchConfig {
 	return BlockExecutionBenchConfig{
-		NumAccounts:    5000,
-		TxsPerBlock:    10,
-		NumBlocks:      5,
+		NumAccounts:    65_000,
+		TxsPerBlock:    5_000,
+		NumBlocks:      150,
 		DBBackend:      "memdb",
 		SendAmount:     10000,
 		InitialBalance: 1_000_000_000_000_000_000,
