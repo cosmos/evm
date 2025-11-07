@@ -361,19 +361,6 @@ func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
 	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
 }
 
-// ResetTransientGasUsed reset gas used to prepare for execution of cosmos tx, called in EndBlocker.
-func (k Keeper) ResetTransientGasUsed(ctx sdk.Context) {
-	store := prefix.NewObjStore(ctx.ObjectStore(k.objectKey),
-		types.KeyPrefixObjectGasUsed)
-	it := store.Iterator(nil, nil)
-
-	defer it.Close()
-
-	for ; it.Valid(); it.Next() {
-		store.Delete(it.Key())
-	}
-}
-
 // GetTransientGasUsed returns the gas used by current cosmos tx.
 func (k Keeper) GetTransientGasUsed(ctx sdk.Context) uint64 {
 	store := ctx.ObjectStore(k.objectKey)
