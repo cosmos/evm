@@ -3,7 +3,6 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -59,21 +58,11 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 	}
 
 	if res.EthTxIndex == -1 {
-		// Fallback to find tx index by iterating all valid eth transactions
-		msgs := b.EthMsgsFromCometBlock(block, blockRes)
-		for i := range msgs {
-			if msgs[i].Hash() == txHash {
-				if i > math.MaxInt32 {
-					return nil, errors.New("tx index overflow")
-				}
-				res.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
-				break
-			}
+		var err error
+		res.EthTxIndex, err = FindEthTxIndexByHash(txHash, block, blockRes, b)
+		if err != nil {
+			return nil, err
 		}
-	}
-	// if we still unable to find the eth tx index, return error, shouldn't happen.
-	if res.EthTxIndex == -1 {
-		return nil, errors.New("can't find index of ethereum tx")
 	}
 
 	baseFee, err := b.BaseFee(blockRes)
