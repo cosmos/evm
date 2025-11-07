@@ -245,7 +245,7 @@ func NewExampleApp(
 			panic("nope")
 		}
 		iavlxOpts.ReaderUpdateInterval = 1
-		dir := filepath.Join(defaultNodeHome, "data", "iavlx")
+		dir := filepath.Join(cast.ToString(appOpts.Get(flags.FlagHome)), "data", "iavlx")
 		iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
 		if err != nil {
 			panic("nope")
@@ -277,7 +277,7 @@ func NewExampleApp(
 		nonTransientKeys,
 		min(runtime2.GOMAXPROCS(0), runtime2.NumCPU()),
 		true,
-		"atest",
+		sdk.DefaultBondDenom,
 	))
 	bApp.SetDisableBlockGasMeter(true)
 

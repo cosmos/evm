@@ -24,6 +24,9 @@ func (ec *EVMConfigurator) Configure() error {
 	}
 
 	if err := setEVMCoinInfo(ec.evmCoinInfo); err != nil {
+		if err.Error() == "EVM coin info already set" {
+			return nil
+		}
 		return err
 	}
 
