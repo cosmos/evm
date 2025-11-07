@@ -229,10 +229,8 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			return txHash, nil
 		}
 
-		x := fmt.Sprintf("------------------>>>> %s, %s, %v", err.Error(), txlocals.IsTemporaryReject(err), b.Mempool != nil)
-
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, fmt.Errorf("failed to broadcast transaction: %s", x)
+		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	// On success, track as local too to persist across restarts until mined
