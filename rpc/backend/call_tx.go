@@ -203,7 +203,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 	if err != nil {
 		// Check for temporary rejection in response raw log
-		if b.Mempool != nil && txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
 			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
