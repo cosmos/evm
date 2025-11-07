@@ -358,4 +358,4 @@ replace (
 
 retract v0.4.0
 
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20251107202259-e6720676654a
+replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.39.0-beta.2.0.20251107222635-b9eb62564a24
