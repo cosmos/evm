@@ -28,11 +28,9 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 			panic(err)
 		}
 
-		var (
-			anteEvents []abci.Event
-			// if the response data is modified and need to be marshaled back
-			dataDirty bool
-		)
+		var dataDirty bool
+		ethTxHashes := make(map[string]uint64)
+
 		for i, rsp := range txMsgData.MsgResponses {
 			var response MsgEthereumTxResponse
 			if rsp.TypeUrl != "/"+proto.MessageName(&response) {
@@ -43,13 +41,7 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 				panic(err)
 			}
 
-			anteEvents = append(anteEvents, abci.Event{
-				Type: EventTypeEthereumTx,
-				Attributes: []abci.EventAttribute{
-					{Key: AttributeKeyEthereumTxHash, Value: response.Hash},
-					{Key: AttributeKeyTxIndex, Value: strconv.FormatUint(txIndex, 10)},
-				},
-			})
+			ethTxHashes[response.Hash] = txIndex
 
 			if len(response.Logs) > 0 {
 				for _, log := range response.Logs {
@@ -70,12 +62,23 @@ func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 			txIndex++
 		}
 
-		if len(anteEvents) > 0 {
-			// prepend ante events in front to emulate the side effect of `EthEmitEventDecorator`
-			events := make([]abci.Event, len(anteEvents)+len(res.Events))
-			copy(events, anteEvents)
-			copy(events[len(anteEvents):], res.Events)
-			res.Events = events
+		for i := range res.Events {
+			if res.Events[i].Type == EventTypeEthereumTx {
+				var txHash string
+				for _, attr := range res.Events[i].Attributes {
+					if attr.Key == AttributeKeyEthereumTxHash {
+						txHash = attr.Value
+						break
+					}
+				}
+
+				if idx, ok := ethTxHashes[txHash]; ok {
+					res.Events[i].Attributes = append(res.Events[i].Attributes, abci.EventAttribute{
+						Key:   AttributeKeyTxIndex,
+						Value: strconv.FormatUint(idx, 10),
+					})
+				}
+			}
 		}
 
 		if dataDirty {
