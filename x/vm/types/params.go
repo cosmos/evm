@@ -8,12 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/utils"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
