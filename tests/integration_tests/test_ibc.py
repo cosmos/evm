@@ -23,9 +23,6 @@ from .utils import (
 )
 
 pytestmark = pytest.mark.asyncio
-pytest.skip(
-    "https://github.com/penumbra-zone/penumbra/issues/5270", allow_module_level=True
-)
 
 
 @pytest.fixture(scope="module")
