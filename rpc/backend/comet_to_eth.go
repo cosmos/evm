@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -271,6 +272,20 @@ func (b *Backend) ReceiptsFromCometBlock(
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
+		}
+
+		if txResult.EthTxIndex == -1 {
+			// Fallback to find tx index by iterating all valid eth transactions
+			msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
+			for i := range msgs {
+				if msgs[i].Hash() == ethMsg.Hash() {
+					if i > math.MaxInt32 {
+						return nil, errors.New("tx index overflow")
+					}
+					txResult.EthTxIndex = int32(i) //#nosec G115 -- checked for int overflow already
+					break
+				}
+			}
 		}
 
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})

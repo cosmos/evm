@@ -25,6 +25,7 @@
 - [\#774](https://github.com/cosmos/evm/pull/774) Emit proper allowance amount in erc20 event.
 - [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
 - [\#800](https://github.com/cosmos/evm/pull/800) Fix denom exponent validation in virtual fee deduct in vm module.
+- [\#812](https://github.com/cosmos/evm/pull/812) Patch evm tx index and log indexes, cleanup EmitTxHashEvent and ResetTransientGasUsed.
 
 ## v0.5.0
 
