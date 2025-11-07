@@ -2,6 +2,7 @@ package locals
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/cosmos/evm/mempool/txpool"
 	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
@@ -21,14 +22,14 @@ func IsTemporaryReject(err error) bool {
 		return false
 	}
 
-	switch err.Error() {
-	case legacypool.ErrOutOfOrderTxFromDelegated.Error(),
-		txpool.ErrInflightTxLimitReached.Error(),
-		legacypool.ErrAuthorityReserved.Error(),
-		txpool.ErrUnderpriced.Error(),
-		legacypool.ErrTxPoolOverflow.Error(),
-		legacypool.ErrFutureReplacePending.Error(),
-		ErrNonceGap.Error():
+	switch {
+	case strings.Contains(err.Error(), legacypool.ErrOutOfOrderTxFromDelegated.Error()),
+		strings.Contains(err.Error(), txpool.ErrInflightTxLimitReached.Error()),
+		strings.Contains(err.Error(), legacypool.ErrAuthorityReserved.Error()),
+		strings.Contains(err.Error(), txpool.ErrUnderpriced.Error()),
+		strings.Contains(err.Error(), legacypool.ErrTxPoolOverflow.Error()),
+		strings.Contains(err.Error(), legacypool.ErrFutureReplacePending.Error()),
+		strings.Contains(err.Error(), ErrNonceGap.Error()):
 		return true
 	}
 
