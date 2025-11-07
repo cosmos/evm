@@ -13,6 +13,8 @@ import (
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -66,13 +68,13 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMExtendedDenom,
+		EvmDenom:                sdk.DefaultBondDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
 		HistoryServeWindow:      DefaultHistoryServeWindow,
-		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: sdk.DefaultBondDenom},
 	}
 }
 
