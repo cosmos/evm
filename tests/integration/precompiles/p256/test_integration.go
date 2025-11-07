@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"github.com/cosmos/evm/testutil/constants"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -123,6 +124,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		When("the precompile is not enabled in the EVM params", func() {
 			BeforeAll(func() {
 				customGenesis := evmtypes.DefaultGenesisState()
+				customGenesis.Params.EvmDenom = constants.ChainsCoinInfo[constants.EighteenDecimalsChainID].Denom
 				customGenesis.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
 				params := customGenesis.Params
 				addr := s.precompileAddress.String()
