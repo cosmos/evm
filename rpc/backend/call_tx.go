@@ -229,10 +229,10 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			return txHash, nil
 		}
 
-		panic(fmt.Sprintf("------------------>>>> %s, %s, %v", err.Error(), txlocals.IsTemporaryReject(err), b.Mempool != nil))
+		x := fmt.Sprintf("------------------>>>> %s, %s, %v", err.Error(), txlocals.IsTemporaryReject(err), b.Mempool != nil)
 
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
+		return txHash, fmt.Errorf("failed to broadcast transaction: %s", x)
 	}
 
 	// On success, track as local too to persist across restarts until mined
