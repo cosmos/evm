@@ -1352,6 +1352,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		// 2. The transaction will pass through Comet, into the appside mempool, and attempted to be reinserted
 		//    It will not, because there is a check, but the attempt is there.
 		if pool.BroadcastTxFn != nil {
+			log.Info("Attempting to broadcast txs", "count", len(txs))
 			if err := pool.BroadcastTxFn(txs); err != nil {
 				log.Error("Failed to broadcast transactions", "err", err, "count", len(txs))
 			}
