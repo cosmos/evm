@@ -50,6 +50,8 @@ endif
 build_tags += $(BUILD_TAGS)
 build_tags := $(strip $(build_tags))
 
+build_tags += pebbledb
+
 # process linker flags
 
 ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=os \
@@ -65,6 +67,8 @@ endif
 ifeq (rocksdb,$(findstring rocksdb,$(COSMOS_BUILD_OPTIONS)))
   ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb
 endif
+
+ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=pebbledb
 
 # add build tags to linker flags
 whitespace := $(subst ,, )
