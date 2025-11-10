@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/evm/evmd/config"
+	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -104,7 +105,10 @@ func SetupWithGenesisValSet(t *testing.T, chainID string, evmChainID uint64, val
 	require.NoError(t, err)
 	bankGenesis.DenomMetadata = network.GenerateBankGenesisMetadata(evmChainID)
 	genesisState[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(&bankGenesis)
-	require.NoError(t, err)
+	var evmGenesis types.GenesisState
+	app.AppCodec().MustUnmarshalJSON(genesisState[types.ModuleName], &evmGenesis)
+	evmGenesis.Params.EvmDenom = testconstants.ChainsCoinInfo[evmChainID].Denom
+	genesisState[types.ModuleName] = app.AppCodec().MustMarshalJSON(&evmGenesis)
 
 	stateBytes, err := json.MarshalIndent(genesisState, "", " ")
 	require.NoError(t, err)

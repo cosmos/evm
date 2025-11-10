@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
-	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -26,7 +26,9 @@ import (
 // CreateEvmd creates an evm app for regular integration tests (non-mempool)
 // This version uses a noop mempool to avoid state issues during transaction processing
 func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
-	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
+	// A temporary home directory is created and used to prevent race conditions
+	// related to home directory locks in chains that use the WASM module.
+	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
 	if err != nil {
 		panic(err)
 	}
@@ -51,12 +53,17 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 // SetupEvmd initializes a new evmd app with default genesis state.
 // It is used in IBC integration tests to create a new evmd app instance.
 func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
+	defaultNodeHome, err := os.MkdirTemp("", "evmd-temp-homedir")
+	if err != nil {
+		panic(err)
+	}
+
 	app := evmd.NewExampleApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
-		NewAppOptionsWithFlagHomeAndChainID("", constants.EighteenDecimalsChainID),
+		NewAppOptionsWithFlagHomeAndChainID(defaultNodeHome, constants.EighteenDecimalsChainID),
 	)
 	// disable base fee for testing
 	genesisState := app.DefaultGenesis()

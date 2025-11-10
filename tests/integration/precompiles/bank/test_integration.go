@@ -119,8 +119,8 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 			contractData ContractData
 			passCheck    testutil.LogCheckArgs
 
-			cosmosEVMTotalSupply, _ = new(big.Int).SetString("200003000000000000000000", 10)
-			xmplTotalSupply, _      = new(big.Int).SetString("200000000000000000000000", 10)
+			cosmosEVMTotalSupply *big.Int
+			xmplTotalSupply      *big.Int
 		)
 
 		BeforeEach(func() {
@@ -155,6 +155,13 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 
 			err = is.network.NextBlock()
 			Expect(err).ToNot(HaveOccurred(), "failed to advance block")
+
+			// Get total supply from bank keeper
+			cosmosSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.bondDenom)
+			cosmosEVMTotalSupply = new(big.Int).Set(cosmosSupply.Amount.BigInt())
+
+			xmplSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.tokenDenom)
+			xmplTotalSupply = new(big.Int).Set(xmplSupply.Amount.BigInt())
 		})
 
 		Context("Direct precompile queries", func() {
