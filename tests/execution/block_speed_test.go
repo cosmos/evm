@@ -16,6 +16,7 @@ import (
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/codec"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/evmd"
@@ -54,10 +55,6 @@ type BlockExecutionBenchConfig struct {
 	InitialBalance int64
 }
 
-//func TestMain(m *testing.M) {
-//	telemetry.TestingMain(m, nil)
-//}
-
 // DefaultBlockExecutionBenchConfig returns a default configuration
 func DefaultBlockExecutionBenchConfig() BlockExecutionBenchConfig {
 	return BlockExecutionBenchConfig{
@@ -65,7 +62,7 @@ func DefaultBlockExecutionBenchConfig() BlockExecutionBenchConfig {
 		TxsPerBlock:    5_000,
 		NumBlocks:      150,
 		DBBackend:      "memdb",
-		SendAmount:     10000,
+		SendAmount:     10_000,
 		InitialBalance: 1_000_000_000_000_000_000,
 	}
 }
@@ -191,7 +188,11 @@ func runBlockExecutionBenchmark(b *testing.B, config BlockExecutionBenchConfig) 
 
 	startupConfig.GenesisAccounts = genesisAccounts
 
-	app, valSet := CreateApp(b, startupConfig, dir, chainID)
+	app, valSet := CreateApp(b, startupConfig, dir, chainID,
+		SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom),
+		BankMetadataSetter(sdk.DefaultBondDenom, 18),
+		DisableFeeMarket(),
+	)
 	require.NotNil(b, app)
 
 	// Pre-build all transactions for all blocks
@@ -339,7 +340,7 @@ func createMsgNativeERC20Transfer(t testing.TB, sendAmt int64, precompileAddress
 	return tx
 }
 
-func CreateApp(t testing.TB, startupConfig simtestutil.StartupConfig, dir string, chainID *big.Int, extraOutputs ...any) (*evmd.EVMD, *comettypes.ValidatorSet) {
+func CreateApp(t testing.TB, startupConfig simtestutil.StartupConfig, dir string, chainID *big.Int, genesisModifiers ...GenesisModifier) (*evmd.EVMD, *comettypes.ValidatorSet) {
 	t.Helper()
 	bopts := make([]func(*baseapp.BaseApp), 0)
 	bopts = append(bopts, baseapp.SetChainID(chainID.String()))
@@ -365,47 +366,9 @@ func CreateApp(t testing.TB, startupConfig simtestutil.StartupConfig, dir string
 	require.NoError(t, err)
 
 	cdc := app.AppCodec()
-	bankGenesis := genesisState[banktypes.ModuleName]
-	var bankGen banktypes.GenesisState
-	require.NoError(t, cdc.UnmarshalJSON(bankGenesis, &bankGen))
-	bankGen.DenomMetadata = append(bankGen.DenomMetadata, banktypes.Metadata{
-		Description: "some stuff",
-		DenomUnits: []*banktypes.DenomUnit{
-			{
-				Denom:    sdk.DefaultBondDenom,
-				Exponent: 18,
-				Aliases:  nil,
-			},
-		},
-		Base:    sdk.DefaultBondDenom,
-		Display: sdk.DefaultBondDenom,
-		Name:    sdk.DefaultBondDenom,
-		Symbol:  sdk.DefaultBondDenom,
-	})
-	bz, err := cdc.MarshalJSON(&bankGen)
-	require.NoError(t, err)
-	genesisState[banktypes.ModuleName] = bz
-
-	erc20Genesis := genesisState[erc20types.ModuleName]
-	var erc20Gen erc20types.GenesisState
-	require.NoError(t, erc20Genesis.UnmarshalJSON(bz))
-	erc20Gen.NativePrecompiles = append(erc20Gen.NativePrecompiles, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
-	erc20Gen.TokenPairs = append(erc20Gen.TokenPairs, erc20types.TokenPair{
-		Erc20Address:  "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-		Denom:         sdk.DefaultBondDenom,
-		Enabled:       true,
-		ContractOwner: 1,
-	})
-	erc20Bz, err := cdc.MarshalJSON(&erc20Gen)
-	require.NoError(t, err)
-	genesisState[erc20types.ModuleName] = erc20Bz
-
-	feeMarketGenesis := genesisState[feemarkettypes.ModuleName]
-	var feeMarketGen feemarkettypes.GenesisState
-	require.NoError(t, feeMarketGenesis.UnmarshalJSON(feeMarketGenesis))
-	feeMarketGen.Params.NoBaseFee = true
-	bz = cdc.MustMarshalJSON(&feeMarketGen)
-	genesisState[feemarkettypes.ModuleName] = bz
+	for _, genMod := range genesisModifiers {
+		genMod(t, cdc, genesisState)
+	}
 
 	// init chain must be called to stop deliverState from being nil
 	stateBytes, err := cmtjson.MarshalIndent(genesisState, "", " ")
@@ -421,13 +384,72 @@ func CreateApp(t testing.TB, startupConfig simtestutil.StartupConfig, dir string
 	require.NoError(t, err)
 
 	// commit genesis changes
-	if !startupConfig.AtGenesis {
-		_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{
-			Height:             app.LastBlockHeight() + 1,
-			NextValidatorsHash: valSet.Hash(),
-		})
-		require.NoError(t, err)
-	}
+	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{
+		Height:             app.LastBlockHeight() + 1,
+		NextValidatorsHash: valSet.Hash(),
+	})
+	require.NoError(t, err)
 
 	return app, valSet
 }
+
+type GenesisModifier func(t testing.TB, cdc codec.Codec, genesis map[string]json.RawMessage)
+
+var (
+	BankMetadataSetter = func(denom string, exp uint32) GenesisModifier {
+		return func(t testing.TB, cdc codec.Codec, genesisState map[string]json.RawMessage) {
+			t.Helper()
+			bankGenesis := genesisState[banktypes.ModuleName]
+			var bankGen banktypes.GenesisState
+			require.NoError(t, cdc.UnmarshalJSON(bankGenesis, &bankGen))
+			bankGen.DenomMetadata = append(bankGen.DenomMetadata, banktypes.Metadata{
+				Description: "some stuff",
+				DenomUnits: []*banktypes.DenomUnit{
+					{
+						Denom:    denom,
+						Exponent: exp,
+						Aliases:  nil,
+					},
+				},
+				Base:    denom,
+				Display: denom,
+				Name:    denom,
+				Symbol:  denom,
+			})
+			bz, err := cdc.MarshalJSON(&bankGen)
+			require.NoError(t, err)
+			genesisState[banktypes.ModuleName] = bz
+		}
+	}
+
+	SetERC20Precompile = func(addr, denom string) GenesisModifier {
+		return func(t testing.TB, cdc codec.Codec, genesisState map[string]json.RawMessage) {
+			t.Helper()
+			erc20Genesis := genesisState[erc20types.ModuleName]
+			var erc20Gen erc20types.GenesisState
+			require.NoError(t, erc20Genesis.UnmarshalJSON(erc20Genesis))
+			erc20Gen.NativePrecompiles = append(erc20Gen.NativePrecompiles, addr)
+			erc20Gen.TokenPairs = append(erc20Gen.TokenPairs, erc20types.TokenPair{
+				Erc20Address:  addr,
+				Denom:         denom,
+				Enabled:       true,
+				ContractOwner: 1,
+			})
+			erc20Bz, err := cdc.MarshalJSON(&erc20Gen)
+			require.NoError(t, err)
+			genesisState[erc20types.ModuleName] = erc20Bz
+		}
+	}
+
+	DisableFeeMarket = func() GenesisModifier {
+		return func(t testing.TB, cdc codec.Codec, genesisState map[string]json.RawMessage) {
+			t.Helper()
+			feeMarketGenesis := genesisState[feemarkettypes.ModuleName]
+			var feeMarketGen feemarkettypes.GenesisState
+			require.NoError(t, feeMarketGenesis.UnmarshalJSON(feeMarketGenesis))
+			feeMarketGen.Params.NoBaseFee = true
+			bz := cdc.MustMarshalJSON(&feeMarketGen)
+			genesisState[feemarkettypes.ModuleName] = bz
+		}
+	}
+)
