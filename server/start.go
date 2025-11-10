@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -13,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	abciserver "github.com/cometbft/cometbft/abci/server"
 	tcmd "github.com/cometbft/cometbft/cmd/cometbft/commands"
@@ -35,18 +33,15 @@ import (
 	srvflags "github.com/cosmos/evm/server/flags"
 	servertypes "github.com/cosmos/evm/server/types"
 
-	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
-	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
 	servercmtlog "github.com/cosmos/cosmos-sdk/server/log"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -524,12 +519,14 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			WithChainID(genDoc.ChainID)
 	}
 
-	grpcSrv, clientCtx, err := startGrpcServer(ctx, svrCtx, clientCtx, g, config.GRPC, app)
+	grpcSrv, clientCtx, err := server.StartGrpcServer(ctx, g, config.GRPC, clientCtx, svrCtx, app)
 	if err != nil {
 		return err
 	}
-	if grpcSrv != nil {
-		defer grpcSrv.GracefulStop()
+
+	// Update the evmApp with the new clientCtx that includes GRPCConnProvider
+	if evmApp, ok := app.(Application); ok {
+		evmApp.SetClientCtx(clientCtx)
 	}
 
 	startAPIServer(ctx, svrCtx, clientCtx, g, config.Config, app, grpcSrv, metrics, config.EVM.GethMetricsAddress)
@@ -623,65 +620,6 @@ func getCtx(svrCtx *server.Context, block bool) (*errgroup.Group, context.Contex
 	// listen for quit signals so the calling parent process can gracefully exit
 	server.ListenForQuitSignals(g, block, cancelFn, svrCtx.Logger)
 	return g, ctx
-}
-
-// startGrpcServer starts a gRPC server based on the provided configuration.
-func startGrpcServer(
-	ctx context.Context,
-	svrCtx *server.Context,
-	clientCtx client.Context,
-	g *errgroup.Group,
-	config serverconfig.GRPCConfig,
-	app types.Application,
-) (*grpc.Server, client.Context, error) {
-	if !config.Enable {
-		// return grpcServer as nil if gRPC is disabled
-		return nil, clientCtx, nil
-	}
-	_, _, err := net.SplitHostPort(config.Address)
-	if err != nil {
-		return nil, clientCtx, errorsmod.Wrapf(err, "invalid grpc address %s", config.Address)
-	}
-
-	maxSendMsgSize := config.MaxSendMsgSize
-	if maxSendMsgSize == 0 {
-		maxSendMsgSize = serverconfig.DefaultGRPCMaxSendMsgSize
-	}
-
-	maxRecvMsgSize := config.MaxRecvMsgSize
-	if maxRecvMsgSize == 0 {
-		maxRecvMsgSize = serverconfig.DefaultGRPCMaxRecvMsgSize
-	}
-
-	// if gRPC is enabled, configure gRPC client for gRPC gateway and json-rpc
-	grpcClient, err := grpc.NewClient(
-		config.Address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.ForceCodec(codec.NewProtoCodec(clientCtx.InterfaceRegistry).GRPCCodec()),
-			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-			grpc.MaxCallSendMsgSize(maxSendMsgSize),
-		),
-	)
-	if err != nil {
-		return nil, clientCtx, err
-	}
-	// Set `GRPCClient` to `clientCtx` to enjoy concurrent grpc query.
-	// only use it if gRPC server is enabled.
-	clientCtx = clientCtx.WithGRPCClient(grpcClient)
-	svrCtx.Logger.Debug("gRPC client assigned to client context", "address", config.Address)
-
-	grpcSrv, err := servergrpc.NewGRPCServer(clientCtx, app, config)
-	if err != nil {
-		return nil, clientCtx, err
-	}
-
-	// Start the gRPC server in a goroutine. Note, the provided ctx will ensure
-	// that the server is gracefully shut down.
-	g.Go(func() error {
-		return servergrpc.StartGRPCServer(ctx, svrCtx.Logger.With("module", "grpc-server"), config, grpcSrv)
-	})
-	return grpcSrv, clientCtx, nil
 }
 
 // startAPIServer starts an API server based on the provided configuration and application context.
