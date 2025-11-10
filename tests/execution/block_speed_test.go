@@ -85,7 +85,7 @@ func BenchmarkBlockExecution(b *testing.B) {
 }
 
 // BenchmarkBlockExecutionMemDB runs the benchmark with memdb
-func BenchmarkBlockExecutionPebbleDB(b *testing.B) {
+func BenchmarkBlockExecutionLevelDB(b *testing.B) {
 	config := DefaultBlockExecutionBenchConfig()
 	config.DBBackend = string(dbm.GoLevelDBBackend)
 	runBlockExecutionBenchmark(b, config)
@@ -99,6 +99,7 @@ func BenchmarkBlockExecutionIAVLX(b *testing.B) {
 	iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
 	err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
 	require.NoError(b, err)
+	iavlxOpts.ReaderUpdateInterval = 1
 	config.IAVLXOptions = &iavlxOpts
 	runBlockExecutionBenchmark(b, config)
 }
@@ -341,8 +342,10 @@ func createMsgNativeERC20Transfer(t testing.TB, sendAmt int64, precompileAddress
 func CreateApp(t testing.TB, startupConfig simtestutil.StartupConfig, dir string, chainID *big.Int, extraOutputs ...any) (*evmd.EVMD, *comettypes.ValidatorSet) {
 	t.Helper()
 	bopts := make([]func(*baseapp.BaseApp), 0)
-	bopts = append(bopts, startupConfig.BaseAppOption)
 	bopts = append(bopts, baseapp.SetChainID(chainID.String()))
+	if startupConfig.BaseAppOption != nil {
+		bopts = append(bopts, startupConfig.BaseAppOption)
+	}
 	app := evmd.NewExampleApp(log.NewNopLogger(), startupConfig.DB, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), bopts...)
 
 	// create validator set
