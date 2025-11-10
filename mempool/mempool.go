@@ -481,6 +481,7 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 // This function wraps EVM transactions in MsgEthereumTx messages and submits them to the network
 // using the provided client context. It handles encoding and error reporting for each transaction.
 func broadcastEVMTransactions(clientCtx client.Context, txConfig client.TxConfig, ethTxs []*ethtypes.Transaction) error {
+	fmt.Printf("broadcasting txs %d\n", len(ethTxs))
 	for _, ethTx := range ethTxs {
 		msg := &evmtypes.MsgEthereumTx{}
 		msg.FromEthereumTx(ethTx)
