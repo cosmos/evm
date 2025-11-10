@@ -44,13 +44,13 @@ const (
 	DefaultGRPCAddress = "0.0.0.0:9900"
 
 	// DefaultJSONRPCAddress is the default address the JSON-RPC server binds to.
-	DefaultJSONRPCAddress = "127.0.0.1:8545"
+	DefaultJSONRPCAddress = "0.0.0.0:8545"
 
 	// DefaultJSONRPCWsAddress is the default address the JSON-RPC WebSocket server binds to.
-	DefaultJSONRPCWsAddress = "127.0.0.1:8546"
+	DefaultJSONRPCWsAddress = "0.0.0.0:8546"
 
 	// DefaultJsonRPCMetricsAddress is the default address the JSON-RPC Metrics server binds to.
-	DefaultJSONRPCMetricsAddress = "127.0.0.1:6065"
+	DefaultJSONRPCMetricsAddress = "0.0.0.0:6065"
 
 	// DefaultEVMTracer is the default vm.Tracer type
 	DefaultEVMTracer = ""
@@ -68,7 +68,7 @@ const (
 	DefaultEVMMinTip = 0
 
 	// DefaultGethMetricsAddress is the default port for the geth metrics server.
-	DefaultGethMetricsAddress = "127.0.0.1:8100"
+	DefaultGethMetricsAddress = "0.0.0.0:8100"
 
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
@@ -118,7 +118,7 @@ const (
 	DefaultGasAdjustment = 1.2
 
 	// DefaultWSOrigins is the default origin for WebSocket connections
-	DefaultWSOrigins = "127.0.0.1"
+	DefaultWSOrigins = "0.0.0.0"
 
 	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
 	DefaultEnableProfiling = false
@@ -149,7 +149,7 @@ type EVMConfig struct {
 	EVMChainID uint64 `mapstructure:"evm-chain-id"`
 	// MinTip defines the minimum priority fee for the mempool
 	MinTip uint64 `mapstructure:"min-tip"`
-	// GethMetricsAddress is the address the geth metrics server will bind to. Default 127.0.0.1:8100
+	// GethMetricsAddress is the address the geth metrics server will bind to. Default 0.0.0.0:8100
 	GethMetricsAddress string `mapstructure:"geth-metrics-address"`
 }
 
