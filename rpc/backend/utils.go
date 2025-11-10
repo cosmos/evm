@@ -177,6 +177,7 @@ func (b *Backend) ProcessBlock(
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
 		ctx := types.ContextWithHeight(blockHeight)
+		// use latest queryClient to get params
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err
@@ -336,4 +337,15 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 		proofs = append(proofs, proof)
 	}
 	return proofs
+}
+
+func (b *Backend) getGrpcClient(height int64) *types.QueryClient {
+	for blocks, client := range b.BackupQueryClients {
+		// b1-b2 -> g1
+		// b3-b4 -> g2
+		if int64(blocks[0]) <= height && int64(blocks[1]) >= height {
+			return client
+		}
+	}
+	return b.QueryClient
 }
