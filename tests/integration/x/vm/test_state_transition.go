@@ -653,6 +653,13 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 					keeper.NewMultiEvmHooks(
 						&testHooks{
 							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								ctx.EventManager().EmitEvent(
+									sdk.NewEvent(
+										"test_post_processing_event",
+										sdk.NewAttribute("sender", sender.Hex()),
+										sdk.NewAttribute("tx_hash", hexutil.Encode(receipt.TxHash.Bytes())),
+									),
+								)
 								return nil
 							},
 						},
@@ -684,7 +691,17 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Require().Equal(senderBefore.Sub(sdkmath.NewIntFromBigInt(transferAmt)), senderAfter)
 				s.Require().Equal(recipientBefore.Add(sdkmath.NewIntFromBigInt(transferAmt)), recipientAfter)
 			},
-			func(s *KeeperTestSuite) {},
+			func(s *KeeperTestSuite) {
+				// check if the event emitted exactly once
+				events := s.Network.GetContext().EventManager().Events()
+				var postProcessingEvents []sdk.Event
+				for _, event := range events {
+					if event.Type == "test_post_processing_event" {
+						postProcessingEvents = append(postProcessingEvents, event)
+					}
+				}
+				s.Require().Len(postProcessingEvents, 1)
+			},
 		},
 		{
 			"pass - evm tx succeeds, post processing is called but fails, the balance is unchanged",
