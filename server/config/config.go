@@ -268,8 +268,8 @@ type JSONRPCConfig struct {
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
 	EnableProfiling bool `mapstructure:"enable-profiling"`
-	// A list of grpc address with block range
-	BackupGRPCBlockAddressBlockRange map[BlockRange]string `mapstructure:"backup-grpc-address-block-range"`
+	// BackupGRPCBlockAddressBlockRange maps block ranges to gRPC addresses for routing historical queries.
+	BackupGRPCBlockAddressBlockRange map[BlockRange]string `mapstructure:"-"`
 }
 
 // TLSConfig defines the certificate and matching private key for the server.
@@ -460,15 +460,23 @@ func GetConfig(v *viper.Viper) (Config, error) {
 	if err := v.Unmarshal(conf); err != nil {
 		return Config{}, fmt.Errorf("error extracting app config: %w", err)
 	}
-	data := make(map[string]BlockRange)
 	raw := v.GetString("json-rpc.backup-grpc-address-block-range")
 	if len(raw) > 0 {
+		data := make(map[string]BlockRange)
 		if err := json.Unmarshal([]byte(raw), &data); err != nil {
-			return Config{}, err
+			return Config{}, fmt.Errorf("failed to parse backup-grpc-address-block-range as JSON: %w (value: %s)", err, raw)
 		}
-		backupGRPCBlockAddressBlockRange := make(map[BlockRange]string)
-		for k, v := range data {
-			backupGRPCBlockAddressBlockRange[v] = k
+		backupGRPCBlockAddressBlockRange := make(map[BlockRange]string, len(data))
+		for address, blockRange := range data {
+			if blockRange[0] < 0 || blockRange[1] < 0 {
+				return Config{}, fmt.Errorf("invalid block range [%d, %d] for address %s: block numbers cannot be negative",
+					blockRange[0], blockRange[1], address)
+			}
+			if blockRange[0] > blockRange[1] {
+				return Config{}, fmt.Errorf("invalid block range [%d, %d] for address %s: start block must be <= end block",
+					blockRange[0], blockRange[1], address)
+			}
+			backupGRPCBlockAddressBlockRange[blockRange] = address
 		}
 		conf.JSONRPC.BackupGRPCBlockAddressBlockRange = backupGRPCBlockAddressBlockRange
 	}
