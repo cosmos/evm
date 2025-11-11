@@ -467,21 +467,20 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	}
 	tcs := []struct {
 		name       string
-		ethTxIndex int
+		ethTxIndex int32
 	}{
 		{"tx_with_index_5", 5},
 		{"tx_with_index_10", 10},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			var msgs []*evmtypes.MsgEthereumTx
-			for range tc.ethTxIndex + 1 {
-				msgs = append(msgs, buildMsgEthereumTx(t))
+			msgs := []*evmtypes.MsgEthereumTx{
+				buildMsgEthereumTx(t),
 			}
 			expectedTxResult := &servertypes.TxResult{
 				Height:     height,
 				TxIndex:    0,
-				EthTxIndex: int32(tc.ethTxIndex), // #nosec G115 -- no overflow here
+				EthTxIndex: tc.ethTxIndex,
 				MsgIndex:   0,
 			}
 			mockIndexer := &MockIndexer{
@@ -494,13 +493,13 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
 			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
 			require.NoError(t, err)
-			require.Len(t, receipts, tc.ethTxIndex+1)
-			actualTxIndex := receipts[tc.ethTxIndex].TransactionIndex
+			require.Len(t, receipts, 1)
+			actualTxIndex := receipts[0].TransactionIndex
 			require.NotEqual(t, uint(0), actualTxIndex)
 			require.Equal(t, uint(tc.ethTxIndex), actualTxIndex) // #nosec G115
-			require.Equal(t, msgs[tc.ethTxIndex].Hash(), receipts[tc.ethTxIndex].TxHash)
-			require.Equal(t, big.NewInt(height), receipts[tc.ethTxIndex].BlockNumber)
-			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[tc.ethTxIndex].Status)
+			require.Equal(t, msgs[0].Hash(), receipts[0].TxHash)
+			require.Equal(t, big.NewInt(height), receipts[0].BlockNumber)
+			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
 	}
 }
