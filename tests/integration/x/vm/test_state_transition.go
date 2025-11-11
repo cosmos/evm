@@ -38,6 +38,8 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
+const TestPostProcessingEventType = "test_post_processing_event"
+
 func (s *KeeperTestSuite) TestContextSetConsensusParams() {
 	// set new value of max gas in consensus params
 	maxGas := int64(123456789)
@@ -653,13 +655,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 					keeper.NewMultiEvmHooks(
 						&testHooks{
 							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
-								ctx.EventManager().EmitEvent(
-									sdk.NewEvent(
-										"test_post_processing_event",
-										sdk.NewAttribute("sender", sender.Hex()),
-										sdk.NewAttribute("tx_hash", hexutil.Encode(receipt.TxHash.Bytes())),
-									),
-								)
+								ctx.EventManager().EmitEvent(sdk.NewEvent(TestPostProcessingEventType))
 								return nil
 							},
 						},
@@ -696,7 +692,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				events := s.Network.GetContext().EventManager().Events()
 				var postProcessingEvents []sdk.Event
 				for _, event := range events {
-					if event.Type == "test_post_processing_event" {
+					if event.Type == TestPostProcessingEventType {
 						postProcessingEvents = append(postProcessingEvents, event)
 					}
 				}
