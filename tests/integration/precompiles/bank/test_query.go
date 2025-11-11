@@ -136,6 +136,7 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 	totSupplRes, err := s.grpcHandler.GetTotalSupply()
 	s.Require().NoError(err)
 	xmplTotalSupply := totSupplRes.Supply.AmountOf(s.tokenDenom)
+	cosmosTotalSupply := totSupplRes.Supply.AmountOf(s.bondDenom)
 
 	testcases := []struct {
 		name      string
@@ -148,10 +149,15 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 				ctx = s.mintAndSendXMPLCoin(ctx, s.keyring.GetAccAddr(0), math.NewInt(1e18))
 			},
 			func(xmplAddr common.Address) []bank.Balance {
-				return []bank.Balance{{
-					ContractAddress: xmplAddr,
-					Amount:          xmplTotalSupply.Add(math.NewInt(1e18)).BigInt(),
-				}}
+				return []bank.Balance{
+					{
+						ContractAddress: common.Address{},
+						Amount:          cosmosTotalSupply.BigInt(),
+					},
+					{
+						ContractAddress: xmplAddr,
+						Amount:          xmplTotalSupply.Add(math.NewInt(1e18)).BigInt(),
+					}}
 			},
 		},
 	}
