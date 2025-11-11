@@ -72,6 +72,10 @@ func (s *PrecompileTestSuite) TestBalances() {
 			func(xmplAddr common.Address) []bank.Balance {
 				return []bank.Balance{
 					{
+						ContractAddress: common.Address{},
+						Amount:          network.PrefundedAccountInitialBalance.BigInt(),
+					},
+					{
 						ContractAddress: xmplAddr,
 						Amount:          network.PrefundedAccountInitialBalance.BigInt(),
 					},
@@ -90,6 +94,9 @@ func (s *PrecompileTestSuite) TestBalances() {
 			"",
 			func(xmplAddr common.Address) []bank.Balance {
 				return []bank.Balance{{
+					ContractAddress: common.Address{},
+					Amount:          network.PrefundedAccountInitialBalance.BigInt(),
+				}, {
 					ContractAddress: xmplAddr,
 					Amount:          network.PrefundedAccountInitialBalance.Add(math.NewInt(1e18)).BigInt(),
 				}}
