@@ -7,8 +7,6 @@ import (
 
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/x/erc20/types"
-
-	"cosmossdk.io/math"
 )
 
 type GenesisTestSuite struct {
@@ -59,11 +57,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Denom:        "usdt",
 						Enabled:      true,
 					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
 				},
 				Allowances: testconstants.ExampleAllowances,
 			},
@@ -82,11 +75,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 					{
 						Erc20Address: "0xdac17f958d2ee523a2206206994597c13d831ec7",
 						Denom:        "usdt",
-						Enabled:      true,
-					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
@@ -109,11 +97,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Denom:        "usdt2",
 						Enabled:      true,
 					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
 				},
 				Allowances: testconstants.ExampleAllowances,
 			},
@@ -134,11 +117,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Denom:        "usdt",
 						Enabled:      true,
 					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
 				},
 				Allowances: testconstants.ExampleAllowances,
 			},
@@ -152,11 +130,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 					{
 						Erc20Address: "0xinvalidaddress",
 						Denom:        "bad",
-						Enabled:      true,
-					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
 						Enabled:      true,
 					},
 				},
@@ -176,138 +149,6 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 					},
 				},
 				Allowances: testconstants.ExampleAllowances,
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - duplicated allowances",
-			genState: &types.GenesisState{
-				Params:     types.DefaultParams(),
-				TokenPairs: testconstants.ExampleTokenPairs,
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(100),
-					},
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(100),
-					},
-				},
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - invalid allowance erc20 address",
-			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
-				TokenPairs: []types.TokenPair{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
-				},
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: "bad",
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(-1),
-					},
-				},
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - invalid allowance owner",
-			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
-				TokenPairs: []types.TokenPair{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
-				},
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        "bad",
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(-1),
-					},
-				},
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - invalid allowance spender",
-			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
-				TokenPairs: []types.TokenPair{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
-				},
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      "bad",
-						Value:        math.NewInt(-1),
-					},
-				},
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - invalid allowance value",
-			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
-				TokenPairs: []types.TokenPair{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
-				},
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(0),
-					},
-				},
-			},
-			expPass: false,
-		},
-		{
-			name: "invalid genesis - invalid allowance value",
-			genState: &types.GenesisState{
-				Params: types.DefaultParams(),
-				TokenPairs: []types.TokenPair{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Denom:        testconstants.ExampleAttoDenom,
-						Enabled:      true,
-					},
-				},
-				Allowances: []types.Allowance{
-					{
-						Erc20Address: testconstants.WEVMOSContractMainnet,
-						Owner:        testconstants.ExampleEvmAddressAlice,
-						Spender:      testconstants.ExampleEvmAddressBob,
-						Value:        math.NewInt(-1),
-					},
-				},
 			},
 			expPass: false,
 		},

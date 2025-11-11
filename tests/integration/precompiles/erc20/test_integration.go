@@ -93,11 +93,7 @@ func (is *IntegrationTestSuite) SetupTest() {
 	is.precompileTwo = is.setupERC20Precompile(is.tokenDenomTwo, erc20Gen.TokenPairs)
 }
 
-var (
-	revertContractAddr common.Address
-	gasLimit           = uint64(5000000)
-	gasPrice           = big.NewInt(800_000_000)
-)
+var gasPrice = big.NewInt(800_000_000)
 
 func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	is = NewIntegrationTestSuite(create, options...)
@@ -249,7 +245,7 @@ func TestIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options
 			execRevertedCheck = failCheck.WithErrContains("execution reverted")
 			passCheck = failCheck.WithExpPass(true)
 
-			revertContractAddr, err = is.factory.DeployContract(
+			_, err = is.factory.DeployContract(
 				sender.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{

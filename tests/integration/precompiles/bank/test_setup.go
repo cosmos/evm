@@ -22,9 +22,9 @@ import (
 type PrecompileTestSuite struct {
 	suite.Suite
 
-	create                  network.CreateEvmApp
-	bondDenom, tokenDenom   string
-	cosmosEVMAddr, xmplAddr common.Address
+	create                network.CreateEvmApp
+	bondDenom, tokenDenom string
+	xmplAddr              common.Address
 
 	// tokenDenom is the specific token denomination used in testing the ERC20 precompile.
 	// This denomination is used to instantiate the precompile.

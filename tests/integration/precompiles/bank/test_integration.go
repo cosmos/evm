@@ -1,6 +1,7 @@
 package bank
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -157,6 +158,7 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 
 			xmplSupply := is.network.App.GetBankKeeper().GetSupply(is.network.GetContext(), is.tokenDenom)
 			xmplTotalSupply = new(big.Int).Set(xmplSupply.Amount.BigInt())
+			fmt.Println("XMPL total supply:", xmplTotalSupply.String(), cosmosEVMTotalSupply.String())
 		})
 
 		Context("Direct precompile queries", func() {
@@ -247,13 +249,13 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 					err = is.precompile.UnpackIntoInterface(&balances, bank2.TotalSupplyMethod, ethRes.Ret)
 					Expect(err).ToNot(HaveOccurred(), "failed to unpack balances")
 
+					fmt.Println("Total supply from precompile:", balances[0].Amount.String(), balances[1].Amount.String())
 					Expect(balances[0].Amount.String()).To(Equal(cosmosEVMTotalSupply.String()))
 					Expect(balances[1].Amount.String()).To(Equal(xmplTotalSupply.String()))
 				})
 			})
 
 			Context("supplyOf query", func() {
-
 				It("should return the supply of XMPL", func() {
 					queryArgs, supplyArgs := getTxAndCallArgs(directCall, contractData, bank2.SupplyOfMethod, is.xmplAddr)
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
@@ -386,7 +388,6 @@ func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...
 			})
 
 			Context("supplyOf query", func() {
-
 				It("should return the supply of XMPL", func() {
 					queryArgs, supplyArgs := getTxAndCallArgs(contractCall, contractData, SupplyOfFunction, is.xmplAddr)
 					_, ethRes, err := is.factory.CallContractAndCheckLogs(sender.Priv, queryArgs, supplyArgs, passCheck)
