@@ -30,7 +30,7 @@ func (s *KeeperTestSuite) TestTokenPairs() {
 				req = &types.QueryTokenPairsRequest{}
 				expRes = &types.QueryTokenPairsResponse{
 					Pagination: &query.PageResponse{
-						Total: 1,
+						Total: 0,
 					},
 					TokenPairs: testconstants.ExampleTokenPairs,
 				}

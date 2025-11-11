@@ -70,12 +70,11 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"valid - module balance matches non-zero amount",
 			func() {
-				// The network setup creates an initial balance of 1, so we need to mint 1 more
-				// to get to the expected amount of 2 for this test case
+				// We need to mint 2 to get to the expected amount of 2 for this test case
 				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
+					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(2))),
 				)
 				s.Require().NoError(err)
 			},
@@ -105,14 +104,6 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"invalid - module balance insufficient",
 			func() {
-				// The network setup creates an initial balance of 1, so we need to burn that
-				// to get to 0 balance for this test case
-				err := s.network.App.GetBankKeeper().BurnCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
-				)
-				s.Require().NoError(err)
 			},
 			types.NewGenesisState(
 				types.FractionalBalances{
@@ -128,12 +119,11 @@ func (s *GenesisTestSuite) TestInitGenesis() {
 		{
 			"invalid - module balance excessive",
 			func() {
-				// The network setup creates an initial balance of 1, so we need to mint 99 more
-				// to get to 100 total balance for this test case
+				// We need to mint 100 to get to 100 total balance for this test case
 				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(99))),
+					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(100))),
 				)
 				s.Require().NoError(err)
 			},
