@@ -340,6 +340,10 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 }
 
 func (b *Backend) getGrpcClient(height int64) *types.QueryClient {
+	// height = 0 means latest block, use the default client
+	if height <= 0 {
+		return b.QueryClient
+	}
 	for blocks, client := range b.BackupQueryClients {
 		// b1-b2 -> g1
 		// b3-b4 -> g2

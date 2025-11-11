@@ -417,8 +417,7 @@ func (b *Backend) DoCall(
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	// use latest queryClient to call
-	res, err := b.QueryClient.EthCall(ctx, &req)
+	res, err := b.getGrpcClient(blockNr.Int64()).EthCall(ctx, &req)
 	if err != nil {
 		return nil, err
 	}
