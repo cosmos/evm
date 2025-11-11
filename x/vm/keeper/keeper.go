@@ -146,6 +146,7 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 // WithDefaultEvmCoinInfo set default EvmCoinInfo
 func (k *Keeper) WithDefaultEvmCoinInfo(coinInfo types.EvmCoinInfo) *Keeper {
 	k.defaultEvmCoinInfo = coinInfo
+	types.SetDefaultEvmCoinInfo(coinInfo)
 	return k
 }
 
