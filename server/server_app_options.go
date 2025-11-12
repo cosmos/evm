@@ -163,15 +163,14 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 	if noLocals := appOpts.Get(srvflags.EVMMempoolNoLocals); noLocals != nil {
 		legacyConfig.NoLocals = cast.ToBool(noLocals)
 	}
-	if journal := cast.ToString(appOpts.Get(srvflags.EVMMempoolJournal)); journal != "" {
-		legacyConfig.Journal = journal
-		if homeDir := cast.ToString(appOpts.Get(flags.FlagHome)); homeDir != "" {
-			legacyConfig.Journal = filepath.Join(homeDir, "data", "txpool", journal)
-		} else {
-			// this is a valid configuration for testing where we don't want to persist local transactions
-			logger.Warn("no home directory set, disabling local transaction journaling", "journal", journal)
-			legacyConfig.Journal = ""
+	if homeDir := cast.ToString(appOpts.Get(flags.FlagHome)); homeDir != "" {
+		if journal := cast.ToString(appOpts.Get(srvflags.EVMMempoolJournal)); journal != "" {
+			legacyConfig.Journal = journal
 		}
+		legacyConfig.Journal = filepath.Join(homeDir, "data", "txpool", legacyConfig.Journal)
+	} else {
+		logger.Warn("no home directory set, disabling local transaction journaling")
+		legacyConfig.Journal = ""
 	}
 	if rejournal := cast.ToDuration(appOpts.Get(srvflags.EVMMempoolRejournal)); rejournal != 0 {
 		legacyConfig.Rejournal = rejournal
