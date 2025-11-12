@@ -62,7 +62,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 			func() []interface{} {
 				return []interface{}{
 					s.keyring.GetAddr(0),
-					"cosmos",
+					sdk.GetConfig().GetBech32AccountAddrPrefix(),
 				}
 			},
 			func(data []byte) {
@@ -108,7 +108,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		malleate    func() []interface{}
 		postCheck   func(data []byte)
 		expError    bool
-		errContains string
+		errContains func() string
 	}{
 		{
 			"fail - invalid args length",
@@ -117,7 +117,9 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0),
+			func() string {
+				return fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 1, 0)
+			},
 		},
 		{
 			"fail - empty bech32 address",
@@ -128,7 +130,9 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			"invalid bech32 address",
+			func() string {
+				return "invalid bech32 address"
+			},
 		},
 		{
 			"fail - invalid bech32 address",
@@ -139,7 +143,9 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			fmt.Sprintf("invalid bech32 address: %s", "cosmos"),
+			func() string {
+				return fmt.Sprintf("invalid bech32 address: %s", "cosmos")
+			},
 		},
 		{
 			"fail - decoding bech32 failed",
@@ -150,7 +156,9 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			"decoding bech32 failed",
+			func() string {
+				return "decoding bech32 failed"
+			},
 		},
 		{
 			"fail - invalid address format",
@@ -161,7 +169,13 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 			},
 			func([]byte) {},
 			true,
-			"address max length is 255",
+			func() string {
+				if addrVerifier := sdk.GetConfig().GetAddressVerifier(); addrVerifier != nil {
+					err := addrVerifier(sdk.AccAddress(make([]byte, 256)))
+					return err.Error()
+				}
+				return "address max length is 255"
+			},
 		},
 		{
 			"success - valid bech32 address",
@@ -179,7 +193,9 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 				s.Require().Equal(s.keyring.GetAddr(0), addr)
 			},
 			false,
-			"",
+			func() string {
+				return ""
+			},
 		},
 	}
 
@@ -191,7 +207,7 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().ErrorContains(err, tc.errContains())
 				s.Require().Empty(bz)
 			} else {
 				s.Require().NoError(err)
