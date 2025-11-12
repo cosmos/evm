@@ -184,7 +184,7 @@ func (c MempoolConfig) Validate() error {
 	if c.Lifetime < 1 {
 		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
 	}
-	if !strings.HasSuffix(c.Journal, ".rlp") {
+	if c.Journal != "" && !strings.HasSuffix(c.Journal, ".rlp") {
 		return fmt.Errorf("journal must end with .rlp, got %s", c.Journal)
 	}
 	return nil
