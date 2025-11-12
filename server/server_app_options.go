@@ -3,9 +3,7 @@ package server
 import (
 	"math"
 	"path/filepath"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/spf13/cast"
 
@@ -91,21 +89,6 @@ func GetMinGasPrices(appOpts servertypes.AppOptions, logger log.Logger) sdk.DecC
 	}
 
 	return minGasPrices
-}
-
-// parseAddresses converts a slice of address strings to common.Address slice
-func parseAddresses(addressStrs []string) []common.Address {
-	addresses := make([]common.Address, 0, len(addressStrs))
-	for _, addrStr := range addressStrs {
-		addrStr = strings.TrimSpace(addrStr)
-		if addrStr == "" {
-			continue
-		}
-		if common.IsHexAddress(addrStr) {
-			addresses = append(addresses, common.HexToAddress(addrStr))
-		}
-	}
-	return addresses
 }
 
 // GetMinTip reads the min tip from the app options, set from app.toml
