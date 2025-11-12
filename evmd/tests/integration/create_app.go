@@ -2,6 +2,8 @@ package integration
 
 import (
 	"encoding/json"
+	"github.com/cosmos/evm"
+	eapp "github.com/cosmos/evm/evmd/app"
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -9,8 +11,6 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/cosmos/evm"
-	"github.com/cosmos/evm/evmd"
 	srvflags "github.com/cosmos/evm/server/flags"
 	"github.com/cosmos/evm/testutil/constants"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -40,7 +40,7 @@ func CreateEvmd(chainID string, evmChainID uint64, customBaseAppOptions ...func(
 
 	baseAppOptions := append(customBaseAppOptions, baseapp.SetChainID(chainID))
 
-	return evmd.NewExampleApp(
+	return eapp.New(
 		logger,
 		db,
 		nil,
@@ -58,7 +58,7 @@ func SetupEvmd() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		panic(err)
 	}
 
-	app := evmd.NewExampleApp(
+	app := eapp.New(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,

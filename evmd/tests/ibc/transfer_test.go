@@ -6,11 +6,11 @@
 package ibc
 
 import (
+	"github.com/cosmos/evm/evmd/app"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -95,7 +95,7 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 			senderAddr := senderAccount.SenderAccount.GetAddress()
 			tc.malleate()
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.evmChainA.GetContext())
 			suite.Require().NoError(err)
 			senderBalance := evmApp.BankKeeper.GetBalance(suite.evmChainA.GetContext(), senderAddr, sourceDenomToTransfer)

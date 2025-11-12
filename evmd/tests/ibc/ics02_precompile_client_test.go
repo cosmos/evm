@@ -2,6 +2,7 @@ package ibc
 
 import (
 	"fmt"
+	"github.com/cosmos/evm/evmd/app"
 	"math/big"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/precompiles/ics02"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
@@ -45,12 +45,12 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 	s.pathBToA = evmibctesting.NewTransferPath(s.chainB, s.chainA)
 	s.pathBToA.Setup()
 
-	evmAppA := s.chainA.App.(*evmd.EVMD)
+	evmAppA := s.chainA.App.(*app.App)
 	s.chainAPrecompile = ics02.NewPrecompile(
 		evmAppA.AppCodec(),
 		evmAppA.IBCKeeper.ClientKeeper,
 	)
-	evmAppB := s.chainB.App.(*evmd.EVMD)
+	evmAppB := s.chainB.App.(*app.App)
 	s.chainBPrecompile = ics02.NewPrecompile(
 		evmAppA.AppCodec(),
 		evmAppB.IBCKeeper.ClientKeeper,
@@ -59,7 +59,7 @@ func (s *ICS02ClientTestSuite) SetupTest() {
 
 func (s *ICS02ClientTestSuite) TestGetClientState() {
 	var (
-		calldata  []byte
+		calldata       []byte
 		expClientState []byte
 		expErr         bool
 	)
@@ -72,7 +72,7 @@ func (s *ICS02ClientTestSuite) TestGetClientState() {
 			name: "success",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				clientState, found := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientState(
+				clientState, found := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientState(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -165,7 +165,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
 				// 2. Construct update header
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -193,7 +193,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
 				// 2. Construct update header
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -210,7 +210,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				s.Require().NoError(err)
 				// ====
 
-				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.UpdateClient(s.chainA.GetContext(), clientID, header)
+				err = s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.UpdateClient(s.chainA.GetContext(), clientID, header)
 				s.Require().NoError(err)
 
 				expResult = ics02.UpdateResultSuccess
@@ -221,7 +221,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
 				// == construct update header ==
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -231,15 +231,15 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				err := s.pathBToA.EndpointB.UpdateClient()
 				s.Require().NoError(err)
 
-				height := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				height := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
 
 				misbehaviour := &ibctm.Misbehaviour{
 					ClientId: clientID,
-					Header1: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
-					Header2: s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header1:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time.Add(time.Minute), s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
+					Header2:  s.chainB.CreateTMClientHeader(s.chainB.ChainID, int64(height.RevisionHeight), trustedHeight, s.chainB.ProposedHeader.Time, s.chainB.Vals, s.chainB.NextVals, trustedVals, s.chainB.Signers),
 				}
 
 				anyMisbehavior, err := clienttypes.PackClientMessage(misbehaviour)
@@ -263,7 +263,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
 				// 2. Construct update header
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -310,7 +310,7 @@ func (s *ICS02ClientTestSuite) TestUpdateClient() {
 				// 1. Update chain B to have new header
 				s.chainB.Coordinator.CommitBlock(s.chainB, s.chainA)
 				// 2. Construct update header
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -386,7 +386,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "success: prove membership of clientState",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -415,14 +415,14 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 				)
 				s.Require().NoError(err)
 
-				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), clientID, proofHeight)
+				timestampNano, err := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), clientID, proofHeight)
 				s.Require().NoError(err)
 
 				expResult = big.NewInt(int64(timestampNano / 1_000_000_000)) //nolint:gosec
 
 				// verify membership on-chain to ensure proof is valid
 				path := commitmenttypesv2.NewMerklePath(pathBz...)
-				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyMembership(
+				err = s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.VerifyMembership(
 					s.chainA.GetContext(),
 					clientID,
 					proofHeight,
@@ -440,7 +440,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)
@@ -476,7 +476,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "failure: invalid client ID",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -512,7 +512,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "failure: invalid proof",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -546,7 +546,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "failure: invalid height",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -582,7 +582,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "failure: invalid path",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -618,7 +618,7 @@ func (s *ICS02ClientTestSuite) TestVerifyMembership() {
 			name: "failure: invalid value",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -698,7 +698,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)
@@ -716,14 +716,14 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 				)
 				s.Require().NoError(err)
 
-				timestampNano, err := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), existingClientID, proofHeight)
+				timestampNano, err := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientTimestampAtHeight(s.chainA.GetContext(), existingClientID, proofHeight)
 				s.Require().NoError(err)
 
 				expResult = big.NewInt(int64(timestampNano / 1_000_000_000)) //nolint:gosec
 
 				// verify non-membership on-chain to ensure proof is valid
 				path := commitmenttypesv2.NewMerklePath(pathBz...)
-				err = s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.VerifyNonMembership(
+				err = s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.VerifyNonMembership(
 					s.chainA.GetContext(),
 					existingClientID,
 					proofHeight,
@@ -739,7 +739,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			name: "failure: pass membership proof as non-membership proof",
 			malleate: func() {
 				clientID := ibctesting.FirstClientID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					clientID,
 				)
@@ -765,7 +765,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)
@@ -791,7 +791,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)
@@ -815,7 +815,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)
@@ -841,7 +841,7 @@ func (s *ICS02ClientTestSuite) TestVerifyNonMembership() {
 			malleate: func() {
 				existingClientID := ibctesting.FirstClientID
 				missingClientID := ibctesting.SecondClientID // NOTE: use a non-existent client ID
-				trustedHeight := s.chainA.App.(*evmd.EVMD).IBCKeeper.ClientKeeper.GetClientLatestHeight(
+				trustedHeight := s.chainA.App.(*app.App).IBCKeeper.ClientKeeper.GetClientLatestHeight(
 					s.chainA.GetContext(),
 					existingClientID,
 				)

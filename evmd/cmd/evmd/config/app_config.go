@@ -1,18 +1,9 @@
 package config
 
 import (
-	clienthelpers "cosmossdk.io/client/v2/helpers"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 )
-
-func MustGetDefaultNodeHome() string {
-	defaultNodeHome, err := clienthelpers.GetNodeHomeDirectory(".evmd")
-	if err != nil {
-		panic(err)
-	}
-	return defaultNodeHome
-}
 
 // InitAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
@@ -37,7 +28,7 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = evmChainID
 
-	customAppConfig := EVMAppConfig{
+	customAppConfig := cosmosevmserverconfig.Config{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -45,14 +36,6 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 	}
 
 	return EVMAppTemplate, customAppConfig
-}
-
-type EVMAppConfig struct {
-	serverconfig.Config
-
-	EVM     cosmosevmserverconfig.EVMConfig
-	JSONRPC cosmosevmserverconfig.JSONRPCConfig
-	TLS     cosmosevmserverconfig.TLSConfig
 }
 
 const EVMAppTemplate = serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate

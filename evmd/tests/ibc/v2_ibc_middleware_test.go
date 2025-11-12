@@ -3,6 +3,7 @@ package ibc
 import (
 	"bytes"
 	"errors"
+	"github.com/cosmos/evm/evmd/app"
 	"math/big"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
@@ -144,7 +144,7 @@ func (suite *MiddlewareV2TestSuite) TestOnSendPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			packetData = transfertypes.NewFungibleTokenPacketData(
@@ -248,7 +248,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacket() {
 				tc.malleate()
 			}
 
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			// erc20 module is routed as top level middleware
 			transferStack := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
 			sourceClient := suite.pathBToA.EndpointB.ClientID
@@ -276,12 +276,12 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacket() {
 				// make sure token pair is registered
 				singleTokenRepresentation, err := types.NewTokenPairSTRv2(voucherDenom)
 				suite.Require().NoError(err)
-				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(ctx, singleTokenRepresentation.GetID())
+				tokenPair, found := evmApp.GetErc20Keeper().GetTokenPair(ctx, singleTokenRepresentation.GetID())
 				suite.Require().True(found)
 				suite.Require().Equal(voucherDenom, tokenPair.Denom)
 
 				// Make sure dynamic precompile is registered
-				available := evmApp.Erc20Keeper.IsDynamicPrecompileAvailable(ctx, common.HexToAddress(tokenPair.Erc20Address))
+				available := evmApp.GetErc20Keeper().IsDynamicPrecompileAvailable(ctx, common.HexToAddress(tokenPair.Erc20Address))
 				suite.Require().True(available)
 			}
 		})
@@ -323,10 +323,10 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.
-			_, err := evmApp.Erc20Keeper.ConvertERC20(
+			_, err := evmApp.GetErc20Keeper().ConvertERC20(
 				evmCtx,
 				types.NewMsgConvertERC20(
 					sendAmt,
@@ -337,7 +337,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -414,7 +414,7 @@ func (suite *MiddlewareV2TestSuite) TestOnRecvPacketNativeERC20() {
 				// Check un-escrowed balance on evmChainA after receiving the packet.
 				escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20.Denom)
 				suite.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
-				balAfterUnescrow := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				balAfterUnescrow := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), balAfterUnescrow.String())
 				bankBalAfterUnescrow := evmApp.BankKeeper.GetBalance(evmCtx, sender, nativeErc20.Denom)
 				suite.Require().True(bankBalAfterUnescrow.IsZero(), "no duplicate state in the bank balance")
@@ -482,7 +482,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			sendAmt := ibctesting.DefaultCoinAmount
@@ -607,11 +607,11 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.
-			_, err := evmApp.Erc20Keeper.ConvertERC20(
+			_, err := evmApp.GetErc20Keeper().ConvertERC20(
 				evmCtx,
 				types.NewMsgConvertERC20(
 					sendAmt,
@@ -622,7 +622,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -634,7 +634,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 			escrowAddr := transfertypes.GetEscrowAddress(transfertypes.PortID, path.EndpointA.ClientID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(
 					new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 					erc20BalAfterIbcTransfer.String(),
@@ -649,7 +649,7 @@ func (suite *MiddlewareV2TestSuite) TestOnAcknowledgementPacketNativeErc20() {
 				suite.Require().True(escrowedBal.IsZero())
 
 				// Check erc20 balance is same as initial balance after refund.
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
 
@@ -744,7 +744,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
 			ctx = suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
 			suite.Require().NoError(err)
 			packetData = transfertypes.NewFungibleTokenPacketData(
@@ -841,11 +841,11 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			sendAmt := math.NewIntFromBigInt(nativeErc20.InitialBal)
 
 			evmCtx := suite.evmChainA.GetContext()
-			evmApp := suite.evmChainA.App.(*evmd.EVMD)
+			evmApp := suite.evmChainA.App.(*app.App)
 
 			// MOCK erc20 native coin transfer from chainA to chainB
 			// 1: Convert erc20 tokens to native erc20 coins for sending through IBC.
-			_, err := evmApp.Erc20Keeper.ConvertERC20(
+			_, err := evmApp.GetErc20Keeper().ConvertERC20(
 				evmCtx,
 				types.NewMsgConvertERC20(
 					sendAmt,
@@ -856,7 +856,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			)
 			suite.Require().NoError(err)
 			// 1-1: Check native erc20 token is converted to native erc20 coin on chainA.
-			erc20BalAfterConvert := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+			erc20BalAfterConvert := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 			suite.Require().Equal(
 				new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 				erc20BalAfterConvert.String(),
@@ -868,7 +868,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 			escrowAddr := transfertypes.GetEscrowAddress(transfertypes.PortID, path.EndpointA.ClientID)
 			// checkEscrow is a check function to ensure the native erc20 token is escrowed.
 			checkEscrow := func() {
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(
 					new(big.Int).Sub(nativeErc20.InitialBal, sendAmt.BigInt()).String(),
 					erc20BalAfterIbcTransfer.String(),
@@ -883,7 +883,7 @@ func (suite *MiddlewareV2TestSuite) TestOnTimeoutPacketNativeErc20() {
 				suite.Require().True(escrowedBal.IsZero())
 
 				// Check erc20 balance is same as initial balance after refund.
-				erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
+				erc20BalAfterIbcTransfer := evmApp.GetErc20Keeper().BalanceOf(evmCtx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, senderEthAddr)
 				suite.Require().Equal(nativeErc20.InitialBal.String(), erc20BalAfterIbcTransfer.String())
 			}
 

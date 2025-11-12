@@ -1,19 +1,19 @@
-package cmd
+package testnet
 
 import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	eapp "github.com/cosmos/evm/evmd/app"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/cosmos/evm/evmd/config"
+	"github.com/cosmos/evm/evmd/cmd/evmd/config"
 
 	cosmosevmhd "github.com/cosmos/evm/crypto/hd"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
-	"github.com/cosmos/evm/evmd"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -81,7 +81,7 @@ var mnemonics = []string{
 	"doll midnight silk carpet brush boring pluck office gown inquiry duck chief aim exit gain never tennis crime fragile ship cloud surface exotic patch",
 }
 
-type UnsafeStartValidatorCmdCreator func(ac appCreator) *cobra.Command
+type UnsafeStartValidatorCmdCreator func(ac AppCreator) *cobra.Command
 
 type initArgs struct {
 	algo              string
@@ -136,7 +136,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 // 1. run an in-process testnet or
 // 2. initialize validator configuration files for running a multi-validator testnet in a separate process or
 // 3. update application and consensus state with the local validator info
-func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator, appCreator appCreator) *cobra.Command {
+func NewTestnetCmd(mbm module.BasicManager, genBalIterator banktypes.GenesisBalancesIterator, appCreator AppCreator) *cobra.Command {
 	testnetCmd := &cobra.Command{
 		Use:                        "testnet",
 		Short:                      "subcommands for starting or configuring local testnets",
@@ -325,7 +325,7 @@ func initTestnetFiles(
 	appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 	evm := cosmosevmserverconfig.DefaultEVMConfig()
 	evm.EVMChainID = evmtypes.DefaultEVMChainID
-	evmCfg := config.EVMAppConfig{
+	evmCfg := cosmosevmserverconfig.Config{
 		Config:  *appConfig,
 		EVM:     *evm,
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
@@ -756,7 +756,7 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 	}
 	defer os.RemoveAll(dir)
 
-	app := evmd.NewExampleApp(
+	app := eapp.New(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
@@ -765,7 +765,7 @@ func NewTestNetworkFixture() sdknetwork.TestFixture {
 	)
 
 	appCtr := func(val sdknetwork.ValidatorI) servertypes.Application {
-		return evmd.NewExampleApp(
+		return eapp.New(
 			log.NewNopLogger(),
 			dbm.NewMemDB(),
 			nil,

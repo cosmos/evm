@@ -1,7 +1,8 @@
-package cmd
+package testnet
 
 import (
 	"errors"
+	"github.com/cosmos/evm/evmd/app"
 	"io"
 	"path/filepath"
 
@@ -12,7 +13,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/cosmos/evm/evmd"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
@@ -23,9 +23,9 @@ import (
 	storetypes "cosmossdk.io/store/types"
 )
 
-type appCreator struct{}
+type AppCreator struct{}
 
-func (a appCreator) newApp(
+func (a AppCreator) newApp(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
@@ -87,7 +87,7 @@ func (a appCreator) newApp(
 		baseapp.SetIAVLCacheSize(cast.ToInt(appOpts.Get(server.FlagIAVLCacheSize))),
 	}
 
-	return evmd.NewExampleApp(
+	return app.New(
 		logger,
 		db,
 		traceStore,
@@ -97,7 +97,7 @@ func (a appCreator) newApp(
 	)
 }
 
-func (a appCreator) appExport(
+func (a AppCreator) appExport(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
@@ -107,7 +107,7 @@ func (a appCreator) appExport(
 	appOpts servertypes.AppOptions,
 	modulesToExport []string,
 ) (servertypes.ExportedApp, error) {
-	var evmApp *evmd.EVMD
+	var evmApp *app.App
 
 	homePath, ok := appOpts.Get(flags.FlagHome).(string)
 	if !ok || homePath == "" {
@@ -128,7 +128,7 @@ func (a appCreator) appExport(
 		loadLatest = true
 	}
 
-	evmApp = evmd.NewExampleApp(
+	evmApp = app.New(
 		logger,
 		db,
 		traceStore,
