@@ -1,6 +1,7 @@
 package evmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cosmos/evm/server"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	evmmempool "github.com/cosmos/evm/mempool"
@@ -54,9 +56,34 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 			sdkmempool.NewDefaultSignerExtractionAdapter(),
 		),
 	)
+	loggingTxSelector := NewLoggingTxSelector(logger, baseapp.NewDefaultTxSelector())
+	abciProposalHandler.SetTxSelector(loggingTxSelector)
 	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
 
 	return nil
+}
+
+type LoggingTxSelector struct {
+	baseapp.TxSelector
+	logger log.Logger
+}
+
+func NewLoggingTxSelector(logger log.Logger, txSelector baseapp.TxSelector) *LoggingTxSelector {
+	return &LoggingTxSelector{TxSelector: txSelector, logger: logger}
+}
+
+func (selector *LoggingTxSelector) SelectedTxs(ctx context.Context) [][]byte {
+	txs := selector.TxSelector.SelectedTxs(ctx)
+	selector.logger.Info("selected txs for proposal", "num_txs", len(txs))
+	return txs
+}
+
+func (selector *LoggingTxSelector) Clear() {
+	selector.TxSelector.Clear()
+}
+
+func (selector *LoggingTxSelector) SelectTxForProposal(ctx context.Context, maxTxBytes, maxBlockGas uint64, memTx sdk.Tx, txBz []byte) bool {
+	return selector.TxSelector.SelectTxForProposal(ctx, maxTxBytes, maxBlockGas, memTx, txBz)
 }
 
 // createMempoolConfig creates a new EVMMempoolConfig with the default configuration
