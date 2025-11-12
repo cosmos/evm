@@ -18,10 +18,12 @@
 package legacypool
 
 import (
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,73 +118,76 @@ type BlockChain interface {
 	StateAt(root common.Hash) (vm.StateDB, error)
 }
 
-// Config are the configuration parameters of the transaction pool.
-type Config struct {
-	Locals    []common.Address // Addresses that should be treated by default as local
-	NoLocals  bool             // Whether local transaction handling should be disabled
-	Journal   string           // Journal of local transactions to survive node restarts
-	Rejournal time.Duration    // Time interval to regenerate the local transaction journal
-
-	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
-	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
-
-	AccountSlots uint64 // Number of executable transaction slots guaranteed per account
-	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
-	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account
-	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
-
-	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+// MempoolConfig defines the configuration for the EVM mempool transaction pool.
+type MempoolConfig struct {
+	// PriceLimit is the minimum gas price to enforce for acceptance into the pool
+	PriceLimit uint64 `mapstructure:"price-limit"`
+	// PriceBump is the minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceBump uint64 `mapstructure:"price-bump"`
+	// AccountSlots is the number of executable transaction slots guaranteed per account
+	AccountSlots uint64 `mapstructure:"account-slots"`
+	// GlobalSlots is the maximum number of executable transaction slots for all accounts
+	GlobalSlots uint64 `mapstructure:"global-slots"`
+	// AccountQueue is the maximum number of non-executable transaction slots permitted per account
+	AccountQueue uint64 `mapstructure:"account-queue"`
+	// GlobalQueue is the maximum number of non-executable transaction slots for all accounts
+	GlobalQueue uint64 `mapstructure:"global-queue"`
+	// Lifetime is the maximum amount of time non-executable transaction are queued
+	Lifetime time.Duration `mapstructure:"lifetime"`
+	// Locals is the set of addresses that should be treated by default as local
+	Locals []string `mapstructure:"locals"`
+	// NoLocals disables local transaction handling, exempting local accounts from pricing and acceptance
+	NoLocals bool `mapstructure:"no-locals"`
+	// Journal is the path to the local transaction journal file
+	Journal string `mapstructure:"journal"`
+	// Rejournal is the time interval to regenerate the local transaction journal
+	Rejournal time.Duration `mapstructure:"rejournal"`
 }
 
-// DefaultConfig contains the default configurations for the transaction pool.
-var DefaultConfig = Config{
-	Journal:   "transactions.rlp",
-	Rejournal: time.Hour,
-
-	PriceLimit: 1,
-	PriceBump:  10,
-
-	AccountSlots: 16,
-	GlobalSlots:  4096 + 1024, // urgent + floating queue capacity with 4:1 ratio
-	AccountQueue: 64,
-	GlobalQueue:  1024,
-
-	Lifetime: 3 * time.Hour,
+// DefaultMempoolConfig returns the default mempool configuration
+func DefaultMempoolConfig() *MempoolConfig {
+	return &MempoolConfig{
+		PriceLimit:   1,                  // Minimum gas price of 1 wei
+		PriceBump:    10,                 // 10% price bump to replace transaction
+		AccountSlots: 16,                 // 16 executable transaction slots per account
+		GlobalSlots:  5120,               // 4096 + 1024 = 5120 global executable slots
+		AccountQueue: 64,                 // 64 non-executable transaction slots per account
+		GlobalQueue:  1024,               // 1024 global non-executable slots
+		Lifetime:     3 * time.Hour,      // 3 hour lifetime for queued transactions
+		Locals:       []string{},         // No local addresses by default
+		NoLocals:     false,              // Local transaction handling enabled by default
+		Journal:      "transactions.rlp", // Default journal filename
+		Rejournal:    time.Hour,          // Regenerate journal every hour
+	}
 }
 
-// sanitize checks the provided user configurations and changes anything that's
-// unreasonable or unworkable.
-func (config *Config) sanitize() Config {
-	conf := *config
-	if conf.PriceLimit < 1 {
-		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultConfig.PriceLimit)
-		conf.PriceLimit = DefaultConfig.PriceLimit
+// Validate returns an error if the mempool configuration is invalid
+func (c MempoolConfig) Validate() error {
+	if c.PriceLimit < 1 {
+		return fmt.Errorf("price limit must be at least 1, got %d", c.PriceLimit)
 	}
-	if conf.PriceBump < 1 {
-		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultConfig.PriceBump)
-		conf.PriceBump = DefaultConfig.PriceBump
+	if c.PriceBump < 1 {
+		return fmt.Errorf("price bump must be at least 1, got %d", c.PriceBump)
 	}
-	if conf.AccountSlots < 1 {
-		log.Warn("Sanitizing invalid txpool account slots", "provided", conf.AccountSlots, "updated", DefaultConfig.AccountSlots)
-		conf.AccountSlots = DefaultConfig.AccountSlots
+	if c.AccountSlots < 1 {
+		return fmt.Errorf("account slots must be at least 1, got %d", c.AccountSlots)
 	}
-	if conf.GlobalSlots < 1 {
-		log.Warn("Sanitizing invalid txpool global slots", "provided", conf.GlobalSlots, "updated", DefaultConfig.GlobalSlots)
-		conf.GlobalSlots = DefaultConfig.GlobalSlots
+	if c.GlobalSlots < 1 {
+		return fmt.Errorf("global slots must be at least 1, got %d", c.GlobalSlots)
 	}
-	if conf.AccountQueue < 1 {
-		log.Warn("Sanitizing invalid txpool account queue", "provided", conf.AccountQueue, "updated", DefaultConfig.AccountQueue)
-		conf.AccountQueue = DefaultConfig.AccountQueue
+	if c.AccountQueue < 1 {
+		return fmt.Errorf("account queue must be at least 1, got %d", c.AccountQueue)
 	}
-	if conf.GlobalQueue < 1 {
-		log.Warn("Sanitizing invalid txpool global queue", "provided", conf.GlobalQueue, "updated", DefaultConfig.GlobalQueue)
-		conf.GlobalQueue = DefaultConfig.GlobalQueue
+	if c.GlobalQueue < 1 {
+		return fmt.Errorf("global queue must be at least 1, got %d", c.GlobalQueue)
 	}
-	if conf.Lifetime < 1 {
-		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultConfig.Lifetime)
-		conf.Lifetime = DefaultConfig.Lifetime
+	if c.Lifetime < 1 {
+		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
 	}
-	return conf
+	if !strings.HasSuffix(c.Journal, ".rlp") {
+		return fmt.Errorf("journal must end with .rlp, got %s", c.Journal)
+	}
+	return nil
 }
 
 // LegacyPool contains all currently known transactions. Transactions
@@ -207,7 +212,7 @@ func (config *Config) sanitize() Config {
 // will reject new transactions with delegations from that account with standard in-flight
 // transactions.
 type LegacyPool struct {
-	config      Config
+	config      MempoolConfig
 	chainconfig *params.ChainConfig
 	chain       BlockChain
 	gasTip      atomic.Pointer[uint256.Int]
@@ -245,13 +250,15 @@ type txpoolResetRequest struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config Config, chain BlockChain) *LegacyPool {
+func New(config *MempoolConfig, chain BlockChain) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	config = (&config).sanitize()
+	if err := config.Validate(); err != nil {
+		panic(err)
+	}
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:          config,
+		config:          *config,
 		chain:           chain,
 		chainconfig:     chain.Config(),
 		signer:          types.LatestSigner(chain.Config()),

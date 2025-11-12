@@ -129,13 +129,13 @@ func GetMinTip(appOpts servertypes.AppOptions, logger log.Logger) *uint256.Int {
 
 // GetLegacyPoolConfig reads the legacy pool configuration from appOpts and overrides
 // default values with values from app.toml if they exist and are non-zero.
-func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *legacypool.Config {
+func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *legacypool.MempoolConfig {
 	if appOpts == nil {
 		logger.Error("app options is nil, using default mempool config")
-		return &legacypool.DefaultConfig
+		return legacypool.DefaultMempoolConfig()
 	}
 
-	legacyConfig := legacypool.DefaultConfig
+	legacyConfig := legacypool.DefaultMempoolConfig()
 	if priceLimit := cast.ToUint64(appOpts.Get(srvflags.EVMMempoolPriceLimit)); priceLimit != 0 {
 		legacyConfig.PriceLimit = priceLimit
 	}
@@ -158,7 +158,7 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 		legacyConfig.Lifetime = lifetime
 	}
 	if localsSlice := cast.ToStringSlice(appOpts.Get(srvflags.EVMMempoolLocals)); len(localsSlice) > 0 {
-		legacyConfig.Locals = parseAddresses(localsSlice)
+		legacyConfig.Locals = localsSlice
 	}
 	if noLocals := appOpts.Get(srvflags.EVMMempoolNoLocals); noLocals != nil {
 		legacyConfig.NoLocals = cast.ToBool(noLocals)
@@ -176,7 +176,7 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 		legacyConfig.Rejournal = rejournal
 	}
 
-	return &legacyConfig
+	return legacyConfig
 }
 
 func GetCosmosPoolMaxTx(appOpts servertypes.AppOptions, logger log.Logger) int {

@@ -30,6 +30,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/evm/indexer"
 	evmmempool "github.com/cosmos/evm/mempool"
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
 	evmmetrics "github.com/cosmos/evm/metrics"
 	ethdebug "github.com/cosmos/evm/rpc/namespaces/ethereum/debug"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
@@ -230,13 +231,13 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint64(srvflags.EVMMinTip, cosmosevmserverconfig.DefaultEVMMinTip, "the minimum priority fee for the mempool")
 	cmd.Flags().String(srvflags.EvmGethMetricsAddress, cosmosevmserverconfig.DefaultGethMetricsAddress, "the address to bind the geth metrics server to")
 
-	cmd.Flags().Uint64(srvflags.EVMMempoolPriceLimit, cosmosevmserverconfig.DefaultMempoolConfig().PriceLimit, "the minimum gas price to enforce for acceptance into the pool (in wei)")
-	cmd.Flags().Uint64(srvflags.EVMMempoolPriceBump, cosmosevmserverconfig.DefaultMempoolConfig().PriceBump, "the minimum price bump percentage to replace an already existing transaction (nonce)")
-	cmd.Flags().Uint64(srvflags.EVMMempoolAccountSlots, cosmosevmserverconfig.DefaultMempoolConfig().AccountSlots, "the number of executable transaction slots guaranteed per account")
-	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalSlots, cosmosevmserverconfig.DefaultMempoolConfig().GlobalSlots, "the maximum number of executable transaction slots for all accounts")
-	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, cosmosevmserverconfig.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
-	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, cosmosevmserverconfig.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
-	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, cosmosevmserverconfig.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
+	cmd.Flags().Uint64(srvflags.EVMMempoolPriceLimit, legacypool.DefaultMempoolConfig().PriceLimit, "the minimum gas price to enforce for acceptance into the pool (in wei)")
+	cmd.Flags().Uint64(srvflags.EVMMempoolPriceBump, legacypool.DefaultMempoolConfig().PriceBump, "the minimum price bump percentage to replace an already existing transaction (nonce)")
+	cmd.Flags().Uint64(srvflags.EVMMempoolAccountSlots, legacypool.DefaultMempoolConfig().AccountSlots, "the number of executable transaction slots guaranteed per account")
+	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalSlots, legacypool.DefaultMempoolConfig().GlobalSlots, "the maximum number of executable transaction slots for all accounts")
+	cmd.Flags().Uint64(srvflags.EVMMempoolAccountQueue, legacypool.DefaultMempoolConfig().AccountQueue, "the maximum number of non-executable transaction slots permitted per account")
+	cmd.Flags().Uint64(srvflags.EVMMempoolGlobalQueue, legacypool.DefaultMempoolConfig().GlobalQueue, "the maximum number of non-executable transaction slots for all accounts")
+	cmd.Flags().Duration(srvflags.EVMMempoolLifetime, legacypool.DefaultMempoolConfig().Lifetime, "the maximum amount of time non-executable transaction are queued")
 
 	cmd.Flags().StringSlice(srvflags.EVMMempoolLocals, []string{}, "the set of addresses that should be treated by default as local (comma-separated)")
 	cmd.Flags().Bool(srvflags.EVMMempoolNoLocals, false, "disables local transaction handling, exempting local accounts from pricing and acceptance")

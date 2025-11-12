@@ -48,14 +48,14 @@ import (
 var (
 	// testTxPoolConfig is a transaction pool configuration without stateful disk
 	// sideeffects used during testing.
-	testTxPoolConfig Config
+	testTxPoolConfig *MempoolConfig
 
 	// eip1559Config is a chain config with EIP-1559 enabled at block 0.
 	eip1559Config *params.ChainConfig
 )
 
 func init() {
-	testTxPoolConfig = DefaultConfig
+	testTxPoolConfig = DefaultMempoolConfig()
 	testTxPoolConfig.Journal = ""
 
 	cpy := *params.TestChainConfig
@@ -1488,7 +1488,7 @@ func TestMinGasPriceEnforced(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(eip1559Config, 10000000, statedb, new(event.Feed))
 
-	txPoolConfig := DefaultConfig
+	txPoolConfig := DefaultMempoolConfig()
 	txPoolConfig.NoLocals = true
 	pool := New(txPoolConfig, blockchain)
 	pool.Init(txPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())

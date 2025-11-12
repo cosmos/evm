@@ -73,7 +73,7 @@ type (
 // It allows customization of the underlying mempools, verification functions,
 // and broadcasting functions used by the sdkmempool.
 type EVMMempoolConfig struct {
-	LegacyPoolConfig *legacypool.Config
+	LegacyPoolConfig *legacypool.MempoolConfig
 	CosmosPoolConfig *sdkmempool.PriorityNonceMempoolConfig[math.Int]
 	AnteHandler      sdk.AnteHandler
 	BroadCastTxFn    func(txs []*ethtypes.Transaction) error
@@ -117,9 +117,9 @@ func NewExperimentalEVMMempool(
 	blockchain = NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
-	legacyConfig := legacypool.DefaultConfig
+	legacyConfig := legacypool.DefaultMempoolConfig()
 	if config.LegacyPoolConfig != nil {
-		legacyConfig = *config.LegacyPoolConfig
+		legacyConfig = config.LegacyPoolConfig
 	}
 
 	legacyPool := legacypool.New(legacyConfig, blockchain)
