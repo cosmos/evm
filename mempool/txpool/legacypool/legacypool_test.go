@@ -1727,6 +1727,7 @@ func TestStableUnderpricing(t *testing.T) {
 
 	config := testTxPoolConfig
 	config.GlobalSlots = 128
+	config.GlobalQueue = 0
 
 	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
