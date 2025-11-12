@@ -124,11 +124,11 @@ func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, e
 	}
 	if err != nil {
 		// Check for temporary rejection in error
-		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
-			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
-			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
-			return txHash, nil
-		}
+		// if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+		// 	b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+		// 	b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+		// 	return txHash, nil
+		// }
 		b.Logger.Error("failed to broadcast tx", "error", err.Error())
 		return txHash, err
 	}
@@ -202,12 +202,12 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
 	}
 	if err != nil {
-		// Check for temporary rejection in response raw log
-		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
-			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
-			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
-			return txHash, nil
-		}
+		// Check for temporary rejection in err
+		// if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+		// 	b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+		// 	b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+		// 	return txHash, nil
+		// }
 		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
 			from, err := ethSigner.Sender(tx)
 			if err != nil {
@@ -224,7 +224,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 			}
 
 			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-			// Track as local for persistence until pending
+			// Track as local until pending or rejected
 			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
 			return txHash, nil
 		}

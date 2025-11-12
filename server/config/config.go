@@ -7,12 +7,16 @@ import (
 	"path"
 	"time"
 
-	errorsmod "cosmossdk.io/errors"
+	"github.com/spf13/viper"
+
 	cometstrs "github.com/cometbft/cometbft/libs/strings"
+
+	"github.com/cosmos/evm/mempool/txpool/legacypool"
+
+	errorsmod "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/server/config"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/evm/mempool/txpool/legacypool"
-	"github.com/spf13/viper"
 )
 
 const (
