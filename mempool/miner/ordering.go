@@ -165,3 +165,7 @@ func (t *TransactionsByPriceAndNonce) Empty() bool {
 func (t *TransactionsByPriceAndNonce) Clear() {
 	t.heads, t.txs = nil, nil
 }
+
+func (t *TransactionsByPriceAndNonce) Len() int {
+	return len(t.heads)
+}

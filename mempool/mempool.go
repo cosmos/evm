@@ -474,6 +474,8 @@ func (m *ExperimentalEVMMempool) getIterators(goCtx context.Context, i [][]byte)
 
 	cosmosPendingTxes := m.cosmosPool.Select(ctx, i)
 
+	m.logger.Info("got iterators with txns", "num_evm_txns", orderedEVMPendingTxes.Len())
+
 	return orderedEVMPendingTxes, cosmosPendingTxes
 }
 
