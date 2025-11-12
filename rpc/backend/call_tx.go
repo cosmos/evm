@@ -357,8 +357,8 @@ func (b *Backend) EstimateGas(
 	// From ContextWithHeight: if the provided height is 0,
 	// it will return an empty context and the gRPC query will use
 	// the latest block height for querying.
-	// use latest queryClient to estimate
-	res, err := b.QueryClient.EstimateGas(rpctypes.ContextWithHeight(blockNr.Int64()), &req)
+	height := blockNr.Int64()
+	res, err := b.getGrpcClient(height).EstimateGas(rpctypes.ContextWithHeight(height), &req)
 	if err != nil {
 		return 0, err
 	}
