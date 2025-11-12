@@ -21,7 +21,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -46,7 +45,6 @@ type EvmApp interface { //nolint:revive
 	GetBankKeeper() bankkeeper.Keeper
 	GetFeeMarketKeeper() *feemarketkeeper.Keeper
 	GetAccountKeeper() authkeeper.AccountKeeper
-	GetAuthzKeeper() authzkeeper.Keeper
 	GetDistrKeeper() distrkeeper.Keeper
 	GetStakingKeeper() *stakingkeeper.Keeper
 	GetMintKeeper() mintkeeper.Keeper
