@@ -9,6 +9,7 @@
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
 - [\#810](https://github.com/cosmos/evm/pull/810) Fix integration test suite to resolve lock contention problem from external app injection
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
+- [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface
 
 ### FEATURES
 
@@ -28,6 +29,7 @@
 - [\#790](https://github.com/cosmos/evm/pull/790) fix panic in historical query due to missing EvmCoinInfo.
 - [\#800](https://github.com/cosmos/evm/pull/800) Fix denom exponent validation in virtual fee deduct in vm module.
 - [\#814](https://github.com/cosmos/evm/pull/814) Fix duplicated events in post tx processor.
+- [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
 
 ## v0.5.0
 

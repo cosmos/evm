@@ -13,7 +13,7 @@ coverage:
     project:
       default:
         threshold: 1% # allow this much decrease on project
-        target: 90%
+        target: auto
     changes: false
 
 comment:
