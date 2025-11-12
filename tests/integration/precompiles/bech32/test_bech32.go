@@ -110,7 +110,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					"cosmos",
+					sdk.GetConfig().GetBech32AccountAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -136,7 +136,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					common.BytesToAddress(valAddrBz),
-					"cosmosvaloper",
+					sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
@@ -159,7 +159,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				input, err := s.precompile.Pack(
 					bech32.HexToBech32Method,
 					s.keyring.GetAddr(0),
-					"cosmosvalcons",
+					sdk.GetConfig().GetBech32ConsensusAddrPrefix(),
 				)
 				s.Require().NoError(err, "failed to pack input")
 				contract.Input = input
