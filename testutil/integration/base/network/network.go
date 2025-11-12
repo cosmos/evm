@@ -13,7 +13,6 @@ import (
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -36,7 +35,6 @@ type Network interface {
 
 	// Clients
 	GetAuthClient() authtypes.QueryClient
-	GetAuthzClient() authz.QueryClient
 	GetBankClient() banktypes.QueryClient
 	GetPreciseBankClient() precisebanktypes.QueryClient
 	GetStakingClient() stakingtypes.QueryClient
