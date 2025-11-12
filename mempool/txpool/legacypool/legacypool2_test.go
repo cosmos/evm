@@ -86,7 +86,7 @@ func TestTransactionFutureAttack(t *testing.T) {
 	config := testTxPoolConfig
 	config.GlobalQueue = 100
 	config.GlobalSlots = 100
-	pool := New(&config, blockchain)
+	pool := New(config, blockchain)
 	pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -121,7 +121,7 @@ func TestTransactionFuture1559(t *testing.T) {
 	// Create the pool to test the pricing enforcement with
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(eip1559Config, 1000000, statedb, new(event.Feed))
-	pool := New(&testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 
@@ -154,7 +154,7 @@ func TestTransactionZAttack(t *testing.T) {
 	// Create the pool to test the pricing enforcement with
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	blockchain := newTestBlockChain(eip1559Config, 1000000, statedb, new(event.Feed))
-	pool := New(&testTxPoolConfig, blockchain)
+	pool := New(testTxPoolConfig, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 	// Create a number of test accounts, fund them and make transactions
@@ -227,7 +227,7 @@ func BenchmarkFutureAttack(b *testing.B) {
 	config := testTxPoolConfig
 	config.GlobalQueue = 100
 	config.GlobalSlots = 100
-	pool := New(&config, blockchain)
+	pool := New(config, blockchain)
 	pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver())
 	defer pool.Close()
 	fillPool(b, pool)

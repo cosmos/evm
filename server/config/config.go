@@ -238,9 +238,7 @@ func (c EVMConfig) Validate() error {
 		return fmt.Errorf("invalid geth metrics address %q: %w", c.GethMetricsAddress, err)
 	}
 
-	if err := c.Mempool.Validate(); err != nil {
-		return fmt.Errorf("invalid mempool config: %w", err)
-	}
+	c.Mempool = c.Mempool.Sanitize()
 
 	return nil
 }

@@ -117,9 +117,9 @@ func NewExperimentalEVMMempool(
 	blockchain = NewBlockchain(getCtxCallback, logger, vmKeeper, feeMarketKeeper, config.BlockGasLimit)
 
 	// Create txPool from configuration
-	legacyConfig := &legacypool.DefaultConfig
+	legacyConfig := legacypool.DefaultConfig
 	if config.LegacyPoolConfig != nil {
-		legacyConfig = config.LegacyPoolConfig
+		legacyConfig = *config.LegacyPoolConfig
 	}
 
 	legacyPool := legacypool.New(legacyConfig, blockchain)

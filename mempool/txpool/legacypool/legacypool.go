@@ -18,12 +18,10 @@
 package legacypool
 
 import (
-	"fmt"
 	"maps"
 	"math/big"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -159,33 +157,38 @@ var DefaultConfig = Config{
 	Rejournal:    time.Hour,          // Regenerate journal every hour
 }
 
-// Validate returns an error if the mempool configuration is invalid
-func (c Config) Validate() error {
-	if c.PriceLimit < 1 {
-		return fmt.Errorf("price limit must be at least 1, got %d", c.PriceLimit)
+// Sanitize checks the provided user configurations and changes anything that's unreasonable or unworkable.
+func (config *Config) Sanitize() Config {
+	conf := *config
+	if conf.PriceLimit < 1 {
+		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultConfig.PriceLimit)
+		conf.PriceLimit = DefaultConfig.PriceLimit
 	}
-	if c.PriceBump < 1 {
-		return fmt.Errorf("price bump must be at least 1, got %d", c.PriceBump)
+	if conf.PriceBump < 1 {
+		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultConfig.PriceBump)
+		conf.PriceBump = DefaultConfig.PriceBump
 	}
-	if c.AccountSlots < 1 {
-		return fmt.Errorf("account slots must be at least 1, got %d", c.AccountSlots)
+	if conf.AccountSlots < 1 {
+		log.Warn("Sanitizing invalid txpool account slots", "provided", conf.AccountSlots, "updated", DefaultConfig.AccountSlots)
+		conf.AccountSlots = DefaultConfig.AccountSlots
 	}
-	if c.GlobalSlots < 1 {
-		return fmt.Errorf("global slots must be at least 1, got %d", c.GlobalSlots)
+	if conf.GlobalSlots < 1 {
+		log.Warn("Sanitizing invalid txpool global slots", "provided", conf.GlobalSlots, "updated", DefaultConfig.GlobalSlots)
+		conf.GlobalSlots = DefaultConfig.GlobalSlots
 	}
-	if c.AccountQueue < 1 {
-		return fmt.Errorf("account queue must be at least 1, got %d", c.AccountQueue)
+	if conf.AccountQueue < 1 {
+		log.Warn("Sanitizing invalid txpool account queue", "provided", conf.AccountQueue, "updated", DefaultConfig.AccountQueue)
+		conf.AccountQueue = DefaultConfig.AccountQueue
 	}
-	if c.GlobalQueue < 1 {
-		return fmt.Errorf("global queue must be at least 1, got %d", c.GlobalQueue)
+	if conf.GlobalQueue < 1 {
+		log.Warn("Sanitizing invalid txpool global queue", "provided", conf.GlobalQueue, "updated", DefaultConfig.GlobalQueue)
+		conf.GlobalQueue = DefaultConfig.GlobalQueue
 	}
-	if c.Lifetime < 1 {
-		return fmt.Errorf("lifetime must be at least 1 nanosecond, got %s", c.Lifetime)
+	if conf.Lifetime < 1 {
+		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultConfig.Lifetime)
+		conf.Lifetime = DefaultConfig.Lifetime
 	}
-	if c.Journal != "" && !strings.HasSuffix(c.Journal, ".rlp") {
-		return fmt.Errorf("journal must end with .rlp, got %s", c.Journal)
-	}
-	return nil
+	return conf
 }
 
 // LegacyPool contains all currently known transactions. Transactions
@@ -248,15 +251,13 @@ type txpoolResetRequest struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config *Config, chain BlockChain) *LegacyPool {
+func New(config Config, chain BlockChain) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	if err := config.Validate(); err != nil {
-		panic(err)
-	}
+	config = config.Sanitize()
 
 	// Create the transaction pool with its initial settings
 	pool := &LegacyPool{
-		config:          *config,
+		config:          config,
 		chain:           chain,
 		chainconfig:     chain.Config(),
 		signer:          types.LatestSigner(chain.Config()),
