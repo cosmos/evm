@@ -1022,10 +1022,6 @@ func (app *EVMD) GetAccountKeeper() authkeeper.AccountKeeper {
 	return app.AccountKeeper
 }
 
-func (app *EVMD) GetAuthzKeeper() authzkeeper.Keeper {
-	return app.AuthzKeeper
-}
-
 func (app *EVMD) GetDistrKeeper() distrkeeper.Keeper {
 	return app.DistrKeeper
 }

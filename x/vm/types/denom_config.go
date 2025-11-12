@@ -13,9 +13,28 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// defaultEvmCoinInfo provides a default configuration to prevent nil pointer dereferences
+// when RPC requests execute before evmCoinInfo is initialized in PreBlock.
+// This is set via SetDefaultEvmCoinInfo from the keeper's defaultEvmCoinInfo field.
+var defaultEvmCoinInfo *EvmCoinInfo
+
+// SetDefaultEvmCoinInfo sets the default EVM coin info to be used as fallback.
+// This should be called during keeper initialization.
+func SetDefaultEvmCoinInfo(coinInfo EvmCoinInfo) {
+	defaultEvmCoinInfo = &coinInfo
+}
+
 // evmCoinInfo hold the information of the coin used in the EVM as gas token. It
 // can only be set via `EVMConfigurator` before starting the app.
 var evmCoinInfo *EvmCoinInfo
+
+// getEvmCoinInfo returns the evmCoinInfo if set, otherwise returns defaultEvmCoinInfo.
+func getEvmCoinInfo() *EvmCoinInfo {
+	if evmCoinInfo == nil {
+		return defaultEvmCoinInfo
+	}
+	return evmCoinInfo
+}
 
 // setEVMCoinDecimals allows to define the decimals used in the representation
 // of the EVM coin.
@@ -57,22 +76,22 @@ func setDisplayDenom(displayDenom string) error {
 // GetEVMCoinDecimals returns the decimals used in the representation of the EVM
 // coin.
 func GetEVMCoinDecimals() Decimals {
-	return Decimals(evmCoinInfo.Decimals)
+	return Decimals(getEvmCoinInfo().Decimals)
 }
 
 // GetEVMCoinDenom returns the denom used for the EVM coin.
 func GetEVMCoinDenom() string {
-	return evmCoinInfo.Denom
+	return getEvmCoinInfo().Denom
 }
 
 // GetEVMCoinExtendedDenom returns the extended denom used for the EVM coin.
 func GetEVMCoinExtendedDenom() string {
-	return evmCoinInfo.ExtendedDenom
+	return getEvmCoinInfo().ExtendedDenom
 }
 
 // GetEVMCoinDisplayDenom returns the display denom used for the EVM coin.
 func GetEVMCoinDisplayDenom() string {
-	return evmCoinInfo.DisplayDenom
+	return getEvmCoinInfo().DisplayDenom
 }
 
 // setEVMCoinInfo allows to define denom and decimals of the coin used in the EVM.
