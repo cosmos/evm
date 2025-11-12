@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +27,218 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+// SendTransaction sends transaction based on received args using Node's key to sign it
+func (b *Backend) SendTransaction(args evmtypes.TransactionArgs) (common.Hash, error) {
+	// Look up the wallet containing the requested signer
+	if !b.Cfg.JSONRPC.AllowInsecureUnlock {
+		b.Logger.Debug("account unlock with HTTP access is forbidden")
+		return common.Hash{}, fmt.Errorf("account unlock with HTTP access is forbidden")
+	}
+
+	_, err := b.ClientCtx.Keyring.KeyByAddress(sdk.AccAddress(args.GetFrom().Bytes()))
+	if err != nil {
+		b.Logger.Error("failed to find key in keyring", "address", args.GetFrom(), "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to find key in the node's keyring; %s; %s", keystore.ErrNoMatch, err.Error())
+	}
+
+	if args.ChainID != nil && (b.EvmChainID).Cmp((*big.Int)(args.ChainID)) != 0 {
+		return common.Hash{}, fmt.Errorf("chainId does not match node's (have=%v, want=%v)", args.ChainID, (*hexutil.Big)(b.EvmChainID))
+	}
+
+	args, err = b.SetTxDefaults(args)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	bn, err := b.BlockNumber()
+	if err != nil {
+		b.Logger.Debug("failed to fetch latest block number", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	header, err := b.CurrentHeader()
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	signer := ethtypes.MakeSigner(b.ChainConfig(), new(big.Int).SetUint64(uint64(bn)), header.Time)
+
+	// LegacyTx derives EvmChainID from the signature. To make sure the msg.ValidateBasic makes
+	// the corresponding EvmChainID validation, we need to sign the transaction before calling it
+
+	// Sign transaction
+	msg := evmtypes.NewTxFromArgs(&args)
+	if err := msg.Sign(signer, b.ClientCtx.Keyring); err != nil {
+		b.Logger.Debug("failed to sign tx", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	if err := msg.ValidateBasic(); err != nil {
+		b.Logger.Debug("tx failed basic validation", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	baseDenom := evmtypes.GetEVMCoinDenom()
+
+	// Assemble transaction from fields
+	tx, err := msg.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
+	if err != nil {
+		b.Logger.Error("build cosmos tx failed", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	// Encode transaction by default Tx encoder
+	txEncoder := b.ClientCtx.TxConfig.TxEncoder()
+	txBytes, err := txEncoder(tx)
+	if err != nil {
+		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	ethTx := msg.AsTransaction()
+
+	// check the local node config in case unprotected txs are disabled
+	if !b.UnprotectedAllowed() && !ethTx.Protected() {
+		// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
+		return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+	}
+
+	txHash := ethTx.Hash()
+
+	// Broadcast transaction in sync mode (default)
+	// NOTE: If error is encountered on the node, the broadcast will not return an error
+	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
+	rsp, err := syncCtx.BroadcastTx(txBytes)
+	if rsp != nil && rsp.Code != 0 {
+		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
+	}
+	// Check for temporary rejection in response raw log
+	if b.Mempool != nil && rsp != nil && rsp.Code != 0 {
+		if txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+			return txHash, nil
+		}
+		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
+	}
+	if err != nil {
+		// Check for temporary rejection in error
+		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+			return txHash, nil
+		}
+		b.Logger.Error("failed to broadcast tx", "error", err.Error())
+		return txHash, err
+	}
+
+	// Return transaction hash
+	// On success, track as local too to persist across restarts until mined
+	if b.Mempool != nil {
+		b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{ethTx})
+	}
+	return txHash, nil
+}
+
+// SendRawTransaction send a raw Ethereum transaction.
+func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
+	// RLP decode raw transaction bytes
+	tx := &ethtypes.Transaction{}
+	if err := tx.UnmarshalBinary(data); err != nil {
+		b.Logger.Error("transaction decoding failed", "error", err.Error())
+		return common.Hash{}, err
+	}
+
+	// check the local node config in case unprotected txs are disabled
+	if !b.UnprotectedAllowed() {
+		if !tx.Protected() {
+			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
+			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+		}
+		if tx.ChainId().Uint64() != b.EvmChainID.Uint64() {
+			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.EvmChainID, tx.ChainId())
+		}
+	}
+
+	ethereumTx := &evmtypes.MsgEthereumTx{}
+	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
+	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
+		b.Logger.Error("transaction converting failed", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)
+	}
+
+	if err := ethereumTx.ValidateBasic(); err != nil {
+		b.Logger.Debug("tx failed basic validation", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to validate transaction: %w", err)
+	}
+
+	baseDenom := evmtypes.GetEVMCoinDenom()
+
+	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
+	if err != nil {
+		b.Logger.Error("failed to build cosmos tx", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to build cosmos tx: %w", err)
+	}
+
+	// Encode transaction by default Tx encoder
+	txBytes, err := b.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
+	if err != nil {
+		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
+		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
+	}
+
+	txHash := ethereumTx.AsTransaction().Hash()
+
+	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
+	rsp, err := syncCtx.BroadcastTx(txBytes)
+	// Check for temporary rejection in response raw log
+	if b.Mempool != nil && rsp != nil && rsp.Code != 0 {
+		if txlocals.IsTemporaryReject(errors.New(rsp.RawLog)) {
+			b.Logger.Debug("temporary rejection in response raw log, tracking locally", "hash", txHash.Hex(), "err", rsp.RawLog)
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+			return txHash, nil
+		}
+		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
+	}
+	if err != nil {
+		// Check for temporary rejection in response raw log
+		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
+			b.Logger.Debug("temporary rejection in error, tracking locally", "hash", txHash.Hex(), "err", err.Error())
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+			return txHash, nil
+		}
+		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
+			from, err := ethSigner.Sender(tx)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
+			}
+			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
+			if err != nil {
+				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
+			}
+
+			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
+			if tx.Nonce() < nonce {
+				return common.Hash{}, err
+			}
+
+			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
+			// Track as local for persistence until pending
+			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+			return txHash, nil
+		}
+
+		b.Logger.Error("failed to broadcast tx", "error", err.Error())
+		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
+	}
+
+	// On success, track as local too to persist across restarts until mined
+	if b.Mempool != nil {
+		b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
+	}
+	return txHash, nil
+}
 
 // Resend accepts an existing transaction and a new gas price and limit. It will remove
 // the given transaction from the pool and reinsert it with the new gas price and limit.
@@ -98,107 +311,6 @@ func (b *Backend) Resend(args evmtypes.TransactionArgs, gasPrice *hexutil.Big, g
 	}
 
 	return common.Hash{}, fmt.Errorf("transaction %#x not found", matchTx.Hash())
-}
-
-// SendRawTransaction send a raw Ethereum transaction.
-func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
-	// RLP decode raw transaction bytes
-	tx := &ethtypes.Transaction{}
-	if err := tx.UnmarshalBinary(data); err != nil {
-		b.Logger.Error("transaction decoding failed", "error", err.Error())
-		return common.Hash{}, err
-	}
-
-	// check the local node config in case unprotected txs are disabled
-	if !b.UnprotectedAllowed() {
-		if !tx.Protected() {
-			// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
-			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
-		}
-		if tx.ChainId().Uint64() != b.EvmChainID.Uint64() {
-			return common.Hash{}, fmt.Errorf("incorrect chain-id; expected %d, got %d", b.EvmChainID, tx.ChainId())
-		}
-	}
-
-	ethereumTx := &evmtypes.MsgEthereumTx{}
-	ethSigner := ethtypes.LatestSigner(b.ChainConfig())
-	if err := ethereumTx.FromSignedEthereumTx(tx, ethSigner); err != nil {
-		b.Logger.Error("transaction converting failed", "error", err.Error())
-		return common.Hash{}, fmt.Errorf("failed to convert ethereum transaction: %w", err)
-	}
-
-	if err := ethereumTx.ValidateBasic(); err != nil {
-		b.Logger.Debug("tx failed basic validation", "error", err.Error())
-		return common.Hash{}, fmt.Errorf("failed to validate transaction: %w", err)
-	}
-
-	baseDenom := evmtypes.GetEVMCoinDenom()
-
-	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
-	if err != nil {
-		b.Logger.Error("failed to build cosmos tx", "error", err.Error())
-		return common.Hash{}, fmt.Errorf("failed to build cosmos tx: %w", err)
-	}
-
-	// Encode transaction by default Tx encoder
-	txBytes, err := b.ClientCtx.TxConfig.TxEncoder()(cosmosTx)
-	if err != nil {
-		b.Logger.Error("failed to encode eth tx using default encoder", "error", err.Error())
-		return common.Hash{}, fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	txHash := ethereumTx.AsTransaction().Hash()
-
-	syncCtx := b.ClientCtx.WithBroadcastMode(flags.BroadcastSync)
-	rsp, err := syncCtx.BroadcastTx(txBytes)
-	if rsp != nil && rsp.Code != 0 {
-		err = errorsmod.ABCIError(rsp.Codespace, rsp.Code, rsp.RawLog)
-	}
-	if err != nil {
-		// Check if this is a nonce gap error that was successfully queued
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceGap.Error()) {
-			// Transaction was successfully queued due to nonce gap, return success to client
-			b.Logger.Debug("transaction queued due to nonce gap", "hash", txHash.Hex())
-			// Track as local for priority and persistence
-			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
-			return txHash, nil
-		}
-		// Temporary txpool rejections should be locally tracked for resubmission
-		if b.Mempool != nil && txlocals.IsTemporaryReject(err) {
-			b.Logger.Debug("temporary rejection, tracking locally", "hash", txHash.Hex(), "err", err.Error())
-			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
-			return txHash, nil
-		}
-		if b.Mempool != nil && strings.Contains(err.Error(), mempool.ErrNonceLow.Error()) {
-			from, err := ethSigner.Sender(tx)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender address: %w", err)
-			}
-			nonce, err := b.getAccountNonce(from, false, b.ClientCtx.Height, b.Logger)
-			if err != nil {
-				return common.Hash{}, fmt.Errorf("failed to get sender's current nonce: %w", err)
-			}
-
-			// SendRawTransaction returns error when tx.Nonce is lower than committed nonce
-			if tx.Nonce() < nonce {
-				return common.Hash{}, err
-			}
-
-			// SendRawTransaction does not return error when committed nonce <= tx.Nonce < pending nonce
-			// Track as local for persistence until mined
-			b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
-			return txHash, nil
-		}
-
-		b.Logger.Error("failed to broadcast tx", "error", err.Error())
-		return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
-	}
-
-	// On success, track as local too to persist across restarts until mined
-	if b.Mempool != nil {
-		b.Mempool.TrackLocalTxs([]*ethtypes.Transaction{tx})
-	}
-	return txHash, nil
 }
 
 // SetTxDefaults populates tx message with default values in case they are not

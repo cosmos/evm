@@ -18,7 +18,6 @@
 package legacypool
 
 import (
-	"errors"
 	"maps"
 	"math/big"
 	"slices"
@@ -31,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -56,25 +56,6 @@ const (
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
 	txMaxSize = 4 * txSlotSize // 128KB
-)
-
-var (
-	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accept
-	// another remote transaction.
-	ErrTxPoolOverflow = errors.New("txpool is full")
-
-	// ErrOutOfOrderTxFromDelegated is returned when the transaction with gapped
-	// nonce received from the accounts with delegation or pending delegation.
-	ErrOutOfOrderTxFromDelegated = errors.New("gapped-nonce tx from delegated accounts")
-
-	// ErrAuthorityReserved is returned if a transaction has an authorization
-	// signed by an address which already has in-flight transactions known to the
-	// pool.
-	ErrAuthorityReserved = errors.New("authority already reserved")
-
-	// ErrFutureReplacePending is returned if a future transaction replaces a pending
-	// one. Future transactions should only be able to replace other future transactions.
-	ErrFutureReplacePending = errors.New("future transaction tries to replace pending")
 )
 
 var (
@@ -623,7 +604,7 @@ func (pool *LegacyPool) checkDelegationLimit(tx *types.Transaction) error {
 	if pending == nil {
 		// Transaction with gapped nonce is not supported for delegated accounts
 		if pool.pendingNonces.get(from) != tx.Nonce() {
-			return ErrOutOfOrderTxFromDelegated
+			return legacypool.ErrOutOfOrderTxFromDelegated
 		}
 		return nil
 	}
@@ -654,7 +635,7 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 				count += queue.Len()
 			}
 			if count > 1 {
-				return ErrAuthorityReserved
+				return legacypool.ErrAuthorityReserved
 			}
 			// Because there is no exclusive lock held between different subpools
 			// when processing transactions, the SetCode transaction may be accepted
@@ -665,7 +646,7 @@ func (pool *LegacyPool) validateAuth(tx *types.Transaction) error {
 			// that attackers cannot easily stack a SetCode transaction when the sender
 			// is reserved by other pools.
 			if pool.reserver.Has(auth) {
-				return ErrAuthorityReserved
+				return legacypool.ErrAuthorityReserved
 			}
 		}
 	}
@@ -730,7 +711,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		// replacements to 25% of the slots
 		if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
 			throttleTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
+			return false, legacypool.ErrTxPoolOverflow
 		}
 
 		// New transaction is better than our worse ones, make room for it.
@@ -741,7 +722,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 		if !success {
 			log.Trace("Discarding overflown transaction", "hash", hash)
 			overflowedTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
+			return false, legacypool.ErrTxPoolOverflow
 		}
 
 		// If the new transaction is a future transaction it should never churn pending transactions
@@ -760,7 +741,7 @@ func (pool *LegacyPool) add(tx *types.Transaction) (replaced bool, err error) {
 					pool.priced.Put(dropTx)
 				}
 				log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
-				return false, ErrFutureReplacePending
+				return false, legacypool.ErrFutureReplacePending
 			}
 		}
 
