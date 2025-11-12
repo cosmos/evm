@@ -133,7 +133,6 @@ func NewExperimentalEVMMempool(
 		// from queued into pending, noting their readiness to be executed.
 		legacyPool.BroadcastTxFn = func(txs []*ethtypes.Transaction) error {
 			logger.Debug("broadcasting EVM transactions", "tx_count", len(txs))
-			fmt.Println(clientCtx)
 			return broadcastEVMTransactions(clientCtx, txConfig, txs)
 		}
 	}
