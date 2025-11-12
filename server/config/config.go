@@ -153,7 +153,7 @@ type EVMConfig struct {
 	// GethMetricsAddress is the address the geth metrics server will bind to. Default 127.0.0.1:8100
 	GethMetricsAddress string `mapstructure:"geth-metrics-address"`
 	// Mempool defines the EVM mempool configuration
-	Mempool legacypool.MempoolConfig `mapstructure:"mempool"`
+	Mempool legacypool.Config `mapstructure:"mempool"`
 }
 
 // JSONRPCConfig defines configuration for the EVM RPC server.
@@ -223,7 +223,7 @@ func DefaultEVMConfig() *EVMConfig {
 		EnablePreimageRecording: DefaultEnablePreimageRecording,
 		MinTip:                  DefaultEVMMinTip,
 		GethMetricsAddress:      DefaultGethMetricsAddress,
-		Mempool:                 *legacypool.DefaultMempoolConfig(),
+		Mempool:                 legacypool.DefaultConfig,
 	}
 }
 

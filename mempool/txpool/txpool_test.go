@@ -79,7 +79,7 @@ func TestTxPoolCosmosReorg(t *testing.T) {
 	genesisState.On("GetNonce", mock.Anything).Return(uint64(1))
 	genesisState.On("GetCodeHash", mock.Anything).Return(types.EmptyCodeHash)
 
-	legacyPool := legacypool.New(legacypool.DefaultConfig, legacyChain)
+	legacyPool := legacypool.New(&legacypool.DefaultConfig, legacyChain)
 
 	// handle txpool subscribing to new head events from the chain. grab the
 	// reference to the chan that it is going to wait on so we can push mock

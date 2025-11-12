@@ -118,8 +118,8 @@ type BlockChain interface {
 	StateAt(root common.Hash) (vm.StateDB, error)
 }
 
-// MempoolConfig defines the configuration for the EVM mempool transaction pool.
-type MempoolConfig struct {
+// Config defines the configuration for the EVM mempool transaction pool.
+type Config struct {
 	// PriceLimit is the minimum gas price to enforce for acceptance into the pool
 	PriceLimit uint64 `mapstructure:"price-limit"`
 	// PriceBump is the minimum price bump percentage to replace an already existing transaction (nonce)
@@ -144,25 +144,23 @@ type MempoolConfig struct {
 	Rejournal time.Duration `mapstructure:"rejournal"`
 }
 
-// DefaultMempoolConfig returns the default mempool configuration
-func DefaultMempoolConfig() *MempoolConfig {
-	return &MempoolConfig{
-		PriceLimit:   1,                  // Minimum gas price of 1 wei
-		PriceBump:    10,                 // 10% price bump to replace transaction
-		AccountSlots: 16,                 // 16 executable transaction slots per account
-		GlobalSlots:  5120,               // 4096 + 1024 = 5120 global executable slots
-		AccountQueue: 64,                 // 64 non-executable transaction slots per account
-		GlobalQueue:  1024,               // 1024 global non-executable slots
-		Lifetime:     3 * time.Hour,      // 3 hour lifetime for queued transactions
-		Locals:       []string{},         // No local addresses by default
-		NoLocals:     false,              // Local transaction handling enabled by default
-		Journal:      "transactions.rlp", // Default journal filename
-		Rejournal:    time.Hour,          // Regenerate journal every hour
-	}
+// DefaultConfig returns the default mempool configuration
+var DefaultConfig = Config{
+	PriceLimit:   1,                  // Minimum gas price of 1 wei
+	PriceBump:    10,                 // 10% price bump to replace transaction
+	AccountSlots: 16,                 // 16 executable transaction slots per account
+	GlobalSlots:  5120,               // 4096 + 1024 = 5120 global executable slots
+	AccountQueue: 64,                 // 64 non-executable transaction slots per account
+	GlobalQueue:  1024,               // 1024 global non-executable slots
+	Lifetime:     3 * time.Hour,      // 3 hour lifetime for queued transactions
+	Locals:       []string{},         // No local addresses by default
+	NoLocals:     false,              // Local transaction handling enabled by default
+	Journal:      "transactions.rlp", // Default journal filename
+	Rejournal:    time.Hour,          // Regenerate journal every hour
 }
 
 // Validate returns an error if the mempool configuration is invalid
-func (c MempoolConfig) Validate() error {
+func (c Config) Validate() error {
 	if c.PriceLimit < 1 {
 		return fmt.Errorf("price limit must be at least 1, got %d", c.PriceLimit)
 	}
@@ -212,7 +210,7 @@ func (c MempoolConfig) Validate() error {
 // will reject new transactions with delegations from that account with standard in-flight
 // transactions.
 type LegacyPool struct {
-	config      MempoolConfig
+	config      Config
 	chainconfig *params.ChainConfig
 	chain       BlockChain
 	gasTip      atomic.Pointer[uint256.Int]
@@ -250,7 +248,7 @@ type txpoolResetRequest struct {
 
 // New creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func New(config *MempoolConfig, chain BlockChain) *LegacyPool {
+func New(config *Config, chain BlockChain) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	if err := config.Validate(); err != nil {
 		panic(err)
