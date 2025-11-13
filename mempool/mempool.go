@@ -155,7 +155,7 @@ func NewExperimentalEVMMempool(
 	if !legacyConfig.NoLocals {
 		// Ensure journal directory exists before starting the tracker
 		if dir := filepath.Dir(legacyConfig.Journal); dir != "." {
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				logger.Error("failed to create journal directory", "error", err)
 			}
 		}
