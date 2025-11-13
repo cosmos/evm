@@ -284,19 +284,27 @@ func RunTxTrackerWithReplacement(t *testing.T, base *suite.BaseTestSuite) {
 			name: "tracks replacement transaction %s",
 			actions: []func(*TestSuite, *TestContext){
 				func(s *TestSuite, ctx *TestContext) {
-					// Submit initial transaction
-					tx1, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GasPriceMultiplier(10), nil)
+					// Submit initial transaction with a future nonce to keep it queued
+					_, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GasPriceMultiplier(10), nil)
 					require.NoError(t, err, "failed to send tx1")
 
-					ctx.SetExpPendingTxs(tx1)
-				},
-				func(s *TestSuite, ctx *TestContext) {
-					// Submit replacement transaction with higher gas price
-					tx2, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GasPriceMultiplier(15), nil)
+					// Submit replacement transaction with higher gas price (same nonce)
+					// Both transactions are sent in the same action to avoid race conditions
+					// where the first tx gets committed before the replacement arrives
+					tx2, err := s.SendTx(t, s.Node(0), "acc0", 1, s.GasPriceMultiplier(15), nil)
 					require.NoError(t, err, "failed to send replacement tx2")
 
-					// The replacement transaction should replace tx1
-					ctx.SetExpPendingTxs(tx2)
+					// The replacement transaction should replace tx1 in the queued state
+					ctx.SetExpQueuedTxs(tx2)
+				},
+				func(s *TestSuite, ctx *TestContext) {
+					// Submit transaction with nonce 0 to promote the queued replacement
+					tx0, err := s.SendTx(t, s.Node(0), "acc0", 0, s.GasPriceMultiplier(10), nil)
+					require.NoError(t, err, "failed to send tx0")
+
+					// tx0 should be pending, and tx2 should be promoted from queued to pending
+					ctx.SetExpPendingTxs(tx0)
+					ctx.PromoteExpTxs(1)
 				},
 			},
 		},
