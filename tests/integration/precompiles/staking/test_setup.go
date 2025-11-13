@@ -3,8 +3,10 @@ package staking
 import (
 	"github.com/stretchr/testify/suite"
 
+	evm "github.com/cosmos/evm"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/staking"
+	testapp "github.com/cosmos/evm/testutil/app"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -13,6 +15,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -24,7 +27,7 @@ const InitialTestBalance = 1000000000000000000 // 1 atom
 type PrecompileTestSuite struct {
 	suite.Suite
 
-	create      network.CreateEvmApp
+	create      CreateStakingPrecompileApp
 	options     []network.ConfigOption
 	network     *network.UnitTestNetwork
 	factory     factory.TxFactory
@@ -36,10 +39,18 @@ type PrecompileTestSuite struct {
 	customGenesis bool
 }
 
-func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *PrecompileTestSuite {
+func NewPrecompileTestSuite(create CreateStakingPrecompileApp, options ...network.ConfigOption) *PrecompileTestSuite {
 	return &PrecompileTestSuite{
 		create:  create,
 		options: options,
+	}
+}
+
+type CreateStakingPrecompileApp func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.StakingPrecompileApp
+
+func wrapStakingCreate(create CreateStakingPrecompileApp) network.CreateEvmApp {
+	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+		return testapp.NewKeeperAdapter(create(chainID, evmChainID, customBaseAppOptions...))
 	}
 }
 
@@ -64,7 +75,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 		opts = append(opts, network.WithCustomGenesis(customGenesis))
 	}
 	opts = append(opts, s.options...)
-	nw := network.NewUnitTestNetwork(s.create, opts...)
+	nw := network.NewUnitTestNetwork(wrapStakingCreate(s.create), opts...)
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 

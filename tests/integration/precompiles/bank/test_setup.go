@@ -4,7 +4,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
+	evm "github.com/cosmos/evm"
 	bank2 "github.com/cosmos/evm/precompiles/bank"
+	testapp "github.com/cosmos/evm/testutil/app"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -13,6 +15,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -22,7 +25,7 @@ import (
 type PrecompileTestSuite struct {
 	suite.Suite
 
-	create                  network.CreateEvmApp
+	create                  CreateBankPrecompileApp
 	bondDenom, tokenDenom   string
 	cosmosEVMAddr, xmplAddr common.Address
 
@@ -36,7 +39,15 @@ type PrecompileTestSuite struct {
 	precompile *bank2.Precompile
 }
 
-func NewPrecompileTestSuite(create network.CreateEvmApp) *PrecompileTestSuite {
+type CreateBankPrecompileApp func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.BankPrecompileApp
+
+func wrapBankCreate(create CreateBankPrecompileApp) network.CreateEvmApp {
+	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+		return testapp.NewKeeperAdapter(create(chainID, evmChainID, customBaseAppOptions...))
+	}
+}
+
+func NewPrecompileTestSuite(create CreateBankPrecompileApp) *PrecompileTestSuite {
 	return &PrecompileTestSuite{
 		create: create,
 	}
@@ -48,7 +59,7 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 	keyring := testkeyring.New(2)
 	genesis := utils.CreateGenesisWithTokenPairs(keyring)
 	unitNetwork := network.NewUnitTestNetwork(
-		s.create,
+		wrapBankCreate(s.create),
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		network.WithCustomGenesis(genesis),
 		network.WithOtherDenoms([]string{s.tokenDenom}),

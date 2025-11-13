@@ -56,7 +56,7 @@ var (
 	outOfGasCheck testutil.LogCheckArgs
 )
 
-func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
+func TestPrecompileIntegrationTestSuite(t *testing.T, create CreateStakingPrecompileApp, options ...network.ConfigOption) {
 	_ = Describe("Calling staking precompile directly", func() {
 		// s is the precompile test suite to use for the tests
 		var s *PrecompileTestSuite

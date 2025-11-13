@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	evm "github.com/cosmos/evm"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/gov"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -129,6 +130,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	nw := network.NewUnitTestNetwork(s.create, options...)
+	s.Require().Implements((*evm.GovPrecompileApp)(nil), nw.App)
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 

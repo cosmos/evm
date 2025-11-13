@@ -16,6 +16,8 @@ import (
 	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -30,33 +32,199 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
-// EvmApp defines the interface for an EVM application.
-type EvmApp interface { //nolint:revive
+// TestApp captures the minimal functionality all test harnesses require.
+type TestApp interface {
 	ibctesting.TestingApp
 	runtime.AppI
 	InterfaceRegistry() types.InterfaceRegistry
+	AppCodec() codec.Codec
+	GetTxConfig() client.TxConfig
+	LegacyAmino() *codec.LegacyAmino
 	ChainID() string
-	GetEVMKeeper() *evmkeeper.Keeper
-	GetErc20Keeper() *erc20keeper.Keeper
-	SetErc20Keeper(erc20keeper.Keeper)
-	GetGovKeeper() govkeeper.Keeper
-	GetSlashingKeeper() slashingkeeper.Keeper
-	GetEvidenceKeeper() *evidencekeeper.Keeper
-	GetBankKeeper() bankkeeper.Keeper
-	GetFeeMarketKeeper() *feemarketkeeper.Keeper
-	GetAccountKeeper() authkeeper.AccountKeeper
-	GetDistrKeeper() distrkeeper.Keeper
-	GetStakingKeeper() *stakingkeeper.Keeper
-	GetMintKeeper() mintkeeper.Keeper
-	GetPreciseBankKeeper() *precisebankkeeper.Keeper
-	GetFeeGrantKeeper() feegrantkeeper.Keeper
-	GetConsensusParamsKeeper() consensusparamkeeper.Keeper
-	GetCallbackKeeper() keeper.ContractKeeper
-	GetTransferKeeper() transferkeeper.Keeper
-	SetTransferKeeper(transferKeeper transferkeeper.Keeper)
 	DefaultGenesis() map[string]json.RawMessage
 	GetKey(storeKey string) *storetypes.KVStoreKey
+	GetBaseApp() *baseapp.BaseApp
 	GetAnteHandler() sdk.AnteHandler
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
 }
+
+// EvmApp defines the interface for an EVM application.
+type EvmApp interface { //nolint:revive
+	TestApp
+	AccountKeeperProvider
+	AnteHandlerProvider
+	BankKeeperProvider
+	CallbackKeeperProvider
+	ConsensusParamsKeeperProvider
+	DistrKeeperProvider
+	EvidenceKeeperProvider
+	EVMKeeperProvider
+	Erc20KeeperProvider
+	Erc20KeeperSetter
+	FeeGrantKeeperProvider
+	FeeMarketKeeperProvider
+	GovKeeperProvider
+	KeyProvider
+	MempoolProvider
+	MintKeeperProvider
+	MsgServiceRouterProvider
+	PreciseBankKeeperProvider
+	SlashingKeeperProvider
+	StakingKeeperProvider
+	TransferKeeperProvider
+	TransferKeeperSetter
+}
+
+// Keeper provider interfaces allow tests to depend on the exact subset of
+// keepers they need without requiring a fully fledged evmd application.
+type (
+	AccountKeeperProvider interface {
+		GetAccountKeeper() authkeeper.AccountKeeper
+	}
+	AnteHandlerProvider interface {
+		GetAnteHandler() sdk.AnteHandler
+	}
+	BankKeeperProvider interface {
+		GetBankKeeper() bankkeeper.Keeper
+	}
+	CallbackKeeperProvider interface {
+		GetCallbackKeeper() keeper.ContractKeeper
+	}
+	ChainIDProvider interface {
+		ChainID() string
+	}
+	ConsensusParamsKeeperProvider interface {
+		GetConsensusParamsKeeper() consensusparamkeeper.Keeper
+	}
+	DistrKeeperProvider interface {
+		GetDistrKeeper() distrkeeper.Keeper
+	}
+	EvidenceKeeperProvider interface {
+		GetEvidenceKeeper() *evidencekeeper.Keeper
+	}
+	EVMKeeperProvider interface {
+		GetEVMKeeper() *evmkeeper.Keeper
+	}
+	Erc20KeeperProvider interface {
+		GetErc20Keeper() *erc20keeper.Keeper
+	}
+	Erc20KeeperSetter interface {
+		SetErc20Keeper(erc20keeper.Keeper)
+	}
+	FeeGrantKeeperProvider interface {
+		GetFeeGrantKeeper() feegrantkeeper.Keeper
+	}
+	FeeMarketKeeperProvider interface {
+		GetFeeMarketKeeper() *feemarketkeeper.Keeper
+	}
+	GovKeeperProvider interface {
+		GetGovKeeper() govkeeper.Keeper
+	}
+	KeyProvider interface {
+		GetKey(storeKey string) *storetypes.KVStoreKey
+	}
+	MempoolProvider interface {
+		GetMempool() mempool.ExtMempool
+	}
+	MintKeeperProvider interface {
+		GetMintKeeper() mintkeeper.Keeper
+	}
+	MsgServiceRouterProvider interface {
+		MsgServiceRouter() *baseapp.MsgServiceRouter
+	}
+	PreciseBankKeeperProvider interface {
+		GetPreciseBankKeeper() *precisebankkeeper.Keeper
+	}
+	SlashingKeeperProvider interface {
+		GetSlashingKeeper() slashingkeeper.Keeper
+	}
+	StakingKeeperProvider interface {
+		GetStakingKeeper() *stakingkeeper.Keeper
+	}
+	TransferKeeperProvider interface {
+		GetTransferKeeper() transferkeeper.Keeper
+	}
+	TransferKeeperSetter interface {
+		SetTransferKeeper(transferkeeper.Keeper)
+	}
+)
+
+// Precompile-focused application interfaces describe the exact keepers that a
+// given precompile test suite requires. External chains can implement only the
+// interfaces relevant to the suites they wish to run.
+type (
+	BankPrecompileApp interface {
+		TestApp
+		BankKeeperProvider
+		Erc20KeeperProvider
+		StakingKeeperProvider
+		KeyProvider
+	}
+	Bech32PrecompileApp interface {
+		TestApp
+		StakingKeeperProvider
+	}
+	DistributionPrecompileApp interface {
+		TestApp
+		BankKeeperProvider
+		DistrKeeperProvider
+		EVMKeeperProvider
+		StakingKeeperProvider
+		KeyProvider
+	}
+	Erc20PrecompileApp interface {
+		TestApp
+		AccountKeeperProvider
+		BankKeeperProvider
+		Erc20KeeperProvider
+		PreciseBankKeeperProvider
+		StakingKeeperProvider
+		TransferKeeperProvider
+		KeyProvider
+	}
+	GovPrecompileApp interface {
+		TestApp
+		BankKeeperProvider
+		EVMKeeperProvider
+		FeeMarketKeeperProvider
+		GovKeeperProvider
+	}
+	ICS20PrecompileApp interface {
+		TestApp
+		ChainIDProvider
+		BankKeeperProvider
+		EVMKeeperProvider
+		StakingKeeperProvider
+		TransferKeeperProvider
+	}
+	P256PrecompileApp interface {
+		TestApp
+		KeyProvider
+	}
+	SlashingPrecompileApp interface {
+		TestApp
+		BankKeeperProvider
+		EVMKeeperProvider
+		SlashingKeeperProvider
+		StakingKeeperProvider
+		KeyProvider
+	}
+	StakingPrecompileApp interface {
+		TestApp
+		AccountKeeperProvider
+		BankKeeperProvider
+		EVMKeeperProvider
+		Erc20KeeperProvider
+		StakingKeeperProvider
+		KeyProvider
+	}
+	WERCP20PrecompileApp interface {
+		TestApp
+		ChainIDProvider
+		BankKeeperProvider
+		Erc20KeeperProvider
+		TransferKeeperProvider
+		KeyProvider
+	}
+)
