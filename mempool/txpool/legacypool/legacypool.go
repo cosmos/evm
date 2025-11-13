@@ -189,7 +189,7 @@ func (config *Config) Sanitize() Config {
 		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultConfig.Lifetime)
 		conf.Lifetime = DefaultConfig.Lifetime
 	}
-	if conf.Journal != "" && strings.HasSuffix(conf.Journal, ".rlp") {
+	if conf.Journal != "" && !strings.HasSuffix(conf.Journal, ".rlp") {
 		log.Warn("Sanitizing invalid txpool journal", "provided", conf.Journal, "updated", DefaultConfig.Journal)
 		conf.Journal = DefaultConfig.Journal
 	}
