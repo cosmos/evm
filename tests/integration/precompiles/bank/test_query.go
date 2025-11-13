@@ -157,7 +157,8 @@ func (s *PrecompileTestSuite) TestTotalSupply() {
 					{
 						ContractAddress: xmplAddr,
 						Amount:          xmplTotalSupply.Add(math.NewInt(1e18)).BigInt(),
-					}}
+					},
+				}
 			},
 		},
 	}
