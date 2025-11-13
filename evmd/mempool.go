@@ -63,6 +63,16 @@ func (app *EVMD) configureEVMMempool(appOpts servertypes.AppOptions, logger log.
 	return nil
 }
 
+func (app *EVMD) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
+	// override prepare proposal to not run txs
+	return app.TxEncode(tx)
+}
+
+func (app *EVMD) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
+	// override process proposal to not run txs
+	return app.TxDecode(txBz)
+}
+
 type LoggingTxSelector struct {
 	baseapp.TxSelector
 	logger log.Logger
