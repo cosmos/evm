@@ -1,7 +1,14 @@
 package main
 
+import "os"
+
 func main() {
-	if err := NewSpeedTestCommand().Execute(); err != nil {
+	dir, err := os.MkdirTemp("", "mytmp-*")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(dir)
+	if err := NewSpeedTestCommand(dir).Execute(); err != nil {
 		panic(err)
 	}
 }

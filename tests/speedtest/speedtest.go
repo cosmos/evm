@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"math/big"
 	"math/rand"
-	"os"
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -44,17 +43,10 @@ func (a Application) Codec() codec.Codec {
 	return a.AppCodec()
 }
 
-func NewSpeedTestCommand() *cobra.Command {
+func NewSpeedTestCommand(dir string) *cobra.Command {
 	logger := log.NewNopLogger()
-	dir, err := os.MkdirTemp("", "mytmp-*")
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		os.RemoveAll(dir)
-	}()
 
-	db, err := dbm.NewDB("app", dbm.GoLevelDBBackend, dir)
+	db, err := dbm.NewDB("app", dbm.PebbleDBBackend, dir)
 	if err != nil {
 		panic(err)
 	}
@@ -124,7 +116,7 @@ func (ac *accountCreator) generateTx() []byte {
 		common.Address(recipient.address.Bytes()),
 		sender.seqNum,
 		func(address common.Address, transaction *types2.Transaction) (*types2.Transaction, error) {
-			signer := types2.NewLondonSigner(big.NewInt(262144))
+			signer := types2.NewLondonSigner(big.NewInt(int64(evmtypes.DefaultEVMChainID)))
 			return types2.SignTx(transaction, signer, sender.ecdsaKey)
 		})
 	msg := &evmtypes.MsgEthereumTx{}
