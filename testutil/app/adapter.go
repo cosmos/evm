@@ -72,7 +72,7 @@ type EvmAppAdapter struct {
 var _ evm.EvmApp = (*EvmAppAdapter)(nil)
 
 func (a *EvmAppAdapter) GetEVMKeeper() *evmkeeper.Keeper {
-	if provider, ok := a.TestApp.(evm.EVMKeeperProvider); ok {
+	if provider, ok := a.TestApp.(evm.VMKeeperProvider); ok {
 		return provider.GetEVMKeeper()
 	}
 	panicMissingProvider("EVMKeeperProvider")

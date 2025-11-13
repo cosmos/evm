@@ -44,12 +44,14 @@ type TestApp interface {
 	DefaultGenesis() map[string]json.RawMessage
 	GetKey(storeKey string) *storetypes.KVStoreKey
 	GetBaseApp() *baseapp.BaseApp
+	LastCommitID() storetypes.CommitID
+	LastBlockHeight() int64
 	GetAnteHandler() sdk.AnteHandler
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
 
 	// keeper getters
-	EVMKeeperProvider
+	VMKeeperProvider
 	BankKeeperProvider
 	StakingKeeperProvider
 }
@@ -105,7 +107,7 @@ type (
 	EvidenceKeeperProvider interface {
 		GetEvidenceKeeper() *evidencekeeper.Keeper
 	}
-	EVMKeeperProvider interface {
+	VMKeeperProvider interface {
 		GetEVMKeeper() *evmkeeper.Keeper
 	}
 	Erc20KeeperProvider interface {
@@ -160,19 +162,14 @@ type (
 		TestApp
 		BankKeeperProvider
 		Erc20KeeperProvider
-		StakingKeeperProvider
-		KeyProvider
 	}
 	Bech32PrecompileApp interface {
 		TestApp
 	}
 	DistributionPrecompileApp interface {
 		TestApp
-		BankKeeperProvider
 		DistrKeeperProvider
-		EVMKeeperProvider
 		StakingKeeperProvider
-		KeyProvider
 	}
 	Erc20PrecompileApp interface {
 		TestApp
@@ -180,22 +177,17 @@ type (
 		BankKeeperProvider
 		Erc20KeeperProvider
 		PreciseBankKeeperProvider
-		StakingKeeperProvider
 		TransferKeeperProvider
-		KeyProvider
 	}
 	GovPrecompileApp interface {
 		TestApp
-		BankKeeperProvider
-		EVMKeeperProvider
-		FeeMarketKeeperProvider
+		FeeMarketKeeperProvider // Should be removed after refactoring test code
 		GovKeeperProvider
 	}
 	ICS20PrecompileApp interface {
 		TestApp
 		ChainIDProvider
 		BankKeeperProvider
-		EVMKeeperProvider
 		StakingKeeperProvider
 		TransferKeeperProvider
 	}
@@ -204,28 +196,21 @@ type (
 	}
 	SlashingPrecompileApp interface {
 		TestApp
-		BankKeeperProvider
-		EVMKeeperProvider
 		SlashingKeeperProvider
 		StakingKeeperProvider
-		KeyProvider
 	}
 	StakingPrecompileApp interface {
 		TestApp
 		AccountKeeperProvider
 		BankKeeperProvider
-		EVMKeeperProvider
-		Erc20KeeperProvider
+		Erc20KeeperProvider // Should be removed after refactoring test code
 		StakingKeeperProvider
-		KeyProvider
 	}
 	WERCP20PrecompileApp interface {
 		TestApp
-		ChainIDProvider
 		BankKeeperProvider
 		Erc20KeeperProvider
 		TransferKeeperProvider
-		KeyProvider
 	}
 
 	// Base interface required by the integration network helpers. Any app used by
