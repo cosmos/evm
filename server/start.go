@@ -250,11 +250,11 @@ which accepts a path for the resulting pprof file.
 }
 
 func parseGrpcAddress(address string) (string, error) {
-	_, port, err := net.SplitHostPort(address)
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return "", errorsmod.Wrapf(err, "invalid grpc address %s", address)
 	}
-	return fmt.Sprintf("127.0.0.1:%s", port), nil
+	return fmt.Sprintf("%s:%s", host, port), nil
 }
 
 // startStandAlone starts an ABCI server in stand-alone mode.
