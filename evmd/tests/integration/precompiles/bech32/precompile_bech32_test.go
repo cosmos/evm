@@ -11,9 +11,8 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.Bech32PrecompileApp](integration.CreateEvmd, "evm.Bech32PrecompileApp")
-
 func TestBech32PrecompileTestSuite(t *testing.T) {
-	s := bech32.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.Bech32PrecompileApp](integration.CreateEvmd, "evm.Bech32PrecompileApp")
+	s := bech32.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }

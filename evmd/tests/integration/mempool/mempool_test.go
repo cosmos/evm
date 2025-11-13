@@ -11,8 +11,7 @@ import (
 	"github.com/cosmos/evm/tests/integration/mempool"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestMempoolIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, mempool.NewMempoolIntegrationTestSuite(evmAppCreator))
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
+	suite.Run(t, mempool.NewMempoolIntegrationTestSuite(create))
 }

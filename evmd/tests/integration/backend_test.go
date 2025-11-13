@@ -10,9 +10,8 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var backendAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestBackend(t *testing.T) {
-	s := backend.NewTestSuite(backendAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
+	s := backend.NewTestSuite(create)
 	suite.Run(t, s)
 }

@@ -11,13 +11,13 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](integration.CreateEvmd, "evm.Erc20PrecompileApp")
-
 func TestErc20PrecompileTestSuite(t *testing.T) {
-	s := erc20.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](integration.CreateEvmd, "evm.Erc20PrecompileApp")
+	s := erc20.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestErc20IntegrationTestSuite(t *testing.T) {
-	erc20.TestIntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](integration.CreateEvmd, "evm.Erc20PrecompileApp")
+	erc20.TestIntegrationTestSuite(t, create)
 }

@@ -11,13 +11,13 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmd, "evm.StakingPrecompileApp")
-
 func TestStakingPrecompileTestSuite(t *testing.T) {
-	s := staking.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmd, "evm.StakingPrecompileApp")
+	s := staking.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestStakingPrecompileIntegrationTestSuite(t *testing.T) {
-	staking.TestPrecompileIntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.StakingPrecompileApp](integration.CreateEvmd, "evm.StakingPrecompileApp")
+	staking.TestPrecompileIntegrationTestSuite(t, create)
 }

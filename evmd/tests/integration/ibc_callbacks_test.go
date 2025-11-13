@@ -10,8 +10,7 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var ibcCallbackAppCreator = testapp.ToEvmAppCreator[evm.IBCCallbackIntegrationApp](CreateEvmd, "evm.IBCCallbackIntegrationApp")
-
 func TestIBCCallback(t *testing.T) {
-	suite.Run(t, callbacks.NewKeeperTestSuite(ibcCallbackAppCreator))
+	create := testapp.ToEvmAppCreator[evm.IBCCallbackIntegrationApp](CreateEvmd, "evm.IBCCallbackIntegrationApp")
+	suite.Run(t, callbacks.NewKeeperTestSuite(create))
 }

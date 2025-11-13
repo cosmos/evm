@@ -10,17 +10,18 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var erc20AppCreator = testapp.ToEvmAppCreator[evm.Erc20IntegrationApp](CreateEvmd, "evm.Erc20IntegrationApp")
-
 func TestERC20GenesisTestSuite(t *testing.T) {
-	suite.Run(t, erc20.NewGenesisTestSuite(erc20AppCreator))
+	create := testapp.ToEvmAppCreator[evm.Erc20IntegrationApp](CreateEvmd, "evm.Erc20IntegrationApp")
+	suite.Run(t, erc20.NewGenesisTestSuite(create))
 }
 
 func TestERC20KeeperTestSuite(t *testing.T) {
-	s := erc20.NewKeeperTestSuite(erc20AppCreator)
+	create := testapp.ToEvmAppCreator[evm.Erc20IntegrationApp](CreateEvmd, "evm.Erc20IntegrationApp")
+	s := erc20.NewKeeperTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestERC20PrecompileIntegrationTestSuite(t *testing.T) {
-	erc20.TestPrecompileIntegrationTestSuite(t, erc20AppCreator)
+	create := testapp.ToEvmAppCreator[evm.Erc20IntegrationApp](CreateEvmd, "evm.Erc20IntegrationApp")
+	erc20.TestPrecompileIntegrationTestSuite(t, create)
 }

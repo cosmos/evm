@@ -11,13 +11,13 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.P256PrecompileApp](integration.CreateEvmd, "evm.P256PrecompileApp")
-
 func TestP256PrecompileTestSuite(t *testing.T) {
-	s := p256.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.P256PrecompileApp](integration.CreateEvmd, "evm.P256PrecompileApp")
+	s := p256.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestP256PrecompileIntegrationTestSuite(t *testing.T) {
-	p256.TestPrecompileIntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.P256PrecompileApp](integration.CreateEvmd, "evm.P256PrecompileApp")
+	p256.TestPrecompileIntegrationTestSuite(t, create)
 }

@@ -10,9 +10,8 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var walletsAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestLedgerTestSuite(t *testing.T) {
-	s := wallets.NewLedgerTestSuite(walletsAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
+	s := wallets.NewLedgerTestSuite(create)
 	suite.Run(t, s)
 }

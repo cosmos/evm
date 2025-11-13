@@ -11,8 +11,7 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.AnteIntegrationApp](integration.CreateEvmd, "evm.AnteIntegrationApp")
-
 func TestEvmUnitAnteTestSuite(t *testing.T) {
-	suite.Run(t, ante.NewEvmUnitAnteTestSuite(evmAppCreator))
+	create := testapp.ToEvmAppCreator[evm.AnteIntegrationApp](integration.CreateEvmd, "evm.AnteIntegrationApp")
+	suite.Run(t, ante.NewEvmUnitAnteTestSuite(create))
 }

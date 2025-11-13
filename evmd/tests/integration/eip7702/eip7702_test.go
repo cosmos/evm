@@ -9,8 +9,7 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestEIP7702IntegrationTestSuite(t *testing.T) {
-	eip7702.TestEIP7702IntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
+	eip7702.TestEIP7702IntegrationTestSuite(t, create)
 }

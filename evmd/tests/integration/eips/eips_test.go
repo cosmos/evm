@@ -11,8 +11,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestEIPs(t *testing.T) {
-	eips.RunTests(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](integration.CreateEvmd, "evm.IntegrationNetworkApp")
+	eips.RunTests(t, create)
 }

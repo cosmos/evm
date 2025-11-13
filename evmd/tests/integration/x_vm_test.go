@@ -18,9 +18,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var vmAppCreator = testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
-
 func BenchmarkGasEstimation(b *testing.B) {
+	vmAppCreator := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
 	// Setup benchmark test environment
 	keys := keyring.New(2)
 	// Set custom balance based on test params
@@ -88,27 +87,32 @@ func BenchmarkGasEstimation(b *testing.B) {
 }
 
 func TestKeeperTestSuite(t *testing.T) {
-	s := vm.NewKeeperTestSuite(vmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	s := vm.NewKeeperTestSuite(create)
 	s.EnableFeemarket = false
 	s.EnableLondonHF = true
 	suite.Run(t, s)
 }
 
 func TestNestedEVMExtensionCallSuite(t *testing.T) {
-	s := vm.NewNestedEVMExtensionCallSuite(vmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	s := vm.NewNestedEVMExtensionCallSuite(create)
 	suite.Run(t, s)
 }
 
 func TestGenesisTestSuite(t *testing.T) {
-	s := vm.NewGenesisTestSuite(vmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	s := vm.NewGenesisTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestVmAnteTestSuite(t *testing.T) {
-	s := vm.NewEvmAnteTestSuite(vmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	s := vm.NewEvmAnteTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestIterateContracts(t *testing.T) {
-	vm.TestIterateContracts(t, vmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
+	vm.TestIterateContracts(t, create)
 }

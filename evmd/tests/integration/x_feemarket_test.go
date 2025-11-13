@@ -10,9 +10,8 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var feeMarketAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestFeeMarketKeeperTestSuite(t *testing.T) {
-	s := feemarket.NewTestKeeperTestSuite(feeMarketAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
+	s := feemarket.NewTestKeeperTestSuite(create)
 	suite.Run(t, s)
 }

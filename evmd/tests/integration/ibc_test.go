@@ -10,9 +10,8 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var ibcAppCreator = testapp.ToEvmAppCreator[evm.IBCIntegrationApp](CreateEvmd, "evm.IBCIntegrationApp")
-
 func TestIBCKeeperTestSuite(t *testing.T) {
-	s := ibc.NewKeeperTestSuite(ibcAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IBCIntegrationApp](CreateEvmd, "evm.IBCIntegrationApp")
+	s := ibc.NewKeeperTestSuite(create)
 	suite.Run(t, s)
 }

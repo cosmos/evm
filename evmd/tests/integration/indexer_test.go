@@ -8,8 +8,7 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var indexerAppCreator = testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
-
 func TestKVIndexer(t *testing.T) {
-	indexer.TestKVIndexer(t, indexerAppCreator)
+	create := testapp.ToEvmAppCreator[evm.IntegrationNetworkApp](CreateEvmd, "evm.IntegrationNetworkApp")
+	indexer.TestKVIndexer(t, create)
 }

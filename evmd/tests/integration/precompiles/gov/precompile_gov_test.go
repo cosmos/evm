@@ -11,13 +11,13 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmd, "evm.GovPrecompileApp")
-
 func TestGovPrecompileTestSuite(t *testing.T) {
-	s := gov.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmd, "evm.GovPrecompileApp")
+	s := gov.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestGovPrecompileIntegrationTestSuite(t *testing.T) {
-	gov.TestPrecompileIntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmd, "evm.GovPrecompileApp")
+	gov.TestPrecompileIntegrationTestSuite(t, create)
 }

@@ -11,13 +11,13 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.DistributionPrecompileApp](integration.CreateEvmd, "evm.DistributionPrecompileApp")
-
 func TestDistributionPrecompileTestSuite(t *testing.T) {
-	s := distribution.NewPrecompileTestSuite(evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.DistributionPrecompileApp](integration.CreateEvmd, "evm.DistributionPrecompileApp")
+	s := distribution.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestDistributionPrecompileIntegrationTestSuite(t *testing.T) {
-	distribution.TestPrecompileIntegrationTestSuite(t, evmAppCreator)
+	create := testapp.ToEvmAppCreator[evm.DistributionPrecompileApp](integration.CreateEvmd, "evm.DistributionPrecompileApp")
+	distribution.TestPrecompileIntegrationTestSuite(t, create)
 }
