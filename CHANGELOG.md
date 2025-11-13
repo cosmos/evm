@@ -15,6 +15,7 @@
 
 - [\#589](https://github.com/cosmos/evm/pull/589) Remove parallelization blockers via migration from transient to object store, refactoring of gas, indexing, and bloom utilities.
 - [\#768](https://github.com/cosmos/evm/pull/768) Added ICS-02 Client Router precompile
+- [\#826](https://github.com/cosmos/evm/pull/826) Support JSON-RPC queries in gRPC-only mode by connecting to external CometBFT node.
 
 ### BUG FIXES
 

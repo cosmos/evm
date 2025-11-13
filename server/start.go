@@ -23,6 +23,7 @@ import (
 	pvm "github.com/cometbft/cometbft/privval"
 	"github.com/cometbft/cometbft/proxy"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cometbft/cometbft/rpc/client/local"
 	cmttypes "github.com/cometbft/cometbft/types"
 
@@ -424,7 +425,10 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	if gRPCOnly {
 		logger.Info("starting node in query only mode; CometBFT is disabled")
 		config.GRPC.Enable = true
-		config.JSONRPC.EnableIndexer = false
+		if config.JSONRPC.Enable {
+			config.JSONRPC.EnableIndexer = false
+			logger.Info("JSON-RPC enabled in query-only mode (indexer disabled)")
+		}
 	} else {
 		logger.Info("starting node with ABCI CometBFT in-process")
 
@@ -464,10 +468,42 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 	// case, because it spawns a new local CometBFT RPC client.
 	if (config.API.Enable || config.GRPC.Enable || config.JSONRPC.Enable || config.JSONRPC.EnableIndexer) && bftNode != nil {
 		clientCtx = clientCtx.WithClient(local.New(bftNode))
-
 		app.RegisterTxService(clientCtx)
 		app.RegisterTendermintService(clientCtx)
 		app.RegisterNodeService(clientCtx, config.Config)
+	} else if gRPCOnly && config.JSONRPC.Enable {
+		// GRPCOnly mode with JSON-RPC: connect to external CometBFT node via --node flag
+		nodeAddr := clientCtx.NodeURI
+		if nodeAddr == "" {
+			nodeAddr = cfg.RPC.ListenAddress
+			if nodeAddr == "" {
+				nodeAddr = "tcp://127.0.0.1:26657"
+			}
+		}
+		logger.Info("gRPCOnly mode: connecting to external CometBFT node for JSON-RPC", "address", nodeAddr)
+
+		httpClient, err := rpchttp.New(nodeAddr, "/websocket")
+		if err != nil {
+			logger.Error("failed to create CometBFT RPC client for gRPCOnly mode", "error", err.Error())
+			return fmt.Errorf("failed to connect to CometBFT node at %s: %w", nodeAddr, err)
+		}
+
+		if err := httpClient.Start(); err != nil {
+			logger.Error("failed to start CometBFT RPC client", "error", err.Error())
+			return fmt.Errorf("failed to start RPC client: %w", err)
+		}
+
+		clientCtx = clientCtx.WithClient(httpClient)
+		logger.Info("successfully connected to external CometBFT node for JSON-RPC queries")
+		app.RegisterTxService(clientCtx)
+		app.RegisterTendermintService(clientCtx)
+		app.RegisterNodeService(clientCtx, config.Config)
+
+		g.Go(func() error {
+			<-ctx.Done()
+			logger.Info("stopping CometBFT RPC client")
+			return httpClient.Stop()
+		})
 	}
 
 	metrics, err := startTelemetry(config)
