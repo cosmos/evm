@@ -224,15 +224,7 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 		{
 			"balances, no remainder",
 			func() *types.GenesisState {
-				// Burn the initial balance created by network setup, then mint the expected amount
-				err := s.network.App.GetBankKeeper().BurnCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
-				)
-				s.Require().NoError(err)
-
-				err = s.network.App.GetBankKeeper().MintCoins(
+				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
 					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
@@ -251,15 +243,7 @@ func (s *GenesisTestSuite) TestExportGenesis() {
 		{
 			"balances, remainder",
 			func() *types.GenesisState {
-				// Burn the initial balance created by network setup, then mint the expected amount
-				err := s.network.App.GetBankKeeper().BurnCoins(
-					s.network.GetContext(),
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
-				)
-				s.Require().NoError(err)
-
-				err = s.network.App.GetBankKeeper().MintCoins(
+				err := s.network.App.GetBankKeeper().MintCoins(
 					s.network.GetContext(),
 					types.ModuleName,
 					sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), sdkmath.NewInt(1))),
