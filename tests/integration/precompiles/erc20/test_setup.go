@@ -3,7 +3,6 @@ package erc20
 import (
 	"github.com/stretchr/testify/suite"
 
-	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -47,9 +46,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	integrationNetwork := network.NewUnitTestNetwork(s.create, options...)
-	if _, ok := integrationNetwork.App.(evm.Erc20PrecompileApp); !ok {
-		panic("erc20 precompile suite requires evm.Erc20PrecompileApp")
-	}
 	grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
 	txFactory := factory.New(integrationNetwork, grpcHandler)
 

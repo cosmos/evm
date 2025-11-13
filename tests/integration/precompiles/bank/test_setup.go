@@ -4,7 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
 
-	evm "github.com/cosmos/evm"
 	bank2 "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -54,9 +53,6 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 		network.WithCustomGenesis(genesis),
 		network.WithOtherDenoms([]string{s.tokenDenom}),
 	)
-	if _, ok := unitNetwork.App.(evm.BankPrecompileApp); !ok {
-		panic("bank precompile suite requires evm.BankPrecompileApp")
-	}
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
 	txFactory := factory.New(unitNetwork, grpcHandler)
 

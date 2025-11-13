@@ -3,7 +3,6 @@ package bech32
 import (
 	"github.com/stretchr/testify/suite"
 
-	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/bech32"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	testkeyring "github.com/cosmos/evm/testutil/keyring"
@@ -36,9 +35,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	integrationNetwork := network.NewUnitTestNetwork(s.create, options...)
-	if _, ok := integrationNetwork.App.(evm.Bech32PrecompileApp); !ok {
-		panic("bech32 precompile suite requires evm.Bech32PrecompileApp")
-	}
 
 	s.keyring = keyring
 	s.network = integrationNetwork

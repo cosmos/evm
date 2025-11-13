@@ -3,7 +3,6 @@ package slashing
 import (
 	"github.com/stretchr/testify/suite"
 
-	evm "github.com/cosmos/evm"
 	evmaddress "github.com/cosmos/evm/encoding/address"
 	"github.com/cosmos/evm/precompiles/slashing"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -47,9 +46,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	nw := network.NewUnitTestNetwork(s.create, options...)
-	if _, ok := nw.App.(evm.SlashingPrecompileApp); !ok {
-		panic("slashing precompile suite requires evm.SlashingPrecompileApp")
-	}
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 

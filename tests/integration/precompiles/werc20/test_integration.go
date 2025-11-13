@@ -11,7 +11,6 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
-	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/werc20"
@@ -122,8 +121,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			}
 			opts = append(opts, options...)
 			integrationNetwork := network.NewUnitTestNetwork(create, opts...)
-			_, ok := integrationNetwork.App.(evm.WERCP20PrecompileApp)
-			Expect(ok).To(BeTrue(), "app does not implement evm.WERCP20PrecompileApp")
 			grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
 			txFactory := factory.New(integrationNetwork, grpcHandler)
 

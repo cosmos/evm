@@ -43,9 +43,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.chainB = s.coordinator.GetChain(evmibctesting.GetEvmChainID(2))
 
 	evmAppA := s.chainA.App.(evm.EvmApp)
-	if _, ok := evmAppA.(evm.ICS20PrecompileApp); !ok {
-		panic("ics20 precompile suite requires evm.ICS20PrecompileApp on chain A")
-	}
 	s.chainAPrecompile = ics20.NewPrecompile(
 		evmAppA.GetBankKeeper(),
 		*evmAppA.GetStakingKeeper(),
@@ -54,9 +51,6 @@ func (s *PrecompileTestSuite) SetupTest() {
 	)
 	s.chainABondDenom, _ = evmAppA.GetStakingKeeper().BondDenom(s.chainA.GetContext())
 	evmAppB := s.chainB.App.(evm.EvmApp)
-	if _, ok := evmAppB.(evm.ICS20PrecompileApp); !ok {
-		panic("ics20 precompile suite requires evm.ICS20PrecompileApp on chain B")
-	}
 	s.chainBPrecompile = ics20.NewPrecompile(
 		evmAppB.GetBankKeeper(),
 		*evmAppB.GetStakingKeeper(),
