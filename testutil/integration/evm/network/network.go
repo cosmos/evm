@@ -166,7 +166,7 @@ func (n *IntegrationNetwork) configureAndInitChain(evmApp evm.EvmApp) error {
 
 	// Get the corresponding slashing info and missed block info
 	// for the created validators
-	slashingParams, err := getValidatorsSlashingGen(validators, mustGetStakingKeeper(evmApp))
+	slashingParams, err := getValidatorsSlashingGen(validators, evmApp.GetStakingKeeper())
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,7 @@ import (
 	testapp "github.com/cosmos/evm/testutil/app"
 )
 
-var evmAppCreator = testapp.ToEvmAppCreator[evm.Erc20PrecompileApp](integration.CreateEvmd, "evm.Erc20PrecompileApp")
+var evmAppCreator = testapp.ToEvmAppCreator[evm.GovPrecompileApp](integration.CreateEvmd, "evm.GovPrecompileApp")
 
 func TestGovPrecompileTestSuite(t *testing.T) {
 	s := gov.NewPrecompileTestSuite(evmAppCreator)

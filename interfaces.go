@@ -152,10 +152,10 @@ type (
 	}
 )
 
-// Precompile-focused application interfaces describe the exact keepers that a
-// given precompile test suite requires. External chains can implement only the
-// interfaces relevant to the suites they wish to run.
 type (
+	// Precompile-focused application interfaces describe the exact keepers that a
+	// given precompile test suite requires. External chains can implement only the
+	// interfaces relevant to the suites they wish to run.
 	BankPrecompileApp interface {
 		TestApp
 		BankKeeperProvider
@@ -226,5 +226,41 @@ type (
 		Erc20KeeperProvider
 		TransferKeeperProvider
 		KeyProvider
+	}
+
+	// Base interface required by the integration network helpers. Any app used by
+	// evm/testutil/integration must satisfy these keeper providers so the shared
+	// network setup can access the necessary modules.
+	IntegrationNetworkApp interface {
+		TestApp
+		AccountKeeperProvider
+		DistrKeeperProvider
+		Erc20KeeperProvider
+		FeeMarketKeeperProvider
+		GovKeeperProvider
+		MintKeeperProvider
+		PreciseBankKeeperProvider
+		SlashingKeeperProvider
+		EvidenceKeeperProvider
+	}
+	Erc20IntegrationApp interface {
+		IntegrationNetworkApp
+		TransferKeeperProvider
+	}
+	VMIntegrationApp interface {
+		IntegrationNetworkApp
+		ConsensusParamsKeeperProvider
+	}
+	AnteIntegrationApp interface {
+		IntegrationNetworkApp
+		FeeGrantKeeperProvider
+	}
+	IBCIntegrationApp interface {
+		IntegrationNetworkApp
+		TransferKeeperProvider
+	}
+	IBCCallbackIntegrationApp interface {
+		IntegrationNetworkApp
+		CallbackKeeperProvider
 	}
 )

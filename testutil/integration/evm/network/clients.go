@@ -33,61 +33,61 @@ func getQueryHelper(ctx sdktypes.Context, encCfg testutil.TestEncodingConfig) *b
 
 func (n *IntegrationNetwork) GetERC20Client() erc20types.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	erc20types.RegisterQueryServer(queryHelper, mustGetErc20Keeper(n.app))
+	erc20types.RegisterQueryServer(queryHelper, n.app.GetErc20Keeper())
 	return erc20types.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetEvmClient() evmtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	evmtypes.RegisterQueryServer(queryHelper, mustGetEVMKeeper(n.app))
+	evmtypes.RegisterQueryServer(queryHelper, n.app.GetEVMKeeper())
 	return evmtypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetGovClient() govtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	govKeeper := mustGetGovKeeper(n.app)
+	govKeeper := n.app.GetGovKeeper()
 	govtypes.RegisterQueryServer(queryHelper, govkeeper.NewQueryServer(&govKeeper))
 	return govtypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetBankClient() banktypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	banktypes.RegisterQueryServer(queryHelper, mustGetBankKeeper(n.app))
+	banktypes.RegisterQueryServer(queryHelper, n.app.GetBankKeeper())
 	return banktypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetFeeMarketClient() feemarkettypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	feemarkettypes.RegisterQueryServer(queryHelper, mustGetFeeMarketKeeper(n.app))
+	feemarkettypes.RegisterQueryServer(queryHelper, n.app.GetFeeMarketKeeper())
 	return feemarkettypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetAuthClient() authtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	authtypes.RegisterQueryServer(queryHelper, authkeeper.NewQueryServer(mustGetAccountKeeper(n.app)))
+	authtypes.RegisterQueryServer(queryHelper, authkeeper.NewQueryServer(n.app.GetAccountKeeper()))
 	return authtypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetStakingClient() stakingtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	stakingtypes.RegisterQueryServer(queryHelper, stakingkeeper.Querier{Keeper: mustGetStakingKeeper(n.app)})
+	stakingtypes.RegisterQueryServer(queryHelper, stakingkeeper.Querier{Keeper: n.app.GetStakingKeeper()})
 	return stakingtypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetDistrClient() distrtypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	distrtypes.RegisterQueryServer(queryHelper, distrkeeper.Querier{Keeper: mustGetDistrKeeper(n.app)})
+	distrtypes.RegisterQueryServer(queryHelper, distrkeeper.Querier{Keeper: n.app.GetDistrKeeper()})
 	return distrtypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetMintClient() minttypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	minttypes.RegisterQueryServer(queryHelper, mintkeeper.NewQueryServerImpl(mustGetMintKeeper(n.app)))
+	minttypes.RegisterQueryServer(queryHelper, mintkeeper.NewQueryServerImpl(n.app.GetMintKeeper()))
 	return minttypes.NewQueryClient(queryHelper)
 }
 
 func (n *IntegrationNetwork) GetPreciseBankClient() precisebanktypes.QueryClient {
 	queryHelper := getQueryHelper(n.GetContext(), n.GetEncodingConfig())
-	precisebanktypes.RegisterQueryServer(queryHelper, precisebankkeeper.NewQueryServerImpl(*mustGetPreciseBankKeeper(n.app)))
+	precisebanktypes.RegisterQueryServer(queryHelper, precisebankkeeper.NewQueryServerImpl(*n.app.GetPreciseBankKeeper()))
 	return precisebanktypes.NewQueryClient(queryHelper)
 }

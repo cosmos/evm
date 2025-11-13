@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/tests/integration/x/vm"
+	testapp "github.com/cosmos/evm/testutil/app"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/keyring"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
@@ -15,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+var vmAppCreator = testapp.ToEvmAppCreator[evm.VMIntegrationApp](CreateEvmd, "evm.VMIntegrationApp")
 
 func BenchmarkGasEstimation(b *testing.B) {
 	// Setup benchmark test environment
@@ -28,7 +32,7 @@ func BenchmarkGasEstimation(b *testing.B) {
 		network.WithPreFundedAccounts(keys.GetAllAccAddrs()...),
 		network.WithCustomGenesis(customGenesis),
 	}
-	nw := network.NewUnitTestNetwork(CreateEvmd, opts...)
+	nw := network.NewUnitTestNetwork(vmAppCreator, opts...)
 	// gh := grpc.NewIntegrationHandler(nw)
 	// tf := factory.New(nw, gh)
 
@@ -84,27 +88,27 @@ func BenchmarkGasEstimation(b *testing.B) {
 }
 
 func TestKeeperTestSuite(t *testing.T) {
-	s := vm.NewKeeperTestSuite(CreateEvmd)
+	s := vm.NewKeeperTestSuite(vmAppCreator)
 	s.EnableFeemarket = false
 	s.EnableLondonHF = true
 	suite.Run(t, s)
 }
 
 func TestNestedEVMExtensionCallSuite(t *testing.T) {
-	s := vm.NewNestedEVMExtensionCallSuite(CreateEvmd)
+	s := vm.NewNestedEVMExtensionCallSuite(vmAppCreator)
 	suite.Run(t, s)
 }
 
 func TestGenesisTestSuite(t *testing.T) {
-	s := vm.NewGenesisTestSuite(CreateEvmd)
+	s := vm.NewGenesisTestSuite(vmAppCreator)
 	suite.Run(t, s)
 }
 
 func TestVmAnteTestSuite(t *testing.T) {
-	s := vm.NewEvmAnteTestSuite(CreateEvmd)
+	s := vm.NewEvmAnteTestSuite(vmAppCreator)
 	suite.Run(t, s)
 }
 
 func TestIterateContracts(t *testing.T) {
-	vm.TestIterateContracts(t, CreateEvmd)
+	vm.TestIterateContracts(t, vmAppCreator)
 }
