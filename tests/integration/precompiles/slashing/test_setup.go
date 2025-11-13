@@ -47,7 +47,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	nw := network.NewUnitTestNetwork(s.create, options...)
-	s.Require().Implements((*evm.SlashingPrecompileApp)(nil), nw.App)
+	if _, ok := nw.App.(evm.SlashingPrecompileApp); !ok {
+		panic("slashing precompile suite requires evm.SlashingPrecompileApp")
+	}
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 

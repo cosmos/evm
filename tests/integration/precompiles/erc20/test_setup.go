@@ -47,7 +47,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	integrationNetwork := network.NewUnitTestNetwork(s.create, options...)
-	s.Require().Implements((*evm.Erc20PrecompileApp)(nil), integrationNetwork.App)
+	if _, ok := integrationNetwork.App.(evm.Erc20PrecompileApp); !ok {
+		panic("erc20 precompile suite requires evm.Erc20PrecompileApp")
+	}
 	grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
 	txFactory := factory.New(integrationNetwork, grpcHandler)
 

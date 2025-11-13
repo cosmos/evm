@@ -113,7 +113,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	nw := network.NewUnitTestNetwork(s.create, options...)
-	s.Require().Implements((*evm.DistributionPrecompileApp)(nil), nw.App)
+	if _, ok := nw.App.(evm.DistributionPrecompileApp); !ok {
+		panic("distribution precompile suite requires evm.DistributionPrecompileApp")
+	}
 	grpcHandler := grpc.NewIntegrationHandler(nw)
 	txFactory := factory.New(nw, grpcHandler)
 

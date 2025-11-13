@@ -36,7 +36,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 	}
 	options = append(options, s.options...)
 	integrationNetwork := network.NewUnitTestNetwork(s.create, options...)
-	s.Require().Implements((*evm.Bech32PrecompileApp)(nil), integrationNetwork.App)
+	if _, ok := integrationNetwork.App.(evm.Bech32PrecompileApp); !ok {
+		panic("bech32 precompile suite requires evm.Bech32PrecompileApp")
+	}
 
 	s.keyring = keyring
 	s.network = integrationNetwork
