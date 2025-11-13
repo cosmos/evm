@@ -1,6 +1,7 @@
 package testapp
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -11,6 +12,7 @@ import (
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	storetypes "cosmossdk.io/store/types"
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
@@ -33,16 +35,33 @@ func NewEvmAppAdapter(app evm.TestApp) evm.EvmApp {
 	return &EvmAppAdapter{TestApp: app}
 }
 
-// WrapToEvmApp validates that the provided factory returns an app
+// ToEvmAppCreator validates that the provided factory returns an app
 // implementing the desired interface T and then wraps it behind the keeper
 // adapter so downstream helpers can keep using evm.EvmApp.
-func WrapToEvmApp[T any](create func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
+func ToEvmAppCreator[T any](create func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
 	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
 		app := create(chainID, evmChainID, customBaseAppOptions...)
 		if _, ok := app.(T); !ok {
 			panic(fmt.Sprintf("CreateEvmApp must implement %s", ifaceName))
 		}
 		return NewEvmAppAdapter(app)
+	}
+}
+
+// ToIBCAppCreator adapts an ibctesting.AppCreator into one that
+// guarantees the returned app implements the desired interface T and exposes
+// the evm.EvmApp API via the testing adapter.
+func ToIBCAppCreator[T any](creator ibctesting.AppCreator, ifaceName string) ibctesting.AppCreator {
+	return func() (ibctesting.TestingApp, map[string]json.RawMessage) {
+		app, genesis := creator()
+		typedApp, ok := app.(evm.TestApp)
+		if !ok {
+			panic("AppCreator must return an app implementing evm.TestApp")
+		}
+		if _, ok := app.(T); !ok {
+			panic(fmt.Sprintf("AppCreator must implement %s", ifaceName))
+		}
+		return NewEvmAppAdapter(typedApp), genesis
 	}
 }
 

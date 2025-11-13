@@ -165,7 +165,6 @@ type (
 	}
 	Bech32PrecompileApp interface {
 		TestApp
-		StakingKeeperProvider
 	}
 	DistributionPrecompileApp interface {
 		TestApp
@@ -202,7 +201,6 @@ type (
 	}
 	P256PrecompileApp interface {
 		TestApp
-		KeyProvider
 	}
 	SlashingPrecompileApp interface {
 		TestApp

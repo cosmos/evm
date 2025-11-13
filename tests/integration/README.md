@@ -43,14 +43,14 @@ import (
     "github.com/cosmos/evm/tests/integration/precompiles/bank"
 )
 
+var evmAppCreator = testapp.ToEvmAppCreator[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
+
 func TestBankPrecompileTestSuite(t *testing.T) {
-    create := testapp.WrapToEvmApp[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
-    s := bank.NewPrecompileTestSuite(create)
+    s := bank.NewPrecompileTestSuite(evmAppCreator)
     suite.Run(t, s)
 }
 
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
-    create := testapp.WrapToEvmApp[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
-    bank.TestIntegrationSuite(t, create)
+    bank.TestIntegrationSuite(t, evmAppCreator)
 }
 ```
