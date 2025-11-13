@@ -283,7 +283,7 @@ func New(
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-		// register the governance hooks
+			// register the governance hooks
 		),
 	)
 
@@ -679,7 +679,12 @@ func (app *App) AutoCliOpts() autocli.AppOptions {
 
 // DefaultGenesis returns a default genesis from the registered AppModuleBasic's.
 func (app *App) DefaultGenesis() map[string]json.RawMessage {
-	return app.BasicModuleManager.DefaultGenesis(app.appCodec)
+	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
+	evmGenState := evmtypes.DefaultGenesisState()
+	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
+	genesis[evmtypes.ModuleName] = app.appCodec.MustMarshalJSON(evmGenState)
+	return genesis
 }
 
 // GetKey returns the KVStoreKey for the provided store key.
