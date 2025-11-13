@@ -11,6 +11,7 @@ import (
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -31,7 +32,7 @@ import (
 // NewEvmAppAdapter wraps a specialized TestApp (one that implements the keeper
 // provider interfaces) into a full evm.EvmApp so shared testing helpers can
 // keep using the broader interface.
-func NewEvmAppAdapter(app evm.TestApp) evm.EvmApp {
+func NewEvmAppAdapter(app evm.TestApp) *EvmAppAdapter {
 	return &EvmAppAdapter{TestApp: app}
 }
 
@@ -60,6 +61,9 @@ func ToIBCAppCreator[T any](creator ibctesting.AppCreator, ifaceName string) ibc
 		}
 		if _, ok := app.(T); !ok {
 			panic(fmt.Sprintf("AppCreator must implement %s", ifaceName))
+		}
+		if _, ok := app.(evm.IBCTestApp); !ok {
+			panic("AppCreator must return an app implementing evm.IBCTestApp")
 		}
 		return NewEvmAppAdapter(typedApp), genesis
 	}
@@ -109,6 +113,14 @@ func (a *EvmAppAdapter) GetSlashingKeeper() slashingkeeper.Keeper {
 	}
 	panicMissingProvider("SlashingKeeperProvider")
 	return slashingkeeper.Keeper{}
+}
+
+func (a *EvmAppAdapter) GetIBCKeeper() *ibckeeper.Keeper {
+	if provider, ok := a.TestApp.(evm.IBCKeeperProvider); ok {
+		return provider.GetIBCKeeper()
+	}
+	panicMissingProvider("IBCKeeperProvider")
+	return nil
 }
 
 func (a *EvmAppAdapter) GetEvidenceKeeper() *evidencekeeper.Keeper {

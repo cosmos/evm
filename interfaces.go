@@ -9,6 +9,7 @@ import (
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -20,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
+	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -34,7 +36,7 @@ import (
 
 // TestApp captures the minimal functionality all test harnesses require.
 type TestApp interface {
-	ibctesting.TestingApp
+	servertypes.Application
 	runtime.AppI
 	InterfaceRegistry() types.InterfaceRegistry
 	AppCodec() codec.Codec
@@ -110,6 +112,9 @@ type (
 	VMKeeperProvider interface {
 		GetEVMKeeper() *evmkeeper.Keeper
 	}
+	IBCKeeperProvider interface {
+		GetIBCKeeper() *ibckeeper.Keeper
+	}
 	Erc20KeeperProvider interface {
 		GetErc20Keeper() *erc20keeper.Keeper
 	}
@@ -155,6 +160,14 @@ type (
 )
 
 type (
+	IBCTestApp interface {
+		TestApp
+		ibctesting.TestingApp
+	}
+	IBCApp interface {
+		EvmApp
+		IBCKeeperProvider
+	}
 	// Precompile-focused application interfaces describe the exact keepers that a
 	// given precompile test suite requires. External chains can implement only the
 	// interfaces relevant to the suites they wish to run.
@@ -190,6 +203,7 @@ type (
 		BankKeeperProvider
 		StakingKeeperProvider
 		TransferKeeperProvider
+		IBCKeeperProvider
 	}
 	P256PrecompileApp interface {
 		TestApp
@@ -231,6 +245,7 @@ type (
 	Erc20IntegrationApp interface {
 		IntegrationNetworkApp
 		TransferKeeperProvider
+		IBCKeeperProvider
 	}
 	VMIntegrationApp interface {
 		IntegrationNetworkApp
@@ -239,13 +254,16 @@ type (
 	AnteIntegrationApp interface {
 		IntegrationNetworkApp
 		FeeGrantKeeperProvider
+		IBCKeeperProvider
 	}
 	IBCIntegrationApp interface {
 		IntegrationNetworkApp
 		TransferKeeperProvider
+		IBCKeeperProvider
 	}
 	IBCCallbackIntegrationApp interface {
 		IntegrationNetworkApp
 		CallbackKeeperProvider
+		IBCKeeperProvider
 	}
 )
