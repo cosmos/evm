@@ -44,11 +44,10 @@ func (n *UnitTestNetwork) GetStateDB() *statedb.StateDB {
 // FundAccount funds the given account with the given amount of coins.
 func (n *UnitTestNetwork) FundAccount(addr sdktypes.AccAddress, coins sdktypes.Coins) error {
 	ctx := n.GetContext()
-	bankKeeper := n.app.GetBankKeeper()
 
-	if err := bankKeeper.MintCoins(ctx, minttypes.ModuleName, coins); err != nil {
+	if err := n.app.GetBankKeeper().MintCoins(ctx, minttypes.ModuleName, coins); err != nil {
 		return err
 	}
 
-	return bankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, addr, coins)
+	return n.app.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, addr, coins)
 }
