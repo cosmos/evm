@@ -35,14 +35,6 @@ var (
 	ERC20PrecompileAddr = common.HexToAddress("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
 )
 
-type Application struct {
-	*evmd.EVMD
-}
-
-func (a Application) Codec() codec.Codec {
-	return a.AppCodec()
-}
-
 func NewSpeedTestCommand(dir string) *cobra.Command {
 	logger := log.NewNopLogger()
 
@@ -51,24 +43,32 @@ func NewSpeedTestCommand(dir string) *cobra.Command {
 		panic(err)
 	}
 
+	chainID := "9001"
 	baseAppOpts := make([]func(*baseapp.BaseApp), 0)
-	baseAppOpts = append(baseAppOpts, baseapp.SetChainID("9001"))
-	evmd := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
-	app := Application{evmd}
-	ac := accountCreator{
-		app:      &app,
+	baseAppOpts = append(baseAppOpts, baseapp.SetChainID(chainID))
+	evmApp := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
+	gen := generator{
+		app:      evmApp,
 		accounts: make([]accountInfo, 0),
 	}
-	cmd := speedtest.SpeedTestCmd(ac.createAccount, ac.generateTx, app, "9001",
-		DisableFeeMarket(),
-		SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom),
-		BankMetadataSetter(sdk.DefaultBondDenom, 18),
+	genesis := evmApp.DefaultGenesis()
+	cdc := evmApp.AppCodec()
+	DisableFeeMarket(cdc, genesis)
+	SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom)(cdc, genesis)
+	BankMetadataSetter(sdk.DefaultBondDenom, 18)(cdc, genesis)
+	cmd := speedtest.SpeedTestCmd(
+		gen.createAccount,
+		gen.generateTx,
+		evmApp,
+		evmApp.AppCodec(),
+		genesis,
+		chainID,
 	)
 	return cmd
 }
 
-type accountCreator struct {
-	app      *Application
+type generator struct {
+	app      *evmd.EVMD
 	accounts []accountInfo
 }
 
@@ -78,7 +78,7 @@ type accountInfo struct {
 	seqNum   uint64
 }
 
-func (ac *accountCreator) createAccount() (*types.BaseAccount, sdk.Coins) {
+func (gen *generator) createAccount() (*types.BaseAccount, sdk.Coins) {
 	privKey, err := ethsecp256k1.GenerateKey()
 	if err != nil {
 		panic(err)
@@ -88,10 +88,10 @@ func (ac *accountCreator) createAccount() (*types.BaseAccount, sdk.Coins) {
 		panic(err)
 	}
 	addr := sdk.AccAddress(privKey.PubKey().Address())
-	accountNum := uint64(len(ac.accounts))
+	accountNum := uint64(len(gen.accounts))
 	baseAcc := types.NewBaseAccount(addr, privKey.PubKey(), accountNum+1, 0)
 
-	ac.accounts = append(ac.accounts, accountInfo{
+	gen.accounts = append(gen.accounts, accountInfo{
 		ecdsaKey: ecsdaKey,
 		address:  addr,
 		seqNum:   0,
@@ -100,13 +100,13 @@ func (ac *accountCreator) createAccount() (*types.BaseAccount, sdk.Coins) {
 	return baseAcc, fundingAmount
 }
 
-func (ac *accountCreator) generateTx() []byte {
+func (gen *generator) generateTx() []byte {
 	// Select sender and recipient (ensure they're different)
-	senderIdx := r.Intn(len(ac.accounts))
-	recipientIdx := (senderIdx + 1 + r.Intn(len(ac.accounts)-1)) % len(ac.accounts)
+	senderIdx := r.Intn(len(gen.accounts))
+	recipientIdx := (senderIdx + 1 + r.Intn(len(gen.accounts)-1)) % len(gen.accounts)
 
-	sender := ac.accounts[senderIdx]
-	recipient := ac.accounts[recipientIdx]
+	sender := gen.accounts[senderIdx]
+	recipient := gen.accounts[recipientIdx]
 
 	// Create MsgSend
 	ethTx := createMsgNativeERC20Transfer(
@@ -122,12 +122,12 @@ func (ac *accountCreator) generateTx() []byte {
 	msg := &evmtypes.MsgEthereumTx{}
 	msg.FromEthereumTx(ethTx)
 	msg.From = sender.address.Bytes()
-	builder := ac.app.TxConfig().NewTxBuilder()
+	builder := gen.app.TxConfig().NewTxBuilder()
 	tx, err := msg.BuildTx(builder, sdk.DefaultBondDenom)
 	if err != nil {
 		panic(err)
 	}
-	txEncoder := ac.app.TxConfig().TxEncoder()
+	txEncoder := gen.app.TxConfig().TxEncoder()
 
 	// Encode transaction
 	txBytes, err := txEncoder(tx)
@@ -135,7 +135,7 @@ func (ac *accountCreator) generateTx() []byte {
 		panic(err)
 	}
 
-	ac.accounts[senderIdx].seqNum++
+	gen.accounts[senderIdx].seqNum++
 
 	return txBytes
 }
@@ -168,7 +168,7 @@ func createMsgNativeERC20Transfer(sendAmt int64, precompileAddress common.Addres
 }
 
 var (
-	BankMetadataSetter = func(denom string, exp uint32) speedtest.GenesisModifier {
+	BankMetadataSetter = func(denom string, exp uint32) func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
 		return func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
 			bankGenesis := genesisState[banktypes.ModuleName]
 			var bankGen banktypes.GenesisState
@@ -194,7 +194,7 @@ var (
 		}
 	}
 
-	SetERC20Precompile = func(addr, denom string) speedtest.GenesisModifier {
+	SetERC20Precompile = func(addr, denom string) func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
 		return func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
 			erc20Genesis := genesisState[erc20types.ModuleName]
 			var erc20Gen erc20types.GenesisState
@@ -211,19 +211,18 @@ var (
 			erc20Bz := cdc.MustMarshalJSON(&erc20Gen)
 
 			genesisState[erc20types.ModuleName] = erc20Bz
+
 		}
 	}
 
-	DisableFeeMarket = func() speedtest.GenesisModifier {
-		return func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
-			feeMarketGenesis := genesisState[feemarkettypes.ModuleName]
-			var feeMarketGen feemarkettypes.GenesisState
-			if err := feeMarketGenesis.UnmarshalJSON(feeMarketGenesis); err != nil {
-				panic(err)
-			}
-			feeMarketGen.Params.NoBaseFee = true
-			bz := cdc.MustMarshalJSON(&feeMarketGen)
-			genesisState[feemarkettypes.ModuleName] = bz
+	DisableFeeMarket = func(cdc codec.Codec, genesisState map[string]json.RawMessage) {
+		feeMarketGenesis := genesisState[feemarkettypes.ModuleName]
+		var feeMarketGen feemarkettypes.GenesisState
+		if err := feeMarketGenesis.UnmarshalJSON(feeMarketGenesis); err != nil {
+			panic(err)
 		}
+		feeMarketGen.Params.NoBaseFee = true
+		bz := cdc.MustMarshalJSON(&feeMarketGen)
+		genesisState[feemarkettypes.ModuleName] = bz
 	}
 )

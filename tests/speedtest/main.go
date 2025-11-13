@@ -3,7 +3,7 @@ package main
 import "os"
 
 func main() {
-	dir, err := os.MkdirTemp("", "mytmp-*")
+	dir, err := os.MkdirTemp("", "speedtest-*")
 	if err != nil {
 		panic(err)
 	}
