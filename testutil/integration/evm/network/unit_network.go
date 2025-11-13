@@ -26,13 +26,9 @@ var _ Network = (*UnitTestNetwork)(nil)
 // Note: Only uses for Unit Tests
 func NewUnitTestNetwork(createEvmApp CreateEvmApp, opts ...ConfigOption) *UnitTestNetwork {
 	network := New(createEvmApp, opts...)
-	evmApp, ok := network.app.(evm.EvmApp)
-	if !ok {
-		panic("provided application does not implement evm.EvmApp")
-	}
 	return &UnitTestNetwork{
 		IntegrationNetwork: *network,
-		App:                evmApp,
+		App:                network.app,
 	}
 }
 

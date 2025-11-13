@@ -38,7 +38,7 @@ type IntegrationTestSuite struct {
 	bondDenom, tokenDenom   string
 	cosmosEVMAddr, xmplAddr common.Address
 
-	createApp   CreateBankPrecompileApp
+	create      network.CreateEvmApp
 	options     []network.ConfigOption
 	network     *network.UnitTestNetwork
 	factory     factory.TxFactory
@@ -48,10 +48,10 @@ type IntegrationTestSuite struct {
 	precompile *bank2.Precompile
 }
 
-func NewIntegrationTestSuite(create CreateBankPrecompileApp, options ...network.ConfigOption) *IntegrationTestSuite {
+func NewIntegrationTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *IntegrationTestSuite {
 	return &IntegrationTestSuite{
-		createApp: create,
-		options:   options,
+		create:  create,
+		options: options,
 	}
 }
 
@@ -70,7 +70,7 @@ func (is *IntegrationTestSuite) SetupTest() {
 		network.WithCustomGenesis(genesis),
 	}
 	options = append(options, is.options...)
-	integrationNetwork := network.NewUnitTestNetwork(wrapBankCreate(is.createApp), options...)
+	integrationNetwork := network.NewUnitTestNetwork(is.create, options...)
 	grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
 	txFactory := factory.New(integrationNetwork, grpcHandler)
 
@@ -102,7 +102,7 @@ func (is *IntegrationTestSuite) SetupTest() {
 	is.precompile = is.setupBankPrecompile()
 }
 
-func TestIntegrationSuite(t *testing.T, create CreateBankPrecompileApp, options ...network.ConfigOption) {
+func TestIntegrationSuite(t *testing.T, create network.CreateEvmApp, options ...network.ConfigOption) {
 	var is *IntegrationTestSuite
 
 	_ = Describe("Bank Extension -", func() {

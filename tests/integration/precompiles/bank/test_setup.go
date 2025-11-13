@@ -6,7 +6,6 @@ import (
 
 	evm "github.com/cosmos/evm"
 	bank2 "github.com/cosmos/evm/precompiles/bank"
-	testapp "github.com/cosmos/evm/testutil/app"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
@@ -15,7 +14,6 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -25,7 +23,7 @@ import (
 type PrecompileTestSuite struct {
 	suite.Suite
 
-	create                  CreateBankPrecompileApp
+	create                  network.CreateEvmApp
 	bondDenom, tokenDenom   string
 	cosmosEVMAddr, xmplAddr common.Address
 
@@ -39,15 +37,7 @@ type PrecompileTestSuite struct {
 	precompile *bank2.Precompile
 }
 
-type CreateBankPrecompileApp func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.BankPrecompileApp
-
-func wrapBankCreate(create CreateBankPrecompileApp) network.CreateEvmApp {
-	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
-		return testapp.NewKeeperAdapter(create(chainID, evmChainID, customBaseAppOptions...))
-	}
-}
-
-func NewPrecompileTestSuite(create CreateBankPrecompileApp) *PrecompileTestSuite {
+func NewPrecompileTestSuite(create network.CreateEvmApp) *PrecompileTestSuite {
 	return &PrecompileTestSuite{
 		create: create,
 	}
@@ -59,11 +49,14 @@ func (s *PrecompileTestSuite) SetupTest() sdk.Context {
 	keyring := testkeyring.New(2)
 	genesis := utils.CreateGenesisWithTokenPairs(keyring)
 	unitNetwork := network.NewUnitTestNetwork(
-		wrapBankCreate(s.create),
+		s.create,
 		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
 		network.WithCustomGenesis(genesis),
 		network.WithOtherDenoms([]string{s.tokenDenom}),
 	)
+	if _, ok := unitNetwork.App.(evm.BankPrecompileApp); !ok {
+		panic("bank precompile suite requires evm.BankPrecompileApp")
+	}
 	grpcHandler := grpc.NewIntegrationHandler(unitNetwork)
 	txFactory := factory.New(unitNetwork, grpcHandler)
 

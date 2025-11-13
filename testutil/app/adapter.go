@@ -3,6 +3,7 @@ package testapp
 import (
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	evm "github.com/cosmos/evm"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
@@ -25,23 +26,33 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 )
 
-// keeperAdapter wraps a TestApp and implements EvmApp by delegating keeper
-// access to optional provider interfaces.
-type keeperAdapter struct {
+// NewEvmAppAdapter wraps a specialized TestApp (one that implements the keeper
+// provider interfaces) into a full evm.EvmApp so shared testing helpers can
+// keep using the broader interface.
+func NewEvmAppAdapter(app evm.TestApp) evm.EvmApp {
+	return &EvmAppAdapter{TestApp: app}
+}
+
+// WrapToEvmApp validates that the provided factory returns an app
+// implementing the desired interface T and then wraps it behind the keeper
+// adapter so downstream helpers can keep using evm.EvmApp.
+func WrapToEvmApp[T any](create func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp, ifaceName string) func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.EvmApp {
+		app := create(chainID, evmChainID, customBaseAppOptions...)
+		if _, ok := app.(T); !ok {
+			panic(fmt.Sprintf("CreateEvmApp must implement %s", ifaceName))
+		}
+		return NewEvmAppAdapter(app)
+	}
+}
+
+type EvmAppAdapter struct {
 	evm.TestApp
 }
 
-var _ evm.EvmApp = (*keeperAdapter)(nil)
+var _ evm.EvmApp = (*EvmAppAdapter)(nil)
 
-// NewKeeperAdapter converts a TestApp that implements only the keepers it
-// actually needs into a full EvmApp by delegating keeper access via the
-// provider interfaces. Methods panic with a descriptive error if the underlying
-// app does not expose the requested keeper.
-func NewKeeperAdapter(app evm.TestApp) evm.EvmApp {
-	return &keeperAdapter{TestApp: app}
-}
-
-func (a *keeperAdapter) GetEVMKeeper() *evmkeeper.Keeper {
+func (a *EvmAppAdapter) GetEVMKeeper() *evmkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.EVMKeeperProvider); ok {
 		return provider.GetEVMKeeper()
 	}
@@ -49,7 +60,7 @@ func (a *keeperAdapter) GetEVMKeeper() *evmkeeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) GetErc20Keeper() *erc20keeper.Keeper {
+func (a *EvmAppAdapter) GetErc20Keeper() *erc20keeper.Keeper {
 	if provider, ok := a.TestApp.(evm.Erc20KeeperProvider); ok {
 		return provider.GetErc20Keeper()
 	}
@@ -57,7 +68,7 @@ func (a *keeperAdapter) GetErc20Keeper() *erc20keeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) SetErc20Keeper(k erc20keeper.Keeper) {
+func (a *EvmAppAdapter) SetErc20Keeper(k erc20keeper.Keeper) {
 	if setter, ok := a.TestApp.(evm.Erc20KeeperSetter); ok {
 		setter.SetErc20Keeper(k)
 		return
@@ -65,7 +76,7 @@ func (a *keeperAdapter) SetErc20Keeper(k erc20keeper.Keeper) {
 	panicMissingProvider("Erc20KeeperSetter")
 }
 
-func (a *keeperAdapter) GetGovKeeper() govkeeper.Keeper {
+func (a *EvmAppAdapter) GetGovKeeper() govkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.GovKeeperProvider); ok {
 		return provider.GetGovKeeper()
 	}
@@ -73,7 +84,7 @@ func (a *keeperAdapter) GetGovKeeper() govkeeper.Keeper {
 	return govkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetSlashingKeeper() slashingkeeper.Keeper {
+func (a *EvmAppAdapter) GetSlashingKeeper() slashingkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.SlashingKeeperProvider); ok {
 		return provider.GetSlashingKeeper()
 	}
@@ -81,7 +92,7 @@ func (a *keeperAdapter) GetSlashingKeeper() slashingkeeper.Keeper {
 	return slashingkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetEvidenceKeeper() *evidencekeeper.Keeper {
+func (a *EvmAppAdapter) GetEvidenceKeeper() *evidencekeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.EvidenceKeeperProvider); ok {
 		return provider.GetEvidenceKeeper()
 	}
@@ -89,7 +100,7 @@ func (a *keeperAdapter) GetEvidenceKeeper() *evidencekeeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) GetBankKeeper() bankkeeper.Keeper {
+func (a *EvmAppAdapter) GetBankKeeper() bankkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.BankKeeperProvider); ok {
 		return provider.GetBankKeeper()
 	}
@@ -97,7 +108,7 @@ func (a *keeperAdapter) GetBankKeeper() bankkeeper.Keeper {
 	return bankkeeper.BaseKeeper{}
 }
 
-func (a *keeperAdapter) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
+func (a *EvmAppAdapter) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.FeeMarketKeeperProvider); ok {
 		return provider.GetFeeMarketKeeper()
 	}
@@ -105,7 +116,7 @@ func (a *keeperAdapter) GetFeeMarketKeeper() *feemarketkeeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) GetAccountKeeper() authkeeper.AccountKeeper {
+func (a *EvmAppAdapter) GetAccountKeeper() authkeeper.AccountKeeper {
 	if provider, ok := a.TestApp.(evm.AccountKeeperProvider); ok {
 		return provider.GetAccountKeeper()
 	}
@@ -113,7 +124,7 @@ func (a *keeperAdapter) GetAccountKeeper() authkeeper.AccountKeeper {
 	return authkeeper.AccountKeeper{}
 }
 
-func (a *keeperAdapter) GetDistrKeeper() distrkeeper.Keeper {
+func (a *EvmAppAdapter) GetDistrKeeper() distrkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.DistrKeeperProvider); ok {
 		return provider.GetDistrKeeper()
 	}
@@ -121,7 +132,7 @@ func (a *keeperAdapter) GetDistrKeeper() distrkeeper.Keeper {
 	return distrkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetStakingKeeper() *stakingkeeper.Keeper {
+func (a *EvmAppAdapter) GetStakingKeeper() *stakingkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.StakingKeeperProvider); ok {
 		return provider.GetStakingKeeper()
 	}
@@ -129,7 +140,7 @@ func (a *keeperAdapter) GetStakingKeeper() *stakingkeeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) GetMintKeeper() mintkeeper.Keeper {
+func (a *EvmAppAdapter) GetMintKeeper() mintkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.MintKeeperProvider); ok {
 		return provider.GetMintKeeper()
 	}
@@ -137,7 +148,7 @@ func (a *keeperAdapter) GetMintKeeper() mintkeeper.Keeper {
 	return mintkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
+func (a *EvmAppAdapter) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.PreciseBankKeeperProvider); ok {
 		return provider.GetPreciseBankKeeper()
 	}
@@ -145,7 +156,7 @@ func (a *keeperAdapter) GetPreciseBankKeeper() *precisebankkeeper.Keeper {
 	return nil
 }
 
-func (a *keeperAdapter) GetFeeGrantKeeper() feegrantkeeper.Keeper {
+func (a *EvmAppAdapter) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.FeeGrantKeeperProvider); ok {
 		return provider.GetFeeGrantKeeper()
 	}
@@ -153,7 +164,7 @@ func (a *keeperAdapter) GetFeeGrantKeeper() feegrantkeeper.Keeper {
 	return feegrantkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
+func (a *EvmAppAdapter) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.ConsensusParamsKeeperProvider); ok {
 		return provider.GetConsensusParamsKeeper()
 	}
@@ -161,7 +172,7 @@ func (a *keeperAdapter) GetConsensusParamsKeeper() consensusparamkeeper.Keeper {
 	return consensusparamkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) GetCallbackKeeper() keeper.ContractKeeper {
+func (a *EvmAppAdapter) GetCallbackKeeper() keeper.ContractKeeper {
 	if provider, ok := a.TestApp.(evm.CallbackKeeperProvider); ok {
 		return provider.GetCallbackKeeper()
 	}
@@ -169,7 +180,7 @@ func (a *keeperAdapter) GetCallbackKeeper() keeper.ContractKeeper {
 	return keeper.ContractKeeper{}
 }
 
-func (a *keeperAdapter) GetTransferKeeper() transferkeeper.Keeper {
+func (a *EvmAppAdapter) GetTransferKeeper() transferkeeper.Keeper {
 	if provider, ok := a.TestApp.(evm.TransferKeeperProvider); ok {
 		return provider.GetTransferKeeper()
 	}
@@ -177,7 +188,7 @@ func (a *keeperAdapter) GetTransferKeeper() transferkeeper.Keeper {
 	return transferkeeper.Keeper{}
 }
 
-func (a *keeperAdapter) SetTransferKeeper(k transferkeeper.Keeper) {
+func (a *EvmAppAdapter) SetTransferKeeper(k transferkeeper.Keeper) {
 	if setter, ok := a.TestApp.(evm.TransferKeeperSetter); ok {
 		setter.SetTransferKeeper(k)
 		return
@@ -185,7 +196,7 @@ func (a *keeperAdapter) SetTransferKeeper(k transferkeeper.Keeper) {
 	panicMissingProvider("TransferKeeperSetter")
 }
 
-func (a *keeperAdapter) GetKey(storeKey string) *storetypes.KVStoreKey {
+func (a *EvmAppAdapter) GetKey(storeKey string) *storetypes.KVStoreKey {
 	if provider, ok := a.TestApp.(evm.KeyProvider); ok {
 		return provider.GetKey(storeKey)
 	}

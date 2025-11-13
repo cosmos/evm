@@ -47,6 +47,11 @@ type TestApp interface {
 	GetAnteHandler() sdk.AnteHandler
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
+
+	// keeper getters
+	EVMKeeperProvider
+	BankKeeperProvider
+	StakingKeeperProvider
 }
 
 // EvmApp defines the interface for an EVM application.
@@ -54,12 +59,10 @@ type EvmApp interface { //nolint:revive
 	TestApp
 	AccountKeeperProvider
 	AnteHandlerProvider
-	BankKeeperProvider
 	CallbackKeeperProvider
 	ConsensusParamsKeeperProvider
 	DistrKeeperProvider
 	EvidenceKeeperProvider
-	EVMKeeperProvider
 	Erc20KeeperProvider
 	Erc20KeeperSetter
 	FeeGrantKeeperProvider
@@ -71,7 +74,6 @@ type EvmApp interface { //nolint:revive
 	MsgServiceRouterProvider
 	PreciseBankKeeperProvider
 	SlashingKeeperProvider
-	StakingKeeperProvider
 	TransferKeeperProvider
 	TransferKeeperSetter
 }

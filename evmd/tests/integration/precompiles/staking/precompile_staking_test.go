@@ -9,19 +9,18 @@ import (
 	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/tests/integration/precompiles/staking"
+	testapp "github.com/cosmos/evm/testutil/app"
 )
 
+func stakingAppFactory() func(string, uint64, ...func(*baseapp.BaseApp)) evm.EvmApp {
+	return testapp.WrapToEvmApp[evm.StakingPrecompileApp](integration.CreateEvmd, "evm.StakingPrecompileApp")
+}
+
 func TestStakingPrecompileTestSuite(t *testing.T) {
-	create := func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.StakingPrecompileApp {
-		return integration.CreateEvmd(chainID, evmChainID, customBaseAppOptions...).(evm.StakingPrecompileApp)
-	}
-	s := staking.NewPrecompileTestSuite(create)
+	s := staking.NewPrecompileTestSuite(stakingAppFactory())
 	suite.Run(t, s)
 }
 
 func TestStakingPrecompileIntegrationTestSuite(t *testing.T) {
-	create := func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.StakingPrecompileApp {
-		return integration.CreateEvmd(chainID, evmChainID, customBaseAppOptions...).(evm.StakingPrecompileApp)
-	}
-	staking.TestPrecompileIntegrationTestSuite(t, create)
+	staking.TestPrecompileIntegrationTestSuite(t, stakingAppFactory())
 }

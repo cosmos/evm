@@ -39,21 +39,18 @@ import (
     "github.com/stretchr/testify/suite"
     "github.com/cosmos/cosmos-sdk/baseapp"
     evm "github.com/cosmos/evm"
+    testapp "github.com/cosmos/evm/testutil/app"
     "github.com/cosmos/evm/tests/integration/precompiles/bank"
 )
 
 func TestBankPrecompileTestSuite(t *testing.T) {
-    create := func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.BankPrecompileApp {
-        return CreateEvmd(chainID, evmChainID, customBaseAppOptions...).(evm.BankPrecompileApp)
-    }
+    create := testapp.WrapToEvmApp[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
     s := bank.NewPrecompileTestSuite(create)
     suite.Run(t, s)
 }
 
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
-    create := func(chainID string, evmChainID uint64, customBaseAppOptions ...func(*baseapp.BaseApp)) evm.BankPrecompileApp {
-        return CreateEvmd(chainID, evmChainID, customBaseAppOptions...).(evm.BankPrecompileApp)
-    }
+    create := testapp.WrapToEvmApp[evm.BankPrecompileApp](CreateEvmd, "evm.BankPrecompileApp")
     bank.TestIntegrationSuite(t, create)
 }
 ```
