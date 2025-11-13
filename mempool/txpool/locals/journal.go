@@ -18,11 +18,9 @@ package locals
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -119,6 +117,26 @@ func (journal *journal) load(add func([]*types.Transaction) []error) error {
 	return failure
 }
 
+// setupWriter opens the journal file for writing in append mode
+func (journal *journal) setupWriter() error {
+	if journal.writer != nil {
+		if err := journal.writer.Close(); err != nil {
+			return err
+		}
+		journal.writer = nil
+	}
+
+	// Re-open the journal file for appending
+	// Use O_APPEND to ensure we always write to the end of the file
+	sink, err := os.OpenFile(journal.path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	journal.writer = sink
+
+	return nil
+}
+
 // insert adds the specified transaction to the local disk journal.
 func (journal *journal) insert(tx *types.Transaction) error {
 	if journal.writer == nil {
@@ -139,12 +157,6 @@ func (journal *journal) rotate(all map[common.Address]types.Transactions) error 
 			return err
 		}
 		journal.writer = nil
-	}
-	// Ensure parent directory exists
-	if dir := filepath.Dir(journal.path); dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create journal directory: %w", err)
-		}
 	}
 	// Generate a new journal with the contents of the current pool
 	replacement, err := os.OpenFile(journal.path+".new", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -182,31 +194,9 @@ func (journal *journal) rotate(all map[common.Address]types.Transactions) error 
 	return nil
 }
 
-// open opens the journal file for writing (in append mode).
-// This should be called after load() to ensure new transactions are persisted.
-func (journal *journal) open() error {
-	if journal.writer != nil {
-		return nil // Already open
-	}
-	// Ensure parent directory exists
-	if dir := filepath.Dir(journal.path); dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create journal directory: %w", err)
-		}
-	}
-	// Open file for appending, create if it doesn't exist
-	sink, err := os.OpenFile(journal.path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	journal.writer = sink
-	return nil
-}
-
 // close flushes the transaction journal contents to disk and closes the file.
 func (journal *journal) close() error {
 	var err error
-
 	if journal.writer != nil {
 		err = journal.writer.Close()
 		journal.writer = nil
