@@ -159,6 +159,7 @@ func GetLegacyPoolConfig(appOpts servertypes.AppOptions, logger log.Logger) *leg
 		legacyConfig.Rejournal = rejournal
 	}
 
+	legacyConfig = legacyConfig.Sanitize()
 	return &legacyConfig
 }
 

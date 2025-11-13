@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -154,18 +153,13 @@ func NewExperimentalEVMMempool(
 	var localTxTracker *locals.TxTracker
 
 	if !legacyConfig.NoLocals {
-		rejournal := legacyConfig.Rejournal
-		if rejournal < time.Second {
-			logger.Debug("Sanitizing invalid txpool journal time", "provided", rejournal, "updated", time.Second)
-			rejournal = time.Second
-		}
 		// Ensure journal directory exists before starting the tracker
 		if dir := filepath.Dir(legacyConfig.Journal); dir != "." {
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				logger.Error("failed to create journal directory", "error", err)
 			}
 		}
-		localTxTracker = locals.New(legacyConfig.Journal, rejournal, blockchain.Config(), txPool)
+		localTxTracker = locals.New(legacyConfig.Journal, legacyConfig.Rejournal, blockchain.Config(), txPool)
 		err := localTxTracker.Start()
 		if err != nil {
 			return nil

@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -187,6 +188,14 @@ func (config *Config) Sanitize() Config {
 	if conf.Lifetime < 1 {
 		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultConfig.Lifetime)
 		conf.Lifetime = DefaultConfig.Lifetime
+	}
+	if conf.Journal != "" && strings.HasSuffix(conf.Journal, ".rlp") {
+		log.Warn("Sanitizing invalid txpool journal", "provided", conf.Journal, "updated", DefaultConfig.Journal)
+		conf.Journal = DefaultConfig.Journal
+	}
+	if conf.Rejournal < time.Second {
+		log.Warn("Sanitizing invalid txpool rejournal time", "provided", conf.Rejournal, "updated", time.Second)
+		conf.Rejournal = time.Second
 	}
 	return conf
 }
