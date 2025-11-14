@@ -3,11 +3,11 @@ package gov
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/precompiles/gov"
 	"github.com/cosmos/evm/testutil"
@@ -23,19 +23,19 @@ func (s *PrecompileTestSuite) TestIsTransaction() {
 	}{
 		{
 			gov.VoteMethod,
-			s.precompile.Methods[gov.VoteMethod],
+			&gov.VoteCall{},
 			true,
 		},
 		{
 			"invalid",
-			abi.Method{},
+			&gov.GetDepositCall{},
 			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			s.Require().Equal(s.precompile.IsTransaction(&tc.method), tc.isTx)
+			s.Require().Equal(s.precompile.IsTransaction(tc.method.GetMethodID()), tc.isTx)
 		})
 	}
 }
@@ -56,13 +56,13 @@ func (s *PrecompileTestSuite) TestRun() {
 				const option uint8 = 1
 				const metadata = "metadata"
 
-				input, err := s.precompile.Pack(
-					gov.VoteMethod,
-					s.keyring.GetAddr(0),
-					proposalID,
-					option,
-					metadata,
-				)
+				call := gov.VoteCall{
+					Voter:      s.keyring.GetAddr(0),
+					ProposalId: proposalID,
+					Option:     option,
+					Metadata:   metadata,
+				}
+				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to pack input")
 				return s.keyring.GetAddr(0), input
 			},

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +19,8 @@ import (
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	"github.com/cosmos/evm/precompiles/testutil/contracts/distcaller"
+	"github.com/cosmos/evm/precompiles/testutil/contracts/reverter"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
@@ -28,7 +31,6 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 // General variables used for integration tests
@@ -37,10 +39,6 @@ var (
 	differentAddr, diffKey = testutiltx.NewAddrKey()
 	// gasPrice is the gas price used for the transactions
 	gasPrice = math.NewInt(1e9)
-	// callArgs  are the default arguments for calling the smart contract
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
 
 	// defaultLogCheck instantiates a log check arguments struct with the precompile ABI events populated.
 	defaultLogCheck testutil.LogCheckArgs
@@ -62,14 +60,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		BeforeEach(func() {
 			s.SetupTest()
 
-			// set the default call arguments
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: s.precompile.ABI,
-			}
-
-			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.Events,
-			}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			passCheck = defaultLogCheck.WithExpPass(true)
 			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
 
@@ -85,20 +76,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		// 				TRANSACTIONS
 		// =====================================
 		Describe("Execute SetWithdrawAddress transaction", func() {
-			const method = distribution.SetWithdrawAddressMethod
-
-			BeforeEach(func() {
-				// set the default call arguments
-				callArgs.MethodName = method
-			})
-
 			It("should return error if the provided gasLimit is too low", func() {
 				txArgs.GasLimit = 30000
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewSetWithdrawAddressCall(
 					s.keyring.GetAddr(0),
 					differentAddr.String(),
-				}
+				)
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -116,10 +100,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should return error if the msg.sender is different than the delegator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewSetWithdrawAddressCall(
 					differentAddr,
 					s.keyring.GetAddr(0).String(),
-				}
+				)
 
 				withdrawAddrSetCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
 
@@ -138,13 +122,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while querying withdraw address")
 				Expect(res.WithdrawAddress).To(Equal(s.keyring.GetAccAddr(0).String()))
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewSetWithdrawAddressCall(
 					s.keyring.GetAddr(0),
 					differentAddr.String(),
-				}
+				)
 
 				withdrawAddrSetCheck := passCheck.
-					WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+					WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -169,18 +153,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			BeforeEach(func() {
 				var err error
-				// set the default call arguments
-				callArgs.MethodName = distribution.WithdrawDelegatorRewardMethod
-
 				accruedRewards, err = utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil())
 			})
 
 			It("should return error if the msg.sender is different than the delegator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawDelegatorRewardsCall(
 					differentAddr,
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				withdrawalCheck := defaultLogCheck.WithErrContains(
 					cmn.ErrRequesterIsNotMsgSender,
@@ -206,13 +187,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 				txArgs.GasLimit = 100_000
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawDelegatorRewardsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -223,10 +204,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
+				var out distribution.WithdrawDelegatorRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
 				// The accrued rewards are based on 3 equal delegations to the existing 3 validators
 				// The query is from only 1 validator, thus, the expected reward
@@ -235,8 +216,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				accruedRewardsAmt := accruedRewards.AmountOf(s.bondDenom)
 				expRewardPerValidator := accruedRewardsAmt.Quo(math.LegacyNewDec(int64(valCount)))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardPerValidator.TruncateInt().BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardPerValidator.TruncateInt().BigInt()))
 
 				// check that the rewards were added to the balance
 				queryRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -267,13 +248,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 				txArgs.GasPrice = gasPrice.BigInt()
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawDelegatorRewardsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -285,13 +266,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
+				var out distribution.WithdrawDelegatorRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// check that the delegator final balance is initialBalance - fee
 				queryRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -346,13 +327,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 				txArgs.GasPrice = gasPrice.BigInt()
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawDelegatorRewardsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -364,12 +345,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				var rewards []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
+				var out distribution.WithdrawDelegatorRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// check tx sender balance is reduced by fees paid
 				balRes, err = s.grpcHandler.GetBalanceFromBank(s.keyring.GetAccAddr(0), s.bondDenom)
@@ -393,7 +374,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			BeforeEach(func() {
 				// set the default call arguments
-				callArgs.MethodName = distribution.WithdrawValidatorCommissionMethod
 				valAddr := sdk.ValAddress(s.validatorsKeys[0].AccAddr)
 
 				_, err := utils.WaitToAccrueCommission(
@@ -411,9 +391,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("should return error if the provided gasLimit is too low", func() {
 				txArgs.GasLimit = 50000
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawValidatorCommissionCall(
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.validatorsKeys[0].Priv,
@@ -425,9 +405,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should return error if the msg.sender is different than the validator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewWithdrawValidatorCommissionCall(
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				validatorHexAddr := common.BytesToAddress(s.validatorsKeys[0].AccAddr)
 
@@ -454,11 +434,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expCommAmt := commRes.Commission.Commission.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs := distribution.NewWithdrawValidatorCommissionCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawValidatorCommission)
+					WithExpEvents(&distribution.WithdrawValidatorCommissionEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -469,12 +451,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var comm []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&comm, distribution.WithdrawValidatorCommissionMethod, ethRes.Ret)
+				var out distribution.WithdrawValidatorCommissionReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(comm)).To(Equal(1))
-				Expect(comm[0].Denom).To(Equal(s.bondDenom))
-				Expect(comm[0].Amount).To(Equal(expCommAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expCommAmt.BigInt()))
 
 				Expect(s.network.NextBlock()).To(BeNil())
 
@@ -525,11 +507,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expCommAmt := commRes.Commission.Commission.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs := distribution.NewWithdrawValidatorCommissionCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				withdrawalCheck := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawValidatorCommission)
+					WithExpEvents(&distribution.WithdrawValidatorCommissionEvent{})
 
 				txArgs.GasLimit = 300_000
 				res, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -542,12 +526,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// persist state change
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				var comm []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&comm, distribution.WithdrawValidatorCommissionMethod, ethRes.Ret)
+				var out distribution.WithdrawValidatorCommissionReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(comm)).To(Equal(1))
-				Expect(comm[0].Denom).To(Equal(s.bondDenom))
-				Expect(comm[0].Amount).To(Equal(expCommAmt.BigInt()))
+				Expect(len(out.Amount)).To(Equal(1))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expCommAmt.BigInt()))
 
 				balRes, err = s.grpcHandler.GetBalanceFromBank(s.validatorsKeys[0].AccAddr, s.bondDenom)
 				Expect(err).To(BeNil(), "error while calling GetBalance")
@@ -574,7 +558,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				var err error
 				// set the default call arguments
-				callArgs.MethodName = distribution.ClaimRewardsMethod
 				accruedRewards, err = utils.WaitToAccrueRewards(
 					s.network,
 					s.grpcHandler,
@@ -584,9 +567,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should return err if the msg.sender is different than the delegator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewClaimRewardsCall(
 					differentAddr, uint32(1),
-				}
+				)
 
 				claimRewardsCheck := defaultLogCheck.WithErrContains(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0).String(), differentAddr.String())
 
@@ -605,9 +588,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				initialBalance := queryRes.Balance
 
 				valCount := len(s.network.GetValidators())
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewClaimRewardsCall(
 					s.keyring.GetAddr(0), uint32(valCount), //#nosec G115 -- int overflow is not a concern here
-				}
+				)
 				txArgs.GasLimit = 250_000
 
 				// get base fee to use in tx to then calculate fee paid
@@ -616,7 +599,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				gasPrice := bfQuery.BaseFee.BigInt()
 				txArgs.GasPrice = gasPrice
 
-				claimRewardsCheck := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				claimRewardsCheck := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				txRes, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -645,22 +628,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Execute DepositValidatorRewardsPool transaction", func() {
-			const method = distribution.DepositValidatorRewardsPoolMethod
-
 			BeforeEach(func() {
 				txArgs.GasLimit = 300_000
 				txArgs.GasPrice = gasPrice.BigInt()
-				callArgs.MethodName = method
 			})
 
 			It("should revert if the msg.sender is different from the depositor", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDepositValidatorRewardsPoolCall(
 					differentAddr, // depositor
 					s.network.GetValidators()[0].OperatorAddress,
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
 					},
-				}
+				)
 
 				failureCheck := defaultLogCheck.WithErrContains(
 					cmn.ErrRequesterIsNotMsgSender,
@@ -682,11 +662,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				excessAmount := balRes.Balance.Amount.Add(math.NewInt(1))
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDepositValidatorRewardsPoolCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
 					[]cmn.Coin{{Denom: s.bondDenom, Amount: excessAmount.BigInt()}},
-				}
+				)
 
 				failureCheck := defaultLogCheck.WithErrContains("insufficient funds")
 
@@ -705,15 +685,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				initialBalance := balRes.Balance
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDepositValidatorRewardsPoolCall(
 					s.keyring.GetAddr(0), // depositor
 					s.network.GetValidators()[0].OperatorAddress,
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: big.NewInt(1_000_000)},
 					},
-				}
+				)
 
-				passCheckWithEvent := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+				passCheckWithEvent := passCheck.WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 				_, txRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0), // tx from Addr0
@@ -748,7 +728,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				initialBalance2 := balRes.Balance
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDepositValidatorRewardsPoolCall(
 					s.keyring.GetAddr(0), // depositor
 					s.network.GetValidators()[0].OperatorAddress,
 					[]cmn.Coin{
@@ -756,12 +736,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						{Denom: s.otherDenoms[0], Amount: big.NewInt(1_000_001)},
 						{Denom: s.otherDenoms[1], Amount: big.NewInt(1_000_002)},
 					},
-				}
+				)
 
 				passCheckWithEvent := passCheck.WithExpEvents(
-					distribution.EventTypeDepositValidatorRewardsPool,
-					distribution.EventTypeDepositValidatorRewardsPool,
-					distribution.EventTypeDepositValidatorRewardsPool,
+					&distribution.DepositValidatorRewardsPoolEvent{},
+					&distribution.DepositValidatorRewardsPoolEvent{},
+					&distribution.DepositValidatorRewardsPoolEvent{},
 				)
 
 				_, txRes, err := s.factory.CallContractAndCheckLogs(
@@ -795,12 +775,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Execute FundCommunityPool transaction", func() {
-			const method = distribution.FundCommunityPoolMethod
-
-			BeforeEach(func() {
-				callArgs.MethodName = method
-			})
-
 			It("should fail if the depositor has insufficient balance", func() {
 				// Here, we attempt to deposit an amount that the EOA does not have.
 
@@ -812,12 +786,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// 2) Attempt to deposit more than current balance
 				deposit := initialBalance.Amount.Add(math.NewInt(9999999999))
 
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewFundCommunityPoolCall(
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: deposit.BigInt()},
 					},
-				}
+				)
 
 				// We expect the tx to fail ("execution reverted") because of insufficient funds
 				insufficientFundsCheck := defaultLogCheck.WithErrContains("insufficient funds")
@@ -848,17 +822,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// 2) Prepare and execute the FundCommunityPool call
 				fundAmt := math.NewInt(10)
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewFundCommunityPoolCall(
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: fundAmt.BigInt()},
 					},
-				}
+				)
 
 				txArgs.GasPrice = gasPrice.BigInt()
 				txArgs.GasLimit = 500_000
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.FundCommunityPoolEvent{})
 
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -911,15 +885,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				sendSdkCoins, err := cmn.NewSdkCoinsFromCoins(sendAmt)
 				Expect(err).To(BeNil())
 
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0), sendAmt}
+				callArgs := distribution.NewFundCommunityPoolCall(
+					s.keyring.GetAddr(0),
+					sendAmt,
+				)
 
 				txArgs.GasPrice = gasPrice.BigInt()
 				txArgs.GasLimit = 500_000
 
 				logCheckArgs := passCheck.WithExpEvents(
-					distribution.EventTypeFundCommunityPool,
-					distribution.EventTypeFundCommunityPool,
-					distribution.EventTypeFundCommunityPool,
+					&distribution.FundCommunityPoolEvent{},
+					&distribution.FundCommunityPoolEvent{},
+					&distribution.FundCommunityPoolEvent{},
 				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -963,8 +940,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// persist changes
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				callArgs.MethodName = distribution.ValidatorDistributionInfoMethod
-				callArgs.Args = []interface{}{opAddr}
+				callArgs := distribution.NewValidatorDistributionInfoCall(opAddr)
 				txArgs.GasLimit = 200_000
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -975,8 +951,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var out distribution.ValidatorDistributionInfoOutput
-				err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorDistributionInfoMethod, ethRes.Ret)
+				var out distribution.ValidatorDistributionInfoReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
 
 				expAddr := s.validatorsKeys[0].AccAddr.String()
@@ -993,8 +969,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					minExpRewardOrCommission)
 				Expect(err).To(BeNil(), "error waiting to accrue rewards")
 
-				callArgs.MethodName = distribution.ValidatorOutstandingRewardsMethod
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs := distribution.NewValidatorOutstandingRewardsCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1004,13 +981,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.ValidatorOutstandingRewardsMethod, ethRes.Ret)
+				var out distribution.ValidatorOutstandingRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Rewards)).To(Equal(1))
 
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
-				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
+				Expect(uint8(18)).To(Equal(out.Rewards[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Rewards[0].Denom))
 
 				// the expected rewards should be the accruedRewards per validator
 				// plus the 5% commission
@@ -1019,7 +996,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Quo(math.LegacyNewDecWithPrec(95, 2)). // add 5% commission
 					TruncateInt()
 
-				Expect(rewards[0].Amount.String()).To(Equal(expRewardAmt.BigInt().String()))
+				Expect(out.Rewards[0].Amount.String()).To(Equal(expRewardAmt.BigInt().String()))
 			})
 
 			It("should get validator commission - validatorCommission query", func() {
@@ -1031,8 +1008,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					minExpRewardOrCommission)
 				Expect(err).To(BeNil(), "error waiting to accrue rewards")
 
-				callArgs.MethodName = distribution.ValidatorCommissionMethod
-				callArgs.Args = []interface{}{opAddr}
+				callArgs := distribution.NewValidatorCommissionCall(opAddr)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1042,15 +1018,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var commission []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&commission, distribution.ValidatorCommissionMethod, ethRes.Ret)
+				var out distribution.ValidatorCommissionReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(commission)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(commission[0].Precision))
-				Expect(s.bondDenom).To(Equal(commission[0].Denom))
+				Expect(len(out.Commission)).To(Equal(1))
+				Expect(uint8(18)).To(Equal(out.Commission[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Commission[0].Denom))
 
 				expCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
-				Expect(commission[0].Amount).To(Equal(expCommissionAmt.BigInt()))
+				Expect(out.Commission[0].Amount).To(Equal(expCommissionAmt.BigInt()))
 			})
 
 			Context("validatorSlashes query query", Ordered, func() {
@@ -1063,12 +1039,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				})
 
 				It("should get validator slashing events (default pagination)", func() {
-					callArgs.MethodName = distribution.ValidatorSlashesMethod
-					callArgs.Args = []interface{}{
+					callArgs := distribution.NewValidatorSlashesCall(
 						s.network.GetValidators()[0].OperatorAddress,
 						uint64(1), uint64(5),
-						query.PageRequest{},
-					}
+						cmn.PageRequest{},
+					)
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -1078,8 +1053,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil())
 
-					var out distribution.ValidatorSlashesOutput
-					err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, ethRes.Ret)
+					var out distribution.ValidatorSlashesReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(out.Slashes)).To(Equal(2))
 					// expected values according to the values used on test setup (custom genesis)
@@ -1092,15 +1067,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				})
 
 				It("should get validator slashing events - query w/pagination limit = 1)", func() {
-					callArgs.MethodName = distribution.ValidatorSlashesMethod
-					callArgs.Args = []interface{}{
+					callArgs := distribution.NewValidatorSlashesCall(
 						s.network.GetValidators()[0].OperatorAddress,
 						uint64(1), uint64(5),
-						query.PageRequest{
+						cmn.PageRequest{
 							Limit:      1,
 							CountTotal: true,
 						},
-					}
+					)
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -1110,8 +1084,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil())
 
-					var out distribution.ValidatorSlashesOutput
-					err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, ethRes.Ret)
+					var out distribution.ValidatorSlashesReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(out.Slashes)).To(Equal(1))
 					Expect(out.Slashes[0].Fraction.Value).To(Equal(math.LegacyNewDecWithPrec(5, 2).BigInt()))
@@ -1123,11 +1097,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should get empty delegation rewards - delegationRewards query", func() {
-				callArgs.MethodName = distribution.DelegationRewardsMethod
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDelegationRewardsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1137,21 +1110,20 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.DelegationRewardsMethod, ethRes.Ret)
+				var out distribution.DelegationRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(0))
+				Expect(len(out.Rewards)).To(Equal(0))
 			})
 
 			It("should get delegation rewards - delegationRewards query", func() {
 				accruedRewards, err := utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil())
 
-				callArgs.MethodName = distribution.DelegationRewardsMethod
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewDelegationRewardsCall(
 					s.keyring.GetAddr(0),
 					s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1161,18 +1133,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var rewards []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.DelegationRewardsMethod, ethRes.Ret)
+				var out distribution.DelegationRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Rewards)).To(Equal(1))
 
 				// The accrued rewards are based on 3 equal delegations to the existing 3 validators
 				// The query is from only 1 validator, thus, the expected reward
 				// for this delegation is totalAccruedRewards / validatorsCount (3)
 				expRewardAmt := accruedRewards.AmountOf(s.bondDenom).Quo(math.LegacyNewDec(3))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardAmt.TruncateInt().BigInt()))
+				Expect(out.Rewards[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Rewards[0].Amount).To(Equal(expRewardAmt.TruncateInt().BigInt()))
 			})
 
 			It("should get delegators's total rewards - delegationTotalRewards query", func() {
@@ -1180,8 +1152,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				accruedRewards, err := utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil())
 
-				callArgs.MethodName = distribution.DelegationTotalRewardsMethod
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
+				callArgs := distribution.NewDelegationTotalRewardsCall(
+					s.keyring.GetAddr(0),
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1191,9 +1164,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var out distribution.DelegationTotalRewardsOutput
-
-				err = s.precompile.UnpackIntoInterface(&out, distribution.DelegationTotalRewardsMethod, ethRes.Ret)
+				var out distribution.DelegationTotalRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
 				Expect(3).To(Equal(len(out.Rewards)))
 
@@ -1215,8 +1187,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should get all validators a delegators has delegated to - delegatorValidators query", func() {
-				callArgs.MethodName = distribution.DelegatorValidatorsMethod
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
+				callArgs := distribution.NewDelegatorValidatorsCall(s.keyring.GetAddr(0))
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1226,15 +1197,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var validators []string
-				err = s.precompile.UnpackIntoInterface(&validators, distribution.DelegatorValidatorsMethod, ethRes.Ret)
+				var out distribution.DelegatorValidatorsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(3).To(Equal(len(validators)))
+				Expect(3).To(Equal(len(out.Validators)))
 			})
 
 			It("should get withdraw address - delegatorWithdrawAddress query", func() {
-				callArgs.MethodName = distribution.DelegatorWithdrawAddressMethod
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
+				callArgs := distribution.NewDelegatorWithdrawAddressCall(
+					s.keyring.GetAddr(0),
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1244,26 +1216,26 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				withdrawAddr, err := s.precompile.Unpack(distribution.DelegatorWithdrawAddressMethod, ethRes.Ret)
+				var out distribution.DelegatorWithdrawAddressReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
 				// get the bech32 encoding
 				expAddr := s.keyring.GetAccAddr(0)
-				Expect(withdrawAddr[0]).To(Equal(expAddr.String()))
+				Expect(out.WithdrawAddress).To(Equal(expAddr.String()))
 			})
 
 			It("should get community pool coins - communityPool query", func() {
 				fundAmount := big.NewInt(1_000_000)
-				callArgs.MethodName = distribution.FundCommunityPoolMethod
-				callArgs.Args = []interface{}{
+				callArgs := distribution.NewFundCommunityPoolCall(
 					s.keyring.GetAddr(0),
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: fundAmount},
 					},
-				}
+				)
 
 				txArgs.GasLimit = 200_000
 
-				fundCheck := passCheck.WithExpEvents(distribution.EventTypeFundCommunityPool)
+				fundCheck := passCheck.WithExpEvents(&distribution.FundCommunityPoolEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1274,23 +1246,22 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock")
 
-				callArgs.MethodName = distribution.CommunityPoolMethod
-				callArgs.Args = []interface{}{}
+				callArgs2 := distribution.NewCommunityPoolCall()
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					callArgs,
+					callArgs2,
 					passCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the precompile")
 
-				var coins []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+				var out distribution.CommunityPoolReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(coins)).To(Equal(1))
-				Expect(coins[0].Denom).To(Equal(s.bondDenom))
-				Expect(coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
+				Expect(len(out.Coins)).To(Equal(1))
+				Expect(out.Coins[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Coins[0].Amount.Cmp(fundAmount)).To(Equal(1))
 			})
 		})
 	})
@@ -1347,12 +1318,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(isContract).To(BeTrue(), "account should be a contract")
 
 			// Contract delegate
-			stkPrecompile := s.getStakingPrecompile()
 			// make a delegation with contract as delegator
 			logCheck := testutil.LogCheckArgs{
 				ExpPass:   true,
-				ABIEvents: stkPrecompile.Events,
-				ExpEvents: []string{staking.EventTypeDelegate},
+				ExpEvents: []abi.Event{&staking.DelegateEvent{}},
 			}
 			delegateAmt := big.NewInt(1e18)
 			_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1362,14 +1331,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					GasLimit: 500_000,
 					Amount:   delegateAmt,
 				},
-				testutiltypes.CallArgs{
-					ContractABI: distrCallerContract.ABI,
-					MethodName:  "testDelegateFromContract",
-					Args: []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
-						delegateAmt,
-					},
-				},
+				distcaller.NewTestDelegateFromContractCall(
+					s.network.GetValidators()[0].OperatorAddress,
+					delegateAmt,
+				),
 				logCheck,
 			)
 			Expect(err).To(BeNil())
@@ -1379,11 +1344,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			_, err = utils.WaitToAccrueRewards(s.network, s.grpcHandler, contractAccAddr.String(), minExpRewardOrCommission)
 			Expect(err).To(BeNil())
 
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: distrCallerContract.ABI,
-			}
-
 			// reset tx args each test to avoid keeping custom
 			// values of previous tests (e.g. gasLimit)
 			txArgs = evmtypes.EvmTxArgs{
@@ -1391,7 +1351,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			}
 
 			// default log check arguments
-			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains("execution reverted")
 			passCheck = defaultLogCheck.WithExpPass(true)
 		})
@@ -1408,20 +1368,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				res, err := s.grpcHandler.GetDelegatorWithdrawAddr(s.keyring.GetAccAddr(0).String())
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(res.WithdrawAddress).To(Equal(s.keyring.GetAccAddr(0).String()))
-
-				// populate default arguments
-				callArgs.MethodName = "testSetWithdrawAddress"
 			})
 
 			It("should set withdraw address successfully", func() {
 				txArgs = evmtypes.EvmTxArgs{
 					To: &contractAddr,
 				}
-				callArgs.Args = []interface{}{
+				callArgs := distcaller.NewTestSetWithdrawAddressCall(
 					contractAddr, newWithdrawer.String(),
-				}
+				)
 
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1447,14 +1404,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				res, err := s.grpcHandler.GetDelegatorWithdrawAddr(s.keyring.GetAccAddr(0).String())
 				Expect(err).To(BeNil(), "error while calling the precompile")
 				Expect(res.WithdrawAddress).To(Equal(s.keyring.GetAccAddr(0).String()))
-
-				// populate default arguments
-				callArgs.MethodName = "testSetWithdrawAddressFromContract"
 			})
 
 			It("should set withdraw address successfully", func() {
-				callArgs.Args = []interface{}{newWithdrawer.String()}
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				callArgs := distcaller.NewTestSetWithdrawAddressFromContractCall(
+					newWithdrawer.String(),
+				)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1498,8 +1454,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				initialBalance = balRes.Balance
 
-				callArgs.MethodName = "testWithdrawDelegatorReward"
-
 				// set gas price to calculate fees paid
 				txArgs.GasPrice = gasPrice.BigInt()
 			})
@@ -1509,9 +1463,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				differentAddrInitialBalance := balRes.Balance
 
-				callArgs.Args = []interface{}{
+				callArgs := distcaller.NewTestWithdrawDelegatorRewardCall(
 					differentAddr, s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
 					cmn.ErrRequesterIsNotMsgSender,
@@ -1547,16 +1501,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				initBalanceAmt := balRes.Balance.Amount
 
-				callArgs.Args = []interface{}{
+				callArgs := distcaller.NewTestWithdrawDelegatorRewardCall(
 					contractAddr, s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				rwRes, err := s.grpcHandler.GetDelegationRewards(contractAccAddr.String(), s.network.GetValidators()[0].OperatorAddress)
 				Expect(err).To(BeNil())
 				expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
 				logCheckArgs := passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1579,12 +1533,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				withdrawerInitialBalance := balRes.Balance
 
-				callArgs = testutiltypes.CallArgs{
-					ContractABI: distrCallerContract.ABI,
-					MethodName:  "testSetWithdrawAddressFromContract",
-					Args:        []interface{}{sdk.AccAddress(tc.withdrawer.Bytes()).String()},
-				}
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				callArgs := distcaller.NewTestSetWithdrawAddressFromContractCall(
+					sdk.AccAddress(tc.withdrawer.Bytes()).String(),
+				)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
@@ -1604,30 +1556,29 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expRewardsAmt := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.MethodName = "testWithdrawDelegatorReward"
-				callArgs.Args = []interface{}{
+				callArgs2 := distcaller.NewTestWithdrawDelegatorRewardCall(
 					contractAddr, s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				logCheckArgs = passCheck.
-					WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+					WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					callArgs,
+					callArgs2,
 					logCheckArgs,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
 
-				var rewards []cmn.Coin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.WithdrawDelegatorRewardMethod, ethRes.Ret)
+				var out distribution.WithdrawDelegatorRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
+				Expect(len(out.Amount)).To(Equal(1))
 
-				Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Amount[0].Denom).To(Equal(s.bondDenom))
+				Expect(out.Amount[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 
 				// should increase withdrawer balance by rewards
 				balRes, err = s.grpcHandler.GetBalanceFromBank(tc.withdrawer.Bytes(), s.bondDenom)
@@ -1655,8 +1606,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				contractInitialBalance := math.NewInt(100)
 
 				BeforeEach(func() {
-					callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
-
 					// send some funds to the contract
 					err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), contractInitialBalance)
 					Expect(err).To(BeNil())
@@ -1670,12 +1619,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						balRes, err := s.grpcHandler.GetBalanceFromBank(contractAccAddr, s.bondDenom)
 						Expect(err).To(BeNil())
 						if tc.withdrawer != nil {
-							callArgs = testutiltypes.CallArgs{
-								ContractABI: distrCallerContract.ABI,
-								MethodName:  "testSetWithdrawAddressFromContract",
-								Args:        []interface{}{sdk.AccAddress(tc.withdrawer.Bytes()).String()},
-							}
-							logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+							callArgs := distcaller.NewTestSetWithdrawAddressFromContractCall(
+								sdk.AccAddress(tc.withdrawer.Bytes()).String(),
+							)
+							logCheckArgs := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 							_, _, err = s.factory.CallContractAndCheckLogs(txSenderKey, txArgs, callArgs, logCheckArgs)
 							Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 							Expect(s.network.NextBlock()).To(BeNil(), "error on NextBlock: %v", err)
@@ -1694,13 +1641,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 						expRewards := qRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-						callArgs.MethodName = "testWithdrawDelegatorRewardWithTransfer"
-						callArgs.Args = []interface{}{
+						callArgs := distcaller.NewTestWithdrawDelegatorRewardWithTransferCall(
 							s.network.GetValidators()[0].OperatorAddress, tc.before, tc.after,
-						}
+						)
 
 						logCheckArgs := passCheck.
-							WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+							WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 						res, _, err := s.factory.CallContractAndCheckLogs(
 							txSenderKey,
@@ -1802,10 +1748,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					withdrawerInitBalance := balRes.Balance
 
 					// update args to call the corresponding contract method
-					callArgs.MethodName = "revertWithdrawRewardsAndTransfer"
-					callArgs.Args = []interface{}{
+					callArgs := distcaller.NewRevertWithdrawRewardsAndTransferCall(
 						s.keyring.GetAddr(0), *tc.withdrawer, s.network.GetValidators()[0].OperatorAddress, true,
-					}
+					)
 
 					res, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -1870,24 +1815,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.Events,
-					ExpEvents: []string{staking.EventTypeDelegate},
+					ExpEvents: []abi.Event{&staking.DelegateEvent{}},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testDelegateFromContract",
-						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
-							big.NewInt(1e18),
-						},
-					},
+					distcaller.NewTestDelegateFromContractCall(
+						s.network.GetValidators()[0].OperatorAddress,
+						big.NewInt(1e18),
+					),
 					logCheck,
 				)
 				Expect(err).To(BeNil())
@@ -1903,15 +1842,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(contractAddr.Bytes(), s.bondDenom)
 				Expect(err).To(BeNil())
 				initialBalance = balRes.Balance
-
-				// populate default arguments
-				callArgs.MethodName = "testWithdrawDelegatorRewardFromContract"
 			})
 
 			It("should withdraw rewards successfully", func() {
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs := distcaller.NewTestWithdrawDelegatorRewardFromContractCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1939,15 +1877,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// call the smart contract to update the withdrawer
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testSetWithdrawAddressFromContract",
-						Args:        []interface{}{withdrawerAddr.String()},
-					},
+					distcaller.NewTestSetWithdrawAddressFromContractCall(
+						withdrawerAddr.String(),
+					),
 					setWithdrawCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -1959,8 +1895,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				accruedRewardsAmt = rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				callArgs := distcaller.NewTestWithdrawDelegatorRewardFromContractCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
 				txArgs.GasLimit = 300_000
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1994,15 +1932,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(initialWithdrawerBalance.Amount).To(Equal(math.ZeroInt()))
 
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testSetWithdrawAddressFromContract",
-						Args:        []interface{}{withdrawerAddr.String()},
-					},
+					distcaller.NewTestSetWithdrawAddressFromContractCall(
+						withdrawerAddr.String(),
+					),
 					setWithdrawCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
@@ -2014,9 +1950,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				expRewards := rwRes.Rewards.AmountOf(s.bondDenom).TruncateInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeWithdrawDelegatorReward)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.WithdrawDelegatorRewardEvent{})
 
-				callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
+				callArgs := distcaller.NewTestWithdrawDelegatorRewardFromContractCall(
+					s.network.GetValidators()[0].OperatorAddress,
+				)
 
 				txArgs.GasLimit = 500_000
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2056,24 +1994,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.Events,
-					ExpEvents: []string{staking.EventTypeDelegate},
+					ExpEvents: []abi.Event{&staking.DelegateEvent{}},
 				}
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testDelegateFromContract",
-						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
-							big.NewInt(1e18),
-						},
-					},
+					distcaller.NewTestDelegateFromContractCall(
+						s.network.GetValidators()[0].OperatorAddress,
+						big.NewInt(1e18),
+					),
 					logCheck,
 				)
 				Expect(err).To(BeNil())
@@ -2092,12 +2024,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				diffAddrInitialBalance = balRes.Balance
 
 				// populate default arguments
-				callArgs.MethodName = "testClaimRewards"
 				txArgs.GasPrice = gasPrice.BigInt()
 			})
 
 			It("should not claim rewards when sending from a different address", func() {
-				callArgs.Args = []interface{}{differentAddr, uint32(1)}
+				callArgs := distcaller.NewTestClaimRewardsCall(
+					differentAddr, uint32(2),
+				)
 
 				errCheckArgs := defaultLogCheck.WithErrContains(fmt.Errorf(
 					cmn.ErrRequesterIsNotMsgSender,
@@ -2128,10 +2061,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should claim rewards successfully", func() {
-				callArgs.Args = []interface{}{contractAddr, uint32(2)}
+				callArgs := distcaller.NewTestClaimRewardsCall(
+					contractAddr, uint32(2),
+				)
 
 				logCheckArgs := passCheck.
-					WithExpEvents(distribution.EventTypeClaimRewards)
+					WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2151,8 +2086,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			Context("Table driven tests", func() {
 				BeforeEach(func() {
-					callArgs.MethodName = "testClaimRewardsWithTransfer"
-
 					// send some funds to the contract
 					err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(1e18))
 					Expect(err).To(BeNil())
@@ -2180,10 +2113,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(err).To(BeNil())
 					expRewards := res.Total.AmountOf(s.bondDenom).TruncateInt()
 
-					callArgs.Args = []interface{}{uint32(2), tc.before, tc.after}
+					callArgs := distcaller.NewTestClaimRewardsWithTransferCall(
+						uint32(2), tc.before, tc.after,
+					)
 
 					logCheckArgs := passCheck.
-						WithExpEvents(distribution.EventTypeClaimRewards)
+						WithExpEvents(&distribution.ClaimRewardsEvent{})
 					txArgs.GasLimit = 400_000 // set gas limit to avoid out of gas error
 					_, evmRes, err := s.factory.CallContractAndCheckLogs(
 						txSenderKey,
@@ -2267,11 +2202,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				initialBalance = balRes.Balance
 
 				// populate default arguments
-				callArgs.MethodName = "testTryClaimRewards"
 				txArgs.GasPrice = gasPrice.BigInt()
 			})
 			It("should claim rewards successfully", func() {
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0), uint32(10)}
+				callArgs := distcaller.NewTestTryClaimRewardsCall(
+					s.keyring.GetAddr(0), uint32(10),
+				)
 
 				// no logs should be emitted since the precompile call runs out of gas
 				logCheckArgs := passCheck //.
@@ -2322,25 +2258,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				stkPrecompile := s.getStakingPrecompile()
 				// make a delegation with contract as delegator
 				logCheck := testutil.LogCheckArgs{
 					ExpPass:   true,
-					ABIEvents: stkPrecompile.Events,
-					ExpEvents: []string{staking.EventTypeDelegate},
+					ExpEvents: []abi.Event{&staking.DelegateEvent{}},
 				}
 				txArgs.GasLimit = 500_000
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testDelegateFromContract",
-						Args: []interface{}{
-							s.network.GetValidators()[0].OperatorAddress,
-							big.NewInt(1e18),
-						},
-					},
+					distcaller.NewTestDelegateFromContractCall(
+						s.network.GetValidators()[0].OperatorAddress,
+						big.NewInt(1e18),
+					),
 					logCheck,
 				)
 				Expect(err).To(BeNil())
@@ -2356,9 +2286,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				balRes, err := s.grpcHandler.GetBalanceFromBank(contractAddr.Bytes(), s.bondDenom)
 				Expect(err).To(BeNil())
 				initialBalance = balRes.Balance
-
-				// populate default arguments
-				callArgs.MethodName = "testClaimRewards"
 			})
 
 			It("should withdraw rewards successfully", func() {
@@ -2366,10 +2293,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				signerInitialBalance := balRes.Balance
 
-				callArgs.Args = []interface{}{contractAddr, uint32(2)}
+				callArgs := distcaller.NewTestClaimRewardsCall(
+					contractAddr, uint32(2),
+				)
 				txArgs.GasPrice = gasPrice.BigInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				res, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2410,23 +2339,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasPrice = gasPrice.BigInt()
 
 				// Set new withdrawer address for the contract
-				setWithdrawCheck := passCheck.WithExpEvents(distribution.EventTypeSetWithdrawAddress)
+				setWithdrawCheck := passCheck.WithExpEvents(&distribution.SetWithdrawerAddressEvent{})
 				res1, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
 					txArgs,
-					testutiltypes.CallArgs{
-						ContractABI: distrCallerContract.ABI,
-						MethodName:  "testSetWithdrawAddressFromContract",
-						Args:        []interface{}{differentAddr.String()},
-					},
+					distcaller.NewTestSetWithdrawAddressFromContractCall(
+						differentAddr.String(),
+					),
 					setWithdrawCheck,
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				callArgs.Args = []interface{}{contractAddr, uint32(2)}
+				callArgs := distcaller.NewTestClaimRewardsCall(
+					contractAddr, uint32(2),
+				)
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeClaimRewards)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.ClaimRewardsEvent{})
 
 				rwRes, err := s.grpcHandler.GetDelegationRewards(sdk.AccAddress(contractAddr.Bytes()).String(), s.network.GetValidators()[0].OperatorAddress)
 				Expect(err).To(BeNil())
@@ -2469,20 +2398,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			BeforeEach(func() { //nolint:dupl
 				depositAmt = big.NewInt(1_000_000)
-
-				// populate default arguments
-				callArgs.MethodName = "testDepositValidatorRewardsPool"
 			})
 
 			When("depositor is different from the depositing contract", func() {
 				It("should fail to deposit rewards to the validator rewards pool", func() {
-					callArgs.Args = []interface{}{
+					callArgs := distcaller.NewTestDepositValidatorRewardsPoolCall(
 						differentAddr,
 						s.network.GetValidators()[0].OperatorAddress,
 						[]cmn.Coin{
 							{Denom: s.bondDenom, Amount: depositAmt},
 						},
-					}
+					)
 					txArgs.GasPrice = gasPrice.BigInt()
 
 					failureCheck := defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())
@@ -2507,8 +2433,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			// Specific BeforeEach for table-driven tests
 			Context("Table-driven tests for DepositValidatorRewardsPool", func() {
 				BeforeEach(func() {
-					callArgs.MethodName = "testDepositValidatorRewardsPoolWithTransfer"
-
 					// send some funds to the contract
 					err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractAddr.Bytes(), math.NewInt(2e18))
 					Expect(err).To(BeNil())
@@ -2527,19 +2451,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						Expect(err).To(BeNil())
 						txSenderInitialBalance := balRes.Balance
 
-						callArgs.Args = []interface{}{
+						callArgs := distcaller.NewTestDepositValidatorRewardsPoolWithTransferCall(
 							s.network.GetValidators()[0].OperatorAddress,
 							[]cmn.Coin{
 								{Denom: s.bondDenom, Amount: depositAmt},
 							},
 							tc.before,
 							tc.after,
-						}
+						)
 
 						txArgs.GasPrice = gasPrice.BigInt()
 
 						logCheckArgs := passCheck.
-							WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+							WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 						res, _, err := s.factory.CallContractAndCheckLogs(
 							txSenderKey,
@@ -2613,22 +2537,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				contractInitialBalance = balRes.Balance
 
 				depositAmt = big.NewInt(1_000_000)
-
-				// populate default arguments
-				callArgs.MethodName = "testDepositValidatorRewardsPool"
 			})
 
 			It("should deposit rewards to the validator rewards pool", func() {
-				callArgs.Args = []interface{}{
+				callArgs := distcaller.NewTestDepositValidatorRewardsPoolCall(
 					contractAddr,
 					s.network.GetValidators()[0].OperatorAddress,
 					[]cmn.Coin{
 						{Denom: s.bondDenom, Amount: depositAmt},
 					},
-				}
+				)
 				txArgs.GasPrice = gasPrice.BigInt()
 
-				logCheckArgs := passCheck.WithExpEvents(distribution.EventTypeDepositValidatorRewardsPool)
+				logCheckArgs := passCheck.WithExpEvents(&distribution.DepositValidatorRewardsPoolEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2657,10 +2578,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, err = utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil())
 
-				callArgs.MethodName = "testRevertState"
-				callArgs.Args = []interface{}{
+				callArgs := distcaller.NewTestRevertStateCall(
 					differentAddr.String(), differentAddr, s.network.GetValidators()[0].OperatorAddress,
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
 					cmn.ErrRequesterIsNotMsgSender,
@@ -2694,8 +2614,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should not allow to call SetWithdrawAddress using delegatecall", func() {
-				callArgs.MethodName = "delegateCallSetWithdrawAddress"
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
+				callArgs := distcaller.NewDelegateCallSetWithdrawAddressCall(
+					s.keyring.GetAddr(0), differentAddr.String(),
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested("failed delegateCall to precompile")
 
@@ -2715,8 +2636,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("should not allow to call txs (SetWithdrawAddress) using staticcall", func() {
-				callArgs.MethodName = "staticCallSetWithdrawAddress"
-				callArgs.Args = []interface{}{s.keyring.GetAddr(0), differentAddr.String()}
+				callArgs := distcaller.NewStaticCallSetWithdrawAddressCall(
+					s.keyring.GetAddr(0), differentAddr.String(),
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested("failed staticCall to precompile")
 
@@ -2754,8 +2676,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// persist changes
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				callArgs.MethodName = "getValidatorDistributionInfo"
-				callArgs.Args = []interface{}{opAddr}
+				callArgs := distcaller.NewGetValidatorDistributionInfoCall(opAddr)
 				txArgs.GasLimit = 200_000
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -2766,8 +2687,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var out distribution.ValidatorDistributionInfoOutput
-				err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorDistributionInfoMethod, ethRes.Ret)
+				var out distribution.ValidatorDistributionInfoReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
 
 				expAddr := s.validatorsKeys[0].AccAddr.String()
@@ -2779,8 +2700,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("should get validator outstanding rewards", func() {
 				opAddr := s.network.GetValidators()[0].OperatorAddress
-				callArgs.MethodName = "getValidatorOutstandingRewards"
-				callArgs.Args = []interface{}{opAddr}
+				callArgs := distcaller.NewGetValidatorOutstandingRewardsCall(opAddr)
 
 				_, err := utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 				Expect(err).To(BeNil(), "error while calling the precompile")
@@ -2793,27 +2713,22 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var rewards []cmn.DecCoin
-				err = s.precompile.UnpackIntoInterface(&rewards, distribution.ValidatorOutstandingRewardsMethod, ethRes.Ret)
+				var out distribution.ValidatorOutstandingRewardsReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil())
-				Expect(len(rewards)).To(Equal(1))
-				Expect(uint8(18)).To(Equal(rewards[0].Precision))
-				Expect(s.bondDenom).To(Equal(rewards[0].Denom))
+				Expect(len(out.Rewards)).To(Equal(1))
+				Expect(uint8(18)).To(Equal(out.Rewards[0].Precision))
+				Expect(s.bondDenom).To(Equal(out.Rewards[0].Denom))
 
 				res, err := s.grpcHandler.GetValidatorOutstandingRewards(opAddr)
 				Expect(err).To(BeNil())
 
 				expRewardsAmt := res.Rewards.Rewards.AmountOf(s.bondDenom).TruncateInt()
 				Expect(expRewardsAmt.IsPositive()).To(BeTrue())
-				Expect(rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
+				Expect(out.Rewards[0].Amount).To(Equal(expRewardsAmt.BigInt()))
 			})
 
 			Context("get validator commission", func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getValidatorCommission"
-					callArgs.Args = []interface{}{s.network.GetValidators()[0].OperatorAddress}
-				})
-
 				// // TODO: currently does not work because the minting happens on the Beginning of each block
 				// // In future SDK releases this will be possible to adjust by passing a custom `MintFn` -> check
 				// // https://docs.cosmos.network/main/build/modules/mint#epoch-minting
@@ -2838,13 +2753,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				//	Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				//
 				//	var commission []cmn.DecCoin
-				//	err = s.precompile.UnpackIntoInterface(&commission, ValidatorCommissionMethod, ethRes.Ret)
+				// var out distributiReturn.Ret
+				//	eout.Decode( ethRes.)
 				//	Expect(err).To(BeNil())
 				//	Expect(len(commission)).To(Equal(1))
 				//	Expect(commission[0].Amount.Int64()).To(Equal(int64(0)))
 				// })
 
 				It("should get commission - validator with commission", func() {
+					callArgs := distcaller.NewGetValidatorCommissionCall(
+						s.network.GetValidators()[0].OperatorAddress,
+					)
 					_, err = utils.WaitToAccrueCommission(s.network, s.grpcHandler, s.network.GetValidators()[0].OperatorAddress, minExpRewardOrCommission)
 					Expect(err).To(BeNil())
 
@@ -2861,29 +2780,25 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var commission []cmn.DecCoin
-					err = s.precompile.UnpackIntoInterface(&commission, distribution.ValidatorCommissionMethod, ethRes.Ret)
+					var out distribution.ValidatorCommissionReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(commission)).To(Equal(1))
-					Expect(uint8(18)).To(Equal(commission[0].Precision))
-					Expect(s.bondDenom).To(Equal(commission[0].Denom))
+					Expect(len(out.Commission)).To(Equal(1))
+					Expect(uint8(18)).To(Equal(out.Commission[0].Precision))
+					Expect(s.bondDenom).To(Equal(out.Commission[0].Denom))
 
 					accruedCommissionAmt := accruedCommission.AmountOf(s.bondDenom).TruncateInt()
 
-					Expect(commission[0].Amount).To(Equal(accruedCommissionAmt.BigInt()))
+					Expect(out.Commission[0].Amount).To(Equal(accruedCommissionAmt.BigInt()))
 				})
 			})
 
 			Context("get validator slashing events", Ordered, func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getValidatorSlashes"
-					callArgs.Args = []interface{}{
-						s.network.GetValidators()[0].OperatorAddress,
-						uint64(1), uint64(5),
-						query.PageRequest{},
-					}
-				})
-
+				callArgs := distcaller.NewGetValidatorSlashesCall(
+					s.network.GetValidators()[0].OperatorAddress,
+					uint64(1), uint64(5),
+					cmn.PageRequest{},
+				)
 				AfterEach(func() {
 					// NOTE: The first test case will not have the slashes
 					// so keep this in mind when adding/removing new testcases
@@ -2903,8 +2818,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var out distribution.ValidatorSlashesOutput
-					err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, ethRes.Ret)
+					var out distribution.ValidatorSlashesReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(out.Slashes)).To(Equal(0))
 				})
@@ -2918,8 +2833,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var out distribution.ValidatorSlashesOutput
-					err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, ethRes.Ret)
+					var out distribution.ValidatorSlashesReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(out.Slashes)).To(Equal(2))
 					// expected values according to the values used on test setup (custom genesis)
@@ -2933,14 +2848,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				It("should get slashing events - validator with slashes w/pagination", func() {
 					// set pagination
-					callArgs.Args = []interface{}{
+					callArgs := distcaller.NewGetValidatorSlashesCall(
 						s.network.GetValidators()[0].OperatorAddress,
 						uint64(1), uint64(5),
-						query.PageRequest{
+						cmn.PageRequest{
 							Limit:      1,
 							CountTotal: true,
 						},
-					}
+					)
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -2950,8 +2865,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var out distribution.ValidatorSlashesOutput
-					err = s.precompile.UnpackIntoInterface(&out, distribution.ValidatorSlashesMethod, ethRes.Ret)
+					var out distribution.ValidatorSlashesReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					Expect(len(out.Slashes)).To(Equal(1))
 					Expect(out.Slashes[0].Fraction.Value).To(Equal(math.LegacyNewDecWithPrec(5, 2).BigInt()))
@@ -2962,11 +2877,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			Context("get delegation rewards", func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getDelegationRewards"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0), s.network.GetValidators()[0].OperatorAddress}
-				})
-
 				// // TODO: currently does not work because the minting happens on the Beginning of each block
 				// // In future SDK releases this will be possible to adjust by passing a custom `MintFn` -> check
 				// // https://docs.cosmos.network/main/build/modules/mint#epoch-minting
@@ -2988,12 +2898,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				//	Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				//
 				//	var rewards []cmn.DecCoin
-				//	err = s.precompile.UnpackIntoInterface(&rewards, DelegationRewardsMethod, ethRes.Ret)
+				// var out distributiReturn.Ret
+				//	eout.Decode( ethRes.)
 				//	Expect(err).To(BeNil())
 				//	Expect(len(rewards)).To(Equal(0))
 				// })
 
 				It("should get rewards", func() {
+					callArgs := distcaller.NewGetDelegationRewardsCall(
+						s.keyring.GetAddr(0),
+						s.network.GetValidators()[0].OperatorAddress,
+					)
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
 						txArgs,
@@ -3002,22 +2917,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var rewards []cmn.DecCoin
-					err = s.precompile.UnpackIntoInterface(&rewards, distribution.DelegationRewardsMethod, ethRes.Ret)
+					var out distribution.DelegationRewardsReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(rewards)).To(Equal(1))
-					Expect(len(rewards)).To(Equal(1))
-					Expect(rewards[0].Denom).To(Equal(s.bondDenom))
-					Expect(rewards[0].Amount.Int64()).To(BeNumerically(">", 0), "expected rewards amount to be greater than 0")
+					Expect(len(out.Rewards)).To(Equal(1))
+					Expect(len(out.Rewards)).To(Equal(1))
+					Expect(out.Rewards[0].Denom).To(Equal(s.bondDenom))
+					Expect(out.Rewards[0].Amount.Int64()).To(BeNumerically(">", 0), "expected rewards amount to be greater than 0")
 				})
 			})
 
 			Context("get delegator's total rewards", func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getDelegationTotalRewards"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
-				})
-
 				// // TODO: currently does not work because the minting happens on the Beginning of each block
 				// // In future SDK releases this will be possible to adjust by passing a custom `MintFn` -> check
 				// // https://docs.cosmos.network/main/build/modules/mint#epoch-minting
@@ -3038,8 +2948,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				//	)
 				//	Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				//
-				//	var out DelegationTotalRewardsOutput
-				//	err = s.precompile.UnpackIntoInterface(&out, DelegationTotalRewardsMethod, ethRes.Ret)
+				//  var out distributiReturn
+				//	out.Decode( ethRes.Ret)
 				//	Expect(err).To(BeNil())
 				//	Expect(len(out.Rewards)).To(Equal(1))
 				//	Expect(len(out.Rewards[0].Reward)).To(Equal(0))
@@ -3050,6 +2960,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					accruedRewards, err := utils.WaitToAccrueRewards(s.network, s.grpcHandler, s.keyring.GetAccAddr(0).String(), minExpRewardOrCommission)
 					Expect(err).To(BeNil())
 
+					callArgs := distcaller.NewGetDelegationTotalRewardsCall(s.keyring.GetAddr(0))
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
 						txArgs,
@@ -3058,9 +2969,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var out distribution.DelegationTotalRewardsOutput
-
-					err = s.precompile.UnpackIntoInterface(&out, distribution.DelegationTotalRewardsMethod, ethRes.Ret)
+					var out distribution.DelegationTotalRewardsReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 
 					// The accrued rewards are based on 3 equal delegations to the existing 3 validators
@@ -3108,10 +3018,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					})
 
 					It("should revert the execution - Reverter contract", func() {
-						args := testutiltypes.CallArgs{
-							ContractABI: reverterContract.ABI,
-							MethodName:  "run",
-						}
+						args := reverter.NewRunCall()
 
 						_, _, err = s.factory.CallContractAndCheckLogs(
 							s.keyring.GetPrivKey(0),
@@ -3134,12 +3041,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			Context("get all delegator validators", func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getDelegatorValidators"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
-				})
-
 				It("should get all validators a delegator has delegated to", func() {
+					callArgs := distcaller.NewGetDelegatorValidatorsCall(s.keyring.GetAddr(0))
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
 						txArgs,
@@ -3148,20 +3051,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var validators []string
-					err = s.precompile.UnpackIntoInterface(&validators, distribution.DelegatorValidatorsMethod, ethRes.Ret)
+					var out distribution.DelegatorValidatorsReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(3).To(Equal(len(validators)))
+					Expect(3).To(Equal(len(out.Validators)))
 				})
 			})
 
 			Context("get withdraw address", func() {
-				BeforeEach(func() {
-					callArgs.MethodName = "getDelegatorWithdrawAddress"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
-				})
-
 				It("should get withdraw address", func() {
+					callArgs := distcaller.NewGetDelegatorWithdrawAddressCall(s.keyring.GetAddr(0))
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
 						txArgs,
@@ -3170,16 +3069,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					withdrawAddr, err := s.precompile.Unpack(distribution.DelegatorWithdrawAddressMethod, ethRes.Ret)
+					var out distribution.DelegatorWithdrawAddressReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					// get the bech32 encoding
 					expAddr := sdk.AccAddress(s.keyring.GetAddr(0).Bytes())
-					Expect(withdrawAddr[0]).To(Equal(expAddr.String()))
+					Expect(out.WithdrawAddress).To(Equal(expAddr.String()))
 				})
 
 				It("should call GetWithdrawAddress using staticcall", func() {
-					callArgs.MethodName = "staticCallGetWithdrawAddress"
-					callArgs.Args = []interface{}{s.keyring.GetAddr(0)}
+					callArgs := distcaller.NewStaticCallGetWithdrawAddressCall(s.keyring.GetAddr(0))
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -3189,18 +3088,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					withdrawAddr, err := s.precompile.Unpack(distribution.DelegatorWithdrawAddressMethod, ethRes.Ret)
+					var out distribution.DelegatorWithdrawAddressReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
 					// get the bech32 encoding
 					expAddr := sdk.AccAddress(s.keyring.GetAddr(0).Bytes())
-					Expect(withdrawAddr[0]).To(ContainSubstring(expAddr.String()))
+					Expect(out.WithdrawAddress).To(ContainSubstring(expAddr.String()))
 				})
 			})
 
 			Context("get community pool coins", func() {
 				It("should get community pool coins", func() {
-					callArgs.MethodName = "getCommunityPool"
-					callArgs.Args = []interface{}{}
+					callArgs := distcaller.NewGetCommunityPoolCall()
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -3210,11 +3109,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-					var coins []cmn.DecCoin
-					err = s.precompile.UnpackIntoInterface(&coins, distribution.CommunityPoolMethod, ethRes.Ret)
+					var out distribution.CommunityPoolReturn
+					_, err = out.Decode(ethRes.Ret)
 					Expect(err).To(BeNil())
-					Expect(len(coins)).To(Equal(1))
-					Expect(s.bondDenom).To(Equal(coins[0].Denom))
+					Expect(len(out.Coins)).To(Equal(1))
+					Expect(s.bondDenom).To(Equal(out.Coins[0].Denom))
 				})
 			})
 		})

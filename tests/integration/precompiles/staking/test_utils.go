@@ -27,7 +27,7 @@ import (
 )
 
 // assertValidatorsResponse asserts all the fields on the validators response
-func (s *PrecompileTestSuite) assertValidatorsResponse(validators []staking.ValidatorInfo, expLen int) {
+func (s *PrecompileTestSuite) assertValidatorsResponse(validators []staking.Validator, expLen int) {
 	// returning order can change
 	valOrder := []int{0, 1}
 	varAddr := sdk.ValAddress(common.HexToAddress(validators[0].OperatorAddress).Bytes()).String()
@@ -54,11 +54,7 @@ func (s *PrecompileTestSuite) assertValidatorsResponse(validators []staking.Vali
 }
 
 // assertRedelegation asserts the redelegationOutput struct and its fields
-func (s *PrecompileTestSuite) assertRedelegationsOutput(data []byte, redelTotalCount uint64, expAmt *big.Int, expCreationHeight int64, hasPagination bool) {
-	var redOut staking.RedelegationsOutput
-	err := s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationsMethod, data)
-	s.Require().NoError(err, "failed to unpack output")
-
+func (s *PrecompileTestSuite) assertRedelegationsOutput(redOut staking.RedelegationsReturn, redelTotalCount uint64, expAmt *big.Int, expCreationHeight int64, hasPagination bool) {
 	s.Require().Len(redOut.Response, 1)
 	// check pagination - total count should be 2
 	s.Require().Equal(redelTotalCount, redOut.PageResponse.Total)
@@ -138,7 +134,7 @@ func (s *PrecompileTestSuite) setupRedelegations(ctx sdk.Context, redelAmt *big.
 }
 
 // CheckValidatorOutput checks that the given validator output
-func (s *PrecompileTestSuite) CheckValidatorOutput(valOut staking.ValidatorInfo) {
+func (s *PrecompileTestSuite) CheckValidatorOutput(valOut staking.Validator) {
 	vals := s.network.GetValidators()
 	validatorAddrs := make([]string, len(vals))
 	for i, v := range vals {

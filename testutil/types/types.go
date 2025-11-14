@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/yihuang/go-abi"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -28,12 +28,7 @@ type CosmosTxArgs struct {
 
 // CallArgs is a struct to define all relevant data to call a smart contract.
 type CallArgs struct {
-	// ContractABI is the ABI of the contract to call.
-	ContractABI abi.ABI
-	// MethodName is the name of the method to call.
-	MethodName string
-	// Args are the arguments to pass to the method.
-	Args []interface{}
+	Method abi.Method
 }
 
 // ContractDeploymentData is a struct to define all relevant data to deploy a smart contract.

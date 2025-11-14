@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -151,4 +152,65 @@ func DecodeRevertReason(evmRes evmtypes.MsgEthereumTxResponse) error {
 		return errorsmod.Wrap(err, "failed to decode revert data")
 	}
 	return fmt.Errorf("tx failed with VmError: %v: %s", evmRes.VmError, revertErr.ErrorData())
+}
+
+// CallFunction dynamically calls a function with the provided arguments
+func CallFunction(fn interface{}, args []interface{}) (interface{}, error) {
+	fnValue := reflect.ValueOf(fn)
+	fnType := fnValue.Type()
+
+	// Validate that fn is a function
+	if fnType.Kind() != reflect.Func {
+		return nil, fmt.Errorf("expected function, got %T", fn)
+	}
+
+	// Validate number of arguments
+	if fnType.NumIn() != len(args) {
+		return nil, fmt.Errorf("function expects %d arguments, got %d",
+			fnType.NumIn(), len(args))
+	}
+
+	// Convert arguments to reflect values
+	in := make([]reflect.Value, len(args))
+	for i, arg := range args {
+		expectedType := fnType.In(i)
+		argValue := reflect.ValueOf(arg)
+
+		// Check if argument type matches
+		if !argValue.Type().AssignableTo(expectedType) {
+			// Try to convert if types don't match but are convertible
+			if argValue.Type().ConvertibleTo(expectedType) {
+				argValue = argValue.Convert(expectedType)
+			} else {
+				return nil, fmt.Errorf("argument %d: expected %v, got %T",
+					i, expectedType, arg)
+			}
+		}
+		in[i] = argValue
+	}
+
+	// Call the function
+	results := fnValue.Call(in)
+
+	// Handle return values
+	switch len(results) {
+	case 0:
+		return nil, nil
+	case 1:
+		return results[0].Interface(), nil
+	case 2:
+		// Assume second return value is error
+		var err error
+		if !results[1].IsNil() {
+			err = results[1].Interface().(error)
+		}
+		return results[0].Interface(), err
+	default:
+		// Convert all results to interfaces
+		output := make([]interface{}, len(results))
+		for i, result := range results {
+			output[i] = result.Interface()
+		}
+		return output, nil
+	}
 }

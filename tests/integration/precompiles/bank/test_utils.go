@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/precompiles/bank"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/math"
@@ -61,7 +60,7 @@ const (
 	contractCall
 )
 
-// ContractData is a helper struct to hold the addresses and ABIs for the
+// ContractData is a helper struct to hold the addresses and contract info for the
 // different contract instances that are subject to testing here.
 type ContractData struct {
 	ownerPriv cryptotypes.PrivKey
@@ -69,33 +68,25 @@ type ContractData struct {
 	contractAddr   common.Address
 	contractABI    abi.ABI
 	precompileAddr common.Address
-	precompileABI  abi.ABI
 }
 
 // getTxAndCallArgs is a helper function to return the correct call arguments for a given call type.
-// In case of a direct call to the precompile, the precompile's ABI is used. Otherwise a caller contract is used.
+// In case of a direct call to the precompile, the arguments are encoded using go-abi.
+// Otherwise a caller contract is used with the contract's ABI.
 func getTxAndCallArgs(
 	callType int,
 	contractData ContractData,
-	methodName string,
-	args ...interface{},
-) (evmtypes.EvmTxArgs, testutiltypes.CallArgs) {
+) evmtypes.EvmTxArgs {
 	txArgs := evmtypes.EvmTxArgs{}
-	callArgs := testutiltypes.CallArgs{}
 
 	switch callType {
 	case directCall:
 		txArgs.To = &contractData.precompileAddr
-		callArgs.ContractABI = contractData.precompileABI
 	case contractCall:
 		txArgs.To = &contractData.contractAddr
-		callArgs.ContractABI = contractData.contractABI
 	}
 
-	callArgs.MethodName = methodName
-	callArgs.Args = args
-
-	return txArgs, callArgs
+	return txArgs
 }
 
 func Max(x, y int) int {

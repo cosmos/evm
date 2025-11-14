@@ -9,6 +9,7 @@ import (
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/tests/contracts"
 	testconstants "github.com/cosmos/evm/testutil/constants"
@@ -147,11 +148,7 @@ func (s *IntegrationTestSuite) loadContracts() {
 	Expect(err).To(BeNil(), "failed to load SimpleSmartWallet contract")
 	s.smartWalletContract = smartWalletContract
 
-	logCheck = logCheck.WithABIEvents(
-		s.erc20Contract.ABI.Events,
-		s.entryPointContract.ABI.Events,
-		s.smartWalletContract.ABI.Events,
-	).WithExpPass(true)
+	logCheck = logCheck.WithExpPass(true)
 }
 
 func (s *IntegrationTestSuite) deployContracts() {
@@ -211,19 +208,15 @@ func (s *IntegrationTestSuite) fundERC20Tokens() {
 			To:       &s.erc20Addr,
 			GasLimit: DefaultGasLimit,
 		}
-		callArgs := testutiltypes.CallArgs{
-			ContractABI: s.erc20Contract.ABI,
-			MethodName:  "transfer",
-			Args: []interface{}{
-				recipient,
-				amount,
-			},
-		}
+		callArgs := erc20.NewTransferCall(
+			recipient,
+			amount,
+		)
 		_, _, err := s.factory.CallContractAndCheckLogs(
 			user0.Priv,
 			txArgs,
 			callArgs,
-			logCheck.WithExpEvents("Transfer"),
+			logCheck.WithExpEvents(&erc20.TransferEvent{}),
 		)
 		Expect(err).To(BeNil(), "failed to transfer ERC20 tokens")
 		Expect(s.network.NextBlock()).To(BeNil())

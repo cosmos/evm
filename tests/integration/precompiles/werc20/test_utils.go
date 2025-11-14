@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/yihuang/go-abi"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
 	"github.com/cosmos/evm/testutil/keyring"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -38,33 +37,24 @@ type CallsData struct {
 
 	// precompileReverter is used to call into the werc20 interface and
 	precompileReverterAddr common.Address
-	precompileReverterABI  abi.ABI
 
 	precompileAddr common.Address
-	precompileABI  abi.ABI
 }
 
 // getTxCallArgs is a helper function to return the correct call arguments and
 // transaction data for a given call type.
 func (cd CallsData) getTxAndCallArgs(
 	callType callType,
-	methodName string,
-	args ...interface{},
-) (evmtypes.EvmTxArgs, testutiltypes.CallArgs) {
+	call abi.Method,
+) (evmtypes.EvmTxArgs, abi.Method) {
 	txArgs := evmtypes.EvmTxArgs{}
-	callArgs := testutiltypes.CallArgs{}
 
 	switch callType {
 	case directCall:
 		txArgs.To = &cd.precompileAddr
-		callArgs.ContractABI = cd.precompileABI
 	case contractCall:
 		txArgs.To = &cd.precompileReverterAddr
-		callArgs.ContractABI = cd.precompileReverterABI
 	}
-
-	callArgs.MethodName = methodName
-	callArgs.Args = args
 
 	// Setting gas tip cap to zero to have zero gas price.
 	txArgs.GasTipCap = new(big.Int).SetInt64(0)
@@ -72,7 +62,7 @@ func (cd CallsData) getTxAndCallArgs(
 	// that makes debugging more complex.
 	txArgs.GasLimit = 1_000_000_000_000
 
-	return txArgs, callArgs
+	return txArgs, call
 }
 
 // -------------------------------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/contracts"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	testfactory "github.com/cosmos/evm/testutil/integration/evm/factory"
 	testhandler "github.com/cosmos/evm/testutil/integration/evm/grpc"
 	testnetwork "github.com/cosmos/evm/testutil/integration/evm/network"
@@ -53,11 +54,7 @@ func (s *TestSuite) TestGetERC20Balance() {
 		evmtypes.EvmTxArgs{
 			To: &erc20Addr,
 		},
-		testutiltypes.CallArgs{
-			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
-			MethodName:  "mint",
-			Args:        []interface{}{sender.Addr, mintAmount},
-		},
+		erc20testdata.NewMintCall(sender.Addr, mintAmount),
 	)
 	s.NoError(err, "failed to mint tokens")
 

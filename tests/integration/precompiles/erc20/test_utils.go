@@ -6,19 +6,19 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/yihuang/go-abi"
 
 	//nolint:revive // dot imports are fine for Gomega
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/precompiles/erc20"
+	"github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
-	testutiltypes "github.com/cosmos/evm/testutil/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -78,13 +78,11 @@ func (is *IntegrationTestSuite) setAllowanceForContract(
 		callType = directCallToken2
 	}
 
-	abiEvents := contractData.GetContractData(callType).ABI.Events
-
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.ApproveMethod, spender, amount)
+	txArgs := is.getTxAndCallArgs(callType, contractData)
+	callArgs := &erc20.ApproveCall{Spender: spender, Amount: amount}
 
 	approveCheck := testutil.LogCheckArgs{
-		ABIEvents: abiEvents,
-		ExpEvents: []string{erc20.EventTypeApproval},
+		ExpEvents: []abi.Event{&erc20.ApprovalEvent{}},
 		ExpPass:   true,
 	}
 
@@ -94,45 +92,6 @@ func (is *IntegrationTestSuite) setAllowanceForContract(
 	// commit changes to the chain state
 	err = is.network.NextBlock()
 	Expect(err).ToNot(HaveOccurred(), "error while calling NextBlock")
-}
-
-// requireOut is a helper utility to reduce the amount of boilerplate code in the query tests.
-//
-// It requires the output bytes and error to match the expected values. Additionally, the method outputs
-// are unpacked and the first value is compared to the expected value.
-//
-// NOTE: It's sufficient to only check the first value because all methods in the ERC20 precompile only
-// return a single value.
-func (s *PrecompileTestSuite) requireOut(
-	bz []byte,
-	err error,
-	method abi.Method,
-	expPass bool,
-	errContains string,
-	expValue interface{},
-) {
-	if expPass {
-		s.Require().NoError(err, "expected no error")
-		s.Require().NotEmpty(bz, "expected bytes not to be empty")
-
-		// Unpack the name into a string
-		out, err := method.Outputs.Unpack(bz)
-		s.Require().NoError(err, "expected no error unpacking")
-
-		// Check if expValue is a big.Int. Because of a difference in uninitialized/empty values for big.Ints,
-		// this comparison is often not working as expected, so we convert to Int64 here and compare those values.
-		bigExp, ok := expValue.(*big.Int)
-		if ok {
-			bigOut, ok := out[0].(*big.Int)
-			s.Require().True(ok, "expected output to be a big.Int")
-			s.Require().Zero(bigExp.Cmp(bigOut), "expected different value")
-		} else {
-			s.Require().Equal(expValue, out[0], "expected different value")
-		}
-	} else {
-		s.Require().Error(err, "expected error")
-		s.Require().Contains(err.Error(), errContains, "expected different error")
-	}
 }
 
 // requireAllowance is a helper function to check that a SendAuthorization
@@ -238,9 +197,7 @@ func (is *IntegrationTestSuite) setupNewERC20PrecompileForTokenPair(
 func (is *IntegrationTestSuite) getTxAndCallArgs(
 	callType CallType,
 	contractData ContractsData,
-	methodName string,
-	args ...interface{},
-) (evmtypes.EvmTxArgs, testutiltypes.CallArgs) {
+) evmtypes.EvmTxArgs {
 	cd := contractData.GetContractData(callType)
 
 	txArgs := evmtypes.EvmTxArgs{
@@ -248,13 +205,7 @@ func (is *IntegrationTestSuite) getTxAndCallArgs(
 		GasPrice: gasPrice,
 	}
 
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: cd.ABI,
-		MethodName:  methodName,
-		Args:        args,
-	}
-
-	return txArgs, callArgs
+	return txArgs
 }
 
 // ExpectedBalance is a helper struct to check the balances of accounts.
@@ -290,11 +241,10 @@ func (is *IntegrationTestSuite) ExpectBalancesForContract(callType CallType, con
 // ExpectBalancesForERC20 is a helper function to check expected balances for given accounts
 // when using the ERC20 contract.
 func (is *IntegrationTestSuite) ExpectBalancesForERC20(callType CallType, contractData ContractsData, expBalances []ExpectedBalance) {
-	contractABI := contractData.GetContractData(callType).ABI
-
 	for _, expBalance := range expBalances {
 		addr := common.BytesToAddress(expBalance.address.Bytes())
-		txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, "balanceOf", addr)
+		txArgs := is.getTxAndCallArgs(callType, contractData)
+		callArgs := &erc20.BalanceOfCall{Account: addr}
 
 		passCheck := testutil.LogCheckArgs{ExpPass: true}
 
@@ -304,10 +254,10 @@ func (is *IntegrationTestSuite) ExpectBalancesForERC20(callType CallType, contra
 		err = is.network.NextBlock()
 		Expect(err).ToNot(HaveOccurred(), "error on NextBlock call")
 
-		var balance *big.Int
-		err = contractABI.UnpackIntoInterface(&balance, "balanceOf", ethRes.Ret)
+		var out erc20.BalanceOfReturn
+		_, err = out.Decode(ethRes.Ret)
 		Expect(err).ToNot(HaveOccurred(), "expected no error unpacking balance")
-		Expect(math.NewIntFromBigInt(balance)).To(Equal(expBalance.expCoins.AmountOf(is.tokenDenom)), "expected different balance")
+		Expect(math.NewIntFromBigInt(out.Field1)).To(Equal(expBalance.expCoins.AmountOf(is.tokenDenom)), "expected different balance")
 	}
 }
 
@@ -316,9 +266,8 @@ func (is *IntegrationTestSuite) ExpectBalancesForERC20(callType CallType, contra
 func (is *IntegrationTestSuite) ExpectAllowanceForContract(
 	callType CallType, contractData ContractsData, owner, spender common.Address, expAmount *big.Int,
 ) {
-	contractABI := contractData.GetContractData(callType).ABI
-
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, erc20.AllowanceMethod, owner, spender)
+	txArgs := is.getTxAndCallArgs(callType, contractData)
+	callArgs := &erc20.AllowanceCall{Owner: owner, Spender: spender}
 
 	passCheck := testutil.LogCheckArgs{ExpPass: true}
 
@@ -327,17 +276,16 @@ func (is *IntegrationTestSuite) ExpectAllowanceForContract(
 	// Increase block to update nonce
 	Expect(is.network.NextBlock()).To(BeNil())
 
-	var allowance *big.Int
-	err = contractABI.UnpackIntoInterface(&allowance, "allowance", ethRes.Ret)
+	var out erc20.AllowanceReturn
+	_, err = out.Decode(ethRes.Ret)
 	Expect(err).ToNot(HaveOccurred(), "expected no error unpacking allowance")
-	Expect(allowance.Uint64()).To(Equal(expAmount.Uint64()), "expected different allowance")
+	Expect(out.Field1.Uint64()).To(Equal(expAmount.Uint64()), "expected different allowance")
 }
 
 // ExpectTrueToBeReturned is a helper function to check that the precompile returns true
 // in the ethereum transaction response.
-func (is *IntegrationTestSuite) ExpectTrueToBeReturned(res *evmtypes.MsgEthereumTxResponse, methodName string) {
-	var ret bool
-	err := is.precompile.UnpackIntoInterface(&ret, methodName, res.Ret)
+func (is *IntegrationTestSuite) ExpectTrueToBeReturned(res *evmtypes.MsgEthereumTxResponse) {
+	ret, _, err := abi.DecodeBool(res.Ret)
 	Expect(err).ToNot(HaveOccurred(), "expected no error unpacking")
 	Expect(ret).To(BeTrue(), "expected true to be returned")
 }
@@ -352,7 +300,6 @@ type ContractsData struct {
 // ContractData is a helper struct to hold the address and ABI for a given contract.
 type ContractData struct {
 	Address common.Address
-	ABI     abi.ABI
 }
 
 // GetContractData is a helper function to return the contract data for a given call type.
@@ -412,13 +359,11 @@ func (is *IntegrationTestSuite) MintERC20(callType CallType, contractData Contra
 		// NOTE: When using the ERC20 caller contract, we must still mint from the actual ERC20 v5 contract.
 		callType = erc20V5Call
 	}
-	abiEvents := contractData.GetContractData(callType).ABI.Events
-
-	txArgs, callArgs := is.getTxAndCallArgs(callType, contractData, "mint", receiver, amount)
+	txArgs := is.getTxAndCallArgs(callType, contractData)
+	callArgs := &testdata.MintCall{To: receiver, Amount: amount}
 
 	mintCheck := testutil.LogCheckArgs{
-		ABIEvents: abiEvents,
-		ExpEvents: []string{erc20.EventTypeTransfer}, // NOTE: this event occurs when calling "mint" on ERC20s
+		ExpEvents: []abi.Event{&erc20.TransferEvent{}}, // NOTE: this event occurs when calling "mint" on ERC20s
 		ExpPass:   true,
 	}
 

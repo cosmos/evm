@@ -4,43 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	cmn "github.com/cosmos/evm/precompiles/common"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
-)
-
-const (
-	// HexToBech32Method defines the ABI method name to convert a EIP-55
-	// hex formatted address to bech32 address string.
-	HexToBech32Method = "hexToBech32"
-	// Bech32ToHexMethod defines the ABI method name to convert a bech32
-	// formatted address string to an EIP-55 address.
-	Bech32ToHexMethod = "bech32ToHex"
 )
 
 // HexToBech32 converts a hex address to its corresponding Bech32 format. The Human Readable Prefix
 // (HRP) must be provided in the arguments. This function fails if the address is invalid or if the
 // bech32 conversion fails.
 func (p Precompile) HexToBech32(
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 2, len(args))
-	}
-
-	address, ok := args[0].(common.Address)
-	if !ok {
-		return nil, fmt.Errorf("invalid hex address")
-	}
-
+	args HexToBech32Call,
+) (*HexToBech32Return, error) {
 	cfg := sdk.GetConfig()
 
-	prefix, _ := args[1].(string)
-	if strings.TrimSpace(prefix) == "" {
+	if strings.TrimSpace(args.Prefix) == "" {
 		return nil, fmt.Errorf(
 			"invalid bech32 human readable prefix (HRP). Please provide a either an account, validator or consensus address prefix (eg: %s, %s, %s)",
 			cfg.GetBech32AccountAddrPrefix(), cfg.GetBech32ValidatorAddrPrefix(), cfg.GetBech32ConsensusAddrPrefix(),
@@ -48,33 +25,25 @@ func (p Precompile) HexToBech32(
 	}
 
 	// NOTE: safety check, should not happen given that the address is 20 bytes.
-	if err := sdk.VerifyAddressFormat(address.Bytes()); err != nil {
+	if err := sdk.VerifyAddressFormat(args.Addr.Bytes()); err != nil {
 		return nil, err
 	}
 
-	bech32Str, err := sdk.Bech32ifyAddressBytes(prefix, address.Bytes())
+	bech32Str, err := sdk.Bech32ifyAddressBytes(args.Prefix, args.Addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	return method.Outputs.Pack(bech32Str)
+	return &HexToBech32Return{Bech32Address: bech32Str}, nil
 }
 
 // Bech32ToHex converts a bech32 address to its corresponding EIP-55 hex format. The Human Readable Prefix
 // (HRP) must be provided in the arguments. This function fails if the address is invalid or if the
 // bech32 conversion fails.
 func (p Precompile) Bech32ToHex(
-	method *abi.Method,
-	args []interface{},
-) ([]byte, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf(cmn.ErrInvalidNumberOfArgs, 1, len(args))
-	}
-
-	address, ok := args[0].(string)
-	if !ok || address == "" {
-		return nil, fmt.Errorf("invalid bech32 address: %v", args[0])
-	}
+	args Bech32ToHexCall,
+) (*Bech32ToHexReturn, error) {
+	address := args.Bech32Address
 
 	bech32Prefix := strings.SplitN(address, "1", 2)[0]
 	if bech32Prefix == address {
@@ -90,5 +59,5 @@ func (p Precompile) Bech32ToHex(
 		return nil, err
 	}
 
-	return method.Outputs.Pack(common.BytesToAddress(addressBz))
+	return &Bech32ToHexReturn{Addr: common.BytesToAddress(addressBz)}, nil
 }

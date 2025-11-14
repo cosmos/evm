@@ -15,17 +15,16 @@ import (
 
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/evmd/tests/integration"
+	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/ics20"
 	chainutil "github.com/cosmos/evm/testutil"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
 type ICS20TransferTestSuite struct {
@@ -138,7 +137,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			GetBalance := func(addr sdk.AccAddress) sdk.Coin {
 				ctx := suite.chainA.GetContext()
 				if erc20 {
-					balanceAmt := evmAppA.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAbi, nativeErc20.ContractAddr, nativeErc20.Account)
+					balanceAmt := evmAppA.Erc20Keeper.BalanceOf(ctx, nativeErc20.ContractAddr, nativeErc20.Account)
 					return sdk.Coin{
 						Denom:  nativeErc20.Denom,
 						Amount: sdkmath.NewIntFromBigInt(balanceAmt),
@@ -150,10 +149,10 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			senderBalance := GetBalance(senderAddr)
 			suite.Require().NoError(err)
 
-			timeoutHeight := clienttypes.NewHeight(1, 110)
+			timeoutHeight := cmn.NewHeight(1, 110)
 			originalCoin := sdk.NewCoin(sourceDenomToTransfer, msgAmount)
 
-			data, err := suite.chainAPrecompile.Pack("transfer",
+			data, err := ics20.NewTransferCall(
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,
@@ -163,7 +162,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				timeoutHeight,
 				uint64(0),
 				"",
-			)
+			).EncodeWithSelector()
 			suite.Require().NoError(err)
 
 			res, _, _, err := suite.chainA.SendEvmTx(senderAccount, senderIdx, suite.chainAPrecompile.Address(), big.NewInt(0), data, 0)
@@ -231,56 +230,52 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			ctxB := evmante.BuildEvmExecutionCtx(suite.chainB.GetContext())
 			evmRes, err := evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomsCall(
+					cmn.PageRequest{
+						Key:        []byte{},
+						Offset:     0,
+						Limit:      0,
+						CountTotal: false,
+						Reverse:    false,
+					},
+				),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomsMethod,
-				query.PageRequest{
-					Key:        []byte{},
-					Offset:     0,
-					Limit:      0,
-					CountTotal: false,
-					Reverse:    false,
-				},
 			)
 			suite.Require().NoError(err)
-			var denomsResponse ics20.DenomsResponse
-			err = suite.chainBPrecompile.UnpackIntoInterface(&denomsResponse, ics20.DenomsMethod, evmRes.Ret)
+			var denomsResponse ics20.DenomsReturn
+			_, err = denomsResponse.Decode(evmRes.Ret)
 			suite.Require().NoError(err)
 			suite.Require().Equal(chainBDenom, denomsResponse.Denoms[0])
 
 			// denom query method with result
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomCall(chainBDenom.Hash().String()),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomMethod,
-				chainBDenom.Hash().String(),
 			)
 			suite.Require().NoError(err)
-			var denomResponse ics20.DenomResponse
-			err = suite.chainBPrecompile.UnpackIntoInterface(&denomResponse, ics20.DenomMethod, evmRes.Ret)
+			var denomResponse ics20.DenomReturn
+			_, err = denomResponse.Decode(evmRes.Ret)
 			suite.Require().NoError(err)
 			suite.Require().Equal(chainBDenom, denomResponse.Denom)
 
 			// denom query method not exists case
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomCall("0000000000000000000000000000000000000000000000000000000000000000"),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomMethod,
-				"0000000000000000000000000000000000000000000000000000000000000000",
 			)
 			suite.Require().NoError(err)
-			err = suite.chainBPrecompile.UnpackIntoInterface(&denomResponse, ics20.DenomMethod, evmRes.Ret)
+			_, err = denomResponse.Decode(evmRes.Ret)
 			suite.Require().NoError(err)
 			// ensure empty denom struct when not exist
 			suite.Require().Equal(denomResponse.Denom, transfertypes.Denom{Base: "", Trace: []transfertypes.Hop{}})
@@ -288,13 +283,11 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			// denom query method invalid error case
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomCall("INVALID-DENOM-HASH"),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomMethod,
-				"INVALID-DENOM-HASH",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
 
@@ -305,46 +298,40 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			// denomHash query method
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomHashCall(chainBDenom.Path()),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomHashMethod,
-				chainBDenom.Path(),
 			)
 			suite.Require().NoError(err)
-			var denomHashResponse transfertypes.QueryDenomHashResponse
-			err = suite.chainBPrecompile.UnpackIntoInterface(&denomHashResponse, ics20.DenomHashMethod, evmRes.Ret)
+			var denomHashResponse ics20.DenomHashReturn
+			_, err = denomHashResponse.Decode(evmRes.Ret)
 			suite.Require().NoError(err)
 			suite.Require().Equal(chainBDenom.Hash().String(), denomHashResponse.Hash)
 
 			// denomHash query method not exists case
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomHashCall("transfer/channel-0/erc20:not-exists-case"),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomHashMethod,
-				"transfer/channel-0/erc20:not-exists-case",
 			)
 			suite.Require().NoError(err)
-			err = suite.chainBPrecompile.UnpackIntoInterface(&denomHashResponse, ics20.DenomHashMethod, evmRes.Ret)
+			_, err = denomHashResponse.Decode(evmRes.Ret)
 			suite.Require().NoError(err)
 			suite.Require().Equal(denomHashResponse.Hash, "")
 
 			// denomHash query method invalid error case
 			evmRes, err = evmAppB.EVMKeeper.CallEVM(
 				ctxB,
-				suite.chainBPrecompile.ABI,
+				ics20.NewDenomHashCall(""),
 				chainBAddr,
 				suite.chainBPrecompile.Address(),
 				false,
 				nil,
-				ics20.DenomHashMethod,
-				"",
 			)
 			suite.Require().ErrorContains(err, vm.ErrExecutionReverted.Error())
 

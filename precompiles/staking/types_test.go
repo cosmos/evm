@@ -1,7 +1,6 @@
 package staking
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmaddress "github.com/cosmos/evm/encoding/address"
-	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -30,7 +28,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 		SecurityContact: "test@test.com",
 		Details:         "test validator",
 	}
-	commission := Commission{
+	commission := CommissionRates{
 		Rate:          big.NewInt(100000000000000000), // 0.1
 		MaxRate:       big.NewInt(200000000000000000), // 0.2
 		MaxChangeRate: big.NewInt(10000000000000000),  // 0.01
@@ -44,7 +42,7 @@ func TestNewMsgCreateValidator(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		args              []interface{}
+		args              CreateValidatorCall
 		wantErr           bool
 		errMsg            string
 		wantDelegatorAddr string
@@ -53,67 +51,20 @@ func TestNewMsgCreateValidator(t *testing.T) {
 		wantValue         *big.Int
 	}{
 		{
-			name:              "valid",
-			args:              []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value},
+			name: "valid",
+			args: CreateValidatorCall{
+				Description:       description,
+				CommissionRates:   commission,
+				MinSelfDelegation: minSelfDelegation,
+				ValidatorAddress:  validatorHexAddr,
+				Pubkey:            pubkey,
+				Value:             value,
+			},
 			wantErr:           false,
 			wantDelegatorAddr: expectedValidatorAddr,
 			wantValidatorAddr: sdk.ValAddress(validatorHexAddr.Bytes()).String(),
 			wantMinSelfDel:    minSelfDelegation,
 			wantValue:         value,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, value, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 6, 7),
-		},
-		{
-			name:    "invalid description type",
-			args:    []interface{}{"not-a-description", commission, minSelfDelegation, validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDescription, "not-a-description"),
-		},
-		{
-			name:    "invalid commission type",
-			args:    []interface{}{description, "not-a-commission", minSelfDelegation, validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidCommission, "not-a-commission"),
-		},
-		{
-			name:    "invalid min self delegation type",
-			args:    []interface{}{description, commission, "not-a-big-int", validatorHexAddr, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{description, commission, minSelfDelegation, "not-an-address", pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, "not-an-address"),
-		},
-		{
-			name:    "empty validator address",
-			args:    []interface{}{description, commission, minSelfDelegation, common.Address{}, pubkey, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidValidator, common.Address{}),
-		},
-		{
-			name:    "invalid pubkey type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, 123, value},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "pubkey", "string", 123),
-		},
-		{
-			name:    "invalid value type",
-			args:    []interface{}{description, commission, minSelfDelegation, validatorHexAddr, pubkey, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -150,7 +101,7 @@ func TestNewMsgDelegate(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		args              []interface{}
+		args              DelegateCall
 		wantErr           bool
 		errMsg            string
 		wantDelegatorAddr string
@@ -158,48 +109,16 @@ func TestNewMsgDelegate(t *testing.T) {
 		wantAmount        *big.Int
 	}{
 		{
-			name:              "valid",
-			args:              []interface{}{delegatorAddr, validatorAddr, amount},
+			name: "valid",
+			args: DelegateCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+				Amount:           amount,
+			},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
 			wantValidatorAddr: validatorAddr,
 			wantAmount:        amount,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
-		},
-		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -235,7 +154,7 @@ func TestNewMsgUndelegate(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		args              []interface{}
+		args              UndelegateCall
 		wantErr           bool
 		errMsg            string
 		wantDelegatorAddr string
@@ -243,48 +162,16 @@ func TestNewMsgUndelegate(t *testing.T) {
 		wantAmount        *big.Int
 	}{
 		{
-			name:              "valid",
-			args:              []interface{}{delegatorAddr, validatorAddr, amount},
+			name: "valid",
+			args: UndelegateCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+				Amount:           amount,
+			},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
 			wantValidatorAddr: validatorAddr,
 			wantAmount:        amount,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
-		},
-		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -322,7 +209,7 @@ func TestNewMsgRedelegate(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		args                 []interface{}
+		args                 RedelegateCall
 		wantErr              bool
 		errMsg               string
 		wantDelegatorAddr    string
@@ -331,55 +218,18 @@ func TestNewMsgRedelegate(t *testing.T) {
 		wantAmount           *big.Int
 	}{
 		{
-			name:                 "valid",
-			args:                 []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, amount},
+			name: "valid",
+			args: RedelegateCall{
+				DelegatorAddress:    delegatorAddr,
+				ValidatorSrcAddress: validatorSrcAddr,
+				ValidatorDstAddress: validatorDstAddr,
+				Amount:              amount,
+			},
 			wantErr:              false,
 			wantDelegatorAddr:    expectedDelegatorAddr,
 			wantValidatorSrcAddr: validatorSrcAddr,
 			wantValidatorDstAddr: validatorDstAddr,
 			wantAmount:           amount,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, amount, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorSrcAddr, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorSrcAddr, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator src address type",
-			args:    []interface{}{delegatorAddr, 123, validatorDstAddr, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorSrcAddress", "string", 123),
-		},
-		{
-			name:    "invalid validator dst address type",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, 123, amount},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorDstAddress", "string", 123),
-		},
-		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorSrcAddr, validatorDstAddr, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
 		},
 	}
 
@@ -417,7 +267,7 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		args               []interface{}
+		args               CancelUnbondingDelegationCall
 		wantErr            bool
 		errMsg             string
 		wantDelegatorAddr  string
@@ -426,55 +276,18 @@ func TestNewMsgCancelUnbondingDelegation(t *testing.T) {
 		wantCreationHeight int64
 	}{
 		{
-			name:               "valid",
-			args:               []interface{}{delegatorAddr, validatorAddr, amount, creationHeight},
+			name: "valid",
+			args: CancelUnbondingDelegationCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+				Amount:           amount,
+				CreationHeight:   creationHeight,
+			},
 			wantErr:            false,
 			wantDelegatorAddr:  expectedDelegatorAddr,
 			wantValidatorAddr:  validatorAddr,
 			wantAmount:         amount,
 			wantCreationHeight: creationHeight.Int64(),
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, creationHeight, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123, amount, creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
-		},
-		{
-			name:    "invalid amount type",
-			args:    []interface{}{delegatorAddr, validatorAddr, "not-a-big-int", creationHeight},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidAmount, "not-a-big-int"),
-		},
-		{
-			name:    "invalid creation height type",
-			args:    []interface{}{delegatorAddr, validatorAddr, amount, "not-a-big-int"},
-			wantErr: true,
-			errMsg:  "invalid creation height",
 		},
 	}
 
@@ -510,48 +323,21 @@ func TestNewDelegationRequest(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		args              []interface{}
+		args              DelegationCall
 		wantErr           bool
 		errMsg            string
 		wantDelegatorAddr string
 		wantValidatorAddr string
 	}{
 		{
-			name:              "valid",
-			args:              []interface{}{delegatorAddr, validatorAddr},
+			name: "valid",
+			args: DelegationCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+			},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
 			wantValidatorAddr: validatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
 		},
 	}
 
@@ -583,48 +369,21 @@ func TestNewUnbondingDelegationRequest(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		args              []interface{}
+		args              UnbondingDelegationCall
 		wantErr           bool
 		errMsg            string
 		wantDelegatorAddr string
 		wantValidatorAddr string
 	}{
 		{
-			name:              "valid",
-			args:              []interface{}{delegatorAddr, validatorAddr},
+			name: "valid",
+			args: UnbondingDelegationCall{
+				DelegatorAddress: delegatorAddr,
+				ValidatorAddress: validatorAddr,
+			},
 			wantErr:           false,
 			wantDelegatorAddr: expectedDelegatorAddr,
 			wantValidatorAddr: validatorAddr,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{delegatorAddr, validatorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid delegator type",
-			args:    []interface{}{"not-an-address", validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, "not-an-address"),
-		},
-		{
-			name:    "empty delegator address",
-			args:    []interface{}{common.Address{}, validatorAddr},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidDelegator, common.Address{}),
-		},
-		{
-			name:    "invalid validator address type",
-			args:    []interface{}{delegatorAddr, 123},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidType, "validatorAddress", "string", 123),
 		},
 	}
 

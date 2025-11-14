@@ -1,13 +1,9 @@
 package werc20
 
 import (
-	"bytes"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	_ "embed"
 
 	ibcutils "github.com/cosmos/evm/ibc"
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -17,21 +13,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
+//go:generate go run ../cmd -input abi.json -output werc20.abi.go
 
 var _ vm.PrecompiledContract = &Precompile{}
 
@@ -58,9 +40,6 @@ func NewPrecompile(
 ) *Precompile {
 	erc20Precompile := erc20.NewPrecompile(tokenPair, bankKeeper, erc20Keeper, transferKeeper)
 
-	// use the IWERC20 ABI
-	erc20Precompile.ABI = ABI
-
 	return &Precompile{
 		Precompile: erc20Precompile,
 	}
@@ -68,25 +47,15 @@ func NewPrecompile(
 
 // RequiredGas calculates the contract gas use.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// TODO: these values were obtained from Remix using the WEVMOS9.sol.
-	// We should execute the transactions from Cosmos EVM testnet
-	// to ensure parity in the values.
-
-	// If there is no method ID, then it's the fallback or receive case
-	if len(input) < 4 {
-		return DepositRequiredGas
-	}
-
-	methodID := input[:4]
-	method, err := p.MethodById(methodID)
+	methodID, input, err := cmn.SplitMethodID(input)
 	if err != nil {
 		return 0
 	}
 
-	switch method.Name {
-	case DepositMethod:
+	switch methodID {
+	case DepositID:
 		return DepositRequiredGas
-	case WithdrawMethod:
+	case WithdrawID:
 		return WithdrawRequiredGas
 	default:
 		return p.Precompile.RequiredGas(input)
@@ -100,23 +69,30 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
-	if err != nil {
-		return nil, err
+	var (
+		methodID uint32
+		err      error
+		input    []byte
+	)
+
+	if len(contract.Input) > 0 {
+		methodID, input, err = cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var bz []byte
 
-	switch {
-	case method.Type == abi.Fallback,
-		method.Type == abi.Receive,
-		method.Name == DepositMethod:
+	switch methodID {
+	case 0, DepositID:
+		// fallback or receive
 		bz, err = p.Deposit(ctx, contract, stateDB)
-	case method.Name == WithdrawMethod:
-		bz, err = p.Withdraw(ctx, contract, stateDB, args)
+	case WithdrawID:
+		return cmn.RunWithStateDB(ctx, p.Withdraw, input, stateDB, contract)
 	default:
 		// ERC20 transactions and queries
-		bz, err = p.HandleMethod(ctx, contract, stateDB, method, args)
+		bz, err = p.Precompile.Execute(ctx, stateDB, contract, readOnly)
 	}
 
 	return bz, err
@@ -124,13 +100,12 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 
 // IsTransaction returns true if the given method name correspond to a
 // transaction. Returns false otherwise.
-func (p Precompile) IsTransaction(method *abi.Method) bool {
-	txMethodName := []string{DepositMethod, WithdrawMethod}
-	txMethodType := []abi.FunctionType{abi.Fallback, abi.Receive}
+func (p Precompile) IsTransaction(methodID uint32) bool {
+	txMethodIDs := []uint32{DepositID, WithdrawID}
 
-	if slices.Contains(txMethodName, method.Name) || slices.Contains(txMethodType, method.Type) {
+	if slices.Contains(txMethodIDs, methodID) || methodID == 0 {
 		return true
 	}
 
-	return p.Precompile.IsTransaction(method)
+	return p.Precompile.IsTransaction(methodID)
 }

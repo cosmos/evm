@@ -1,14 +1,10 @@
 package staking
 
 import (
-	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	_ "embed"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -21,29 +17,14 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+//go:generate go run ../cmd -input abi.json -output staking.abi.go
+
 var _ vm.PrecompiledContract = &Precompile{}
-
-var (
-	// Embed abi json file to the executable binary. Needed when importing as dependency.
-	//
-	//go:embed abi.json
-	f   []byte
-	ABI abi.ABI
-)
-
-func init() {
-	var err error
-	ABI, err = abi.JSON(bytes.NewReader(f))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // Precompile defines the precompiled contract for staking.
 type Precompile struct {
 	cmn.Precompile
 
-	abi.ABI
 	stakingKeeper    cmn.StakingKeeper
 	stakingMsgServer stakingtypes.MsgServer
 	stakingQuerier   stakingtypes.QueryServer
@@ -66,7 +47,6 @@ func NewPrecompile(
 			ContractAddress:       common.HexToAddress(evmtypes.StakingPrecompileAddress),
 			BalanceHandlerFactory: cmn.NewBalanceHandlerFactory(bankKeeper),
 		},
-		ABI:              ABI,
 		stakingKeeper:    stakingKeeper,
 		stakingMsgServer: stakingMsgServer,
 		stakingQuerier:   stakingQuerier,
@@ -76,20 +56,12 @@ func NewPrecompile(
 
 // RequiredGas returns the required bare minimum gas to execute the precompile.
 func (p Precompile) RequiredGas(input []byte) uint64 {
-	// NOTE: This check avoid panicking when trying to decode the method ID
-	if len(input) < 4 {
-		return 0
-	}
-
-	methodID := input[:4]
-
-	method, err := p.MethodById(methodID)
+	methodID, input, err := cmn.SplitMethodID(input)
 	if err != nil {
-		// This should never happen since this method is going to fail during Run
 		return 0
 	}
 
-	return p.Precompile.RequiredGas(input, p.IsTransaction(method))
+	return p.Precompile.RequiredGas(input, p.IsTransaction(methodID))
 }
 
 func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]byte, error) {
@@ -99,45 +71,41 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readonly bool) ([]by
 }
 
 func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Contract, readOnly bool) ([]byte, error) {
-	method, args, err := cmn.SetupABI(p.ABI, contract, readOnly, p.IsTransaction)
+	methodID, input, err := cmn.ParseMethod(contract.Input, readOnly, p.IsTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	var bz []byte
-
-	switch method.Name {
+	switch methodID {
 	// Staking transactions
-	case CreateValidatorMethod:
-		bz, err = p.CreateValidator(ctx, contract, stateDB, method, args)
-	case EditValidatorMethod:
-		bz, err = p.EditValidator(ctx, contract, stateDB, method, args)
-	case DelegateMethod:
-		bz, err = p.Delegate(ctx, contract, stateDB, method, args)
-	case UndelegateMethod:
-		bz, err = p.Undelegate(ctx, contract, stateDB, method, args)
-	case RedelegateMethod:
-		bz, err = p.Redelegate(ctx, contract, stateDB, method, args)
-	case CancelUnbondingDelegationMethod:
-		bz, err = p.CancelUnbondingDelegation(ctx, contract, stateDB, method, args)
+	case CreateValidatorID:
+		return cmn.RunWithStateDB(ctx, p.CreateValidator, input, stateDB, contract)
+	case EditValidatorID:
+		return cmn.RunWithStateDB(ctx, p.EditValidator, input, stateDB, contract)
+	case DelegateID:
+		return cmn.RunWithStateDB(ctx, p.Delegate, input, stateDB, contract)
+	case UndelegateID:
+		return cmn.RunWithStateDB(ctx, p.Undelegate, input, stateDB, contract)
+	case RedelegateID:
+		return cmn.RunWithStateDB(ctx, p.Redelegate, input, stateDB, contract)
+	case CancelUnbondingDelegationID:
+		return cmn.RunWithStateDB(ctx, p.CancelUnbondingDelegation, input, stateDB, contract)
 	// Staking queries
-	case DelegationMethod:
-		bz, err = p.Delegation(ctx, contract, method, args)
-	case UnbondingDelegationMethod:
-		bz, err = p.UnbondingDelegation(ctx, contract, method, args)
-	case ValidatorMethod:
-		bz, err = p.Validator(ctx, method, contract, args)
-	case ValidatorsMethod:
-		bz, err = p.Validators(ctx, method, contract, args)
-	case RedelegationMethod:
-		bz, err = p.Redelegation(ctx, method, contract, args)
-	case RedelegationsMethod:
-		bz, err = p.Redelegations(ctx, method, contract, args)
+	case DelegationID:
+		return cmn.Run(ctx, p.Delegation, input)
+	case UnbondingDelegationID:
+		return cmn.Run(ctx, p.UnbondingDelegation, input)
+	case ValidatorID:
+		return cmn.Run(ctx, p.Validator, input)
+	case ValidatorsID:
+		return cmn.Run(ctx, p.Validators, input)
+	case RedelegationID:
+		return cmn.Run(ctx, p.Redelegation, input)
+	case RedelegationsID:
+		return cmn.Run(ctx, p.Redelegations, input)
 	default:
-		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
+		return nil, fmt.Errorf(cmn.ErrUnknownMethod, methodID)
 	}
-
-	return bz, err
 }
 
 // IsTransaction checks if the given method name corresponds to a transaction or query.
@@ -149,14 +117,14 @@ func (p Precompile) Execute(ctx sdk.Context, stateDB vm.StateDB, contract *vm.Co
 //   - Undelegate
 //   - Redelegate
 //   - CancelUnbondingDelegation
-func (Precompile) IsTransaction(method *abi.Method) bool {
-	switch method.Name {
-	case CreateValidatorMethod,
-		EditValidatorMethod,
-		DelegateMethod,
-		UndelegateMethod,
-		RedelegateMethod,
-		CancelUnbondingDelegationMethod:
+func (Precompile) IsTransaction(method uint32) bool {
+	switch method {
+	case CreateValidatorID,
+		EditValidatorID,
+		DelegateID,
+		UndelegateID,
+		RedelegateID,
+		CancelUnbondingDelegationID:
 		return true
 	default:
 		return false

@@ -18,6 +18,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/server/config"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
@@ -1687,10 +1688,6 @@ func (s *KeeperTestSuite) TestTraceCall() {
 	defer func() { s.EnableFeemarket = false }()
 	s.SetupTest()
 
-	// Load ERC20 contract
-	erc20Contract, err := testdata.LoadERC20Contract()
-	s.Require().NoError(err)
-
 	// Deploy ERC20 contract for testing
 	senderKey := s.Keyring.GetKey(0)
 	contractAddr, err := deployErc20Contract(senderKey, s.Factory)
@@ -1708,12 +1705,10 @@ func (s *KeeperTestSuite) TestTraceCall() {
 			msg: "default trace with contract call",
 			getCallArgs: func() []byte {
 				// Prepare transfer call data
-				callArgs := testutiltypes.CallArgs{
-					ContractABI: erc20Contract.ABI,
-					MethodName:  "transfer",
-					Args:        []interface{}{common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101"), big.NewInt(1000)},
-				}
-				input, err := factory.GenerateContractCallArgs(callArgs)
+				input, err := factory.GenerateContractCallArgs(&erc20.TransferCall{
+					To:     common.HexToAddress("0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101"),
+					Amount: big.NewInt(1000),
+				})
 				s.Require().NoError(err)
 				return input
 			},
@@ -1726,12 +1721,9 @@ func (s *KeeperTestSuite) TestTraceCall() {
 		{
 			msg: "callTracer with contract call",
 			getCallArgs: func() []byte {
-				callArgs := testutiltypes.CallArgs{
-					ContractABI: erc20Contract.ABI,
-					MethodName:  "balanceOf",
-					Args:        []interface{}{senderKey.Addr},
-				}
-				input, err := factory.GenerateContractCallArgs(callArgs)
+				input, err := factory.GenerateContractCallArgs(&erc20.BalanceOfCall{
+					Account: senderKey.Addr,
+				})
 				s.Require().NoError(err)
 				return input
 			},
@@ -1746,12 +1738,9 @@ func (s *KeeperTestSuite) TestTraceCall() {
 		{
 			msg: "prestateTracer with contract call",
 			getCallArgs: func() []byte {
-				callArgs := testutiltypes.CallArgs{
-					ContractABI: erc20Contract.ABI,
-					MethodName:  "balanceOf",
-					Args:        []interface{}{senderKey.Addr},
-				}
-				input, err := factory.GenerateContractCallArgs(callArgs)
+				input, err := factory.GenerateContractCallArgs(&erc20.BalanceOfCall{
+					Account: senderKey.Addr,
+				})
 				s.Require().NoError(err)
 				return input
 			},
@@ -1766,12 +1755,9 @@ func (s *KeeperTestSuite) TestTraceCall() {
 		{
 			msg: "trace with filtered options",
 			getCallArgs: func() []byte {
-				callArgs := testutiltypes.CallArgs{
-					ContractABI: erc20Contract.ABI,
-					MethodName:  "balanceOf",
-					Args:        []interface{}{senderKey.Addr},
-				}
-				input, err := factory.GenerateContractCallArgs(callArgs)
+				input, err := factory.GenerateContractCallArgs(&erc20.BalanceOfCall{
+					Account: senderKey.Addr,
+				})
 				s.Require().NoError(err)
 				return input
 			},
@@ -1789,12 +1775,9 @@ func (s *KeeperTestSuite) TestTraceCall() {
 		{
 			msg: "javascript tracer",
 			getCallArgs: func() []byte {
-				callArgs := testutiltypes.CallArgs{
-					ContractABI: erc20Contract.ABI,
-					MethodName:  "balanceOf",
-					Args:        []interface{}{senderKey.Addr},
-				}
-				input, err := factory.GenerateContractCallArgs(callArgs)
+				input, err := factory.GenerateContractCallArgs(&erc20.BalanceOfCall{
+					Account: senderKey.Addr,
+				})
 				s.Require().NoError(err)
 				return input
 			},
@@ -2476,19 +2459,10 @@ func executeTransferCall(
 	transferParams transferParams,
 	txFactory factory.TxFactory,
 ) (msgEthereumTx *types.MsgEthereumTx, err error) {
-	erc20Contract, err := testdata.LoadERC20Contract()
-	if err != nil {
-		return nil, err
-	}
-
 	transferArgs := types.EvmTxArgs{
 		To: &transferParams.contractAddr,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: erc20Contract.ABI,
-		MethodName:  "transfer",
-		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
-	}
+	callArgs := erc20.NewTransferCall(transferParams.recipientAddr, big.NewInt(1000))
 
 	input, err := factory.GenerateContractCallArgs(callArgs)
 	if err != nil {
@@ -2519,19 +2493,15 @@ func buildTransferTx(
 	txFactory factory.TxFactory,
 ) (msgEthereumTx *types.MsgEthereumTx) {
 	t.Helper()
-	erc20Contract, err := testdata.LoadERC20Contract()
-	require.NoError(t, err)
 
 	transferArgs := types.EvmTxArgs{
 		To: &transferParams.contractAddr,
 	}
-	callArgs := testutiltypes.CallArgs{
-		ContractABI: erc20Contract.ABI,
-		MethodName:  "transfer",
-		Args:        []interface{}{transferParams.recipientAddr, big.NewInt(1000)},
-	}
 
-	input, err := factory.GenerateContractCallArgs(callArgs)
+	input, err := factory.GenerateContractCallArgs(&erc20.TransferCall{
+		To:     transferParams.recipientAddr,
+		Amount: big.NewInt(1000),
+	})
 	require.NoError(t, err)
 	transferArgs.Input = input
 

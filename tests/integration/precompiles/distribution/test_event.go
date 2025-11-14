@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
+	"github.com/yihuang/go-abi"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/distribution"
@@ -27,10 +28,9 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	method := s.precompile.Methods[distribution.SetWithdrawAddressMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress string) *distribution.SetWithdrawAddressCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -38,24 +38,21 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(string) []interface{} {
-				return []interface{}{
-					s.keyring.GetAddr(0),
+			func(string) *distribution.SetWithdrawAddressCall {
+				return distribution.NewSetWithdrawAddressCall(s.keyring.GetAddr(0),
 					s.keyring.GetAddr(0).String(),
-				}
+				)
 			},
 			func() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeSetWithdrawAddress]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the fully unpacked event matches the one emitted
-				var setWithdrawerAddrEvent distribution.EventSetWithdrawAddress
-				err := cmn.UnpackLog(s.precompile.ABI, &setWithdrawerAddrEvent, distribution.EventTypeSetWithdrawAddress, *log)
+				var setWithdrawerAddrEvent distribution.SetWithdrawerAddressEvent
+				err := abi.DecodeEvent(&setWithdrawerAddrEvent, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), setWithdrawerAddrEvent.Caller)
 				bech32AddrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
@@ -77,7 +74,7 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.SetWithdrawAddress(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+		_, err := s.precompile.SetWithdrawAddress(ctx, *tc.malleate(s.network.GetValidators()[0].OperatorAddress), stDB, contract)
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -94,10 +91,9 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	method := s.precompile.Methods[distribution.WithdrawDelegatorRewardMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(val stakingtypes.Validator) []interface{}
+		malleate    func(val stakingtypes.Validator) *distribution.WithdrawDelegatorRewardsCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -105,7 +101,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(val stakingtypes.Validator) []interface{} {
+			func(val stakingtypes.Validator) *distribution.WithdrawDelegatorRewardsCall {
 				var err error
 
 				ctx, err = s.prepareStakingRewards(ctx, stakingRewards{
@@ -114,18 +110,15 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 					RewardAmt: testRewardsAmt,
 				})
 				s.Require().NoError(err)
-				return []interface{}{
-					s.keyring.GetAddr(0),
+				return distribution.NewWithdrawDelegatorRewardsCall(s.keyring.GetAddr(0),
 					val.OperatorAddress,
-				}
+				)
 			},
 			func() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeWithdrawDelegatorReward]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				optAddr, err := sdk.ValAddressFromBech32(s.network.GetValidators()[0].OperatorAddress)
@@ -133,8 +126,8 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 				optHexAddr := common.BytesToAddress(optAddr)
 
 				// Check the fully unpacked event matches the one emitted
-				var delegatorRewards distribution.EventWithdrawDelegatorReward
-				err = cmn.UnpackLog(s.precompile.ABI, &delegatorRewards, distribution.EventTypeWithdrawDelegatorReward, *log)
+				var delegatorRewards distribution.WithdrawDelegatorRewardEvent
+				err = abi.DecodeEvent(&delegatorRewards, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), delegatorRewards.DelegatorAddress)
 				s.Require().Equal(optHexAddr, delegatorRewards.ValidatorAddress)
@@ -156,7 +149,7 @@ func (s *PrecompileTestSuite) TestWithdrawDelegatorRewardEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err := s.precompile.WithdrawDelegatorReward(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0]))
+		_, err := s.precompile.WithdrawDelegatorReward(ctx, *tc.malleate(s.network.GetValidators()[0]), stDB, contract)
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -174,10 +167,9 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		stDB *statedb.StateDB
 		amt  = math.NewInt(1e18)
 	)
-	method := s.precompile.Methods[distribution.WithdrawValidatorCommissionMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) []interface{}
+		malleate    func(operatorAddress string) *distribution.WithdrawValidatorCommissionCall
 		postCheck   func()
 		gas         uint64
 		expError    bool
@@ -185,7 +177,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(operatorAddress string) []interface{} {
+			func(operatorAddress string) *distribution.WithdrawValidatorCommissionCall {
 				valAddr, err := sdk.ValAddressFromBech32(operatorAddress)
 				s.Require().NoError(err)
 				valCommission := sdk.DecCoins{sdk.NewDecCoinFromDec(constants.ExampleAttoDenom, math.LegacyNewDecFromInt(amt))}
@@ -197,22 +189,18 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 				coins := sdk.NewCoins(sdk.NewCoin(constants.ExampleAttoDenom, amt))
 				err = s.mintCoinsForDistrMod(ctx, coins)
 				s.Require().NoError(err)
-				return []interface{}{
-					operatorAddress,
-				}
+				return distribution.NewWithdrawValidatorCommissionCall(operatorAddress)
 			},
 			func() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeWithdrawValidatorCommission]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the fully unpacked event matches the one emitted
-				var validatorRewards distribution.EventWithdrawValidatorRewards
-				err := cmn.UnpackLog(s.precompile.ABI, &validatorRewards, distribution.EventTypeWithdrawValidatorCommission, *log)
+				var validatorRewards distribution.WithdrawValidatorCommissionEvent
+				err := abi.DecodeEvent(&validatorRewards, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(crypto.Keccak256Hash([]byte(s.network.GetValidators()[0].OperatorAddress)), validatorRewards.ValidatorAddress)
 				s.Require().Equal(amt.BigInt(), validatorRewards.Commission)
@@ -236,7 +224,7 @@ func (s *PrecompileTestSuite) TestWithdrawValidatorCommissionEvent() {
 		initialGas := ctx.GasMeter().GasConsumed()
 		s.Require().Zero(initialGas)
 
-		_, err = s.precompile.WithdrawValidatorCommission(ctx, contract, stDB, &method, tc.malleate(s.network.GetValidators()[0].OperatorAddress))
+		_, err = s.precompile.WithdrawValidatorCommission(ctx, *tc.malleate(s.network.GetValidators()[0].OperatorAddress), stDB, contract)
 
 		if tc.expError {
 			s.Require().Error(err)
@@ -265,12 +253,10 @@ func (s *PrecompileTestSuite) TestClaimRewardsEvent() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeClaimRewards]
-				s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
-				var claimRewardsEvent distribution.EventClaimRewards
-				err := cmn.UnpackLog(s.precompile.ABI, &claimRewardsEvent, distribution.EventTypeClaimRewards, *log)
+				var claimRewardsEvent distribution.ClaimRewardsEvent
+				err := abi.DecodeEvent(&claimRewardsEvent, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(common.BytesToAddress(s.keyring.GetAddr(0).Bytes()), claimRewardsEvent.DelegatorAddress)
 				s.Require().Equal(big.NewInt(1e18), claimRewardsEvent.Amount)
@@ -307,12 +293,10 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 				log := stDB.Logs()[0]
 				s.Require().Equal(log.Address, s.precompile.Address())
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeFundCommunityPool]
-				s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
-				var fundCommunityPoolEvent distribution.EventFundCommunityPool
-				err := cmn.UnpackLog(s.precompile.ABI, &fundCommunityPoolEvent, distribution.EventTypeFundCommunityPool, *log)
+				var fundCommunityPoolEvent distribution.FundCommunityPoolEvent
+				err := abi.DecodeEvent(&fundCommunityPoolEvent, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), fundCommunityPoolEvent.Depositor)
 				s.Require().Equal(constants.ExampleAttoDenom, fundCommunityPoolEvent.Denom)
@@ -345,12 +329,10 @@ func (s *PrecompileTestSuite) TestFundCommunityPoolEvent() {
 					s.Require().Equal(log.Address, s.precompile.Address(), "log address must match the precompile address")
 
 					// Check event signature
-					event := s.precompile.Events[distribution.EventTypeFundCommunityPool]
-					s.Require().Equal(event.ID, common.HexToHash(log.Topics[0].Hex()))
 					s.Require().Equal(uint64(ctx.BlockHeight()), log.BlockNumber) //nolint:gosec // G115
 
-					var fundCommunityPoolEvent distribution.EventFundCommunityPool
-					err := cmn.UnpackLog(s.precompile.ABI, &fundCommunityPoolEvent, distribution.EventTypeFundCommunityPool, *log)
+					var fundCommunityPoolEvent distribution.FundCommunityPoolEvent
+					err := abi.DecodeEvent(&fundCommunityPoolEvent, log.Topics, log.Data)
 					s.Require().NoError(err)
 
 					s.Require().Equal(s.keyring.GetAddr(0), fundCommunityPoolEvent.Depositor)
@@ -380,10 +362,9 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		stDB *statedb.StateDB
 		amt  = math.NewInt(1e18)
 	)
-	method := s.precompile.Methods[distribution.DepositValidatorRewardsPoolMethod]
 	testCases := []struct {
 		name        string
-		malleate    func(operatorAddress string) ([]interface{}, sdk.Coins)
+		malleate    func(operatorAddress string) (*distribution.DepositValidatorRewardsPoolCall, sdk.Coins)
 		postCheck   func(sdk.Coins)
 		gas         uint64
 		expError    bool
@@ -391,7 +372,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 	}{
 		{
 			"success - the correct event is emitted",
-			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+			func(operatorAddress string) (*distribution.DepositValidatorRewardsPoolCall, sdk.Coins) {
 				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
@@ -401,11 +382,10 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 				sdkCoins, err := cmn.NewSdkCoinsFromCoins(coins)
 				s.Require().NoError(err)
 
-				return []interface{}{
-					s.keyring.GetAddr(0),
+				return distribution.NewDepositValidatorRewardsPoolCall(s.keyring.GetAddr(0),
 					operatorAddress,
 					coins,
-				}, sdkCoins.Sort()
+				), sdkCoins.Sort()
 			},
 			func(sdkCoins sdk.Coins) {
 				log := stDB.Logs()[0]
@@ -415,13 +395,11 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 				s.Require().NoError(err)
 
 				// Check event signature matches the one emitted
-				event := s.precompile.Events[distribution.EventTypeDepositValidatorRewardsPool]
-				s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 				s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 				// Check the fully unpacked event matches the one emitted
-				var depositValidatorRewardsPool distribution.EventDepositValidatorRewardsPool
-				err = cmn.UnpackLog(s.precompile.ABI, &depositValidatorRewardsPool, distribution.EventTypeDepositValidatorRewardsPool, *log)
+				var depositValidatorRewardsPool distribution.DepositValidatorRewardsPoolEvent
+				err = abi.DecodeEvent(&depositValidatorRewardsPool, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(depositValidatorRewardsPool.Depositor, s.keyring.GetAddr(0))
 				s.Require().Equal(depositValidatorRewardsPool.ValidatorAddress, common.BytesToAddress(valAddr.Bytes()))
@@ -434,7 +412,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		},
 		{
 			"success - the correct event is emitted for multiple coins",
-			func(operatorAddress string) ([]interface{}, sdk.Coins) {
+			func(operatorAddress string) (*distribution.DepositValidatorRewardsPoolCall, sdk.Coins) {
 				coins := []cmn.Coin{
 					{
 						Denom:  constants.ExampleAttoDenom,
@@ -452,11 +430,10 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 				sdkCoins, err := cmn.NewSdkCoinsFromCoins(coins)
 				s.Require().NoError(err)
 
-				return []interface{}{
-					s.keyring.GetAddr(0),
+				return distribution.NewDepositValidatorRewardsPoolCall(s.keyring.GetAddr(0),
 					operatorAddress,
 					coins,
-				}, sdkCoins.Sort()
+				), sdkCoins.Sort()
 			},
 			func(sdkCoins sdk.Coins) {
 				for i, log := range stDB.Logs() {
@@ -466,13 +443,11 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 					s.Require().NoError(err)
 
 					// Check event signature matches the one emitted
-					event := s.precompile.Events[distribution.EventTypeDepositValidatorRewardsPool]
-					s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
 					s.Require().Equal(log.BlockNumber, uint64(ctx.BlockHeight())) //nolint:gosec // G115
 
 					// Check the fully unpacked event matches the one emitted
-					var depositValidatorRewardsPool distribution.EventDepositValidatorRewardsPool
-					err = cmn.UnpackLog(s.precompile.ABI, &depositValidatorRewardsPool, distribution.EventTypeDepositValidatorRewardsPool, *log)
+					var depositValidatorRewardsPool distribution.DepositValidatorRewardsPoolEvent
+					err = abi.DecodeEvent(&depositValidatorRewardsPool, log.Topics, log.Data)
 					s.Require().NoError(err)
 					s.Require().Equal(depositValidatorRewardsPool.Depositor, s.keyring.GetAddr(0))
 					s.Require().Equal(depositValidatorRewardsPool.ValidatorAddress, common.BytesToAddress(valAddr.Bytes()))
@@ -495,7 +470,7 @@ func (s *PrecompileTestSuite) TestDepositValidatorRewardsPoolEvent() {
 		contract, ctx = testutil.NewPrecompileContract(s.T(), ctx, s.keyring.GetAddr(0), s.precompile.Address(), tc.gas)
 
 		args, sdkCoins := tc.malleate(s.network.GetValidators()[0].OperatorAddress)
-		_, err := s.precompile.DepositValidatorRewardsPool(ctx, contract, stDB, &method, args)
+		_, err := s.precompile.DepositValidatorRewardsPool(ctx, *args, stDB, contract)
 
 		if tc.expError {
 			s.Require().Error(err)

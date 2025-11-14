@@ -219,11 +219,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			res, err := tf.ExecuteContractCall(
 				senderPriv,
 				types3.EvmTxArgs{To: &counterFactoryAddr},
-				types2.CallArgs{
-					ContractABI: counterFactoryContract.ABI,
-					MethodName:  "incrementCounter",
-					Args:        []interface{}{},
-				},
+				testdata.NewIncrementCall(),
 			)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to increment counter value")
 			gasUsedPre = res.GasUsed
@@ -234,11 +230,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			res, err = tf.ExecuteContractCall(
 				senderPriv,
 				types3.EvmTxArgs{To: &counterFactoryAddr},
-				types2.CallArgs{
-					ContractABI: counterFactoryContract.ABI,
-					MethodName:  "getCounterValue",
-					Args:        []interface{}{},
-				},
+				testdata.NewGetCounterValueCall(),
 			)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get counter value")
 			gomega.Expect(in.NextBlock()).To(gomega.BeNil())
@@ -287,11 +279,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			res, err := tf.ExecuteContractCall(
 				senderPriv,
 				types3.EvmTxArgs{To: &counterFactoryAddr},
-				types2.CallArgs{
-					ContractABI: counterFactoryContract.ABI,
-					MethodName:  "incrementCounter",
-					Args:        []interface{}{},
-				},
+				testdata.NewIncrementCounterCall(),
 			)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to increment counter value")
 			gasUsedPost := res.GasUsed
@@ -300,11 +288,7 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			res, err = tf.ExecuteContractCall(
 				senderPriv,
 				types3.EvmTxArgs{To: &counterFactoryAddr},
-				types2.CallArgs{
-					ContractABI: counterFactoryContract.ABI,
-					MethodName:  "getCounterValue",
-					Args:        []interface{}{},
-				},
+				testdata.NewGetCounterValueCall(),
 			)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get counter value")
 			gomega.Expect(in.NextBlock()).To(gomega.BeNil())
@@ -312,14 +296,11 @@ func RunTests(t *testing.T, create network.CreateEvmApp, options ...network.Conf
 			ethRes, err := types3.DecodeTxResponse(res.Data)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to decode tx response")
 
-			unpacked, err := counterFactoryContract.ABI.Unpack(
-				"getCounterValue",
-				ethRes.Ret,
-			)
+			var out testdata.GetCounterValueReturn
+			_, err = out.Decode(ethRes.Ret)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to unpack counter value")
 
-			counter, ok := unpacked[0].(*big.Int)
-			gomega.Expect(ok).To(gomega.BeTrue(), "failed to convert counter to big.Int")
+			counter := out.Field1
 			gomega.Expect(counter.String()).To(gomega.Equal(fmt.Sprintf("%d", initialCounterValue+2)), "counter is not updated correctly")
 
 			// The difference in gas is the new cost of the opcode, minus the cost of the

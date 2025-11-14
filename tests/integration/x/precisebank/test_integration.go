@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/precompiles/werc20"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
 	testutiltypes "github.com/cosmos/evm/testutil/types"
@@ -299,10 +300,7 @@ func (s *KeeperIntegrationTestSuite) TestWATOMWrapUnwrapMultiDecimal() {
 					GasFeeCap: baseFeeRes.BaseFee.BigInt(),
 					GasTipCap: big.NewInt(1),
 				},
-				testutiltypes.CallArgs{
-					ContractABI: contracts.WATOMContract.ABI,
-					MethodName:  "deposit",
-				},
+				werc20.NewDepositCall(),
 			)
 			s.Require().NoError(err)
 			err = s.network.NextBlock()
@@ -325,11 +323,7 @@ func (s *KeeperIntegrationTestSuite) TestWATOMWrapUnwrapMultiDecimal() {
 					GasFeeCap: baseFeeRes.BaseFee.BigInt(),
 					GasTipCap: big.NewInt(1),
 				},
-				testutiltypes.CallArgs{
-					ContractABI: contracts.WATOMContract.ABI,
-					MethodName:  "withdraw",
-					Args:        []interface{}{amount},
-				},
+				werc20.NewWithdrawCall(amount),
 			)
 			s.Require().NoError(err)
 			s.Require().NoError(s.network.NextBlock())

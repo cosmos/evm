@@ -26,54 +26,34 @@ func TestNewMsgDeposit(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           DepositCall
 		wantErr        bool
 		errMsg         string
 		wantDepositor  string
 		wantProposalID uint64
 	}{
 		{
-			name:           "valid",
-			args:           []interface{}{depositorAddr, proposalID, validCoins},
+			name: "valid",
+			args: DepositCall{
+				Depositor:  depositorAddr,
+				ProposalId: proposalID,
+				Amount:     validCoins,
+			},
 			wantErr:        false,
 			wantDepositor:  expectedDepositorAddr,
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{depositorAddr, proposalID, validCoins, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 3, 4),
-		},
-		{
-			name:    "invalid depositor type",
-			args:    []interface{}{"not-an-address", proposalID, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, "not-an-address"),
-		},
-		{
-			name:    "empty depositor address",
-			args:    []interface{}{common.Address{}, proposalID, validCoins},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, common.Address{}),
-		},
-		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{depositorAddr, "not-a-uint64", validCoins},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
-		},
-		{
-			name:    "invalid coins",
-			args:    []interface{}{depositorAddr, proposalID, "invalid-coins"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDeposits, "deposit arg"),
+			name: "empty depositor address",
+			args: DepositCall{
+				Depositor:  common.Address{},
+				ProposalId: proposalID,
+				Amount:     validCoins,
+			},
+			wantErr:        true,
+			errMsg:         fmt.Sprintf(ErrInvalidDepositor, common.Address{}),
+			wantDepositor:  expectedDepositorAddr,
+			wantProposalID: proposalID,
 		},
 	}
 
@@ -108,48 +88,32 @@ func TestNewMsgCancelProposal(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           CancelProposalCall
 		wantErr        bool
 		errMsg         string
 		wantProposer   string
 		wantProposalID uint64
 	}{
 		{
-			name:           "valid",
-			args:           []interface{}{proposerAddr, proposalID},
+			name: "valid",
+			args: CancelProposalCall{
+				Proposer:   proposerAddr,
+				ProposalId: proposalID,
+			},
 			wantErr:        false,
 			wantProposer:   expectedProposerAddr,
 			wantProposalID: proposalID,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{proposerAddr, proposalID, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid proposer type",
-			args:    []interface{}{"not-an-address", proposalID},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidProposer, "not-an-address"),
-		},
-		{
-			name:    "empty proposer address",
-			args:    []interface{}{common.Address{}, proposalID},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidProposer, common.Address{}),
-		},
-		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{proposerAddr, "not-a-uint64"},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
+			name: "empty proposer address",
+			args: CancelProposalCall{
+				Proposer:   common.Address{},
+				ProposalId: proposalID,
+			},
+			wantErr:        true,
+			errMsg:         fmt.Sprintf(ErrInvalidProposer, common.Address{}),
+			wantProposer:   expectedProposerAddr,
+			wantProposalID: proposalID,
 		},
 	}
 
@@ -185,7 +149,7 @@ func TestNewMsgVote(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           VoteCall
 		wantErr        bool
 		errMsg         string
 		wantVoter      string
@@ -194,8 +158,13 @@ func TestNewMsgVote(t *testing.T) {
 		wantMetadata   string
 	}{
 		{
-			name:           "valid",
-			args:           []interface{}{voterAddr, proposalID, option, metadata},
+			name: "valid",
+			args: VoteCall{
+				Voter:      voterAddr,
+				ProposalId: proposalID,
+				Option:     option,
+				Metadata:   metadata,
+			},
 			wantErr:        false,
 			wantVoter:      expectedVoterAddr,
 			wantProposalID: proposalID,
@@ -203,46 +172,19 @@ func TestNewMsgVote(t *testing.T) {
 			wantMetadata:   metadata,
 		},
 		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{voterAddr, proposalID, option, metadata, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 4, 5),
-		},
-		{
-			name:    "invalid voter type",
-			args:    []interface{}{"not-an-address", proposalID, option, metadata},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, "not-an-address"),
-		},
-		{
-			name:    "empty voter address",
-			args:    []interface{}{common.Address{}, proposalID, option, metadata},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, common.Address{}),
-		},
-		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{voterAddr, "not-a-uint64", option, metadata},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
-		},
-		{
-			name:    "invalid option type",
-			args:    []interface{}{voterAddr, proposalID, "not-a-uint8", metadata},
-			wantErr: true,
-			errMsg:  "invalid option",
-		},
-		{
-			name:    "invalid metadata type",
-			args:    []interface{}{voterAddr, proposalID, option, 123},
-			wantErr: true,
-			errMsg:  "invalid metadata",
+			name: "empty voter address",
+			args: VoteCall{
+				Voter:      common.Address{},
+				ProposalId: proposalID,
+				Option:     option,
+				Metadata:   metadata,
+			},
+			wantErr:        true,
+			errMsg:         fmt.Sprintf(ErrInvalidVoter, common.Address{}),
+			wantVoter:      expectedVoterAddr,
+			wantProposalID: proposalID,
+			wantOption:     option,
+			wantMetadata:   metadata,
 		},
 	}
 
@@ -278,42 +220,21 @@ func TestParseVoteArgs(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           GetVoteCall
 		wantErr        bool
 		errMsg         string
 		wantVoter      string
 		wantProposalID uint64
 	}{
 		{
-			name:           "valid",
-			args:           []interface{}{proposalID, voterAddr},
+			name: "valid",
+			args: GetVoteCall{
+				ProposalId: proposalID,
+				Voter:      voterAddr,
+			},
 			wantErr:        false,
 			wantVoter:      expectedVoterAddr,
 			wantProposalID: proposalID,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{proposalID, voterAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{"not-a-uint64", voterAddr},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
-		},
-		{
-			name:    "invalid voter type",
-			args:    []interface{}{proposalID, "not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidVoter, "not-an-address"),
 		},
 	}
 
@@ -346,42 +267,21 @@ func TestParseDepositArgs(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           []interface{}
+		args           GetDepositCall
 		wantErr        bool
 		errMsg         string
 		wantDepositor  string
 		wantProposalID uint64
 	}{
 		{
-			name:           "valid",
-			args:           []interface{}{proposalID, depositorAddr},
+			name: "valid",
+			args: GetDepositCall{
+				ProposalId: proposalID,
+				Depositor:  depositorAddr,
+			},
 			wantErr:        false,
 			wantDepositor:  expectedDepositorAddr,
 			wantProposalID: proposalID,
-		},
-		{
-			name:    "no arguments",
-			args:    []interface{}{},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 0),
-		},
-		{
-			name:    "too many arguments",
-			args:    []interface{}{proposalID, depositorAddr, "extra"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(cmn.ErrInvalidNumberOfArgs, 2, 3),
-		},
-		{
-			name:    "invalid proposal ID type",
-			args:    []interface{}{"not-a-uint64", depositorAddr},
-			wantErr: true,
-			errMsg:  "invalid proposal id",
-		},
-		{
-			name:    "invalid depositor type",
-			args:    []interface{}{proposalID, "not-an-address"},
-			wantErr: true,
-			errMsg:  fmt.Sprintf(ErrInvalidDepositor, "not-an-address"),
 		},
 	}
 

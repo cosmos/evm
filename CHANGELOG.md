@@ -7,6 +7,7 @@
 ### IMPROVEMENTS
 
 - [\#758](https://github.com/cosmos/evm/pull/758) Cleanup precompiles abi.json.
+- [\#788](https://github.com/cosmos/evm/pull/788) Use go-abi to replace go-ethereum/accounts/abi usage in precompiles.
 - [\#810](https://github.com/cosmos/evm/pull/810) Fix integration test suite to resolve lock contention problem from external app injection
 - [\#811](https://github.com/cosmos/evm/pull/811) Use sdk's DefaultBondDenom for default evm denom in genesis.
 - [\#823](https://github.com/cosmos/evm/pull/823) Remove authz dependency from test suite and EvmApp interface

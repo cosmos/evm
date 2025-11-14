@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/precompiles/erc20"
@@ -41,13 +40,12 @@ func (s *PrecompileTestSuite) TestEmitTransferEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check event signature matches the one emitted
-			event := s.precompile.Events[erc20.EventTypeTransfer]
-			s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
+			s.Require().Equal(erc20.TransferEventTopic, common.HexToHash(log.Topics[0].Hex()))
 			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 
 			// Check the fully unpacked event matches the one emitted
-			var transferEvent erc20.EventTransfer
-			err = cmn.UnpackLog(s.precompile.ABI, &transferEvent, erc20.EventTypeTransfer, *log)
+			var transferEvent erc20.TransferEvent
+			err = cmn.UnpackLog(&transferEvent, *log)
 			s.Require().NoError(err, "unable to unpack log into transfer event")
 
 			s.Require().Equal(tc.from, transferEvent.From, "expected different from address")
@@ -88,13 +86,12 @@ func (s *PrecompileTestSuite) TestEmitApprovalEvent() {
 			s.Require().Equal(log.Address, s.precompile.Address())
 
 			// Check event signature matches the one emitted
-			event := s.precompile.Events[erc20.EventTypeApproval]
-			s.Require().Equal(crypto.Keccak256Hash([]byte(event.Sig)), common.HexToHash(log.Topics[0].Hex()))
+			s.Require().Equal(erc20.ApprovalEventTopic, common.HexToHash(log.Topics[0].Hex()))
 			s.Require().Equal(log.BlockNumber, uint64(s.network.GetContext().BlockHeight())) //nolint:gosec // G115
 
 			// Check the fully unpacked event matches the one emitted
-			var approvalEvent erc20.EventApproval
-			err = cmn.UnpackLog(s.precompile.ABI, &approvalEvent, erc20.EventTypeApproval, *log)
+			var approvalEvent erc20.ApprovalEvent
+			err = cmn.UnpackLog(&approvalEvent, *log)
 			s.Require().NoError(err, "unable to unpack log into approval event")
 
 			s.Require().Equal(tc.owner, approvalEvent.Owner, "expected different owner address")

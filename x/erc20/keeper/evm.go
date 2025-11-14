@@ -3,11 +3,12 @@ package keeper
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/yihuang/go-abi"
 
 	"github.com/cosmos/evm/contracts"
+	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 
@@ -69,53 +70,50 @@ func (k Keeper) QueryERC20(
 	ctx sdk.Context,
 	contract common.Address,
 ) (types.ERC20Data, error) {
-	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
-
 	// Name - with fallback support for bytes32
-	name, err := k.queryERC20String(ctx, erc20, contract, "name")
+	name, err := k.queryERC20String(ctx, &erc20.NameCall{}, contract)
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
 	// Symbol - with fallback support for bytes32
-	symbol, err := k.queryERC20String(ctx, erc20, contract, "symbol")
+	symbol, err := k.queryERC20String(ctx, &erc20.SymbolCall{}, contract)
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
 	// Decimals - standard uint8, no fallback needed
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, "decimals")
+	res, err := k.evmKeeper.CallEVM(ctx, &erc20.DecimalsCall{}, types.ModuleAddress, contract, false, nil)
 	if err != nil {
 		return types.ERC20Data{}, err
 	}
 
-	var decimalRes types.ERC20Uint8Response
-	if err := erc20.UnpackIntoInterface(&decimalRes, "decimals", res.Ret); err != nil {
+	var ret erc20.DecimalsReturn
+	if _, err := ret.Decode(res.Ret); err != nil {
 		return types.ERC20Data{}, errorsmod.Wrapf(
 			types.ErrABIUnpack, "failed to unpack decimals: %s", err.Error(),
 		)
 	}
 
-	return types.NewERC20Data(name, symbol, decimalRes.Value), nil
+	return types.NewERC20Data(name, symbol, ret.Field1), nil
 }
 
 // queryERC20String attempts to query an ERC20 string field with fallback to bytes32
 func (k Keeper) queryERC20String(
 	ctx sdk.Context,
-	erc20 abi.ABI,
+	method abi.Method,
 	contract common.Address,
-	method string,
 ) (string, error) {
 	// 1) Call into the EVM
-	res, err := k.evmKeeper.CallEVM(ctx, erc20, types.ModuleAddress, contract, false, nil, method)
+	res, err := k.evmKeeper.CallEVM(ctx, method, types.ModuleAddress, contract, false, nil)
 	if err != nil {
 		return "", err
 	}
 
 	// 2) First try to unpack as a normal ABI “string”
-	var strResp types.ERC20StringResponse
-	if err := erc20.UnpackIntoInterface(&strResp, method, res.Ret); err == nil {
-		return strResp.Value, nil
+	var ret erc20.NameReturn
+	if _, err := ret.Decode(res.Ret); err == nil {
+		return ret.Field1, nil
 	}
 
 	// 3) Fallback: if we got exactly 32 bytes back, treat it as bytes32
@@ -137,23 +135,20 @@ func (k Keeper) queryERC20String(
 // BalanceOf queries an account's balance for a given ERC20 contract
 func (k Keeper) BalanceOf(
 	ctx sdk.Context,
-	abi abi.ABI,
 	contract, account common.Address,
 ) *big.Int {
-	res, err := k.evmKeeper.CallEVM(ctx, abi, types.ModuleAddress, contract, false, nil, "balanceOf", account)
+	call := erc20.BalanceOfCall{
+		Account: account,
+	}
+	res, err := k.evmKeeper.CallEVM(ctx, &call, types.ModuleAddress, contract, false, nil)
 	if err != nil {
 		return nil
 	}
 
-	unpacked, err := abi.Unpack("balanceOf", res.Ret)
-	if err != nil || len(unpacked) == 0 {
+	var ret erc20.BalanceOfReturn
+	if _, err := ret.Decode(res.Ret); err != nil {
 		return nil
 	}
 
-	balance, ok := unpacked[0].(*big.Int)
-	if !ok {
-		return nil
-	}
-
-	return balance
+	return ret.Field1
 }

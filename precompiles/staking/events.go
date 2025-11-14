@@ -1,16 +1,12 @@
 package staking
 
 import (
-	"bytes"
 	"math/big"
-	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/yihuang/go-abi"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -34,21 +30,16 @@ const (
 // EmitCreateValidatorEvent creates a new create validator event emitted on a CreateValidator transaction.
 func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgCreateValidator, validatorAddr common.Address) error {
 	// Prepare the event topics
-	event := p.Events[EventTypeCreateValidator]
-
-	topics, err := p.createEditValidatorTxTopics(2, event, validatorAddr)
+	event := NewCreateValidatorEvent(validatorAddr, msg.Value.Amount.BigInt())
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Value.Amount.BigInt())))
-
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -57,14 +48,6 @@ func (p Precompile) EmitCreateValidatorEvent(ctx sdk.Context, stateDB vm.StateDB
 
 // EmitEditValidatorEvent creates a new edit validator event emitted on a EditValidator transaction.
 func (p Precompile) EmitEditValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, msg *stakingtypes.MsgEditValidator, validatorAddr common.Address) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeEditValidator]
-
-	topics, err := p.createEditValidatorTxTopics(2, event, validatorAddr)
-	if err != nil {
-		return err
-	}
-
 	commissionRate := big.NewInt(DoNotModifyCommissionRate)
 	if msg.CommissionRate != nil {
 		commissionRate = msg.CommissionRate.BigInt()
@@ -75,15 +58,16 @@ func (p Precompile) EmitEditValidatorEvent(ctx sdk.Context, stateDB vm.StateDB, 
 		minSelfDelegation = msg.MinSelfDelegation.BigInt()
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(commissionRate)))
-	b.Write(cmn.PackNum(reflect.ValueOf(minSelfDelegation)))
+	event := NewEditValidatorEvent(validatorAddr, commissionRate, minSelfDelegation)
+	topics, data, err := abi.EncodeEvent(event)
+	if err != nil {
+		return err
+	}
 
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -108,21 +92,21 @@ func (p Precompile) EmitDelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg *
 	}
 
 	// Prepare the event topics
-	event := p.Events[EventTypeDelegate]
-	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
+	event := NewDelegateEvent(
+		delegatorAddr,
+		common.BytesToAddress(valAddr),
+		msg.Amount.Amount.BigInt(),
+		newShares.BigInt(),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Amount.Amount.BigInt())))
-	b.Write(cmn.PackNum(reflect.ValueOf(newShares.BigInt())))
-
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -137,21 +121,21 @@ func (p Precompile) EmitUnbondEvent(ctx sdk.Context, stateDB vm.StateDB, msg *st
 	}
 
 	// Prepare the event topics
-	event := p.Events[EventTypeUnbond]
-	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
+	event := NewUnbondEvent(
+		delegatorAddr,
+		common.BytesToAddress(valAddr),
+		msg.Amount.Amount.BigInt(),
+		big.NewInt(completionTime),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Amount.Amount.BigInt())))
-	b.Write(cmn.PackNum(reflect.ValueOf(big.NewInt(completionTime))))
-
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -171,26 +155,22 @@ func (p Precompile) EmitRedelegateEvent(ctx sdk.Context, stateDB vm.StateDB, msg
 	}
 
 	// Prepare the event topics
-	event := p.Events[EventTypeRedelegate]
-	topics, err := p.createStakingTxTopics(4, event, delegatorAddr, common.BytesToAddress(valSrcAddr.Bytes()))
+	event := NewRedelegateEvent(
+		delegatorAddr,
+		common.BytesToAddress(valSrcAddr),
+		common.BytesToAddress(valDstAddr),
+		msg.Amount.Amount.BigInt(),
+		big.NewInt(completionTime),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
-
-	topics[3], err = cmn.MakeTopic(common.BytesToAddress(valDstAddr.Bytes()))
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Amount.Amount.BigInt())))
-	b.Write(cmn.PackNum(reflect.ValueOf(big.NewInt(completionTime))))
 
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
@@ -205,64 +185,23 @@ func (p Precompile) EmitCancelUnbondingDelegationEvent(ctx sdk.Context, stateDB 
 	}
 
 	// Prepare the event topics
-	event := p.Events[EventTypeCancelUnbondingDelegation]
-	topics, err := p.createStakingTxTopics(3, event, delegatorAddr, common.BytesToAddress(valAddr.Bytes()))
+	event := NewCancelUnbondingDelegationEvent(
+		delegatorAddr,
+		common.BytesToAddress(valAddr),
+		msg.Amount.Amount.BigInt(),
+		big.NewInt(msg.CreationHeight),
+	)
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the event data
-	var b bytes.Buffer
-	b.Write(cmn.PackNum(reflect.ValueOf(msg.Amount.Amount.BigInt())))
-	b.Write(cmn.PackNum(reflect.ValueOf(big.NewInt(msg.CreationHeight))))
-
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        b.Bytes(),
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
 	})
 
 	return nil
-}
-
-// createStakingTxTopics creates the topics for staking transactions Delegate, Undelegate, Redelegate and CancelUnbondingDelegation.
-func (p Precompile) createStakingTxTopics(topicsLen uint64, event abi.Event, delegatorAddr common.Address, validatorAddr common.Address) ([]common.Hash, error) {
-	topics := make([]common.Hash, topicsLen)
-	// NOTE: If your solidity event contains indexed event types, then they become a topic rather than part of the data property of the log.
-	// In solidity you may only have up to 4 topics but only 3 indexed event types. The first topic is always the signature of the event.
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(delegatorAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	topics[2], err = cmn.MakeTopic(validatorAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return topics, nil
-}
-
-// createEditValidatorTxTopics creates the topics for staking transactions CreateValidator and EditValidator.
-func (p Precompile) createEditValidatorTxTopics(topicsLen uint64, event abi.Event, validatorAddr common.Address) ([]common.Hash, error) {
-	topics := make([]common.Hash, topicsLen)
-	// NOTE: If your solidity event contains indexed event types, then they become a topic rather than part of the data property of the log.
-	// In solidity you may only have up to 4 topics but only 3 indexed event types. The first topic is always the signature of the event.
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(validatorAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return topics, nil
 }

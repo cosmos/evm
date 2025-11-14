@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	"github.com/cosmos/evm"
+	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/ics20"
 	evmibctesting "github.com/cosmos/evm/testutil/ibc"
 	"github.com/cosmos/evm/testutil/tx"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -87,18 +89,18 @@ func (s *PrecompileTestSuite) TestTransferErrors() {
 				sender = tx.GenerateAddress()
 			}
 
-			data, err := s.chainAPrecompile.ABI.Pack(
-				"transfer",
+			args := ics20.NewTransferCall(
 				tc.port,
 				channel,
 				denom,
 				amount.BigInt(),
 				sender,
 				tc.receiver,
-				timeoutHeight,
+				*cmn.FromProofHeight(timeoutHeight),
 				uint64(0),
 				"",
 			)
+			data, err := args.EncodeWithSelector()
 			s.Require().NoError(err)
 
 			_, _, res, err := s.chainA.SendEvmTx(
@@ -131,18 +133,18 @@ func (s *PrecompileTestSuite) TestTransfer() {
 
 	sourcePort := path.EndpointA.ChannelConfig.PortID
 	sourceChannel := path.EndpointA.ChannelID
-	data, err := s.chainAPrecompile.ABI.Pack(
-		"transfer",
+	args := ics20.NewTransferCall(
 		sourcePort,
 		sourceChannel,
 		denom,
 		amount.BigInt(),
 		sourceAddr,
 		receiver,
-		timeoutHeight,
+		*cmn.FromProofHeight(timeoutHeight),
 		uint64(0),
 		"",
 	)
+	data, err := args.EncodeWithSelector()
 	s.Require().NoError(err)
 
 	res, _, _, err := s.chainA.SendEvmTx(

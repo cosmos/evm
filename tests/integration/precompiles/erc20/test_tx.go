@@ -31,47 +31,28 @@ var (
 )
 
 func (s *PrecompileTestSuite) TestTransfer() {
-	method := s.precompile.Methods[erc20.TransferMethod]
 	// fromAddr is the address of the keyring account used for testing.
 	fromAddr := s.keyring.GetKey(0).Addr
 	testcases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *erc20.TransferCall
 		postCheck   func()
 		expErr      bool
 		errContains string
 	}{
 		{
 			"fail - negative amount",
-			func() []interface{} {
-				return []interface{}{toAddr, big.NewInt(-1)}
+			func() *erc20.TransferCall {
+				return &erc20.TransferCall{To: toAddr, Amount: big.NewInt(-1)}
 			},
 			func() {},
 			true,
 			"coin -1xmpl amount is not positive",
 		},
 		{
-			"fail - invalid to address",
-			func() []interface{} {
-				return []interface{}{"", big.NewInt(100)}
-			},
-			func() {},
-			true,
-			"invalid to address",
-		},
-		{
-			"fail - invalid amount",
-			func() []interface{} {
-				return []interface{}{toAddr, ""}
-			},
-			func() {},
-			true,
-			"invalid amount",
-		},
-		{
 			"fail - not enough balance",
-			func() []interface{} {
-				return []interface{}{toAddr, big.NewInt(2e18)}
+			func() *erc20.TransferCall {
+				return &erc20.TransferCall{To: toAddr, Amount: big.NewInt(2e18)}
 			},
 			func() {},
 			true,
@@ -79,7 +60,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 		},
 		{
 			"fail - not enough balance, sent amount is being vested",
-			func() []interface{} {
+			func() *erc20.TransferCall {
 				ctx := s.network.GetContext()
 				accAddr := sdk.AccAddress(fromAddr.Bytes())
 				err := s.network.App.GetBankKeeper().SendCoins(ctx, s.keyring.GetAccAddr(0), accAddr, sdk.NewCoins(sdk.NewCoin(s.network.GetBaseDenom(), math.NewInt(2e18))))
@@ -110,8 +91,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 				s.Require().False(overflow)
 				s.Require().Equal(tb.ToBig(), balance.BigInt())
 
-				return []interface{}{
-					toAddr, big.NewInt(2e18),
+				return &erc20.TransferCall{
+					To: toAddr, Amount: big.NewInt(2e18),
 				}
 			},
 			func() {},
@@ -120,8 +101,8 @@ func (s *PrecompileTestSuite) TestTransfer() {
 		},
 		{
 			"pass",
-			func() []interface{} {
-				return []interface{}{toAddr, big.NewInt(100)}
+			func() *erc20.TransferCall {
+				return &erc20.TransferCall{To: toAddr, Amount: big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), toAddr.Bytes(), tokenDenom)
@@ -146,7 +127,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(s.network.GetContext(), erc20types.ModuleName, fromAddr.Bytes(), XMPLCoin)
 			s.Require().NoError(err, "failed to send coins from module to account")
 
-			_, err = s.precompile.Transfer(ctx, contract, stateDB, &method, tc.malleate())
+			_, err = s.precompile.Transfer(ctx, *tc.malleate(), stateDB, contract)
 			if tc.expErr {
 				s.Require().Error(err, "expected transfer transaction to fail")
 				s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")
@@ -163,7 +144,6 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		ctx  sdk.Context
 		stDB *statedb.StateDB
 	)
-	method := s.precompile.Methods[erc20.TransferFromMethod]
 	// owner of the tokens
 	owner := s.keyring.GetKey(0)
 	// spender of the tokens
@@ -171,51 +151,24 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 
 	testcases := []struct {
 		name        string
-		malleate    func() []interface{}
+		malleate    func() *erc20.TransferFromCall
 		postCheck   func()
 		expErr      bool
 		errContains string
 	}{
 		{
 			"fail - negative amount",
-			func() []interface{} {
-				return []interface{}{owner.Addr, toAddr, big.NewInt(-1)}
+			func() *erc20.TransferFromCall {
+				return &erc20.TransferFromCall{From: owner.Addr, To: toAddr, Amount: big.NewInt(-1)}
 			},
 			func() {},
 			true,
 			"coin -1xmpl amount is not positive",
 		},
 		{
-			"fail - invalid from address",
-			func() []interface{} {
-				return []interface{}{"", toAddr, big.NewInt(100)}
-			},
-			func() {},
-			true,
-			"invalid from address",
-		},
-		{
-			"fail - invalid to address",
-			func() []interface{} {
-				return []interface{}{owner.Addr, "", big.NewInt(100)}
-			},
-			func() {},
-			true,
-			"invalid to address",
-		},
-		{
-			"fail - invalid amount",
-			func() []interface{} {
-				return []interface{}{owner.Addr, toAddr, ""}
-			},
-			func() {},
-			true,
-			"invalid amount",
-		},
-		{
 			"fail - not enough allowance",
-			func() []interface{} {
-				return []interface{}{owner.Addr, toAddr, big.NewInt(100)}
+			func() *erc20.TransferFromCall {
+				return &erc20.TransferFromCall{From: owner.Addr, To: toAddr, Amount: big.NewInt(100)}
 			},
 			func() {},
 			true,
@@ -223,11 +176,11 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		},
 		{
 			"fail - not enough balance",
-			func() []interface{} {
+			func() *erc20.TransferFromCall {
 				err := s.network.App.GetErc20Keeper().SetAllowance(s.network.GetContext(), s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(5e18))
 				s.Require().NoError(err, "failed to set allowance")
 
-				return []interface{}{owner.Addr, toAddr, big.NewInt(2e18)}
+				return &erc20.TransferFromCall{From: owner.Addr, To: toAddr, Amount: big.NewInt(2e18)}
 			},
 			func() {},
 			true,
@@ -235,7 +188,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		},
 		{
 			"fail - spend on behalf of own account without allowance",
-			func() []interface{} {
+			func() *erc20.TransferFromCall {
 				// Mint some coins to the module account and then send to the spender address
 				err := s.network.App.GetBankKeeper().MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
 				s.Require().NoError(err, "failed to mint coins")
@@ -243,7 +196,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 				s.Require().NoError(err, "failed to send coins from module to account")
 
 				// NOTE: no allowance is necessary to spend on behalf of the same account
-				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
+				return &erc20.TransferFromCall{From: spender.Addr, To: toAddr, Amount: big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.GetBankKeeper().GetBalance(ctx, toAddr.Bytes(), tokenDenom)
@@ -254,7 +207,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		},
 		{
 			"pass - spend on behalf of own account with allowance",
-			func() []interface{} {
+			func() *erc20.TransferFromCall {
 				// Mint some coins to the module account and then send to the spender address
 				err := s.network.App.GetBankKeeper().MintCoins(ctx, erc20types.ModuleName, XMPLCoin)
 				s.Require().NoError(err, "failed to mint coins")
@@ -265,7 +218,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 				s.Require().NoError(err, "failed to set allowance")
 
 				// NOTE: no allowance is necessary to spend on behalf of the same account
-				return []interface{}{spender.Addr, toAddr, big.NewInt(100)}
+				return &erc20.TransferFromCall{From: spender.Addr, To: toAddr, Amount: big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.GetBankKeeper().GetBalance(ctx, toAddr.Bytes(), tokenDenom)
@@ -276,11 +229,11 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 		},
 		{
 			"pass - spend on behalf of other account",
-			func() []interface{} {
+			func() *erc20.TransferFromCall {
 				err := s.network.App.GetErc20Keeper().SetAllowance(ctx, s.precompile.Address(), owner.Addr, spender.Addr, big.NewInt(300))
 				s.Require().NoError(err, "failed to set allowance")
 
-				return []interface{}{owner.Addr, toAddr, big.NewInt(100)}
+				return &erc20.TransferFromCall{From: owner.Addr, To: toAddr, Amount: big.NewInt(100)}
 			},
 			func() {
 				toAddrBalance := s.network.App.GetBankKeeper().GetBalance(ctx, toAddr.Bytes(), tokenDenom)
@@ -306,7 +259,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			err = s.network.App.GetBankKeeper().SendCoinsFromModuleToAccount(ctx, erc20types.ModuleName, owner.AccAddr, XMPLCoin)
 			s.Require().NoError(err, "failed to send coins from module to account")
 
-			_, err = s.precompile.TransferFrom(ctx, contract, stDB, &method, tc.malleate())
+			_, err = s.precompile.TransferFrom(ctx, *tc.malleate(), stDB, contract)
 			if tc.expErr {
 				s.Require().Error(err, "expected transfer transaction to fail")
 				s.Require().Contains(err.Error(), tc.errContains, "expected transfer transaction to fail with specific error")

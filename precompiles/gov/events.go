@@ -1,10 +1,13 @@
 package gov
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"errors"
+	"math"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
 
@@ -26,22 +29,11 @@ const (
 
 // EmitSubmitProposalEvent creates a new event emitted on a SubmitProposal transaction.
 func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB, proposerAddress common.Address, proposalID uint64) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeSubmitProposal]
-	topics := make([]common.Hash, 2)
+	// Create the event using the generated constructor
+	event := NewSubmitProposalEvent(proposerAddress, proposalID)
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(proposerAddress)
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	arguments := abi.Arguments{event.Inputs[1]}
-	packed, err := arguments.Pack(proposalID)
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -49,7 +41,7 @@ func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
@@ -58,22 +50,11 @@ func (p Precompile) EmitSubmitProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 
 // EmitCancelProposalEvent creates a new event emitted on a CancelProposal transaction.
 func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB, proposerAddress common.Address, proposalID uint64) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeCancelProposal]
-	topics := make([]common.Hash, 2)
+	// Create the event using the generated constructor
+	event := NewCancelProposalEvent(proposerAddress, proposalID)
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(proposerAddress)
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	arguments := abi.Arguments{event.Inputs[1]}
-	packed, err := arguments.Pack(proposalID)
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -81,7 +62,7 @@ func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
@@ -90,21 +71,11 @@ func (p Precompile) EmitCancelProposalEvent(ctx sdk.Context, stateDB vm.StateDB,
 
 // EmitDepositEvent creates a new event emitted on a Deposit transaction.
 func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, depositorAddress common.Address, proposalID uint64, amount []sdk.Coin) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeDeposit]
-	topics := make([]common.Hash, 2)
+	// Create the event using the generated constructor
+	event := NewDepositEvent(depositorAddress, proposalID, cmn.NewCoinsResponse(amount))
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-	var err error
-	topics[1], err = cmn.MakeTopic(depositorAddress)
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	arguments := abi.Arguments{event.Inputs[1], event.Inputs[2]}
-	packed, err := arguments.Pack(proposalID, cmn.NewCoinsResponse(amount))
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -112,7 +83,7 @@ func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, deposi
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
@@ -121,22 +92,15 @@ func (p Precompile) EmitDepositEvent(ctx sdk.Context, stateDB vm.StateDB, deposi
 
 // EmitVoteEvent creates a new event emitted on a Vote transaction.
 func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddress common.Address, proposalID uint64, option int32) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeVote]
-	topics := make([]common.Hash, 2)
-
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(voterAddress)
-	if err != nil {
-		return err
+	if option > math.MaxUint8 {
+		return errors.New("vote option exceeds uint8 limit")
 	}
 
-	// Prepare the event data
-	arguments := abi.Arguments{event.Inputs[1], event.Inputs[2]}
-	packed, err := arguments.Pack(proposalID, uint8(option)) //nolint:gosec // G115
+	// Create the event using the generated constructor
+	event := NewVoteEvent(voterAddress, proposalID, uint8(option)) //nolint:gosec
+
+	// Prepare the event topics data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -144,7 +108,7 @@ func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddr
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
@@ -153,22 +117,11 @@ func (p Precompile) EmitVoteEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddr
 
 // EmitVoteWeightedEvent creates a new event emitted on a VoteWeighted transaction.
 func (p Precompile) EmitVoteWeightedEvent(ctx sdk.Context, stateDB vm.StateDB, voterAddress common.Address, proposalID uint64, options WeightedVoteOptions) error {
-	// Prepare the event topics
-	event := p.Events[EventTypeVoteWeighted]
-	topics := make([]common.Hash, 2)
+	// Create the event using the generated constructor
+	event := NewVoteWeightedEvent(voterAddress, proposalID, options)
 
-	// The first topic is always the signature of the event.
-	topics[0] = event.ID
-
-	var err error
-	topics[1], err = cmn.MakeTopic(voterAddress)
-	if err != nil {
-		return err
-	}
-
-	// Prepare the event data
-	arguments := abi.Arguments{event.Inputs[1], event.Inputs[2]}
-	packed, err := arguments.Pack(proposalID, options)
+	// Prepare the event topics and data
+	topics, data, err := abi.EncodeEvent(event)
 	if err != nil {
 		return err
 	}
@@ -176,7 +129,7 @@ func (p Precompile) EmitVoteWeightedEvent(ctx sdk.Context, stateDB vm.StateDB, v
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,
-		Data:        packed,
+		Data:        data,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/yihuang/go-abi"
 	"google.golang.org/grpc/codes"
 
 	//nolint:revive // dot imports are fine for Ginkgo
@@ -17,10 +18,15 @@ import (
 	compiledcontracts "github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	cmn "github.com/cosmos/evm/precompiles/common"
+	"github.com/cosmos/evm/precompiles/erc20"
+	erc20testdata "github.com/cosmos/evm/precompiles/erc20/testdata"
 	"github.com/cosmos/evm/precompiles/staking"
 	"github.com/cosmos/evm/precompiles/staking/testdata"
+	"github.com/cosmos/evm/precompiles/staking/testdata/stakingcaller"
+	"github.com/cosmos/evm/precompiles/staking/testdata/stakingcaller2"
 	"github.com/cosmos/evm/precompiles/testutil"
 	"github.com/cosmos/evm/precompiles/testutil/contracts"
+	"github.com/cosmos/evm/precompiles/testutil/contracts/stakingreverter"
 	cosmosevmutil "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	"github.com/cosmos/evm/testutil/integration/evm/utils"
@@ -33,7 +39,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
@@ -42,10 +47,6 @@ var (
 	// valAddr and valAddr2 are the two validator addresses used for testing
 	valAddr, valAddr2 sdk.ValAddress
 
-	// callArgs is the default arguments for calling the smart contract.
-	//
-	// NOTE: this has to be populated in a BeforeEach block because the contractAddr would otherwise be a nil address.
-	callArgs testutiltypes.CallArgs
 	// txArgs are the EVM transaction arguments to use in the transactions
 	txArgs evmtypes.EvmTxArgs
 	// defaultLogCheck instantiates a log check arguments struct with the precompile ABI events populated.
@@ -63,6 +64,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 		BeforeEach(func() {
 			var err error
+
 			s = NewPrecompileTestSuite(create, options...)
 			s.SetupTest()
 
@@ -71,16 +73,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			valAddr2, err = sdk.ValAddressFromBech32(s.network.GetValidators()[1].GetOperator())
 			Expect(err).To(BeNil())
 
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: s.precompile.ABI,
-			}
-
 			precompileAddr := s.precompile.Address()
 			txArgs = evmtypes.EvmTxArgs{
 				To: &precompileAddr,
 			}
 
-			defaultLogCheck = testutil.LogCheckArgs{ABIEvents: s.precompile.Events}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			passCheck = defaultLogCheck.WithExpPass(true)
 			outOfGasCheck = defaultLogCheck.WithErrContains(vm.ErrOutOfGas.Error())
 		})
@@ -113,14 +111,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil())
 				prevDelegation := qRes.DelegationResponse.Balance
 				// try to call the precompile
-				callArgs.MethodName = staking.DelegateMethod
-				callArgs.Args = []interface{}{delegator.Addr, valAddr.String(), big.NewInt(2e18)}
+				callArgs := staking.NewDelegateCall(delegator.Addr, valAddr.String(), big.NewInt(2e18))
 
 				// Contract should not be called but the transaction should be successful
 				// This is the expected behavior in Ethereum where there is a contract call
 				// to a non existing contract
 				expectedCheck := defaultLogCheck.
-					WithExpEvents([]string{}...).
+					WithExpEvents().
 					WithExpPass(true)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -141,12 +138,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should run out of gas if the gas limit is too low", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.MethodName = staking.DelegateMethod
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewDelegateCall(
 					delegator.Addr,
 					valAddr.String(),
 					big.NewInt(2e18),
-				}
+				)
 				txArgs.GasLimit = 30000
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
@@ -168,7 +164,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				defaultCommission = staking.Commission{
+				defaultCommission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -178,20 +174,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				defaultValue             = big.NewInt(1)
 			)
 
-			BeforeEach(func() {
-				// populate the default createValidator args
-				callArgs.MethodName = staking.CreateValidatorMethod
-			})
-
 			Context("when validator address is the msg.sender & EoA", func() {
 				It("should succeed", func() {
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewCreateValidatorCall(
 						defaultDescription, defaultCommission, defaultMinSelfDelegation, s.keyring.GetAddr(0), defaultPubkeyBase64Str, defaultValue,
-					}
+					)
 					// NOTE: increase gas limit here
 					txArgs.GasLimit = 2e5
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+					logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(0),
@@ -214,9 +205,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should fail", func() {
 					differentAddr := testutiltx.GenerateAddress()
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewCreateValidatorCall(
 						defaultDescription, defaultCommission, defaultMinSelfDelegation, differentAddr, defaultPubkeyBase64Str, defaultValue,
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
 						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, s.keyring.GetAddr(0), differentAddr),
@@ -245,11 +236,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				defaultMinSelfDelegation = big.NewInt(staking.DoNotModifyMinSelfDelegation)
 			)
 
-			BeforeEach(func() {
-				// populate the default editValidator args
-				callArgs.MethodName = staking.EditValidatorMethod
-			})
-
 			Context("when msg.sender is equal to validator address", func() {
 				It("should succeed", func() {
 					// create a new validator
@@ -267,7 +253,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						SecurityContact: "",
 						Details:         "",
 					}
-					commission := staking.Commission{
+					commission := staking.CommissionRates{
 						Rate:          big.NewInt(100000000000000000),
 						MaxRate:       big.NewInt(100000000000000000),
 						MaxChangeRate: big.NewInt(100000000000000000),
@@ -276,13 +262,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					pubkeyBase64Str := "UuhHQmkUh2cPBA6Rg4ei0M2B04cVYGNn/F8SAUsYIb4="
 					value := big.NewInt(1e18)
 
-					createValidatorArgs := testutiltypes.CallArgs{
-						ContractABI: s.precompile.ABI,
-						MethodName:  staking.CreateValidatorMethod,
-						Args:        []interface{}{description, commission, minSelfDelegation, hexAddr, pubkeyBase64Str, value},
-					}
+					createValidatorArgs := staking.NewCreateValidatorCall(
+						description, commission, minSelfDelegation, hexAddr, pubkeyBase64Str, value,
+					)
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+					logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newPriv,
 						txArgs, createValidatorArgs,
@@ -292,9 +276,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(s.network.NextBlock()).To(BeNil())
 
 					// edit validator
-					callArgs.Args = []interface{}{defaultDescription, hexAddr, defaultCommissionRate, defaultMinSelfDelegation}
+					callArgs := staking.NewEditValidatorCall(defaultDescription, hexAddr, defaultCommissionRate, defaultMinSelfDelegation)
 
-					logCheckArgs = passCheck.WithExpEvents(staking.EventTypeEditValidator)
+					logCheckArgs = passCheck.WithExpEvents(&staking.EditValidatorEvent{})
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						newPriv,
 						txArgs, callArgs,
@@ -327,11 +311,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Context("with msg.sender different than validator address", func() {
 				It("should fail", func() {
 					valHexAddr := common.BytesToAddress(valAddr.Bytes())
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewEditValidatorCall(
 						defaultDescription, valHexAddr, defaultCommissionRate, defaultMinSelfDelegation,
-					}
+					)
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeEditValidator)
+					logCheckArgs := passCheck.WithExpEvents(&staking.EditValidatorEvent{})
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						s.keyring.GetPrivKey(1),
 						txArgs, callArgs,
@@ -356,19 +340,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 
 				prevDelegation = res.DelegationResponse.Delegation
-				// populate the default delegate args
-				callArgs.MethodName = staking.DelegateMethod
 			})
 
 			Context("as the token owner", func() {
 				It("should delegate", func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						delegator.Addr, valAddr.String(), big.NewInt(2e18),
-					}
+					)
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeDelegate)
+					logCheckArgs := passCheck.WithExpEvents(&staking.DelegateEvent{})
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -392,9 +374,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(s.network.NextBlock()).To(BeNil())
 
 					// try to delegate more than left in account
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						common.BytesToAddress(newAddr), valAddr.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("insufficient funds")
 
@@ -412,9 +394,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingValAddr := sdk.ValAddress(nonExistingAddr.Bytes())
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						delegator.Addr, nonExistingValAddr.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("validator does not exist")
 
@@ -433,9 +415,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 					differentAddr := testutiltx.GenerateAddress()
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewDelegateCall(
 						differentAddr, valAddr.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
 						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
@@ -453,10 +435,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("to undelegate", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.UndelegateMethod
-			})
-
 			Context("as the token owner", func() {
 				It("should undelegate", func() {
 					delegator := s.keyring.GetKey(0)
@@ -468,11 +446,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(err).To(BeNil())
 					Expect(res.UnbondingResponses).To(HaveLen(0), "expected no unbonding delegations before test")
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewUndelegateCall(
 						delegator.Addr, valAddr.String(), big.NewInt(1e18),
-					}
+					)
 
-					logCheckArgs := passCheck.WithExpEvents(staking.EventTypeUnbond)
+					logCheckArgs := passCheck.WithExpEvents(&staking.UnbondEvent{})
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -490,9 +468,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should not undelegate if the amount exceeds the delegation", func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewUndelegateCall(
 						delegator.Addr, valAddr.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
 
@@ -509,9 +487,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingAddr := testutiltx.GenerateAddress()
 					nonExistingValAddr := sdk.ValAddress(nonExistingAddr.Bytes())
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewUndelegateCall(
 						delegator.Addr, nonExistingValAddr.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("validator does not exist")
 
@@ -528,9 +506,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr := testutiltx.GenerateAddress()
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewUndelegateCall(
 						differentAddr, valAddr.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
 						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
@@ -547,20 +525,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("to redelegate", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.RedelegateMethod
-			})
-
 			Context("as the token owner", func() {
 				It("should redelegate", func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewRedelegateCall(
 						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := passCheck.
-						WithExpEvents(staking.EventTypeRedelegate)
+						WithExpEvents(&staking.RedelegateEvent{})
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -582,9 +556,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It("should not redelegate if the amount exceeds the delegation", func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewRedelegateCall(
 						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(2e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("invalid shares amount")
 
@@ -601,9 +575,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					nonExistingValAddr := sdk.ValAddress(nonExistingAddr.Bytes())
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewRedelegateCall(
 						delegator.Addr, valAddr.String(), nonExistingValAddr.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("redelegation destination validator not found")
 
@@ -621,9 +595,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					differentAddr := testutiltx.GenerateAddress()
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewRedelegateCall(
 						differentAddr, valAddr.String(), valAddr2.String(), big.NewInt(1e18),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains(
 						fmt.Sprintf(cmn.ErrRequesterIsNotMsgSender, delegator.Addr, differentAddr),
@@ -641,20 +615,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 		Describe("to cancel an unbonding delegation", func() {
 			BeforeEach(func() {
-				callArgs.MethodName = staking.CancelUnbondingDelegationMethod
 				delegator := s.keyring.GetKey(0)
 
 				// Set up an unbonding delegation
-				undelegateArgs := testutiltypes.CallArgs{
-					ContractABI: s.precompile.ABI,
-					MethodName:  staking.UndelegateMethod,
-					Args: []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18),
-					},
-				}
+				undelegateArgs := staking.NewUndelegateCall(
+					delegator.Addr, valAddr.String(), big.NewInt(1e18),
+				)
 
 				logCheckArgs := passCheck.
-					WithExpEvents(staking.EventTypeUnbond)
+					WithExpEvents(&staking.UnbondEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -687,12 +656,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(valDelRes.DelegationResponses).To(HaveLen(0))
 
 					creationHeight := s.network.GetContext().BlockHeight()
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewCancelUnbondingDelegationCall(
 						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight),
-					}
+					)
 
 					logCheckArgs := passCheck.
-						WithExpEvents(staking.EventTypeCancelUnbondingDelegation)
+						WithExpEvents(&staking.CancelUnbondingDelegationEvent{})
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -716,9 +685,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					creationHeight := s.network.GetContext().BlockHeight()
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewCancelUnbondingDelegationCall(
 						delegator.Addr, valAddr.String(), big.NewInt(2e18), big.NewInt(creationHeight),
-					}
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("amount is greater than the unbonding delegation entry balance")
 
@@ -739,9 +708,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					delegator := s.keyring.GetKey(0)
 
 					creationHeight := s.network.GetContext().BlockHeight()
-					callArgs.Args = []interface{}{
-						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight + 1),
-					}
+					callArgs := staking.NewCancelUnbondingDelegationCall(
+						delegator.Addr, valAddr.String(), big.NewInt(1e18), big.NewInt(creationHeight+1),
+					)
 
 					logCheckArgs := defaultLogCheck.WithErrContains("unbonding delegation entry is not found at block height")
 
@@ -761,15 +730,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Validator queries", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.ValidatorMethod
-			})
-
 			It("should return validator", func() {
 				delegator := s.keyring.GetKey(0)
 
 				varHexAddr := common.BytesToAddress(valAddr.Bytes())
-				callArgs.Args = []interface{}{varHexAddr}
+				callArgs := staking.NewValidatorCall(varHexAddr)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -778,18 +743,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, ethRes.Ret)
+				var out staking.ValidatorReturn
+				_, err = out.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
-				Expect(valOut.Validator.OperatorAddress).To(Equal(varHexAddr.String()), "expected validator address to match")
-				Expect(valOut.Validator.DelegatorShares).To(Equal(big.NewInt(1e18)), "expected different delegator shares")
+				Expect(out.Validator.OperatorAddress).To(Equal(varHexAddr.String()), "expected validator address to match")
+				Expect(out.Validator.DelegatorShares).To(Equal(big.NewInt(1e18)), "expected different delegator shares")
 			})
 
 			It("should return an empty validator if the validator is not found", func() {
 				delegator := s.keyring.GetKey(0)
 
 				newValHexAddr := testutiltx.GenerateAddress()
-				callArgs.Args = []interface{}{newValHexAddr}
+				callArgs := staking.NewValidatorCall(newValHexAddr)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -798,8 +763,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, ethRes.Ret)
+				var valOut staking.ValidatorReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 				Expect(valOut.Validator.OperatorAddress).To(Equal(""), "expected validator address to be empty")
 				Expect(valOut.Validator.Status).To(BeZero(), "expected unspecified bonding status")
@@ -807,17 +772,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Validators queries", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.ValidatorsMethod
-			})
-
 			It("should return validators (default pagination)", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -826,8 +787,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut staking.ValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				Expect(valOut.PageResponse.NextKey).To(BeEmpty())
@@ -845,13 +806,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				const limit uint64 = 1
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      limit,
 						CountTotal: true,
 					},
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -861,8 +822,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut staking.ValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				// no pagination, should return default values
@@ -880,10 +841,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an error if the bonding type is not known", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewValidatorsCall(
 					"15", // invalid bonding type
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				invalidStatusCheck := defaultLogCheck.WithErrContains("invalid validator status 15")
 
@@ -899,10 +860,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an empty array if there are no validators with the given bonding type", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewValidatorsCall(
 					stakingtypes.Unbonded.String(),
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -912,8 +873,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut staking.ValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				Expect(valOut.PageResponse.NextKey).To(BeEmpty())
@@ -923,17 +884,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Describe("Delegation queries", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.DelegationMethod
-			})
-
 			It("should return a delegation if it is found", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewDelegationCall(
 					delegator.Addr,
 					valAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -943,8 +900,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var delOut staking.DelegationOutput
-				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
+				var delOut staking.DelegationReturn
+				_, err = delOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Shares).To(Equal(big.NewInt(1e18)), "expected different shares")
 				Expect(delOut.Balance).To(Equal(cmn.Coin{Denom: s.bondDenom, Amount: big.NewInt(1e18)}), "expected different shares")
@@ -954,10 +911,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				newValAddr := sdk.ValAddress(testutiltx.GenerateAddress().Bytes())
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewDelegationCall(
 					delegator.Addr,
 					newValAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -967,8 +924,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var delOut staking.DelegationOutput
-				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
+				var delOut staking.DelegationReturn
+				_, err = delOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Shares.Int64()).To(BeZero(), "expected no shares")
 				Expect(delOut.Balance.Denom).To(Equal(s.bondDenom), "expected different denomination")
@@ -981,19 +938,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			undelAmount := big.NewInt(1e17)
 
 			BeforeEach(func() {
-				callArgs.MethodName = staking.UnbondingDelegationMethod
-
 				delegator := s.keyring.GetKey(0)
 
-				undelegateArgs := testutiltypes.CallArgs{
-					ContractABI: s.precompile.ABI,
-					MethodName:  staking.UndelegateMethod,
-					Args: []interface{}{
-						delegator.Addr, valAddr.String(), undelAmount,
-					},
-				}
+				undelegateArgs := staking.NewUndelegateCall(
+					delegator.Addr, valAddr.String(), undelAmount,
+				)
 
-				unbondCheck := passCheck.WithExpEvents(staking.EventTypeUnbond)
+				unbondCheck := passCheck.WithExpEvents(&staking.UnbondEvent{})
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, undelegateArgs,
@@ -1011,10 +962,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an unbonding delegation if it is found", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewUnbondingDelegationCall(
 					delegator.Addr,
 					valAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1024,8 +975,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var unbondingDelegationOutput staking.UnbondingDelegationOutput
-				err = s.precompile.UnpackIntoInterface(&unbondingDelegationOutput, staking.UnbondingDelegationMethod, ethRes.Ret)
+				var unbondingDelegationOutput staking.UnbondingDelegationReturn
+				_, err = unbondingDelegationOutput.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the unbonding delegation output: %v", err)
 				Expect(unbondingDelegationOutput.UnbondingDelegation.Entries).To(HaveLen(1), "expected one unbonding delegation entry")
 				// TODO: why are initial balance and balance the same always?
@@ -1036,10 +987,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an empty slice if the unbonding delegation is not found", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewUnbondingDelegationCall(
 					delegator.Addr,
 					valAddr2.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1049,31 +1000,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var unbondingDelegationOutput staking.UnbondingDelegationOutput
-				err = s.precompile.UnpackIntoInterface(&unbondingDelegationOutput, staking.UnbondingDelegationMethod, ethRes.Ret)
+				var unbondingDelegationOutput staking.UnbondingDelegationReturn
+				_, err = unbondingDelegationOutput.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the unbonding delegation output: %v", err)
 				Expect(unbondingDelegationOutput.UnbondingDelegation.Entries).To(HaveLen(0), "expected one unbonding delegation entry")
 			})
 		})
 
 		Describe("to query a redelegation", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = staking.RedelegationMethod
-			})
-
 			It("should return the redelegation if it exists", func() {
 				delegator := s.keyring.GetKey(0)
 
 				// create a redelegation
-				redelegateArgs := testutiltypes.CallArgs{
-					ContractABI: s.precompile.ABI,
-					MethodName:  staking.RedelegateMethod,
-					Args: []interface{}{
-						delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(1e17),
-					},
-				}
+				redelegateArgs := staking.NewRedelegateCall(
+					delegator.Addr, valAddr.String(), valAddr2.String(), big.NewInt(1e17),
+				)
 
-				redelegateCheck := passCheck.WithExpEvents(staking.EventTypeRedelegate)
+				redelegateCheck := passCheck.WithExpEvents(&staking.RedelegateEvent{})
 
 				_, _, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1084,11 +1027,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(s.network.NextBlock()).To(BeNil())
 
 				// query the redelegation
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewRedelegationCall(
 					delegator.Addr,
 					valAddr.String(),
 					valAddr2.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1097,8 +1040,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var redelegationOutput staking.RedelegationOutput
-				err = s.precompile.UnpackIntoInterface(&redelegationOutput, staking.RedelegationMethod, ethRes.Ret)
+				var redelegationOutput staking.RedelegationReturn
+				_, err = redelegationOutput.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the redelegation output: %v", err)
 				Expect(redelegationOutput.Redelegation.Entries).To(HaveLen(1), "expected one redelegation entry")
 				Expect(redelegationOutput.Redelegation.Entries[0].InitialBalance).To(Equal(big.NewInt(1e17)), "expected different initial balance")
@@ -1108,11 +1051,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an empty output if the redelegation is not found", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewRedelegationCall(
 					delegator.Addr,
 					valAddr.String(),
 					valAddr2.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1121,8 +1064,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var redelegationOutput staking.RedelegationOutput
-				err = s.precompile.UnpackIntoInterface(&redelegationOutput, staking.RedelegationMethod, ethRes.Ret)
+				var redelegationOutput staking.RedelegationReturn
+				_, err = redelegationOutput.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the redelegation output: %v", err)
 				Expect(redelegationOutput.Redelegation.Entries).To(HaveLen(0), "expected no redelegation entries")
 			})
@@ -1139,27 +1082,18 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.MethodName = staking.RedelegationsMethod
 				// create some redelegations
-				redelegationsArgs := []testutiltypes.CallArgs{
-					{
-						ContractABI: s.precompile.ABI,
-						MethodName:  staking.RedelegateMethod,
-						Args: []interface{}{
-							delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
-						},
-					},
-					{
-						ContractABI: s.precompile.ABI,
-						MethodName:  staking.RedelegateMethod,
-						Args: []interface{}{
-							delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
-						},
-					},
+				redelegationsArgs := []abi.Method{
+					staking.NewRedelegateCall(
+						delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
+					),
+					staking.NewRedelegateCall(
+						delegator.Addr, valAddr.String(), valAddr2.String(), delAmt,
+					),
 				}
 
 				logCheckArgs := passCheck.
-					WithExpEvents(staking.EventTypeRedelegate)
+					WithExpEvents(&staking.RedelegateEvent{})
 
 				txArgs.GasLimit = 500_000
 				for _, args := range redelegationsArgs {
@@ -1176,12 +1110,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return all redelegations for delegator (default pagination)", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewRedelegationsCall(
 					delegator.Addr,
 					"",
 					"",
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1190,8 +1124,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var redelOut staking.RedelegationsOutput
-				err = s.precompile.UnpackIntoInterface(&redelOut, staking.RedelegationsMethod, ethRes.Ret)
+				var redelOut staking.RedelegationsReturn
+				_, err = redelOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				Expect(redelOut.PageResponse.NextKey).To(BeEmpty())
@@ -1217,19 +1151,19 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// 2nd using the next page key
 				var nextPageKey []byte
 				for i := 0; i < 2; i++ {
-					var pagination query.PageRequest
+					var pagination cmn.PageRequest
 					if nextPageKey == nil {
 						pagination.Limit = 1
 						pagination.CountTotal = true
 					} else {
 						pagination.Key = nextPageKey
 					}
-					callArgs.Args = []interface{}{
+					callArgs := staking.NewRedelegationsCall(
 						delegator.Addr,
 						"",
 						"",
 						pagination,
-					}
+					)
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -1240,8 +1174,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					var redelOut staking.RedelegationsOutput
-					err = s.precompile.UnpackIntoInterface(&redelOut, staking.RedelegationsMethod, ethRes.Ret)
+					var redelOut staking.RedelegationsReturn
+					_, err = redelOut.Decode(ethRes.Ret)
 					Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 					if nextPageKey == nil {
@@ -1275,12 +1209,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				//   --> filtering for all redelegations with the given source validator
 				// - delegator is NOT empty, source validator is NOT empty, destination validator is NOT empty
 				//   --> filtering for all redelegations with the given combination of delegator, source and destination validator
-				callArgs.Args = []interface{}{
+				callArgs := staking.NewRedelegationsCall(
 					common.Address{}, // passing in an empty address to filter for all redelegations from valAddr2
 					valAddr2.String(),
 					"",
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				sender := s.keyring.GetKey(0)
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
@@ -1291,8 +1225,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "expected error while calling the smart contract")
 
-				var redelOut staking.RedelegationsOutput
-				err = s.precompile.UnpackIntoInterface(&redelOut, staking.RedelegationsMethod, ethRes.Ret)
+				var redelOut staking.RedelegationsReturn
+				_, err = redelOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				Expect(redelOut.PageResponse.NextKey).To(BeEmpty())
@@ -1312,17 +1246,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			delAmt := big.NewInt(1e18)
 
 			// Call the precompile with a lot of gas
-			callArgs.MethodName = staking.DelegateMethod
-			callArgs.Args = []interface{}{
+			callArgs := staking.NewDelegateCall(
 				delegator.Addr,
 				valAddr.String(),
 				delAmt,
-			}
+			)
 
 			txArgs.GasPrice = gasPrice
 
 			logCheckArgs := passCheck.
-				WithExpEvents(staking.EventTypeDelegate)
+				WithExpEvents(&staking.DelegateEvent{})
 
 			res, _, err := s.factory.CallContractAndCheckLogs(
 				delegator.Priv,
@@ -1391,7 +1324,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			s.SetupTest()
 			delegator := s.keyring.GetKey(0)
 
-			contractAddr, err = s.factory.DeployContract(
+			contractAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1407,7 +1340,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Deploy StakingCallerTwo contract
-			contractTwoAddr, err = s.factory.DeployContract(
+			contractTwoAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1418,7 +1351,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Deploy StakingReverter contract
-			stkReverterAddr, err = s.factory.DeployContract(
+			stkReverterAddr, err := s.factory.DeployContract(
 				delegator.Priv,
 				evmtypes.EvmTxArgs{}, // NOTE: passing empty struct to use default values
 				testutiltypes.ContractDeploymentData{
@@ -1430,7 +1363,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// send some funds to the StakingCallerTwo & StakingReverter contracts to transfer to the
 			// delegator during the tx
-			err := utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractTwoAddr.Bytes(), testContractInitialBalance)
+			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), contractTwoAddr.Bytes(), testContractInitialBalance)
 			Expect(err).To(BeNil(), "error while funding the smart contract: %v", err)
 			Expect(s.network.NextBlock()).To(BeNil())
 			err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), stkReverterAddr.Bytes(), testContractInitialBalance)
@@ -1445,14 +1378,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			// populate default TxArgs
 			txArgs.To = &contractAddr
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: stakingCallerContract.ABI,
-			}
 			// populate default log check args
-			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.Events,
-			}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())
 			passCheck = defaultLogCheck.WithExpPass(true)
 		})
@@ -1482,10 +1409,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while setting params")
 
 				// try to call the precompile
-				callArgs.MethodName = "testDelegate"
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestDelegateCall(
 					valAddr.String(),
-				}
+				)
 
 				txArgs.Amount = big.NewInt(1e9)
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1510,7 +1436,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				defaultCommission = staking.Commission{
+				defaultCommission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -1521,7 +1447,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			)
 
 			BeforeEach(func() {
-				callArgs.MethodName = "testCreateValidator"
 				valAddr, valPriv = testutiltx.NewAccAddressAndKey()
 				valHexAddr = common.BytesToAddress(valAddr.Bytes())
 				err = utils.FundAccountWithBaseDenom(s.factory, s.network, s.keyring.GetKey(0), valAddr.Bytes(), math.NewInt(1e18))
@@ -1530,9 +1455,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("tx from validator operator - should NOT create a validator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestCreateValidatorCall(
 					defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, defaultValue,
-				}
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					valPriv,
@@ -1549,9 +1474,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("tx from another EOA - should create a validator fail", func() {
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestCreateValidatorCall(
 					defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, defaultValue,
-				}
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1570,13 +1495,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("tx from validator operator with delegated code - should create a validator", func() {
 				s.delegateAccountToContract(valPriv, valHexAddr, contractTwoAddr)
 
-				callArgs = testutiltypes.CallArgs{
-					ContractABI: stakingCallerTwoContract.ABI,
-					MethodName:  "testCreateValidatorWithTransfer",
-					Args: []interface{}{
-						defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
-					},
-				}
+				callArgs := stakingcaller2.NewTestCreateValidatorWithTransferCall(
+					defaultDescription, defaultCommission, defaultMinSelfDelegation, valHexAddr, defaultPubkeyBase64Str, false, false,
+				)
 
 				txArgs = evmtypes.EvmTxArgs{
 					To:       &valHexAddr,
@@ -1587,7 +1508,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					valPriv,
 					txArgs, callArgs,
-					passCheck.WithExpEvents(staking.EventTypeCreateValidator),
+					passCheck.WithExpEvents(&staking.CreateValidatorEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract")
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -1617,12 +1538,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				minSelfDelegation = big.NewInt(1)
 
 				description = staking.Description{}
-				commission  = staking.Commission{}
+				commission  = staking.CommissionRates{}
 			)
 
 			BeforeEach(func() {
-				callArgs.MethodName = "testEditValidator"
-
 				// create a new validator
 				valAddr, valPriv = testutiltx.NewAccAddressAndKey()
 				valHexAddr = common.BytesToAddress(valAddr.Bytes())
@@ -1637,7 +1556,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					SecurityContact: "",
 					Details:         "",
 				}
-				commission = staking.Commission{
+				commission = staking.CommissionRates{
 					Rate:          big.NewInt(100000000000000000),
 					MaxRate:       big.NewInt(100000000000000000),
 					MaxChangeRate: big.NewInt(100000000000000000),
@@ -1645,13 +1564,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				pubkeyBase64Str := "UuhHQmkUh2cPBA6Rg4ei0M2B04cVYGNn/F8SAUsYIb4="
 				value := big.NewInt(1e18)
 
-				createValidatorArgs := testutiltypes.CallArgs{
-					ContractABI: s.precompile.ABI,
-					MethodName:  staking.CreateValidatorMethod,
-					Args:        []interface{}{description, commission, minSelfDelegation, valHexAddr, pubkeyBase64Str, value},
+				createValidatorArgs := &staking.CreateValidatorCall{
+					Description:       description,
+					CommissionRates:   commission,
+					MinSelfDelegation: minSelfDelegation,
+					ValidatorAddress:  valHexAddr,
+					Pubkey:            pubkeyBase64Str,
+					Value:             value,
 				}
 
-				logCheckArgs := passCheck.WithExpEvents(staking.EventTypeCreateValidator)
+				logCheckArgs := passCheck.WithExpEvents(&staking.CreateValidatorEvent{})
 
 				toAddr := s.precompile.Address()
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -1667,10 +1589,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("with tx from validator operator - should NOT edit a validator", func() {
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestEditValidatorCall(
 					defaultDescription, valHexAddr,
 					defaultCommissionRate, defaultMinSelfDelegation,
-				}
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					valPriv,
@@ -1690,10 +1612,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			})
 
 			It("with tx from another EOA - should fail", func() {
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestEditValidatorCall(
 					defaultDescription, valHexAddr,
 					defaultCommissionRate, defaultMinSelfDelegation,
-				}
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -1717,10 +1639,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 			It("with tx from validator operator using delegated code - should NOT edit a validator", func() {
 				s.delegateAccountToContract(valPriv, valHexAddr, contractAddr)
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestEditValidatorCall(
 					defaultDescription, valHexAddr,
 					defaultCommissionRate, defaultMinSelfDelegation,
-				}
+				)
 
 				txArgs.To = &valHexAddr
 
@@ -1755,13 +1677,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				txArgs.GasLimit = 500_000
 
 				// initial delegation via contract
-				callArgs.MethodName = "testDelegate"
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestDelegateCall(
 					valAddr.String(),
-				}
+				)
 
 				logCheckArgs := passCheck.
-					WithExpEvents(staking.EventTypeDelegate)
+					WithExpEvents(&staking.DelegateEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -1788,12 +1709,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					txArgs.Amount = big.NewInt(1e18)
 
-					callArgs.Args = []interface{}{
+					callArgs := stakingcaller.NewTestDelegateCall(
 						valAddr.String(),
-					}
+					)
 
 					logCheckArgs := passCheck.
-						WithExpEvents(staking.EventTypeDelegate)
+						WithExpEvents(&staking.DelegateEvent{})
 
 					_, _, err = s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -1830,13 +1751,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					})
 
 					It("should revert the changes and NOT delegate - successful tx", func() {
-						callArgs := testutiltypes.CallArgs{
-							ContractABI: stakingReverterContract.ABI,
-							MethodName:  "run",
-							Args: []interface{}{
-								big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
-							},
-						}
+						callArgs := stakingreverter.NewRunCall(
+							big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
+						)
 
 						// Tx should be successful, but no state changes happened
 						res, _, err := s.factory.CallContractAndCheckLogs(
@@ -1872,13 +1789,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					})
 
 					It("should revert the changes and NOT delegate - failed tx - max precompile calls reached", func() {
-						callArgs := testutiltypes.CallArgs{
-							ContractABI: stakingReverterContract.ABI,
-							MethodName:  "multipleDelegations",
-							Args: []interface{}{
-								big.NewInt(int64(evmtypes.MaxPrecompileCalls + 2)), s.network.GetValidators()[0].OperatorAddress,
-							},
-						}
+						callArgs := stakingreverter.NewMultipleDelegationsCall(
+							big.NewInt(int64(evmtypes.MaxPrecompileCalls+2)), s.network.GetValidators()[0].OperatorAddress,
+						)
 
 						// Tx should fail due to MaxPrecompileCalls
 						_, _, err := s.factory.CallContractAndCheckLogs(
@@ -1908,15 +1821,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						delegationAmount := math.NewInt(10)
 						expectedDelegationAmount := delegationAmount.Add(delegationAmount)
 
-						callArgs := testutiltypes.CallArgs{
-							ContractABI: stakingReverterContract.ABI,
-							MethodName:  "callPrecompileBeforeAndAfterRevert",
-							Args: []interface{}{
-								big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
-							},
-						}
+						callArgs := stakingreverter.NewCallPrecompileBeforeAndAfterRevertCall(
+							big.NewInt(5), s.network.GetValidators()[0].OperatorAddress,
+						)
 
-						delegateCheck := passCheck.WithExpEvents(staking.EventTypeDelegate, staking.EventTypeDelegate)
+						delegateCheck := passCheck.WithExpEvents(&staking.DelegateEvent{}, &staking.DelegateEvent{})
 
 						// The transaction should succeed with delegations occurring both before and after the intended revert.
 						// The revert itself is not propagated because it occurs within the scope of a try-catch statement,
@@ -1960,17 +1869,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						expectedDelegations := outerTimes + 2 // 1 before + outerTimes after catches + 1 after loop
 						expectedDelegationAmount := math.NewInt(10).MulRaw(expectedDelegations)
 
-						callArgs := testutiltypes.CallArgs{
-							ContractABI: stakingReverterContract.ABI,
-							MethodName:  "nestedTryCatchDelegations",
-							Args: []interface{}{
-								big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
-							},
-						}
+						callArgs := stakingreverter.NewNestedTryCatchDelegationsCall(
+							big.NewInt(outerTimes), big.NewInt(innerTimes), s.network.GetValidators()[0].OperatorAddress,
+						)
 
-						expEvents := make([]string, 0, expectedDelegations)
+						expEvents := make([]abi.Event, 0, expectedDelegations)
 						for range expectedDelegations {
-							expEvents = append(expEvents, staking.EventTypeDelegate)
+							expEvents = append(expEvents, &staking.DelegateEvent{})
 						}
 						delegateCheck := passCheck.WithExpEvents(expEvents...)
 
@@ -2017,7 +1922,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					}
 
 					var (
-						args                           testutiltypes.CallArgs
 						delegatorInitialBal            *sdk.Coin
 						contractInitialBalance         *sdk.Coin
 						bondedTokensPoolInitialBalance *sdk.Coin
@@ -2036,15 +1940,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						balRes, err = s.grpcHandler.GetBalanceFromBank(bondedTokensPoolAccAddr, s.bondDenom)
 						Expect(err).To(BeNil())
 						bondedTokensPoolInitialBalance = balRes.Balance
-
-						args.ContractABI = stakingCallerTwoContract.ABI
-						args.MethodName = "testDelegateWithCounterAndTransfer"
 					})
 
 					DescribeTable("should delegate and update balances accordingly", func(tc testCase) {
-						args.Args = []interface{}{
+						args := stakingcaller2.NewTestDelegateWithCounterAndTransferCall(
 							valAddr.String(), tc.before, tc.after,
-						}
+						)
 
 						// This is the amount of tokens transferred from the contract to the delegator
 						// during the contract call
@@ -2056,7 +1957,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						}
 
 						logCheckArgs := passCheck.
-							WithExpEvents(staking.EventTypeDelegate)
+							WithExpEvents(&staking.DelegateEvent{})
 
 						txArgs := evmtypes.EvmTxArgs{
 							To:       &contractTwoAddr,
@@ -2116,11 +2017,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					)
 
 					It("should NOT delegate and update balances accordingly - internal transfer to tokens pool", func() {
-						args.MethodName = "testDelegateWithTransfer"
-						args.Args = []interface{}{
+						args := stakingcaller2.NewTestDelegateWithTransferCall(
 							common.BytesToAddress(bondedTokensPoolAccAddr),
 							s.keyring.GetAddr(0), valAddr.String(), true, true,
-						}
+						)
 
 						txArgs.To = &contractTwoAddr
 
@@ -2158,9 +2058,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 					txArgs.Amount = big.NewInt(1e18)
 
-					callArgs.Args = []interface{}{
+					callArgs := stakingcaller.NewTestDelegateCall(
 						nonExistingVal.String(),
-					}
+					)
 
 					reverReasonCheck := execRevertedCheck.WithErrContains(
 						stakingtypes.ErrNoValidatorFound.Error(),
@@ -2189,8 +2089,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
-				callArgs.MethodName = "testUndelegate"
-
 				// delegate to undelegate
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2200,14 +2098,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2219,12 +2113,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should undelegate", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestUndelegateCall(
 					valAddr.String(), big.NewInt(1e18),
-				}
+				)
 
 				logCheckArgs := defaultLogCheck.
-					WithExpEvents(staking.EventTypeUnbond).
+					WithExpEvents(&staking.UnbondEvent{}).
 					WithExpPass(true)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2243,9 +2137,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not undelegate if the delegation does not exist", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestUndelegateCall(
 					nonExistingVal.String(), big.NewInt(1e18),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
 
@@ -2265,9 +2159,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 				differentSender := s.keyring.GetKey(1)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestUndelegateCall(
 					valAddr.String(), big.NewInt(1e18),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
 
@@ -2290,8 +2184,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
-				callArgs.MethodName = "testRedelegate"
-
 				// delegate to redelegate
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2301,14 +2193,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -2320,12 +2208,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should redelegate", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestRedelegateCall(
 					valAddr.String(), valAddr2.String(), big.NewInt(1e18),
-				}
+				)
 
 				logCheckArgs := defaultLogCheck.
-					WithExpEvents(staking.EventTypeRedelegate).
+					WithExpEvents(&staking.RedelegateEvent{}).
 					WithExpPass(true)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2347,9 +2235,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not redelegate if the delegation does not exist", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestRedelegateCall(
 					nonExistingVal.String(), valAddr2.String(), big.NewInt(1e18),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
 
@@ -2369,9 +2257,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not redelegate when calling from a different address", func() {
 				differentSender := s.keyring.GetKey(1)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestRedelegateCall(
 					valAddr.String(), valAddr2.String(), big.NewInt(1e18),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrDelegationNotExist)
 
@@ -2391,9 +2279,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not redelegate when the validator does not exist", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestRedelegateCall(
 					valAddr.String(), nonExistingVal.String(), big.NewInt(1e18),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(stakingtypes.ErrBadRedelegationDst.Error())
 
@@ -2419,8 +2307,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
-				callArgs.MethodName = "testCancelUnbonding"
-
 				// delegate to undelegate
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2430,14 +2316,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
@@ -2445,14 +2327,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// undelegate to cancel unbonding
 				delegator := s.keyring.GetKey(0)
 				txArgs.Amount = big.NewInt(0)
-				undelegateArgs := testutiltypes.CallArgs{
-					ContractABI: stakingCallerContract.ABI,
-					MethodName:  "testUndelegate",
-					Args:        []interface{}{valAddr.String(), big.NewInt(1e18)},
-				}
+				undelegateArgs := stakingcaller.NewTestUndelegateCall(
+					valAddr.String(), big.NewInt(1e18),
+				)
 
 				logCheckArgs := defaultLogCheck.
-					WithExpEvents(staking.EventTypeUnbond).
+					WithExpEvents(&staking.UnbondEvent{}).
 					WithExpPass(true)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -2478,14 +2358,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should cancel unbonding delegations", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestCancelUnbondingCall(
 					valAddr.String(), big.NewInt(1e18), big.NewInt(expCreationHeight),
-				}
+				)
 
 				txArgs.GasLimit = 1e9
 
 				logCheckArgs := passCheck.
-					WithExpEvents(staking.EventTypeCancelUnbondingDelegation)
+					WithExpEvents(&staking.CancelUnbondingDelegationEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2502,11 +2382,11 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should not cancel unbonding any delegations when unbonding delegation does not exist", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewTestCancelUnbondingCall(
 					nonExistingVal.String(),
 					big.NewInt(1e18),
 					big.NewInt(expCreationHeight),
-				}
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(CallerErrUnbondingDelegationNotExist)
 
@@ -2525,15 +2405,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("querying validator", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = "getValidator"
-			})
 			It("with non-existing address should return an empty validator", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorCall(
 					nonExistingAddr,
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2542,8 +2419,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 				Expect(valOut.Validator.OperatorAddress).To(Equal(""), "expected empty validator address")
 				Expect(valOut.Validator.Status).To(Equal(uint8(0)), "expected validator status to be 0 (unspecified)")
@@ -2553,7 +2430,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				valHexAddr := common.BytesToAddress(valAddr.Bytes())
-				callArgs.Args = []interface{}{valHexAddr}
+				callArgs := stakingcaller.NewGetValidatorCall(valHexAddr)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2562,8 +2439,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 				Expect(valOut.Validator.OperatorAddress).To(Equal(valHexAddr.String()), "expected validator address to match")
 				Expect(valOut.Validator.DelegatorShares).To(Equal(big.NewInt(1e18)), "expected different delegator shares")
@@ -2572,14 +2449,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("with status bonded and pagination", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.MethodName = "getValidators"
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      1,
 						CountTotal: true,
 					},
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2588,8 +2464,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 				Expect(valOut.PageResponse.Total).To(Equal(uint64(len(s.network.GetValidators()))))
 				Expect(valOut.PageResponse.NextKey).NotTo(BeEmpty())
@@ -2598,16 +2474,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("querying validators", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = "getValidators"
-			})
 			It("should return validators (default pagination)", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2616,8 +2489,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 				Expect(valOut.PageResponse.Total).To(Equal(uint64(len(s.network.GetValidators()))))
 				Expect(valOut.PageResponse.NextKey).To(BeEmpty())
@@ -2633,13 +2506,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				const limit uint64 = 1
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorsCall(
 					stakingtypes.Bonded.String(),
-					query.PageRequest{
+					cmn.PageRequest{
 						Limit:      limit,
 						CountTotal: true,
 					},
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2648,8 +2521,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				// no pagination, should return default values
@@ -2667,10 +2540,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should revert the execution if the bonding type is not known", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorsCall(
 					"15", // invalid bonding type
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				revertReasonCheck := execRevertedCheck.WithErrNested(
 					fmt.Sprintf("rpc error: code = %s desc = invalid validator status %s", codes.InvalidArgument, "15"),
@@ -2687,10 +2560,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should return an empty array if there are no validators with the given bonding type", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetValidatorsCall(
 					stakingtypes.Unbonded.String(),
-					query.PageRequest{},
-				}
+					cmn.PageRequest{},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2699,8 +2572,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var valOut staking.ValidatorsOutput
-				err = s.precompile.UnpackIntoInterface(&valOut, staking.ValidatorsMethod, ethRes.Ret)
+				var valOut stakingcaller.GetValidatorsReturn
+				_, err = valOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the validator output: %v", err)
 
 				Expect(valOut.PageResponse.NextKey).To(BeEmpty())
@@ -2710,15 +2583,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 		})
 
 		Context("querying delegation", func() {
-			BeforeEach(func() {
-				callArgs.MethodName = "getDelegation"
-			})
 			It("which does not exist should return an empty delegation", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetDelegationCall(
 					nonExistingAddr, valAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2727,8 +2597,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var delOut staking.DelegationOutput
-				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
+				var delOut stakingcaller.GetDelegationReturn
+				_, err = delOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Balance.Amount.Int64()).To(Equal(int64(0)), "expected a different delegation balance")
 				Expect(delOut.Balance.Denom).To(Equal(cosmosevmutil.ExampleAttoDenom), "expected a different delegation balance")
@@ -2737,9 +2607,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("which exists should return the delegation", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetDelegationCall(
 					delegator.Addr, valAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2748,8 +2618,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var delOut staking.DelegationOutput
-				err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
+				var delOut stakingcaller.GetDelegationReturn
+				_, err = delOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 				Expect(delOut.Balance).To(Equal(
 					cmn.Coin{Denom: cosmosevmutil.ExampleAttoDenom, Amount: big.NewInt(1e18)}),
@@ -2762,7 +2632,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			var contractAccAddr sdk.AccAddress
 
 			BeforeEach(func() {
-				callArgs.MethodName = "getRedelegation"
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
 				// delegate to redelegate
@@ -2774,14 +2643,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
@@ -2790,9 +2655,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("which does not exist should return an empty redelegation", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetRedelegationCall(
 					delegator.Addr, valAddr.String(), nonExistingVal.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2801,8 +2666,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var redOut staking.RedelegationOutput
-				err = s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationMethod, ethRes.Ret)
+				var redOut stakingcaller.GetRedelegationReturn
+				_, err = redOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the redelegation output: %v", err)
 				Expect(redOut.Redelegation.Entries).To(HaveLen(0), "expected no redelegation entries")
 			})
@@ -2811,14 +2676,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				// set up redelegation
-				redelegateArgs := testutiltypes.CallArgs{
-					ContractABI: stakingCallerContract.ABI,
-					MethodName:  "testRedelegate",
-					Args:        []interface{}{valAddr.String(), valAddr2.String(), big.NewInt(1)},
-				}
+				redelegateArgs := stakingcaller.NewTestRedelegateCall(
+					valAddr.String(), valAddr2.String(), big.NewInt(1),
+				)
 
 				redelegateCheck := passCheck.
-					WithExpEvents(staking.EventTypeRedelegate)
+					WithExpEvents(&staking.RedelegateEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2838,9 +2701,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.RedelegationResponses[0].Redelegation.ValidatorDstAddress).To(Equal(valAddr2.String()), "expected destination validator address to be %s", valAddr2)
 
 				// query redelegation
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetRedelegationCall(
 					contractAddr, valAddr.String(), valAddr2.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2849,8 +2712,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var redOut staking.RedelegationOutput
-				err = s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationMethod, ethRes.Ret)
+				var redOut stakingcaller.GetRedelegationReturn
+				_, err = redOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the redelegation output: %v", err)
 				Expect(redOut.Redelegation.Entries).To(HaveLen(1), "expected one redelegation entry to be returned")
 			})
@@ -2862,8 +2725,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			BeforeEach(func() {
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
-				callArgs.MethodName = "getRedelegations"
-
 				// delegate to redelegate
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2873,14 +2734,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
@@ -2890,14 +2747,12 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 
 				// set up redelegation
-				redelegateArgs := testutiltypes.CallArgs{
-					ContractABI: stakingCallerContract.ABI,
-					MethodName:  "testRedelegate",
-					Args:        []interface{}{valAddr.String(), valAddr2.String(), big.NewInt(1)},
-				}
+				redelegateArgs := stakingcaller.NewTestRedelegateCall(
+					valAddr.String(), valAddr2.String(), big.NewInt(1),
+				)
 
 				redelegateCheck := passCheck.
-					WithExpEvents(staking.EventTypeRedelegate)
+					WithExpEvents(&staking.RedelegateEvent{})
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, redelegateArgs,
@@ -2916,9 +2771,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.RedelegationResponses[0].Redelegation.ValidatorDstAddress).To(Equal(valAddr2.String()), "expected destination validator address to be %s", valAddr2)
 
 				// query redelegations by delegator address
-				callArgs.Args = []interface{}{
-					contractAddr, "", "", query.PageRequest{Limit: 1, CountTotal: true},
-				}
+				callArgs := stakingcaller.NewGetRedelegationsCall(
+					contractAddr, "", "", cmn.PageRequest{Limit: 1, CountTotal: true},
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2928,8 +2783,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil())
 
-				var redOut staking.RedelegationsOutput
-				err = s.precompile.UnpackIntoInterface(&redOut, staking.RedelegationsMethod, ethRes.Ret)
+				var redOut stakingcaller.GetRedelegationsReturn
+				_, err = redOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the redelegation output: %v", err)
 				Expect(redOut.Response).To(HaveLen(1), "expected one redelegation entry to be returned")
 				Expect(redOut.Response[0].Entries).To(HaveLen(1), "expected one redelegation entry to be returned")
@@ -2945,8 +2800,6 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				delegator := s.keyring.GetKey(0)
 				contractAccAddr = sdk.AccAddress(contractAddr.Bytes())
 
-				callArgs.MethodName = "getUnbondingDelegation"
-
 				// delegate to redelegate
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					s.keyring.GetPrivKey(0),
@@ -2956,27 +2809,21 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
 
 				// undelegate
-				undelegateArgs := testutiltypes.CallArgs{
-					ContractABI: stakingCallerContract.ABI,
-					MethodName:  "testUndelegate",
-					Args:        []interface{}{valAddr.String(), big.NewInt(1e18)},
-				}
+				undelegateArgs := stakingcaller.NewTestUndelegateCall(
+					valAddr.String(), big.NewInt(1e18),
+				)
 
 				logCheckArgs := passCheck.
-					WithExpEvents(staking.EventTypeUnbond)
+					WithExpEvents(&staking.UnbondEvent{})
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -2998,17 +2845,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("which does not exist should return an empty unbonding delegation", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetUnbondingDelegationCall(
 					delegator.Addr, valAddr2.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, callArgs, passCheck)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var unbondingDelegationOutput staking.UnbondingDelegationOutput
-				err = s.precompile.UnpackIntoInterface(&unbondingDelegationOutput, staking.UnbondingDelegationMethod, ethRes.Ret)
+				var unbondingDelegationOutput stakingcaller.GetUnbondingDelegationReturn
+				_, err = unbondingDelegationOutput.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the unbonding delegation output: %v", err)
 				Expect(unbondingDelegationOutput.UnbondingDelegation.Entries).To(HaveLen(0), "expected one unbonding delegation entry")
 			})
@@ -3016,17 +2863,17 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("which exists should return the unbonding delegation", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.Args = []interface{}{
+				callArgs := stakingcaller.NewGetUnbondingDelegationCall(
 					contractAddr, valAddr.String(),
-				}
+				)
 
 				_, ethRes, err := s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
 					txArgs, callArgs, passCheck)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 
-				var unbondOut staking.UnbondingDelegationOutput
-				err = s.precompile.UnpackIntoInterface(&unbondOut, staking.UnbondingDelegationMethod, ethRes.Ret)
+				var unbondOut stakingcaller.GetUnbondingDelegationReturn
+				_, err = unbondOut.Decode(ethRes.Ret)
 				Expect(err).To(BeNil(), "error while unpacking the unbonding delegation output: %v", err)
 				Expect(unbondOut.UnbondingDelegation.Entries).To(HaveLen(1), "expected one unbonding delegation entry to be returned")
 				Expect(unbondOut.UnbondingDelegation.Entries[0].Balance).To(Equal(big.NewInt(1e18)), "expected different balance")
@@ -3048,14 +2895,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							valAddr2.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						valAddr2.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 				Expect(s.network.NextBlock()).To(BeNil(), "failed to advance block")
@@ -3082,14 +2925,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It(fmt.Sprintf("should not execute transactions for calltype %q", testcase.calltype), func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.MethodName = "testCallUndelegate"
-					callArgs.Args = []interface{}{
+					callArgs := stakingcaller.NewTestCallUndelegateCall(
 						valAddr2.String(), big.NewInt(1e18), testcase.calltype,
-					}
+					)
 
 					checkArgs := execRevertedCheck.WithErrNested(fmt.Sprintf("failed %s to precompile", testcase.calltype))
 					if testcase.expTxPass {
-						checkArgs = passCheck.WithExpEvents(staking.EventTypeUnbond)
+						checkArgs = passCheck.WithExpEvents(&staking.UnbondEvent{})
 					}
 
 					_, _, err := s.factory.CallContractAndCheckLogs(
@@ -3116,8 +2958,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				It(fmt.Sprintf("should execute queries for calltype %q", testcase.calltype), func() {
 					delegator := s.keyring.GetKey(0)
 
-					callArgs.MethodName = "testCallDelegation"
-					callArgs.Args = []interface{}{contractAddr, valAddr2.String(), testcase.calltype}
+					callArgs := stakingcaller.NewTestCallDelegationCall(
+						contractAddr, valAddr2.String(), testcase.calltype,
+					)
 
 					_, ethRes, err := s.factory.CallContractAndCheckLogs(
 						delegator.Priv,
@@ -3125,13 +2968,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					Expect(err).To(BeNil(), "error while calling the smart contract: %v", err)
 					Expect(s.network.NextBlock()).To(BeNil())
 
-					var delOut staking.DelegationOutput
-					err = s.precompile.UnpackIntoInterface(&delOut, staking.DelegationMethod, ethRes.Ret)
+					var delOut stakingcaller.TestCallDelegationReturn
+					_, err = delOut.Decode(ethRes.Ret)
 					Expect(err).To(BeNil(), "error while unpacking the delegation output: %v", err)
 					Expect(delOut.Shares).To(Equal(math.LegacyNewDec(1).BigInt()), "expected different delegation shares")
-					Expect(delOut.Balance.Amount).To(Equal(big.NewInt(1e18)), "expected different delegation balance")
+					Expect(delOut.Coin.Amount).To(Equal(big.NewInt(1e18)), "expected different delegation balance")
 					if testcase.calltype != "callcode" { // having some trouble with returning the denom from inline assembly but that's a very special edge case which might never be used
-						Expect(delOut.Balance.Denom).To(Equal(s.bondDenom), "expected different denomination")
+						Expect(delOut.Coin.Denom).To(Equal(s.bondDenom), "expected different denomination")
 					}
 				})
 			}
@@ -3168,13 +3011,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("delegating and increasing counter should change the bank balance accordingly", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.MethodName = "testDelegateIncrementCounter"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs := stakingcaller.NewTestDelegateIncrementCounterCall(
+					valAddr.String(),
+				)
 				txArgs.GasLimit = 1e9
 				txArgs.Amount = delegationAmount
 
 				delegationCheck := passCheck.WithExpEvents(
-					staking.EventTypeDelegate,
+					&staking.DelegateEvent{},
 				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
@@ -3216,14 +3060,15 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(balanceAfterFunding.Amount.BigInt()).To(Equal(fundAmount), "expected different contract balance after funding")
 
 				// delegate
-				callArgs.MethodName = "testDelegateAndFailCustomLogic"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs := stakingcaller.NewTestDelegateAndFailCustomLogicCall(
+					valAddr.String(),
+				)
 
 				txArgs.Amount = delegationAmount
 				txArgs.GasLimit = 1e9
 
 				delegationCheck := passCheck.WithExpEvents(
-					staking.EventTypeDelegate,
+					&staking.DelegateEvent{},
 				)
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3248,8 +3093,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("should revert the contract balance to the original value when the custom logic after the precompile fails ", func() {
 				delegator := s.keyring.GetKey(0)
 
-				callArgs.MethodName = "testDelegateAndFailCustomLogic"
-				callArgs.Args = []interface{}{valAddr.String()}
+				callArgs := stakingcaller.NewTestDelegateAndFailCustomLogicCall(
+					valAddr.String(),
+				)
 
 				txArgs.Amount = big.NewInt(2e18)
 				txArgs.GasLimit = 1e9
@@ -3351,19 +3197,16 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Mint tokens to the StakingCaller contract
-			mintArgs := testutiltypes.CallArgs{
-				ContractABI: erc20Contract.ABI,
-				MethodName:  "mint",
-				Args:        []interface{}{contractAddr, mintAmount},
-			}
+			mintArgs := erc20testdata.NewMintCall(
+				contractAddr, mintAmount,
+			)
 
 			txArgs = evmtypes.EvmTxArgs{
 				To: &erc20ContractAddr,
 			}
 
 			mintCheck := testutil.LogCheckArgs{
-				ABIEvents: erc20Contract.ABI.Events,
-				ExpEvents: []string{"Transfer"}, // minting produces a Transfer event
+				ExpEvents: []abi.Event{&erc20.TransferEvent{}}, // minting produces a Transfer event
 				ExpPass:   true,
 			}
 
@@ -3374,21 +3217,13 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Check that the StakingCaller contract has the correct balance
-			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, contractAddr)
+			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, contractAddr)
 			Expect(erc20Balance).To(Equal(mintAmount), "expected different ERC20 balance for the StakingCaller contract")
-
-			// populate default call args
-			callArgs = testutiltypes.CallArgs{
-				ContractABI: stakingCallerContract.ABI,
-				MethodName:  "callERC20AndDelegate",
-			}
 
 			txArgs.To = &contractAddr
 
 			// populate default log check args
-			defaultLogCheck = testutil.LogCheckArgs{
-				ABIEvents: s.precompile.Events,
-			}
+			defaultLogCheck = testutil.LogCheckArgs{}
 			execRevertedCheck = defaultLogCheck.WithErrContains(vm.ErrExecutionReverted.Error())
 			passCheck = defaultLogCheck.WithExpPass(true)
 		})
@@ -3418,14 +3253,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 						GasPrice: big.NewInt(1e9),
 						GasLimit: 500_000,
 					},
-					testutiltypes.CallArgs{
-						ContractABI: stakingCallerContract.ABI,
-						MethodName:  "testDelegate",
-						Args: []interface{}{
-							validator.String(),
-						},
-					},
-					passCheck.WithExpEvents(staking.EventTypeDelegate),
+					stakingcaller.NewTestDelegateCall(
+						validator.String(),
+					),
+					passCheck.WithExpEvents(&staking.DelegateEvent{}),
 				)
 				Expect(err).To(BeNil(), "error while calling the StakingCaller contract")
 				Expect(s.network.NextBlock()).To(BeNil())
@@ -3443,7 +3274,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// NOTE: passing an invalid validator address here should fail AFTER the erc20 transfer was made in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
-				callArgs.Args = []interface{}{erc20ContractAddr, "invalid validator", transferredAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, "invalid_validator_address", transferredAmount,
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3457,7 +3290,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
@@ -3476,7 +3309,9 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
 				moreThanMintedAmount := new(big.Int).Add(mintAmount, big.NewInt(1))
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, moreThanMintedAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, moreThanMintedAmount,
+				)
 
 				_, _, err = s.factory.CallContractAndCheckLogs(
 					delegator.Priv,
@@ -3490,7 +3325,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
@@ -3508,16 +3343,14 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 
 				// NOTE: trying to transfer more than the balance of the contract should fail in the smart contract.
 				// Therefore this can be used to check that both EVM and Cosmos states are reverted correctly.
-				callArgs.Args = []interface{}{erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, transferredAmount}
+				callArgs := stakingcaller.NewCallERC20AndDelegateCall(
+					erc20ContractAddr, s.network.GetValidators()[0].OperatorAddress, transferredAmount,
+				)
 
 				// Build combined map of ABI events to check for both ERC20 Transfer event as well as precompile events
-				combinedABIEvents := s.precompile.Events
-				combinedABIEvents["Transfer"] = erc20Contract.ABI.Events["Transfer"]
-
 				successCheck := passCheck.
-					WithABIEvents(combinedABIEvents).
 					WithExpEvents(
-						"Transfer", staking.EventTypeDelegate,
+						&erc20.TransferEvent{}, &staking.DelegateEvent{},
 					)
 
 				txArgs.Amount = big.NewInt(1e18)
@@ -3538,7 +3371,7 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
+				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20ContractAddr, delegator.Addr)
 
 				Expect(sharesPost.GT(sharesPre)).To(BeTrue(), "expected shares to be more than before")
 				Expect(erc20BalancePost).To(Equal(transferredAmount), "expected different erc20 balance of target address")
