@@ -12,12 +12,12 @@ import (
 )
 
 func TestWERC20PrecompileUnitTestSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.WERCP20PrecompileApp](integration.CreateEvmd, "evm.WERCP20PrecompileApp")
+	create := testapp.ToEvmAppCreator[evm.WERC20PrecompileApp](integration.CreateEvmd, "evm.WERC20PrecompileApp")
 	s := werc20.NewPrecompileUnitTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestWERC20PrecompileIntegrationTestSuite(t *testing.T) {
-	create := testapp.ToEvmAppCreator[evm.WERCP20PrecompileApp](integration.CreateEvmd, "evm.WERCP20PrecompileApp")
+	create := testapp.ToEvmAppCreator[evm.WERC20PrecompileApp](integration.CreateEvmd, "evm.WERC20PrecompileApp")
 	werc20.TestPrecompileIntegrationTestSuite(t, create)
 }

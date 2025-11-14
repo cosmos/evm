@@ -220,7 +220,7 @@ type (
 		Erc20KeeperProvider // Should be removed after refactoring test code
 		StakingKeeperProvider
 	}
-	WERCP20PrecompileApp interface {
+	WERC20PrecompileApp interface {
 		TestApp
 		BankKeeperProvider
 		Erc20KeeperProvider
