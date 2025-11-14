@@ -205,7 +205,19 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) setupContractForTesting(
 	suite.chainA.NextBlock()
 
 	// Verify minted balance
-	bal := evmAppA.GetErc20Keeper().BalanceOf(ctxA, contractData.ABI, contractAddr, common.BytesToAddress(senderAddr))
+	ethRes, err := evmAppA.GetEVMKeeper().CallEVM(
+		ctxA,
+		contractData.ABI,
+		common.BytesToAddress(senderAddr),
+		contractAddr,
+		false,
+		nil,
+		"balanceOf",
+		common.BytesToAddress(senderAddr),
+	)
+	var bal *big.Int
+	err = contractData.ABI.UnpackIntoInterface(&bal, "balanceOf", ethRes.Ret)
+	suite.Require().NoError(err)
 	suite.Require().Equal(big.NewInt(InitialTokenAmount), bal, "unexpected ERC20 balance")
 }
 

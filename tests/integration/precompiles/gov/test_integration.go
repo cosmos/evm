@@ -264,9 +264,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			It("cancels a proposal and see cancellation fee charged", func() {
 				// Fix the gas limit and gas price for predictable gas usage.
 				// This is for calculating expected cancellation fee.
-				baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-				baseFeeInt := baseFee.TruncateInt64()
-				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+				baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+				txArgs.GasPrice = baseFee
 				txArgs.GasLimit = 500_000
 
 				// Get the prposal for cancellation
@@ -1248,9 +1247,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 
 					// Prepare the proposal
@@ -1406,9 +1404,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 
 					// Prepare the proposal
@@ -1502,9 +1499,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(300)
 
@@ -1692,9 +1688,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 
@@ -1925,9 +1920,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 
@@ -2076,9 +2070,8 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				func(tc testCase) {
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
-					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
-					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
+					baseFee := s.network.App.GetEVMKeeper().GetBaseFee(s.network.GetContext())
+					txArgs.GasPrice = baseFee
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
 					randomAddr := testutiltx.GenerateAddress()
