@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"github.com/cosmos/evm/x/vm/types"
 	"io"
 	"os"
+
+	"github.com/cosmos/evm/x/vm/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/spf13/cast"
@@ -18,7 +19,7 @@ import (
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdebug "github.com/cosmos/evm/client/debug"
 	"github.com/cosmos/evm/config"
-	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
+	"github.com/cosmos/evm/crypto/hd"
 	"github.com/cosmos/evm/evmd"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -80,7 +81,7 @@ func NewRootCmd() *cobra.Command {
 		WithHomeDir(config.MustGetDefaultNodeHome()).
 		WithViper(""). // In simapp, we don't use any prefix for env variables.
 		// Cosmos EVM specific setup
-		WithKeyringOptions(cosmosevmkeyring.Option()).
+		WithKeyringOptions(hd.EthSecp256k1Option()).
 		WithLedgerHasProtobuf(true)
 
 	rootCmd := &cobra.Command{
