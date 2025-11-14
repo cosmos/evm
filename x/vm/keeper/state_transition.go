@@ -244,7 +244,6 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		GasUsed:           res.GasUsed,
 		BlockHash:         common.BytesToHash(ctx.HeaderHash()),
 		BlockNumber:       big.NewInt(ctx.BlockHeight()),
-		TransactionIndex:  uint(ctx.TxIndex()), //#nosec G115
 	}
 
 	if res.Failed() {

@@ -337,3 +337,17 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 	}
 	return proofs
 }
+
+// FindEthTxIndexByHash finds tx index by iterating all valid eth transactions.
+func FindEthTxIndexByHash(txHash common.Hash, block *cmtrpctypes.ResultBlock, blockRes *cmtrpctypes.ResultBlockResults, b *Backend) (int32, error) {
+	msgs := b.EthMsgsFromCometBlock(block, blockRes)
+	for i := range msgs {
+		if msgs[i].Hash() == txHash {
+			if i > math.MaxInt32 {
+				return -1, fmt.Errorf("tx index overflow")
+			}
+			return int32(i), nil //#nosec G115 -- checked for int overflow already
+		}
+	}
+	return -1, fmt.Errorf("can't find index of ethereum tx")
+}
