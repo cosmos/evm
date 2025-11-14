@@ -37,6 +37,8 @@
               pkgs.evmd.go
               pkgs.nixfmt-rfc-style
               pkgs.solc
+              pkgs.python312
+              pkgs.uv
             ];
           };
         };
