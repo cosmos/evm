@@ -202,6 +202,7 @@ func (b *Backend) MinerFromCometBlock(
 	var validatorAccAddr sdk.AccAddress
 
 	ctx := rpctypes.ContextWithHeight(cmtBlock.Height)
+	// use latest queryClient to get miner
 	res, err := b.QueryClient.ValidatorAccount(ctx, req)
 	if err != nil {
 		b.Logger.Debug(

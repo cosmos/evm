@@ -22,6 +22,7 @@ import (
 	rpcbackend "github.com/cosmos/evm/rpc/backend"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
+	"github.com/cosmos/evm/server/config"
 	"github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -95,7 +96,7 @@ func (s *TestSuite) SetupTest() {
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
+	s.backend = rpcbackend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil, make(config.BackupGRPCConnections))
 	s.backend.Cfg.JSONRPC.GasCap = 0
 	s.backend.Cfg.JSONRPC.EVMTimeout = 0
 	s.backend.Cfg.JSONRPC.AllowInsecureUnlock = true

@@ -120,7 +120,7 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfi
 		// So here we set the minimum requested height to 1.
 		contextHeight = 1
 	}
-	traceResult, err := b.QueryClient.TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
+	traceResult, err := b.getGrpcClient(contextHeight).TraceTx(rpctypes.ContextWithHeight(contextHeight), &traceTxRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		BlockMaxGas:     cp.ConsensusParams.Block.MaxGas,
 	}
 
-	res, err := b.QueryClient.TraceBlock(ctxWithHeight, traceBlockRequest)
+	res, err := b.getGrpcClient(int64(contextHeight)).TraceBlock(ctxWithHeight, traceBlockRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +281,7 @@ func (b *Backend) TraceCall(
 
 	// Use the block height as context for the query
 	ctxWithHeight := rpctypes.ContextWithHeight(contextHeight)
-	traceResult, err := b.QueryClient.TraceCall(ctxWithHeight, &traceCallRequest)
+	traceResult, err := b.getGrpcClient(contextHeight).TraceCall(ctxWithHeight, &traceCallRequest)
 	if err != nil {
 		return nil, err
 	}

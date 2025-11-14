@@ -22,6 +22,7 @@ import (
 	"github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -30,6 +31,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 // BackendI implements the Cosmos and EVM backend.
@@ -173,6 +175,7 @@ type Backend struct {
 	Indexer             servertypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
 	Mempool             *evmmempool.ExperimentalEVMMempool
+	BackupQueryClients  map[config.BlockRange]*types.QueryClient
 }
 
 func (b *Backend) GetConfig() config.Config {
@@ -187,6 +190,7 @@ func NewBackend(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	backupGRPCClientConns config.BackupGRPCConnections,
 ) *Backend {
 	appConf, err := config.GetConfig(ctx.Viper)
 	if err != nil {
@@ -209,7 +213,15 @@ func NewBackend(
 		AllowUnprotectedTxs: allowUnprotectedTxs,
 		Indexer:             indexer,
 		Mempool:             mempool,
+		BackupQueryClients:  make(map[config.BlockRange]*types.QueryClient),
 	}
 	b.ProcessBlocker = b.ProcessBlock
+	for key, conn := range backupGRPCClientConns {
+		b.BackupQueryClients[key] = &types.QueryClient{
+			ServiceClient: tx.NewServiceClient(conn),
+			QueryClient:   evmtypes.NewQueryClient(conn),
+			FeeMarket:     feemarkettypes.NewQueryClient(conn),
+		}
+	}
 	return b
 }

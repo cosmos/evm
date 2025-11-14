@@ -25,6 +25,7 @@ import (
 func (b *Backend) BlockNumber() (hexutil.Uint64, error) {
 	// do any grpc query, ignore the response and use the returned block height
 	var header metadata.MD
+	// use latest queryClient to get block height
 	_, err := b.QueryClient.Params(b.Ctx, &evmtypes.QueryParamsRequest{}, grpc.Header(&header))
 	if err != nil {
 		return hexutil.Uint64(0), err
