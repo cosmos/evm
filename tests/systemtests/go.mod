@@ -8,7 +8,7 @@ require (
 	github.com/cometbft/cometbft v0.39.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.54.0-beta.0
 	github.com/cosmos/evm v0.5.0-rc.0
-	github.com/ethereum/go-ethereum v1.16.5
+	github.com/ethereum/go-ethereum v1.16.7
 	github.com/holiman/uint256 v1.3.2
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
