@@ -113,8 +113,8 @@ func (s *IntegrationTestSuite) TestTxTrackerTrackLocalTxs() {
 				s.Require().True(ok)
 
 				evmmp.TrackLocalTxs(txs)
-				guage := metrics.GetOrRegisterGauge("txpool/local", nil)
-				s.Require().Equal(int64(len(txs)), guage.Snapshot().Value(), "should have tracked one transaction")
+				gauge := metrics.GetOrRegisterGauge("txpool/local", nil)
+				s.Require().Equal(int64(len(txs)), gauge.Snapshot().Value(), "should have tracked one transaction")
 			},
 		},
 		{
@@ -138,8 +138,8 @@ func (s *IntegrationTestSuite) TestTxTrackerTrackLocalTxs() {
 				s.Require().True(ok)
 
 				evmmp.TrackLocalTxs(txs)
-				guage := metrics.GetOrRegisterGauge("txpool/local", nil)
-				s.Require().Equal(int64(len(txs)), guage.Snapshot().Value(), "should have tracked three transactions")
+				gauge := metrics.GetOrRegisterGauge("txpool/local", nil)
+				s.Require().Equal(int64(len(txs)), gauge.Snapshot().Value(), "should have tracked three transactions")
 			},
 		},
 		{
@@ -163,8 +163,8 @@ func (s *IntegrationTestSuite) TestTxTrackerTrackLocalTxs() {
 				s.Require().True(ok)
 
 				evmmp.TrackLocalTxs(txs)
-				guage := metrics.GetOrRegisterGauge("txpool/local", nil)
-				s.Require().Equal(int64(len(txs)), guage.Snapshot().Value(), "should have tracked three transactions from different accounts")
+				gauge := metrics.GetOrRegisterGauge("txpool/local", nil)
+				s.Require().Equal(int64(len(txs)), gauge.Snapshot().Value(), "should have tracked three transactions from different accounts")
 			},
 		},
 	}
@@ -219,8 +219,8 @@ func (s *IntegrationTestSuite) TestTxTrackerResubmission() {
 				txPool := evmmp.GetTxPool()
 				s.Require().True(txPool.Has(ethTxs[0].Hash()), "first transaction should be in pool")
 
-				guage := metrics.GetOrRegisterGauge("txpool/local", nil)
-				s.Require().Equal(int64(len(ethTxs)), guage.Snapshot().Value(), "all transactions should be tracked")
+				gauge := metrics.GetOrRegisterGauge("txpool/local", nil)
+				s.Require().Equal(int64(len(ethTxs)), gauge.Snapshot().Value(), "all transactions should be tracked")
 				// it is not practical to wait for recheck and test the tracker state
 			},
 		},
@@ -260,8 +260,8 @@ func (s *IntegrationTestSuite) TestTxTrackerResubmission() {
 					s.Require().True(txPool.Has(ethTx.Hash()), "transaction should be in pool")
 				}
 
-				guage := metrics.GetOrRegisterGauge("txpool/local", nil)
-				s.Require().Equal(int64(len(ethTxs)), guage.Snapshot().Value(), "transactions should still be in the tracker")
+				gauge := metrics.GetOrRegisterGauge("txpool/local", nil)
+				s.Require().Equal(int64(len(ethTxs)), gauge.Snapshot().Value(), "transactions should still be in the tracker")
 				// it is not practical to wait for recheck and test the tracker state
 			},
 		},
