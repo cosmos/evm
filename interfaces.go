@@ -2,12 +2,12 @@ package evm
 
 import (
 	"encoding/json"
+	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	"github.com/cosmos/evm/x/ibc/callbacks/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
-	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
@@ -48,7 +48,6 @@ type EvmApp interface { //nolint:revive
 	GetDistrKeeper() distrkeeper.Keeper
 	GetStakingKeeper() *stakingkeeper.Keeper
 	GetMintKeeper() mintkeeper.Keeper
-	GetPreciseBankKeeper() *precisebankkeeper.Keeper
 	GetFeeGrantKeeper() feegrantkeeper.Keeper
 	GetConsensusParamsKeeper() consensusparamkeeper.Keeper
 	GetCallbackKeeper() keeper.ContractKeeper
@@ -59,4 +58,5 @@ type EvmApp interface { //nolint:revive
 	GetAnteHandler() sdk.AnteHandler
 	MsgServiceRouter() *baseapp.MsgServiceRouter
 	GetMempool() mempool.ExtMempool
+	GetPreciseBankKeeper() *precisebankkeeper.Keeper
 }
