@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distributionprecompile "github.com/cosmos/evm/precompiles/distribution"
 	"maps"
 
 	evmibcutils "github.com/cosmos/evm/ibc"
@@ -35,6 +37,7 @@ const (
 // NOTE: this should only be used during initialization of the Keeper.
 func StaticPrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
+	distributionKeeper distrkeeper.Keeper,
 	bankKeeper cmn.BankKeeper,
 	govKeeper govkeeper.Keeper,
 	clientKeeper evmibcutils.ClientKeeper,
@@ -65,6 +68,16 @@ func StaticPrecompiles(
 		addrCodec,
 	)
 	precompiles[stakingPrecompile.Address()] = stakingPrecompile
+
+	distributionPrecompile := distributionprecompile.NewPrecompile(
+		distributionKeeper,
+		distrkeeper.NewMsgServerImpl(distributionKeeper),
+		distrkeeper.NewQuerier(distributionKeeper),
+		stakingKeeper,
+		bankKeeper,
+		addrCodec,
+	)
+	precompiles[distributionPrecompile.Address()] = distributionPrecompile
 
 	govPrecompile := govprecompile.NewPrecompile(
 		govkeeper.NewMsgServerImpl(&govKeeper),

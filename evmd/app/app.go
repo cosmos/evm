@@ -74,12 +74,18 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/consensus"
 	consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	"github.com/cosmos/cosmos-sdk/x/distribution"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/cosmos/cosmos-sdk/x/slashing"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -101,6 +107,7 @@ var (
 	// module account permissions
 	maccPerms = map[string][]string{
 		authtypes.FeeCollectorName:     nil,
+		distrtypes.ModuleName:          nil,
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
@@ -139,6 +146,8 @@ type App struct {
 	AccountKeeper         authkeeper.AccountKeeper
 	BankKeeper            bankkeeper.Keeper
 	StakingKeeper         *stakingkeeper.Keeper
+	SlashingKeeper        slashingkeeper.Keeper
+	DistributionKeeper    distrkeeper.Keeper
 	GovKeeper             govkeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
 	UpgradeKeeper         *upgradekeeper.Keeper
@@ -186,8 +195,8 @@ func New(
 
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
-		govtypes.StoreKey, upgradetypes.StoreKey, consensustypes.StoreKey,
-		ibcexported.StoreKey,
+		distrtypes.StoreKey, slashingtypes.StoreKey, govtypes.StoreKey,
+		upgradetypes.StoreKey, consensustypes.StoreKey, ibcexported.StoreKey,
 		// Cosmos EVM store keys
 		evmtypes.StoreKey, feemarkettypes.StoreKey,
 	)
@@ -258,6 +267,16 @@ func New(
 		appCodec, runtime.NewKVStoreService(keys[stakingtypes.StoreKey]), app.AccountKeeper, app.BankKeeper, authAddr, address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()), address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
 	)
 
+	app.DistributionKeeper = distrkeeper.NewKeeper(appCodec, runtime.NewKVStoreService(keys[distrtypes.StoreKey]), app.AccountKeeper, app.BankKeeper, app.StakingKeeper, authtypes.FeeCollectorName, authAddr)
+
+	app.SlashingKeeper = slashingkeeper.NewKeeper(appCodec, app.LegacyAmino(), runtime.NewKVStoreService(keys[slashingtypes.StoreKey]), app.StakingKeeper, authAddr)
+
+	// register the staking hooks
+	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
+	app.StakingKeeper.SetHooks(
+		stakingtypes.NewMultiStakingHooks(app.DistributionKeeper.Hooks(), app.SlashingKeeper.Hooks()),
+	)
+
 	// get skipUpgradeHeights from the app options
 	skipUpgradeHeights := map[int64]bool{}
 	for _, h := range cast.ToIntSlice(appOpts.Get(server.FlagUnsafeSkipUpgrades)) {
@@ -278,12 +297,12 @@ func New(
 	*/
 	govKeeper := govkeeper.NewKeeper(
 		appCodec, runtime.NewKVStoreService(keys[govtypes.StoreKey]), app.AccountKeeper, app.BankKeeper,
-		app.StakingKeeper, dummyDistrKeeper{}, app.MsgServiceRouter(), govConfig, authAddr,
+		app.StakingKeeper, app.DistributionKeeper, app.MsgServiceRouter(), govConfig, authAddr,
 	)
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
-			// register the governance hooks
+		// register the governance hooks
 		),
 	)
 
@@ -312,6 +331,7 @@ func New(
 	).WithStaticPrecompiles(
 		StaticPrecompiles(
 			*app.StakingKeeper,
+			app.DistributionKeeper,
 			app.BankKeeper,
 			app.GovKeeper,
 			app.IBCKeeper.ClientKeeper,
@@ -341,6 +361,8 @@ func New(
 		auth.NewAppModule(appCodec, app.AccountKeeper, nil, nil),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, nil),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, nil),
+		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil, app.interfaceRegistry),
+		distribution.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, nil),
 		upgrade.NewAppModule(app.UpgradeKeeper, app.AccountKeeper.AddressCodec()),
 		consensus.NewAppModule(appCodec, app.ConsensusParamsKeeper),
@@ -378,6 +400,8 @@ func New(
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	app.ModuleManager.SetOrderBeginBlockers(
 		// Cosmos EVM BeginBlockers
+		distrtypes.ModuleName,
+		slashingtypes.ModuleName,
 		stakingtypes.ModuleName,
 		genutiltypes.ModuleName,
 		ibcexported.ModuleName,
@@ -393,6 +417,8 @@ func New(
 		banktypes.ModuleName,
 		govtypes.ModuleName,
 		stakingtypes.ModuleName,
+		distrtypes.ModuleName,
+		slashingtypes.ModuleName,
 		authtypes.ModuleName,
 		ibcexported.ModuleName,
 
@@ -411,7 +437,9 @@ func New(
 	genesisModuleOrder := []string{
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
+		slashingtypes.ModuleName,
 		govtypes.ModuleName,
 		ibcexported.ModuleName,
 
@@ -461,10 +489,7 @@ func New(
 	app.SetEndBlocker(app.EndBlocker)
 	app.setAnteHandler(app.txConfig, maxGasWanted)
 
-	err = app.configureEVMMempool(appOpts, logger)
-	if err != nil {
-		panic(err)
-	}
+	app.configureEVMMempool(appOpts, logger)
 
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
