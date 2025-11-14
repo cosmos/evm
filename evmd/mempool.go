@@ -2,6 +2,7 @@ package evmd
 
 import (
 	"fmt"
+
 	"github.com/cosmos/evm/server"
 
 	"cosmossdk.io/log"

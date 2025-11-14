@@ -226,7 +226,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	evmAppA.Erc20Keeper.GetTokenPair(suite.chainA.GetContext(), evmAppA.Erc20Keeper.GetTokenPairID(suite.chainA.GetContext(), bondDenom))
-	//evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
+	// evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
 
 	avail := evmAppA.Erc20Keeper.IsNativePrecompileAvailable(suite.chainA.GetContext(), common.HexToAddress("0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"))
 	suite.Require().True(avail)
@@ -453,7 +453,7 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) TestHandleMsgTransfer() {
 			relayerBalance := GetBalance(relayerAddr)
 
 			// relay send
-			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) //update account in the path as the sequence recorded in that object is out of date
+			pathAToB.EndpointA.Chain.SenderAccount = evmAppA.AccountKeeper.GetAccount(suite.chainA.GetContext(), relayerAddr) // update account in the path as the sequence recorded in that object is out of date
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
 

@@ -55,7 +55,8 @@ func (s *PrecompileTestSuite) TestSetWithdrawAddressEvent() {
 				err := abi.DecodeEvent(&setWithdrawerAddrEvent, log.Topics, log.Data)
 				s.Require().NoError(err)
 				s.Require().Equal(s.keyring.GetAddr(0), setWithdrawerAddrEvent.Caller)
-				s.Require().Equal(sdk.MustBech32ifyAddressBytes("cosmos", s.keyring.GetAddr(0).Bytes()), setWithdrawerAddrEvent.WithdrawerAddress)
+				bech32AddrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
+				s.Require().Equal(sdk.MustBech32ifyAddressBytes(bech32AddrPrefix, s.keyring.GetAddr(0).Bytes()), setWithdrawerAddrEvent.WithdrawerAddress)
 			},
 			20000,
 			false,

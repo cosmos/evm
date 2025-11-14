@@ -107,10 +107,10 @@ func (s *PrecompileTestSuite) TestRun() {
 		{
 			"pass - hex to bech32 account (cosmos)",
 			func() *vm.Contract {
-				call := bech32.HexToBech32Call{
-					Addr:   s.keyring.GetAddr(0),
-					Prefix: "cosmos",
-				}
+				call := bech32.NewHexToBech32Call(
+					s.keyring.GetAddr(0),
+					sdk.GetConfig().GetBech32AccountAddrPrefix(),
+        )
 				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
@@ -131,10 +131,10 @@ func (s *PrecompileTestSuite) TestRun() {
 				valAddrCodec := s.network.App.GetStakingKeeper().ValidatorAddressCodec()
 				valAddrBz, err := valAddrCodec.StringToBytes(s.network.GetValidators()[0].GetOperator())
 				s.Require().NoError(err, "failed to convert string to bytes")
-				call := bech32.HexToBech32Call{
-					Addr:   common.BytesToAddress(valAddrBz),
-					Prefix: "cosmosvaloper",
-				}
+				call := bech32.NewHexToBech32Call(
+					common.BytesToAddress(valAddrBz),
+					sdk.GetConfig().GetBech32ValidatorAddrPrefix()
+        )
 				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
@@ -153,8 +153,8 @@ func (s *PrecompileTestSuite) TestRun() {
 			"pass - hex to bech32 consensus address (cosmosvalcons)",
 			func() *vm.Contract {
 				call := bech32.HexToBech32Call{
-					Addr:   s.keyring.GetAddr(0),
-					Prefix: "cosmosvalcons",
+					s.keyring.GetAddr(0),
+					sdk.GetConfig().GetBech32ConsensusAddrPrefix(),
 				}
 				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to encode input")

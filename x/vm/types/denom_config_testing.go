@@ -17,6 +17,12 @@ import (
 // can only be set via `EVMConfigurator` before starting the app.
 var testingEvmCoinInfo *EvmCoinInfo
 
+// SetDefaultEvmCoinInfo sets the default EVM coin info to be used as fallback.
+// This should be called during keeper initialization.
+func SetDefaultEvmCoinInfo(coinInfo EvmCoinInfo) {
+	testingEvmCoinInfo = &coinInfo
+}
+
 // setEVMCoinDecimals allows to define the decimals used in the representation
 // of the EVM coin.
 func setEVMCoinDecimals(d Decimals) error {

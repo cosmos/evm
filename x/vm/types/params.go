@@ -13,6 +13,8 @@ import (
 	host "github.com/cosmos/ibc-go/v10/modules/core/24-host"
 
 	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -66,23 +68,18 @@ func NewParams(
 // DefaultParams returns default evm parameters
 func DefaultParams() Params {
 	return Params{
-		EvmDenom:                DefaultEVMExtendedDenom,
+		EvmDenom:                sdk.DefaultBondDenom,
 		ExtraEIPs:               DefaultExtraEIPs,
 		ActiveStaticPrecompiles: DefaultStaticPrecompiles,
 		EVMChannels:             DefaultEVMChannels,
 		AccessControl:           DefaultAccessControl,
 		HistoryServeWindow:      DefaultHistoryServeWindow,
-		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: DefaultEVMExtendedDenom},
+		ExtendedDenomOptions:    &ExtendedDenomOptions{ExtendedDenom: sdk.DefaultBondDenom},
 	}
 }
 
 // validateChannels checks if channels ids are valid
-func validateChannels(i interface{}) error {
-	channels, ok := i.([]string)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
+func validateChannels(channels []string) error {
 	for _, channel := range channels {
 		if err := host.ChannelIdentifierValidator(channel); err != nil {
 			return errorsmod.Wrap(
