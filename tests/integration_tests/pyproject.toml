@@ -11,7 +11,7 @@ dependencies = [
     "flake8-black >= 0.3.6",
     "flake8-isort >= 6.1.2",
     "pyunormalize >= 16.0.0",
-    "cprotobuf >= 0.1.11",
+    "cprotobuf >= 0.1.12",
     "web3 >= 7.3.0",
     "eth-bloom >= 3.0",
     "flaky >= 3.8.1",
@@ -35,7 +35,6 @@ dev=[
 pystarport = { git = "https://github.com/MANTRA-Chain/pystarport.git", branch = "main" }
 eth-contract = { git = "https://github.com/mmsqe/eth-contract.git", branch = "event" }
 pyrevm = { git = "https://github.com/yihuang/pyrevm.git", branch = "master" }
-cprotobuf = { git = "https://github.com/yihuang/cprotobuf.git", branch = "master" }
 
 [tool.black]
 line-length = 88
