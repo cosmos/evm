@@ -420,8 +420,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 					require.NoError(t, err, "failed to send eth legacy tx")
 
 					_, err = s.SendEthDynamicFeeTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(20), big.NewInt(1))
-					require.Error(t, err)
-					require.Contains(t, err.Error(), "replacement transaction underpriced")
+					require.NoError(t, err, "temporary underpriced tx rejection should be tracked locally and not error")
 
 					ctx.SetExpQueuedTxs(tx1)
 				},
@@ -471,8 +470,7 @@ func RunMixedTxsReplacementLegacyAndDynamicFee(t *testing.T, base *suite.BaseTes
 					require.NoError(t, err)
 
 					_, err = s.SendEthLegacyTx(t, s.Node(0), signer.ID, 1, s.GasPriceMultiplier(10))
-					require.Error(t, err, "failed to send eth legacy tx")
-					require.Contains(t, err.Error(), "replacement transaction underpriced")
+					require.NoError(t, err, "temporary underpriced tx rejection should be tracked locally and not error")
 
 					// Legacy tx cannot replace dynamic fee tx.
 					ctx.SetExpQueuedTxs(tx1)
