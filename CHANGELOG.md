@@ -31,6 +31,7 @@
 - [\#812](https://github.com/cosmos/evm/pull/812) Patch evm tx index and log indexes, cleanup EmitTxHashEvent and ResetTransientGasUsed.
 - [\#817](https://github.com/cosmos/evm/pull/817) Align GetCoinbaseAddress to handle empty proposer address in contexts like CheckTx where proposer doesn't exist.
 - [\#816](https://github.com/cosmos/evm/pull/816) Avoid nil pointer when RPC requests execute before evmCoinInfo initialization in PreBlock with defaultEvmCoinInfo fallback.
+- [\#828](https://github.com/cosmos/evm/pull/828) Validate decimals before conversion to prevent panic when coininfo is missing in historical queries.
 
 ## v0.5.0
 
