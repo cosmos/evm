@@ -4,8 +4,6 @@ package erc20
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -367,15 +365,19 @@ func (t *NameReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Name
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Name")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Name, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -476,15 +478,19 @@ func (t *SymbolReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Symbol
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Symbol")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Symbol, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -988,10 +994,10 @@ func (e ApprovalEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of Approval event from topics, ignore hash topics
 func (e *ApprovalEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for Approval event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != ApprovalEventTopic {
-		return fmt.Errorf("invalid event topic for Approval event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.Owner, _, err = abi.DecodeAddress(topics[1][:])
@@ -1126,10 +1132,10 @@ func (e TransferEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of Transfer event from topics, ignore hash topics
 func (e *TransferEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for Transfer event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != TransferEventTopic {
-		return fmt.Errorf("invalid event topic for Transfer event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.From, _, err = abi.DecodeAddress(topics[1][:])
