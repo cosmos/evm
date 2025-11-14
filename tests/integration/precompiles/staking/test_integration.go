@@ -3374,7 +3374,21 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 			Expect(s.network.NextBlock()).To(BeNil())
 
 			// Check that the StakingCaller contract has the correct balance
-			erc20Balance := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, contractAddr)
+			ethRes, err := s.factory.QueryContract(
+				evmtypes.EvmTxArgs{
+					To: &erc20ContractAddr,
+				},
+				testutiltypes.CallArgs{
+					ContractABI: erc20Contract.ABI,
+					MethodName:  "balanceOf",
+					Args:        []interface{}{contractAddr},
+				},
+				0,
+			)
+			Expect(err).To(BeNil(), "error while querying the ERC20 balance of the StakingCaller contract")
+			var erc20Balance *big.Int
+			err = erc20Contract.ABI.UnpackIntoInterface(&erc20Balance, "balanceOf", ethRes.Ret)
+			Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 			Expect(erc20Balance).To(Equal(mintAmount), "expected different ERC20 balance for the StakingCaller contract")
 
 			// populate default call args
@@ -3457,9 +3471,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
+
+				var erc20BalancePost *big.Int
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
 			})
 
@@ -3490,9 +3518,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				Expect(res.DelegationResponse).NotTo(BeNil())
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost).To(Equal(sharesPre), "expected shares to be equal when reverting state")
+
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				var erc20BalancePost *big.Int
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost.Int64()).To(BeZero(), "expected erc20 balance of target address to be zero when reverting state")
 			})
 
@@ -3538,9 +3580,23 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				)
 				delegationPost := res.DelegationResponse.Delegation
 				sharesPost := delegationPost.GetShares()
-				erc20BalancePost := s.network.App.GetErc20Keeper().BalanceOf(s.network.GetContext(), erc20Contract.ABI, erc20ContractAddr, delegator.Addr)
-
 				Expect(sharesPost.GT(sharesPre)).To(BeTrue(), "expected shares to be more than before")
+
+				ethRes, err := s.factory.QueryContract(
+					evmtypes.EvmTxArgs{
+						To: &erc20ContractAddr,
+					},
+					testutiltypes.CallArgs{
+						ContractABI: erc20Contract.ABI,
+						MethodName:  "balanceOf",
+						Args:        []interface{}{delegator.Addr},
+					},
+					0,
+				)
+				Expect(err).To(BeNil(), "error while querying the ERC20 balance of delegator")
+				var erc20BalancePost *big.Int
+				err = erc20Contract.ABI.UnpackIntoInterface(&erc20BalancePost, "balanceOf", ethRes.Ret)
+				Expect(err).To(BeNil(), "error while unpacking the ERC20 balance result")
 				Expect(erc20BalancePost).To(Equal(transferredAmount), "expected different erc20 balance of target address")
 			})
 		})
