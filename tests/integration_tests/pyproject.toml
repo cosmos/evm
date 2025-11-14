@@ -33,7 +33,7 @@ dev=[
 
 [tool.uv.sources]
 pystarport = { git = "https://github.com/MANTRA-Chain/pystarport.git", branch = "main" }
-eth-contract = { git = "https://github.com/mmsqe/eth-contract.git", branch = "main" }
+eth-contract = { git = "https://github.com/mmsqe/eth-contract.git", branch = "event" }
 pyrevm = { git = "https://github.com/yihuang/pyrevm.git", branch = "master" }
 cprotobuf = { git = "https://github.com/yihuang/cprotobuf.git", branch = "master" }
 

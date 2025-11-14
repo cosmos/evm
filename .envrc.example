@@ -1,0 +1,4 @@
+use flake
+export VIRTUAL_ENV=."venv"
+layout python
+TMPDIR=/tmp
