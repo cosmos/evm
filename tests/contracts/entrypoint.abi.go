@@ -4,8 +4,6 @@ package contracts
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -60,27 +58,33 @@ func SizeUserOperationSlice(value []UserOperation) int {
 // DecodeUserOperationSlice decodes (address,uint256,bytes,bytes,uint256,uint256,uint256,uint256,uint256,bytes,bytes)[] from ABI bytes
 func DecodeUserOperationSlice(data []byte) ([]UserOperation, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 32*length {
+	if length > len(data) || length*32 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with dynamic types
 	result := make([]UserOperation, length)
 	dynamicOffset := length * 32
 	for i := 0; i < length; i++ {
+		tmp, err := abi.DecodeSize(data[offset:])
+		if err != nil {
+			return nil, 0, err
+		}
 		offset += 32
-		tmp := int(binary.BigEndian.Uint64(data[offset-8 : offset]))
+
 		if dynamicOffset != tmp {
-			return nil, 0, fmt.Errorf("invalid offset for slice element %d: expected %d, got %d", i, dynamicOffset, tmp)
+			return nil, 0, abi.ErrInvalidOffsetForSliceElement
 		}
 		n, err = result[i].Decode(data[dynamicOffset:])
 		if err != nil {
@@ -146,15 +150,19 @@ func (t *HandleOpsCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Ops
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Ops")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Ops, n, err = DecodeUserOperationSlice(data[dynamicOffset:])
 		if err != nil {
@@ -277,10 +285,10 @@ func (e UserOperationEventEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of UserOperationEvent event from topics, ignore hash topics
 func (e *UserOperationEventEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for UserOperationEvent event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != UserOperationEventEventTopic {
-		return fmt.Errorf("invalid event topic for UserOperationEvent event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.UserOpHash, _, err = abi.DecodeBytes32(topics[1][:])

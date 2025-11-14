@@ -4,7 +4,6 @@ package bank
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math/big"
 
@@ -122,17 +121,19 @@ func SizeBalanceSlice(value []Balance) int {
 // DecodeBalanceSlice decodes (address,uint256)[] from ABI bytes
 func DecodeBalanceSlice(data []byte) ([]Balance, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 64*length {
+	if length > len(data) || length*64 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with static types
@@ -290,15 +291,19 @@ func (t *BalancesReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Balances
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Balances")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Balances, n, err = DecodeBalanceSlice(data[dynamicOffset:])
 		if err != nil {
@@ -543,15 +548,19 @@ func (t *TotalSupplyReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field TotalSupply
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field TotalSupply")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.TotalSupply, n, err = DecodeBalanceSlice(data[dynamicOffset:])
 		if err != nil {

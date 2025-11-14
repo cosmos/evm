@@ -4,8 +4,6 @@ package slashing
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -268,17 +266,19 @@ func SizeSigningInfoSlice(value []SigningInfo) int {
 // DecodeSigningInfoSlice decodes (address,int64,int64,int64,bool,int64)[] from ABI bytes
 func DecodeSigningInfoSlice(data []byte) ([]SigningInfo, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 192*length {
+	if length > len(data) || length*192 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with static types
@@ -583,15 +583,19 @@ func (t *GetSigningInfosCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Pagination
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Pagination")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Pagination.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -701,15 +705,19 @@ func (t *GetSigningInfosReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field SigningInfos
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field SigningInfos")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.SigningInfos, n, err = DecodeSigningInfoSlice(data[dynamicOffset:])
 		if err != nil {
@@ -719,9 +727,12 @@ func (t *GetSigningInfosReturn) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PageResponse
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PageResponse")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.PageResponse.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -935,10 +946,10 @@ func (e ValidatorUnjailedEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of ValidatorUnjailed event from topics, ignore hash topics
 func (e *ValidatorUnjailedEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 2 {
-		return fmt.Errorf("invalid number of topics for ValidatorUnjailed event: expected 2, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != ValidatorUnjailedEventTopic {
-		return fmt.Errorf("invalid event topic for ValidatorUnjailed event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.Validator, _, err = abi.DecodeAddress(topics[1][:])

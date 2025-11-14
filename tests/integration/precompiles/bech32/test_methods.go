@@ -16,18 +16,15 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 
 	testCases := []struct {
 		name        string
-		malleate    func() bech32.HexToBech32Call
+		malleate    func() *bech32.HexToBech32Call
 		postCheck   func(result *bech32.HexToBech32Return)
 		expError    bool
 		errContains string
 	}{
 		{
 			"fail - invalid hex address",
-			func() bech32.HexToBech32Call {
-				return bech32.HexToBech32Call{
-					Addr:   common.Address{},
-					Prefix: "",
-				}
+			func() *bech32.HexToBech32Call {
+				return bech32.NewHexToBech32Call(common.Address{}, "")
 			},
 			func(result *bech32.HexToBech32Return) {},
 			true,
@@ -35,11 +32,8 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 		},
 		{
 			"fail - invalid bech32 HRP",
-			func() bech32.HexToBech32Call {
-				return bech32.HexToBech32Call{
-					Addr:   s.keyring.GetAddr(0),
-					Prefix: "",
-				}
+			func() *bech32.HexToBech32Call {
+				return bech32.NewHexToBech32Call(s.keyring.GetAddr(0), "")
 			},
 			func(result *bech32.HexToBech32Return) {},
 			true,
@@ -47,11 +41,8 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 		},
 		{
 			"pass - valid hex address and valid bech32 HRP",
-			func() bech32.HexToBech32Call {
-				return bech32.NewHexToBech32Call(
-					s.keyring.GetAddr(0),
-					sdk.GetConfig().GetBech32AccountAddrPrefix()
-        )
+			func() *bech32.HexToBech32Call {
+				return bech32.NewHexToBech32Call(s.keyring.GetAddr(0), sdk.GetConfig().GetBech32AccountAddrPrefix())
 			},
 			func(result *bech32.HexToBech32Return) {
 				s.Require().Equal(s.keyring.GetAccAddr(0).String(), result.Bech32Address)
@@ -65,7 +56,7 @@ func (s *PrecompileTestSuite) TestHexToBech32() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			result, err := s.precompile.HexToBech32(tc.malleate())
+			result, err := s.precompile.HexToBech32(*tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
@@ -85,17 +76,15 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 
 	testCases := []struct {
 		name        string
-		malleate    func() bech32.Bech32ToHexCall
+		malleate    func() *bech32.Bech32ToHexCall
 		postCheck   func(result *bech32.Bech32ToHexReturn)
 		expError    bool
 		errContains func() string
 	}{
 		{
 			"fail - empty bech32 address",
-			func() bech32.Bech32ToHexCall {
-				return bech32.Bech32ToHexCall{
-					Bech32Address: "",
-				}
+			func() *bech32.Bech32ToHexCall {
+				return bech32.NewBech32ToHexCall("")
 			},
 			func(result *bech32.Bech32ToHexReturn) {},
 			true,
@@ -105,10 +94,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		},
 		{
 			"fail - invalid bech32 address",
-			func() bech32.Bech32ToHexCall {
-				return bech32.Bech32ToHexCall{
-					Bech32Address: "cosmos",
-				}
+			func() *bech32.Bech32ToHexCall {
+				return bech32.NewBech32ToHexCall("cosmos")
 			},
 			func(result *bech32.Bech32ToHexReturn) {},
 			true,
@@ -118,10 +105,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		},
 		{
 			"fail - decoding bech32 failed",
-			func() bech32.Bech32ToHexCall {
-				return bech32.Bech32ToHexCall{
-					Bech32Address: "cosmos" + "1",
-				}
+			func() *bech32.Bech32ToHexCall {
+				return bech32.NewBech32ToHexCall("cosmos" + "1")
 			},
 			func(result *bech32.Bech32ToHexReturn) {},
 			true,
@@ -131,10 +116,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		},
 		{
 			"fail - invalid address format",
-			func() bech32.Bech32ToHexCall {
-				return bech32.Bech32ToHexCall{
-					Bech32Address: sdk.AccAddress(make([]byte, 256)).String(),
-				}
+			func() *bech32.Bech32ToHexCall {
+				return bech32.NewBech32ToHexCall(sdk.AccAddress(make([]byte, 256)).String())
 			},
 			func(result *bech32.Bech32ToHexReturn) {},
 			true,
@@ -148,10 +131,8 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		},
 		{
 			"success - valid bech32 address",
-			func() bech32.Bech32ToHexCall {
-				return bech32.Bech32ToHexCall{
-					Bech32Address: s.keyring.GetAccAddr(0).String(),
-				}
+			func() *bech32.Bech32ToHexCall {
+				return bech32.NewBech32ToHexCall(s.keyring.GetAccAddr(0).String())
 			},
 			func(result *bech32.Bech32ToHexReturn) {
 				s.Require().Equal(s.keyring.GetAddr(0), result.Addr)
@@ -167,11 +148,11 @@ func (s *PrecompileTestSuite) TestBech32ToHex() {
 		s.Run(tc.name, func() {
 			s.SetupTest()
 
-			result, err := s.precompile.Bech32ToHex(tc.malleate())
+			result, err := s.precompile.Bech32ToHex(*tc.malleate())
 
 			if tc.expError {
 				s.Require().Error(err)
-				s.Require().ErrorContains(err, tc.errContains)
+				s.Require().ErrorContains(err, tc.errContains())
 			} else {
 				s.Require().NoError(err)
 				s.Require().NotNil(result)

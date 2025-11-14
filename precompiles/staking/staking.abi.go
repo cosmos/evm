@@ -4,8 +4,6 @@ package staking
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -235,15 +233,19 @@ func (t *Description) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 160
 	// Decode dynamic field Moniker
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Moniker")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Moniker, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -253,9 +255,12 @@ func (t *Description) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Identity
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Identity")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Identity, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -265,9 +270,12 @@ func (t *Description) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Website
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Website")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Website, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -277,9 +285,12 @@ func (t *Description) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field SecurityContact
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field SecurityContact")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.SecurityContact, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -289,9 +300,12 @@ func (t *Description) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Details
 	{
-		offset := int(binary.BigEndian.Uint64(data[128+24 : 128+32]))
+		offset, err = abi.DecodeSize(data[128:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Details")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Details, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -391,15 +405,19 @@ func (t *Redelegation) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode dynamic field DelegatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field DelegatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.DelegatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -409,9 +427,12 @@ func (t *Redelegation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorSrcAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorSrcAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorSrcAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -421,9 +442,12 @@ func (t *Redelegation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorDstAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorDstAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorDstAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -433,9 +457,12 @@ func (t *Redelegation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Entries
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Entries")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Entries, n, err = DecodeRedelegationEntrySlice(data[dynamicOffset:])
 		if err != nil {
@@ -687,15 +714,19 @@ func (t *RedelegationOutput) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode dynamic field DelegatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field DelegatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.DelegatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -705,9 +736,12 @@ func (t *RedelegationOutput) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorSrcAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorSrcAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorSrcAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -717,9 +751,12 @@ func (t *RedelegationOutput) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorDstAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorDstAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorDstAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -729,9 +766,12 @@ func (t *RedelegationOutput) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Entries
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Entries")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Entries, n, err = DecodeRedelegationEntrySlice(data[dynamicOffset:])
 		if err != nil {
@@ -807,15 +847,19 @@ func (t *RedelegationResponse) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field Redelegation
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Redelegation")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Redelegation.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -825,9 +869,12 @@ func (t *RedelegationResponse) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Entries
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Entries")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Entries, n, err = DecodeRedelegationEntryResponseSlice(data[dynamicOffset:])
 		if err != nil {
@@ -1024,15 +1071,19 @@ func (t *UnbondingDelegationOutput) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode dynamic field DelegatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field DelegatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.DelegatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -1042,9 +1093,12 @@ func (t *UnbondingDelegationOutput) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -1054,9 +1108,12 @@ func (t *UnbondingDelegationOutput) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Entries
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Entries")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Entries, n, err = DecodeUnbondingDelegationEntrySlice(data[dynamicOffset:])
 		if err != nil {
@@ -1192,15 +1249,19 @@ func (t *Validator) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 352
 	// Decode dynamic field OperatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field OperatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.OperatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -1210,9 +1271,12 @@ func (t *Validator) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ConsensusPubkey
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ConsensusPubkey")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ConsensusPubkey, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -1242,9 +1306,12 @@ func (t *Validator) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Description
 	{
-		offset := int(binary.BigEndian.Uint64(data[192+24 : 192+32]))
+		offset, err = abi.DecodeSize(data[192:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Description")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Description.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -1421,17 +1488,19 @@ func SizeValidatorSlice(value []Validator) int {
 // DecodeRedelegationEntryResponseSlice decodes ((int64,int64,uint256,uint256),uint256)[] from ABI bytes
 func DecodeRedelegationEntryResponseSlice(data []byte) ([]RedelegationEntryResponse, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 160*length {
+	if length > len(data) || length*160 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with static types
@@ -1449,17 +1518,19 @@ func DecodeRedelegationEntryResponseSlice(data []byte) ([]RedelegationEntryRespo
 // DecodeRedelegationEntrySlice decodes (int64,int64,uint256,uint256)[] from ABI bytes
 func DecodeRedelegationEntrySlice(data []byte) ([]RedelegationEntry, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 128*length {
+	if length > len(data) || length*128 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with static types
@@ -1477,27 +1548,33 @@ func DecodeRedelegationEntrySlice(data []byte) ([]RedelegationEntry, int, error)
 // DecodeRedelegationResponseSlice decodes ((string,string,string,(int64,int64,uint256,uint256)[]),((int64,int64,uint256,uint256),uint256)[])[] from ABI bytes
 func DecodeRedelegationResponseSlice(data []byte) ([]RedelegationResponse, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 32*length {
+	if length > len(data) || length*32 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with dynamic types
 	result := make([]RedelegationResponse, length)
 	dynamicOffset := length * 32
 	for i := 0; i < length; i++ {
+		tmp, err := abi.DecodeSize(data[offset:])
+		if err != nil {
+			return nil, 0, err
+		}
 		offset += 32
-		tmp := int(binary.BigEndian.Uint64(data[offset-8 : offset]))
+
 		if dynamicOffset != tmp {
-			return nil, 0, fmt.Errorf("invalid offset for slice element %d: expected %d, got %d", i, dynamicOffset, tmp)
+			return nil, 0, abi.ErrInvalidOffsetForSliceElement
 		}
 		n, err = result[i].Decode(data[dynamicOffset:])
 		if err != nil {
@@ -1511,17 +1588,19 @@ func DecodeRedelegationResponseSlice(data []byte) ([]RedelegationResponse, int, 
 // DecodeUnbondingDelegationEntrySlice decodes (int64,int64,uint256,uint256,uint64,int64)[] from ABI bytes
 func DecodeUnbondingDelegationEntrySlice(data []byte) ([]UnbondingDelegationEntry, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 192*length {
+	if length > len(data) || length*192 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with static types
@@ -1539,27 +1618,33 @@ func DecodeUnbondingDelegationEntrySlice(data []byte) ([]UnbondingDelegationEntr
 // DecodeValidatorSlice decodes (string,string,bool,uint8,uint256,uint256,(string,string,string,string,string),int64,int64,uint256,uint256)[] from ABI bytes
 func DecodeValidatorSlice(data []byte) ([]Validator, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 32*length {
+	if length > len(data) || length*32 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with dynamic types
 	result := make([]Validator, length)
 	dynamicOffset := length * 32
 	for i := 0; i < length; i++ {
+		tmp, err := abi.DecodeSize(data[offset:])
+		if err != nil {
+			return nil, 0, err
+		}
 		offset += 32
-		tmp := int(binary.BigEndian.Uint64(data[offset-8 : offset]))
+
 		if dynamicOffset != tmp {
-			return nil, 0, fmt.Errorf("invalid offset for slice element %d: expected %d, got %d", i, dynamicOffset, tmp)
+			return nil, 0, abi.ErrInvalidOffsetForSliceElement
 		}
 		n, err = result[i].Decode(data[dynamicOffset:])
 		if err != nil {
@@ -1643,8 +1728,9 @@ func (t *CancelUnbondingDelegationCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode static field DelegatorAddress: address
@@ -1654,9 +1740,12 @@ func (t *CancelUnbondingDelegationCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -1862,15 +1951,19 @@ func (t *CreateValidatorCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 256
 	// Decode dynamic field Description
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Description")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Description.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -1895,9 +1988,12 @@ func (t *CreateValidatorCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Pubkey
 	{
-		offset := int(binary.BigEndian.Uint64(data[192+24 : 192+32]))
+		offset, err = abi.DecodeSize(data[192:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Pubkey")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Pubkey, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2078,8 +2174,9 @@ func (t *DelegateCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field DelegatorAddress: address
@@ -2089,9 +2186,12 @@ func (t *DelegateCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2260,8 +2360,9 @@ func (t *DelegationCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field DelegatorAddress: address
@@ -2271,9 +2372,12 @@ func (t *DelegationCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2379,8 +2483,9 @@ func (t *DelegationReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field Shares: uint256
@@ -2390,9 +2495,12 @@ func (t *DelegationReturn) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Balance
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Balance")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Balance.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -2476,15 +2584,19 @@ func (t *EditValidatorCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode dynamic field Description
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Description")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Description.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -2683,8 +2795,9 @@ func (t *RedelegateCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode static field DelegatorAddress: address
@@ -2694,9 +2807,12 @@ func (t *RedelegateCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorSrcAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorSrcAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorSrcAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2706,9 +2822,12 @@ func (t *RedelegateCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorDstAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorDstAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorDstAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2891,8 +3010,9 @@ func (t *RedelegationCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field DelegatorAddress: address
@@ -2902,9 +3022,12 @@ func (t *RedelegationCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field SrcValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field SrcValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.SrcValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2914,9 +3037,12 @@ func (t *RedelegationCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field DstValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field DstValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.DstValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3018,15 +3144,19 @@ func (t *RedelegationReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Redelegation
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Redelegation")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Redelegation.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -3122,8 +3252,9 @@ func (t *RedelegationsCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode static field DelegatorAddress: address
@@ -3133,9 +3264,12 @@ func (t *RedelegationsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field SrcValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field SrcValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.SrcValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3145,9 +3279,12 @@ func (t *RedelegationsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field DstValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field DstValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.DstValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3157,9 +3294,12 @@ func (t *RedelegationsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PageRequest
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PageRequest")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.PageRequest.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -3275,15 +3415,19 @@ func (t *RedelegationsReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field Response
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Response")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Response, n, err = DecodeRedelegationResponseSlice(data[dynamicOffset:])
 		if err != nil {
@@ -3293,9 +3437,12 @@ func (t *RedelegationsReturn) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PageResponse
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PageResponse")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.PageResponse.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -3367,8 +3514,9 @@ func (t *UnbondingDelegationCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field DelegatorAddress: address
@@ -3378,9 +3526,12 @@ func (t *UnbondingDelegationCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3480,15 +3631,19 @@ func (t *UnbondingDelegationReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field UnbondingDelegation
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field UnbondingDelegation")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.UnbondingDelegation.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -3566,8 +3721,9 @@ func (t *UndelegateCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field DelegatorAddress: address
@@ -3577,9 +3733,12 @@ func (t *UndelegateCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3830,15 +3989,19 @@ func (t *ValidatorReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Validator
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validator")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Validator.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -3916,15 +4079,19 @@ func (t *ValidatorsCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field Status
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Status")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Status, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -3934,9 +4101,12 @@ func (t *ValidatorsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PageRequest
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PageRequest")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.PageRequest.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -4048,15 +4218,19 @@ func (t *ValidatorsReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field Validators
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validators")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Validators, n, err = DecodeValidatorSlice(data[dynamicOffset:])
 		if err != nil {
@@ -4066,9 +4240,12 @@ func (t *ValidatorsReturn) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PageResponse
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PageResponse")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.PageResponse.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -4164,10 +4341,10 @@ func (e CancelUnbondingDelegationEventIndexed) EncodeTopics() ([]common.Hash, er
 // DecodeTopics decodes indexed fields of CancelUnbondingDelegation event from topics, ignore hash topics
 func (e *CancelUnbondingDelegationEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for CancelUnbondingDelegation event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != CancelUnbondingDelegationEventTopic {
-		return fmt.Errorf("invalid event topic for CancelUnbondingDelegation event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.DelegatorAddress, _, err = abi.DecodeAddress(topics[1][:])
@@ -4302,10 +4479,10 @@ func (e CreateValidatorEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of CreateValidator event from topics, ignore hash topics
 func (e *CreateValidatorEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 2 {
-		return fmt.Errorf("invalid number of topics for CreateValidator event: expected 2, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != CreateValidatorEventTopic {
-		return fmt.Errorf("invalid event topic for CreateValidator event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.ValidatorAddress, _, err = abi.DecodeAddress(topics[1][:])
@@ -4438,10 +4615,10 @@ func (e DelegateEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of Delegate event from topics, ignore hash topics
 func (e *DelegateEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for Delegate event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != DelegateEventTopic {
-		return fmt.Errorf("invalid event topic for Delegate event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.DelegatorAddress, _, err = abi.DecodeAddress(topics[1][:])
@@ -4578,10 +4755,10 @@ func (e EditValidatorEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of EditValidator event from topics, ignore hash topics
 func (e *EditValidatorEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 2 {
-		return fmt.Errorf("invalid number of topics for EditValidator event: expected 2, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != EditValidatorEventTopic {
-		return fmt.Errorf("invalid event topic for EditValidator event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.ValidatorAddress, _, err = abi.DecodeAddress(topics[1][:])
@@ -4736,10 +4913,10 @@ func (e RedelegateEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of Redelegate event from topics, ignore hash topics
 func (e *RedelegateEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 4 {
-		return fmt.Errorf("invalid number of topics for Redelegate event: expected 4, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != RedelegateEventTopic {
-		return fmt.Errorf("invalid event topic for Redelegate event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.DelegatorAddress, _, err = abi.DecodeAddress(topics[1][:])
@@ -4891,10 +5068,10 @@ func (e UnbondEventIndexed) EncodeTopics() ([]common.Hash, error) {
 // DecodeTopics decodes indexed fields of Unbond event from topics, ignore hash topics
 func (e *UnbondEventIndexed) DecodeTopics(topics []common.Hash) error {
 	if len(topics) != 3 {
-		return fmt.Errorf("invalid number of topics for Unbond event: expected 3, got %d", len(topics))
+		return abi.ErrInvalidNumberOfTopics
 	}
 	if topics[0] != UnbondEventTopic {
-		return fmt.Errorf("invalid event topic for Unbond event")
+		return abi.ErrInvalidEventTopic
 	}
 	var err error
 	e.DelegatorAddress, _, err = abi.DecodeAddress(topics[1][:])

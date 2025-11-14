@@ -4,7 +4,6 @@ package flashloan
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math/big"
 
@@ -99,8 +98,9 @@ func (t *DelegateWithRevertCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field Delegator: address
@@ -110,9 +110,12 @@ func (t *DelegateWithRevertCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Validator
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validator")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Validator, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -232,8 +235,9 @@ func (t *FlashLoanCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field Token: address
@@ -243,9 +247,12 @@ func (t *FlashLoanCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Validator
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validator")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Validator, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -407,8 +414,9 @@ func (t *FlashLoanWithRevertCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field Token: address
@@ -418,9 +426,12 @@ func (t *FlashLoanWithRevertCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Validator
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validator")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Validator, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {

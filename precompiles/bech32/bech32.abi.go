@@ -4,7 +4,6 @@ package bech32
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -80,15 +79,19 @@ func (t *Bech32ToHexCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Bech32Address
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Bech32Address")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Bech32Address, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -248,8 +251,9 @@ func (t *HexToBech32Call) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field Addr: address
@@ -259,9 +263,12 @@ func (t *HexToBech32Call) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Prefix
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Prefix")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Prefix, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -361,15 +368,19 @@ func (t *HexToBech32Return) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Bech32Address
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Bech32Address")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Bech32Address, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {

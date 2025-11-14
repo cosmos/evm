@@ -4,7 +4,6 @@ package stakingreverter
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math/big"
 
@@ -104,8 +103,9 @@ func (t *CallPrecompileBeforeAndAfterRevertCall) Decode(data []byte) (int, error
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field NumTimes: uint256
@@ -115,9 +115,12 @@ func (t *CallPrecompileBeforeAndAfterRevertCall) Decode(data []byte) (int, error
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -224,15 +227,19 @@ func (t *GetCurrentStakeCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -336,8 +343,9 @@ func (t *GetCurrentStakeReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field Shares: uint256
@@ -347,9 +355,12 @@ func (t *GetCurrentStakeReturn) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Balance
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Balance")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Balance.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -421,8 +432,9 @@ func (t *MultipleDelegationsCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field NumTimes: uint256
@@ -432,9 +444,12 @@ func (t *MultipleDelegationsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -642,15 +657,19 @@ func (t *MultipleQueriesReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Validator
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Validator")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Validator.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -728,8 +747,9 @@ func (t *NestedTryCatchDelegationsCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field OuterTimes: uint256
@@ -744,9 +764,12 @@ func (t *NestedTryCatchDelegationsCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -855,15 +878,19 @@ func (t *PerformDelegationCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -974,8 +1001,9 @@ func (t *RunCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field NumTimes: uint256
@@ -985,9 +1013,12 @@ func (t *RunCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {

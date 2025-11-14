@@ -110,7 +110,7 @@ func (s *PrecompileTestSuite) TestRun() {
 				call := bech32.NewHexToBech32Call(
 					s.keyring.GetAddr(0),
 					sdk.GetConfig().GetBech32AccountAddrPrefix(),
-        )
+				)
 				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input
@@ -133,8 +133,8 @@ func (s *PrecompileTestSuite) TestRun() {
 				s.Require().NoError(err, "failed to convert string to bytes")
 				call := bech32.NewHexToBech32Call(
 					common.BytesToAddress(valAddrBz),
-					sdk.GetConfig().GetBech32ValidatorAddrPrefix()
-        )
+					sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
+				)
 				input, err := call.EncodeWithSelector()
 				s.Require().NoError(err, "failed to encode input")
 				contract.Input = input

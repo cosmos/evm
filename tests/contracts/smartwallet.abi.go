@@ -4,7 +4,6 @@ package contracts
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math/big"
 
@@ -166,8 +165,9 @@ func (t *UserOperation) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 352
 	// Decode static field Sender: address
@@ -182,9 +182,12 @@ func (t *UserOperation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field InitCode
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field InitCode")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.InitCode, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -194,9 +197,12 @@ func (t *UserOperation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field CallData
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field CallData")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.CallData, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -231,9 +237,12 @@ func (t *UserOperation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PaymasterAndData
 	{
-		offset := int(binary.BigEndian.Uint64(data[288+24 : 288+32]))
+		offset, err = abi.DecodeSize(data[288:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PaymasterAndData")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.PaymasterAndData, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -243,9 +252,12 @@ func (t *UserOperation) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Signature
 	{
-		offset := int(binary.BigEndian.Uint64(data[320+24 : 320+32]))
+		offset, err = abi.DecodeSize(data[320:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Signature")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Signature, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -414,8 +426,9 @@ func (t *ExecuteCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field Target: address
@@ -430,9 +443,12 @@ func (t *ExecuteCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Data
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Data")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Data, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -752,15 +768,19 @@ func (t *ValidateUserOpCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode dynamic field UserOp
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field UserOp")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.UserOp.Decode(data[dynamicOffset:])
 		if err != nil {

@@ -4,7 +4,6 @@ package callbacks
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 
 	"github.com/yihuang/go-abi"
@@ -121,15 +120,19 @@ func (t *OnPacketAcknowledgementCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 160
 	// Decode dynamic field ChannelId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ChannelId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ChannelId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -139,9 +142,12 @@ func (t *OnPacketAcknowledgementCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PortId
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PortId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.PortId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -156,9 +162,12 @@ func (t *OnPacketAcknowledgementCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Data
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Data")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Data, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -168,9 +177,12 @@ func (t *OnPacketAcknowledgementCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Acknowledgement
 	{
-		offset := int(binary.BigEndian.Uint64(data[128+24 : 128+32]))
+		offset, err = abi.DecodeSize(data[128:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Acknowledgement")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Acknowledgement, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -313,15 +325,19 @@ func (t *OnPacketTimeoutCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode dynamic field ChannelId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ChannelId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ChannelId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -331,9 +347,12 @@ func (t *OnPacketTimeoutCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field PortId
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field PortId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.PortId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -348,9 +367,12 @@ func (t *OnPacketTimeoutCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Data
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Data")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Data, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {

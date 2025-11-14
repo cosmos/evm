@@ -4,7 +4,6 @@ package ics02
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math/big"
 
@@ -87,15 +86,19 @@ func (t *GetClientStateCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field ClientId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ClientId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ClientId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -193,15 +196,19 @@ func (t *GetClientStateReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Field1
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Field1")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Field1, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -279,15 +286,19 @@ func (t *UpdateClientCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field ClientId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ClientId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ClientId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -297,9 +308,12 @@ func (t *UpdateClientCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field UpdateMsg
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field UpdateMsg")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.UpdateMsg, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -497,15 +511,19 @@ func (t *VerifyMembershipCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 192
 	// Decode dynamic field ClientId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ClientId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ClientId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -515,9 +533,12 @@ func (t *VerifyMembershipCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Proof
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Proof")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Proof, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -532,9 +553,12 @@ func (t *VerifyMembershipCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Path
 	{
-		offset := int(binary.BigEndian.Uint64(data[128+24 : 128+32]))
+		offset, err = abi.DecodeSize(data[128:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Path")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Path, n, err = abi.DecodeBytesSlice(data[dynamicOffset:])
 		if err != nil {
@@ -544,9 +568,12 @@ func (t *VerifyMembershipCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Value
 	{
-		offset := int(binary.BigEndian.Uint64(data[160+24 : 160+32]))
+		offset, err = abi.DecodeSize(data[160:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Value")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Value, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -738,15 +765,19 @@ func (t *VerifyNonMembershipCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 160
 	// Decode dynamic field ClientId
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ClientId")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ClientId, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -756,9 +787,12 @@ func (t *VerifyNonMembershipCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Proof
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Proof")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Proof, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -773,9 +807,12 @@ func (t *VerifyNonMembershipCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Path
 	{
-		offset := int(binary.BigEndian.Uint64(data[128+24 : 128+32]))
+		offset, err = abi.DecodeSize(data[128:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Path")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Path, n, err = abi.DecodeBytesSlice(data[dynamicOffset:])
 		if err != nil {

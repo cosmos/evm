@@ -4,8 +4,6 @@ package govcaller
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
@@ -266,8 +264,9 @@ func (t *Params) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 512
 	// Decode static field VotingPeriod: int64
@@ -277,9 +276,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field MinDeposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field MinDeposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.MinDeposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -294,9 +296,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Quorum
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Quorum")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Quorum, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -306,9 +311,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Threshold
 	{
-		offset := int(binary.BigEndian.Uint64(data[128+24 : 128+32]))
+		offset, err = abi.DecodeSize(data[128:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Threshold")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Threshold, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -318,9 +326,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field VetoThreshold
 	{
-		offset := int(binary.BigEndian.Uint64(data[160+24 : 160+32]))
+		offset, err = abi.DecodeSize(data[160:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field VetoThreshold")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.VetoThreshold, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -330,9 +341,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field MinInitialDepositRatio
 	{
-		offset := int(binary.BigEndian.Uint64(data[192+24 : 192+32]))
+		offset, err = abi.DecodeSize(data[192:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field MinInitialDepositRatio")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.MinInitialDepositRatio, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -342,9 +356,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ProposalCancelRatio
 	{
-		offset := int(binary.BigEndian.Uint64(data[224+24 : 224+32]))
+		offset, err = abi.DecodeSize(data[224:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ProposalCancelRatio")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ProposalCancelRatio, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -354,9 +371,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ProposalCancelDest
 	{
-		offset := int(binary.BigEndian.Uint64(data[256+24 : 256+32]))
+		offset, err = abi.DecodeSize(data[256:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ProposalCancelDest")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ProposalCancelDest, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -371,9 +391,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ExpeditedThreshold
 	{
-		offset := int(binary.BigEndian.Uint64(data[320+24 : 320+32]))
+		offset, err = abi.DecodeSize(data[320:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ExpeditedThreshold")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ExpeditedThreshold, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -383,9 +406,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ExpeditedMinDeposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[352+24 : 352+32]))
+		offset, err = abi.DecodeSize(data[352:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ExpeditedMinDeposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ExpeditedMinDeposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -410,9 +436,12 @@ func (t *Params) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field MinDepositRatio
 	{
-		offset := int(binary.BigEndian.Uint64(data[480+24 : 480+32]))
+		offset, err = abi.DecodeSize(data[480:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field MinDepositRatio")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.MinDepositRatio, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -460,27 +489,33 @@ func SizeCoinSlice(value []cmn.Coin) int {
 // DecodeCoinSlice decodes (string,uint256)[] from ABI bytes
 func DecodeCoinSlice(data []byte) ([]cmn.Coin, int, error) {
 	// Decode length
-	length := int(binary.BigEndian.Uint64(data[24:32]))
 	if len(data) < 32 {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
+	length, err := abi.DecodeSize(data)
+	if err != nil {
+		return nil, 0, err
+	}
 	data = data[32:]
-	if len(data) < 32*length {
+	if length > len(data) || length*32 > len(data) {
 		return nil, 0, io.ErrUnexpectedEOF
 	}
 	var (
 		n      int
-		err    error
 		offset int
 	)
 	// Decode elements with dynamic types
 	result := make([]cmn.Coin, length)
 	dynamicOffset := length * 32
 	for i := 0; i < length; i++ {
+		tmp, err := abi.DecodeSize(data[offset:])
+		if err != nil {
+			return nil, 0, err
+		}
 		offset += 32
-		tmp := int(binary.BigEndian.Uint64(data[offset-8 : offset]))
+
 		if dynamicOffset != tmp {
-			return nil, 0, fmt.Errorf("invalid offset for slice element %d: expected %d, got %d", i, dynamicOffset, tmp)
+			return nil, 0, abi.ErrInvalidOffsetForSliceElement
 		}
 		n, err = result[i].Decode(data[dynamicOffset:])
 		if err != nil {
@@ -714,15 +749,19 @@ func (t *GetParamsReturn) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 32
 	// Decode dynamic field Params
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Params")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		n, err = t.Params.Decode(data[dynamicOffset:])
 		if err != nil {
@@ -1297,8 +1336,9 @@ func (t *TestDepositCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field DepositorAddr: address
@@ -1313,9 +1353,12 @@ func (t *TestDepositCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -1479,8 +1522,9 @@ func (t *TestDepositFromContractCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode static field ProposalId: uint64
@@ -1490,9 +1534,12 @@ func (t *TestDepositFromContractCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -1672,8 +1719,9 @@ func (t *TestDepositFromContractWithTransferCall) Decode(data []byte) (int, erro
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 160
 	// Decode static field RandomAddr: address
@@ -1688,9 +1736,12 @@ func (t *TestDepositFromContractWithTransferCall) Decode(data []byte) (int, erro
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -1880,8 +1931,9 @@ func (t *TestDepositWithTransferCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode static field ProposalId: uint64
@@ -1891,9 +1943,12 @@ func (t *TestDepositWithTransferCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -2081,8 +2136,9 @@ func (t *TestFundCommunityPoolCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field Depositor: address
@@ -2092,9 +2148,12 @@ func (t *TestFundCommunityPoolCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
@@ -2104,9 +2163,12 @@ func (t *TestFundCommunityPoolCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Amount
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Amount")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Amount, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -2282,8 +2344,9 @@ func (t *TestSubmitProposalCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 96
 	// Decode static field ProposerAddr: address
@@ -2293,9 +2356,12 @@ func (t *TestSubmitProposalCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field JsonProposal
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field JsonProposal")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.JsonProposal, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -2305,9 +2371,12 @@ func (t *TestSubmitProposalCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -2477,15 +2546,19 @@ func (t *TestSubmitProposalFromContractCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 64
 	// Decode dynamic field JsonProposal
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field JsonProposal")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.JsonProposal, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -2495,9 +2568,12 @@ func (t *TestSubmitProposalFromContractCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -2683,8 +2759,9 @@ func (t *TestSubmitProposalFromContractWithTransferCall) Decode(data []byte) (in
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 160
 	// Decode static field RandomAddr: address
@@ -2694,9 +2771,12 @@ func (t *TestSubmitProposalFromContractWithTransferCall) Decode(data []byte) (in
 	}
 	// Decode dynamic field JsonProposal
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field JsonProposal")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.JsonProposal, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -2706,9 +2786,12 @@ func (t *TestSubmitProposalFromContractWithTransferCall) Decode(data []byte) (in
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -2904,15 +2987,19 @@ func (t *TestSubmitProposalWithTransferCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode dynamic field JsonProposal
 	{
-		offset := int(binary.BigEndian.Uint64(data[0+24 : 0+32]))
+		offset, err = abi.DecodeSize(data[0:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field JsonProposal")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.JsonProposal, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -2922,9 +3009,12 @@ func (t *TestSubmitProposalWithTransferCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Deposit
 	{
-		offset := int(binary.BigEndian.Uint64(data[32+24 : 32+32]))
+		offset, err = abi.DecodeSize(data[32:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Deposit")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Deposit, n, err = DecodeCoinSlice(data[dynamicOffset:])
 		if err != nil {
@@ -3118,8 +3208,9 @@ func (t *TestTransferCancelFundCall) Decode(data []byte) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	var (
-		err error
-		n   int
+		err    error
+		n      int
+		offset int
 	)
 	dynamicOffset := 128
 	// Decode static field Depositor: address
@@ -3134,9 +3225,12 @@ func (t *TestTransferCancelFundCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field Denom
 	{
-		offset := int(binary.BigEndian.Uint64(data[64+24 : 64+32]))
+		offset, err = abi.DecodeSize(data[64:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field Denom")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.Denom, n, err = abi.DecodeBytes(data[dynamicOffset:])
 		if err != nil {
@@ -3146,9 +3240,12 @@ func (t *TestTransferCancelFundCall) Decode(data []byte) (int, error) {
 	}
 	// Decode dynamic field ValidatorAddress
 	{
-		offset := int(binary.BigEndian.Uint64(data[96+24 : 96+32]))
+		offset, err = abi.DecodeSize(data[96:])
+		if err != nil {
+			return 0, err
+		}
 		if offset != dynamicOffset {
-			return 0, errors.New("invalid offset for dynamic field ValidatorAddress")
+			return 0, abi.ErrInvalidOffsetForDynamicField
 		}
 		t.ValidatorAddress, n, err = abi.DecodeString(data[dynamicOffset:])
 		if err != nil {
