@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
 	basefactory "github.com/cosmos/evm/testutil/integration/base/factory"
@@ -141,6 +142,7 @@ func (s *benchmarkSuite) generateTxType(txType string) (sdktypes.Tx, error) {
 
 func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 	encCfg := s.network.GetEncodingConfig()
+	ibcKeeper := s.network.App.(evm.IBCKeeperProvider).GetIBCKeeper()
 	return ante.HandlerOptions{
 		Cdc:                    s.network.App.AppCodec(),
 		AccountKeeper:          s.network.App.GetAccountKeeper(),
@@ -148,7 +150,7 @@ func (s *benchmarkSuite) generateHandlerOptions() ante.HandlerOptions {
 		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              s.network.App.GetEVMKeeper(),
 		FeegrantKeeper:         s.network.App.GetFeeGrantKeeper(),
-		IBCKeeper:              s.network.App.GetIBCKeeper(),
+		IBCKeeper:              ibcKeeper,
 		FeeMarketKeeper:        s.network.App.GetFeeMarketKeeper(),
 		SignModeHandler:        encCfg.TxConfig.SignModeHandler(),
 		SigGasConsumer:         ante.SigVerificationGasConsumer,
