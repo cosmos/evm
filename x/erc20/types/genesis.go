@@ -51,10 +51,6 @@ func (gs GenesisState) Validate() error {
 		return fmt.Errorf("invalid dynamic precompiles on genesis: %w", err)
 	}
 
-	if err := validatePrecompiles(gs.TokenPairs, gs.NativePrecompiles); err != nil {
-		return fmt.Errorf("invalid native precompiles on genesis: %w", err)
-	}
-
 	// Check if allowances are valid
 	seenAllowance := make(map[string]bool)
 	for _, a := range gs.Allowances {

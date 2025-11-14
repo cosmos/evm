@@ -139,7 +139,7 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 	// Check underlying x/bank balance for reserve
 	reserveIntCoin := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom())
 	s.Require().Equal(
-		sdkmath.NewInt(2), // Network setup creates 1, test mints 1 more = 2 total
+		sdkmath.NewInt(1), // test mints 1 more
 		reserveIntCoin.Amount,
 		"reserve should hold 2 integer coins (1 from network setup + 1 from test mint)",
 	)
@@ -160,7 +160,7 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 			"reserve account - visible integer denom",
 			moduleAddr,
 			types.IntegerCoinDenom(),
-			sdkmath.NewInt(2), // Network setup creates 1, test mints 1 more = 2 total
+			sdkmath.NewInt(1),
 		},
 		{
 			"user account - visible extended denom",

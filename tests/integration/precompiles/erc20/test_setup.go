@@ -27,9 +27,6 @@ type PrecompileTestSuite struct {
 	keyring     testkeyring.Keyring
 
 	precompile *erc20.Precompile
-
-	// precompile2 is a second instance of the ERC20 precompile whose denom is bondDenom.
-	precompile2 *erc20.Precompile
 }
 
 func NewPrecompileTestSuite(create network.CreateEvmApp, options ...network.ConfigOption) *PrecompileTestSuite {
@@ -67,10 +64,4 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.tokenDenom = "xmpl"
 	s.precompile, err = s.setupERC20Precompile(s.tokenDenom)
 	s.Require().NoError(err)
-
-	// Instantiate the precompile2 with the bond denom (the token pair was already set up in genesis).
-	tokenPairID := s.network.App.GetErc20Keeper().GetDenomMap(s.network.GetContext(), bondDenom)
-	tokenPair, found := s.network.App.GetErc20Keeper().GetTokenPair(s.network.GetContext(), tokenPairID)
-	s.Require().True(found)
-	s.precompile2 = erc20.NewPrecompile(tokenPair, s.network.App.GetBankKeeper(), s.network.App.GetErc20Keeper(), s.network.App.GetTransferKeeper())
 }

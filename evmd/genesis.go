@@ -39,7 +39,6 @@ func NewEVMGenesisState() *evmtypes.GenesisState {
 func NewErc20GenesisState() *erc20types.GenesisState {
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = testconstants.ExampleTokenPairs
-	erc20GenState.NativePrecompiles = []string{testconstants.WEVMOSContractMainnet}
 
 	return erc20GenState
 }
