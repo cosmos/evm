@@ -1,4 +1,4 @@
 use flake
-export VIRTUAL_ENV=."venv"
+export VIRTUAL_ENV="tests/integration_tests/.venv"
 layout python
 TMPDIR=/tmp

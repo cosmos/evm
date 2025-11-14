@@ -41,5 +41,5 @@ tests/systemtests/testnet
 # Environments
 *.env
 /.envrc
-/.venv
+.venv
 /.direnv
