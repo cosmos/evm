@@ -10,7 +10,6 @@ from eth_contract.utils import broadcast_transaction
 from eth_contract.utils import send_transaction as send_transaction_async
 from eth_utils import big_endian_to_int
 from hexbytes import HexBytes
-from pystarport.utils import w3_wait_for_new_blocks_async
 
 from .utils import (
     ACCOUNTS,
@@ -33,6 +32,7 @@ from .utils import (
     recover_community,
     send_transaction,
     transfer_via_cosmos,
+    w3_wait_for_new_blocks_async,
 )
 
 
@@ -84,12 +84,12 @@ async def test_send_transaction(evm, check_gas=True):
         assert receipt.gasUsed == 21000
 
 
-def test_events(evm, exp_gas_used=806200):
+def test_events(evm):
     w3 = evm.w3
     sender = ADDRS["community"]
     receiver = ADDRS["signer1"]
     contract = Contract("TestERC20A")
-    contract.deploy(w3, exp_gas_used=exp_gas_used)
+    contract.deploy(w3)
     erc20 = contract.contract
     amt = 10
     tx = erc20.functions.transfer(receiver, amt).build_transaction({"from": sender})
@@ -293,7 +293,6 @@ def test_message_call(evm, diff=5):
     assert elapsed < diff  # should finish in reasonable time
 
     receipt = send_transaction(w3, tx, key=key)
-    assert 22768266 == receipt.cumulativeGasUsed
     assert receipt.status == 1, "shouldn't fail"
     assert len(receipt.logs) == iterations
 

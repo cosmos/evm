@@ -37,13 +37,10 @@ load_env_file "$SCRIPT_DIR/.env"
 
 if [[ "$TESTS_TO_RUN" == "all" ]]; then
   echo "run all local tests"
-  cmd=$(build_pytest_cmd "pytest -s -vvv -m \"not connect\"")
-elif [[ "$TESTS_TO_RUN" == "connect" ]]; then
-  echo "run tests matching $TESTS_TO_RUN"
-  cmd=$(build_pytest_cmd "pytest -vv -s -m connect")
+  cmd=$(build_pytest_cmd "uv run pytest -s -vvv")
 else
   echo "run tests matching $TESTS_TO_RUN"
-  cmd=$(build_pytest_cmd "pytest -vv -s -m \"$TESTS_TO_RUN\"")
+  cmd=$(build_pytest_cmd "uv run pytest -vv -s -m \"$TESTS_TO_RUN\"")
 fi
 
 eval $cmd

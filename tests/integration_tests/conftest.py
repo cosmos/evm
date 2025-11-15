@@ -18,38 +18,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unmarked: fallback mark for unmarked tests")
     config.addinivalue_line("markers", "slow: marks tests as slow")
     config.addinivalue_line("markers", "asyncio: marks tests as asyncio")
-    config.addinivalue_line("markers", "connect: marks connect related tests")
-    config.addinivalue_line("markers", "skipped: marks skipped not supported tests")
-
-
-def pytest_collection_modifyitems(items, config):
-    keywordexpr = config.option.keyword
-    markexpr = config.option.markexpr
-    skip_connect = pytest.mark.skip(reason="Skipping connect tests by default")
-    skip_rollback = pytest.mark.skip(
-        reason="Skipping tests not supported for inveniemd"
-    )
-    chain_config = config.getoption("chain_config")
-
-    for item in items:
-        # add "unmarked" marker to tests that have no markers
-        if not any(item.iter_markers()):
-            item.add_marker("unmarked")
-
-        # skip connect-marked tests unless explicitly requested
-        if "connect" in item.keywords:
-            if not (
-                (keywordexpr and "connect" in keywordexpr)
-                or (markexpr and "connect" in markexpr)
-            ):
-                item.add_marker(skip_connect)
-
-        if "skipped" in item.keywords:
-            if chain_config != "evmd" and not (
-                (keywordexpr and "skipped" in keywordexpr)
-                or (markexpr and "skipped" in markexpr)
-            ):
-                item.add_marker(skip_rollback)
 
 
 @pytest.fixture(scope="session")

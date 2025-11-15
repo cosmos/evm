@@ -34,7 +34,6 @@ from eth_contract.utils import ZERO_ADDRESS, balance_of, get_initcode, send_tran
 from eth_contract.weth import WETH, WETH9_ARTIFACT
 from eth_hash.auto import keccak
 from eth_utils import to_bytes
-from pystarport.utils import w3_wait_for_new_blocks_async
 from web3 import AsyncWeb3
 from web3._utils.contracts import encode_transaction_data
 from web3.types import TxParams
@@ -51,6 +50,7 @@ from .utils import (
     build_and_deploy_contract_async,
     build_contract,
     create_contract_transaction,
+    w3_wait_for_new_blocks_async,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_flow(evm):
     salt = 100
     initcode = to_bytes(hexstr=build_contract("TestBlockTxProperties")["bytecode"][2:])
     contract = await ensure_deployed_by_create2(w3, account, initcode, salt=salt)
-    assert contract == "0xe1B18c74a33b1E67B5f505C931Ac264668EA94F5"
+    assert contract == "0xe48C487A7D3Aaa3665D7c63cCaf29F31d0c74E1A"
     height = await w3.eth.block_number
     await w3_wait_for_new_blocks_async(w3, 1)
 

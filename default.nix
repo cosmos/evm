@@ -22,7 +22,10 @@ buildGo125Module rec {
     "-X github.com/cosmos/cosmos-sdk/version.Commit=${rev}"
   ];
 
-  src = lib.cleanSource ./.;
+  src = lib.sourceByRegex ./. [
+    "^(evmd|ante|api|client|crypto|encoding|ethereum|ibc|indexer|mempool|metrics|precompiles|proto|rpc|server|testutil|utils|version|wallets|x|eips|contracts|go.mod|go.sum|interfaces.go)($|/.*)"
+    "^tests(/.*[.]go)?$"
+  ];
   vendorHash = "sha256-+L4nKIKHV1bos9Trr50/kG69hR8iNL6MXLi9mun5iXQ=";
   proxyVendor = true;
   env = {

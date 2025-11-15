@@ -7,6 +7,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
+    hermes = {
+      url = "github:mmsqe/ibc-rs/ae80ab348952840696e6c9a0c7096d2de11ea579";
+      flake = false;
+    };
   };
 
   outputs =
@@ -15,6 +19,7 @@
       nixpkgs,
       flake-utils,
       poetry2nix,
+      hermes,
     }:
     let
       rev = self.shortRev or "dirty";
@@ -34,11 +39,14 @@
         devShells = {
           default = pkgs.mkShell {
             buildInputs = [
-              pkgs.evmd.go
+              pkgs.evmd
               pkgs.nixfmt-rfc-style
               pkgs.solc
               pkgs.python312
+              pkgs.direnv
               pkgs.uv
+              pkgs.git
+              pkgs.hermes
             ];
           };
         };
@@ -49,6 +57,7 @@
         poetry2nix.overlays.default
         (final: super: {
           evmd = final.callPackage ./. { inherit rev; };
+          hermes = final.callPackage ./tests/nix/hermes.nix { src = hermes; };
         })
       ];
     };

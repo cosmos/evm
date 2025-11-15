@@ -207,7 +207,7 @@ test-solidity:
 
 test-e2e-nix:
 	@bash ./tests/scripts/restore_envs.sh
-	@nix-shell ./tests/integration_tests/shell.nix --run "CHAIN_CONFIG=$(CHAIN_CONFIG) ./tests/scripts/run-integration-tests.sh"
+	@nix develop --command bash -c "cd tests/integration_tests && uv sync && CHAIN_CONFIG=$(CHAIN_CONFIG) ../../tests/scripts/run-integration-tests.sh"
 
 .PHONY: run-tests test test-all $(TEST_TARGETS)
 
@@ -242,12 +242,6 @@ lint-fix:
 
 lint-fix-contracts:
 	solhint --fix contracts/**/*.sol
-
-lint-py:
-	flake8 --show-source --count --statistics \
-		--format="::error file=%(path)s,line=%(row)d,col=%(col)d::%(path)s:%(row)d:%(col)d: %(code)s %(text)s" \
-		--exclude=tests/integration_tests/contracts \
-		tests/integration_tests/
 
 .PHONY: lint lint-fix lint-contracts lint-go lint-python
 

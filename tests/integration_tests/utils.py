@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import binascii
 import configparser
@@ -812,3 +813,14 @@ def duration(duration_str):
     mult = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     parts = re.findall(r"(\d+)([smhd])", duration_str.lower())
     return sum(int(value) * mult[unit] for value, unit in parts)
+
+
+async def w3_wait_for_new_blocks_async(w3: AsyncWeb3, n: int, sleep=0.1):
+    begin_height = await w3.eth.block_number
+    target = begin_height + n
+
+    while True:
+        cur_height = await w3.eth.block_number
+        if cur_height >= target:
+            break
+        await asyncio.sleep(sleep)

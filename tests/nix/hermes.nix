@@ -3,7 +3,7 @@
   lib,
   stdenv,
   darwin,
-  rustPackages_1_83,
+  rustPlatform,
   symlinkJoin,
   openssl,
   pkg-config,
@@ -12,7 +12,7 @@
   llvmPackages,
 }:
 
-rustPackages_1_83.rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage rec {
   name = "hermes";
   inherit src;
   cargoBuildFlags = [ "-p" "ibc-relayer-cli" ];
