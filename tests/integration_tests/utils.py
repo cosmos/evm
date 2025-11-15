@@ -17,8 +17,10 @@ from pathlib import Path
 
 import bech32
 import eth_utils
+import jsonmerge
 import requests
 import rlp
+import web3
 from dateutil.parser import isoparse
 from dotenv import load_dotenv
 from eth_account import Account
@@ -37,6 +39,7 @@ from hexbytes import HexBytes
 from pystarport import cluster
 from pystarport.utils import (
     wait_for_block_time,
+    wait_for_fn,
     wait_for_new_blocks,
 )
 from web3 import AsyncWeb3
@@ -489,6 +492,51 @@ def retry_on_seq_mismatch(fn, *args, max_retries=3, **kwargs):
     return rsp
 
 
+async def retry_on_nonce_mismatch(fn, *args, max_retries=3, **kwargs):
+    for attempt in range(max_retries):
+        try:
+            return await fn(*args, **kwargs)
+        except Exception as e:
+            error_msg = str(e).lower()
+            # Handle nonce mismatch errors
+            should_retry = "nonce" in error_msg and (
+                "lower" in error_msg or "invalid" in error_msg
+            )
+            # Handle "already known" errors (transaction already in mempool)
+            should_retry = should_retry or ("already known" in error_msg)
+
+            if should_retry and attempt < max_retries - 1:
+                # Wait a bit longer for "already known" errors
+                wait_time = 2.0 if "already known" in error_msg else 1.0
+                await asyncio.sleep(wait_time)
+                continue
+            raise e
+    return None
+
+
+def call_with_retry(fn, expect_error=False, max_retries=3, retry_delay=0.1):
+    for attempt in range(1, max_retries + 1):
+        try:
+            fn()
+            if expect_error:
+                print(f"no error but query succeeded on attempt {attempt}")
+                return False
+            print(f"query successful on attempt {attempt}")
+            return True
+        except web3.exceptions.Web3RPCError as e:
+            error_str = str(e)
+            if "Error while dialing" in error_str or "connection refused" in error_str:
+                if expect_error:
+                    return True
+                if attempt == max_retries:
+                    print(f"failed after {max_retries} attempts")
+                    return False
+                time.sleep(retry_delay)
+            else:
+                raise
+    return False
+
+
 def recover_community(cli, tmp_path):
     return cli.create_account(
         "community",
@@ -559,7 +607,7 @@ def build_batch_tx(w3, cli, txs, key=KEYS["community"]):
         "auth_info": {
             "signer_infos": [],
             "fee": {
-                "amount": [{"denom": "atest", "amount": str(fee)}],
+                "amount": [{"denom": DEFAULT_EXTENDED_DENOM, "amount": str(fee)}],
                 "gas_limit": str(gas_limit),
                 "payer": "",
                 "granter": "",
@@ -577,8 +625,13 @@ def approve_proposal(n, events, event_query_tx=True, **kwargs):
     )
     proposal_id = ev["proposal_id"]
     for i in range(len(n.config["validators"])):
+        node = n.config["validators"][i]
+        # skip fullnodes
+        if "staked" not in node:
+            continue
+        account_name = node.get("name", "validator")
         rsp = n.cosmos_cli(i).gov_vote(
-            "validator",
+            account_name,
             proposal_id,
             "yes",
             event_query_tx=event_query_tx,
@@ -794,18 +847,33 @@ def address_to_bytes32(addr) -> HexBytes:
     return HexBytes(addr).rjust(32, b"\x00")
 
 
-def edit_app_cfg(cli, i):
+def assert_approval_log(receipt, owner, spender, expected):
+    approval_topic = HexBytes(ERC20.events.Approval.topic.hex())
+    approval_logs = [
+        log for log in receipt["logs"] if log["topics"][0] == approval_topic
+    ]
+    assert len(approval_logs) == 1
+    approval_log = approval_logs[0]
+    assert approval_log["topics"][1] == address_to_bytes32(owner), "owner mismatch"
+    assert approval_log["topics"][2] == address_to_bytes32(spender), "spender mismatch"
+    return int.from_bytes(approval_log["data"], "big") == expected
+
+
+def edit_app_cfg(cli, i, app_config={}):
     # Modify the json-rpc addresses to avoid conflict
     cluster.edit_app_cfg(
         cli.home(i) / "config/app.toml",
         cli.base_port(i),
-        {
-            "json-rpc": {
-                "enable": True,
-                "address": "127.0.0.1:{EVMRPC_PORT}",
-                "ws-address": "127.0.0.1:{EVMRPC_PORT_WS}",
+        jsonmerge.merge(
+            {
+                "json-rpc": {
+                    "enable": True,
+                    "address": "127.0.0.1:{EVMRPC_PORT}",
+                    "ws-address": "127.0.0.1:{EVMRPC_PORT_WS}",
+                },
             },
-        },
+            app_config,
+        ),
     )
 
 
@@ -813,6 +881,14 @@ def duration(duration_str):
     mult = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     parts = re.findall(r"(\d+)([smhd])", duration_str.lower())
     return sum(int(value) * mult[unit] for value, unit in parts)
+
+
+def wait_for_balance_change(cli, addr, denom, init_balance):
+    def check_balance():
+        current_balance = cli.balance(addr, denom)
+        return current_balance if current_balance != init_balance else None
+
+    return wait_for_fn("balance change", check_balance)
 
 
 async def w3_wait_for_new_blocks_async(w3: AsyncWeb3, n: int, sleep=0.1):
@@ -824,3 +900,52 @@ async def w3_wait_for_new_blocks_async(w3: AsyncWeb3, n: int, sleep=0.1):
         if cur_height >= target:
             break
         await asyncio.sleep(sleep)
+
+
+def update_node_cmd(path, cmd, i, **kwargs):
+    ini_path = path / cluster.SUPERVISOR_CONFIG_FILE
+    ini = configparser.RawConfigParser()
+    ini.read(ini_path)
+    for section in ini.sections():
+        if section == f"program:{CHAIN_ID}-node{i}":
+            updates = {}
+            base_cmd = f"{cmd} start --home %(here)s/node{i}"
+            if kwargs:
+                extra_flags = " ".join(
+                    f"--{k.replace('_', '-')}" for k in kwargs.keys()
+                )
+                updates["command"] = f"{base_cmd} {extra_flags}"
+            else:
+                updates["command"] = base_cmd
+            updates["autorestart"] = "false"
+            ini[section].update(updates)
+    with ini_path.open("w") as fp:
+        ini.write(fp)
+
+
+def grpc_eth_call(
+    port: int,
+    args: dict,
+    expect_cb,
+    chain_id=None,
+    proposer_address=None,
+):
+    max_retry = 3
+    sleep = 1
+    success = False
+    for i in range(max_retry):
+        params = {
+            "args": base64.b64encode(json.dumps(args).encode()).decode(),
+        }
+        if chain_id is not None:
+            params["chain_id"] = str(chain_id)
+        if proposer_address is not None:
+            params["proposer_address"] = str(proposer_address)
+        rsp = requests.get(
+            f"http://localhost:{port}/cosmos/evm/vm/v1/eth_call", params
+        ).json()
+        success = expect_cb(rsp)
+        if success:
+            break
+        time.sleep(sleep)
+    assert success, str(rsp)
