@@ -47,6 +47,8 @@
               pkgs.uv
               pkgs.git
               pkgs.hermes
+              (pkgs.lib.optional pkgs.stdenv.isLinux pkgs.stdenv.cc.cc)
+              pkgs.python312Packages.jsonnet
             ];
           };
         };

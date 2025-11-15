@@ -25,7 +25,7 @@ async def test_gas_call(evm):
         {"from": ADDRS["community"], "gasPrice": await w3.eth.gas_price}
     )
     receipt = await w3.eth.wait_for_transaction_receipt(txhash)
-    assert receipt.gasUsed == 267649
+    assert receipt.gasUsed == 267441
 
 
 async def test_block_gas_limit(evm):
