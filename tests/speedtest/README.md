@@ -19,5 +19,5 @@ To change parameters run:
 
 IMPORTANT: It is important to ensure your configuration is not exceeding the block max gas/bytes. These are by default 
 set to the maximum possible values. However, should you exceed this, the program will report a false TPS value. Use 
---verify-txs to verify that your configuration is sound. Once the configuration is confirmed (i.e. you've ran with 
+--verify-txs to verify that your configuration is sound. Once the configuration is confirmed (i.e. you've run with 
 --verify-txs and it didn't error), run again without the --verify-txs flag to get true a TPS value.
