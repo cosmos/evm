@@ -83,7 +83,24 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 	}
 
 	// Verify minted balance
-	bal := evmApp.GetErc20Keeper().BalanceOf(evmCtx, contractAbi, contractAddr, common.BytesToAddress(senderAddr))
+	ethRes, err := evmApp.GetEVMKeeper().CallEVM(
+		evmCtx,
+		contractAbi,
+		common.BytesToAddress(senderAddr),
+		contractAddr,
+		false,
+		nil,
+		"balanceOf",
+		common.BytesToAddress(senderAddr),
+	)
+	if err != nil {
+		t.Fatalf("balanceOf call failed: %v", err)
+	}
+	var bal *big.Int
+	err = contractAbi.UnpackIntoInterface(&bal, "balanceOf", ethRes.Ret)
+	if err != nil {
+		t.Fatalf("balanceOf call failed: %v", err)
+	}
 	if bal.Cmp(big.NewInt(sendAmt.Int64())) != 0 {
 		t.Fatalf("unexpected ERC20 balance; got %s, want %s", bal.String(), sendAmt.String())
 	}
