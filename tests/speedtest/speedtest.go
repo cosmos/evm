@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"math/rand"
+	"os"
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -35,9 +36,12 @@ var (
 	ERC20PrecompileAddr = common.HexToAddress("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
 )
 
-func NewSpeedTestCommand(dir string) *cobra.Command {
+func NewSpeedTestCommand() *cobra.Command {
+	dir, err := os.MkdirTemp("", "speedtest-*")
+	if err != nil {
+		panic(err)
+	}
 	logger := log.NewNopLogger()
-
 	db, err := dbm.NewDB("app", dbm.PebbleDBBackend, dir)
 	if err != nil {
 		panic(err)
@@ -51,19 +55,20 @@ func NewSpeedTestCommand(dir string) *cobra.Command {
 		app:      evmApp,
 		accounts: make([]accountInfo, 0),
 	}
-	genesis := evmApp.DefaultGenesis()
-	cdc := evmApp.AppCodec()
-	DisableFeeMarket(cdc, genesis)
-	SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom)(cdc, genesis)
-	BankMetadataSetter(sdk.DefaultBondDenom, 18)(cdc, genesis)
-	cmd := speedtest.SpeedTestCmd(
+	cmd := speedtest.NewCmd(
 		gen.createAccount,
 		gen.generateTx,
 		evmApp,
 		evmApp.AppCodec(),
-		genesis,
+		evmApp.DefaultGenesis(),
 		chainID,
+		DisableFeeMarket,
+		SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom),
+		BankMetadataSetter(sdk.DefaultBondDenom, 18),
 	)
+	cmd.PostRunE = func(_ *cobra.Command, _ []string) error {
+		return os.RemoveAll(dir)
+	}
 	return cmd
 }
 
