@@ -1,6 +1,7 @@
 package precisebank
 
 import (
+	"github.com/cosmos/evm"
 	"github.com/cosmos/evm/x/precisebank/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -89,6 +90,31 @@ func ConvertCoinsToExtendedCoinDenom(coins sdk.Coins) sdk.Coins {
 	extendedCoin := sdk.NewCoin(types.ExtendedCoinDenom(), integerCoinAmt.Mul(types.ConversionFactor()))
 
 	return coins.Sub(integerCoin).Add(extendedCoin)
+}
+
+// AdjustModuleBalance adjusts the precisebank module account balance to the expected amount.
+// TODO: This is a test utility function and should ideally not be needed.
+// Consider refactoring tests to avoid needing this.
+func AdjustModuleBalance(sdkCtx sdk.Context, evmApp evm.EvmApp, expectedAmt sdkmath.Int) error {
+	moduleAddr := evmApp.GetAccountKeeper().GetModuleAddress(types.ModuleName)
+	balance := evmApp.GetBankKeeper().GetBalance(sdkCtx, moduleAddr, types.IntegerCoinDenom())
+
+	if balance.Amount.GT(expectedAmt) {
+		// Burn excess
+		return evmApp.GetBankKeeper().BurnCoins(
+			sdkCtx,
+			types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), balance.Amount.Sub(expectedAmt))),
+		)
+	} else if balance.Amount.LT(expectedAmt) {
+		// Mint deficit
+		return evmApp.GetBankKeeper().MintCoins(
+			sdkCtx,
+			types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.IntegerCoinDenom(), expectedAmt.Sub(balance.Amount))),
+		)
+	}
+	return nil
 }
 
 func c(denom string, amount int64) sdk.Coin        { return sdk.NewInt64Coin(denom, amount) }

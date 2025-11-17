@@ -136,6 +136,10 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 		),
 	)
 
+	// Adjust the module balance to be exactly 1 integer coin
+	err := AdjustModuleBalance(s.network.GetContext(), s.network.App, sdkmath.NewInt(1))
+	s.Require().NoError(err)
+
 	// Check underlying x/bank balance for reserve
 	reserveIntCoin := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom())
 	s.Require().Equal(
