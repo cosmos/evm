@@ -129,13 +129,6 @@ batch-response-max-size = {{ .JSONRPC.BatchResponseMaxSize }}
 # Enabled profiling in the debug namespace
 enable-profiling = {{ .JSONRPC.EnableProfiling }}
 
-# Backup gRPC addresses with block ranges for historical query routing.
-# This should be a JSON string mapping gRPC addresses to block ranges.
-# Format: '{"address1": [start_block, end_block], "address2": [start_block, end_block]}'
-# Example: '{"0.0.0.0:26113": [0, 1000], "0.0.0.0:26123": [1001, 2000]}'
-# Leave empty to disable backup gRPC routing.
-backup-grpc-address-block-range = "{{ printf "{" }}{{ range $k, $v := .JSONRPC.BackupGRPCBlockAddressBlockRange }}\"{{ $v }}\": [{{index $k 0 }}, {{ index $k 1}}]{{ end }}{{ printf "}" }}"
-
 ###############################################################################
 ###                             TLS Configuration                           ###
 ###############################################################################

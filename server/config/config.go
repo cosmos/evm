@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 
 	"github.com/cometbft/cometbft/libs/strings"
 
@@ -125,12 +123,6 @@ const (
 	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
 	DefaultEnableProfiling = false
 )
-
-type BlockRange [2]int
-
-// BackupGRPCConnections is a map of block ranges to gRPC client connections
-// used for routing requests to different backend nodes based on block height.
-type BackupGRPCConnections map[BlockRange]*grpc.ClientConn
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 
@@ -268,8 +260,6 @@ type JSONRPCConfig struct {
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
 	EnableProfiling bool `mapstructure:"enable-profiling"`
-	// BackupGRPCBlockAddressBlockRange maps block ranges to gRPC addresses for routing historical queries.
-	BackupGRPCBlockAddressBlockRange map[BlockRange]string `mapstructure:"-"`
 }
 
 // TLSConfig defines the certificate and matching private key for the server.
@@ -328,29 +318,28 @@ func GetDefaultWSOrigins() []string {
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
-		Enable:                           false,
-		API:                              GetDefaultAPINamespaces(),
-		Address:                          DefaultJSONRPCAddress,
-		WsAddress:                        DefaultJSONRPCWsAddress,
-		GasCap:                           DefaultGasCap,
-		AllowInsecureUnlock:              DefaultJSONRPCAllowInsecureUnlock,
-		EVMTimeout:                       DefaultEVMTimeout,
-		TxFeeCap:                         DefaultTxFeeCap,
-		FilterCap:                        DefaultFilterCap,
-		FeeHistoryCap:                    DefaultFeeHistoryCap,
-		BlockRangeCap:                    DefaultBlockRangeCap,
-		LogsCap:                          DefaultLogsCap,
-		HTTPTimeout:                      DefaultHTTPTimeout,
-		HTTPIdleTimeout:                  DefaultHTTPIdleTimeout,
-		AllowUnprotectedTxs:              DefaultAllowUnprotectedTxs,
-		BatchRequestLimit:                DefaultBatchRequestLimit,
-		BatchResponseMaxSize:             DefaultBatchResponseMaxSize,
-		MaxOpenConnections:               DefaultMaxOpenConnections,
-		EnableIndexer:                    false,
-		MetricsAddress:                   DefaultJSONRPCMetricsAddress,
-		WSOrigins:                        GetDefaultWSOrigins(),
-		EnableProfiling:                  DefaultEnableProfiling,
-		BackupGRPCBlockAddressBlockRange: make(map[BlockRange]string),
+		Enable:               false,
+		API:                  GetDefaultAPINamespaces(),
+		Address:              DefaultJSONRPCAddress,
+		WsAddress:            DefaultJSONRPCWsAddress,
+		GasCap:               DefaultGasCap,
+		AllowInsecureUnlock:  DefaultJSONRPCAllowInsecureUnlock,
+		EVMTimeout:           DefaultEVMTimeout,
+		TxFeeCap:             DefaultTxFeeCap,
+		FilterCap:            DefaultFilterCap,
+		FeeHistoryCap:        DefaultFeeHistoryCap,
+		BlockRangeCap:        DefaultBlockRangeCap,
+		LogsCap:              DefaultLogsCap,
+		HTTPTimeout:          DefaultHTTPTimeout,
+		HTTPIdleTimeout:      DefaultHTTPIdleTimeout,
+		AllowUnprotectedTxs:  DefaultAllowUnprotectedTxs,
+		BatchRequestLimit:    DefaultBatchRequestLimit,
+		BatchResponseMaxSize: DefaultBatchResponseMaxSize,
+		MaxOpenConnections:   DefaultMaxOpenConnections,
+		EnableIndexer:        false,
+		MetricsAddress:       DefaultJSONRPCMetricsAddress,
+		WSOrigins:            GetDefaultWSOrigins(),
+		EnableProfiling:      DefaultEnableProfiling,
 	}
 }
 
@@ -460,26 +449,11 @@ func GetConfig(v *viper.Viper) (Config, error) {
 	if err := v.Unmarshal(conf); err != nil {
 		return Config{}, fmt.Errorf("error extracting app config: %w", err)
 	}
-	raw := v.GetString("json-rpc.backup-grpc-address-block-range")
-	if len(raw) > 0 {
-		data := make(map[string]BlockRange)
-		if err := json.Unmarshal([]byte(raw), &data); err != nil {
-			return Config{}, fmt.Errorf("failed to parse backup-grpc-address-block-range as JSON: %w (value: %s)", err, raw)
-		}
-		backupGRPCBlockAddressBlockRange := make(map[BlockRange]string, len(data))
-		for address, blockRange := range data {
-			if blockRange[0] < 0 || blockRange[1] < 0 {
-				return Config{}, fmt.Errorf("invalid block range [%d, %d] for address %s: block numbers cannot be negative",
-					blockRange[0], blockRange[1], address)
-			}
-			if blockRange[0] > blockRange[1] {
-				return Config{}, fmt.Errorf("invalid block range [%d, %d] for address %s: start block must be <= end block",
-					blockRange[0], blockRange[1], address)
-			}
-			backupGRPCBlockAddressBlockRange[blockRange] = address
-		}
-		conf.JSONRPC.BackupGRPCBlockAddressBlockRange = backupGRPCBlockAddressBlockRange
+	sdkConf, err := config.GetConfig(v)
+	if err != nil {
+		return Config{}, err
 	}
+	conf.GRPC.BackupGRPCBlockAddressBlockRange = sdkConf.GRPC.BackupGRPCBlockAddressBlockRange
 	return *conf, nil
 }
 

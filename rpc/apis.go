@@ -16,7 +16,6 @@ import (
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/txpool"
 	"github.com/cosmos/evm/rpc/namespaces/ethereum/web3"
 	"github.com/cosmos/evm/rpc/stream"
-	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -50,7 +49,6 @@ type APICreator = func(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
-	backupGRPCClientConns config.BackupGRPCConnections,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -64,9 +62,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-			backupGRPCClientConns config.BackupGRPCConnections,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -82,7 +79,7 @@ func init() {
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool, config.BackupGRPCConnections) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -92,7 +89,7 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool, _ config.BackupGRPCConnections) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -108,9 +105,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-			backupGRPCClientConns config.BackupGRPCConnections,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: PersonalNamespace,
@@ -126,9 +122,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-			backupGRPCClientConns config.BackupGRPCConnections,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: TxPoolNamespace,
@@ -144,9 +139,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-			backupGRPCClientConns config.BackupGRPCConnections,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: DebugNamespace,
@@ -162,9 +156,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-			backupGRPCClientConns config.BackupGRPCConnections,
 		) []rpc.API {
-			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)
+			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
 					Namespace: MinerNamespace,
@@ -185,13 +178,12 @@ func GetRPCAPIs(ctx *server.Context,
 	indexer servertypes.EVMTxIndexer,
 	selectedAPIs []string,
 	mempool *evmmempool.ExperimentalEVMMempool,
-	backupGRPCClientConns config.BackupGRPCConnections,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
 		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool, backupGRPCClientConns)...)
+			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
 		} else {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
 		}

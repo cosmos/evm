@@ -20,7 +20,6 @@ import (
 	cmttime "github.com/cometbft/cometbft/types/time"
 
 	"github.com/cosmos/evm/server"
-	"github.com/cosmos/evm/server/config"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"cosmossdk.io/log"
@@ -129,10 +128,6 @@ func startInProcess(cfg Config, val *Validator) error {
 		if val.Ctx == nil || val.Ctx.Viper == nil {
 			return fmt.Errorf("validator %s context is nil", val.Moniker)
 		}
-
-		gprcClients := config.BackupGRPCConnections{
-			{0, 1}: val.ClientCtx.GRPCClient,
-		}
 		val.jsonrpc, err = server.StartJSONRPC(
 			ctx,
 			val.Ctx,
@@ -142,7 +137,6 @@ func startInProcess(cfg Config, val *Validator) error {
 			nil,
 			app.(server.AppWithPendingTxStream),
 			nil,
-			gprcClients,
 		)
 		if err != nil {
 			return err

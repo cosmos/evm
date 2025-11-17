@@ -41,7 +41,6 @@ func StartJSONRPC(
 	indexer types.EVMTxIndexer,
 	app AppWithPendingTxStream,
 	mempool *evmmempool.ExperimentalEVMMempool,
-	backupGRPCClientConns serverconfig.BackupGRPCConnections,
 ) (*http.Server, error) {
 	logger := srvCtx.Logger.With("module", "geth")
 
@@ -63,7 +62,7 @@ func StartJSONRPC(
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool, backupGRPCClientConns)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

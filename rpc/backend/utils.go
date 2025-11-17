@@ -26,6 +26,7 @@ import (
 	"cosmossdk.io/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -339,17 +340,13 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 	return proofs
 }
 
+// getGrpcClient returns a query client for the given height using SDK's connection routing
 func (b *Backend) getGrpcClient(height int64) *types.QueryClient {
-	// height = 0 means latest block, use the default client
-	if height <= 0 {
-		return b.QueryClient
+	// Use SDK's GRPCConnProvider to get the appropriate connection
+	grpcConn := b.ClientCtx.GetGRPCConn(height)
+	return &types.QueryClient{
+		ServiceClient: tx.NewServiceClient(grpcConn),
+		QueryClient:   evmtypes.NewQueryClient(grpcConn),
+		FeeMarket:     feemarkettypes.NewQueryClient(grpcConn),
 	}
-	for blocks, client := range b.BackupQueryClients {
-		// b1-b2 -> g1
-		// b3-b4 -> g2
-		if int64(blocks[0]) <= height && int64(blocks[1]) >= height {
-			return client
-		}
-	}
-	return b.QueryClient
 }

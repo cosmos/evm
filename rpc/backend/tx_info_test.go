@@ -23,7 +23,6 @@ import (
 	"github.com/cosmos/evm/indexer"
 	"github.com/cosmos/evm/rpc/backend/mocks"
 	rpctypes "github.com/cosmos/evm/rpc/types"
-	"github.com/cosmos/evm/server/config"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -69,7 +68,7 @@ func setupMockBackend(t *testing.T) *Backend {
 	allowUnprotectedTxs := false
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
-	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil, make(config.BackupGRPCConnections))
+	backend := NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer, nil)
 	backend.Cfg.JSONRPC.GasCap = 25000000
 	backend.Cfg.JSONRPC.EVMTimeout = 0
 	backend.Cfg.JSONRPC.AllowInsecureUnlock = true

@@ -221,7 +221,6 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Bool(srvflags.JSONRPCEnableIndexer, false, "Enable the custom tx indexer for json-rpc")
 	cmd.Flags().Bool(srvflags.JSONRPCEnableMetrics, false, "Define if EVM rpc metrics server should be enabled")
 	cmd.Flags().Bool(srvflags.JSONRPCEnableProfiling, false, "Enables the profiling in the debug namespace")
-	cmd.Flags().String(srvflags.JSONRPCBackupGRPCBlockAddressBlockRange, "", "Define if backup grpc and block range is available")
 
 	cmd.Flags().String(srvflags.EVMTracer, cosmosevmserverconfig.DefaultEVMTracer, "the EVM tracer type to collect execution traces from the EVM transaction execution (json|struct|access_list|markdown)") //nolint:lll
 	cmd.Flags().Uint64(srvflags.EVMMaxTxGasWanted, cosmosevmserverconfig.DefaultMaxTxGasWanted, "the gas wanted for each eth tx returned in ante handler in check tx mode")                                 //nolint:lll
@@ -247,14 +246,6 @@ which accepts a path for the resulting pprof file.
 	// add support for all CometBFT-specific command line options
 	tcmd.AddNodeFlags(cmd)
 	return cmd
-}
-
-func parseGrpcAddress(address string) (string, error) {
-	host, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return "", errorsmod.Wrapf(err, "invalid grpc address %s", address)
-	}
-	return fmt.Sprintf("%s:%s", host, port), nil
 }
 
 // startStandAlone starts an ABCI server in stand-alone mode.
@@ -538,7 +529,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 			WithChainID(genDoc.ChainID)
 	}
 
-	grpcSrv, clientCtx, backupGRPCClientConns, err := startGrpcServer(ctx, svrCtx, clientCtx, g, config.GRPC, app, config.JSONRPC.BackupGRPCBlockAddressBlockRange)
+	grpcSrv, clientCtx, err := startGrpcServer(ctx, svrCtx, clientCtx, g, config.GRPC, app)
 	if err != nil {
 		return err
 	}
@@ -553,7 +544,7 @@ func startInProcess(svrCtx *server.Context, clientCtx client.Context, opts Start
 		if !ok {
 			return fmt.Errorf("json-rpc server requires AppWithPendingTxStream")
 		}
-		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool), backupGRPCClientConns)
+		_, err = StartJSONRPC(ctx, svrCtx, clientCtx, g, &config, idxer, txApp, evmApp.GetMempool().(*evmmempool.ExperimentalEVMMempool))
 		if err != nil {
 			return err
 		}
@@ -647,16 +638,14 @@ func startGrpcServer(
 	g *errgroup.Group,
 	config serverconfig.GRPCConfig,
 	app types.Application,
-	backupGRPCBlockAddressBlockRange map[cosmosevmserverconfig.BlockRange]string,
-) (*grpc.Server, client.Context, cosmosevmserverconfig.BackupGRPCConnections, error) {
-	backupGRPCClientConns := make(cosmosevmserverconfig.BackupGRPCConnections)
+) (*grpc.Server, client.Context, error) {
 	if !config.Enable {
 		// return grpcServer as nil if gRPC is disabled
-		return nil, clientCtx, backupGRPCClientConns, nil
+		return nil, clientCtx, nil
 	}
 	_, _, err := net.SplitHostPort(config.Address)
 	if err != nil {
-		return nil, clientCtx, backupGRPCClientConns, errorsmod.Wrapf(err, "invalid grpc address %s", config.Address)
+		return nil, clientCtx, errorsmod.Wrapf(err, "invalid grpc address %s", config.Address)
 	}
 
 	maxSendMsgSize := config.MaxSendMsgSize
@@ -680,37 +669,29 @@ func startGrpcServer(
 		),
 	)
 	if err != nil {
-		return nil, clientCtx, backupGRPCClientConns, err
+		return nil, clientCtx, err
 	}
 	// Set `GRPCClient` to `clientCtx` to enjoy concurrent grpc query.
 	// only use it if gRPC server is enabled.
 	clientCtx = clientCtx.WithGRPCClient(grpcClient)
 	svrCtx.Logger.Debug("gRPC client assigned to client context", "address", config.Address)
 
-	grpcBlockAddresses := backupGRPCBlockAddressBlockRange
-	for k, address := range grpcBlockAddresses {
-		grpcAddr, err := parseGrpcAddress(address)
-		if err != nil {
-			return nil, clientCtx, backupGRPCClientConns, err
-		}
-		c, err := grpc.NewClient(
-			grpcAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithDefaultCallOptions(
-				grpc.ForceCodec(codec.NewProtoCodec(clientCtx.InterfaceRegistry).GRPCCodec()),
-				grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-				grpc.MaxCallSendMsgSize(maxSendMsgSize),
-			),
-		)
-		if err != nil {
-			return nil, clientCtx, backupGRPCClientConns, err
-		}
-		backupGRPCClientConns[k] = c
+	// Setup backup gRPC connections if configured
+	clientCtx, err = server.SetupBackupGRPCConnections(
+		clientCtx,
+		grpcClient,
+		config.BackupGRPCBlockAddressBlockRange,
+		maxRecvMsgSize,
+		maxSendMsgSize,
+		svrCtx.Logger,
+	)
+	if err != nil {
+		return nil, clientCtx, err
 	}
 
 	grpcSrv, err := servergrpc.NewGRPCServer(clientCtx, app, config)
 	if err != nil {
-		return nil, clientCtx, backupGRPCClientConns, err
+		return nil, clientCtx, err
 	}
 
 	// Start the gRPC server in a goroutine. Note, the provided ctx will ensure
@@ -718,7 +699,7 @@ func startGrpcServer(
 	g.Go(func() error {
 		return servergrpc.StartGRPCServer(ctx, svrCtx.Logger.With("module", "grpc-server"), config, grpcSrv)
 	})
-	return grpcSrv, clientCtx, backupGRPCClientConns, nil
+	return grpcSrv, clientCtx, nil
 }
 
 // startAPIServer starts an API server based on the provided configuration and application context.
