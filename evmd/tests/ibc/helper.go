@@ -93,6 +93,9 @@ func SetupNativeErc20(t *testing.T, chain *evmibctesting.TestChain, senderAcc ev
 		"balanceOf",
 		common.BytesToAddress(senderAddr),
 	)
+	if err != nil {
+		t.Fatalf("balanceOf call failed: %v", err)
+	}
 	var bal *big.Int
 	err = contractAbi.UnpackIntoInterface(&bal, "balanceOf", ethRes.Ret)
 	if err != nil {
