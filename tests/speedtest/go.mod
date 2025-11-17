@@ -1,4 +1,4 @@
-module speedtest
+module github.com/cosmos/evm/tests/speedtest
 
 go 1.25.0
 
