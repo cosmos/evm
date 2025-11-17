@@ -344,6 +344,9 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 func (b *Backend) getGrpcClient(height int64) *types.QueryClient {
 	// Use SDK's GRPCConnProvider to get the appropriate connection
 	grpcConn := b.ClientCtx.GetGRPCConn(height)
+	if grpcConn == nil {
+		return b.QueryClient
+	}
 	return &types.QueryClient{
 		ServiceClient: tx.NewServiceClient(grpcConn),
 		QueryClient:   evmtypes.NewQueryClient(grpcConn),
