@@ -2,11 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-25.05";
     flake-utils.url = "github:numtide/flake-utils";
-    poetry2nix = {
-      url = "github:nix-community/poetry2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
     hermes = {
       url = "github:mmsqe/ibc-rs/ae80ab348952840696e6c9a0c7096d2de11ea579";
       flake = false;
@@ -18,7 +13,6 @@
       self,
       nixpkgs,
       flake-utils,
-      poetry2nix,
       hermes,
     }:
     let
@@ -56,7 +50,6 @@
     ))
     // {
       overlays.default = [
-        poetry2nix.overlays.default
         (final: super: {
           evmd = final.callPackage ./. { inherit rev; };
           hermes = final.callPackage ./tests/nix/hermes.nix { src = hermes; };

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import os
 import subprocess
 import tempfile
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import tomlkit
+from eth_contract.erc20 import ERC20
 from pystarport import cluster, ports
 from pystarport.utils import parse_amount, wait_for_new_blocks, wait_for_port
 
@@ -15,11 +17,14 @@ from .cosmoscli import CosmosCLI
 from .network import Evm, Hermes, setup_custom_evm
 from .utils import (
     ADDRESS_PREFIX,
+    ADDRS,
     CHAIN_ID,
     CMD,
     DEFAULT_DENOM,
     escrow_address,
+    find_duplicate,
     find_fee,
+    ibc_denom_address,
     parse_events_rpc,
     wait_for_balance_change,
 )
@@ -250,3 +255,161 @@ def assert_receiver_events(cli, cli2: CosmosCLI, dst_eth_addr: str):
     events = cli2.tx_search(criteria, order_by="desc", limit=1)["txs"][0]
     events = parse_events_rpc(events["events"])
     assert events.get("fungible_token_packet").get("receiver") == dst_eth_addr
+
+
+def assert_dynamic_fee(cli):
+    # assert that the relayer transactions do enables the dynamic fee extension option.
+    criteria = "message.action='/ibc.core.channel.v1.MsgChannelOpenInit'"
+    tx = cli.tx_search(criteria)["txs"][0]
+    events = parse_events_rpc(tx["events"])
+    fee = int(events["tx"]["fee"].removesuffix(DEFAULT_DENOM))
+    gas = int(tx["gas_wanted"])
+    # the effective fee is decided by the max_priority_fee (base fee is zero)
+    # rather than the normal gas price
+    cosmos_evm_dynamic_fee = 10000000000000000 / 10**18
+    assert fee == math.ceil(gas * cosmos_evm_dynamic_fee)
+
+
+def assert_dup_events(cli):
+    # check duplicate OnRecvPacket events
+    criteria = "message.action='/ibc.core.channel.v1.MsgRecvPacket'"
+    events = cli.tx_search(criteria)["txs"][0]["events"]
+    for event in events:
+        dup = find_duplicate(event["attributes"])
+        assert not dup, f"duplicate {dup} in {event['type']}"
+
+
+async def assert_ibc_transfer_flow(
+    ibc: IBCNetwork,
+    denom=DEFAULT_DENOM,
+    chain2_denom="atest",
+    chain2_prefix="cosmos",
+    return_ratio=1,
+) -> str:
+    w3 = ibc.ibc1.async_w3
+    cli1 = ibc.ibc1.cosmos_cli()
+    cli2 = ibc.ibc2.cosmos_cli()
+    chain2_gas_prices = f"10000000000{chain2_denom}"
+    amt = 100
+    amt2 = 2
+    amt3 = 3
+    amt4 = 4
+    port = "transfer"
+    channel = "channel-0"
+    eth_community = ADDRS["community"]
+    for c in [cli1, cli2]:
+        add_key(ibc.hermes, c.chain_id, "COMMUNITY_MNEMONIC", "community")
+
+    print(f"chain2 signer2 -> chain1 signer1 {amt}{chain2_denom}")
+    dst_denom, _ = assert_hermes_transfer(
+        ibc.hermes,
+        cli2,
+        "signer2",
+        amt,
+        cli1,
+        cli1.address("signer1"),
+        denom=chain2_denom,
+        prefix=chain2_prefix,
+    )
+    assert_dynamic_fee(cli1)
+    assert_dup_events(cli1)
+    ibc_erc20_addr = ibc_denom_address(dst_denom)
+    assert (await ERC20.fns.decimals().call(w3, to=ibc_erc20_addr)) == 0
+    assert await ERC20.fns.totalSupply().call(w3, to=ibc_erc20_addr) == amt
+
+    print(f"chain1 signer1 -> chain2 signer2 {amt2}{denom}")
+    dst_denom2, _ = assert_hermes_transfer(
+        ibc.hermes,
+        cli1,
+        "signer1",
+        amt2,
+        cli2,
+        cli2.address("signer2"),
+        denom=denom,
+    )
+
+    print(f"chain1 community -> chain2 eth_community {amt3}{denom}")
+    denom_hash = ibc_denom_hash(f"{port}/{channel}/{denom}")
+    dst_denom3 = f"ibc/{denom_hash}"
+    assert_ibc_transfer(
+        ibc.hermes,
+        cli1,
+        cli2,
+        "community",
+        eth_community,
+        amt3,
+        dst_denom3,
+        denom=denom,
+    )
+    assert_receiver_events(cli1, cli2, eth_community)
+
+    print(f"chain2 community -> chain1 eth_community {amt4}{chain2_denom}")
+    denom_hash = ibc_denom_hash(f"{port}/{channel}/{chain2_denom}")
+    dst_denom4 = f"ibc/{denom_hash}"
+    assert_ibc_transfer(
+        ibc.hermes,
+        cli2,
+        cli1,
+        "community",
+        eth_community,
+        amt4,
+        dst_denom4,
+        denom=chain2_denom,
+        gas_prices=chain2_gas_prices,
+    )
+    assert_receiver_events(cli2, cli1, eth_community)
+
+    amt = int(amt * return_ratio)
+    print(f"chain1 signer1 -> chain2 signer2 back {amt}{dst_denom}")
+    assert_hermes_transfer(
+        ibc.hermes,
+        cli1,
+        "signer1",
+        amt,
+        cli2,
+        cli2.address("signer2"),
+        denom=dst_denom,
+    )
+
+    amt2 = int(amt2 * return_ratio)
+    print(f"chain2 signer2 -> chain1 signer1 back {amt2}{dst_denom2}")
+    assert_hermes_transfer(
+        ibc.hermes,
+        cli2,
+        "signer2",
+        amt2,
+        cli1,
+        cli1.address("signer1"),
+        denom=dst_denom2,
+        prefix=chain2_prefix,
+    )
+
+    amt3 = int(amt3 * return_ratio)
+    print(f"chain2 community -> chain1 eth_community back {amt3}{dst_denom3}")
+    assert_ibc_transfer(
+        ibc.hermes,
+        cli2,
+        cli1,
+        "community",
+        eth_community,
+        amt3,
+        denom,
+        denom=dst_denom3,
+        gas_prices=chain2_gas_prices,
+    )
+    assert_receiver_events(cli2, cli1, eth_community)
+
+    amt4 = int(amt4 * return_ratio)
+    print(f"chain1 community -> chain2 eth_community back {amt4}{dst_denom4}")
+    assert_ibc_transfer(
+        ibc.hermes,
+        cli1,
+        cli2,
+        "community",
+        eth_community,
+        amt4,
+        chain2_denom,
+        denom=dst_denom4,
+    )
+    assert_receiver_events(cli1, cli2, eth_community)
+    return ibc_erc20_addr
