@@ -13,6 +13,9 @@
 *.dylib
 .dccache
 
+# Deps
+vendor/
+
 # Testing
 coverage.txt
 yarn.lock
