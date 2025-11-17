@@ -5,15 +5,19 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	evm "github.com/cosmos/evm"
 	"github.com/cosmos/evm/evmd/tests/integration"
 	"github.com/cosmos/evm/tests/integration/precompiles/bank"
+	testapp "github.com/cosmos/evm/testutil/app"
 )
 
 func TestBankPrecompileTestSuite(t *testing.T) {
-	s := bank.NewPrecompileTestSuite(integration.CreateEvmd)
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](integration.CreateEvmd, "evm.BankPrecompileApp")
+	s := bank.NewPrecompileTestSuite(create)
 	suite.Run(t, s)
 }
 
 func TestBankPrecompileIntegrationTestSuite(t *testing.T) {
-	bank.TestIntegrationSuite(t, integration.CreateEvmd)
+	create := testapp.ToEvmAppCreator[evm.BankPrecompileApp](integration.CreateEvmd, "evm.BankPrecompileApp")
+	bank.TestIntegrationSuite(t, create)
 }
