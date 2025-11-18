@@ -676,20 +676,9 @@ func startGrpcServer(
 	clientCtx = clientCtx.WithGRPCClient(grpcClient)
 	svrCtx.Logger.Debug("gRPC client assigned to client context", "address", config.Address)
 
-	// Setup backup gRPC connections if configured
-	clientCtx, err = server.SetupBackupGRPCConnections(
-		clientCtx,
-		grpcClient,
-		config.BackupGRPCBlockAddressBlockRange,
-		maxRecvMsgSize,
-		maxSendMsgSize,
-		svrCtx.Logger,
-	)
-	if err != nil {
-		return nil, clientCtx, err
-	}
-
-	grpcSrv, err := servergrpc.NewGRPCServer(clientCtx, app, config)
+	logger := svrCtx.Logger.With("module", "grpc-server")
+	var grpcSrv *grpc.Server
+	grpcSrv, clientCtx, err = servergrpc.NewGRPCServer(clientCtx, app, config, logger)
 	if err != nil {
 		return nil, clientCtx, err
 	}
@@ -697,7 +686,7 @@ func startGrpcServer(
 	// Start the gRPC server in a goroutine. Note, the provided ctx will ensure
 	// that the server is gracefully shut down.
 	g.Go(func() error {
-		return servergrpc.StartGRPCServer(ctx, svrCtx.Logger.With("module", "grpc-server"), config, grpcSrv)
+		return servergrpc.StartGRPCServer(ctx, logger, config, grpcSrv)
 	})
 	return grpcSrv, clientCtx, nil
 }
