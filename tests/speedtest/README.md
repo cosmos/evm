@@ -15,7 +15,7 @@ The default configuration runs with 10k accounts, 4k txs per block, for 100 bloc
 
 To change parameters run:
 
-./speedtest --acounts 60000 --txs 5000 --blocks 150
+./speedtest --accounts 60000 --txs 5000 --blocks 150
 
 IMPORTANT: It is important to ensure your configuration is not exceeding the block max gas/bytes. These are by default 
 set to the maximum possible values. However, should you exceed this, the program will report a false TPS value. Use 

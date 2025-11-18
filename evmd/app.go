@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	runtime2 "runtime"
 
+	"github.com/cosmos/cosmos-sdk/blockstm"
 	"github.com/spf13/cast"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
@@ -250,6 +252,14 @@ func NewExampleApp(
 	for _, k := range oKeys {
 		nonTransientKeys = append(nonTransientKeys, k)
 	}
+	bApp.SetBlockSTMTxRunner(blockstm.NewSTMRunner(
+		encodingConfig.TxConfig.TxDecoder(),
+		nonTransientKeys,
+		min(runtime2.GOMAXPROCS(0), runtime2.NumCPU()),
+		true,
+		sdk.DefaultBondDenom,
+	))
+	bApp.SetDisableBlockGasMeter(true)
 
 	// load state streaming if enabled
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
@@ -471,6 +481,7 @@ func NewExampleApp(
 			appCodec,
 		),
 	)
+	app.EVMKeeper.EnableVirtualFeeCollection()
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
 		keys[erc20types.StoreKey],
