@@ -20,6 +20,8 @@ func CreateEvmdWithProfile(profile Profile, chainID string, evmChainID uint64, o
 	switch profile {
 	case Base:
 		return createBase(chainID, evmChainID, opts...)
+	case FullPrecompiles:
+		return createFullPrecompiles(chainID, evmChainID, opts...)
 	default:
 		panic("profile not implemented yet: " + string(profile))
 	}
