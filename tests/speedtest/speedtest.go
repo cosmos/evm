@@ -7,11 +7,13 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/iavlx"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/cosmos/cosmos-sdk/tools/speedtest"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -50,21 +52,21 @@ func NewSpeedTestCommand() *cobra.Command {
 	chainID := "9001"
 	baseAppOpts := make([]func(*baseapp.BaseApp), 0)
 	baseAppOpts = append(baseAppOpts, baseapp.SetChainID(chainID))
-	//baseAppOpts = append(baseAppOpts, func(app *baseapp.BaseApp) {
-	//	var iavlxOpts iavlx.Options
-	//	iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
-	//	err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
-	//	if err != nil {
-	//		panic("nope")
-	//	}
-	//	iavlxOpts.ReaderUpdateInterval = 1
-	//	dir := filepath.Join(dir, "data", "iavlx")
-	//	iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
-	//	if err != nil {
-	//		panic("iavlx failed to load")
-	//	}
-	//	app.SetCMS(iavlxDB)
-	//})
+	baseAppOpts = append(baseAppOpts, func(app *baseapp.BaseApp) {
+		var iavlxOpts iavlx.Options
+		iavlxOptsBz := []byte(`{"zero_copy":true,"evict_depth":20,"write_wal":true,"wal_sync_buffer":256, "fsync_interval":100,"compact_wal":true,"disable_compaction":false,"compaction_orphan_ratio":0.75,"compaction_orphan_age":10,"retain_versions":3,"min_compaction_seconds":60,"changeset_max_target":1073741824,"compaction_max_target":4294967295,"compact_after_versions":1000,"reader_update_interval":256}`)
+		err := json.Unmarshal(iavlxOptsBz, &iavlxOpts)
+		if err != nil {
+			panic("nope")
+		}
+		iavlxOpts.ReaderUpdateInterval = 1
+		dir := filepath.Join(dir, "data", "iavlx")
+		iavlxDB, err := iavlx.LoadDB(dir, &iavlxOpts, logger)
+		if err != nil {
+			panic("iavlx failed to load")
+		}
+		app.SetCMS(iavlxDB)
+	})
 	evmApp := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
 	gen := generator{
 		app:      evmApp,
