@@ -26,7 +26,6 @@ import (
 	"cosmossdk.io/log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -178,7 +177,6 @@ func (b *Backend) ProcessBlock(
 
 	if cfg.IsLondon(big.NewInt(blockHeight + 1)) {
 		ctx := types.ContextWithHeight(blockHeight)
-		// use latest queryClient to get params
 		params, err := b.QueryClient.FeeMarket.Params(ctx, &feemarkettypes.QueryParamsRequest{})
 		if err != nil {
 			return err
@@ -338,18 +336,4 @@ func GetHexProofs(proof *crypto.ProofOps) []string {
 		proofs = append(proofs, proof)
 	}
 	return proofs
-}
-
-// getGrpcClient returns a query client for the given height using SDK's connection routing
-func (b *Backend) getGrpcClient(height int64) *types.QueryClient {
-	// Use SDK's GRPCConnProvider to get the appropriate connection
-	grpcConn := b.ClientCtx.GetGRPCConn(height)
-	if grpcConn == nil {
-		return b.QueryClient
-	}
-	return &types.QueryClient{
-		ServiceClient: tx.NewServiceClient(grpcConn),
-		QueryClient:   evmtypes.NewQueryClient(grpcConn),
-		FeeMarket:     feemarkettypes.NewQueryClient(grpcConn),
-	}
 }

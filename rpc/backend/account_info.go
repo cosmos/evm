@@ -33,8 +33,7 @@ func (b *Backend) GetCode(address common.Address, blockNrOrHash rpctypes.BlockNu
 		Address: address.String(),
 	}
 
-	height := blockNum.Int64()
-	res, err := b.getGrpcClient(height).Code(rpctypes.ContextWithHeight(height), req)
+	res, err := b.QueryClient.Code(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +76,9 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 	// query storage proofs
 	storageProofs := make([]rpctypes.StorageResult, len(storageKeys))
 
-	queryClient := b.getGrpcClient(height)
 	for i, key := range storageKeys {
 		hexKey := common.HexToHash(key)
-		valueBz, proof, err := queryClient.GetProof(clientCtx, evmtypes.StoreKey, evmtypes.StateKey(address, hexKey.Bytes()))
+		valueBz, proof, err := b.QueryClient.GetProof(clientCtx, evmtypes.StoreKey, evmtypes.StateKey(address, hexKey.Bytes()))
 		if err != nil {
 			return nil, err
 		}
@@ -97,14 +95,14 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 		Address: address.String(),
 	}
 
-	res, err := queryClient.Account(ctx, req)
+	res, err := b.QueryClient.Account(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	// query account proofs
 	accountKey := bytes.HexBytes(append(authtypes.AddressStoreKeyPrefix, address.Bytes()...))
-	_, proof, err := queryClient.GetProof(clientCtx, authtypes.StoreKey, accountKey)
+	_, proof, err := b.QueryClient.GetProof(clientCtx, authtypes.StoreKey, accountKey)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +135,7 @@ func (b *Backend) GetStorageAt(address common.Address, key string, blockNrOrHash
 		Key:     key,
 	}
 
-	height := blockNum.Int64()
-	res, err := b.getGrpcClient(height).Storage(rpctypes.ContextWithHeight(height), req)
+	res, err := b.QueryClient.Storage(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}
@@ -162,9 +159,7 @@ func (b *Backend) GetBalance(address common.Address, blockNrOrHash rpctypes.Bloc
 	if err != nil {
 		return nil, err
 	}
-
-	height := blockNum.Int64()
-	res, err := b.getGrpcClient(height).Balance(rpctypes.ContextWithHeight(height), req)
+	res, err := b.QueryClient.Balance(rpctypes.ContextWithHeight(blockNum.Int64()), req)
 	if err != nil {
 		return nil, err
 	}

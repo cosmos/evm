@@ -49,7 +49,6 @@ func (b *Backend) ChainConfig() *params.ChainConfig {
 
 // GlobalMinGasPrice returns MinGasPrice param from FeeMarket
 func (b *Backend) GlobalMinGasPrice() (*big.Int, error) {
-	// use latest queryClient to get GlobalMinGasPrice
 	res, err := b.QueryClient.GlobalMinGasPrice(b.Ctx, &evmtypes.QueryGlobalMinGasPriceRequest{})
 	if err != nil {
 		return nil, err
@@ -66,8 +65,7 @@ func (b *Backend) GlobalMinGasPrice() (*big.Int, error) {
 // return nil.
 func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, error) {
 	// return BaseFee if London hard fork is activated and feemarket is enabled
-	height := blockRes.Height
-	res, err := b.getGrpcClient(height).BaseFee(rpctypes.ContextWithHeight(height), &evmtypes.QueryBaseFeeRequest{})
+	res, err := b.QueryClient.BaseFee(rpctypes.ContextWithHeight(blockRes.Height), &evmtypes.QueryBaseFeeRequest{})
 	if err != nil || res.BaseFee == nil {
 		// we can't tell if it's london HF not enabled or the state is pruned,
 		// in either case, we'll fallback to parsing from begin blocker event,
@@ -140,7 +138,6 @@ func (b *Backend) GetCoinbase() (sdk.AccAddress, error) {
 		ConsAddress: sdk.ConsAddress(status.ValidatorInfo.Address).String(),
 	}
 
-	// use latest queryClient to get coinbase
 	res, err := b.QueryClient.ValidatorAccount(b.Ctx, req)
 	if err != nil {
 		return nil, err
@@ -329,7 +326,6 @@ func (b *Backend) SuggestGasTipCap(baseFee *big.Int) (*big.Int, error) {
 		return big.NewInt(0), nil
 	}
 
-	// use latest queryClient to get params
 	params, err := b.QueryClient.FeeMarket.Params(b.Ctx, &feemarkettypes.QueryParamsRequest{})
 	if err != nil {
 		return nil, err
