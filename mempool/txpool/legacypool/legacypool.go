@@ -256,6 +256,8 @@ type LegacyPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 
 	BroadcastTxFn func(txs []*types.Transaction) error
+
+	AnteHandler func(t *types.Transaction) error
 }
 
 type txpoolResetRequest struct {
@@ -1580,6 +1582,16 @@ func (pool *LegacyPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	gasLimit := pool.currentHead.Load().GasLimit
 	for addr, list := range pool.pending {
+		list.txs.Filter(func(t *types.Transaction) bool {
+			err := pool.AnteHandler(t)
+			if err != nil {
+				log.Info("removing tx from pending pool via ante handler", "hash", t.Hash())
+				pool.all.Remove(t.Hash())
+				return true
+			}
+			return false
+		})
+
 		nonce := pool.currentState.GetNonce(addr)
 
 		// Drop all transactions that are deemed too old (low nonce)
