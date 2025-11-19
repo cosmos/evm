@@ -33,6 +33,8 @@ set -e
 install=true
 overwrite=""
 BUILD_FOR_DEBUG=false
+ENABLE_CONSENSUS_BREAK=false
+CONSENSUS_BREAK_INTERVAL=10
 
 while [[ $# -gt 0 ]]; do
 	key="$1"
@@ -57,6 +59,17 @@ while [[ $# -gt 0 ]]; do
 		BUILD_FOR_DEBUG=true
 		shift # Move past the flag
 		;;
+	--consensus-break)
+		echo "Flag --consensus-break passed -> Enabling consensus breaking test mode."
+		ENABLE_CONSENSUS_BREAK=true
+		shift # Move past the flag
+		;;
+	--consensus-break-interval)
+		CONSENSUS_BREAK_INTERVAL="$2"
+		echo "Flag --consensus-break-interval passed -> Set interval to $CONSENSUS_BREAK_INTERVAL blocks."
+		shift # Move past the flag
+		shift # Move past the value
+		;;
 	*)
 		echo "Unknown flag passed: $key -> Exiting script!"
 		exit 1
@@ -65,11 +78,16 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $install == true ]]; then
+	BUILD_TAGS=""
+	if [[ $ENABLE_CONSENSUS_BREAK == true ]]; then
+		BUILD_TAGS="consensus_break_test"
+	fi
+
 	if [[ $BUILD_FOR_DEBUG == true ]]; then
 		# for remote debugging the optimization should be disabled and the debug info should not be stripped
-		make install COSMOS_BUILD_OPTIONS=nooptimization,nostrip
+		make install COSMOS_BUILD_OPTIONS=nooptimization,nostrip BUILD_TAGS="$BUILD_TAGS"
 	else
-		make install
+		make install BUILD_TAGS="$BUILD_TAGS"
 	fi
 fi
 
@@ -218,6 +236,13 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 	if [[ $1 == "pending" ]]; then
 		echo "pending mode is on, please wait for the first block committed."
 	fi
+fi
+
+# Export environment variable for consensus breaking test if enabled
+if [[ $ENABLE_CONSENSUS_BREAK == true ]]; then
+	export ENABLE_CONSENSUS_BREAK=true
+	export CONSENSUS_BREAK_INTERVAL=$CONSENSUS_BREAK_INTERVAL
+	echo "Consensus breaking test mode enabled - expect consensus failures at every ${CONSENSUS_BREAK_INTERVAL}th block"
 fi
 
 # Start the node
