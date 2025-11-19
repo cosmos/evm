@@ -453,7 +453,7 @@ func GetConfig(v *viper.Viper) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	conf.GRPC.BackupGRPCBlockAddressBlockRange = sdkConf.GRPC.BackupGRPCBlockAddressBlockRange
+	conf.GRPC.HistoricalGRPCBlockAddressBlockRange = sdkConf.GRPC.HistoricalGRPCBlockAddressBlockRange
 	return *conf, nil
 }
 
