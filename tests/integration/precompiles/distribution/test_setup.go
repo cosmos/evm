@@ -138,4 +138,9 @@ func (s *PrecompileTestSuite) SetupTest() {
 		s.network.App.GetBankKeeper(),
 		evmaddress.NewEvmCodec(sdk.GetConfig().GetBech32AccountAddrPrefix()),
 	)
+
+	// Funds sufficient fee to fee_collector module account considering virtual fee collection option enabled
+	sufficientFee := sdk.NewCoins(sdk.NewCoin(s.baseDenom, math.NewInt(1e18)))
+	err = s.network.App.GetEVMKeeper().DeductTxCostsFromUserBalance(ctx, sufficientFee, s.keyring.GetAddr(0))
+	s.Require().NoError(err, "failed to deduct gas fees")
 }
