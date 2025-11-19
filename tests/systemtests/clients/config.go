@@ -49,7 +49,6 @@ type Config struct {
 
 // NewConfig creates a new Config instance.
 func NewConfig() (*Config, error) {
-
 	// private keys of test accounts
 	privKeys := []string{
 		Acc0PrivKey,

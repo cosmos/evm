@@ -156,14 +156,26 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 		msg      string
 		malleate func() sdk.Context
 		expPass  bool
+		expEmpty bool
 	}{
+		{
+			"empty proposer address - should return empty address without error",
+			func() sdk.Context {
+				header := s.Network.GetContext().BlockHeader()
+				header.ProposerAddress = sdk.ConsAddress{}
+				return s.Network.GetContext().WithBlockHeader(header)
+			},
+			true,
+			true,
+		},
 		{
 			"validator not found",
 			func() sdk.Context {
 				header := s.Network.GetContext().BlockHeader()
-				header.ProposerAddress = []byte{}
+				header.ProposerAddress = []byte{1, 2, 3}
 				return s.Network.GetContext().WithBlockHeader(header)
 			},
+			false,
 			false,
 		},
 		{
@@ -172,23 +184,33 @@ func (s *KeeperTestSuite) TestGetCoinbaseAddress() {
 				return s.Network.GetContext()
 			},
 			true,
+			false,
 		},
 	}
 
 	for _, tc := range testCases {
 		s.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			ctx := tc.malleate()
-			proposerAddress := ctx.BlockHeader().ProposerAddress
+			var proposerAddress sdk.ConsAddress
+			if tc.expEmpty {
+				proposerAddress = sdk.ConsAddress{}
+			} else {
+				proposerAddress = ctx.BlockHeader().ProposerAddress
+			}
 
 			// Function being tested
 			coinbase, err := s.Network.App.GetEVMKeeper().GetCoinbaseAddress(
 				ctx,
-				sdk.ConsAddress(proposerAddress),
+				proposerAddress,
 			)
 
 			if tc.expPass {
 				s.Require().NoError(err)
-				s.Require().Equal(proposerAddressHex, coinbase)
+				if tc.expEmpty {
+					s.Require().Equal(common.Address{}, coinbase)
+				} else {
+					s.Require().Equal(proposerAddressHex, coinbase)
+				}
 			} else {
 				s.Require().Error(err)
 			}

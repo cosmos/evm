@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	evmmempool "github.com/cosmos/evm/mempool"
 	testconstants "github.com/cosmos/evm/testutil/constants"
 	"github.com/cosmos/evm/testutil/integration/evm/factory"
 	"github.com/cosmos/evm/testutil/integration/evm/grpc"
@@ -42,6 +43,33 @@ func (s *IntegrationTestSuite) SetupTest() {
 	s.SetupTestWithChainID(testconstants.ExampleChainID)
 }
 
+// TearDownTest cleans up resources after each test.
+func (s *IntegrationTestSuite) TearDownTest() {
+	if s.network != nil && s.network.App != nil {
+		// Close the mempool to stop background goroutines before the next test
+		// This prevents race conditions when global test state is reset in SetupTest
+		if mp := s.network.App.GetMempool(); mp != nil {
+			if evmmp, ok := mp.(*evmmempool.ExperimentalEVMMempool); ok {
+				if err := evmmp.Close(); err != nil {
+					s.T().Logf("Warning: failed to close mempool: %v", err)
+				}
+
+				// Wait for goroutines to fully exit before next test starts
+				// The mempool spawns background goroutines that may still be accessing
+				// global config (like EVMCoinInfo) even after Close() returns.
+				// We need to ensure these goroutines have completely finished before
+				// the next test's SetupTest() resets the global config.
+				// A longer wait time reduces the chance of race conditions where:
+				// - Old test's goroutine is still reading global config
+				// - New test's SetupTest() is resetting global config
+				// Under race detector and high system load (full test suite), goroutines
+				// may take longer to fully exit. 2 seconds provides adequate buffer.
+				time.Sleep(2 * time.Second)
+			}
+		}
+	}
+}
+
 // SetupTestWithChainID initializes the test environment with a specific chain ID.
 func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainID) {
 	s.keyring = keyring.New(20)
@@ -63,11 +91,23 @@ func (s *IntegrationTestSuite) SetupTestWithChainID(chainID testconstants.ChainI
 	err = nw.NextBlock()
 	s.Require().NoError(err)
 
-	// Wait for mempool async reset goroutines to complete
-	// NextBlock() triggers chain head events that start async goroutines to reset
-	// the mempool state. Without this wait, tests can start before the reset completes,
-	// causing race conditions with stale mempool state.
-	time.Sleep(100 * time.Millisecond)
+	// Synchronize mempool state with the blockchain after block progression
+	// Directly call Reset on subpools to ensure synchronous completion
+	// This prevents race conditions by waiting for the reset to complete
+	// before continuing with test setup
+	mpool := nw.App.GetMempool()
+	if evmMempoolCast, ok := mpool.(*evmmempool.ExperimentalEVMMempool); ok {
+		blockchain := evmMempoolCast.GetBlockchain()
+		txPool := evmMempoolCast.GetTxPool()
+
+		oldHead := blockchain.CurrentBlock()
+		blockchain.NotifyNewBlock()
+		newHead := blockchain.CurrentBlock()
+
+		for _, subpool := range txPool.Subpools {
+			subpool.Reset(oldHead, newHead)
+		}
+	}
 
 	// Ensure mempool is in ready state by verifying block height
 	s.Require().Equal(int64(3), nw.GetContext().BlockHeight())

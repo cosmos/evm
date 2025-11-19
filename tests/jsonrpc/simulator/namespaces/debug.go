@@ -1,4 +1,5 @@
 package namespaces
+
 import (
 	"context"
 	"fmt"
@@ -79,7 +80,6 @@ const (
 
 // Debug API implementations
 func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	txHash := rCtx.Evmd.ProcessedTransactions[0]
 
 	// Test with callTracer configuration to get structured result
@@ -176,7 +176,6 @@ func DebugTraceTransaction(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get current block number
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
@@ -209,7 +208,6 @@ func DebugPrintBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Set a test profile rate (1 for enabled, 0 for disabled)
 	rate := 1
 
@@ -233,7 +231,6 @@ func DebugSetBlockProfileRate(rCtx *types.RPCContext) (*types.RpcResult, error) 
 }
 
 func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Set a test mutex profile fraction (1 for enabled, 0 for disabled)
 	fraction := 1
 
@@ -257,7 +254,6 @@ func DebugSetMutexProfileFraction(rCtx *types.RPCContext) (*types.RpcResult, err
 }
 
 func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Set a test GC percentage (100 is default)
 	percent := 100
 
@@ -282,7 +278,6 @@ func DebugSetGCPercent(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
@@ -314,7 +309,6 @@ func DebugIntermediateRoots(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugTraceCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Prepare transaction args for the trace call
 	fromAddr := rCtx.Evmd.Acc.Address
 	toAddr := rCtx.Evmd.Acc.Address // simple transfer to self
@@ -356,7 +350,6 @@ func DebugTraceCall(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugGetRawBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a block number from a processed transaction
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -403,7 +396,6 @@ func DebugGetRawBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
 		return &types.RpcResult{
@@ -450,7 +442,6 @@ func DebugTraceBlockByHash(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get a block to trace - use the receipt's block from a processed transaction
 	receipt, err := rCtx.Evmd.TransactionReceipt(context.Background(), rCtx.Evmd.ProcessedTransactions[0])
 	if err != nil {
@@ -526,7 +517,6 @@ func DebugTraceBlock(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Get current block number
 	blockNumber, err := rCtx.Evmd.BlockNumber(context.Background())
 	if err != nil {
@@ -566,7 +556,6 @@ func DebugTraceBlockByNumber(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var gcStats interface{}
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &gcStats, string(MethodNameDebugGcStats))
 	if err != nil {
@@ -588,7 +577,6 @@ func DebugGcStats(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), nil, string(MethodNameDebugFreeOSMemory))
 	if err != nil {
 		return &types.RpcResult{
@@ -609,7 +597,6 @@ func DebugFreeOSMemory(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var stacks string
 	err := rCtx.Evmd.RPCClient().CallContext(context.Background(), &stacks, string(MethodNameDebugStacks))
 	if err != nil {
@@ -631,7 +618,6 @@ func DebugStacks(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Call debug_mutexProfile with test parameters
 	filename := "/tmp/mutex_profile.out"
 	duration := 1 // 1 second duration for testing
@@ -656,7 +642,6 @@ func DebugMutexProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Call debug_cpuProfile with test parameters
 	filename := "/tmp/cpu_profile.out"
 	duration := 1 // 1 second duration for testing
@@ -681,7 +666,6 @@ func DebugCPUProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Call debug_goTrace with test parameters
 	filename := "/tmp/go_trace.out"
 	duration := 1 // 1 second duration for testing
@@ -706,7 +690,6 @@ func DebugGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 }
 
 func DebugBlockProfile(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Call debug_blockProfile with test parameters
 	filename := "/tmp/block_profile.out"
 	duration := 1 // 1 second duration for testing
@@ -1097,7 +1080,6 @@ func DebugVerbosity(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 // DebugStartGoTrace starts Go execution tracing
 func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	// Call debug_startGoTrace with test parameters
 	filename := "/tmp/go_trace_start.out"
 
@@ -1135,7 +1117,6 @@ func DebugStartGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
 
 // DebugStopGoTrace stops Go execution tracing
 func DebugStopGoTrace(rCtx *types.RPCContext) (*types.RpcResult, error) {
-
 	var result any
 	err := rCtx.Evmd.RPCClient().Call(&result, string(MethodNameDebugStopGoTrace))
 	if err != nil {

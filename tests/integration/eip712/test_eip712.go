@@ -71,8 +71,6 @@ func (s *TestSuite) SetupTest() {
 	s.config = nw.GetEncodingConfig()
 	s.clientCtx = client.Context{}.WithTxConfig(s.config.TxConfig)
 	s.denom = evmtypes.GetEVMCoinDenom()
-
-	sdk.GetConfig().SetBech32PrefixForAccount("cosmos", "")
 }
 
 // createTestAddress creates random test addresses for messages
