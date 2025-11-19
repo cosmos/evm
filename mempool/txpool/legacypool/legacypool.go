@@ -19,6 +19,7 @@ package legacypool
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"slices"
@@ -1585,7 +1586,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		list.txs.Filter(func(t *types.Transaction) bool {
 			err := pool.AnteHandler(t)
 			if err != nil {
-				log.Info("removing tx from pending pool via ante handler", "hash", t.Hash())
+				fmt.Printf("removing tx %s from pending pool via ante handler: %s", t.Hash(), err.Error())
 				pool.all.Remove(t.Hash())
 				return true
 			}
