@@ -183,6 +183,7 @@ type (
 		TestApp
 		DistrKeeperProvider
 		StakingKeeperProvider
+		SlashingKeeperProvider
 	}
 	Erc20PrecompileApp interface {
 		TestApp
@@ -211,6 +212,7 @@ type (
 		TestApp
 		SlashingKeeperProvider
 		StakingKeeperProvider
+		DistrKeeperProvider
 	}
 	StakingPrecompileApp interface {
 		TestApp
