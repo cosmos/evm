@@ -37,38 +37,47 @@ var (
 )
 
 func NewSpeedTestCommand() *cobra.Command {
-	dir, err := os.MkdirTemp("", "speedtest-*")
-	if err != nil {
-		panic(err)
-	}
-	logger := log.NewNopLogger()
-	db, err := dbm.NewDB("app", dbm.PebbleDBBackend, dir)
-	if err != nil {
-		panic(err)
-	}
+	cmd := &cobra.Command{
+		Use:     "speedtest",
+		Short:   "run a block execution test",
+		Example: "speedtest --accounts 20000 --txs 2000 --blocks 100",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := os.MkdirTemp("", "speedtest-*")
+			if err != nil {
+				panic(err)
+			}
+			defer os.RemoveAll(dir)
+			logger := log.NewNopLogger()
+			db, err := dbm.NewDB("app", dbm.PebbleDBBackend, dir)
+			if err != nil {
+				panic(err)
+			}
 
-	chainID := "9001"
-	baseAppOpts := make([]func(*baseapp.BaseApp), 0)
-	baseAppOpts = append(baseAppOpts, baseapp.SetChainID(chainID))
-	evmApp := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
-	gen := generator{
-		app:      evmApp,
-		accounts: make([]accountInfo, 0),
+			chainID := "9001"
+			baseAppOpts := make([]func(*baseapp.BaseApp), 0)
+			baseAppOpts = append(baseAppOpts, baseapp.SetChainID(chainID))
+			evmApp := evmd.NewExampleApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(dir), baseAppOpts...)
+			gen := generator{
+				app:      evmApp,
+				accounts: make([]accountInfo, 0),
+			}
+			speedTestCmd := speedtest.NewCmd(
+				gen.createAccount,
+				gen.generateTx,
+				evmApp,
+				evmApp.AppCodec(),
+				evmApp.DefaultGenesis(),
+				chainID,
+				DisableFeeMarket,
+				SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom),
+				BankMetadataSetter(sdk.DefaultBondDenom, 18),
+			)
+			speedTestCmd.SetArgs(args)
+			return speedTestCmd.Execute()
+		},
 	}
-	cmd := speedtest.NewCmd(
-		gen.createAccount,
-		gen.generateTx,
-		evmApp,
-		evmApp.AppCodec(),
-		evmApp.DefaultGenesis(),
-		chainID,
-		DisableFeeMarket,
-		SetERC20Precompile(ERC20PrecompileAddr.String(), sdk.DefaultBondDenom),
-		BankMetadataSetter(sdk.DefaultBondDenom, 18),
-	)
-	cmd.PostRunE = func(_ *cobra.Command, _ []string) error {
-		return os.RemoveAll(dir)
-	}
+	cmd.DisableFlagParsing = true
+
 	return cmd
 }
 
