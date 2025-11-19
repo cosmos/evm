@@ -38,6 +38,8 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
+const TestPostProcessingEventType = "test_post_processing_event"
+
 func (s *KeeperTestSuite) TestContextSetConsensusParams() {
 	// set new value of max gas in consensus params
 	maxGas := int64(123456789)
@@ -675,6 +677,7 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 					keeper.NewMultiEvmHooks(
 						&testHooks{
 							postProcessing: func(ctx sdk.Context, sender common.Address, msg core.Message, receipt *gethtypes.Receipt) error {
+								ctx.EventManager().EmitEvent(sdk.NewEvent(TestPostProcessingEventType))
 								return nil
 							},
 						},
@@ -706,7 +709,17 @@ func (s *KeeperTestSuite) TestApplyTransactionWithTxPostProcessing() {
 				s.Require().Equal(senderBefore.Sub(sdkmath.NewIntFromBigInt(transferAmt)), senderAfter)
 				s.Require().Equal(recipientBefore.Add(sdkmath.NewIntFromBigInt(transferAmt)), recipientAfter)
 			},
-			func(s *KeeperTestSuite) {},
+			func(s *KeeperTestSuite) {
+				// check if the event emitted exactly once
+				events := s.Network.GetContext().EventManager().Events()
+				var postProcessingEvents []sdk.Event
+				for _, event := range events {
+					if event.Type == TestPostProcessingEventType {
+						postProcessingEvents = append(postProcessingEvents, event)
+					}
+				}
+				s.Require().Len(postProcessingEvents, 1)
+			},
 		},
 		{
 			"pass - evm tx succeeds, post processing is called but fails, the balance is unchanged",
