@@ -4,16 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	evmconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	"io"
 	"os"
 	goruntime "runtime"
+
+	"github.com/spf13/cast"
+
+	// Needed for some reason? TODO: Figure out if needed and why
+	"github.com/ethereum/go-ethereum/common"
+	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
+	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	dbm "github.com/cosmos/cosmos-db"
 	baseevmante "github.com/cosmos/evm/ante"
 	antetypes "github.com/cosmos/evm/ante/types"
 	evmosencoding "github.com/cosmos/evm/encoding"
+	evmconfig "github.com/cosmos/evm/evmd/cmd/evmd/config"
 	evmmempool "github.com/cosmos/evm/mempool"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -24,12 +32,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/cast"
-
-	// Needed for some reason? TODO: Figure out if needed and why
-	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
-	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -83,14 +86,15 @@ import (
 	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/cosmos/cosmos-sdk/x/mint"
+	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
-	abci "github.com/cometbft/cometbft/abci/types"
 
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -108,6 +112,7 @@ var (
 	maccPerms = map[string][]string{
 		authtypes.FeeCollectorName:     nil,
 		distrtypes.ModuleName:          nil,
+		minttypes.ModuleName:           {authtypes.Minter},
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
@@ -147,6 +152,7 @@ type App struct {
 	BankKeeper            bankkeeper.Keeper
 	StakingKeeper         *stakingkeeper.Keeper
 	SlashingKeeper        slashingkeeper.Keeper
+	MintKeeper            mintkeeper.Keeper
 	DistributionKeeper    distrkeeper.Keeper
 	GovKeeper             govkeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
@@ -194,7 +200,7 @@ func New(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	keys := storetypes.NewKVStoreKeys(
-		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey,
+		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey, minttypes.StoreKey,
 		distrtypes.StoreKey, slashingtypes.StoreKey, govtypes.StoreKey,
 		upgradetypes.StoreKey, consensustypes.StoreKey, ibcexported.StoreKey,
 		// Cosmos EVM store keys
@@ -265,6 +271,9 @@ func New(
 	app.BankKeeper = app.BankKeeper.WithObjStoreKey(oKeys[banktypes.ObjectStoreKey])
 	app.StakingKeeper = stakingkeeper.NewKeeper(
 		appCodec, runtime.NewKVStoreService(keys[stakingtypes.StoreKey]), app.AccountKeeper, app.BankKeeper, authAddr, address.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()), address.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+	)
+	app.MintKeeper = mintkeeper.NewKeeper(
+		appCodec, runtime.NewKVStoreService(keys[minttypes.StoreKey]), app.StakingKeeper, app.AccountKeeper, app.BankKeeper, authtypes.FeeCollectorName, authAddr,
 	)
 
 	app.DistributionKeeper = distrkeeper.NewKeeper(appCodec, runtime.NewKVStoreService(keys[distrtypes.StoreKey]), app.AccountKeeper, app.BankKeeper, app.StakingKeeper, authtypes.FeeCollectorName, authAddr)
@@ -361,6 +370,7 @@ func New(
 		auth.NewAppModule(appCodec, app.AccountKeeper, nil, nil),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, nil),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, nil),
+		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, nil),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil, app.interfaceRegistry),
 		distribution.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, nil),
@@ -399,6 +409,8 @@ func New(
 	// CanWithdrawInvariant invariant.
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	app.ModuleManager.SetOrderBeginBlockers(
+		minttypes.ModuleName,
+
 		// Cosmos EVM BeginBlockers
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -427,6 +439,7 @@ func New(
 		feemarkettypes.ModuleName,
 
 		// no-ops
+		minttypes.ModuleName,
 		genutiltypes.ModuleName,
 		upgradetypes.ModuleName,
 	)
@@ -441,6 +454,7 @@ func New(
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		govtypes.ModuleName,
+		minttypes.ModuleName,
 		ibcexported.ModuleName,
 
 		// Cosmos EVM modules
