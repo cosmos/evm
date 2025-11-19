@@ -261,8 +261,6 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		return nil, errorsmod.Wrap(err, "failed to extract sender address from ethereum transaction")
 	}
 
-	eventsLen := len(tmpCtx.EventManager().Events())
-
 	// Only call PostTxProcessing if there are hooks set, to avoid calling commitFn unnecessarily
 	if !k.HasHooks() {
 		// If there are no hooks, we can commit the state immediately if the tx is successful
@@ -295,11 +293,6 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 				receipt.Bloom = ethtypes.Bloom{}
 			} else {
 				res.Logs = types.NewLogsFromEth(receipt.Logs)
-			}
-
-			events := tmpCtx.EventManager().Events()
-			if len(events) > eventsLen {
-				ctx.EventManager().EmitEvents(events[eventsLen:])
 			}
 		}
 	}
