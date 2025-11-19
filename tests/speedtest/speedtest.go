@@ -38,9 +38,6 @@ var (
 
 func NewSpeedTestCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "speedtest",
-		Short:   "run a block execution test",
-		Example: "speedtest --accounts 20000 --txs 2000 --blocks 100",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir, err := os.MkdirTemp("", "speedtest-*")
 			if err != nil {
