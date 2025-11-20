@@ -28,7 +28,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-//go:generate go run github.com/yihuang/go-abi/cmd -var ERC20ABI -package erc20 -output erc20/abi.go
+//go:generate go run github.com/yihuang/go-abi/cmd -var ERC20ABI -package erc20 -output erc20/erc20.abi.go
 
 var ERC20ABI = []string{
 	"function name() view returns (string name)",
