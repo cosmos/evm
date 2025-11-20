@@ -204,7 +204,7 @@ func (app *BankPrecompileApp) overrideModuleOrder() {
 // bankInitChainer replays the default app.InitChainer and then manually invokes
 // the ERC20 module's InitGenesis. The main evmd application does not (yet)
 // register the ERC20 module with the module manager, so we have to call it here
-// to ensure the keeper's state exists for tests that rely on ERC20 precompiles.
+// to ensure the keeper's state exists for tests that rely on ERC20 module.
 func (app *BankPrecompileApp) bankInitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	var genesisState eapp.GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
