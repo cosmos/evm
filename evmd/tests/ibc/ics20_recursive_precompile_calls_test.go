@@ -237,7 +237,6 @@ func (suite *ICS20RecursivePrecompileCallsTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	evmAppA.Erc20Keeper.GetTokenPair(suite.chainA.GetContext(), evmAppA.Erc20Keeper.GetTokenPairID(suite.chainA.GetContext(), bondDenom))
-	// evmAppA.Erc20Keeper.SetNativePrecompile(suite.chainA.GetContext(), werc20.Address())
 
 	evmAppB := suite.chainB.App.(*evmd.EVMD)
 	suite.chainBPrecompile = ics20.NewPrecompile(
