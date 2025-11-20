@@ -189,6 +189,9 @@ func (p *ParsedTxs) updateTx(eventIndex int, attrs []abci.EventAttribute) error 
 		p.TxHashes[tx.Hash] = eventIndex
 	}
 	// override the tx because the second event is more trustworthy
+	if tx.EthTxIndex == -1 {
+		tx.EthTxIndex = p.Txs[eventIndex].EthTxIndex
+	}
 	p.Txs[eventIndex] = tx
 	return nil
 }

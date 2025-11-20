@@ -273,14 +273,6 @@ func (b *Backend) ReceiptsFromCometBlock(
 			return nil, fmt.Errorf("failed to convert tx result to eth receipt: %w", err)
 		}
 
-		if txResult.EthTxIndex == -1 {
-			var err error
-			txResult.EthTxIndex, err = FindEthTxIndexByHash(ethMsg.Hash(), resBlock, blockRes, b)
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
 
 		receipt := &ethtypes.Receipt{
