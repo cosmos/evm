@@ -11,7 +11,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PatchTxResponses fills the evm tx index and log indexes in the tx result
+// PatchTxResponses fills the evm tx index and log indexes in the tx result.
+// Note: txIndex starts at 0 and is incremented for each Ethereum transaction found.
+// This ensures proper indexing when multiple EVM transactions are included in a block.
 func PatchTxResponses(input []*abci.ExecTxResult) []*abci.ExecTxResult {
 	var (
 		txIndex  uint64
