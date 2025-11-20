@@ -226,6 +226,11 @@ type (
 		Erc20KeeperProvider
 		TransferKeeperProvider
 	}
+	PreciseBankApp interface {
+		TestApp
+		BankKeeperProvider
+		PreciseBankKeeperProvider
+	}
 
 	// Base interface required by the integration network helpers. Any app used by
 	// evm/testutil/integration must satisfy these keeper providers so the shared
